@@ -105,10 +105,15 @@ especiales activos aunque `reservable = false`; el estado y los tickets siguen
 respetando los hechos de POS disponibles. Caja y Llevar conservan sus acciones
 propias y no heredan la disponibilidad de una mesa ordinaria.
 
-Los fondos expresan el estado de la superficie consultada; bordes e iconos
-pueden añadir advertencias, ausencia pendiente o asignación. POS representa la
-operación actual y Reservaciones la fecha y hora elegidas, por lo que una misma
-señal puede combinarse con fondos diferentes según el contexto.
+El fondo siempre expresa el estado base de la superficie consultada. El borde y
+los iconos añaden alertas; por ejemplo, una reserva cercana conserva el fondo
+rojo de una mesa ocupada y añade un borde azul discontinuo. En POS, una ausencia
+pendiente después de la tolerancia usa el fondo azul oscuro de la reservación;
+en Reservaciones, su indicador se superpone al color que marque la disponibilidad
+del intervalo. El anillo amarillo indica selección: nunca reemplaza el fondo ni
+la disponibilidad. POS representa la operación actual y Reservaciones la fecha
+y hora elegidas, por lo que una misma señal puede combinarse con fondos
+diferentes según el contexto.
 
 ### POS y proyección administrativa
 

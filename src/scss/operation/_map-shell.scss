@@ -633,7 +633,7 @@
   cursor: pointer;
 }
 
-.mesas-map button.mesa-pin:hover:not(:disabled) {
+.mesas-map button.mesa-pin:hover:not(:disabled):not(.mesa-pin--seleccionada) {
   z-index: 2;
   border-color: color-mix(in srgb, var(--admin-gold) 55%, var(--admin-border));
   transform: translate(-50%, -50%) scale(1.045);
@@ -651,11 +651,6 @@
 
 .mesas-map .mesa-pin:disabled {
   cursor: not-allowed;
-}
-
-.mesas-map button.mesa-pin--seleccionada:hover:not(:disabled),
-.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled) {
-  border-color: var(--map-table-selected-border);
 }
 
 .mesas-map .mesa-pin--no-reservable:disabled {
@@ -790,8 +785,6 @@
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
-  background: var(--map-table-selected-bg);
-  color: var(--map-table-selected-text);
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
@@ -834,12 +827,16 @@
     0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
 }
 
-.mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {
-  border-color: var(--map-table-selected-border);
-  background: var(--map-table-selected-bg);
-  color: var(--map-table-selected-text);
+  opacity: 1;
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
+    0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+  outline: 0;
+}
+
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--seleccionada {
   opacity: 1;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
@@ -848,13 +845,29 @@
 }
 
 /* La seleccion manual no oculta una ocupacion fisica real. */
-.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--seleccionada {
+  border-color: var(--map-table-occupied-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  border-style: solid;
+  border-width: 2px;
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -862,10 +875,11 @@
  * Estado superpuesto: la ocupación física conserva el fondo rojo y la
  * selección queda como indicador amarillo secundario.
  */
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia,
 .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_inminente,
 .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_bloqueante {
   border-color: var(--map-reservation-warning-border);
+  border-style: solid;
+  border-width: 2.5px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   box-shadow:
@@ -1149,17 +1163,19 @@
 }
 
 /* La selección es una capa de interacción y conserva el fondo del contrato. */
-.mesas-map .mesa-pin--libre.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--seleccionada {
+  border-color: var(--map-table-available-border);
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
+  border-style: solid;
+  border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
-.mesas-map .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
@@ -1171,14 +1187,23 @@
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
-.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
+  border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
+  border-style: solid;
+  border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
+/* La advertencia conserva el borde discontinuo sobre el intervalo azul. */
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--reservacion-proxima.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
 }
 
 /* El contrato desconocido domina los estilos compuestos sin borrar señales
@@ -1446,17 +1471,9 @@
   height: 38px !important;
   min-height: 38px;
   padding: 4px;
-  border-radius: 9px;
-  box-shadow: none;
   font-size: var(--operational-text-xs);
   transform: none !important;
   transition: none;
-}
-
-.map-help-dialog__sample .mesa-pin--reservacion-proxima.mesa-pin--mod-ausencia_pendiente {
-  border-color: var(--map-table-reservation-overdue-border);
-  background: var(--map-table-reservation-overdue-bg);
-  color: var(--map-table-reservation-overdue-text);
 }
 
 .map-help-dialog__copy {

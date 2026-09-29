@@ -123,6 +123,93 @@ const adapt = context.window.MesaEstadoAdapter.paraMapaVisual;
 const validateResponse = context.window.MapaVisual.validarRespuestaMapa;
 const mapStyles = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
+function styleRule(pattern, label) {
+  const match = mapStyles.match(pattern);
+  assert.ok(match, `${label}: existe la regla visual`);
+  return match[1];
+}
+
+function styleProperty(rule, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = rule.match(new RegExp(`(?:^|[;\\n])\\s*${escapedName}\\s*:\\s*([^;]+)`, 'm'));
+  return match ? match[1].trim() : null;
+}
+
+function assertVisualProperties(rule, expected, label) {
+  Object.entries(expected).forEach(([property, value]) => {
+    assert.equal(styleProperty(rule, property), value, `${label}: ${property} conserva su token`);
+  });
+}
+
+const pinBaseRule = styleRule(/\.mesas-map \.mesa-pin\s*\{([^{}]+)\}/, 'pin real y muestra base');
+const availableRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\s*\{([^{}]+)\}/, 'estado disponible');
+const occupiedRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\s*\{([^{}]+)\}/, 'estado ocupado');
+const reservationRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--reservacion-proxima\s*\{([^{}]+)\}/, 'reservación próxima');
+const unavailableRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--no-utilizable,[\s\S]*?\{([^{}]+)\}/, 'estado no utilizable');
+const availableWarningRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'disponible con reserva cercana');
+const occupiedWarningRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'ocupada con reserva cercana');
+const posAbsenceRule = styleRule(/\.pos-map \.mesas-map \.mesa-pin--reservacion-proxima\.mesa-pin--mod-ausencia_pendiente\s*\{([^{}]+)\}/, 'ausencia pendiente en POS');
+const absenceOverlayRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--mod-ausencia_pendiente::after,[\s\S]*?\{([^{}]+)\}/, 'indicador visual de ausencia');
+const helpSampleRule = styleRule(/\.map-help-dialog__sample \.mesa-pin\s*\{([^{}]+)\}/, 'geometría de las muestras del modal');
+
+assert.ok(!mapStyles.includes('.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled)'), 'hover no sustituye el borde base de una mesa seleccionada');
+assert.match(styleProperty(pinBaseRule, 'border'), /^2px solid /, 'pin real y muestra comparten ancho y estilo de borde');
+assertVisualProperties(availableRule, {
+  'border-color': 'var(--map-table-available-border)',
+  background: 'var(--map-table-available-bg)',
+  color: 'var(--map-table-available-text)'
+}, 'disponible');
+assertVisualProperties(occupiedRule, {
+  'border-color': 'var(--map-table-occupied-border)',
+  background: 'var(--map-table-occupied-bg)',
+  color: 'var(--map-table-occupied-text)'
+}, 'ocupada');
+assert.match(styleProperty(occupiedRule, 'box-shadow'), /var\(--map-table-occupied-border\)/, 'ocupada conserva su ring rojo base');
+assertVisualProperties(reservationRule, {
+  'border-color': 'var(--map-table-reservation-border)',
+  background: 'var(--map-table-reservation-bg)',
+  color: 'var(--map-table-reservation-text)'
+}, 'reservación próxima');
+assertVisualProperties(unavailableRule, {
+  'border-color': 'var(--map-table-unavailable-border)',
+  'border-style': 'solid',
+  background: 'var(--map-table-unavailable-bg)',
+  color: 'var(--map-table-unavailable-text)'
+}, 'no utilizable');
+
+assertVisualProperties(availableWarningRule, {
+  'border-color': 'var(--map-reservation-warning-border)',
+  'border-style': 'dashed',
+  'border-width': '2px',
+  background: 'var(--map-table-available-bg)',
+  color: 'var(--map-table-available-text)'
+}, 'libre con advertencia');
+assert.equal(styleProperty(availableWarningRule, 'box-shadow'), null, 'libre con advertencia conserva la sombra base');
+assert.match(styleProperty(availableRule, 'box-shadow'), /inset 0 1px 0/, 'libre conserva su sombra base');
+assertVisualProperties(occupiedWarningRule, {
+  'border-color': 'var(--map-reservation-warning-border)',
+  'border-style': 'dashed',
+  'border-width': '2px',
+  background: 'var(--map-table-occupied-bg)',
+  color: 'var(--map-table-occupied-text)'
+}, 'ocupada con advertencia');
+assert.equal(styleProperty(occupiedWarningRule, 'box-shadow'), null, 'ocupada con advertencia conserva su ring rojo base');
+
+assertVisualProperties(posAbsenceRule, {
+  'border-color': 'var(--map-table-reservation-overdue-border)',
+  background: 'var(--map-table-reservation-overdue-bg)',
+  color: 'var(--map-table-reservation-overdue-text)'
+}, 'ausencia pendiente en POS');
+assertVisualProperties(absenceOverlayRule, { border: '2px solid var(--map-table-reservation-overdue-border)' }, 'ausencia pendiente en Reservaciones');
+assert.equal(styleProperty(helpSampleRule, 'background'), null, 'el modal no redefine fondos semánticos');
+assert.equal(styleProperty(helpSampleRule, 'border-color'), null, 'el modal no redefine bordes semánticos');
+assert.equal(styleProperty(helpSampleRule, 'border-style'), null, 'el modal no redefine el estilo del borde');
+assert.equal(styleProperty(helpSampleRule, 'box-shadow'), null, 'el modal conserva las sombras y rings reales');
+assert.equal(styleProperty(helpSampleRule, 'border-radius'), null, 'el modal conserva la forma del pin real');
+assert.ok(!mapStyles.includes('.map-help-dialog__sample .mesa-pin--reservacion-proxima.mesa-pin--mod-ausencia_pendiente'), 'Reservaciones no tiene una regla modal que fuerce azul oscuro');
+const helpTokens = Array.from(mapStyles.matchAll(/--map-help-[\w-]+/g), (match) => match[0]);
+assert.ok(helpTokens.every((token) => /^--map-help-offset-(top|right)$/.test(token)), 'la ayuda no define tokens propios de color para los pines');
+
 for (const raw of [
   { id: 1, reservable: true },
   { id: 2, reservable: true, estadoVisual: 'estado-desconocido' }
@@ -197,6 +284,11 @@ assert.ok(ticketWarningSelection.modificadores.includes('reservacion_advertencia
 const upcomingSelection = adapt({ id: 7, reservable: true, estado_visual_pos: 'reservacion-proxima', seleccion_actual: true });
 assert.equal(upcomingSelection.estadoVisual, 'reservacion-proxima');
 assert.equal(upcomingSelection.seleccionada, true, 'seleccionar una mesa próxima no la vuelve disponible');
+const upcomingWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'próxima con advertencia y selección');
+assert.equal(styleProperty(upcomingWarningSelectionRule, 'background'), null, 'la advertencia no reemplaza el fondo azul de una reservación próxima');
+assert.equal(styleProperty(upcomingWarningSelectionRule, 'color'), null, 'la advertencia no reemplaza el texto semántico de una reservación próxima');
+assert.equal(styleProperty(upcomingWarningSelectionRule, 'box-shadow'), null, 'la regla de advertencia no borra el ring amarillo de selección');
+assert.match(styleProperty(upcomingWarningSelectionRule, 'border-color'), /--map-reservation-warning-border/, 'la advertencia conserva su borde de alerta');
 
 const warningSelection = adapt({
   id: 8,
@@ -207,12 +299,56 @@ const warningSelection = adapt({
 });
 assert.equal(warningSelection.estadoVisual, 'libre');
 assert.equal(warningSelection.seleccionada, true);
-const warningSelectionRule = mapStyles.match(/\.mesas-map \.mesa-pin--libre\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^}]+)\}/);
+const warningSelectionRule = mapStyles.match(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^}]+)\}/);
 assert.ok(warningSelectionRule, 'la selección con advertencia tiene una regla de composición explícita');
 assert.match(warningSelectionRule[1], /border-color: var\(--map-reservation-warning-border\)/);
 assert.match(warningSelectionRule[1], /border-style: dashed/);
 assert.match(warningSelectionRule[1], /background: var\(--map-table-available-bg\)/);
 assert.match(warningSelectionRule[1], /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/);
+
+const selectedRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'ring de selección compartido');
+const freeSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'libre seleccionada');
+const occupiedSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'ocupada seleccionada');
+const reservationSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--reservacion-proxima\.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'reservación próxima seleccionada');
+const upcomingWarningSelectedRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--reservacion-proxima\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'reservación próxima con advertencia y selección');
+const occupiedWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'ocupada con advertencia y selección');
+assert.equal(styleProperty(selectedRule, 'background'), null, 'la selección compartida no redefine el fondo base');
+assert.equal(styleProperty(selectedRule, 'border-color'), null, 'la selección compartida no redefine el borde base');
+assert.match(styleProperty(selectedRule, 'box-shadow'), /var\(--map-table-selected-bg\)/, 'la selección compartida conserva el ring cuando la combinación no tiene regla específica');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'la muestra del modal usa el ring amarillo de la mesa real');
+
+assertVisualProperties(freeSelectionRule, {
+  'border-color': 'var(--map-table-available-border)',
+  background: 'var(--map-table-available-bg)',
+  color: 'var(--map-table-available-text)'
+}, 'libre seleccionada');
+assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'libre seleccionada añade ring amarillo');
+assertVisualProperties(occupiedSelectionRule, {
+  'border-color': 'var(--map-table-occupied-border)',
+  background: 'var(--map-table-occupied-bg)',
+  color: 'var(--map-table-occupied-text)'
+}, 'ocupada seleccionada');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'ocupada seleccionada añade ring amarillo');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 5px[\s\S]*var\(--map-table-occupied-border\)/, 'ocupada seleccionada conserva ring rojo exterior');
+assertVisualProperties(reservationSelectionRule, {
+  'border-color': 'var(--map-table-reservation-border)',
+  background: 'var(--map-table-reservation-bg)',
+  color: 'var(--map-table-reservation-text)'
+}, 'reservación próxima seleccionada');
+assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'reservación próxima seleccionada añade ring amarillo');
+assertVisualProperties(upcomingWarningSelectedRule, {
+  'border-color': 'var(--map-reservation-warning-border)',
+  'border-style': 'dashed',
+  'border-width': '2px'
+}, 'próxima con advertencia y selección conserva la alerta');
+assertVisualProperties(occupiedWarningSelectionRule, {
+  'border-color': 'var(--map-reservation-warning-border)',
+  'border-style': 'dashed',
+  background: 'var(--map-table-occupied-bg)',
+  color: 'var(--map-table-occupied-text)'
+}, 'ocupada con advertencia y selección');
+assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'ocupada con advertencia añade ring amarillo');
+assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 5px[\s\S]*var\(--map-reservation-warning-border\)/, 'ocupada con advertencia conserva la alerta azul exterior');
 
 const absenceSelection = adapt({
   id: 9,

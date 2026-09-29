@@ -14,6 +14,19 @@ $mapHelpContext = in_array($mapHelpContext, ['pos', 'reservations'], true) ? $ma
 $mapHelpSubtitle = $mapHelpContext === 'reservations'
     ? 'Consulta la disponibilidad para la fecha y hora seleccionadas.'
     : 'Consulta el estado actual de las mesas.';
+$mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
+    ? 'El intervalo está bloqueado por un ticket, una reservación u otra restricción.'
+    : 'Mesa ocupada por un ticket o una restricción operativa.';
+$mapHelpWarningCopy = 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.';
+$mapHelpWarningStateClass = $mapHelpContext === 'reservations'
+    ? 'mesa-pin--ocupada mesa-pin--mod-reservacion_advertencia'
+    : 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';
+$mapHelpAbsenceCopy = $mapHelpContext === 'reservations'
+    ? 'La tolerancia venció. El indicador puede aparecer sobre distintos estados del intervalo.'
+    : 'La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.';
+$mapHelpAbsenceStateClass = $mapHelpContext === 'reservations'
+    ? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'
+    : 'mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente';
 $mapHelpContextNotes = $mapHelpContext === 'reservations'
     ? [
         'El fondo representa la disponibilidad del intervalo seleccionado; los bordes y los iconos muestran alertas adicionales.',
@@ -144,10 +157,10 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Ocupada</strong><span>Existe un ticket o un bloqueo operativo.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Ocupada</strong><span><?php echo $mapEscape($mapHelpOccupiedCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-reservacion_inminente"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima"><span class="mesa-pin__label">Mesa</span></span></span>
                                 <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa comprometida por una reservación.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
@@ -160,16 +173,16 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                         <h3 id="<?php echo $mapEscape($mapHelpSignalsHeadingId); ?>">Señales adicionales</h3>
                         <ul class="map-help-dialog__states">
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--mod-reservacion_advertencia"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Hay una reservación próxima. El borde no cambia por sí solo la disponibilidad.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin <?php echo $mapEscape($mapHelpWarningStateClass); ?>"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span><?php echo $mapEscape($mapHelpWarningCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin <?php echo $mapEscape($mapHelpAbsenceStateClass); ?>"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span><?php echo $mapEscape($mapHelpAbsenceCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección es una capa superpuesta; no garantiza disponibilidad ni elimina las restricciones.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>El contorno amarillo indica selección. El color de fondo conserva el estado real de la mesa.</span></span>
                             </li>
                         </ul>
                     </section>
@@ -203,4 +216,4 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapHelpWarningCopy, $mapHelpWarningStateClass, $mapHelpAbsenceCopy, $mapHelpAbsenceStateClass, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>
