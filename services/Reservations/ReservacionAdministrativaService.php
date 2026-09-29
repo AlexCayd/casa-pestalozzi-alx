@@ -217,7 +217,7 @@ final class ReservacionAdministrativaService
             $bloquear
         );
         $resultado['ocupacion'] = $ocupacion;
-        $mesas = MesaProxy::reservables();
+        $mesas = \Model\Mesa::reservables();
         $capacidad = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
         $resultado['capacidad_total'] = (int)$capacidad['capacidad_total'];
         $resultado['capacidad_realmente_libre'] = (int)$capacidad['capacidad_realmente_libre'];
@@ -550,7 +550,7 @@ final class ReservacionAdministrativaService
                 $transaccion = false;
                 return ['ok' => true, 'codigo' => ReservacionService::CANCELADA, 'idempotente' => true];
             }
-            if (!in_array((string)$fila['estado'], ['confirmada', 'pendiente_verificacion'], true)) {
+            if (!in_array((string)$fila['estado'], ReservacionConfig::ESTADOS_EDITABLES, true)) {
                 return self::rollback($db, ReservacionService::ESTADO_INVALIDO);
             }
             $ticket = $db->query(
@@ -938,14 +938,5 @@ final class ReservacionAdministrativaService
     private static function longitud(string $value): int
     {
         return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
-    }
-}
-
-/** Alias local para mantener la fachada legible sin cambiar el modelo. */
-final class MesaProxy
-{
-    public static function reservables(): array
-    {
-        return \Model\Mesa::reservables();
     }
 }

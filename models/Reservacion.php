@@ -230,7 +230,7 @@ class Reservacion extends ActiveRecord {
     public static function buscarFuturasActivas(string $fechaActual, string $horaActual): array
     {
         // Reutiliza la misma definición de ocupación que los mapas y validadores.
-        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva(static::$tabla);
+        $condicionOcupacion = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad(static::$tabla);
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
@@ -261,7 +261,7 @@ class Reservacion extends ActiveRecord {
     public static function buscarActivasPorFecha(string $fecha): array
     {
         // Mantiene sincronizado el tratamiento de estados finales y holds vencidos.
-        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva(static::$tabla);
+        $condicionOcupacion = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad(static::$tabla);
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "

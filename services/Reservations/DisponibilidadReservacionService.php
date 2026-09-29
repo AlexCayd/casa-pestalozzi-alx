@@ -131,28 +131,6 @@ final class DisponibilidadReservacionService
         );
     }
 
-    /** Alias nominal para consumidores del núcleo. */
-    public static function evaluarDisponibilidad(
-        string $fecha,
-        string $hora,
-        $comensales,
-        int $excluirReservacionId = 0,
-        ?DateTimeImmutable $ahora = null
-    ): array {
-        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
-    }
-
-    /** Fachada interna explícita para evitar que la API pública reciba detalle. */
-    public static function consultarInterna(
-        string $fecha,
-        string $hora,
-        $comensales,
-        int $excluirReservacionId = 0,
-        ?DateTimeImmutable $ahora = null
-    ): array {
-        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
-    }
-
     /** Compatibilidad de dominio para mutaciones ya existentes. */
     public static function evaluarHorario(
         string $fecha,

@@ -359,7 +359,13 @@ final class ReservacionVigenciaService
         )";
     }
 
-    private static function fechaHoraProgramada($reservacion): ?DateTimeImmutable
+    /**
+     * Interpreta la fecha y hora de una reservación con la zona horaria canónica.
+     * La usan las políticas temporales que necesitan el instante programado.
+     *
+     * @param array<string, mixed>|object $reservacion
+     */
+    public static function fechaHoraProgramada($reservacion): ?DateTimeImmutable
     {
         $fecha = trim((string)self::valor($reservacion, 'fecha', ''));
         $hora = trim((string)self::valor($reservacion, 'hora', ''));

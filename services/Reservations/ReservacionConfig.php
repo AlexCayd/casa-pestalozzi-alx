@@ -256,36 +256,6 @@ class ReservacionConfig
         ));
     }
 
-    /**
-     * Centraliza la condición SQL de una reservación que todavía influye en
-     * disponibilidad. El alias se restringe para que no pueda inyectar SQL.
-     */
-    public static function condicionSqlOcupacionActiva(string $alias = 'r'): string
-    {
-        return ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad($alias);
-    }
-
-    /**
-     * Evalúa el caso pendiente fuera de SQL para serializadores y pruebas.
-     * Los estados finales nunca recuperan influencia por tener una fecha hold.
-     */
-    public static function reservacionInfluyeDisponibilidad(
-        string $estado,
-        ?string $holdExpiresAt = null,
-        ?\DateTimeImmutable $ahora = null,
-        ?string $fecha = null,
-        ?string $hora = null,
-        bool $ticketAbierto = false
-    ): bool {
-        return (bool)ReservacionVigenciaService::clasificar([
-            'estado' => $estado,
-            'fecha' => $fecha,
-            'hora' => $hora,
-            'hold_expires_at' => $holdExpiresAt,
-            'ticket_abierto' => $ticketAbierto,
-        ], $ahora)['influye_disponibilidad'];
-    }
-
     public static function appEnvironment(): string
     {
         return \Services\Notifications\NotificationConfig::environment();

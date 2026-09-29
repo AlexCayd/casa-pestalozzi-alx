@@ -64,7 +64,7 @@ final class ReservacionPublicaService
             return false;
         }
 
-        $inicio = self::fechaHoraProgramada($fila);
+        $inicio = ReservacionVigenciaService::fechaHoraProgramada($fila);
         return $inicio instanceof DateTimeImmutable
             && ReservacionConfig::ahora() <= $inicio->modify('-' . ReservacionConfig::LIMITE_MODIFICACION_MINUTOS . ' minutes');
     }
@@ -75,7 +75,7 @@ final class ReservacionPublicaService
             return false;
         }
 
-        $inicio = self::fechaHoraProgramada($fila);
+        $inicio = ReservacionVigenciaService::fechaHoraProgramada($fila);
         return $inicio instanceof DateTimeImmutable
             && ReservacionConfig::ahora() <= $inicio->modify('+' . ReservacionConfig::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS . ' minutes');
     }
@@ -642,7 +642,7 @@ final class ReservacionPublicaService
 
                 $horario = $conservaHorarioOriginal
                     ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
-                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                    : HorarioReservacionService::validarHora($fecha, $hora);
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
@@ -795,7 +795,7 @@ final class ReservacionPublicaService
                     && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
                 $horario = $conservaHorarioOriginal
                     ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
-                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                    : HorarioReservacionService::validarHora($fecha, $hora);
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
@@ -1282,7 +1282,7 @@ final class ReservacionPublicaService
         if (!self::tokenValido($requestToken)) {
             return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
-        $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
+        $horario = HorarioReservacionService::validarHora($fecha, $hora);
         if (!($horario['ok'] ?? false)) {
             $esPasado = ($horario['codigo'] ?? '') === HorarioReservacionService::HORARIO_PASADO;
             $field = in_array(($horario['codigo'] ?? ''), [
@@ -1378,7 +1378,7 @@ final class ReservacionPublicaService
         string $hora,
         int $excluirReservacionId = 0
     ): ?array {
-        $condicionActiva = ReservacionConfig::condicionSqlOcupacionActiva('r');
+        $condicionActiva = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r');
         $sql = "SELECT r.id, r.request_token
                 FROM reservaciones r
                 WHERE r.contacto_tipo = ?
@@ -1563,7 +1563,7 @@ final class ReservacionPublicaService
         string $requestToken,
         string $estado = 'pendiente_verificacion'
     ): int {
-        if (!in_array($estado, ['pendiente_verificacion', 'confirmada'], true)) {
+        if (!in_array($estado, ReservacionConfig::ESTADOS_EDITABLES, true)) {
             throw new \InvalidArgumentException('Estado de reemplazo no permitido.');
         }
         $stmt = ActiveRecord::getDB()->prepare(
@@ -1640,20 +1640,6 @@ final class ReservacionPublicaService
             throw new \RuntimeException($mensaje);
         }
         $stmt->close();
-    }
-
-    private static function fechaHoraProgramada(array $fila): ?DateTimeImmutable
-    {
-        $fecha = trim((string)($fila['fecha'] ?? ''));
-        $hora = trim((string)($fila['hora'] ?? ''));
-        if ($fecha === '' || $hora === '') {
-            return null;
-        }
-        try {
-            return new DateTimeImmutable($fecha . ' ' . $hora, ReservacionConfig::timezone());
-        } catch (\Throwable $e) {
-            return null;
-        }
     }
 
     private static function mismoContacto(array $fila, string $tipo, string $contacto): bool

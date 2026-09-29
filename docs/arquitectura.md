@@ -70,8 +70,10 @@ afectaciones. `Reservations` conserva las reglas del agregado y sus operaciones.
 `HorarioReservacionService` permanece en `Reservations`: además de usar el
 calendario operativo, valida reglas de reservación como fechas admisibles,
 anticipación y último horario reservable, y expone códigos del servicio de
-reservaciones. `HorarioOperacionImpactoService` pertenece a `Scheduling` porque
-evalúa y persiste el impacto de cambios de agenda.
+reservaciones. `ReservacionVigenciaService` es la fuente común para interpretar
+el instante programado y clasificar su vigencia operativa, como tolerancia y
+elegibilidad de ausencia. `HorarioOperacionImpactoService` pertenece a `Scheduling`
+porque evalúa y persiste el impacto de cambios de agenda.
 
 El flujo de cambios de horario conserva una colaboración estática entre
 `Scheduling` y `Notifications`: el servicio de horario despacha después del
