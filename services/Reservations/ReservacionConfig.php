@@ -60,7 +60,6 @@ class ReservacionConfig
      */
     public const ESTADOS_OCUPAN_MESA = ['confirmada'];
     public const ESTADOS_LISTA_OPERATIVA = ['confirmada'];
-    public const ESTADOS_CUENTAN_LIMITE = ['confirmada'];
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
         'confirmada',
