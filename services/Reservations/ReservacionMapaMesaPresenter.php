@@ -5,8 +5,9 @@ namespace Services\Reservations;
 /**
  * Proyección visual exclusiva del mapa administrativo.
  *
- * Recibe hechos de intervalo ya evaluados. La disponibilidad decide el fondo;
- * la cercanía de una reservación sólo añade una señal secundaria.
+ * Recibe hechos de ocupación y la ventana proyectada del mapa. El intervalo
+ * completo conserva su autoridad para asignabilidad, no para decidir por sí
+ * solo el estado visual.
  */
 final class ReservacionMapaMesaPresenter
 {
@@ -20,26 +21,32 @@ final class ReservacionMapaMesaPresenter
         $causas = array_values(array_unique(array_map('strval', (array)($hechos['causas_bloqueo'] ?? []))));
         $ticketBloquea = self::booleano($hechos['ticket_bloquea_consulta'] ?? false);
         $bloqueada = self::booleano($hechos['bloqueada_en_intervalo'] ?? false);
-        $reservacionSeSolapa = $bloqueada && in_array('reservacion', $causas, true);
-        $reservacionBloquea = $reservacionSeSolapa
-            && !self::bloqueoIndependiente($causas);
+        $reservacion = is_array($hechos['reservacion'] ?? null)
+            ? $hechos['reservacion']
+            : [];
+        $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
+        $bloqueoIndependiente = $bloqueada && self::bloqueoIndependiente($causas);
 
-        // Primero decide exclusivamente el hecho de intervalo. Las ventanas
-        // temporales POS nunca cambian por sí solas el estado base del mapa.
+        // Tickets, holds y restricciones independientes conservan prioridad
+        // roja. La reserva se presenta según la ventana del instante consultado.
         if ($ticketBloquea) {
             $estado = 'ocupada';
             $label = self::booleano($hechos['ocupada_fisicamente'] ?? false)
                 ? 'Ocupada por servicio activo'
                 : 'No disponible por ticket';
             $precedencia = 'ticket';
-        } elseif ($bloqueada && $reservacionBloquea) {
-            $estado = 'reservacion-proxima';
-            $label = 'No disponible por reservación';
-            $precedencia = 'reservacion_intervalo';
-        } elseif ($bloqueada) {
+        } elseif ($bloqueoIndependiente) {
             $estado = 'ocupada';
             $label = self::etiquetaBloqueo($causas);
             $precedencia = 'restriccion_intervalo';
+        } elseif (in_array($ventana, ['inicio', 'activa'], true)) {
+            $estado = 'ocupada';
+            $label = 'Ocupada por reservación';
+            $precedencia = 'reservacion_activa';
+        } elseif ($ventana === 'bloqueo') {
+            $estado = 'reservacion-proxima';
+            $label = 'Reservación próxima';
+            $precedencia = 'reservacion_bloqueo_previo';
         } else {
             $estado = 'libre';
             $label = 'Disponible';
@@ -47,19 +54,10 @@ final class ReservacionMapaMesaPresenter
         }
 
         $modificadores = [];
-        $reservacion = is_array($hechos['reservacion'] ?? null)
-            ? $hechos['reservacion']
-            : [];
-        $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
-        $advertencia = self::booleano($reservacion['reservacion_cercana_mapa'] ?? false)
-            || $ventana === 'advertencia';
-
-        // Una reserva que ya explica el bloqueo no repite la misma señal como
-        // advertencia; una reserva consecutiva sí puede advertir sin bloquear.
-        if ($advertencia && !$reservacionSeSolapa) {
+        if ($ventana === 'advertencia') {
             $modificadores[] = 'reservacion_advertencia';
             if ($estado === 'libre') {
-                $label = 'Disponible con reservación cercana';
+                $label = 'Disponible con reservación próxima';
                 $precedencia = 'reservacion_advertencia';
             }
         }

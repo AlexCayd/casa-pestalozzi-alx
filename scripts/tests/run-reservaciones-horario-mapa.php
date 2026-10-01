@@ -35,6 +35,17 @@ $futuroConHora = HorarioReservacionService::resolverHorarioMapa(
 );
 assertMapSchedule($futuroConHora['hora_resuelta'] === '18:30', 'hora explícita válida se conserva en fecha futura');
 
+$consultaPorMinuto = HorarioReservacionService::resolverHorarioMapa(
+    '2026-08-19',
+    '18:45',
+    $horarios,
+    $ahora
+);
+assertMapSchedule(
+    $consultaPorMinuto['hora_resuelta'] === '18:45' && !$consultaPorMinuto['ajustada'],
+    'el mapa conserva una consulta por minuto dentro de la jornada operativa'
+);
+
 $hoySinHora = HorarioReservacionService::resolverHorarioMapa(
     '2026-08-18',
     '',

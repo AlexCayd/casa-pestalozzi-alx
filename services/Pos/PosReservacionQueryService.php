@@ -280,7 +280,9 @@ final class PosReservacionQueryService
             $reservaciones,
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
                 && (!empty($reservacion['aplica_hora_consultada'])
-                    || !empty($reservacion['proyeccion_mapa']['reservacion_cercana_mapa']))
+                    || !empty($reservacion['proyeccion_mapa']['reservacion_cercana_mapa'])
+                    || ($mapaAdministrativo
+                        && (string)($reservacion['proyeccion_mapa']['ventana_mapa'] ?? '') === 'irrelevante'))
                 && (!$mapaAdministrativo || empty($reservacion['fuera_horario_operacion']))
         ));
     }

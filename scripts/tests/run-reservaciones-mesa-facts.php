@@ -42,12 +42,12 @@ $inicioReservacion = new DateTimeImmutable('2026-08-06 13:00:00', ReservacionCon
 
 $consultas = [
     '11:30:00' => ['libre', 'libre', false, true, false],
-    '12:00:00' => ['reservacion-proxima', 'libre', true, true, true],
+    '12:00:00' => ['libre', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:00:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:30:00' => ['libre', 'reservacion-proxima', false, false, false],
-    '14:00:00' => ['libre', 'reservacion-proxima', false, false, false],
+    '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
+    '13:30:00' => ['ocupada', 'reservacion-proxima', true, false, false],
+    '14:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
     '14:30:00' => ['libre', 'reservacion-proxima', false, false, false],
 ];
 
@@ -56,10 +56,7 @@ $mapaEvaluacion = static function (string $hora) use ($inicioReservacion): array
         '2026-08-06 ' . $hora,
         ReservacionConfig::timezone()
     );
-    $bloqueada = $inicioConsulta < new DateTimeImmutable(
-        '2026-08-06 13:15:00',
-        ReservacionConfig::timezone()
-    ) && OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
+    $bloqueada = OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
     return [
         'mesas' => [],
         'tickets_por_mesa' => [],
@@ -89,9 +86,12 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
     if ($hora >= '13:30:00') {
         assertMesaFacts($mesaEstado['ausencia_pendiente'] === true, "ausencia pendiente {$hora}");
         assertMesaFacts($mesaEstado['reservacion_influye_en_disponibilidad'] === false, "ausencia libera influencia {$hora}");
-        assertMesaFacts($mesaEstado['disponible_para_asignacion'] === true, "ausencia libera asignacion {$hora}");
+        assertMesaFacts(
+            $mesaEstado['disponible_para_asignacion'] === ($hora === '14:30:00'),
+            "la asignación sólo vuelve al terminar el intervalo: {$hora}"
+        );
         assertMesaFacts($mesaEstado['disponible_para_ticket'] === false, "ausencia conserva bloqueo POS {$hora}");
-        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "gris {$hora}");
+        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "indicador de ausencia {$hora}");
     }
 }
 
@@ -125,7 +125,10 @@ $ausenciaConOtra = MesaEstadoService::normalizarMesas(
         'causas_bloqueo_por_mesa' => [4 => ['reservacion']],
     ]
 )[0];
-assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'reservacion-proxima', 'otra reservacion conserva azul');
+assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'ocupada', 'la reserva activa prioriza sobre el bloqueo previo');
+assertMesaFacts($ausenciaConOtra['reservacion_mapa_id'] === 25, 'el mapa elige la reserva activa sobre otra próxima');
+assertMesaFacts($ausenciaConOtra['reservacion_mapa_hora'] === '13:00', 'el resumen del mapa conserva la hora de la reserva activa');
+assertMesaFacts($ausenciaConOtra['reservacion_id'] === 26, 'la autoridad POS conserva la reserva próxima para su operación');
 assertMesaFacts($ausenciaConOtra['disponible_para_asignacion'] === false, 'otra reservacion conserva el bloqueo');
 assertMesaFacts(in_array('ausencia_pendiente', $ausenciaConOtra['modificadores_visual_mapa'], true), 'otra reservacion compone gris');
 

@@ -72,6 +72,7 @@ assertContract(!operation.includes('confirmaciones_requeridas_presentaciones'), 
 assertContract(operation.includes('decisionObjects'), 'operacion consume decisiones estructuradas');
 assertContract(!operation.includes("label: 'Confirmar', tipo: 'primary'"), 'operacion no inventa accion primaria de decision');
 assertContract(operation.includes('modificadores_visual_mapa'), 'operacion consume modificadores visuales del mapa');
+assertContract(operation.includes('mesaEstado.reservacion_mapa || mesaEstado.reservacion_proxima'), 'la operación presenta la reservación elegida por la proyección del mapa');
 assertContract(operation.includes('projectionContext'), 'operacion conserva contexto atomico de proyeccion');
 assertContract(operation.includes('pendingProjectionContext'), 'operacion bloquea render mientras carga una proyeccion');
 assertContract(operation.includes('mapProjectionFor'), 'operacion valida el contrato cerrado del mapa');
@@ -205,15 +206,15 @@ assertContract(
   'ticket dentro del bloqueo conserva protección en resumen y selección'
 );
 const adjacentContract = modalTableContract({
-  label_visual_mapa: 'Disponible con reservación cercana',
+  label_visual_mapa: 'Disponible con reservación próxima',
   modificadores_visual_mapa: ['reservacion_advertencia'],
-  titulo_mapa: 'Mesa 14, disponible con reservación cercana.',
-  aria_label_mapa: 'Mesa 14, disponible con reservación cercana.'
+  titulo_mapa: 'Mesa 14, disponible con reservación próxima.',
+  aria_label_mapa: 'Mesa 14, disponible con reservación próxima.'
 });
 const adjacentModal = operationPolicyApi.tableModalState(adjacentContract);
 assertContract(
   adjacentModal.visualState === 'libre'
-    && adjacentModal.label === 'Disponible con reservación cercana'
+    && adjacentModal.label === 'Disponible con reservación próxima'
     && adjacentModal.ariaLabel === adjacentContract.titulo_mapa
     && adjacentModal.assignable === true,
   'libre con advertencia conserva el estado y label del contrato backend'
@@ -233,15 +234,16 @@ const selectedReservationContract = modalTableContract({
   disponible_para_asignacion: true,
   bloqueada_en_intervalo: true,
   causas_bloqueo: ['reservacion'],
+  ventana_mapa: 'bloqueo',
   estado_visual_mapa: 'reservacion-proxima',
-  label_visual_mapa: 'No disponible por reservación',
-  titulo_mapa: 'Mesa 14, no disponible por reservación.',
-  aria_label_mapa: 'Mesa 14, no disponible por reservación.'
+  label_visual_mapa: 'Reservación próxima',
+  titulo_mapa: 'Mesa 14, reservación próxima.',
+  aria_label_mapa: 'Mesa 14, reservación próxima.'
 });
 const selectedReservationModal = operationPolicyApi.tableModalState(selectedReservationContract, { selected: true });
 assertContract(
   selectedReservationModal.visualState === 'reservacion-proxima'
-    && selectedReservationModal.label === 'No disponible por reservación'
+    && selectedReservationModal.label === 'Reservación próxima'
     && selectedReservationModal.ariaLabel === selectedReservationContract.titulo_mapa
     && selectedReservationModal.selected === true
     && selectedReservationModal.assignable === true,

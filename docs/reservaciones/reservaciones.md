@@ -11,6 +11,9 @@ fecha se descarta la hora anterior si no es válida para el nuevo día y se usa 
 primer horario reservable. Una fecha pasada es de sólo lectura; una fecha actual
 sin horarios futuros no admite nuevas reservaciones.
 
+El mapa admite consultas por minuto dentro de la jornada operativa. Eso no
+cambia los horarios de 30 minutos disponibles al crear una reservación.
+
 El intervalo de una reserva es semiabierto:
 
 ```text
@@ -92,10 +95,11 @@ map-visual.js
 | Política de ticket y walk-in | `ReservacionPoliticaPosService` | `disponible_para_ticket`, advertencia y bloqueo de walk-in | `MesaEstadoService` y POS |
 | Ocupación física actual | `MesaEstadoService` | `ocupada_fisicamente` y hechos de tickets abiertos | Presenters POS y de Reservaciones |
 | Bloqueo del intervalo consultado | `OcupacionMesasService` | Mesas bloqueadas y causas para fecha/hora | `MesaEstadoService` y asignación |
+| Ventana de reservación proyectada para el mapa | `ReservacionPoliticaPosService` | `ventana_mapa` relativa a la hora seleccionada | `MesaEstadoService` |
 | Disponibilidad final para asignación | `AsignacionMesasService`; `MesaEstadoService` proyecta el hecho de lectura | `disponible_para_asignacion` y causa de conflicto | Operación de Reservaciones y endpoint de asignación |
 | Capacidades POS de Mesa, Barra, Caja, Llevar y elementos decorativos | `MesaEstadoService` | `capacidades_pos` derivadas de tipo, nombre, actividad y reservabilidad | `punto-de-venta.js` |
 | Estado visual POS | `PosMesaProjectionPresenter` | Estado base, modificadores y etiqueta accesible del POS | POS y contrato JSON |
-| Estado visual de Reservaciones | `ReservacionMapaMesaPresenter` | Estado base, modificadores y etiqueta del intervalo | Operación de Reservaciones y contrato JSON |
+| Estado visual de Reservaciones | `ReservacionMapaMesaPresenter` | Estado base, modificadores y etiqueta de la proyección puntual | Operación de Reservaciones y contrato JSON |
 | Color, borde e indicador visual | Tokens y clases de `_map-shell.scss` | Estilos para el estado y modificadores recibidos | `map-visual.js` |
 | Selección de mesas POS | `punto-de-venta.js` | Permiso de selección para la acción y snapshot actuales | Adaptador y renderer |
 | Selección para asignación | `operation.js` más `AsignacionMesasService` en la mutación | Permiso visual de selección; el servidor vuelve a validar la asignación | Adaptador, renderer y endpoint de asignación |
@@ -123,34 +127,32 @@ los modificadores.
 | --- | --- |
 | `bloqueada_en_intervalo` | Existe una ocupación que cruza el intervalo consultado de 90 minutos. |
 | `disponible_para_asignacion` | La mesa puede elegirse en el contexto de la operación, incluidas las excepciones de conservación de la propia asignación. |
-| `reservacion_cercana_mapa` | Hay una reserva adyacente que no bloquea el intervalo. |
-| `estado_visual_mapa` | Proyección visual del intervalo: libre, ocupada, reservacion-proxima o no-utilizable. |
+| `ventana_mapa` | Futura, advertencia, bloqueo previo, inicio/activa o irrelevante respecto al instante consultado. |
+| `estado_visual_mapa` | Proyección visual de la mesa en la hora consultada: libre, ocupada, reservacion-proxima o no-utilizable. |
 | `seleccionada` | Capa de interfaz; no cambia el estado visual ni la disponibilidad. |
 
-Una reservación seleccionada puede continuar bloqueando visualmente el
-intervalo aunque sea válida para conservar su propia asignación. La consulta
-visual mantiene todas las ocupaciones; la evaluación de asignación puede
-excluir la reservación que se está editando. Así, una mesa asignada a esa misma
-reservación conserva su estado azul cuando el intervalo se solapa y puede tener
-`disponible_para_asignacion: true` para conservar la selección.
+Una reservación propia puede conservar su estado proyectado —verde, azul o
+rojo— y a la vez tener `disponible_para_asignacion: true` si la mutación excluye
+esa misma reserva del cálculo de conflicto.
 
-En Reservaciones, `reservacion-proxima` es el estado técnico azul de un
-intervalo bloqueado por una reservación y su etiqueta es “No disponible por
-reservación”. `reservacion_advertencia` sólo expresa una reserva adyacente que
-no bloquea: conserva el estado libre y se etiqueta “Disponible con reservación
-cercana”. No se usa “Reserva próxima” como etiqueta genérica del estado azul.
+En Reservaciones, el fondo representa la hora seleccionada. Una reserva dentro
+de `[inicio, inicio + 90 min)` es roja; el bloqueo preventivo de los 30 minutos
+anteriores es azul; la advertencia entre 30 y 60 minutos es verde con borde
+azul discontinuo; después de 60 minutos conserva verde sin alerta. Las etiquetas
+son “Ocupada por reservación”, “Reservación próxima”, “Disponible con
+reservación próxima” y “Disponible”, respectivamente.
 
-El estado del intervalo se obtiene con `OcupacionMesasService::intervalosSeTraslapan()`.
-`aplica_hora_consultada` indica solapamiento; una reserva adyacente también
-llega al presenter mediante `reservacion_cercana_mapa`. El campo de
-compatibilidad `reservacion_influye_en_consulta` conserva su significado
-histórico y limitado: la hora inicial consultada cae dentro de la reserva. No
-decide bloqueo, color ni asignabilidad.
+`OcupacionMesasService::intervalosSeTraslapan()` decide el bloqueo del intervalo
+y la asignabilidad. `ventana_mapa` decide la proyección visual. Una consulta
+10:45 con una reserva a las 12:00 queda verde, aunque
+`bloqueada_en_intervalo: true` y `disponible_para_asignacion: false`. Los campos
+`reservacion_cercana_mapa` y `reservacion_influye_en_consulta` mantienen usos de
+compatibilidad y no deciden el color.
 
-Una ausencia pendiente conserva el bloqueo del intervalo en el mapa
-administrativo hasta que el operador cambie la reserva a `no_show`. La ausencia
-es un modificador y una acción, no un estado de disponibilidad. La superficie
-POS conserva su política temporal actual.
+Una reserva confirmada dentro del periodo programado se proyecta roja incluso
+si POS informa ausencia pendiente. La ausencia añade un indicador y una acción;
+no cambia la ventana proyectada. Después de persistir `no_show`, la reserva deja
+de proyectarse y se vuelven a evaluar los demás bloqueos.
 
 `table-state-adapter.js` produce el objeto visual que necesita el mapa:
 normaliza el contrato, posiciones, atributos, selección solicitada y texto de
@@ -200,24 +202,25 @@ la mutación al backend para su validación final.
 El POS representa la operación actual. El mapa de Reservaciones representa la
 fecha y hora consultadas. La misma mesa puede verse distinta en esos contextos.
 
-| Hecho o ventana | POS — operación actual | Reservaciones — intervalo consultado |
+| Hecho o ventana | POS — operación actual | Reservaciones — instante consultado |
 | --- | --- | --- |
-| Disponible | Verde cuando el backend permite abrir ticket. | Verde cuando el intervalo está libre; una reserva posterior cercana puede añadir borde azul discontinuo. |
-| Advertencia `>30` y `≤60` min | Verde con borde azul discontinuo si walk-in sigue permitido. | El borde discontinuo es secundario; el fondo conserva la disponibilidad real. |
-| Próxima `>0` y `≤30` min | Azul sólido; walk-in bloqueado. | Azul si una reservación ocupa parte del intervalo; un ticket, hold u otra ocupación independiente conserva rojo. |
-| Inicio `00:00` | Azul mientras se espera al cliente, si aún no hay ticket. | Azul cuando el bloqueo del intervalo lo causa la reservación. |
-| Tolerancia `00:00` a `+15:00` inclusive | Azul con señal de tolerancia; el backend decide si se puede iniciar el servicio. | Azul cuando la reservación bloquea el intervalo; una ocupación independiente conserva rojo. |
-| Ausencia pendiente, después de `+15:00` | Azul oscuro de reserva bloqueante, con indicador de acción pendiente. No libera la mesa; sólo ofrece no-show si `puede_marcar_no_show` es verdadero. | La disponibilidad del intervalo decide el fondo; la ausencia queda como indicador secundario. No-show elimina sus modificadores y se recalcula cualquier bloqueo restante. |
-| Ticket abierto | Rojo mientras exista ocupación física real. | Rojo sólo si el ticket bloquea el intervalo; una proyección futura puede liberarse sin cerrar el ticket. |
+| Disponible | Verde cuando el backend permite abrir ticket. | Verde si no hay reserva activa, bloqueo previo, ticket proyectado ni restricción independiente. |
+| Advertencia `>30` y `≤60` min | Verde con borde azul discontinuo si walk-in sigue permitido. | Verde con borde azul discontinuo y “Disponible con reservación próxima”. |
+| Próxima `>0` y `≤30` min | Azul sólido; walk-in bloqueado. | Azul con “Reservación próxima”; la reserva aún no inició. |
+| Inicio `00:00` | Azul mientras se espera al cliente, si aún no hay ticket. | Rojo: “Ocupada por reservación”. |
+| Dentro de `[inicio, fin)` | POS conserva espera, tolerancia y ausencia; un ticket físico es rojo. | Rojo durante los 90 minutos programados, incluso si aún no existe ticket. |
+| Ausencia pendiente, después de `+15:00` | Azul oscuro de reserva bloqueante, con indicador de acción pendiente. No libera la mesa; sólo ofrece no-show si `puede_marcar_no_show` es verdadero. | La proyección sigue roja si la consulta cae dentro del periodo programado; la ausencia queda como indicador secundario. |
+| Ticket abierto | Rojo mientras exista ocupación física real. | Rojo hasta la liberación estimada; después puede ser verde aunque POS siga rojo físicamente. |
 | No utilizable | Neutro y por encima de otros estados. | Neutro y por encima de otros estados. |
 | Seleccionada | Anillo amarillo superpuesto; conserva el hecho base. | Anillo amarillo superpuesto; conserva el hecho base. |
 
 ### Prioridad visual
 
-Un elemento no utilizable permanece neutro. En POS, ticket abierto conserva rojo;
-en Reservaciones, ticket o conflicto que bloquea el intervalo conservan rojo.
-Inicio y tolerancia se muestran según el contexto anterior. Advertencia, ausencia,
-asignación y selección son señales secundarias: no vuelven libre un conflicto.
+Un elemento no utilizable permanece neutro. En POS, un ticket abierto conserva
+rojo. En Reservaciones, un ticket proyectado, una restricción independiente y
+una reserva activa son rojos; el bloqueo previo es azul y la advertencia conserva
+verde. Una advertencia puede acompañar el rojo de un ticket. Ausencia, asignación
+y selección son señales secundarias.
 La selección es una capa visual y **no garantiza disponibilidad** ni autoriza
 abrir ticket, asignar o reasignar mesa, iniciar servicio ni marcar no-show.
 
@@ -237,32 +240,27 @@ especiales activos aunque `reservable = false`; el estado y los tickets siguen
 respetando los hechos de POS disponibles. Caja y Llevar conservan sus acciones
 propias y no heredan la disponibilidad de una mesa ordinaria.
 
-En Reservaciones, el fondo representa exclusivamente la disponibilidad y los
-bloqueos reales del intervalo; el borde discontinuo y los iconos son información
-secundaria, y el anillo amarillo indica selección sin cambiar el estado. Una
-reservación que bloquea el intervalo usa azul; un ticket u otra ocupación
-independiente usa rojo. Una reservación cercana que no se solapa añade el borde
-azul discontinuo sobre el fondo verde. En POS, la alerta cercana conserva su
-propia semántica y puede acompañar el fondo rojo de una mesa ocupada. Una ausencia
-pendiente en Reservaciones se superpone al fondo que determinen los hechos del
-intervalo.
+En Reservaciones, el fondo representa la proyección temporal en la hora
+consultada; la asignabilidad sigue representando el intervalo completo de 90
+minutos. El borde discontinuo expresa una advertencia, y el anillo amarillo
+indica selección sin cambiar el estado base. POS conserva su política de
+ocupación física.
 
 Ejemplos del límite semiabierto `[inicio, fin)`:
 
-- Consulta `17:30–19:00` y reservación a `19:00`, sin ticket: no se solapan; la
-  mesa queda verde con borde azul discontinuo.
-- Consulta `17:45–19:15` y reservación a `19:00`: se solapan; la mesa queda azul
-  por reservación. Un inicio de consulta `17:31` se solapa por un minuto.
-- Ticket proyectado que intersecta el intervalo: rojo, aunque también exista
-  una reservación cercana.
-- Ticket abierto físicamente cuya liberación estimada es anterior al inicio de
-  la consulta: no fuerza el fondo rojo de la proyección administrativa.
+- Reservación `12:00`: consulta `10:30` queda verde y asignable; `10:45` queda
+  verde, pero no asignable porque `[10:45, 12:15)` se solapa con la reserva.
+- La misma reserva: `11:00` queda verde con advertencia; `11:30` azul;
+  `[12:00, 13:30)` roja; `13:30` verde por el límite final exclusivo.
+- Ticket abierto a `09:10`, con liberación estimada a `10:40`: consulta `10:30`
+  queda roja; `10:40` queda verde. POS sigue rojo mientras continúe abierto.
 - La selección añade un anillo amarillo y conserva el fondo verde, azul o rojo.
 
 ### POS y proyección administrativa
 
-POS clasifica la hora de operación actual. Reservaciones proyecta sobre la fecha
-y hora elegidas, respetando sus flags de disponibilidad del intervalo. Una
+POS clasifica la operación actual. Reservaciones proyecta el estado de la mesa
+en la fecha y hora elegidas, y calcula por separado si puede comprometerse
+durante todo el intervalo siguiente. Una
 reserva fuera del horario efectivo puede permanecer en la lista administrativa
 con `fuera_horario_operacion = true` y `en_proyeccion_mapa = false`; esa fila no
 colorea el pin. Un ticket, hold u otro bloqueo independiente sí conserva su
@@ -270,16 +268,18 @@ presentación propia. El POS mantiene un indicador textual fuera de horario.
 
 ### Límites temporales
 
-| Diferencia con el inicio | Clasificación |
-| --- | --- |
-| `> 60 min` | Futura; POS sin alerta temporal. |
-| `> 30` y `≤ 60 min` | Advertencia. |
-| `≥ 0` y `≤ 30 min` | Bloqueo previo; el inicio exacto se presenta como inicio de servicio. |
-| Desde el inicio hasta `+15 min` inclusive | Tolerancia. |
-| `> +15 min` | Ausencia pendiente cuando sigue confirmada y no hay ticket. |
+| Diferencia con el inicio | POS — operación actual | Reservaciones — hora consultada |
+| --- | --- | --- |
+| `> 60 min` | Futura; sin alerta temporal. | Verde, sin alerta. |
+| `> 30` y `≤ 60 min` | Advertencia. | Verde con borde azul discontinuo. |
+| `> 0` y `≤ 30 min` | Walk-in bloqueado. | Azul, reservación próxima. |
+| `0` hasta `+15 min` inclusive | Espera o Tolerancia POS. | Rojo por periodo activo. |
+| Después de `+15 min` | Ausencia pendiente si sigue confirmada y no hay ticket. | Rojo hasta el fin programado, con indicador de ausencia si aplica. |
+| `inicio + 90 min` exacto o posterior | POS depende de la realidad física. | La reserva deja de ocupar el mapa. |
 
 El intervalo planificado dura 90 minutos y no incluye su límite final. Los
-umbrales los define `ReservacionConfig`; no se duplican en JavaScript.
+umbrales y duraciones los define `ReservacionConfig`; no se duplican en
+JavaScript.
 
 ### Modal de ayuda
 
@@ -288,6 +288,14 @@ POS y Reservaciones comparten «Cómo interpretar el mapa de mesas». Explica
 nota breve: los colores orientan y las acciones se validan en la operación.
 Reservaciones no mantiene otra leyenda permanente. El modal contextualiza el
 estado actual en POS y la fecha y hora consultadas en Reservaciones.
+
+### Fixtures visuales locales
+
+`php scripts/dev/seed-map-visual-validation.php` crea o actualiza mesas,
+reservaciones, retenciones y tickets identificados con `[MAP TEST]` en la base
+local de desarrollo. Imprime IDs, horas y URLs de `http://localhost:3000` para
+la reservación de referencia y la proyección de ticket. Los fixtures se dejan
+persistidos para revisión manual; el seeder no tiene operación de limpieza.
 
 ## Cambios de horario y afectaciones
 

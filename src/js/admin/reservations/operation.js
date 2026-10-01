@@ -1093,7 +1093,7 @@
          */
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
-            var proxima = mesaEstado && mesaEstado.reservacion_proxima;
+            var proxima = mesaEstado && (mesaEstado.reservacion_mapa || mesaEstado.reservacion_proxima);
             var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa
                 : [];
@@ -1808,7 +1808,7 @@
             if (projection.estado === 'no-utilizable' && mesaEstado.motivo_bloqueo) {
                 return String(mesaEstado.motivo_bloqueo);
             }
-            var reservation = mesaEstado.reservacion_proxima || null;
+            var reservation = mesaEstado.reservacion_mapa || mesaEstado.reservacion_proxima || null;
             var hour = reservation && reservation.hora
                 ? String(reservation.hora).slice(0, 5)
                 : '';

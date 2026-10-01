@@ -121,7 +121,7 @@ try {
          ON DUPLICATE KEY UPDATE abierto = 1, hora_apertura = '10:00:00', hora_cierre = '23:00:00'"
     );
 
-    // B and N — call the real JSON endpoint from its controller.
+    // V23–V29 — call the real JSON endpoint, including non-slot map minutes.
     $endpointTableId = insertMapStateTable($db, 9801);
     $tableIds[] = $endpointTableId;
     $endpointReservationId = insertMapStateReservation(
@@ -143,11 +143,39 @@ try {
             && $adjacent['causas_bloqueo'] === []
             && $adjacent['disponible_para_asignacion']
             && $adjacent['estado_visual_mapa'] === 'libre'
-            && $adjacent['reservacion_cercana_mapa']
-            && in_array('reservacion_advertencia', $adjacent['modificadores_visual_mapa'], true)
-            && $adjacent['label_visual_mapa'] === 'Disponible con reservación cercana',
-        'endpoint JSON B: consulta 17:30 y reserva 19:00 debe ser libre con aviso'
+            && $adjacent['label_visual_mapa'] === 'Disponible'
+            && $adjacentJson['hora'] === '17:30:00',
+        'endpoint V23: R-90 exacto conserva hora y no agrega alerta'
     );
+
+    $expectedProjection = [
+        '17:45' => ['libre', 'futura', false, 'Disponible'],
+        '18:00' => ['libre', 'advertencia', false, 'Disponible con reservación próxima'],
+        '18:15' => ['libre', 'advertencia', false, 'Disponible con reservación próxima'],
+        '18:30' => ['reservacion-proxima', 'bloqueo', false, 'Reservación próxima'],
+        '18:59' => ['reservacion-proxima', 'bloqueo', false, 'Reservación próxima'],
+        '19:00' => ['ocupada', 'inicio', false, 'Ocupada por reservación'],
+        '20:29' => ['ocupada', 'activa', false, 'Ocupada por reservación'],
+        '20:30' => ['libre', 'irrelevante', true, 'Disponible'],
+    ];
+    foreach ($expectedProjection as $queryHour => [$visual, $window, $assignable, $label]) {
+        $response = readOperationEndpoint(['fecha' => $endpointDate, 'hora' => $queryHour]);
+        $state = readMapState($response, $endpointTableId);
+        assertMapStateIntegration(
+            $response['hora'] === $queryHour . ':00'
+                && $state['estado_visual_mapa'] === $visual
+                && $state['ventana_mapa'] === $window
+                && $state['disponible_para_asignacion'] === $assignable
+                && $state['label_visual_mapa'] === $label,
+            "endpoint temporal {$queryHour}: visual, ventana, asignación y hora resuelta"
+        );
+        if (in_array($queryHour, ['17:45', '18:00', '18:15'], true)) {
+            assertMapStateIntegration(
+                $state['bloqueada_en_intervalo'],
+                "endpoint temporal {$queryHour}: hecho del intervalo permanece separado"
+            );
+        }
+    }
 
     $selectedJson = readOperationEndpoint([
         'fecha' => $endpointDate,
@@ -159,15 +187,15 @@ try {
         $selected['bloqueada_en_intervalo']
             && $selected['causas_bloqueo'] === ['reservacion']
             && $selected['disponible_para_asignacion']
-            && $selected['estado_visual_mapa'] === 'reservacion-proxima'
-            && $selected['label_visual_mapa'] === 'No disponible por reservación'
-            && $selected['aria_label_mapa'] === 'Fixture mapa 9801, no disponible por reservación.'
+            && $selected['estado_visual_mapa'] === 'ocupada'
+            && $selected['label_visual_mapa'] === 'Ocupada por reservación'
+            && $selected['aria_label_mapa'] === 'Fixture mapa 9801, ocupada por reservación.'
             && $selected['titulo_mapa'] === $selected['aria_label_mapa'],
         'endpoint JSON N: la reserva propia se conserva azul y asignable'
     );
 
     // C and D — interval facts stay stable for one-minute overlap and changing now.
-    $matrixDate = '2037-02-15';
+    $matrixDate = $endpointDate;
     $overlapTableId = insertMapStateTable($db, 9802);
     $tableIds[] = $overlapTableId;
     $overlapReservationId = insertMapStateReservation($db, $matrixDate, '19:00:00', $overlapTableId);
@@ -182,10 +210,10 @@ try {
         $caseC['bloqueada_en_intervalo']
             && in_array('reservacion', $caseC['causas_bloqueo'], true)
             && !$caseC['disponible_para_asignacion']
-            && $caseC['estado_visual_mapa'] === 'reservacion-proxima'
-            && !in_array('reservacion_advertencia', $caseC['modificadores_visual_mapa'], true)
-            && $caseC['label_visual_mapa'] === 'No disponible por reservación',
-        'query real C: el minuto de solapamiento se conserva hasta mesas_estado'
+            && $caseC['estado_visual_mapa'] === 'libre'
+            && !$caseC['disponible_para_asignacion']
+            && $caseC['label_visual_mapa'] === 'Disponible',
+        'query real C: un solapamiento futuro bloquea asignación, no el estado visual'
     );
 
     $clockTableId = insertMapStateTable($db, 9803);
@@ -211,9 +239,10 @@ try {
         assertMapStateIntegration(
             $state['bloqueada_en_intervalo']
                 && $state['causas_bloqueo'] === ['reservacion']
-                && $state['estado_visual_mapa'] === 'reservacion-proxima'
-                && $state['label_visual_mapa'] === 'No disponible por reservación',
-            'query real D: cada reloj conserva el bloqueo por solapamiento'
+                && $state['estado_visual_mapa'] === 'libre'
+                && in_array('reservacion_advertencia', $state['modificadores_visual_mapa'], true)
+                && $state['label_visual_mapa'] === 'Disponible con reservación próxima',
+            'query real D: ventana del mapa no depende del reloj actual: ' . json_encode($state, JSON_UNESCAPED_UNICODE)
         );
     }
     assertMapStateIntegration(
@@ -237,8 +266,9 @@ try {
             && $caseP['puede_marcar_no_show']
             && in_array('ausencia_pendiente', $caseP['modificadores_visual_mapa'], true)
             && $caseP['bloqueada_en_intervalo']
-            && $caseP['estado_visual_mapa'] === 'reservacion-proxima',
-        'query real P: no-show pendiente acompaña el bloqueo sin crear disponibilidad'
+            && $caseP['estado_visual_mapa'] === 'ocupada'
+            && $caseP['label_visual_mapa'] === 'Ocupada por reservación',
+        'query real P: proyección activa roja conserva la señal de ausencia pendiente'
     );
 
     $db->query("UPDATE reservaciones SET estado = 'no_show' WHERE id = {$absenceReservationId}");
