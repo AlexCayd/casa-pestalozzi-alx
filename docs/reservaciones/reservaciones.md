@@ -275,6 +275,103 @@ El mapa operativo de reservaciones es una superficie compartida por los roles
 backend. El manejo de datos personales por rol corresponde a
 [Privacidad](../privacidad/privacidad.md).
 
+## Autoridad de reglas y persistencia
+
+| Regla / dato | Responsable | Persistencia | Consumidores |
+| --- | --- | --- | --- |
+| Estados y vigencia que influyen en disponibilidad | `ReservacionConfig` y `ReservacionVigenciaService` | `reservaciones` | Ocupación, capacidad, disponibilidad y POS |
+| Lectura básica por ID y `request_token` | `Model\Reservacion` | `reservaciones` | Services de reservaciones y POS |
+| Lectura completa con lock por ID | `Model\Reservacion::buscarFilaPorIdParaActualizar()` | `reservaciones`, dentro de una transacción | Mutaciones administrativas y POS |
+| Lectura de `request_token` con lock | `ReservacionPublicaService` conserva su lectura transaccional especializada | `reservaciones`, dentro de la creación idempotente | Creación pública; no hay otro consumidor bloqueante equivalente |
+| Asignación y relación reservación ↔ mesa | `Model\ReservacionMesa` persiste; `AsignacionMesasService` decide | `reservacion_mesas` | Ocupación y mutaciones de asignación |
+| Mesas y tickets abiertos | `Model\Mesa` y `Model\TicketMesa` | `mesas`, `tickets`, `ticket_mesas` | Contexto diario de ocupación |
+| Solapamiento de intervalos | `OcupacionMesasService::intervalosSeTraslapan()` | — | Ocupación, capacidad, disponibilidad y asignación |
+| Hechos de ocupación para un horario | `OcupacionMesasService` | Lee los Models de mesas, tickets y reservas | Capacidad, disponibilidad, administración y asignación |
+| Capacidad disponible y demanda sin asignar | `CapacidadReservacionesService` | Lee `Model\ReservacionMesa` para la demanda | Disponibilidad pública y administrativa |
+| Horarios candidatos y validación temporal | `HorarioReservacionService` | Configuración de operación | Disponibilidad pública y administrativa |
+| Disponibilidad pública | `DisponibilidadReservacionService` | — | Controladores públicos |
+| Excepciones y respuesta administrativa | `ReservacionAdministrativaService` | Models y Services de dominio | Controladores administrativos |
+| Mutación pública | `ReservacionPublicaService` | `Model\Reservacion`, `Model\ReservacionMesa` y Models relacionados | Controladores públicos |
+| Selección y validación de mesas | `AsignacionMesasService` | `Model\ReservacionMesa` persiste el resultado | Creación, administración y POS |
+
+La búsqueda ordinaria por `request_token` reutiliza
+`Model\Reservacion::buscarPorRequestToken()`. La lectura bloqueante de ese token
+permanece en el flujo público de creación porque tiene un único consumidor y su
+`FOR UPDATE` forma parte de la protección transaccional de idempotencia. Las
+lecturas bloqueantes por ID repetidas usan el método del Model cuyo nombre
+explicita el lock; el orden de adquisición de locks de cada operación se
+conserva.
+
+### Flujo de disponibilidad
+
+```text
+Fecha + horario solicitado
+        ↓
+HorarioReservacionService
+        ↓
+contexto de ocupación del día (una carga)
+        ↓
+OcupacionMesasService
+        ↓
+hechos de ocupación para cada intervalo
+        ↓
+CapacidadReservacionesService
+        ↓
+DisponibilidadReservacionService
+        ↓
+respuesta pública / administrativa
+```
+
+`HorarioReservacionService` resuelve la fecha y valida los horarios candidatos.
+`OcupacionMesasService` prepara los hechos persistidos del día una vez y los
+evalúa en memoria para cada intervalo; no modifica los datos.
+`CapacidadReservacionesService` combina mesas libres con demanda confirmada sin
+asignar. Disponibilidad pública y administración comparten esos hechos, pero
+conservan sus decisiones y respuestas propias.
+
+### Flujo de asignación
+
+```text
+Reservación
+    ↓
+AsignacionMesasService
+    ↓
+consulta de ocupación canónica
+    ↓
+selección / validación
+    ↓
+Model\ReservacionMesa
+    ↓
+persistencia
+```
+
+`AsignacionMesasService` **decide** qué mesas seleccionar y valida la mutación.
+`ReservacionMesa` **persiste** la relación; no decide capacidad, disponibilidad
+ni selección. La mutación vuelve a consultar y validar dentro de la transacción.
+
+### Semántica de solapamiento y rendimiento
+
+Los intervalos son semiabiertos. Dos intervalos se solapan cuando
+`inicioA < finB` y `inicioB < finA`; por eso `[12:00, 13:30)` y
+`[13:30, 15:00)` son consecutivos y no se solapan. La misma autoridad de
+ocupación proporciona el predicado SQL estricto usado para seleccionar demanda
+sin asignar; su lectura y la evaluación en memoria comparten los límites
+exclusivos. Las pruebas de ocupación verifican el inicio, el límite final y el
+caso consecutivo.
+
+La preparación diaria se mide con un fake DB de test y diez horarios. Al evaluar
+cada slot desde cero, el runner cuenta 10 consultas de asignaciones, 10 de
+tickets, 20 de mesas (mapa y catálogo reservable) y 10 de demanda por intervalo.
+Con contexto compartido cuenta 1 consulta de asignaciones, 1 de tickets, 1 de
+mesas y 1 de demanda diaria; las diez evaluaciones posteriores no consultan DB.
+El runner compara además los hechos de ocupación y capacidad de cada horario.
+
+Las consultas de administración/reporting y los locks que tienen alcance
+transaccional propio permanecen en los Services cuando no representan una
+lectura básica reutilizada. En particular, una evaluación bloqueante mantiene
+su consulta de demanda acotada al intervalo y el orden actual de locks; el
+contexto diario compartido se usa para recorridos de lectura de varios slots.
+
 ## Referencias
 
 - [Configuración](../config.md)

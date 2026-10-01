@@ -11,12 +11,11 @@
 namespace Services\Tables;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;
-use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
-use Model\ActiveRecord;
 use Model\Mesa;
+use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Services\Pos\TicketTemporalService;
 use Services\Reservations\HorarioReservacionService;
@@ -39,7 +38,8 @@ final class OcupacionMesasService
         int|array $excluirReservacionId = 0,
         bool $bloquear = false,
         ?array $ticketsAbiertos = null,
-        ?DateTimeImmutable $ahora = null
+        ?DateTimeImmutable $ahora = null,
+        ?array $contextoFecha = null
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $horaSql = HorarioReservacionService::normalizarHoraSql($hora);
@@ -67,16 +67,26 @@ final class OcupacionMesasService
             'inicio' => $objetivo,
             'fin' => $objetivo->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'),
         ];
-        $reservaciones = self::reservacionesDelDia($fecha, $excluirReservacionId, $ahora, $bloquear);
+        $contextoFecha = $contextoFecha ?? self::prepararContextoFecha(
+            $fecha,
+            $bloquear,
+            $ticketsAbiertos,
+            $ahora,
+            $excluirReservacionId
+        );
+        if ((string)($contextoFecha['fecha'] ?? '') !== $fecha) {
+            throw new \InvalidArgumentException('El contexto de ocupación pertenece a otra fecha.');
+        }
+        $reservaciones = (array)($contextoFecha['reservaciones'] ?? []);
         $ocupacionReservaciones = self::ocupacionReservacionesEnIntervalo(
             $reservaciones,
             $intervalo,
             $excluirReservacionId
         );
 
-        $tickets = $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear);
+        $tickets = (array)($contextoFecha['tickets'] ?? []);
         $evaluacionTickets = self::evaluarTickets($tickets, $fecha, $horaSql, $ahora);
-        $mesas = Mesa::buscarTodasParaMapa();
+        $mesas = (array)($contextoFecha['mesas'] ?? []);
         $mesasPorId = [];
         foreach ($mesas as $mesa) {
             $mesasPorId[(int)($mesa->id ?? 0)] = $mesa;
@@ -209,7 +219,7 @@ final class OcupacionMesasService
         unset($estado);
         sort($mesaIdsBloqueadas, SORT_NUMERIC);
 
-        return [
+        $resultado = [
             'ok' => true,
             'fecha' => $fecha,
             'hora' => $horaSql,
@@ -236,6 +246,83 @@ final class OcupacionMesasService
             'tickets_ignorados' => $evaluacionTickets['ignorados'],
             'alertas_operativas' => $alertas,
         ];
+        if (array_key_exists('demanda_no_asignada', $contextoFecha)) {
+            $resultado['demanda_no_asignada_reservaciones'] = self::demandaNoAsignadaEnIntervalo(
+                (array)$contextoFecha['demanda_no_asignada'],
+                $intervalo,
+                $excluirReservacionId
+            );
+        }
+        return $resultado;
+    }
+
+    /** Carga una sola vez los hechos persistidos compartidos por los slots del día. */
+    public static function prepararContextoFecha(
+        string $fecha,
+        bool $bloquear = false,
+        ?array $ticketsAbiertos = null,
+        ?DateTimeImmutable $ahora = null,
+        int|array $excluirReservacionId = 0,
+        bool $incluirDemandaNoAsignada = false
+    ): array {
+        $ahora = $ahora ?? ReservacionConfig::ahora();
+        $reservaciones = ReservacionMesa::obtenerOcupacionDelDia(
+            $fecha,
+            $excluirReservacionId,
+            $bloquear,
+            $ahora
+        );
+        $contexto = [
+            'fecha' => $fecha,
+            'ahora' => $ahora,
+            'bloquear' => $bloquear,
+            'reservaciones' => $reservaciones,
+            'tickets' => $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear),
+            'mesas' => Mesa::buscarTodasParaMapa(),
+        ];
+        $contexto['mesas_reservables'] = array_values(array_filter(
+            $contexto['mesas'],
+            static fn($mesa): bool => self::mesaElegible($mesa)
+        ));
+        if ($incluirDemandaNoAsignada && !$bloquear) {
+            $contexto['demanda_no_asignada'] = ReservacionMesa::obtenerDemandaNoAsignadaDelDia(
+                $fecha,
+                $ahora
+            );
+        }
+        return $contexto;
+    }
+
+    /** Evalúa un horario sobre hechos previamente cargados para la misma fecha. */
+    public static function evaluarHorarioConContexto(
+        array $contextoFecha,
+        string $hora,
+        int|array $excluirReservacionId = 0,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        return self::evaluarHorario(
+            (string)($contextoFecha['fecha'] ?? ''),
+            $hora,
+            $excluirReservacionId,
+            (bool)($contextoFecha['bloquear'] ?? false),
+            (array)($contextoFecha['tickets'] ?? []),
+            $ahora ?? ($contextoFecha['ahora'] ?? null),
+            $contextoFecha
+        );
+    }
+
+    /**
+     * Predicado SQL equivalente al intervalo semiabierto que evalúa
+     * intervalosSeTraslapan(). Las fechas son parámetros del Model.
+     */
+    public static function predicadoSqlTraslape(string $alias = 'r'): string
+    {
+        if (preg_match('/\A[a-zA-Z_][a-zA-Z0-9_]*\z/', $alias) !== 1) {
+            throw new \InvalidArgumentException('Alias SQL inválido para traslape.');
+        }
+        return "TIMESTAMP({$alias}.fecha, {$alias}.hora) < ? AND "
+            . 'TIMESTAMPADD(MINUTE, ' . ReservacionConfig::DURACION_RESERVACION_MINUTOS
+            . ", TIMESTAMP({$alias}.fecha, {$alias}.hora)) > ?";
     }
 
     /**
@@ -316,7 +403,7 @@ final class OcupacionMesasService
         string $hora,
         int $excluirReservacionId = 0
     ): array {
-        $inicio = self::horaMinutos($hora);
+        $inicio = self::fechaHora('2000-01-01', $hora);
         if ($inicio === null) {
             return [];
         }
@@ -325,8 +412,8 @@ final class OcupacionMesasService
             if ($excluirReservacionId > 0 && (int)($asignacion['reservacion_id'] ?? 0) === $excluirReservacionId) {
                 continue;
             }
-            $horaReserva = self::horaMinutos((string)($asignacion['hora'] ?? ''));
-            if ($horaReserva === null || !self::traslapaMinutos($horaReserva, $inicio)) {
+            $horaReserva = self::fechaHora('2000-01-01', (string)($asignacion['hora'] ?? ''));
+            if ($horaReserva === null || !self::intervalosSeTraslapan($horaReserva, $inicio)) {
                 continue;
             }
             $mesaId = (int)($asignacion['mesa_id'] ?? 0);
@@ -388,60 +475,25 @@ final class OcupacionMesasService
     }
 
     /** @return array<int, array<string, mixed>> */
-    private static function reservacionesDelDia(
-        string $fecha,
-        int|array $excluirReservacionId,
-        DateTimeImmutable $ahora,
-        bool $bloquear
+    private static function demandaNoAsignadaEnIntervalo(
+        array $filas,
+        array $intervalo,
+        int|array $excluirReservacionId
     ): array {
-        $db = ActiveRecord::getDB();
-        if (!$db) {
-            throw new \RuntimeException('No hay conexión para consultar ocupación.');
-        }
-        $fechaSql = $db->real_escape_string($fecha);
-        $exclusiones = self::normalizarExclusiones($excluirReservacionId);
-        $excluir = $exclusiones !== []
-            ? 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')'
-            : '';
-        $lock = $bloquear ? ' FOR UPDATE' : '';
-        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
-        $sql = "SELECT rm.mesa_id, r.id AS reservacion_id, r.nombre, r.contacto,
-                       r.fecha, r.hora, r.comensales, r.estado, r.hold_expires_at,
-                       CASE WHEN r.estado = 'pendiente_verificacion' THEN 'hold'
-                            ELSE 'reservacion' END AS fuente
-                FROM reservacion_mesas rm
-                INNER JOIN reservaciones r ON r.id = rm.reservacion_id
-                WHERE r.fecha = '{$fechaSql}'
-                  {$excluir}
-                  AND {$condicionInfluye}
-                ORDER BY r.hora ASC, rm.mesa_id ASC{$lock}";
-        $resultado = $db->query($sql);
-        if (!$resultado) {
-            throw new \RuntimeException($db->error);
-        }
-        $filas = [];
-        while ($fila = $resultado->fetch_assoc()) {
-            $asignacion = [
-                'mesa_id' => (int)$fila['mesa_id'],
-                'reservacion_id' => (int)$fila['reservacion_id'],
-                'nombre' => (string)$fila['nombre'],
-                'contacto' => (string)($fila['contacto'] ?? ''),
-                'fecha' => (string)$fila['fecha'],
-                'hora' => (string)$fila['hora'],
-                'comensales' => (int)$fila['comensales'],
-                'estado' => (string)$fila['estado'],
-                'hold_expires_at' => $fila['hold_expires_at'] !== null ? (string)$fila['hold_expires_at'] : null,
-                'fuente' => (string)$fila['fuente'],
-                'reservacion_influye_en_disponibilidad' => true,
-            ];
-            $vigencia = ReservacionVigenciaService::clasificar($asignacion, $ahora);
-            if (!(bool)($vigencia['influye_disponibilidad'] ?? false)) {
+        $exclusiones = array_fill_keys(self::normalizarExclusiones($excluirReservacionId), true);
+        $resultado = [];
+        foreach ($filas as $fila) {
+            $id = (int)($fila['id'] ?? 0);
+            if ($id < 1 || isset($exclusiones[$id])) {
                 continue;
             }
-            $filas[] = $asignacion;
+            $inicio = self::fechaHora((string)($fila['fecha'] ?? ''), (string)($fila['hora'] ?? ''));
+            if (!$inicio || !self::intervalosSeTraslapan($inicio, $intervalo['inicio'])) {
+                continue;
+            }
+            $resultado[] = $fila;
         }
-        $resultado->free();
-        return $filas;
+        return $resultado;
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -510,24 +562,6 @@ final class OcupacionMesasService
             && ($errores === false || (($errores['warning_count'] ?? 0) === 0 && ($errores['error_count'] ?? 0) === 0))
             ? $resultado
             : null;
-    }
-
-    private static function horaMinutos(string $hora): ?int
-    {
-        $hora = HorarioReservacionService::normalizarHoraSql($hora);
-        if ($hora === '') {
-            return null;
-        }
-        [$h, $m] = array_map('intval', explode(':', substr($hora, 0, 5)));
-        return $h * 60 + $m;
-    }
-
-    private static function traslapaMinutos(int $a, int $b): bool
-    {
-        $duracion = ReservacionConfig::DURACION_RESERVACION_MINUTOS;
-        $previo = ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
-        return ($a - $previo) < ($b + $duracion)
-            && ($b - $previo) < ($a + $duracion);
     }
 
     /**

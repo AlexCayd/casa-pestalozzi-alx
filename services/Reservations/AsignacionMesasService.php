@@ -95,17 +95,20 @@ class AsignacionMesasService
     ): array
     {
         $tickets = $ticketsAbiertos ?? TicketMesa::abiertosParaMapa();
+        $contextoFecha = OcupacionMesasService::prepararContextoFecha(
+            $fecha,
+            false,
+            $tickets
+        );
         $ocupacion = [];
 
         foreach ($reservaciones as $reservacion) {
             $reservacionId = (int)($reservacion->id ?? 0);
             $hora = (string)($reservacion->hora ?? '');
-            $ocupacion[$reservacionId] = (array)(OcupacionMesasService::evaluarHorario(
-                $fecha,
+            $ocupacion[$reservacionId] = (array)(OcupacionMesasService::evaluarHorarioConContexto(
+                $contextoFecha,
                 $hora,
-                $reservacionId,
-                false,
-                $tickets
+                $reservacionId
             )['ocupacion_bloqueante'] ?? []);
         }
 
@@ -649,32 +652,6 @@ class AsignacionMesasService
         }
     }
 
-    private static function ocupacionEnVentana(array $asignaciones, string $hora, int $excluirReservacionId = 0): array
-    {
-        $ocupadas = [];
-
-        foreach ($asignaciones as $asignacion) {
-            if ($excluirReservacionId > 0 && (int)$asignacion['reservacion_id'] === $excluirReservacionId) {
-                continue;
-            }
-
-            if (!self::hayTraslapeHorario($hora, (string)$asignacion['hora']) || empty($asignacion['mesa_id'])) {
-                continue;
-            }
-
-            $ocupadas[(int)$asignacion['mesa_id']] = [
-                'reservacion_id' => (int)$asignacion['reservacion_id'],
-                'nombre' => (string)$asignacion['nombre'],
-                'contacto' => (string)$asignacion['contacto'],
-                'hora' => (string)$asignacion['hora'],
-                'comensales' => (int)$asignacion['comensales'],
-                'estado' => (string)$asignacion['estado'],
-            ];
-        }
-
-        return $ocupadas;
-    }
-
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -714,26 +691,6 @@ class AsignacionMesasService
     private static function tokenConflictosTicket(array $conflictos): string
     {
         return hash('sha256', json_encode($conflictos, JSON_UNESCAPED_SLASHES) ?: '[]');
-    }
-
-    /**
-     * La ocupación física prevalece sobre la agenda: un estado final erróneo
-     * no libera una mesa mientras su ticket continúe abierto.
-     */
-    /**
-     * La ventana es simetrica: dos reservaciones chocan si sus rangos
-     * [hora - bloqueo previo, hora + duracion) se traslapan.
-     */
-    private static function hayTraslapeHorario(string $horaA, string $horaB): bool
-    {
-        $a = self::minutosDesdeHora($horaA);
-        $b = self::minutosDesdeHora($horaB);
-        $inicioA = $a - ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
-        $finA = $a + ReservacionConfig::DURACION_RESERVACION_MINUTOS;
-        $inicioB = $b - ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
-        $finB = $b + ReservacionConfig::DURACION_RESERVACION_MINUTOS;
-
-        return $inicioA < $finB && $inicioB < $finA;
     }
 
     private static function normalizarMesaIds(array $mesaIds): array
@@ -798,12 +755,4 @@ class AsignacionMesasService
         return $fila;
     }
 
-    private static function minutosDesdeHora(string $hora): int
-    {
-        $partes = explode(':', $hora);
-        $horas = isset($partes[0]) ? (int)$partes[0] : 0;
-        $min = isset($partes[1]) ? (int)$partes[1] : 0;
-
-        return ($horas * 60) + $min;
-    }
 }

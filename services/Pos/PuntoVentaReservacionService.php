@@ -16,6 +16,7 @@ use Services\Reservations\ReservacionConfig;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
+use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
@@ -110,7 +111,7 @@ final class PuntoVentaReservacionService
             $db->begin_transaction();
             $transaccion = true;
 
-            $r = self::fila("SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE");
+            $r = Reservacion::buscarFilaPorIdParaActualizar($reservacionId);
             if (!$r) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
             }
@@ -529,9 +530,7 @@ final class PuntoVentaReservacionService
             $reservacionId = $previo['reservacion_id'] !== null ? (int)$previo['reservacion_id'] : null;
             $reservacion = null;
             if ($reservacionId) {
-                $reservacion = self::fila(
-                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
-                );
+                $reservacion = Reservacion::buscarFilaPorIdParaActualizar($reservacionId);
                 if (!$reservacion) {
                     return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
                 }
@@ -698,9 +697,7 @@ final class PuntoVentaReservacionService
 
             $reservacionId = $previo['reservacion_id'] !== null ? (int)$previo['reservacion_id'] : null;
             if ($reservacionId) {
-                $reservacion = self::fila(
-                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
-                );
+                $reservacion = Reservacion::buscarFilaPorIdParaActualizar($reservacionId);
                 if ($reservacion && $reservacion['estado'] === 'en_curso') {
                     self::actualizarReservacion(
                         $db,
@@ -866,7 +863,7 @@ final class PuntoVentaReservacionService
         try {
             $db->begin_transaction();
             $transaccion = true;
-            $r = self::fila("SELECT * FROM reservaciones WHERE id = {$id} FOR UPDATE");
+            $r = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$r) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
             }

@@ -13,6 +13,8 @@ namespace Services\Reservations;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
+use Model\ReservacionMesa;
+use Services\Reservations\ReservacionVigenciaService;
 use Services\Tables\OcupacionMesasService;
 
 final class CapacidadReservacionesService
@@ -31,7 +33,8 @@ final class CapacidadReservacionesService
         bool $bloquear = false,
         ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null,
-        string $origen = ''
+        string $origen = '',
+        ?array $contextoFecha = null
     ): array {
         $evaluacion = OcupacionMesasService::evaluarHorario(
             $fecha,
@@ -39,9 +42,12 @@ final class CapacidadReservacionesService
             $excluirReservacionId,
             $bloquear,
             $ticketsAbiertos,
-            $ahora
+            $ahora,
+            $contextoFecha
         );
-        $mesas = Mesa::reservables();
+        $mesas = $contextoFecha !== null
+            ? (array)($contextoFecha['mesas_reservables'] ?? [])
+            : Mesa::reservables();
         $resumen = self::desdeEvaluacion($mesas, $evaluacion, $excluirReservacionId, $bloquear, $ahora);
         $resumen['ocupacion'] = $evaluacion;
         if ($origen !== '') {
@@ -204,36 +210,45 @@ final class CapacidadReservacionesService
         bool $bloquear = false,
         ?DateTimeImmutable $ahora = null
     ): array {
-        $db = ActiveRecord::getDB();
-        if (!$db || $fecha === '' || empty($intervalo['inicio']) || empty($intervalo['fin'])) {
+        if ($fecha === '' || empty($intervalo['inicio']) || empty($intervalo['fin'])) {
             return [];
         }
         $ahora = $ahora ?? ReservacionConfig::ahora();
-        $fechaSql = $db->real_escape_string($fecha);
-        $inicioSql = $db->real_escape_string((string)$intervalo['inicio']);
-        $finSql = $db->real_escape_string((string)$intervalo['fin']);
+        $db = ActiveRecord::getDB();
+        if (!$db) {
+            return [];
+        }
         $exclusiones = self::ids(is_array($excluirReservacionId) ? $excluirReservacionId : [$excluirReservacionId]);
         $excluir = $exclusiones === [] ? '' : 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')';
-        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
         $lock = $bloquear ? ' FOR UPDATE' : '';
-        $sql = "SELECT r.id, r.fecha, r.hora, r.comensales, r.estado
-                FROM reservaciones r
-                WHERE r.fecha = '{$fechaSql}'
-                  AND r.estado = 'confirmada'
-                  AND TIMESTAMP(r.fecha, r.hora) < '{$finSql}'
-                  AND TIMESTAMPADD(MINUTE, " . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ", TIMESTAMP(r.fecha, r.hora)) > '{$inicioSql}'
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM reservacion_mesas rm
-                      WHERE rm.reservacion_id = r.id
-                  )
-                  AND {$condicionInfluye}
-                  {$excluir}
-                ORDER BY r.hora ASC, r.id ASC{$lock}";
-        $resultado = $db->query($sql);
-        if (!$resultado) {
-            throw new \RuntimeException($db->error);
+        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
+        $stmt = $db->prepare(
+            "SELECT r.id, r.fecha, r.hora, r.comensales, r.estado
+             FROM reservaciones r
+             WHERE r.fecha = ?
+               AND r.estado = 'confirmada'
+               AND " . OcupacionMesasService::predicadoSqlTraslape('r') . "
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM reservacion_mesas rm
+                   WHERE rm.reservacion_id = r.id
+               )
+               AND {$condicionInfluye}
+               {$excluir}
+             ORDER BY r.hora ASC, r.id ASC{$lock}"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta de demanda sin asignación.');
         }
+        $fin = (string)$intervalo['fin'];
+        $inicio = (string)$intervalo['inicio'];
+        $stmt->bind_param('sss', $fecha, $fin, $inicio);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+        $resultado = $stmt->get_result();
         $filas = [];
         while ($fila = $resultado->fetch_assoc()) {
             $filas[] = [
@@ -245,7 +260,7 @@ final class CapacidadReservacionesService
                 'influye_disponibilidad' => true,
             ];
         }
-        $resultado->free();
+        $stmt->close();
         return $filas;
     }
 

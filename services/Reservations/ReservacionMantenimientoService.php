@@ -3,6 +3,7 @@
 namespace Services\Reservations;
 
 use Model\ActiveRecord;
+use Model\ReservacionMesa;
 use Model\TicketMesa;
 
 /**
@@ -183,9 +184,7 @@ final class ReservacionMantenimientoService
                 if (!$db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$idsSql})")) {
                     throw new \RuntimeException($db->error);
                 }
-                if (!$db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$idsSql})")) {
-                    throw new \RuntimeException($db->error);
-                }
+                ReservacionMesa::eliminarAsignaciones($ids);
                 if (!empty($opciones['forzar_error'])) {
                     throw new \RuntimeException('Fallo intermedio solicitado por prueba.');
                 }

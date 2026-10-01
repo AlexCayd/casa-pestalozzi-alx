@@ -41,6 +41,30 @@ $ahora = new DateTimeImmutable('2026-08-08 13:00:00', ReservacionConfig::timezon
 $inicio = new DateTimeImmutable('2026-08-08 14:00:00', ReservacionConfig::timezone());
 $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
 
+$inicioConsecutivo = new DateTimeImmutable('2026-08-08 15:30:00', ReservacionConfig::timezone());
+$inicioUnMinutoAntes = $inicioConsecutivo->modify('-1 minute');
+assertMapaIntervalo(
+    !OcupacionMesasService::intervalosSeTraslapan($inicio, $inicioConsecutivo),
+    'el fin exacto es exclusivo y permite reservaciones consecutivas'
+);
+assertMapaIntervalo(
+    OcupacionMesasService::intervalosSeTraslapan($inicio, $inicioUnMinutoAntes),
+    'un inicio un minuto antes del fin sí se solapa'
+);
+$asignacionCompatibilidad = [[
+    'mesa_id' => 14,
+    'reservacion_id' => 1400,
+    'hora' => '14:00:00',
+]];
+assertMapaIntervalo(
+    OcupacionMesasService::ocupacionReservacionesEnVentana($asignacionCompatibilidad, '15:30:00') === [],
+    'la lectura de compatibilidad usa el mismo fin exclusivo'
+);
+assertMapaIntervalo(
+    isset(OcupacionMesasService::ocupacionReservacionesEnVentana($asignacionCompatibilidad, '15:29:00')[14]),
+    'la lectura de compatibilidad usa la autoridad de solapamiento para un minuto previo'
+);
+
 $consultas = [
     '12:59:59' => 'ocupada',
     '13:00:00' => 'ocupada',

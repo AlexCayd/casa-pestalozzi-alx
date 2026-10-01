@@ -173,6 +173,35 @@ class Reservacion extends ActiveRecord {
         return $fila ? static::crearObjeto($fila) : null;
     }
 
+    /** Lee una fila completa sin adquirir bloqueos transaccionales. */
+    public static function buscarFilaPorId(int $id): ?array
+    {
+        return self::leerFilaPorId($id, false);
+    }
+
+    /** Lee una fila y adquiere FOR UPDATE; el consumidor debe abrir transacción. */
+    public static function buscarFilaPorIdParaActualizar(int $id): ?array
+    {
+        return self::leerFilaPorId($id, true);
+    }
+
+    private static function leerFilaPorId(int $id, bool $bloquear): ?array
+    {
+        if ($id < 1) {
+            return null;
+        }
+        $lock = $bloquear ? ' FOR UPDATE' : '';
+        $resultado = self::getDB()->query(
+            "SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1{$lock}"
+        );
+        if ($resultado === false) {
+            throw new \RuntimeException(self::getDB()->error);
+        }
+        $fila = $resultado->fetch_assoc() ?: null;
+        $resultado->free();
+        return $fila;
+    }
+
     /**
      * Persiste la creación administrativa sin convertir columnas DATETIME
      * opcionales a cadenas vacías. El ActiveRecord genérico entrecomilla todos

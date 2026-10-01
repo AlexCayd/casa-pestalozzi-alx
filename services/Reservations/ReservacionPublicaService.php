@@ -1477,15 +1477,8 @@ final class ReservacionPublicaService
 
     private static function buscarPorToken(string $token): ?array
     {
-        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
-        if (!$stmt) {
-            throw new \RuntimeException('No fue posible preparar la idempotencia.');
-        }
-        $stmt->bind_param('s', $token);
-        $stmt->execute();
-        $fila = $stmt->get_result()->fetch_assoc() ?: null;
-        $stmt->close();
-        return $fila;
+        $reservacion = Reservacion::buscarPorRequestToken($token);
+        return $reservacion ? get_object_vars($reservacion) : null;
     }
 
     private static function buscarPorTokenParaActualizar(string $token): ?array
@@ -1503,27 +1496,12 @@ final class ReservacionPublicaService
 
     private static function buscarPorIdParaActualizar(int $id): ?array
     {
-        $resultado = ActiveRecord::getDB()->query("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1 FOR UPDATE");
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
-        }
-        $fila = $resultado->fetch_assoc() ?: null;
-        $resultado->free();
-        return $fila;
+        return Reservacion::buscarFilaPorIdParaActualizar($id);
     }
 
     private static function buscarPorId(int $id): ?array
     {
-        if ($id < 1) {
-            return null;
-        }
-        $resultado = ActiveRecord::getDB()->query("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1");
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
-        }
-        $fila = $resultado->fetch_assoc() ?: null;
-        $resultado->free();
-        return $fila;
+        return Reservacion::buscarFilaPorId($id);
     }
 
     private static function buscarReemplazoPendienteParaActualizar(int $originalId): ?array

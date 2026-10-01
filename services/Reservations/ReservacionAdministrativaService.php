@@ -55,7 +55,8 @@ final class ReservacionAdministrativaService
             ];
         }
 
-        $calendario = HorarioReservacionService::resolverFecha(trim($fecha));
+        $ahora = ReservacionConfig::ahora();
+        $calendario = HorarioReservacionService::resolverFecha(trim($fecha), $ahora);
         $fechaResuelta = (string)($calendario['fecha'] ?? trim($fecha));
         $fechaInvalida = in_array((string)($calendario['codigo'] ?? ''), [
             HorarioReservacionService::FECHA_INVALIDA,
@@ -83,15 +84,27 @@ final class ReservacionAdministrativaService
             return $base;
         }
 
+        $horarios = (array)($calendario['horarios'] ?? []);
+        $contextoFecha = $horarios !== []
+            ? OcupacionMesasService::prepararContextoFecha(
+                $fechaResuelta,
+                false,
+                null,
+                $ahora,
+                0,
+                true
+            )
+            : null;
         $alternativas = [];
-        foreach ((array)($calendario['horarios'] ?? []) as $hora) {
+        foreach ($horarios as $hora) {
             $horaCorta = substr((string)$hora, 0, 5);
             $evaluacion = self::evaluarDisponibilidad(
                 $fechaResuelta,
                 $horaCorta,
                 (int)$personasValidas,
                 $excluirReservacionId,
-                false
+                false,
+                $contextoFecha
             );
             // Para administracion, "disponible" significa horario valido. La
             // capacidad y las mesas se muestran como decisiones separadas.
@@ -161,7 +174,8 @@ final class ReservacionAdministrativaService
         string $hora,
         int $personas,
         int $excluirReservacionId = 0,
-        bool $bloquear = false
+        bool $bloquear = false,
+        ?array $contextoFecha = null
     ): array {
         $resultado = [
             'ok' => false,
@@ -199,7 +213,11 @@ final class ReservacionAdministrativaService
             return $resultado;
         }
 
-        $horario = HorarioReservacionService::validarHora($fecha, $hora);
+        $horario = HorarioReservacionService::validarHora(
+            $fecha,
+            $hora,
+            $contextoFecha['ahora'] ?? null
+        );
         if (!($horario['ok'] ?? false)) {
             $resultado['codigo'] = $horario['codigo'] ?? ReservacionService::HORARIO_INVALIDO;
             return $resultado + ['siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null];
@@ -210,14 +228,22 @@ final class ReservacionAdministrativaService
         $resultado['fecha'] = (string)$horario['fecha'];
         $resultado['hora'] = (string)$horario['hora_corta'];
         $resultado['horario_valido'] = true;
-        $ocupacion = OcupacionMesasService::evaluarHorario(
-            (string)$horario['fecha'],
-            (string)$horario['hora'],
-            $excluirReservacionId,
-            $bloquear
-        );
+        $ocupacion = $contextoFecha !== null
+            ? OcupacionMesasService::evaluarHorarioConContexto(
+                $contextoFecha,
+                (string)$horario['hora'],
+                $excluirReservacionId
+            )
+            : OcupacionMesasService::evaluarHorario(
+                (string)$horario['fecha'],
+                (string)$horario['hora'],
+                $excluirReservacionId,
+                $bloquear
+            );
         $resultado['ocupacion'] = $ocupacion;
-        $mesas = \Model\Mesa::reservables();
+        $mesas = $contextoFecha !== null
+            ? (array)($contextoFecha['mesas_reservables'] ?? [])
+            : \Model\Mesa::reservables();
         $capacidad = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
         $resultado['capacidad_total'] = (int)$capacidad['capacidad_total'];
         $resultado['capacidad_realmente_libre'] = (int)$capacidad['capacidad_realmente_libre'];
@@ -421,7 +447,7 @@ final class ReservacionAdministrativaService
             }
             $db->begin_transaction();
             $transaccion = true;
-            $fila = self::fila("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1 FOR UPDATE");
+            $fila = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$fila) {
                 return self::rollback($db, self::RESERVACION_NO_EXISTE);
             }
@@ -541,7 +567,7 @@ final class ReservacionAdministrativaService
             }
             $db->begin_transaction();
             $transaccion = true;
-            $fila = self::fila("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1 FOR UPDATE");
+            $fila = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$fila) {
                 return self::rollback($db, ReservacionService::RESERVACION_NO_EXISTE);
             }

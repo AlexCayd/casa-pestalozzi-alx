@@ -23,6 +23,7 @@ function assertDbReassignment(bool $condition, string $message): void
 $db = ActiveRecord::getDB();
 $token = 'audit-fix-' . bin2hex(random_bytes(8));
 $reservacionId = 0;
+$reservacionConflictoId = 0;
 $pasos = [];
 
 try {
@@ -87,8 +88,43 @@ try {
     $guardar([7, 2]);
     $guardar([7]);
 
-    echo json_encode(['ok' => true, 'pasos' => $pasos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    $conflictoToken = 'audit-conflicto-' . bin2hex(random_bytes(8));
+    $conflictoTokenSql = $db->real_escape_string($conflictoToken);
+    assertDbReassignment($db->query(
+        "INSERT INTO reservaciones
+            (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token, estado_changed_at)
+         VALUES
+            ('AUDIT FIX conflicto ocupacion', 'ninguno', NULL, DATE_ADD(CURDATE(), INTERVAL 10 DAY), '13:00:00', 2, '', 'admin', 'confirmada', '{$conflictoTokenSql}', NOW())"
+    ) !== false, 'no se pudo crear la segunda reservacion');
+    $reservacionConflictoId = (int)$db->insert_id;
+
+    $conflicto = AsignacionMesasService::asignarManual($reservacionConflictoId, [7]);
+    assertDbReassignment(
+        ($conflicto['ok'] ?? false) === false
+            && ($conflicto['codigo'] ?? '') === AsignacionMesasService::MESA_OCUPADA,
+        'no se permitió asignar dos reservaciones solapadas a la misma mesa'
+    );
+
+    $asignacionAntesRollback = ReservacionMesa::obtenerIdsPorReservacion($reservacionId);
+    $db->begin_transaction();
+    ReservacionMesa::reemplazarAsignacion($reservacionId, [2, 3]);
+    $db->rollback();
+    assertDbReassignment(
+        ReservacionMesa::obtenerIdsPorReservacion($reservacionId) === $asignacionAntesRollback,
+        'rollback conservó la asignación previa de la reservación'
+    );
+
+    echo json_encode([
+        'ok' => true,
+        'pasos' => $pasos,
+        'conflicto_ocupacion' => $conflicto['codigo'],
+        'rollback_mesas' => $asignacionAntesRollback,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } finally {
+    if ($reservacionConflictoId > 0) {
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id = {$reservacionConflictoId}");
+        $db->query("DELETE FROM reservaciones WHERE id = {$reservacionConflictoId}");
+    }
     if ($reservacionId > 0) {
         $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id = {$reservacionId}");
         $db->query("DELETE FROM reservaciones WHERE id = {$reservacionId}");
