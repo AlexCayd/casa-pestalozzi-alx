@@ -15,32 +15,31 @@ $mapHelpSubtitle = $mapHelpContext === 'reservations'
     ? 'Consulta la disponibilidad para la fecha y hora seleccionadas.'
     : 'Consulta el estado actual de las mesas.';
 $mapHelpAvailableCopy = $mapHelpContext === 'reservations'
-    ? 'El intervalo consultado está disponible.'
+    ? 'La mesa se proyecta disponible en la hora seleccionada.'
     : 'Mesa disponible en el contexto mostrado.';
 $mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
-    ? 'Un ticket u otra ocupación independiente bloquea el intervalo.'
+    ? 'La mesa se proyecta ocupada por una reservación activa, un ticket o una restricción operativa.'
     : 'Mesa ocupada por un ticket o una restricción operativa.';
 $mapHelpReservationCopy = $mapHelpContext === 'reservations'
-    ? 'Una reservación ocupa parte del intervalo consultado.'
+    ? 'Hay una reservación que todavía no inicia y comienza en 30 minutos o menos; la mesa está bloqueada preventivamente.'
     : 'Mesa comprometida por una reservación.';
 $mapHelpUnavailableCopy = $mapHelpContext === 'reservations'
     ? 'Mesa no disponible para esta operación.'
     : 'Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.';
 $mapHelpWarningCopy = $mapHelpContext === 'reservations'
-    ? 'El borde azul discontinuo indica una reservación cercana. El fondo sigue mostrando la disponibilidad real del intervalo.'
+    ? 'Hay una reservación a más de 30 y hasta 60 minutos; la mesa todavía se proyecta disponible.'
     : 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.';
 $mapHelpWarningStateClass = 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';
 $mapHelpAbsenceCopy = $mapHelpContext === 'reservations'
-    ? 'La tolerancia venció. El indicador puede aparecer sobre distintos estados del intervalo.'
+    ? 'La ausencia pendiente es una señal adicional y no sustituye la proyección de la mesa.'
     : 'La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.';
 $mapHelpAbsenceStateClass = $mapHelpContext === 'reservations'
     ? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'
     : 'mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente';
 $mapHelpContextNotes = $mapHelpContext === 'reservations'
     ? [
-        'El fondo representa la disponibilidad del intervalo seleccionado; los bordes y los iconos muestran alertas adicionales.',
-        'Una reservación que ocupa parte del intervalo usa azul; una posterior cercana puede advertir sin bloquear.',
-        'La ausencia pendiente puede coexistir con distintos colores de fondo.',
+        'El fondo representa la proyección de la mesa en la hora seleccionada. La asignación valida por separado el intervalo completo de 90 minutos.',
+        'La ausencia pendiente aparece como señal adicional y no cambia el estado proyectado.',
     ]
     : [
         'Entre 60 y 30 minutos antes aparece una advertencia. A partir de 30 minutos antes, se bloquea el walk-in.',

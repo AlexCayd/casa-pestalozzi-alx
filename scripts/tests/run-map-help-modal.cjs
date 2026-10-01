@@ -33,11 +33,11 @@ check(view.includes('mesa-pin--mod-reservacion_advertencia'), 'la muestra de adv
 check(view.includes("$mapHelpWarningStateClass = 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';"), 'ambos contextos muestran la alerta sobre fondo disponible');
 check(view.includes('mesa-pin--mod-accion_pendiente'), 'la muestra de ausencia incluye su indicador');
 check(view.includes("? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'"), 'Reservaciones muestra ausencia sobre el estado ocupado');
-check(view.includes("? 'Un ticket u otra ocupación independiente bloquea el intervalo.'"), 'Reservaciones explica rojo sólo por ocupación independiente');
-check(view.includes("? 'Una reservación ocupa parte del intervalo consultado.'"), 'azul explica el bloqueo por solapamiento');
-check(view.includes("? 'La tolerancia venció. El indicador puede aparecer sobre distintos estados del intervalo.'"), 'Reservaciones explica la ausencia como señal superpuesta');
-check(view.includes('El borde azul discontinuo indica una reservación cercana. El fondo sigue mostrando la disponibilidad real del intervalo.'), 'Reservaciones explica la advertencia secundaria y conserva el significado del fondo');
-check(view.includes("? 'El intervalo consultado está disponible.'"), 'verde explica la disponibilidad del intervalo');
+check(view.includes("? 'La mesa se proyecta ocupada por una reservación activa, un ticket o una restricción operativa.'"), 'Reservaciones explica el rojo por reserva activa, ticket o restricción');
+check(view.includes("? 'Hay una reservación que todavía no inicia y comienza en 30 minutos o menos; la mesa está bloqueada preventivamente.'"), 'azul explica el bloqueo preventivo hasta 30 minutos antes');
+check(view.includes("? 'La ausencia pendiente es una señal adicional y no sustituye la proyección de la mesa.'"), 'Reservaciones explica la ausencia como señal secundaria');
+check(view.includes("? 'Hay una reservación a más de 30 y hasta 60 minutos; la mesa todavía se proyecta disponible.'"), 'la advertencia explica el borde sobre la proyección disponible');
+check(view.includes("? 'La mesa se proyecta disponible en la hora seleccionada.'"), 'verde explica la proyección puntual de la mesa');
 check(view.includes('class="map-help-dialog__note" role="note"') && view.includes('Los colores orientan; las acciones se verifican al realizar la operación.'), 'el modal incluye la nota operativa breve en su contenedor');
 check(view.includes('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle>'), 'la nota incluye un icono decorativo de información');
 check(view.includes('Reserva cercana') && view.includes('Ausencia pendiente') && view.includes('No utilizable'), 'el modal usa las etiquetas breves acordadas');
@@ -45,8 +45,10 @@ check(view.includes('Mesa disponible en el contexto mostrado.') && view.includes
 check(view.includes('Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.'), 'POS explica los elementos no utilizable por su etiqueta');
 check(view.includes('Mesa no disponible para esta operación.'), 'Reservaciones explica el estado no utilizable en su contexto');
 check(view.includes('Consulta el estado actual de las mesas.') && view.includes('Consulta la disponibilidad para la fecha y hora seleccionadas.'), 'el modal define un subtítulo para cada contexto');
-check(view.includes('El fondo representa la disponibilidad del intervalo seleccionado; los bordes y los iconos muestran alertas adicionales.') && view.includes('Una reservación que ocupa parte del intervalo usa azul; una posterior cercana puede advertir sin bloquear.') && view.includes('La ausencia pendiente puede coexistir con distintos colores de fondo.'), 'Reservaciones explica el fondo y las alertas del intervalo consultado');
+check(view.includes('El fondo representa la proyección de la mesa en la hora seleccionada. La asignación valida por separado el intervalo completo de 90 minutos.') && view.includes('La ausencia pendiente aparece como señal adicional y no cambia el estado proyectado.'), 'Reservaciones separa proyección puntual y asignación de 90 minutos');
 check(view.includes('Entre 60 y 30 minutos antes aparece una advertencia.') && view.includes('A partir de 30 minutos antes, se bloquea el walk-in.') && view.includes('Hasta 15 minutos después del inicio hay tolerancia; después puede quedar una ausencia pendiente.') && view.includes('En POS, el rojo suele indicar un ticket abierto; también puede reflejar una restricción operativa.'), 'POS describe sus ventanas temporales y el contexto del rojo');
+check(view.includes(": 'Mesa disponible en el contexto mostrado.'") && view.includes(": 'Mesa ocupada por un ticket o una restricción operativa.'") && view.includes(": 'Mesa comprometida por una reservación.'"), 'POS conserva sus explicaciones de verde, rojo y reservación');
+check(view.includes(": 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.'"), 'POS conserva su explicación de advertencia');
 check(view.includes('data-map-query-status role="status" aria-live="polite"') && view.includes('data-map-validation-status role="status" aria-live="polite"'), 'el mapa ofrece regiones accesibles para fallos de consulta y estados no verificados');
 check(!view.includes('map-help-dialog__contexts') && !view.includes('Muestra principalmente la operación actual'), 'el modal elimina los bloques de explicación extensa');
 check(reservations.includes("'helpContext' => 'reservations'") && reservations.includes("'legendPosition' => 'none'"), 'Reservaciones contextualiza la ayuda y oculta su leyenda');

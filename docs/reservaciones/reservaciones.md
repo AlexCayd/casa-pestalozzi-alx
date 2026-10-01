@@ -289,14 +289,6 @@ nota breve: los colores orientan y las acciones se validan en la operación.
 Reservaciones no mantiene otra leyenda permanente. El modal contextualiza el
 estado actual en POS y la fecha y hora consultadas en Reservaciones.
 
-### Fixtures visuales locales
-
-`php scripts/dev/seed-map-visual-validation.php` crea o actualiza mesas,
-reservaciones, retenciones y tickets identificados con `[MAP TEST]` en la base
-local de desarrollo. Imprime IDs, horas y URLs de `http://localhost:3000` para
-la reservación de referencia y la proyección de ticket. Los fixtures se dejan
-persistidos para revisión manual; el seeder no tiene operación de limpieza.
-
 ## Cambios de horario y afectaciones
 
 Si una modificación del horario efectivo deja una reserva fuera de operación,

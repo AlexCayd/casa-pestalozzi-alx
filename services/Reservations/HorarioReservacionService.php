@@ -29,7 +29,7 @@ class HorarioReservacionService
 
     /**
      * Genera la proyección reservable desde el horario operativo canónico.
-     * La última reservación comienza, como máximo, una hora antes del cierre.
+     * La última reservación respeta el margen configurado antes del cierre.
      */
     public static function generarIntervalos(string $horaApertura, string $horaCierre): array
     {

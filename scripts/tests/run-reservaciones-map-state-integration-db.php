@@ -191,7 +191,7 @@ try {
             && $selected['label_visual_mapa'] === 'Ocupada por reservación'
             && $selected['aria_label_mapa'] === 'Fixture mapa 9801, ocupada por reservación.'
             && $selected['titulo_mapa'] === $selected['aria_label_mapa'],
-        'endpoint JSON N: la reserva propia se conserva azul y asignable'
+        'endpoint JSON N: la reserva propia conserva proyección roja y puede mantenerse asignable durante la edición'
     );
 
     // C and D — interval facts stay stable for one-minute overlap and changing now.
