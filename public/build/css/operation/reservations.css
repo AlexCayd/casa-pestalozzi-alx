@@ -6081,17 +6081,16 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-reservation-border, var(--admin-gold));
 }
 
-.operation-tables-card--seleccionada {
+.operation-tables-card--selected > button,
+.operation-tables-card--selected:not(:has(> button)) {
   border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-surface-soft) 86%, var(--admin-gold) 14%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-gold) 42%, transparent);
 }
 
-.operation-tables-card--seleccionada .operation-tables-card__state {
+.operation-tables-card__selection {
   color: var(--admin-gold-soft);
-}
-
-.operation-tables-card--seleccionada .operation-tables-card__state::before {
-  background: var(--admin-gold);
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-semibold);
 }
 
 .operation-tables-card--no-utilizable .operation-tables-card__state {

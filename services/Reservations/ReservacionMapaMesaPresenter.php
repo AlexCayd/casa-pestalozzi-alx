@@ -14,7 +14,7 @@ final class ReservacionMapaMesaPresenter
     public static function presentar(array $hechos): array
     {
         if (!self::booleano($hechos['utilizable'] ?? false)) {
-            return self::resultado('no-utilizable', [], 'no utilizable', 'no-utilizable');
+            return self::resultado('no-utilizable', [], 'No utilizable', 'no-utilizable');
         }
 
         $causas = array_values(array_unique(array_map('strval', (array)($hechos['causas_bloqueo'] ?? []))));
@@ -28,11 +28,13 @@ final class ReservacionMapaMesaPresenter
         // temporales POS nunca cambian por sí solas el estado base del mapa.
         if ($ticketBloquea) {
             $estado = 'ocupada';
-            $label = 'no disponible por ticket';
+            $label = self::booleano($hechos['ocupada_fisicamente'] ?? false)
+                ? 'Ocupada por servicio activo'
+                : 'No disponible por ticket';
             $precedencia = 'ticket';
         } elseif ($bloqueada && $reservacionBloquea) {
             $estado = 'reservacion-proxima';
-            $label = 'no disponible por reservación';
+            $label = 'No disponible por reservación';
             $precedencia = 'reservacion_intervalo';
         } elseif ($bloqueada) {
             $estado = 'ocupada';
@@ -40,7 +42,7 @@ final class ReservacionMapaMesaPresenter
             $precedencia = 'restriccion_intervalo';
         } else {
             $estado = 'libre';
-            $label = 'disponible';
+            $label = 'Disponible';
             $precedencia = 'disponible';
         }
 
@@ -57,10 +59,8 @@ final class ReservacionMapaMesaPresenter
         if ($advertencia && !$reservacionSeSolapa) {
             $modificadores[] = 'reservacion_advertencia';
             if ($estado === 'libre') {
-                $label = 'disponible con reservación cercana';
+                $label = 'Disponible con reservación cercana';
                 $precedencia = 'reservacion_advertencia';
-            } else {
-                $label .= '; reservación cercana';
             }
         }
 
@@ -73,7 +73,6 @@ final class ReservacionMapaMesaPresenter
                 || self::booleano($reservacion['ausencia_pendiente'] ?? false));
         if ($ausenciaPendiente) {
             $modificadores[] = 'ausencia_pendiente';
-            $label .= '. Acción pendiente: registrar ausencia';
         }
 
         return self::resultado(
@@ -99,15 +98,18 @@ final class ReservacionMapaMesaPresenter
     private static function etiquetaBloqueo(array $causas): string
     {
         if (in_array('ticket', $causas, true)) {
-            return 'no disponible por ticket';
+            return 'No disponible por ticket';
         }
         if (in_array('hold', $causas, true)) {
-            return 'no disponible por retención';
+            return 'No disponible por retención';
+        }
+        if (in_array('ocupacion', $causas, true)) {
+            return 'No disponible para el intervalo seleccionado';
         }
         if (in_array('reservacion', $causas, true)) {
-            return 'no disponible por reservación';
+            return 'No disponible por reservación';
         }
-        return 'no disponible para el intervalo seleccionado';
+        return 'No disponible para el intervalo seleccionado';
     }
 
     /** @param array<int, mixed> $causas */

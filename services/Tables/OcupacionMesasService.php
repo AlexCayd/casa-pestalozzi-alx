@@ -263,19 +263,22 @@ final class OcupacionMesasService
         ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null,
         int|array $excluirReservacionId = 0,
-        bool $incluirDemandaNoAsignada = false
+        bool $incluirDemandaNoAsignada = false,
+        bool $incluirAusenciasPendientesEnMapaAdmin = false
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $reservaciones = ReservacionMesa::obtenerOcupacionDelDia(
             $fecha,
             $excluirReservacionId,
             $bloquear,
-            $ahora
+            $ahora,
+            $incluirAusenciasPendientesEnMapaAdmin
         );
         $contexto = [
             'fecha' => $fecha,
             'ahora' => $ahora,
             'bloquear' => $bloquear,
+            'incluir_ausencias_pendientes_mapa_admin' => $incluirAusenciasPendientesEnMapaAdmin,
             'reservaciones' => $reservaciones,
             'tickets' => $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear),
             'mesas' => Mesa::buscarTodasParaMapa(),
@@ -511,7 +514,8 @@ final class OcupacionMesasService
                 continue;
             }
             if (array_key_exists('reservacion_influye_en_disponibilidad', $asignacion)
-                && !(bool)$asignacion['reservacion_influye_en_disponibilidad']) {
+                && !(bool)$asignacion['reservacion_influye_en_disponibilidad']
+                && empty($asignacion['bloquea_intervalo_mapa_admin'])) {
                 continue;
             }
             $reserva = self::fechaHora((string)$asignacion['fecha'], (string)$asignacion['hora']);

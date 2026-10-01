@@ -121,7 +121,8 @@ class ReservacionMesa extends ActiveRecord
         string $fecha,
         int|array $excluirReservacionId = 0,
         bool $bloquear = false,
-        ?\DateTimeImmutable $ahora = null
+        ?\DateTimeImmutable $ahora = null,
+        bool $incluirAusenciasPendientesEnMapaAdmin = false
     ): array {
         $fecha = self::escaparString($fecha);
         $exclusiones = is_array($excluirReservacionId) ? $excluirReservacionId : [$excluirReservacionId];
@@ -129,6 +130,26 @@ class ReservacionMesa extends ActiveRecord
         $excluirSql = $exclusiones !== [] ? 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')' : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
         $condicionOcupacion = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
+        if ($incluirAusenciasPendientesEnMapaAdmin) {
+            $instante = self::$db->real_escape_string(
+                ($ahora ?? \Services\Reservations\ReservacionConfig::ahora())->format('Y-m-d H:i:s')
+            );
+            // El mapa administrativo conserva el bloqueo por intervalo de una
+            // confirmada mientras el operador resuelve el no-show. POS sigue
+            // usando la condición temporal ordinaria.
+            $condicionOcupacion = "(
+                (r.estado = 'confirmada' AND NOT EXISTS (
+                    SELECT 1 FROM tickets vigencia_ticket
+                    WHERE vigencia_ticket.reservacion_id = r.id
+                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
+                ))
+                OR (
+                    r.estado = 'pendiente_verificacion'
+                    AND r.hold_expires_at IS NOT NULL
+                    AND r.hold_expires_at > '{$instante}'
+                )
+            )";
+        }
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,
@@ -171,7 +192,13 @@ class ReservacionMesa extends ActiveRecord
                 'reservacion_influye_en_disponibilidad' => true,
             ];
             $vigencia = ReservacionVigenciaService::clasificar($asignacion, $ahora);
-            if ((bool)($vigencia['influye_disponibilidad'] ?? false)) {
+            $asignacion['reservacion_influye_en_disponibilidad'] = (bool)(
+                $vigencia['influye_disponibilidad'] ?? false
+            );
+            $ausenciaPendienteEnMapa = $incluirAusenciasPendientesEnMapaAdmin
+                && (bool)($vigencia['ausencia_pendiente'] ?? false);
+            if ((bool)($vigencia['influye_disponibilidad'] ?? false) || $ausenciaPendienteEnMapa) {
+                $asignacion['bloquea_intervalo_mapa_admin'] = $ausenciaPendienteEnMapa;
                 $ocupacion[] = $asignacion;
             }
         }

@@ -162,7 +162,10 @@ $estadoConflicto = MesaEstadoService::normalizarMesas(
     ]
 )[0];
 buzonAssert($estadoConflicto['estado_visual_mapa'] === 'ocupada', 'restricción independiente conserva rojo aunque la reservación no proyecte');
-buzonAssert(str_contains($estadoConflicto['aria_label_mapa'], 'retención vigente'), 'pin rojo explica la causa independiente');
+buzonAssert(
+    str_contains(mb_strtolower($estadoConflicto['aria_label_mapa']), 'no disponible por retención'),
+    'pin rojo explica la causa independiente'
+);
 
 buzonAssert(ReservacionBuzonService::grupoGrandeVisibleParaBuzon([
     'estado' => 'confirmada', 'comensales' => 13, 'contacto_tipo' => 'ninguno', 'contacto' => '', 'mesas_count' => 0,

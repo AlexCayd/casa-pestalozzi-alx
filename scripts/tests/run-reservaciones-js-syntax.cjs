@@ -111,6 +111,10 @@ assertContract(operation.includes("error.codigo === 'FECHA_FUERA_DE_HORIZONTE'")
 assertContract(operation.includes('showTechnicalError(kind, fecha, error)'), 'operacion presenta el error canonico de fecha');
 assertContract(!operation.includes('ventana_operativa'), 'operacion no recalcula ventanas visuales');
 assertContract(operation.includes('estado_visual_mapa'), 'operacion consume proyeccion visual del backend');
+assertContract(operation.includes('label_visual_mapa'), 'operacion consume la etiqueta backend del mapa');
+assertContract(operation.includes('mapProjection.titulo'), 'tooltip consume el título backend del mapa');
+assertContract(!operation.includes("'Reserva próxima'"), 'operacion no reinterpreta el azul como reserva próxima');
+assertContract(!operation.includes("visualState === 'seleccionada'"), 'el modal no reemplaza el estado por selección');
 assertContract(operation.includes('currentAssignmentIds'), 'operacion conserva snapshot de asignacion actual');
 assertContract(operation.includes('candidateSelectionIds'), 'operacion separa seleccion candidata');
 assertContract(!operation.includes('state.mesasSeleccionadas'), 'operacion no reutiliza una coleccion ambigua de mesas');
@@ -142,6 +146,19 @@ const vm = require('vm');
 const policyContext = { window: {} };
 vm.runInNewContext(operationPolicy, policyContext, { filename: files[6] });
 const operationPolicyApi = policyContext.window.ReservationOperationPolicy;
+function modalTableContract(overrides) {
+  return Object.assign({
+    id: 14,
+    reservable: true,
+    utilizable: true,
+    disponible_para_asignacion: true,
+    estado_visual_mapa: 'libre',
+    label_visual_mapa: 'Disponible',
+    modificadores_visual_mapa: [],
+    aria_label_mapa: 'Mesa 14, disponible.',
+    titulo_mapa: 'Mesa 14, disponible.'
+  }, overrides || {});
+}
 const projectedTicket = {
   id: 1,
   reservable: true,
@@ -150,7 +167,11 @@ const projectedTicket = {
   ticket_bloquea_consulta: false,
   bloqueada_en_intervalo: false,
   disponible_para_asignacion: true,
-  estado_visual_mapa: 'libre'
+  estado_visual_mapa: 'libre',
+  label_visual_mapa: 'Disponible',
+  modificadores_visual_mapa: [],
+  titulo_mapa: 'Mesa 14, disponible.',
+  aria_label_mapa: 'Mesa 14, disponible.'
 };
 assertContract(
   operationPolicyApi.mesaPuedeSerCandidata(projectedTicket) === true,
@@ -172,13 +193,87 @@ const blockedTicket = Object.assign({}, projectedTicket, {
   ticket_bloquea_consulta: true,
   bloqueada_en_intervalo: true,
   disponible_para_asignacion: false,
-  estado_visual_mapa: 'ocupada'
+  estado_visual_mapa: 'ocupada',
+  label_visual_mapa: 'Ocupada por servicio activo',
+  ocupada_fisicamente: true,
+  titulo_mapa: 'Mesa 14, ocupada por servicio activo.',
+  aria_label_mapa: 'Mesa 14, ocupada por servicio activo.'
 });
 assertContract(
   operationPolicyApi.mesaPuedeSerCandidata(blockedTicket) === false
-    && operationPolicyApi.tableModalState(blockedTicket).label === 'Ocupada',
+    && operationPolicyApi.tableModalState(blockedTicket).label === 'Ocupada por servicio activo',
   'ticket dentro del bloqueo conserva protección en resumen y selección'
 );
+const adjacentContract = modalTableContract({
+  label_visual_mapa: 'Disponible con reservación cercana',
+  modificadores_visual_mapa: ['reservacion_advertencia'],
+  titulo_mapa: 'Mesa 14, disponible con reservación cercana.',
+  aria_label_mapa: 'Mesa 14, disponible con reservación cercana.'
+});
+const adjacentModal = operationPolicyApi.tableModalState(adjacentContract);
+assertContract(
+  adjacentModal.visualState === 'libre'
+    && adjacentModal.label === 'Disponible con reservación cercana'
+    && adjacentModal.ariaLabel === adjacentContract.titulo_mapa
+    && adjacentModal.assignable === true,
+  'libre con advertencia conserva el estado y label del contrato backend'
+);
+const selectedAvailableModal = operationPolicyApi.tableModalState(
+  modalTableContract(),
+  { selected: true }
+);
+assertContract(
+  selectedAvailableModal.visualState === 'libre'
+    && selectedAvailableModal.label === 'Disponible'
+    && selectedAvailableModal.selected === true
+    && selectedAvailableModal.assignable === true,
+  'selección de mesa libre conserva Disponible y usa selected como capa secundaria'
+);
+const selectedReservationContract = modalTableContract({
+  disponible_para_asignacion: true,
+  bloqueada_en_intervalo: true,
+  causas_bloqueo: ['reservacion'],
+  estado_visual_mapa: 'reservacion-proxima',
+  label_visual_mapa: 'No disponible por reservación',
+  titulo_mapa: 'Mesa 14, no disponible por reservación.',
+  aria_label_mapa: 'Mesa 14, no disponible por reservación.'
+});
+const selectedReservationModal = operationPolicyApi.tableModalState(selectedReservationContract, { selected: true });
+assertContract(
+  selectedReservationModal.visualState === 'reservacion-proxima'
+    && selectedReservationModal.label === 'No disponible por reservación'
+    && selectedReservationModal.ariaLabel === selectedReservationContract.titulo_mapa
+    && selectedReservationModal.selected === true
+    && selectedReservationModal.assignable === true,
+  'selección de la reservación propia conserva azul y la asignabilidad backend'
+);
+const selectedTicketModal = operationPolicyApi.tableModalState(
+  Object.assign({}, blockedTicket, { asignada_actualmente: true }),
+  { selected: true }
+);
+assertContract(
+  selectedTicketModal.visualState === 'ocupada'
+    && selectedTicketModal.selected === true
+    && selectedTicketModal.assignable === false,
+  'selección existente de una mesa roja queda como capa secundaria'
+);
+const invalidModal = operationPolicyApi.tableModalState({
+  id: 15,
+  reservable: true,
+  disponible_para_asignacion: true,
+  estado_visual_mapa: 'visual-desconocido',
+  modificadores_visual_mapa: [],
+  label_visual_mapa: 'Disponible',
+  titulo_mapa: 'Mesa 15, disponible.'
+}, { selected: true });
+assertContract(
+  invalidModal.visualState === 'no-utilizable'
+    && invalidModal.label === 'Estado no verificado'
+    && invalidModal.selected === false
+    && invalidModal.assignable === false,
+  'contrato visual inválido no parece disponible ni seleccionable en el modal'
+);
+assertContract(!operationPolicy.includes('reservacion_proxima') && !operationPolicy.includes('minutos_restantes'), 'policy del modal no reconstruye disponibilidad desde reserva u hora');
 assertContract(
   operationPolicyApi.currentAssignmentIsConflict(Object.assign({}, blockedTicket, { asignada_actualmente: true })) === true,
   'ticket dentro del bloqueo crea conflicto de reasignación'

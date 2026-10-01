@@ -119,6 +119,39 @@ El contrato JSON entrega por separado hechos y proyección visual.
 `map-contract.js` valida únicamente los cuatro estados visuales permitidos y
 los modificadores.
 
+| Hecho | Significado |
+| --- | --- |
+| `bloqueada_en_intervalo` | Existe una ocupación que cruza el intervalo consultado de 90 minutos. |
+| `disponible_para_asignacion` | La mesa puede elegirse en el contexto de la operación, incluidas las excepciones de conservación de la propia asignación. |
+| `reservacion_cercana_mapa` | Hay una reserva adyacente que no bloquea el intervalo. |
+| `estado_visual_mapa` | Proyección visual del intervalo: libre, ocupada, reservacion-proxima o no-utilizable. |
+| `seleccionada` | Capa de interfaz; no cambia el estado visual ni la disponibilidad. |
+
+Una reservación seleccionada puede continuar bloqueando visualmente el
+intervalo aunque sea válida para conservar su propia asignación. La consulta
+visual mantiene todas las ocupaciones; la evaluación de asignación puede
+excluir la reservación que se está editando. Así, una mesa asignada a esa misma
+reservación conserva su estado azul cuando el intervalo se solapa y puede tener
+`disponible_para_asignacion: true` para conservar la selección.
+
+En Reservaciones, `reservacion-proxima` es el estado técnico azul de un
+intervalo bloqueado por una reservación y su etiqueta es “No disponible por
+reservación”. `reservacion_advertencia` sólo expresa una reserva adyacente que
+no bloquea: conserva el estado libre y se etiqueta “Disponible con reservación
+cercana”. No se usa “Reserva próxima” como etiqueta genérica del estado azul.
+
+El estado del intervalo se obtiene con `OcupacionMesasService::intervalosSeTraslapan()`.
+`aplica_hora_consultada` indica solapamiento; una reserva adyacente también
+llega al presenter mediante `reservacion_cercana_mapa`. El campo de
+compatibilidad `reservacion_influye_en_consulta` conserva su significado
+histórico y limitado: la hora inicial consultada cae dentro de la reserva. No
+decide bloqueo, color ni asignabilidad.
+
+Una ausencia pendiente conserva el bloqueo del intervalo en el mapa
+administrativo hasta que el operador cambie la reserva a `no_show`. La ausencia
+es un modificador y una acción, no un estado de disponibilidad. La superficie
+POS conserva su política temporal actual.
+
 `table-state-adapter.js` produce el objeto visual que necesita el mapa:
 normaliza el contrato, posiciones, atributos, selección solicitada y texto de
 presentación. No decide disponibilidad ni reglas temporales.

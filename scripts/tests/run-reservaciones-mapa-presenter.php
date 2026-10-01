@@ -36,7 +36,7 @@ assertMapContract(
     'reserva consecutiva añade sólo borde azul discontinuo'
 );
 assertMapContract(
-    $adjacentReservation['label'] === 'disponible con reservación cercana',
+    $adjacentReservation['label'] === 'Disponible con reservación cercana',
     'reserva consecutiva tiene etiqueta accesible de disponibilidad'
 );
 
@@ -51,7 +51,7 @@ $blockingReservation = ReservacionMapaMesaPresenter::presentar([
 ]);
 assertMapContract($blockingReservation['estado_visual'] === 'reservacion-proxima', 'reserva que ocupa el intervalo usa azul');
 assertMapContract($blockingReservation['modificadores'] === [], 'el bloqueo por reserva no duplica advertencia');
-assertMapContract($blockingReservation['label'] === 'no disponible por reservación', 'azul explica la causa real');
+assertMapContract($blockingReservation['label'] === 'No disponible por reservación', 'azul explica la causa real');
 
 $oneMinuteOverlap = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
@@ -69,7 +69,19 @@ $ticket = ReservacionMapaMesaPresenter::presentar([
 ]);
 assertMapContract($ticket['estado_visual'] === 'ocupada', 'ticket que intersecta usa rojo');
 assertMapContract($ticket['modificadores'] === [], 'ticket sin señales secundarias');
-assertMapContract($ticket['label'] === 'no disponible por ticket', 'rojo explica el ticket');
+assertMapContract($ticket['label'] === 'No disponible por ticket', 'rojo explica el ticket');
+
+$activeServiceTicket = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['ticket'],
+    'ticket_bloquea_consulta' => true,
+    'ocupada_fisicamente' => true,
+]);
+assertMapContract(
+    $activeServiceTicket['label'] === 'Ocupada por servicio activo',
+    'el label de servicio activo requiere ocupación física'
+);
 
 $ticketWithNearbyReservation = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
@@ -106,7 +118,7 @@ $independentBlock = ReservacionMapaMesaPresenter::presentar([
     'causas_bloqueo' => ['reservacion', 'hold'],
 ]);
 assertMapContract($independentBlock['estado_visual'] === 'ocupada', 'hold independiente usa rojo');
-assertMapContract($independentBlock['label'] === 'no disponible por retención', 'retención conserva prioridad descriptiva sobre reserva');
+assertMapContract($independentBlock['label'] === 'No disponible por retención', 'retención conserva prioridad descriptiva sobre reserva');
 
 $releasedTicket = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,

@@ -1776,13 +1776,17 @@
                 ? mesaEstado.modificadores_visual_mapa.slice()
                 : [];
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
-            if (!validation.valido || !modificadoresValidos || !ariaLabel) {
+            var titulo = String(mesaEstado.titulo_mapa || '').trim();
+            var label = String(mesaEstado.label_visual_mapa || '').trim();
+            if (!validation.valido || !modificadoresValidos || !ariaLabel || !titulo || !label) {
                 var tableName = String(mesaEstado.nombre || mesaEstado.etiqueta || ('Mesa ' + (mesaEstado.id || ''))).trim();
                 var fallback = window.MapaContrato.fallbackSeguro();
                 return {
                     estado: fallback.estadoVisual,
                     modificadores: fallback.modificadores,
                     estadoNoVerificado: fallback.estadoNoVerificado,
+                    titulo: tableName + ': Estado no verificado.',
+                    label: 'Estado no verificado',
                     ariaLabel: tableName + ': Estado no verificado. La información visual está incompleta; no se puede asignar hasta recibir información válida.'
                 };
             }
@@ -1790,30 +1794,14 @@
                 estado: estado,
                 modificadores: modificadores,
                 estadoNoVerificado: false,
-                ariaLabel: ariaLabel
+                ariaLabel: ariaLabel,
+                titulo: titulo,
+                label: label
             };
         }
 
         function mapStateLabel(mesaEstado, projection) {
-            if (projection.estadoNoVerificado) {
-                return 'Estado no verificado';
-            }
-            if (projection.estado === 'no-utilizable') {
-                return mesaEstado.activo === false
-                    ? 'Mesa fuera de servicio'
-                    : 'No asignable en Reservaciones';
-            }
-            if (projection.modificadores.indexOf('ausencia_pendiente') !== -1) {
-                return 'Ausencia pendiente';
-            }
-            if (projection.modificadores.indexOf('reservacion_advertencia') !== -1
-                || projection.estado === 'reservacion-proxima') {
-                return 'Reserva próxima';
-            }
-            return {
-                libre: 'Disponible',
-                ocupada: 'Ocupada'
-            }[projection.estado] || projection.estado;
+            return projection.label;
         }
 
         function mapSubtitle(mesaEstado, projection) {
@@ -1857,9 +1845,6 @@
             }
 
             var editable = reservacion ? canAssignTables(reservacion) : false;
-            var ocupacion = reservacion
-                ? (state.ocupacionPorReservacion[String(reservacion.id)] || state.ocupacionPorReservacion[reservacion.id] || {})
-                : {};
             var asignacionesHorario = {};
             activeReservationsForSelectedHour().forEach(function (reservationAtHour) {
                 (reservationAtHour.mesa_ids || []).forEach(function (mesaId) {
@@ -1874,7 +1859,6 @@
                 var mesaId = parseInt(mesaEstado.id, 10);
                 var assigned = state.currentAssignmentIds.has(mesaId);
                 var candidate = state.candidateSelectionIds.has(mesaId);
-                var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
                 var mapProjection = mapProjectionFor(mesaEstado);
@@ -1904,37 +1888,14 @@
                     modifiers.push('bloqueo_propio');
                 }
 
-                var ticketConflict = Boolean(
-                    conflict &&
-                    (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
-                );
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     !mapProjection.estadoNoVerificado &&
                     normalized.reservable === true &&
                     normalized.disponible_para_asignacion === true;
-                var selectionVisualValid = candidate && selectable;
-                var mapAriaLabel = selectionVisualValid
-                    ? 'Selección candidata. ' + mapProjection.ariaLabel
-                    : mapProjection.ariaLabel;
-                var title = normalized.titulo;
-                if (assignedReservation) {
-                    title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
-                        ' a las ' + horaCorta(assignedReservation.hora) + '.';
-                }
-                if (conflict) {
-                    title = ticketConflict
-                        ? normalized.nombre + (
-                            conflict.tipo === 'conflicto_proximo'
-                                ? '. Conflicto próximo: el ticket continúa abierto dentro del bloqueo.'
-                                : '. Ocupada por servicio activo.'
-                        )
-                        : normalized.nombre + '. Bloqueada por otra reservación a las ' + horaCorta(conflict.hora) + '.';
-                }
-
-                if (assigned && !candidate && normalized.causa_conflicto_asignacion) {
-                    title += ' Asignada actualmente a esta reservación; debe reemplazarse.';
-                }
+                var selectionVisualValid = assigned || (candidate && selectable);
+                var mapAriaLabel = mapProjection.ariaLabel;
+                var title = mapProjection.titulo;
 
                 var mapRaw = Object.assign({}, normalized, { modificadores: [] });
                 return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
@@ -1977,6 +1938,9 @@
                     label: 'Estado no verificado',
                     context: 'La información visual está incompleta; no se puede asignar esta mesa.',
                     visualState: 'no-utilizable',
+                    selected: false,
+                    ariaLabel: projection.ariaLabel,
+                    assignable: false,
                     capacity: parseInt(table.capacidad || '0', 10) || 0,
                     interactive: false
                 };
@@ -1993,6 +1957,9 @@
                 label: intervalState.label,
                 context: intervalState.context,
                 visualState: intervalState.visualState,
+                selected: intervalState.selected,
+                ariaLabel: intervalState.ariaLabel,
+                assignable: intervalState.assignable,
                 capacity: parseInt(table.capacidad || '0', 10) || 0,
                 interactive: state.assignmentMode && Boolean(selectedReservation()) && intervalState.assignable && !state.guardando
             };
@@ -2013,14 +1980,16 @@
                 var visual = tableModalState(table);
                 var name = String(table.nombre || ('Mesa ' + visual.id));
                 var capacity = visual.capacity > 0 ? visual.capacity + ' lugares' : '';
-                var className = 'operation-tables-card operation-tables-card--' + esc(visual.visualState);
+                var className = 'operation-tables-card operation-tables-card--' + esc(visual.visualState)
+                    + (visual.selected ? ' operation-tables-card--selected' : '');
                 var inner = '<span class="operation-tables-card__name">' + esc(name) + '</span>' +
                     '<span class="operation-tables-card__state">' + esc(visual.label) + '</span>' +
                     '<span class="operation-tables-card__context"' + (!visual.context ? ' aria-hidden="true"' : '') + '>' + esc(visual.context) + '</span>' +
+                    (visual.selected ? '<span class="operation-tables-card__selection">Seleccionada</span>' : '') +
                     '<span class="operation-tables-card__capacity"' + (!capacity ? ' aria-hidden="true"' : '') + '>' + esc(capacity) + '</span>';
 
                 if (visual.interactive) {
-                    return '<div class="' + className + '" role="listitem"><button type="button" data-operation-table-modal="' + visual.id + '" aria-pressed="' + (visual.visualState === 'seleccionada' ? 'true' : 'false') + '" aria-label="' + esc(name + ', ' + visual.label + (visual.context ? ', ' + visual.context : '') + (capacity ? ', ' + capacity : '')) + '">' + inner + '</button></div>';
+                    return '<div class="' + className + '" role="listitem"><button type="button" data-operation-table-modal="' + visual.id + '" aria-pressed="' + (visual.selected ? 'true' : 'false') + '" aria-label="' + esc(visual.ariaLabel + (visual.selected ? ', seleccionada' : '') + (capacity ? ', ' + capacity : '')) + '">' + inner + '</button></div>';
                 }
 
                 return '<div class="' + className + '" role="listitem">' + inner + '</div>';

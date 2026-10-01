@@ -97,6 +97,7 @@ try {
         'run-reservaciones-comunicaciones-db.php',
         'run-reservaciones-notificaciones-development-db.php',
         'run-reservaciones-cambio-horario-matrix-db.php',
+        'run-reservaciones-map-state-integration-db.php',
     ]);
     foreach ($suites as $suite) {
         $suiteEsValida = preg_match('/^run-reservaciones-[a-z-]+\.php$/D', $suite)
