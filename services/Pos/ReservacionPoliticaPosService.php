@@ -177,7 +177,15 @@ final class ReservacionPoliticaPosService
         $ausenciaPendiente = (bool)($hechosActuales['ausencia_pendiente'] ?? false);
         $influyeDisponibilidad = (bool)($hechosActuales['influye_disponibilidad'] ?? false);
         $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+        $finConsulta = $horaConsulta->modify(
+            '+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'
+        );
         $reservacionEnIntervaloPlanificado = $horaConsulta >= $inicio && $horaConsulta < $fin;
+        // La adyacencia exacta no bloquea el intervalo semiabierto, pero sirve
+        // como advertencia secundaria para la siguiente reservación.
+        $reservacionCercana = $influyeDisponibilidad
+            && !$reservacionEnIntervaloPlanificado
+            && $finConsulta->getTimestamp() === $inicio->getTimestamp();
         $reservacionInfluyeEnConsulta = $influyeDisponibilidad
             && $reservacionEnIntervaloPlanificado;
         $ventana = self::ventanaVisualMapa(
@@ -195,6 +203,7 @@ final class ReservacionPoliticaPosService
             'reservacion_influye_mapa' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_consulta' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_disponibilidad' => $influyeDisponibilidad,
+            'reservacion_cercana_mapa' => $reservacionCercana,
             'reservacion_en_intervalo_planificado' => $reservacionEnIntervaloPlanificado,
             'ausencia_pendiente_mapa' => $ausenciaPendiente,
             'en_inicio_exacto_mapa' => $segundos === 0,

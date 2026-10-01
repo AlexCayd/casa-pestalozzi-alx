@@ -6835,7 +6835,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--seleccionada {
   opacity: 1;
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent);
   outline: 0;
 }
 
@@ -6846,7 +6846,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--map-table-occupied-text);
   border-style: solid;
   border-width: 2px;
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
@@ -6855,7 +6855,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-width: 2px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /*
@@ -6869,7 +6869,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-width: 2.5px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 .pos-map.is-ticket-selection-mode {
@@ -7119,7 +7119,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--map-table-available-text);
   border-style: solid;
   border-width: 2px;
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
@@ -7128,7 +7128,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-width: 2px;
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
@@ -7137,7 +7137,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--map-table-reservation-text);
   border-style: solid;
   border-width: 2px;
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /* La advertencia conserva el borde discontinuo sobre el intervalo azul. */

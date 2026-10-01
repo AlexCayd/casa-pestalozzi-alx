@@ -305,7 +305,8 @@ assert.ok(warningSelectionRule, 'la selección con advertencia tiene una regla d
 assert.match(warningSelectionRule[1], /border-color: var\(--map-reservation-warning-border\)/);
 assert.match(warningSelectionRule[1], /border-style: dashed/);
 assert.match(warningSelectionRule[1], /background: var\(--map-table-available-bg\)/);
-assert.match(warningSelectionRule[1], /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/);
+assert.match(warningSelectionRule[1], /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/);
+assert.match(warningSelectionRule[1], /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'la selección conserva separación del borde semántico');
 
 const selectedRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'ring de selección compartido');
 const freeSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--seleccionada\s*\{([^{}]+)\}/, 'libre seleccionada');
@@ -315,28 +316,32 @@ const upcomingWarningSelectedRule = styleRule(/:is\(\.mesas-map, \.map-help-dial
 const occupiedWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'ocupada con advertencia y selección');
 assert.equal(styleProperty(selectedRule, 'background'), null, 'la selección compartida no redefine el fondo base');
 assert.equal(styleProperty(selectedRule, 'border-color'), null, 'la selección compartida no redefine el borde base');
-assert.match(styleProperty(selectedRule, 'box-shadow'), /var\(--map-table-selected-bg\)/, 'la selección compartida conserva el ring cuando la combinación no tiene regla específica');
-assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'la muestra del modal usa el ring amarillo de la mesa real');
+assert.match(styleProperty(selectedRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la selección compartida usa el ring amarillo contrastante');
+assert.match(styleProperty(selectedRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'la selección compartida deja separación del pin');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la muestra del modal usa el ring amarillo contrastante de la mesa real');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'el ring se separa del borde semántico');
 
 assertVisualProperties(freeSelectionRule, {
   'border-color': 'var(--map-table-available-border)',
   background: 'var(--map-table-available-bg)',
   color: 'var(--map-table-available-text)'
 }, 'libre seleccionada');
-assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'libre seleccionada añade ring amarillo');
+assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'libre seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'libre seleccionada conserva la separación alrededor del ring');
 assertVisualProperties(occupiedSelectionRule, {
   'border-color': 'var(--map-table-occupied-border)',
   background: 'var(--map-table-occupied-bg)',
   color: 'var(--map-table-occupied-text)'
 }, 'ocupada seleccionada');
-assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'ocupada seleccionada añade ring amarillo');
-assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 5px[\s\S]*var\(--map-table-occupied-border\)/, 'ocupada seleccionada conserva ring rojo exterior');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 8px[\s\S]*var\(--map-table-occupied-border\)/, 'ocupada seleccionada conserva ring rojo exterior');
 assertVisualProperties(reservationSelectionRule, {
   'border-color': 'var(--map-table-reservation-border)',
   background: 'var(--map-table-reservation-bg)',
   color: 'var(--map-table-reservation-text)'
 }, 'reservación próxima seleccionada');
-assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'reservación próxima seleccionada añade ring amarillo');
+assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'reservación seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'reservación seleccionada conserva separación del borde semántico');
 assertVisualProperties(upcomingWarningSelectedRule, {
   'border-color': 'var(--map-reservation-warning-border)',
   'border-style': 'dashed',
@@ -348,8 +353,8 @@ assertVisualProperties(occupiedWarningSelectionRule, {
   background: 'var(--map-table-occupied-bg)',
   color: 'var(--map-table-occupied-text)'
 }, 'ocupada con advertencia y selección');
-assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 3px[\s\S]*var\(--map-table-selected-bg\)/, 'ocupada con advertencia añade ring amarillo');
-assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 5px[\s\S]*var\(--map-reservation-warning-border\)/, 'ocupada con advertencia conserva la alerta azul exterior');
+assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada con advertencia añade ring amarillo contrastante');
+assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 8px[\s\S]*var\(--map-reservation-warning-border\)/, 'ocupada con advertencia conserva el borde azul exterior');
 
 const absenceSelection = adapt({
   id: 9,

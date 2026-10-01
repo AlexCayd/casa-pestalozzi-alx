@@ -198,7 +198,9 @@ final class MesaEstadoService
                     $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
                 }
                 $modificadores[] = 'ticket_abierto';
-                $motivoBloqueo = 'Ocupada por servicio activo.';
+                $motivoBloqueo = $ocupacionActual
+                    ? 'Ocupada por servicio activo.'
+                    : 'No disponible por ticket.';
                 if ($ticketBloqueaEnConsulta && !empty($ticket['conflicto_proximo'])) {
                     $modificadores[] = 'conflicto_proximo';
                     $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
@@ -249,6 +251,7 @@ final class MesaEstadoService
                     'ventana_mapa' => $mapa['ventana_mapa'] ?? 'futura',
                     'reservacion_influye_mapa' => $mapa['reservacion_influye_mapa'] ?? false,
                     'reservacion_influye_en_consulta' => $mapa['reservacion_influye_en_consulta'] ?? false,
+                    'reservacion_cercana_mapa' => $mapa['reservacion_cercana_mapa'] ?? false,
                     'ausencia_pendiente_mapa' => $mapa['ausencia_pendiente_mapa'] ?? false,
                     'en_inicio_exacto_mapa' => $mapa['en_inicio_exacto_mapa'] ?? false,
                 ]);
@@ -348,7 +351,8 @@ final class MesaEstadoService
                 $reservacionAsociada,
                 $minutosRestantes,
                 $motivoBloqueo,
-                $ausenciaPendiente
+                $ausenciaPendiente,
+                $ocupacionActual
             );
             if (in_array('varias_mesas', $modificadores, true)) {
                 $titulo .= ' Vinculada a varias mesas.';
@@ -580,6 +584,7 @@ final class MesaEstadoService
             'estado_temporal' => $reservacion['estado_temporal'] ?? null,
             'ventana_pos' => $reservacion['ventana_pos'] ?? $reservacion['ventana_operativa'] ?? null,
             'ventana_mapa' => $reservacion['ventana_mapa'] ?? null,
+            'reservacion_cercana_mapa' => self::booleano($reservacion['reservacion_cercana_mapa'] ?? false),
             'reservacion_influye_en_consulta' => self::booleano($reservacion['reservacion_influye_en_consulta'] ?? false),
             'reservacion_influye_en_disponibilidad' => self::booleano(
                 $reservacion['reservacion_influye_en_disponibilidad']
@@ -626,18 +631,21 @@ final class MesaEstadoService
         $estado = (string)($detalle['estado_visual'] ?? '');
         $modificadores = array_map('strval', (array)($detalle['modificadores'] ?? []));
         if ($estado === 'ocupada') {
-            if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
-                $label = $nombre . ', ocupada por ticket abierto.';
+            $causas = self::idsStrings($hechos['causas_bloqueo'] ?? []);
+            if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)
+                || in_array('ticket', $causas, true)) {
+                $label = self::booleano($hechos['ocupada_fisicamente'] ?? false)
+                    ? $nombre . ', ocupada por servicio activo.'
+                    : $nombre . ', no disponible por ticket.';
             } else {
-                $causas = self::idsStrings($hechos['causas_bloqueo'] ?? []);
-                $label = in_array('reservacion', $causas, true)
-                    ? $nombre . ', no disponible por reservación en el intervalo seleccionado.'
-                    : (in_array('hold', $causas, true)
-                        ? $nombre . ', no disponible por una retención vigente.'
+                $label = in_array('hold', $causas, true)
+                    ? $nombre . ', no disponible por una retención vigente.'
+                    : (in_array('reservacion', $causas, true)
+                        ? $nombre . ', no disponible por reservación en el intervalo seleccionado.'
                         : $nombre . ', no disponible para el intervalo seleccionado.');
             }
         } elseif ($estado === 'reservacion-proxima') {
-            $label = $nombre . ', reservación próxima.';
+            $label = $nombre . ', no disponible por reservación.';
         } elseif (in_array('reservacion_advertencia', $modificadores, true)) {
             $label = $nombre . ', disponible con reservación cercana.';
         } elseif (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
@@ -775,7 +783,8 @@ final class MesaEstadoService
         ?array $asociada,
         ?int $minutos,
         ?string $motivo,
-        bool $accionPendiente = false
+        bool $accionPendiente = false,
+        bool $ocupadaFisicamente = false
     ): string {
         $partes = [$nombre . '.'];
         $ventanaProxima = $proxima
@@ -792,7 +801,9 @@ final class MesaEstadoService
             $partes[] = 'Disponible, acción pendiente: registrar ausencia.';
         } else {
             $partes[] = match ($estado) {
-                self::OCUPADA => 'Ocupada por servicio activo.',
+                self::OCUPADA => $ocupadaFisicamente
+                    ? 'Ocupada por servicio activo.'
+                    : ($motivo ?: 'No disponible para el intervalo seleccionado.'),
                 self::BLOQUEADA => $motivo ?: 'Mesa bloqueada.',
                 self::NO_RESERVABLE => $motivo ?: 'No reservable.',
                 default => 'Disponible.',

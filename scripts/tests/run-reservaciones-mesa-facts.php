@@ -42,10 +42,10 @@ $inicioReservacion = new DateTimeImmutable('2026-08-06 13:00:00', ReservacionCon
 
 $consultas = [
     '11:30:00' => ['libre', 'libre', false, true, false],
-    '12:00:00' => ['ocupada', 'libre', true, true, true],
+    '12:00:00' => ['reservacion-proxima', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
+    '13:00:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '13:30:00' => ['libre', 'reservacion-proxima', false, false, false],
     '14:00:00' => ['libre', 'reservacion-proxima', false, false, false],
     '14:30:00' => ['libre', 'reservacion-proxima', false, false, false],

@@ -840,7 +840,8 @@
   opacity: 1;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent);
   outline: 0;
 }
 
@@ -853,8 +854,9 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -866,8 +868,9 @@
   color: var(--map-table-occupied-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -884,8 +887,9 @@
   color: var(--map-table-occupied-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -1171,7 +1175,8 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -1183,7 +1188,8 @@
   color: var(--map-table-available-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
@@ -1195,7 +1201,8 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 

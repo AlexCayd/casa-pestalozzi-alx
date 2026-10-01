@@ -169,11 +169,11 @@ fecha y hora consultadas. La misma mesa puede verse distinta en esos contextos.
 
 | Hecho o ventana | POS — operación actual | Reservaciones — intervalo consultado |
 | --- | --- | --- |
-| Disponible | Verde cuando el backend permite abrir ticket. | Verde cuando está disponible para el intervalo. |
-| Advertencia `>30` y `≤60` min | Verde con borde azul discontinuo si walk-in sigue permitido. | Indicador secundario; el fondo conserva la disponibilidad real del intervalo. |
-| Próxima `>0` y `≤30` min | Azul sólido; walk-in bloqueado. | Azul cuando la reserva bloquea el intervalo; un conflicto independiente conserva rojo. |
-| Inicio `00:00` | Azul mientras se espera al cliente, si aún no hay ticket. | Rojo si la reserva ocupa el intervalo seleccionado. |
-| Tolerancia `00:00` a `+15:00` inclusive | Azul con señal de tolerancia; el backend decide si se puede iniciar el servicio. | Rojo mientras el intervalo siga bloqueado por la reserva. |
+| Disponible | Verde cuando el backend permite abrir ticket. | Verde cuando el intervalo está libre; una reserva posterior cercana puede añadir borde azul discontinuo. |
+| Advertencia `>30` y `≤60` min | Verde con borde azul discontinuo si walk-in sigue permitido. | El borde discontinuo es secundario; el fondo conserva la disponibilidad real. |
+| Próxima `>0` y `≤30` min | Azul sólido; walk-in bloqueado. | Azul si una reservación ocupa parte del intervalo; un ticket, hold u otra ocupación independiente conserva rojo. |
+| Inicio `00:00` | Azul mientras se espera al cliente, si aún no hay ticket. | Azul cuando el bloqueo del intervalo lo causa la reservación. |
+| Tolerancia `00:00` a `+15:00` inclusive | Azul con señal de tolerancia; el backend decide si se puede iniciar el servicio. | Azul cuando la reservación bloquea el intervalo; una ocupación independiente conserva rojo. |
 | Ausencia pendiente, después de `+15:00` | Azul oscuro de reserva bloqueante, con indicador de acción pendiente. No libera la mesa; sólo ofrece no-show si `puede_marcar_no_show` es verdadero. | La disponibilidad del intervalo decide el fondo; la ausencia queda como indicador secundario. No-show elimina sus modificadores y se recalcula cualquier bloqueo restante. |
 | Ticket abierto | Rojo mientras exista ocupación física real. | Rojo sólo si el ticket bloquea el intervalo; una proyección futura puede liberarse sin cerrar el ticket. |
 | No utilizable | Neutro y por encima de otros estados. | Neutro y por encima de otros estados. |
@@ -204,15 +204,27 @@ especiales activos aunque `reservable = false`; el estado y los tickets siguen
 respetando los hechos de POS disponibles. Caja y Llevar conservan sus acciones
 propias y no heredan la disponibilidad de una mesa ordinaria.
 
-El fondo siempre expresa el estado base de la superficie consultada. El borde y
-los iconos añaden alertas; por ejemplo, una reserva cercana conserva el fondo
-rojo de una mesa ocupada y añade un borde azul discontinuo. En POS, una ausencia
-pendiente después de la tolerancia usa el fondo azul oscuro de la reservación;
-en Reservaciones, su indicador se superpone al color que marque la disponibilidad
-del intervalo. El anillo amarillo indica selección: nunca reemplaza el fondo ni
-la disponibilidad. POS representa la operación actual y Reservaciones la fecha
-y hora elegidas, por lo que una misma señal puede combinarse con fondos
-diferentes según el contexto.
+En Reservaciones, el fondo representa exclusivamente la disponibilidad y los
+bloqueos reales del intervalo; el borde discontinuo y los iconos son información
+secundaria, y el anillo amarillo indica selección sin cambiar el estado. Una
+reservación que bloquea el intervalo usa azul; un ticket u otra ocupación
+independiente usa rojo. Una reservación cercana que no se solapa añade el borde
+azul discontinuo sobre el fondo verde. En POS, la alerta cercana conserva su
+propia semántica y puede acompañar el fondo rojo de una mesa ocupada. Una ausencia
+pendiente en Reservaciones se superpone al fondo que determinen los hechos del
+intervalo.
+
+Ejemplos del límite semiabierto `[inicio, fin)`:
+
+- Consulta `17:30–19:00` y reservación a `19:00`, sin ticket: no se solapan; la
+  mesa queda verde con borde azul discontinuo.
+- Consulta `17:45–19:15` y reservación a `19:00`: se solapan; la mesa queda azul
+  por reservación. Un inicio de consulta `17:31` se solapa por un minuto.
+- Ticket proyectado que intersecta el intervalo: rojo, aunque también exista
+  una reservación cercana.
+- Ticket abierto físicamente cuya liberación estimada es anterior al inicio de
+  la consulta: no fuerza el fondo rojo de la proyección administrativa.
+- La selección añade un anillo amarillo y conserva el fondo verde, azul o rojo.
 
 ### POS y proyección administrativa
 
