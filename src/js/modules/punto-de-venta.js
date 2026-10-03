@@ -3375,6 +3375,10 @@ function initMapa() {
         for (var eb = 0; eb < entBtns.length; eb++) {
           (function(btn) {
             btn.addEventListener('click', function() {
+              // Un doble toque mandaría la segunda petición sobre un ítem ya
+              // entregado y el servidor la rechazaría con un aviso de error.
+              if (btn.disabled) return;
+              btn.disabled = true;
               apiEntregarItem(parseInt(btn.dataset.id, 10), ticketId);
             });
           })(entBtns[eb]);

@@ -654,7 +654,7 @@ class PuntoVentaController {
         }
     }
 
-    // POST /admin/api/deliver-item  { item_id: X }
+    // POST /api/entregar-item  { item_id: X }
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
@@ -670,11 +670,25 @@ class PuntoVentaController {
         }
 
         try {
-            // La entrega sólo puede avanzar un ítem que la cocina marcó como listo.
+            // Entregable desde cualquier estado vivo, no sólo desde 'listo': si el
+            // plato ya salió y el tablero de área va un paso atrás, esperar a que
+            // alguien lo avance retrasa al mesero. Sólo cuentan tickets abiertos,
+            // para no reescribir la historia de una cuenta ya cobrada.
             TicketItem::ejecutarSQL(
-                "UPDATE ticket_items SET estado = 'entregado'
-                 WHERE id = {$itemId} AND estado = 'listo'"
+                "UPDATE ticket_items ti
+                 JOIN tickets t ON t.id = ti.ticket_id
+                   AND " . TicketMesa::condicionSqlAbierto('t') . "
+                 SET ti.estado = 'entregado'
+                 WHERE ti.id = {$itemId}
+                   AND ti.estado IN ('enviado','en_preparacion','listo')"
             );
+
+            // Antes respondía ok aunque el UPDATE no tocara nada, y la fila se
+            // quedaba igual sin explicación.
+            if (TicketItem::getDB()->affected_rows < 1) {
+                self::errorJson('ITEM_NO_ENTREGABLE');
+                return;
+            }
 
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
