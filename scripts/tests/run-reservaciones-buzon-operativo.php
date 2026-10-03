@@ -32,7 +32,7 @@ $routes = file_get_contents($root . '/public/index.php');
 $inboxJs = file_get_contents($root . '/src/js/admin/buzon.js');
 $inboxView = file_get_contents($root . '/views/admin/partials/_buzon.php');
 $topbarView = file_get_contents($root . '/views/admin/partials/_topbar.php');
-$impactService = file_get_contents($root . '/services/Reservations/HorarioOperacionImpactoService.php');
+$impactService = file_get_contents($root . '/services/Scheduling/HorarioOperacionImpactoService.php');
 $reservationModel = file_get_contents($root . '/models/Reservacion.php');
 $mapService = file_get_contents($root . '/services/Reservations/ReservacionMapaAdministrativaService.php');
 $posJs = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
@@ -162,7 +162,10 @@ $estadoConflicto = MesaEstadoService::normalizarMesas(
     ]
 )[0];
 buzonAssert($estadoConflicto['estado_visual_mapa'] === 'ocupada', 'restricción independiente conserva rojo aunque la reservación no proyecte');
-buzonAssert(str_contains($estadoConflicto['aria_label_mapa'], 'retención vigente'), 'pin rojo explica la causa independiente');
+buzonAssert(
+    str_contains(mb_strtolower($estadoConflicto['aria_label_mapa']), 'no disponible por retención'),
+    'pin rojo explica la causa independiente'
+);
 
 buzonAssert(ReservacionBuzonService::grupoGrandeVisibleParaBuzon([
     'estado' => 'confirmada', 'comensales' => 13, 'contacto_tipo' => 'ninguno', 'contacto' => '', 'mesas_count' => 0,

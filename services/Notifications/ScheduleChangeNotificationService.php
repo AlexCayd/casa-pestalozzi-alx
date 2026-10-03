@@ -1,8 +1,9 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Notifications;
 
 use Services\Integrations\N8nClient;
+use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Notifications\NotificationConfig;
 
 /** Orquesta los intentos post-commit de avisos por cambio de horario. */

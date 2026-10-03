@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Notifications;
 
 use Services\Contact\ContactoService;
 use Services\Notifications\NotificationConfig;

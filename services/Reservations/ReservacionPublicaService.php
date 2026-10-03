@@ -11,6 +11,7 @@
 namespace Services\Reservations;
 use Services\Contact\ContactoAccesoService;
 use Services\Contact\ContactoService;
+use Services\Notifications\ReservationConfirmationService;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -21,6 +22,9 @@ use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Scheduling\HorarioOperacionImpactoService;
+use Services\Security\ReservationClientSession;
+use Services\Security\ReservationManagementAccessService;
 use Services\Shared\ContactoOperacionLock;
 use Services\Shared\FechaOperacionLock;
 
@@ -60,7 +64,7 @@ final class ReservacionPublicaService
             return false;
         }
 
-        $inicio = self::fechaHoraProgramada($fila);
+        $inicio = ReservacionVigenciaService::fechaHoraProgramada($fila);
         return $inicio instanceof DateTimeImmutable
             && ReservacionConfig::ahora() <= $inicio->modify('-' . ReservacionConfig::LIMITE_MODIFICACION_MINUTOS . ' minutes');
     }
@@ -71,7 +75,7 @@ final class ReservacionPublicaService
             return false;
         }
 
-        $inicio = self::fechaHoraProgramada($fila);
+        $inicio = ReservacionVigenciaService::fechaHoraProgramada($fila);
         return $inicio instanceof DateTimeImmutable
             && ReservacionConfig::ahora() <= $inicio->modify('+' . ReservacionConfig::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS . ' minutes');
     }
@@ -424,7 +428,7 @@ final class ReservacionPublicaService
             $id = (int)$row['id'];
             $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
         }
-        return array_merge(\Services\Reservations\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
+        return array_merge(\Services\Notifications\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
     }
 
     /** Crea directamente usando exclusivamente la identidad de sesión. */
@@ -638,7 +642,7 @@ final class ReservacionPublicaService
 
                 $horario = $conservaHorarioOriginal
                     ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
-                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                    : HorarioReservacionService::validarHora($fecha, $hora);
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
@@ -791,7 +795,7 @@ final class ReservacionPublicaService
                     && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
                 $horario = $conservaHorarioOriginal
                     ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
-                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                    : HorarioReservacionService::validarHora($fecha, $hora);
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
@@ -1278,7 +1282,7 @@ final class ReservacionPublicaService
         if (!self::tokenValido($requestToken)) {
             return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
-        $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
+        $horario = HorarioReservacionService::validarHora($fecha, $hora);
         if (!($horario['ok'] ?? false)) {
             $esPasado = ($horario['codigo'] ?? '') === HorarioReservacionService::HORARIO_PASADO;
             $field = in_array(($horario['codigo'] ?? ''), [
@@ -1374,7 +1378,7 @@ final class ReservacionPublicaService
         string $hora,
         int $excluirReservacionId = 0
     ): ?array {
-        $condicionActiva = ReservacionConfig::condicionSqlOcupacionActiva('r');
+        $condicionActiva = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r');
         $sql = "SELECT r.id, r.request_token
                 FROM reservaciones r
                 WHERE r.contacto_tipo = ?
@@ -1456,8 +1460,8 @@ final class ReservacionPublicaService
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
-                ], \Services\Reservations\ConfirmationResendPolicy::camposPublicos(
-                    \Services\Reservations\ConfirmationResendPolicy::estado(
+                ], \Services\Notifications\ConfirmationResendPolicy::camposPublicos(
+                    \Services\Notifications\ConfirmationResendPolicy::estado(
                         (string)$fila['contacto_tipo'], (string)$fila['contacto'], (int)$fila['id']
                     )
                 ));
@@ -1473,15 +1477,8 @@ final class ReservacionPublicaService
 
     private static function buscarPorToken(string $token): ?array
     {
-        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
-        if (!$stmt) {
-            throw new \RuntimeException('No fue posible preparar la idempotencia.');
-        }
-        $stmt->bind_param('s', $token);
-        $stmt->execute();
-        $fila = $stmt->get_result()->fetch_assoc() ?: null;
-        $stmt->close();
-        return $fila;
+        $reservacion = Reservacion::buscarPorRequestToken($token);
+        return $reservacion ? get_object_vars($reservacion) : null;
     }
 
     private static function buscarPorTokenParaActualizar(string $token): ?array
@@ -1499,27 +1496,12 @@ final class ReservacionPublicaService
 
     private static function buscarPorIdParaActualizar(int $id): ?array
     {
-        $resultado = ActiveRecord::getDB()->query("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1 FOR UPDATE");
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
-        }
-        $fila = $resultado->fetch_assoc() ?: null;
-        $resultado->free();
-        return $fila;
+        return Reservacion::buscarFilaPorIdParaActualizar($id);
     }
 
     private static function buscarPorId(int $id): ?array
     {
-        if ($id < 1) {
-            return null;
-        }
-        $resultado = ActiveRecord::getDB()->query("SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1");
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
-        }
-        $fila = $resultado->fetch_assoc() ?: null;
-        $resultado->free();
-        return $fila;
+        return Reservacion::buscarFilaPorId($id);
     }
 
     private static function buscarReemplazoPendienteParaActualizar(int $originalId): ?array
@@ -1559,7 +1541,7 @@ final class ReservacionPublicaService
         string $requestToken,
         string $estado = 'pendiente_verificacion'
     ): int {
-        if (!in_array($estado, ['pendiente_verificacion', 'confirmada'], true)) {
+        if (!in_array($estado, ReservacionConfig::ESTADOS_EDITABLES, true)) {
             throw new \InvalidArgumentException('Estado de reemplazo no permitido.');
         }
         $stmt = ActiveRecord::getDB()->prepare(
@@ -1636,20 +1618,6 @@ final class ReservacionPublicaService
             throw new \RuntimeException($mensaje);
         }
         $stmt->close();
-    }
-
-    private static function fechaHoraProgramada(array $fila): ?DateTimeImmutable
-    {
-        $fecha = trim((string)($fila['fecha'] ?? ''));
-        $hora = trim((string)($fila['hora'] ?? ''));
-        if ($fecha === '' || $hora === '') {
-            return null;
-        }
-        try {
-            return new DateTimeImmutable($fecha . ' ' . $hora, ReservacionConfig::timezone());
-        } catch (\Throwable $e) {
-            return null;
-        }
     }
 
     private static function mismoContacto(array $fila, string $tipo, string $contacto): bool
@@ -1771,7 +1739,7 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return array_merge(\Services\Reservations\ConfirmationResendPolicy::camposPublicos($otp), [
+        return array_merge(\Services\Notifications\ConfirmationResendPolicy::camposPublicos($otp), [
             'otp_expires_at' => $otp['expires_at'] ?? null,
             '_notification_payload' => $otp['_notification_payload'] ?? null,
             '_confirmation_code' => $otp['_confirmation_code'] ?? null,

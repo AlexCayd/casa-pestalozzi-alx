@@ -131,28 +131,6 @@ final class DisponibilidadReservacionService
         );
     }
 
-    /** Alias nominal para consumidores del núcleo. */
-    public static function evaluarDisponibilidad(
-        string $fecha,
-        string $hora,
-        $comensales,
-        int $excluirReservacionId = 0,
-        ?DateTimeImmutable $ahora = null
-    ): array {
-        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
-    }
-
-    /** Fachada interna explícita para evitar que la API pública reciba detalle. */
-    public static function consultarInterna(
-        string $fecha,
-        string $hora,
-        $comensales,
-        int $excluirReservacionId = 0,
-        ?DateTimeImmutable $ahora = null
-    ): array {
-        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
-    }
-
     /** Compatibilidad de dominio para mutaciones ya existentes. */
     public static function evaluarHorario(
         string $fecha,
@@ -323,6 +301,17 @@ final class DisponibilidadReservacionService
             }
         }
 
+        $contextoFecha = $horariosCandidatos !== []
+            ? OcupacionMesasService::prepararContextoFecha(
+                $fecha,
+                false,
+                null,
+                $ahora,
+                0,
+                true
+            )
+            : null;
+
         foreach ($horariosCandidatos as $hora) {
             $evaluacion = self::evaluarSolicitud(
                 (string)$fecha,
@@ -333,7 +322,8 @@ final class DisponibilidadReservacionService
                 $publico,
                 $ahora,
                 false,
-                $horaOriginal !== '' && $hora === $horaOriginal
+                $horaOriginal !== '' && $hora === $horaOriginal,
+                $contextoFecha
             );
             $disponible = (bool)($evaluacion['disponible'] ?? false);
             $horaCorta = substr((string)$hora, 0, 5);
@@ -407,7 +397,14 @@ final class DisponibilidadReservacionService
         }
 
         $base['horarios_alternativos'] = $alternativas;
-        return self::agregarDetallesAdministrativos($base, $fecha, $personasValidas, $excluirReservacionId, $ahora);
+        return self::agregarDetallesAdministrativos(
+            $base,
+            $fecha,
+            $personasValidas,
+            $excluirReservacionId,
+            $ahora,
+            $contextoFecha
+        );
     }
 
     private static function motivoPublico(string $motivo): string
@@ -429,7 +426,8 @@ final class DisponibilidadReservacionService
         bool $asignacionPublica,
         ?DateTimeImmutable $ahora,
         bool $bloquear = false,
-        bool $permitirHorarioOriginal = false
+        bool $permitirHorarioOriginal = false,
+        ?array $contextoFecha = null
     ): array {
         $personasValidas = filter_var($personas, FILTER_VALIDATE_INT);
         $horaValidada = $permitirHorarioOriginal
@@ -463,15 +461,24 @@ final class DisponibilidadReservacionService
             return $base + ['codigo_horario' => $horaValidada['codigo'] ?? null];
         }
 
-        $ocupacion = OcupacionMesasService::evaluarHorario(
-            $fecha,
-            (string)$horaValidada['hora'],
-            $excluirReservacionId,
-            $bloquear,
-            null,
-            $ahora
-        );
-        $mesas = Mesa::reservables();
+        $ocupacion = $contextoFecha !== null
+            ? OcupacionMesasService::evaluarHorarioConContexto(
+                $contextoFecha,
+                (string)$horaValidada['hora'],
+                $excluirReservacionId,
+                $ahora
+            )
+            : OcupacionMesasService::evaluarHorario(
+                $fecha,
+                (string)$horaValidada['hora'],
+                $excluirReservacionId,
+                $bloquear,
+                null,
+                $ahora
+            );
+        $mesas = $contextoFecha !== null
+            ? (array)($contextoFecha['mesas_reservables'] ?? [])
+            : Mesa::reservables();
         $capacidadResumen = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
         $base = array_merge($base, [
             'capacidad_fisica_total' => (int)($capacidadResumen['capacidad_fisica_total'] ?? 0),
@@ -545,13 +552,28 @@ final class DisponibilidadReservacionService
         string $fecha,
         int $personas,
         int $excluirReservacionId,
-        ?DateTimeImmutable $ahora
+        ?DateTimeImmutable $ahora,
+        ?array $contextoFecha
     ): array {
         $detalles = [];
         foreach ($base['horarios'] as $slot) {
-            $evaluacion = self::evaluarSolicitud($fecha, $slot['hora'], $personas, ReservacionConfig::MAX_COMENSALES_ADMIN, $excluirReservacionId, false, $ahora);
+            $evaluacion = self::evaluarSolicitud(
+                $fecha,
+                $slot['hora'],
+                $personas,
+                ReservacionConfig::MAX_COMENSALES_ADMIN,
+                $excluirReservacionId,
+                false,
+                $ahora,
+                false,
+                false,
+                $contextoFecha
+            );
             $ocupacion = (array)($evaluacion['ocupacion'] ?? []);
-            $capacidad = OcupacionMesasService::resumenCapacidad(Mesa::reservables(), $ocupacion);
+            $capacidad = OcupacionMesasService::resumenCapacidad(
+                (array)($contextoFecha['mesas_reservables'] ?? []),
+                $ocupacion
+            );
             $detalles[$slot['hora']] = [
                 'disponible' => (bool)($evaluacion['disponible'] ?? false),
                 'mesa_ids' => $evaluacion['mesa_ids'] ?? [],

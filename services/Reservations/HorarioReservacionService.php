@@ -29,7 +29,7 @@ class HorarioReservacionService
 
     /**
      * Genera la proyección reservable desde el horario operativo canónico.
-     * La última reservación comienza, como máximo, una hora antes del cierre.
+     * La última reservación respeta el margen configurado antes del cierre.
      */
     public static function generarIntervalos(string $horaApertura, string $horaCierre): array
     {
@@ -552,9 +552,16 @@ class HorarioReservacionService
         sort($normalizados, SORT_STRING);
 
         $solicitada = self::normalizarHoraCorta($horaSolicitada);
-        $resuelta = $solicitada !== '' && in_array($solicitada, $normalizados, true)
-            ? $solicitada
-            : '';
+        $resuelta = '';
+        if ($solicitada !== '' && in_array($solicitada, $normalizados, true)) {
+            $resuelta = $solicitada;
+        } elseif ($solicitada !== '' && $normalizados !== []
+            && self::horaEnJornadaOperativa($fecha, $solicitada, $normalizados)) {
+            // El selector de reservación conserva sus bloques canónicos, pero
+            // la consulta del mapa admite cualquier minuto de la jornada para
+            // proyectar un instante con precisión.
+            $resuelta = $solicitada;
+        }
         if ($resuelta === '' && $normalizados !== []) {
             if ($fecha > $ahora->format('Y-m-d')) {
                 return [
@@ -579,6 +586,7 @@ class HorarioReservacionService
         $solicitadaVencida = $fecha === $ahora->format('Y-m-d')
             && $solicitada !== ''
             && !in_array($solicitada, $normalizados, true)
+            && !self::horaEnJornadaOperativa($fecha, $solicitada, $normalizados)
             && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($solicitada), $ahora);
 
         return [
@@ -593,6 +601,36 @@ class HorarioReservacionService
                 && $resuelta === $normalizados[0]
                 && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($resuelta), $ahora),
         ];
+    }
+
+    private static function horaEnJornadaOperativa(string $fecha, string $hora, array $horariosFallback = []): bool
+    {
+        if (!self::fechaValida($fecha)) {
+            return false;
+        }
+        $horaSql = self::normalizarHoraSql($hora);
+        if ($horaSql === '') {
+            return false;
+        }
+
+        try {
+            $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
+            $apertura = self::normalizarHoraSql((string)($efectivo['hora_apertura'] ?? ''));
+            $cierre = self::normalizarHoraSql((string)($efectivo['hora_cierre'] ?? ''));
+            if ($apertura !== '' && $cierre !== '' && $apertura <= $cierre) {
+                return $horaSql >= $apertura && $horaSql <= $cierre;
+            }
+        } catch (\Throwable $error) {
+            // Los runners de contrato pueden pasar sus horarios sin bootstrapping
+            // de MySQL; en runtime se usa siempre la jornada efectiva.
+        }
+
+        $limites = array_values(array_filter(array_map(
+            static fn($valor): string => self::normalizarHoraSql((string)$valor),
+            $horariosFallback
+        )));
+        sort($limites, SORT_STRING);
+        return $limites !== [] && $horaSql >= $limites[0] && $horaSql <= $limites[count($limites) - 1];
     }
 
     public static function hoy(): string

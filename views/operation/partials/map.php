@@ -15,11 +15,37 @@ $mapHelpSubtitle = $mapHelpContext === 'reservations'
     ? 'Consulta la disponibilidad para la fecha y hora seleccionadas.'
     : 'Consulta el estado actual de las mesas.';
 $mapHelpAvailableCopy = $mapHelpContext === 'reservations'
-    ? 'Disponible en la fecha y hora elegidas.'
-    : 'Mesa disponible para operar.';
+    ? 'La mesa se proyecta disponible en la hora seleccionada.'
+    : 'Mesa disponible en el contexto mostrado.';
 $mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
-    ? 'Ticket abierto o intervalo bloqueado.'
-    : 'Ticket abierto.';
+    ? 'La mesa se proyecta ocupada por una reservación activa, un ticket o una restricción operativa.'
+    : 'Mesa ocupada por un ticket o una restricción operativa.';
+$mapHelpReservationCopy = $mapHelpContext === 'reservations'
+    ? 'Hay una reservación que todavía no inicia y comienza en 30 minutos o menos; la mesa está bloqueada preventivamente.'
+    : 'Mesa comprometida por una reservación.';
+$mapHelpUnavailableCopy = $mapHelpContext === 'reservations'
+    ? 'Mesa no disponible para esta operación.'
+    : 'Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.';
+$mapHelpWarningCopy = $mapHelpContext === 'reservations'
+    ? 'Hay una reservación a más de 30 y hasta 60 minutos; la mesa todavía se proyecta disponible.'
+    : 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.';
+$mapHelpWarningStateClass = 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';
+$mapHelpAbsenceCopy = $mapHelpContext === 'reservations'
+    ? 'La ausencia pendiente es una señal adicional y no sustituye la proyección de la mesa.'
+    : 'La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.';
+$mapHelpAbsenceStateClass = $mapHelpContext === 'reservations'
+    ? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'
+    : 'mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente';
+$mapHelpContextNotes = $mapHelpContext === 'reservations'
+    ? [
+        'El fondo representa la proyección de la mesa en la hora seleccionada. La asignación valida por separado el intervalo completo de 90 minutos.',
+        'La ausencia pendiente aparece como señal adicional y no cambia el estado proyectado.',
+    ]
+    : [
+        'Entre 60 y 30 minutos antes aparece una advertencia. A partir de 30 minutos antes, se bloquea el walk-in.',
+        'Hasta 15 minutos después del inicio hay tolerancia; después puede quedar una ausencia pendiente.',
+        'En POS, el rojo suele indicar un ticket abierto; también puede reflejar una restricción operativa.',
+    ];
 $mapSectionClass = trim((string)($mapVisual['sectionClass'] ?? ''));
 $mapTitle = (string)($mapVisual['title'] ?? 'Mapa de mesas');
 $mapAriaLabel = (string)($mapVisual['ariaLabel'] ?? ($mapTitle !== '' ? $mapTitle : 'Mapa operativo'));
@@ -85,7 +111,9 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
         </div>
     <?php endif; ?>
 
+    <div class="operational-map__validation-status" data-map-validation-status role="status" aria-live="polite" hidden></div>
     <div class="operational-map__viewport mesas-map__viewport mapa-canvas-wrap operational-map-canvas-wrap">
+        <div class="operational-map__query-notice" data-map-query-status role="status" aria-live="polite" hidden></div>
         <?php if ($mapHelpPosition === 'overlay'): ?>
             <?php echo str_replace('map-help-button--header', 'map-help-button--overlay', $mapHelpButtonHtml); ?>
         <?php endif; ?>
@@ -140,12 +168,12 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                                 <span class="map-help-dialog__copy"><strong>Ocupada</strong><span><?php echo $mapEscape($mapHelpOccupiedCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-reservacion_inminente"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa reservada para el cliente.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span><?php echo $mapEscape($mapHelpReservationCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--no-utilizable"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa fuera de servicio en este contexto.</span></span>
+                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span><?php echo $mapEscape($mapHelpUnavailableCopy); ?></span></span>
                             </li>
                         </ul>
                     </section>
@@ -153,23 +181,30 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                         <h3 id="<?php echo $mapEscape($mapHelpSignalsHeadingId); ?>">Señales adicionales</h3>
                         <ul class="map-help-dialog__states">
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--mod-reservacion_advertencia"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Revisa antes de operar.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin <?php echo $mapEscape($mapHelpWarningStateClass); ?>"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span><?php echo $mapEscape($mapHelpWarningCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>Registra que el cliente no llegó.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin <?php echo $mapEscape($mapHelpAbsenceStateClass); ?>"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span><?php echo $mapEscape($mapHelpAbsenceCopy); ?></span></span>
                             </li>
                             <li class="map-help-dialog__state">
-                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección es una capa superpuesta y no garantiza disponibilidad.</span></span>
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>El contorno amarillo indica selección y no reemplaza el estado real.</span></span>
                             </li>
                         </ul>
                     </section>
                 </div>
+                <div class="map-help-dialog__context-note" role="note">
+                    <ul>
+                        <?php foreach ($mapHelpContextNotes as $mapHelpContextNote): ?>
+                            <li><?php echo $mapEscape($mapHelpContextNote); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
                 <div class="map-help-dialog__note" role="note">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>
-                    <p>Los colores orientan. Las acciones disponibles se verifican al realizar la operación.</p>
+                    <p>Los colores orientan; las acciones se verifican al realizar la operación.</p>
                 </div>
             </div>
         </div>
@@ -189,4 +224,4 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapHelpReservationCopy, $mapHelpUnavailableCopy, $mapHelpWarningCopy, $mapHelpWarningStateClass, $mapHelpAbsenceCopy, $mapHelpAbsenceStateClass, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>

@@ -5,6 +5,69 @@
 (function () {
     var API_BASE = '/admin/api/reservaciones/operacion';
 
+    function validarRespuestaMapaOperacion(payload, fecha, hora) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.ok !== true) {
+            return { valida: false, motivo: 'incompleta' };
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.fecha || ''))
+            || String(payload.fecha) !== String(fecha || '')) {
+            return { valida: false, motivo: 'contexto' };
+        }
+        var expectedHour = String(hora || '').trim().slice(0, 5);
+        var responseHour = String(payload.hora || payload.hora_sugerida || '').trim();
+        var responseSchedules = Array.isArray(payload.horarios_mapa)
+            ? payload.horarios_mapa
+            : payload.horarios;
+        var responseHourRequired = Boolean(expectedHour)
+            || (Array.isArray(responseSchedules) && responseSchedules.length > 0);
+        var hourFormatValid = responseHour === ''
+            || /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(responseHour);
+        if (!hourFormatValid || (responseHourRequired && responseHour === '')) {
+            return { valida: false, motivo: 'contexto' };
+        }
+        if (expectedHour) {
+            if (responseHour.slice(0, 5) !== expectedHour) {
+                return { valida: false, motivo: 'contexto' };
+            }
+        }
+
+        var collections = [
+            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa',
+            'ocupacion_fisica', 'alertas_operativas'
+        ];
+        for (var i = 0; i < collections.length; i += 1) {
+            var collection = payload[collections[i]];
+            if (!Array.isArray(collection)) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+            if (collections[i] === 'mesas' || collections[i] === 'mesas_estado') {
+                var validItems = collection.every(function (item) {
+                    return item && typeof item === 'object' && !Array.isArray(item)
+                        && Number.isInteger(Number(item.id)) && Number(item.id) > 0;
+                });
+                if (!validItems) {
+                    return { valida: false, motivo: 'incompleta' };
+                }
+            }
+        }
+
+        var objects = ['ocupacion_por_reservacion', 'capacidad_horario'];
+        for (var j = 0; j < objects.length; j += 1) {
+            var name = objects[j];
+            var value = payload[name];
+            var emptyAssociativeMap = name === 'ocupacion_por_reservacion'
+                && Array.isArray(value)
+                && value.length === 0;
+            if (!Object.prototype.hasOwnProperty.call(payload, name)
+                || value === null
+                || typeof value !== 'object'
+                || (Array.isArray(value) && !emptyAssociativeMap)) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+        }
+        return { valida: true, motivo: '' };
+    }
+
     function initReservationOperation() {
         var root = document.querySelector('[data-page="reservation-operation"]');
 
@@ -48,6 +111,7 @@
             assignmentInitialCandidateIds: [],
             assignmentInitialVersion: '',
             assignmentDataUpdated: false,
+            assignmentInvalidSelectionRemoved: false,
             assignmentTrigger: null,
             assignmentCancelLabel: 'Cancelar',
             cargando: false,
@@ -387,13 +451,15 @@
                 timeout: 'La consulta tardo demasiado',
                 invalid_json: 'Respuesta no interpretable',
                 consistency: 'Respuesta inconsistente',
+                invalid_response: 'Respuesta incompleta',
                 server: 'Error interno del servidor'
             };
             var messages = {
                 connection: 'No se pudo actualizar la información. Revisa tu conexión antes de volver a consultar.',
                 timeout: 'La solicitud excedió el tiempo de espera. Espera un momento y vuelve a consultar.',
                 invalid_json: 'No fue posible interpretar la respuesta del servidor.',
-                consistency: 'El servidor respondio con datos de otra fecha. La respuesta fue descartada.',
+                consistency: 'El servidor respondió con datos de otra fecha u hora. La respuesta fue descartada.',
+                invalid_response: 'La respuesta del mapa estaba incompleta. Los datos no se pueden usar para asignar mesas.',
                 server: 'El servidor no pudo completar la consulta. Vuelve a consultar cuando el servicio esté disponible.'
             };
             var title = error.titulo || titles[kind] || 'No fue posible actualizar la operacion';
@@ -498,8 +564,19 @@
         }
 
         function mesaPuedeSerCandidata(mesaId) {
+            if (state.loadFailure || !projectionContextMatchesSelection()) {
+                return false;
+            }
             var mesa = tableStateById(mesaId);
+            if (!mesa || mapProjectionFor(mesa).estadoNoVerificado) {
+                return false;
+            }
             return window.ReservationOperationPolicy.mesaPuedeSerCandidata(mesa);
+        }
+
+        function mapaTieneContratoVisualValido(mesaId) {
+            var mesa = tableStateById(mesaId);
+            return Boolean(mesa && !mapProjectionFor(mesa).estadoNoVerificado);
         }
 
         function candidateIdsFromCurrent() {
@@ -638,7 +715,9 @@
             if (els.assignmentRefresh) {
                 var conflictMessage = assignmentConflictMessage();
                 els.assignmentRefresh.textContent = conflictMessage ||
-                    'Los datos se actualizaron. Tu selección local se conserva; vuelve a validar antes de guardar.';
+                    (state.assignmentInvalidSelectionRemoved
+                        ? 'Los datos se actualizaron. Se retiraron de la selección las mesas sin estado visual verificado.'
+                        : 'Los datos se actualizaron. Tu selección local se revalidó con los estados vigentes antes de guardar.');
                 els.assignmentRefresh.hidden = !conflictMessage && !state.assignmentDataUpdated;
             }
             if (els.assignmentCancel) {
@@ -694,6 +773,7 @@
             state.assignmentInitialCandidateIds = Array.from(state.candidateSelectionIds);
             state.assignmentInitialVersion = state.assignmentSnapshot.version;
             state.assignmentDataUpdated = false;
+            state.assignmentInvalidSelectionRemoved = false;
             state.assignmentTrigger = trigger || document.activeElement;
             state.assignmentCancelLabel = options.allowAssignLater ? 'Asignar más tarde' : 'Cancelar';
             state.assignmentMode = true;
@@ -734,6 +814,7 @@
             state.assignmentInitialVersion = '';
             state.assignmentSnapshot = null;
             state.assignmentDataUpdated = false;
+            state.assignmentInvalidSelectionRemoved = false;
             state.assignmentTrigger = null;
             state.assignmentCancelLabel = 'Cancelar';
             hideTableWarning();
@@ -1012,7 +1093,7 @@
          */
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
-            var proxima = mesaEstado && mesaEstado.reservacion_proxima;
+            var proxima = mesaEstado && (mesaEstado.reservacion_mapa || mesaEstado.reservacion_proxima);
             var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa
                 : [];
@@ -1684,32 +1765,68 @@
         }
 
         function mapProjectionFor(mesaEstado) {
-            var estado = String(mesaEstado.estado_visual_mapa || '').trim();
+            mesaEstado = mesaEstado || {};
+            var validation = window.MapaContrato && window.MapaContrato.validarEstado
+                ? window.MapaContrato.validarEstado(mesaEstado.estado_visual_mapa)
+                : { valido: false, estadoVisual: 'no-utilizable' };
+            var modificadoresValidos = window.MapaContrato
+                && window.MapaContrato.validarModificadores(mesaEstado.modificadores_visual_mapa);
+            var estado = validation.estadoVisual;
             var modificadores = Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa.slice()
-                : null;
+                : [];
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
-            if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(estado) === -1
-                || modificadores === null
-                || !ariaLabel) {
-                console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
+            var titulo = String(mesaEstado.titulo_mapa || '').trim();
+            var label = String(mesaEstado.label_visual_mapa || '').trim();
+            if (!validation.valido || !modificadoresValidos || !ariaLabel || !titulo || !label) {
+                var tableName = String(mesaEstado.nombre || mesaEstado.etiqueta || ('Mesa ' + (mesaEstado.id || ''))).trim();
+                var fallback = window.MapaContrato.fallbackSeguro();
                 return {
-                    estado: 'no-utilizable',
-                    modificadores: [],
-                    ariaLabel: 'Mesa no disponible: proyeccion del mapa incompleta.'
+                    estado: fallback.estadoVisual,
+                    modificadores: fallback.modificadores,
+                    estadoNoVerificado: fallback.estadoNoVerificado,
+                    titulo: tableName + ': Estado no verificado.',
+                    label: 'Estado no verificado',
+                    ariaLabel: tableName + ': Estado no verificado. La información visual está incompleta; no se puede asignar hasta recibir información válida.'
                 };
             }
             return {
                 estado: estado,
                 modificadores: modificadores,
-                ariaLabel: ariaLabel
+                estadoNoVerificado: false,
+                ariaLabel: ariaLabel,
+                titulo: titulo,
+                label: label
             };
+        }
+
+        function mapStateLabel(mesaEstado, projection) {
+            return projection.label;
+        }
+
+        function mapSubtitle(mesaEstado, projection) {
+            if (projection.estado === 'no-utilizable' && mesaEstado.motivo_bloqueo) {
+                return String(mesaEstado.motivo_bloqueo);
+            }
+            var reservation = mesaEstado.reservacion_mapa || mesaEstado.reservacion_proxima || null;
+            var hour = reservation && reservation.hora
+                ? String(reservation.hora).slice(0, 5)
+                : '';
+            var capacity = Number(mesaEstado.capacidad) > 0
+                ? Number(mesaEstado.capacidad) + ' lugares'
+                : '';
+            return [hour, capacity].filter(Boolean).join(' · ');
         }
 
         function renderTableMap() {
             var reservacion = selectedReservation();
 
             if (!els.map || !window.MesaEstadoAdapter) {
+                return;
+            }
+
+            if (state.loadFailure) {
+                mapVisual.clear('No fue posible actualizar el mapa. La consulta fallida no se puede usar para asignar mesas.');
                 return;
             }
 
@@ -1728,9 +1845,6 @@
             }
 
             var editable = reservacion ? canAssignTables(reservacion) : false;
-            var ocupacion = reservacion
-                ? (state.ocupacionPorReservacion[String(reservacion.id)] || state.ocupacionPorReservacion[reservacion.id] || {})
-                : {};
             var asignacionesHorario = {};
             activeReservationsForSelectedHour().forEach(function (reservationAtHour) {
                 (reservationAtHour.mesa_ids || []).forEach(function (mesaId) {
@@ -1745,7 +1859,6 @@
                 var mesaId = parseInt(mesaEstado.id, 10);
                 var assigned = state.currentAssignmentIds.has(mesaId);
                 var candidate = state.candidateSelectionIds.has(mesaId);
-                var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
                 var mapProjection = mapProjectionFor(mesaEstado);
@@ -1775,45 +1888,26 @@
                     modifiers.push('bloqueo_propio');
                 }
 
-                var ticketConflict = Boolean(
-                    conflict &&
-                    (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
-                );
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
+                    !mapProjection.estadoNoVerificado &&
                     normalized.reservable === true &&
                     normalized.disponible_para_asignacion === true;
-                var selectionVisualValid = candidate && selectable;
-                var mapAriaLabel = selectionVisualValid
-                    ? 'Selección candidata. ' + mapProjection.ariaLabel
-                    : mapProjection.ariaLabel;
-                var title = normalized.titulo;
-                if (assignedReservation) {
-                    title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
-                        ' a las ' + horaCorta(assignedReservation.hora) + '.';
-                }
-                if (conflict) {
-                    title = ticketConflict
-                        ? normalized.nombre + (
-                            conflict.tipo === 'conflicto_proximo'
-                                ? '. Conflicto próximo: el ticket continúa abierto dentro del bloqueo.'
-                                : '. Ocupada por servicio activo.'
-                        )
-                        : normalized.nombre + '. Bloqueada por otra reservación a las ' + horaCorta(conflict.hora) + '.';
-                }
-
-                if (assigned && !candidate && normalized.causa_conflicto_asignacion) {
-                    title += ' Asignada actualmente a esta reservación; debe reemplazarse.';
-                }
+                var selectionVisualValid = assigned || (candidate && selectable);
+                var mapAriaLabel = mapProjection.ariaLabel;
+                var title = mapProjection.titulo;
 
                 var mapRaw = Object.assign({}, normalized, { modificadores: [] });
                 return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
                     seleccionActual: assigned || candidate,
                     seleccionValida: !(assigned || candidate) || selectionVisualValid,
+                    estadoNoVerificado: mapProjection.estadoNoVerificado,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     ariaLabel: mapAriaLabel,
                     estadoVisual: mapProjection.estado,
+                    etiquetaEstado: mapStateLabel(normalized, mapProjection),
+                    subtitulo: mapSubtitle(normalized, mapProjection),
                     modificadores: modifiers,
                     clasesEstado: (candidate ? ['reservation-operation-pin--selected'] : [])
                         .concat(assigned ? ['reservation-operation-pin--assigned'] : []),
@@ -1837,6 +1931,20 @@
 
         function tableModalState(table) {
             var mesaId = parseInt(table.id || '0', 10);
+            var projection = mapProjectionFor(table);
+            if (projection.estadoNoVerificado) {
+                return {
+                    id: mesaId,
+                    label: 'Estado no verificado',
+                    context: 'La información visual está incompleta; no se puede asignar esta mesa.',
+                    visualState: 'no-utilizable',
+                    selected: false,
+                    ariaLabel: projection.ariaLabel,
+                    assignable: false,
+                    capacity: parseInt(table.capacidad || '0', 10) || 0,
+                    interactive: false
+                };
+            }
             var selected = state.assignmentMode && (
                 state.currentAssignmentIds.has(mesaId) || state.candidateSelectionIds.has(mesaId)
             );
@@ -1849,6 +1957,9 @@
                 label: intervalState.label,
                 context: intervalState.context,
                 visualState: intervalState.visualState,
+                selected: intervalState.selected,
+                ariaLabel: intervalState.ariaLabel,
+                assignable: intervalState.assignable,
                 capacity: parseInt(table.capacidad || '0', 10) || 0,
                 interactive: state.assignmentMode && Boolean(selectedReservation()) && intervalState.assignable && !state.guardando
             };
@@ -1869,14 +1980,16 @@
                 var visual = tableModalState(table);
                 var name = String(table.nombre || ('Mesa ' + visual.id));
                 var capacity = visual.capacity > 0 ? visual.capacity + ' lugares' : '';
-                var className = 'operation-tables-card operation-tables-card--' + esc(visual.visualState);
+                var className = 'operation-tables-card operation-tables-card--' + esc(visual.visualState)
+                    + (visual.selected ? ' operation-tables-card--selected' : '');
                 var inner = '<span class="operation-tables-card__name">' + esc(name) + '</span>' +
                     '<span class="operation-tables-card__state">' + esc(visual.label) + '</span>' +
                     '<span class="operation-tables-card__context"' + (!visual.context ? ' aria-hidden="true"' : '') + '>' + esc(visual.context) + '</span>' +
+                    (visual.selected ? '<span class="operation-tables-card__selection">Seleccionada</span>' : '') +
                     '<span class="operation-tables-card__capacity"' + (!capacity ? ' aria-hidden="true"' : '') + '>' + esc(capacity) + '</span>';
 
                 if (visual.interactive) {
-                    return '<div class="' + className + '" role="listitem"><button type="button" data-operation-table-modal="' + visual.id + '" aria-pressed="' + (visual.visualState === 'seleccionada' ? 'true' : 'false') + '" aria-label="' + esc(name + ', ' + visual.label + (visual.context ? ', ' + visual.context : '') + (capacity ? ', ' + capacity : '')) + '">' + inner + '</button></div>';
+                    return '<div class="' + className + '" role="listitem"><button type="button" data-operation-table-modal="' + visual.id + '" aria-pressed="' + (visual.selected ? 'true' : 'false') + '" aria-label="' + esc(visual.ariaLabel + (visual.selected ? ', seleccionada' : '') + (capacity ? ', ' + capacity : '')) + '">' + inner + '</button></div>';
                 }
 
                 return '<div class="' + className + '" role="listitem">' + inner + '</div>';
@@ -2134,10 +2247,8 @@
                         } catch (parseError) {
                             throw { kind: 'invalid_json', httpStatus: response.status };
                         }
-                        if (!response.ok || !data.ok) {
-                            data.httpStatus = response.status;
-                            data.kind = response.status >= 500 ? 'server' : 'business';
-                            throw data;
+                        if (!response.ok || data.ok !== true) {
+                            throw { kind: response.status >= 500 ? 'server' : 'query' };
                         }
                         return data;
                     });
@@ -2147,17 +2258,17 @@
                         window.clearTimeout(request.timeoutId);
                         return;
                     }
-                    if (String(data.fecha || '') !== fecha) {
-                        throw { kind: 'consistency', requestedDate: fecha, responseDate: data.fecha };
-                    }
                     var responseHour = horaCorta(data.hora || data.hora_sugerida || '');
-                    if (queryRequestedHour && responseHour !== queryRequestedHour) {
-                        throw {
-                            kind: 'consistency',
-                            requestedDate: fecha,
-                            requestedHour: queryRequestedHour,
-                            responseHour: responseHour
-                        };
+                    var responseForValidation = Object.assign({}, data, {
+                        horarios_mapa: data.horarios_mapa || data.horarios
+                    });
+                    var responseValidation = validarRespuestaMapaOperacion(
+                        responseForValidation,
+                        fecha,
+                        queryRequestedHour
+                    );
+                    if (!responseValidation.valida) {
+                        throw { kind: responseValidation.motivo === 'contexto' ? 'consistency' : 'invalid_response' };
                     }
                     window.clearTimeout(request.timeoutId);
                     if (state.activeRequest === request) {
@@ -2173,7 +2284,7 @@
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
                     state.editable = data.editable !== false;
-                    state.horarios = data.horarios_mapa || data.horarios || [];
+                    state.horarios = responseForValidation.horarios_mapa;
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
                     state.mesasEstado = data.mesas_estado || [];
@@ -2217,6 +2328,12 @@
                             ? new Set(localSelectionBeforeRefresh)
                             : new Set();
                         if (preserveAssignment) {
+                            var candidateIdsBeforeValidation = Array.from(state.candidateSelectionIds);
+                            state.candidateSelectionIds = new Set(candidateIdsBeforeValidation.filter(function (mesaId) {
+                                return mapaTieneContratoVisualValido(mesaId);
+                            }));
+                            state.assignmentInvalidSelectionRemoved = state.candidateSelectionIds.size
+                                !== candidateIdsBeforeValidation.length;
                             state.assignmentDataUpdated = true;
                         }
                     } else {
@@ -2359,6 +2476,18 @@
             var reservacion = selectedReservation();
 
             if (!reservacion || !canAssignTables(reservacion) || state.guardando) {
+                return;
+            }
+
+            if (state.loadFailure || !projectionContextMatchesSelection()) {
+                showInlineError('Actualiza la consulta del mapa antes de guardar la asignación.', null);
+                return;
+            }
+            var invalidCandidates = Array.from(state.candidateSelectionIds).filter(function (mesaId) {
+                return !mapaTieneContratoVisualValido(mesaId);
+            });
+            if (invalidCandidates.length) {
+                showInlineError('La selección incluye mesas sin estado visual verificado. Actualiza el mapa antes de guardar.', null);
                 return;
             }
 

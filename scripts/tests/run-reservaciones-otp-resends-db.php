@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 use Model\ActiveRecord;
 use Services\Contact\ContactoAccesoService;
 use Services\Integrations\N8nClient;
-use Services\Reservations\ConfirmationResendPolicy;
+use Services\Notifications\ConfirmationResendPolicy;
 
 function otpAssert(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);

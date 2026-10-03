@@ -6547,6 +6547,41 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 1 1 0;
 }
 
+.operational-map__query-notice,
+.operational-map__validation-status {
+  border: 1px solid var(--map-table-unavailable-border);
+  border-radius: 9px;
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-medium);
+  line-height: 1.45;
+}
+
+.operational-map__query-notice[hidden],
+.operational-map__validation-status[hidden] {
+  display: none;
+}
+
+.operational-map__query-notice {
+  position: absolute;
+  z-index: 24;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: 10px 13px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--admin-ink) 14%, transparent);
+  pointer-events: none;
+}
+
+.operational-map__validation-status {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+}
+
 .mesas-map__footer {
   display: flex;
   min-width: 0;
@@ -6619,7 +6654,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
 }
 
-.mesas-map button.mesa-pin:hover:not(:disabled) {
+.mesas-map button.mesa-pin:hover:not(:disabled):not(.mesa-pin--seleccionada) {
   z-index: 2;
   border-color: color-mix(in srgb, var(--admin-gold) 55%, var(--admin-border));
   transform: translate(-50%, -50%) scale(1.045);
@@ -6634,11 +6669,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mesas-map .mesa-pin:disabled {
   cursor: not-allowed;
-}
-
-.mesas-map button.mesa-pin--seleccionada:hover:not(:disabled),
-.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled) {
-  border-color: var(--map-table-selected-border);
 }
 
 .mesas-map .mesa-pin--no-reservable:disabled {
@@ -6756,8 +6786,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
-  background: var(--map-table-selected-bg);
-  color: var(--map-table-selected-text);
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
@@ -6798,36 +6826,50 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
 }
 
-.mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {
-  border-color: var(--map-table-selected-border);
-  background: var(--map-table-selected-bg);
-  color: var(--map-table-selected-text);
   opacity: 1;
   box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
   outline: 0;
 }
 
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--seleccionada {
+  opacity: 1;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent);
+  outline: 0;
+}
+
 /* La seleccion manual no oculta una ocupacion fisica real. */
-.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--seleccionada {
+  border-color: var(--map-table-occupied-border);
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  border-style: solid;
+  border-width: 2px;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /*
  * Estado superpuesto: la ocupación física conserva el fondo rojo y la
  * selección queda como indicador amarillo secundario.
  */
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia,
 .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_inminente,
 .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_bloqueante {
   border-color: var(--map-reservation-warning-border);
+  border-style: solid;
+  border-width: 2.5px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), 0 0 0 8px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 .pos-map.is-ticket-selection-mode {
@@ -7071,27 +7113,76 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 /* La selección es una capa de interacción y conserva el fondo del contrato. */
-.mesas-map .mesa-pin--libre.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--seleccionada {
+  border-color: var(--map-table-available-border);
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  border-style: solid;
+  border-width: 2px;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
-.mesas-map .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
-.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
-  border-color: var(--map-table-selected-border);
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
+  border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  border-style: solid;
+  border-width: 2px;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent), 0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
+/* La advertencia conserva el borde discontinuo sobre el intervalo azul. */
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--reservacion-proxima.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+}
+
+/* El contrato desconocido domina los estilos compuestos sin borrar señales
+   operativas reales como el marcador de ausencia pendiente. */
+.pos-map .mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
+.reservation-operation__map.mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
+.mesas-map .mesa-pin.mesa-pin--estado-no-verificado {
+  border: 2px dashed var(--map-table-unavailable-border);
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--admin-ink) 18%, transparent);
+  cursor: not-allowed;
+}
+
+.mesas-map .mesa-pin__verification-warning {
+  position: absolute;
+  z-index: 5;
+  top: 3px;
+  left: 3px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid var(--map-table-unavailable-border);
+  border-radius: 50%;
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  pointer-events: none;
+}
+
+.mesas-map .mesa-pin__verification-warning svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .mesas-map__legend .mapa-leyenda-item .mesa-pin {
@@ -7321,17 +7412,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 38px !important;
   min-height: 38px;
   padding: 4px;
-  border-radius: 9px;
-  box-shadow: none;
   font-size: var(--operational-text-xs);
   transform: none !important;
   transition: none;
-}
-
-.map-help-dialog__sample .mesa-pin--reservacion-proxima.mesa-pin--mod-ausencia_pendiente {
-  border-color: var(--map-table-reservation-overdue-border);
-  background: var(--map-table-reservation-overdue-bg);
-  color: var(--map-table-reservation-overdue-text);
 }
 
 .map-help-dialog__copy {
@@ -7367,6 +7450,28 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-medium);
   line-height: 1.45;
+}
+
+.map-help-dialog__context-note {
+  margin-top: 18px;
+  padding: 11px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: var(--operational-text-base);
+  line-height: 1.45;
+}
+
+.map-help-dialog__context-note ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 19px;
+}
+
+.map-help-dialog__note {
+  margin-top: 12px;
 }
 
 .map-help-dialog__note svg {
@@ -7418,6 +7523,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   .map-help-dialog__note {
     margin-top: 20px;
+  }
+  .map-help-dialog__context-note {
+    margin-top: 16px;
+  }
+  .map-help-dialog__note {
+    margin-top: 10px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

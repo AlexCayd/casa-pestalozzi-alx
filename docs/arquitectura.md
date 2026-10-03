@@ -43,11 +43,11 @@ Cada carpeta representa un dominio y cada clase declara el namespace
 | `Integrations` | Adaptadores a servicios externos |
 | `Inventory` | Inventario y recetas |
 | `Menu` | Catálogo y reglas del menú |
-| `Notifications` | Configuración y herramientas transversales de transporte |
+| `Notifications` | Preparación y orquestación de comunicaciones, contratos y configuración de transporte |
 | `Pos` | Casos de uso del punto de venta e impresión |
-| `Reservations` | Reservaciones, capacidad y sus reglas |
-| `Scheduling` | Horario de operación del restaurante |
-| `Security` | Servicios transversales de seguridad |
+| `Reservations` | Reglas y operaciones propias del agregado de reservaciones |
+| `Scheduling` | Calendarios, reglas de horario y afectaciones de agenda |
+| `Security` | Tokens, sesiones y control de acceso |
 | `Shared` | Coordinación realmente transversal, como locks compartidos |
 | `Tables` | Hechos y proyecciones comunes de mesas |
 | `Users` | Acceso y servicios de usuarios |
@@ -60,6 +60,32 @@ dominios; no es un cajón para responsabilidades sin clasificar.
 Composer mapea `"Services\\": "./services"`; por ejemplo,
 `services/Reservations/DisponibilidadReservacionService.php` declara
 `namespace Services\Reservations;`.
+
+La carpeta se elige por la responsabilidad principal: que una clase incluya
+`Reservation` en el nombre no significa que pertenezca a `Reservations/`.
+`Notifications` prepara y coordina las comunicaciones; `Security` administra
+tokens, sesiones y accesos; `Scheduling` resuelve horarios y registra sus
+afectaciones. `Reservations` conserva las reglas del agregado y sus operaciones.
+
+`HorarioReservacionService` permanece en `Reservations`: además de usar el
+calendario operativo, valida reglas de reservación como fechas admisibles,
+anticipación y último horario reservable, y expone códigos del servicio de
+reservaciones. `ReservacionVigenciaService` es la fuente común para interpretar
+el instante programado y clasificar su vigencia operativa, como tolerancia y
+elegibilidad de ausencia. `HorarioOperacionImpactoService` pertenece a `Scheduling`
+porque evalúa y persiste el impacto de cambios de agenda.
+
+El flujo de cambios de horario conserva una colaboración estática entre
+`Scheduling` y `Notifications`: el servicio de horario despacha después del
+commit, y el servicio de notificaciones consulta y actualiza el impacto
+persistido. `HorarioOperacionImpactoService` también usa `Security` para emitir
+tokens, mientras que el servicio de acceso valida esos impactos. `Reservations`
+llama a `Notifications` para finalizar confirmaciones; `Notifications` consulta
+configuración y reglas temporales de `Reservations`. El impacto de agenda usa
+configuración y seguimiento operativo de `Reservations`, cuyos casos de uso
+también consultan `Scheduling`. Son colaboraciones con llamadas estáticas, sin
+ciclo de construcción por inyección; separarlas requiere contratos o cambios de
+flujo fuera del alcance de esta redistribución.
 
 ## Nuevas clases
 

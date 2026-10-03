@@ -42,12 +42,12 @@ $inicioReservacion = new DateTimeImmutable('2026-08-06 13:00:00', ReservacionCon
 
 $consultas = [
     '11:30:00' => ['libre', 'libre', false, true, false],
-    '12:00:00' => ['ocupada', 'libre', true, true, true],
+    '12:00:00' => ['libre', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
-    '13:30:00' => ['libre', 'reservacion-proxima', false, false, false],
-    '14:00:00' => ['libre', 'reservacion-proxima', false, false, false],
+    '13:30:00' => ['ocupada', 'reservacion-proxima', true, false, false],
+    '14:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
     '14:30:00' => ['libre', 'reservacion-proxima', false, false, false],
 ];
 
@@ -56,10 +56,7 @@ $mapaEvaluacion = static function (string $hora) use ($inicioReservacion): array
         '2026-08-06 ' . $hora,
         ReservacionConfig::timezone()
     );
-    $bloqueada = $inicioConsulta < new DateTimeImmutable(
-        '2026-08-06 13:15:00',
-        ReservacionConfig::timezone()
-    ) && OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
+    $bloqueada = OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
     return [
         'mesas' => [],
         'tickets_por_mesa' => [],
@@ -89,9 +86,12 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
     if ($hora >= '13:30:00') {
         assertMesaFacts($mesaEstado['ausencia_pendiente'] === true, "ausencia pendiente {$hora}");
         assertMesaFacts($mesaEstado['reservacion_influye_en_disponibilidad'] === false, "ausencia libera influencia {$hora}");
-        assertMesaFacts($mesaEstado['disponible_para_asignacion'] === true, "ausencia libera asignacion {$hora}");
+        assertMesaFacts(
+            $mesaEstado['disponible_para_asignacion'] === ($hora === '14:30:00'),
+            "la asignación sólo vuelve al terminar el intervalo: {$hora}"
+        );
         assertMesaFacts($mesaEstado['disponible_para_ticket'] === false, "ausencia conserva bloqueo POS {$hora}");
-        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "gris {$hora}");
+        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "indicador de ausencia {$hora}");
     }
 }
 
@@ -125,7 +125,10 @@ $ausenciaConOtra = MesaEstadoService::normalizarMesas(
         'causas_bloqueo_por_mesa' => [4 => ['reservacion']],
     ]
 )[0];
-assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'reservacion-proxima', 'otra reservacion conserva azul');
+assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'ocupada', 'la reserva activa prioriza sobre el bloqueo previo');
+assertMesaFacts($ausenciaConOtra['reservacion_mapa_id'] === 25, 'el mapa elige la reserva activa sobre otra próxima');
+assertMesaFacts($ausenciaConOtra['reservacion_mapa_hora'] === '13:00', 'el resumen del mapa conserva la hora de la reserva activa');
+assertMesaFacts($ausenciaConOtra['reservacion_id'] === 26, 'la autoridad POS conserva la reserva próxima para su operación');
 assertMesaFacts($ausenciaConOtra['disponible_para_asignacion'] === false, 'otra reservacion conserva el bloqueo');
 assertMesaFacts(in_array('ausencia_pendiente', $ausenciaConOtra['modificadores_visual_mapa'], true), 'otra reservacion compone gris');
 
@@ -153,5 +156,59 @@ $ticketFuturo = MesaEstadoService::normalizarMesas(
 )[0];
 assertMesaFacts($ticketFuturo['ticket_abierto'] === false, 'ticket actual no aplica a fecha futura');
 assertMesaFacts($ticketFuturo['ticket_bloquea_consulta'] === false, 'ticket futuro no bloquea');
+
+$capacidadesPorElemento = [
+    ['Mesa 8', 'mesa', 'Mesa 8', 1, 1, [true, true, true, false, false]],
+    ['Barra 8', 'barra', 'Barra 8', 0, 1, [false, true, true, false, false]],
+    ['Caja', 'especial', 'Caja', 0, 1, [false, true, false, true, false]],
+    ['Llevar', 'especial', 'Llevar', 0, 1, [false, true, false, false, true]],
+    ['Elemento 8', 'mesa', 'Elemento 8', 0, 1, [false, false, false, false, false]],
+    ['Mesa 9', 'mesa', 'Mesa 9', 1, 0, [false, false, false, false, false]],
+];
+foreach ($capacidadesPorElemento as [$id, $tipo, $nombre, $reservable, $activo, $esperadas]) {
+    $estado = MesaEstadoService::normalizarMesas(
+        [[
+            'id' => (int)preg_replace('/\D+/', '', $id) ?: 90,
+            'tipo' => $tipo,
+            'nombre' => $nombre,
+            'activo' => $activo,
+            'reservable' => $reservable,
+            'capacidad' => $tipo === 'mesa' ? 4 : 0,
+        ]],
+        [],
+        [],
+        '2026-08-06',
+        $ahora,
+        '12:00:00',
+        ['mesa_ids_bloqueadas' => []]
+    )[0];
+    $capacidad = $estado['capacidades_pos'];
+    [$participaReservaciones, $operable, $ticketable, $abrirCaja, $crearLlevar] = $esperadas;
+    assertMesaFacts($capacidad['reservable'] === $participaReservaciones, "capacidad Reservaciones {$nombre}");
+    assertMesaFacts($capacidad['operable'] === $operable, "operabilidad POS {$nombre}");
+    assertMesaFacts($capacidad['ticketable'] === $ticketable, "ticketable POS {$nombre}");
+    assertMesaFacts($capacidad['abrir_caja'] === $abrirCaja, "flujo de Caja {$nombre}");
+    assertMesaFacts($capacidad['crear_pedido_llevar'] === $crearLlevar, "flujo de Llevar {$nombre}");
+    assertMesaFacts(
+        $capacidad['independiente_consulta'] === ($abrirCaja || $crearLlevar || ($activo && !$operable)),
+        "dependencia del snapshot {$nombre}"
+    );
+}
+$estadoBarra = MesaEstadoService::normalizarMesas(
+    [[
+        'id' => 12,
+        'tipo' => 'barra',
+        'nombre' => 'Barra 12',
+        'activo' => 1,
+        'reservable' => 0,
+    ]],
+    [],
+    [],
+    '2026-08-06',
+    $ahora,
+    '12:00:00',
+    ['mesa_ids_bloqueadas' => []]
+)[0];
+assertMesaFacts($estadoBarra['estado_visual_pos'] === 'libre', 'Barra operativa recibe su estado POS desde backend');
 
 fwrite(STDOUT, "Reservaciones: hechos de mesa OK\n");

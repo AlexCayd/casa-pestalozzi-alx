@@ -125,10 +125,6 @@ final class PosReservacionQueryService
                 $reservacionSerializada,
                 $horaEvaluacion
             );
-            if (($reservacionSerializada['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA'
-                && empty($reservacionSerializada['ticket_abierto'])) {
-                $aplicaHoraConsultada = true;
-            }
             $reservacionSerializada['aplica_hora_consultada'] = $aplicaHoraConsultada;
             $reservacionSerializada['bloqueada_en_intervalo'] = $mesasBloqueantes !== [];
             $reservacionSerializada['disponible_para_asignacion'] = $mesaIds !== []
@@ -147,15 +143,32 @@ final class PosReservacionQueryService
             }
         }
         $evaluacionOcupacion = [];
+        $evaluacionOcupacionAsignacion = [];
         try {
-            $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
+            $superficie = strtolower(trim((string)($opciones['superficie'] ?? 'pos')));
+            $contextoOcupacion = OcupacionMesasService::prepararContextoFecha(
                 $fecha,
-                $horaEvaluacion,
-                $excluirReservacionId,
                 false,
                 $ticketsLeidos,
+                $ahora,
+                0,
+                false,
+                $superficie === 'admin'
+            );
+            $evaluacionOcupacion = OcupacionMesasService::evaluarHorarioConContexto(
+                $contextoOcupacion,
+                $horaEvaluacion,
+                0,
                 $ahora
             );
+            $evaluacionOcupacionAsignacion = $excluirReservacionId > 0
+                ? OcupacionMesasService::evaluarHorarioConContexto(
+                    $contextoOcupacion,
+                    $horaEvaluacion,
+                    $excluirReservacionId,
+                    $ahora
+                )
+                : $evaluacionOcupacion;
         } catch (\Throwable $error) {
             // La lectura del contrato sigue siendo útil aunque el horario no
             // pueda evaluarse; el consumidor recibe una lista vacía de estados.
@@ -168,6 +181,7 @@ final class PosReservacionQueryService
                 'fisica' => [],
                 'alertas_operativas' => [],
             ];
+            $evaluacionOcupacionAsignacion = $evaluacionOcupacion;
         }
 
         $reservacionesParaAdvertencias = array_values(array_filter(
@@ -187,6 +201,7 @@ final class PosReservacionQueryService
             [
                 'reservacion_en_edicion_id' => $reservacionEnEdicionId,
                 'current_assignment_ids' => $asignacionActualIds,
+                'evaluacion_ocupacion_asignacion' => $evaluacionOcupacionAsignacion,
             ]
         );
         $capacidadHorario = OcupacionMesasService::resumenCapacidad(
@@ -264,7 +279,10 @@ final class PosReservacionQueryService
         return array_values(array_filter(
             $reservaciones,
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
-                && !empty($reservacion['aplica_hora_consultada'])
+                && (!empty($reservacion['aplica_hora_consultada'])
+                    || !empty($reservacion['proyeccion_mapa']['reservacion_cercana_mapa'])
+                    || ($mapaAdministrativo
+                        && (string)($reservacion['proyeccion_mapa']['ventana_mapa'] ?? '') === 'irrelevante'))
                 && (!$mapaAdministrativo || empty($reservacion['fuera_horario_operacion']))
         ));
     }
@@ -317,10 +335,8 @@ final class PosReservacionQueryService
 
         $inicioReserva = new DateTimeImmutable($fecha . ' ' . $horaReserva, ReservacionConfig::timezone());
         $inicioMapa = new DateTimeImmutable($fecha . ' ' . $horaMapa, ReservacionConfig::timezone());
-        $finReserva = $inicioReserva->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
-        $finMapa = $inicioMapa->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
 
-        return $inicioReserva < $finMapa && $finReserva > $inicioMapa;
+        return OcupacionMesasService::intervalosSeTraslapan($inicioReserva, $inicioMapa);
     }
 
     /** @return array<int, int> */

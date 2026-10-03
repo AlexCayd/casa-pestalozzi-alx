@@ -15,6 +15,7 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Shared\FechaOperacionLock;
 
 class ReservacionService
@@ -110,11 +111,6 @@ class ReservacionService
     // que es por donde pasan todas las consultas de disponibilidad. Tener dos
     // constructores del mismo contrato era justamente lo que dejó a la landing
     // pintando la tarjeta de horario especial con los campos vacíos.
-
-    public static function validarHorarioDisponible(string $fecha, string $hora): array
-    {
-        return HorarioReservacionService::validarHora($fecha, $hora);
-    }
 
     /**
      * Revalida mesas actuales cuando cambian fecha, hora o comensales.
@@ -338,11 +334,6 @@ class ReservacionService
         }
     }
 
-    public static function estadoActivo(string $estado): bool
-    {
-        return in_array($estado, ReservacionConfig::ESTADOS_EDITABLES, true);
-    }
-
     public static function estadoLabels(): array
     {
         return ReservacionConfig::ESTADO_LABELS;
@@ -356,11 +347,6 @@ class ReservacionService
     public static function estadosFinales(): array
     {
         return ReservacionConfig::ESTADOS_FINALES;
-    }
-
-    public static function estadosOcupanMesa(): array
-    {
-        return ReservacionConfig::ESTADOS_OCUPAN_MESA;
     }
 
     public static function transiciones(): array
@@ -499,7 +485,7 @@ class ReservacionService
             $reservacion->request_token = $requestToken;
             $reservacion->estado = 'confirmada';
 
-            $horarioFinal = self::validarHorarioDisponible($datos['fecha'], $datos['hora']);
+            $horarioFinal = HorarioReservacionService::validarHora($datos['fecha'], $datos['hora']);
             if (!$horarioFinal['ok']) {
                 return self::respuestaHorarioInvalido($horarioFinal);
             }
@@ -782,7 +768,7 @@ class ReservacionService
         }
 
         if ($validarHorario && empty($errors['fecha']) && empty($errors['hora'])) {
-            $horario = self::validarHorarioDisponible($fecha, $hora);
+            $horario = HorarioReservacionService::validarHora($fecha, $hora);
 
             if (!$horario['ok']) {
                 $codigoHorario = (string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO);

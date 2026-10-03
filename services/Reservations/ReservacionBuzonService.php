@@ -8,6 +8,7 @@ use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Pos\ReservacionPoliticaPosService;
 use Services\Scheduling\HorarioOperacionService;
+use Services\Scheduling\HorarioOperacionImpactoService;
 
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */
 final class ReservacionBuzonService

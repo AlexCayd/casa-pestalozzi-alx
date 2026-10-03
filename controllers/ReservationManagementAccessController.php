@@ -6,8 +6,8 @@ use MVC\Router;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionPublicaService;
-use Services\Reservations\ReservationManagementAccessService;
-use Services\Reservations\ReservationManagementAccessSession;
+use Services\Security\ReservationManagementAccessService;
+use Services\Security\ReservationManagementAccessSession;
 
 /** Superficie pública única para gestionar una reservación por acceso temporal. */
 final class ReservationManagementAccessController

@@ -1,8 +1,9 @@
 /**
  * Componente visual compartido del mapa de mesas.
  *
- * Renderiza y actualiza pines, pero no interpreta su seleccion. Cada
- * controlador de contexto escucha `mapa:mesa-click` y decide que hacer.
+ * Recibe objetos ya normalizados y renderiza pines y su lista accesible. No
+ * valida el contrato ni las respuestas HTTP; cada consumidor decide qué hacer
+ * con los eventos `mapa:mesa-click`.
  */
 (function () {
     var STATE_CLASSES = [
@@ -13,56 +14,10 @@
         'mesa-pin--no-utilizable'
     ];
 
-    var STATE_LABELS = {
-        libre: 'disponible',
-        ocupada: 'ocupada',
-        'reservacion-proxima': 'con reservación próxima',
-        seleccionada: 'seleccionada',
-        'no-utilizable': 'no utilizable'
-    };
+    var UNVERIFIED_CLASS = 'mesa-pin--estado-no-verificado';
 
     function toBoolean(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
-    }
-
-    function numberOrNull(value) {
-        var parsed = parseFloat(value);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    function clampPercent(value, fallback) {
-        var parsed = numberOrNull(value);
-        return parsed === null ? fallback : Math.max(0, Math.min(100, parsed));
-    }
-
-    function normalizeState(value) {
-        // Un estado ausente no demuestra disponibilidad. El fallback neutral
-        // conserva el contrato seguro aunque la normalización se use sola.
-        var state = String(value || 'no-utilizable').toLowerCase();
-        var aliases = {
-            disponible: 'libre',
-            no_reservable: 'no-utilizable',
-            'no-reservable': 'no-utilizable',
-            'no-utilizable': 'no-utilizable',
-            proxima: 'reservacion-proxima',
-            bloqueada: 'reservacion-proxima',
-            'con-ticket': 'ocupada',
-            zona: 'no-utilizable'
-        };
-
-        state = aliases[state] || state;
-        return ['libre', 'ocupada', 'reservacion-proxima', 'seleccionada', 'no-utilizable'].indexOf(state) !== -1
-            ? state
-            : 'no-utilizable';
-    }
-
-    function validVisualState(value, previousState) {
-        var state = String(value || '').toLowerCase();
-        if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(state) !== -1) {
-            return true;
-        }
-        return state === 'seleccionada'
-            && ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(String(previousState || '').toLowerCase()) !== -1;
     }
 
     function normalizeClasses(value) {
@@ -91,51 +46,39 @@
         return attributes;
     }
 
-    function normalizeTable(raw) {
+    // El adapter ya entregó el contrato visual listo. Esta copia sólo protege
+    // el estado mutable interno del renderer y normaliza clases/atributos DOM.
+    function snapshotTable(raw) {
         raw = raw || {};
-
         var id = parseInt(raw.id || '0', 10);
-        var visualValue = raw.estadoVisual || raw.estado_visual_pos || raw.estado_visual_mapa || raw.estado_visual || raw.estado;
-        var previousState = raw.estadoVisualAnterior || raw.estado_visual_previo;
-        var contractValid = validVisualState(visualValue, previousState);
-        var state = normalizeState(visualValue);
-        var legacySelected = state === 'seleccionada';
-        if (legacySelected) state = normalizeState(previousState);
-        var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
-        var selected = (toBoolean(raw.seleccionada) || legacySelected)
-            && seleccionValida
-            && contractValid
-            && state !== 'no-utilizable';
-        var reservable = toBoolean(raw.reservable);
-
-            return {
+        return Object.assign({}, raw, {
             id: id,
             nombre: String(raw.nombre || ('Mesa ' + id)),
             tipo: String(raw.tipo || 'mesa').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'mesa',
-            estadoVisual: state,
-            x: clampPercent(raw.x != null ? raw.x : raw.pos_x, 50),
-            y: clampPercent(raw.y != null ? raw.y : raw.pos_y, 50),
-            ancho: numberOrNull(raw.ancho != null ? raw.ancho : raw.width),
-            alto: numberOrNull(raw.alto != null ? raw.alto : raw.height),
-            reservable: reservable,
+            estadoVisual: String(raw.estadoVisual || 'no-utilizable'),
+            estadoNoVerificado: toBoolean(raw.estadoNoVerificado),
+            x: raw.x,
+            y: raw.y,
+            ancho: raw.ancho,
+            alto: raw.alto,
+            reservable: toBoolean(raw.reservable),
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
-            reservacionProxima: raw.reservacion_proxima || null,
-            seleccionada: selected,
-            interactivo: !contractValid ? false : (raw.interactivo == null
-                ? reservable && state !== 'no-utilizable'
-                : toBoolean(raw.interactivo)),
-                titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
-                ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
-            // Rótulo bajo el nombre de un área operativa. Vacío deja el
-            // genérico; Llevar lo usa para contar sus pedidos abiertos.
+            seleccionada: toBoolean(raw.seleccionada),
+            interactivo: toBoolean(raw.interactivo),
+            interactivoSolicitado: toBoolean(raw.interactivoSolicitado),
+            independienteDeConsulta: toBoolean(raw.independienteDeConsulta),
+            titulo: String(raw.titulo || raw.nombre || ('Mesa ' + id)),
+            ariaLabel: String(raw.ariaLabel || ''),
+            etiquetaEstado: String(raw.etiquetaEstado || ''),
             subtitulo: String(raw.subtitulo || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
-            estadoBase: String(raw.estadoBase || raw.estado_base || ''),
+            estadoBase: String(raw.estadoBase || ''),
             modificadores: normalizeClasses(raw.modificadores),
-            seleccionValida: seleccionValida,
-            clasesEstado: normalizeClasses(raw.clasesEstado || raw.clases_estado),
+            seleccionValida: raw.seleccionValida === true,
+            seleccionValidaSolicitada: raw.seleccionValidaSolicitada === true,
+            clasesEstado: normalizeClasses(raw.clasesEstado),
             atributos: normalizeAttributes(raw.atributos)
-        };
+        });
     }
 
     function createMapVisual(options) {
@@ -158,8 +101,39 @@
         var lastSelectionKey = '';
         var card = canvas.closest('[data-map-component]');
         var structuredList = card ? card.querySelector('[data-map-structured-list]') : null;
+        var queryStatus = card ? card.querySelector('[data-map-query-status]') : null;
+        var validationStatus = card ? card.querySelector('[data-map-validation-status]') : null;
+        var queryBlocksOperations = false;
+
+        function canInteract(table) {
+            return interactive
+                && table.interactivo === true
+                && table.estadoNoVerificado !== true
+                && (!queryBlocksOperations || table.independienteDeConsulta === true);
+        }
+
+        function syncValidationStatus() {
+            if (!validationStatus) return;
+            var invalidTables = tables.filter(function (table) {
+                return table.estadoNoVerificado;
+            });
+            if (!invalidTables.length) {
+                validationStatus.textContent = '';
+                validationStatus.hidden = true;
+                return;
+            }
+            var names = invalidTables.map(function (table) {
+                return table.nombre || table.titulo || 'Elemento del mapa';
+            });
+            validationStatus.textContent = 'Estado no verificado en: ' + names.join(', ')
+                + '. No se puede operar en esos elementos hasta recibir información válida.';
+            validationStatus.hidden = false;
+        }
 
         function accessibleTableLabel(table) {
+            var unverifiedCopy = table.estadoNoVerificado
+                ? ' Estado no verificado. La información del mapa está incompleta; no se puede operar en este elemento hasta recibir información válida.'
+                : '';
             if (table.ariaLabel) {
                 var suppliedLabel = table.ariaLabel;
                 var suppliedLower = suppliedLabel.toLowerCase();
@@ -172,13 +146,15 @@
                     && suppliedLower.indexOf('reservaci') === -1) {
                     suppliedLabel += ' Reservación cercana.';
                 }
-                return suppliedLabel + (table.seleccionada ? ', seleccionada' : '');
+                return suppliedLabel
+                    + unverifiedCopy
+                    + (table.seleccionada ? ', seleccionada' : '');
             }
             var parts = [table.titulo];
             if (table.capacidad > 0) {
                 parts.push('capacidad ' + table.capacidad);
             }
-            parts.push(STATE_LABELS[table.estadoVisual] || table.estadoVisual);
+            parts.push(table.etiquetaEstado || table.estadoVisual);
             if (table.modificadores.indexOf('reservacion_advertencia') !== -1) {
                 parts.push('con reservación cercana');
             }
@@ -188,31 +164,18 @@
             if (table.seleccionada) {
                 parts.push('seleccionada');
             }
+            if (table.estadoNoVerificado) {
+                parts.push('Estado no verificado. La información del mapa está incompleta; no se puede operar en este elemento hasta recibir información válida');
+            }
             return parts.join(', ');
         }
 
         function visibleTableState(table) {
-            if (table.estadoVisual === 'no-utilizable') {
-                return 'No reservable';
-            }
-            if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
-                return 'Ausencia pendiente';
-            }
-            if (table.modificadores.indexOf('reservacion_advertencia') !== -1
-                || table.estadoVisual === 'reservacion-proxima') {
-                return 'Reserva próxima';
-            }
-            return (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                .replace(/^./, function (letter) { return letter.toUpperCase(); });
+            return table.estadoNoVerificado ? 'Estado no verificado' : table.etiquetaEstado;
         }
 
         function visibleTableContext(table) {
-            var reservation = table.reservacionProxima || null;
-            var hour = reservation && (reservation.hora || reservation.hora_reservacion)
-                ? String(reservation.hora || reservation.hora_reservacion).slice(0, 5)
-                : '';
-            var capacity = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
-            return [hour, capacity].filter(Boolean).join(' · ');
+            return table.estadoNoVerificado ? '' : table.subtitulo;
         }
 
         function dispatch(name, detail) {
@@ -249,7 +212,7 @@
         function applyState(pin, table) {
             // Los modificadores visuales, incluido ausencia_pendiente, nunca
             // determinan la usabilidad; sólo el permiso normalizado lo hace.
-            var isInteractive = table.interactivo === true;
+            var isInteractive = canInteract(table);
             var previousClasses = String(pin.getAttribute('data-state-classes') || '')
                 .split(/\s+/)
                 .filter(Boolean);
@@ -263,6 +226,7 @@
             pin.classList.remove('mesa-pin--highlight');
             pin.classList.remove('reservation-operation-pin--assigned');
             pin.classList.remove('reservation-operation-pin--selected');
+            pin.classList.remove(UNVERIFIED_CLASS);
 
             pin.classList.add('mesa-pin--' + table.estadoVisual);
             var stateClasses = table.clasesEstado.slice();
@@ -275,7 +239,11 @@
             });
             pin.setAttribute('data-state-classes', stateClasses.join(' '));
 
-            if (table.seleccionada) {
+            if (table.estadoNoVerificado) {
+                pin.classList.add(UNVERIFIED_CLASS);
+            }
+
+            if (table.seleccionada && !table.estadoNoVerificado) {
                 pin.classList.add('mesa-pin--seleccionada');
                 pin.classList.add('mesa-pin--highlight');
             }
@@ -283,11 +251,27 @@
             pin.setAttribute('data-estado-visual', table.estadoVisual);
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
+            if (table.estadoNoVerificado) {
+                pin.setAttribute('data-estado-no-verificado', '1');
+            } else {
+                pin.removeAttribute('data-estado-no-verificado');
+            }
             pin.setAttribute('data-disabled', isInteractive ? '0' : '1');
             pin.setAttribute('aria-disabled', isInteractive ? 'false' : 'true');
             pin.disabled = !isInteractive;
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
+
+            var warningIcon = pin.querySelector('.mesa-pin__verification-warning');
+            if (table.estadoNoVerificado && !warningIcon) {
+                warningIcon = document.createElement('span');
+                warningIcon.className = 'mesa-pin__verification-warning';
+                warningIcon.setAttribute('aria-hidden', 'true');
+                warningIcon.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 3.5 2.7 20h18.6L12 3.5Z"></path><path d="M12 9v4.5M12 17h.01"></path></svg>';
+                pin.appendChild(warningIcon);
+            } else if (!table.estadoNoVerificado && warningIcon) {
+                warningIcon.parentNode.removeChild(warningIcon);
+            }
         }
 
         function syncStructuredTable(table) {
@@ -302,13 +286,18 @@
 
             var state = button.querySelector('.operational-map__structured-state');
             var context = button.querySelector('.operational-map__structured-context');
-            button.disabled = !(interactive && table.interactivo);
+            button.disabled = !canInteract(table);
             button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             button.setAttribute('aria-label', accessibleTableLabel(table));
             // El CSS pinta el punto de estado desde aquí, con los mismos tokens
             // --map-table-* que usan los pines del mapa.
             button.setAttribute('data-estado-visual', table.estadoVisual);
+            if (table.estadoNoVerificado) {
+                button.setAttribute('data-estado-no-verificado', '1');
+            } else {
+                button.removeAttribute('data-estado-no-verificado');
+            }
             if (state) {
                 state.textContent = visibleTableState(table);
             }
@@ -332,10 +321,13 @@
                 button.type = 'button';
                 button.setAttribute('data-structured-mesa', String(table.id));
                 button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
-                button.disabled = !(interactive && table.interactivo);
+                button.disabled = !canInteract(table);
                 button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
                 button.setAttribute('aria-label', accessibleTableLabel(table));
                 button.setAttribute('data-estado-visual', table.estadoVisual);
+                if (table.estadoNoVerificado) {
+                    button.setAttribute('data-estado-no-verificado', '1');
+                }
 
                 var name = document.createElement('span');
                 name.className = 'operational-map__structured-name';
@@ -363,7 +355,7 @@
 
         function createPin(table) {
             var pin = document.createElement('button');
-            var isInteractive = interactive && table.interactivo;
+            var isInteractive = canInteract(table);
 
             pin.type = 'button';
             pin.className = 'mesa-pin mesa-pin--tipo-' + table.tipo;
@@ -412,7 +404,7 @@
             var visualTables = [];
 
             (payload.mesas || []).concat(payload.elementos || []).forEach(function (table) {
-                var normalized = normalizeTable(table);
+                var normalized = snapshotTable(table);
                 if (normalized.id > 0) {
                     visualTables.push(normalized);
                 }
@@ -431,6 +423,7 @@
             canvas.appendChild(fragment);
             canvas.setAttribute('data-map-ready', '1');
             renderStructuredList();
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
@@ -442,6 +435,7 @@
             if (structuredList) {
                 structuredList.innerHTML = '';
             }
+            syncValidationStatus();
 
             if (message) {
                 var empty = document.createElement('div');
@@ -450,7 +444,7 @@
                 var icon = document.createElement('span');
                 icon.className = 'mapa-empty-icon';
                 icon.setAttribute('aria-hidden', 'true');
-                icon.textContent = 'o';
+                icon.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>';
 
                 var copy = document.createElement('span');
                 copy.textContent = message;
@@ -473,23 +467,20 @@
                 return;
             }
 
-            if (changes.estadoVisual != null) {
-                if (!validVisualState(changes.estadoVisual, changes.estadoVisualAnterior)) {
-                    table.interactivo = false;
-                    table.seleccionValida = false;
-                    table.seleccionada = false;
-                }
-                table.estadoVisual = normalizeState(changes.estadoVisual);
+            if (changes.interactivo != null) {
+                table.interactivoSolicitado = toBoolean(changes.interactivo);
+                table.interactivo = table.interactivoSolicitado;
             }
-            if (changes.seleccionada != null) {
-                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida !== false;
+            if (changes.seleccionValida != null) {
+                table.seleccionValidaSolicitada = toBoolean(changes.seleccionValida);
+                table.seleccionValida = table.seleccionValidaSolicitada;
             }
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
             }
-            if (changes.modificadores != null) {
-                table.modificadores = normalizeClasses(changes.modificadores);
-            }
+            if (changes.modificadores != null) table.modificadores = normalizeClasses(changes.modificadores);
+            if (changes.estadoVisual != null) table.estadoVisual = String(changes.estadoVisual);
+            if (changes.estadoNoVerificado != null) table.estadoNoVerificado = toBoolean(changes.estadoNoVerificado);
             if (changes.titulo != null) {
                 table.titulo = String(changes.titulo);
                 pin.title = table.titulo;
@@ -504,8 +495,9 @@
                 }
             }
 
-            applyState(pin, table);
-            syncStructuredTable(table);
+            if (changes.seleccionada != null) {
+                table.seleccionada = toBoolean(changes.seleccionada);
+            }
 
             if (changes.atributos) {
                 var attributes = normalizeAttributes(changes.atributos);
@@ -514,6 +506,9 @@
                 });
             }
 
+            applyState(pin, table);
+            syncStructuredTable(table);
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
@@ -535,10 +530,37 @@
                 }
             });
 
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
+        function setConsultaEstado(message, blockOperations) {
+            message = String(message || '').trim();
+            queryBlocksOperations = Boolean(message && blockOperations === true);
+            if (queryStatus) {
+                queryStatus.textContent = message;
+                queryStatus.hidden = !message;
+            }
+            if (card) {
+                if (queryBlocksOperations) {
+                    card.setAttribute('data-map-stale', '1');
+                } else {
+                    card.removeAttribute('data-map-stale');
+                }
+            }
+            tables.forEach(function (table) {
+                var pin = canvas.querySelector('[data-mapa-mesa="' + table.id + '"]');
+                if (pin) {
+                    applyState(pin, table);
+                }
+                syncStructuredTable(table);
+            });
+        }
+
         function dispatchTableClick(table) {
+            if (!canInteract(table)) {
+                return;
+            }
             dispatch('mapa:mesa-click', {
                 contexto: context,
                 mesaId: table.id,
@@ -603,14 +625,12 @@
             clear: clear,
             actualizarEstado: updateState,
             setSeleccionadas: setSelected,
-            normalizarMesa: normalizeTable,
+            setConsultaEstado: setConsultaEstado,
             destroy: destroy
         };
     }
 
     window.MapaVisual = {
-        crear: createMapVisual,
-        normalizarMesa: normalizeTable,
-        normalizarEstado: normalizeState
+        crear: createMapVisual
     };
 })();

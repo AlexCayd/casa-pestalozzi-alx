@@ -89,4 +89,20 @@ $conTicket = PosMesaProjectionPresenter::presentar([
 assertPosVisualContract($conTicket['estado_visual'] === 'ocupada', 'ticket abierto siempre es rojo');
 assertPosVisualContract(in_array('ticket_abierto', $conTicket['modificadores'], true), 'ticket conserva precedencia');
 
+$barraLibre = PosMesaProjectionPresenter::presentar([
+    'utilizable' => false,
+    'mostrar_estado_ticket_pos' => true,
+    'etiqueta_operacion_pos' => 'Barra',
+    'ticket_bloquea_consulta' => false,
+]);
+$barraOcupada = PosMesaProjectionPresenter::presentar([
+    'utilizable' => false,
+    'mostrar_estado_ticket_pos' => true,
+    'etiqueta_operacion_pos' => 'Barra',
+    'ticket_bloquea_consulta' => true,
+]);
+assertPosVisualContract($barraLibre['estado_visual'] === 'libre', 'barra operativa sin bloqueo proyecta verde desde backend');
+assertPosVisualContract($barraOcupada['estado_visual'] === 'ocupada', 'barra con ticket bloqueante proyecta rojo desde backend');
+assertPosVisualContract(in_array('ticket_abierto', $barraOcupada['modificadores'], true), 'barra mantiene el modificador de ticket en backend');
+
 fwrite(STDOUT, "POS: simbologia antes e inicio de reservacion OK\n");

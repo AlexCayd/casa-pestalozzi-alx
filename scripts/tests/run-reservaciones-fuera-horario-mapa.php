@@ -77,7 +77,7 @@ $blockedPin = MesaEstadoService::normalizarMesas(
 )[0];
 assertFueraHorarioMapa($blockedPin['estado_visual_mapa'] === 'ocupada', 'un bloqueo independiente conserva rojo');
 assertFueraHorarioMapa(
-    str_contains($blockedPin['aria_label_mapa'], 'retención vigente'),
+    str_contains(mb_strtolower($blockedPin['aria_label_mapa']), 'no disponible por retención'),
     'el pin conserva la causa del bloqueo independiente'
 );
 

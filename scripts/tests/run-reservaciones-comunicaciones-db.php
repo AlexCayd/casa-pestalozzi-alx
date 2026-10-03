@@ -13,13 +13,13 @@ use Services\Contact\ContactoAccesoService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
 use Services\Reservations\ReservacionPublicaService;
-use Services\Reservations\ReservationAccessTokenService;
-use Services\Reservations\ReservationManagementAccessService;
-use Services\Reservations\ReservacionNotificacionConfigService;
-use Services\Reservations\ReservationNotificationContract;
-use Services\Reservations\ReservationNotificationResultService;
-use Services\Reservations\ReservationReminderService;
-use Services\Reservations\ScheduleChangeNotificationService;
+use Services\Security\ReservationAccessTokenService;
+use Services\Security\ReservationManagementAccessService;
+use Services\Notifications\ReservacionNotificacionConfigService;
+use Services\Notifications\ReservationNotificationContract;
+use Services\Notifications\ReservationNotificationResultService;
+use Services\Notifications\ReservationReminderService;
+use Services\Notifications\ScheduleChangeNotificationService;
 
 function communicationsDbAssert(bool $condition, string $message): void
 {

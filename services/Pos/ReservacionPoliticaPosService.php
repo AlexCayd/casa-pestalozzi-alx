@@ -177,16 +177,21 @@ final class ReservacionPoliticaPosService
         $ausenciaPendiente = (bool)($hechosActuales['ausencia_pendiente'] ?? false);
         $influyeDisponibilidad = (bool)($hechosActuales['influye_disponibilidad'] ?? false);
         $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+        $finConsulta = $horaConsulta->modify(
+            '+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'
+        );
         $reservacionEnIntervaloPlanificado = $horaConsulta >= $inicio && $horaConsulta < $fin;
+        // La adyacencia exacta no bloquea el intervalo semiabierto, pero sirve
+        // como advertencia secundaria para la siguiente reservación.
+        $reservacionCercana = $influyeDisponibilidad
+            && !$reservacionEnIntervaloPlanificado
+            && $finConsulta->getTimestamp() === $inicio->getTimestamp();
         $reservacionInfluyeEnConsulta = $influyeDisponibilidad
             && $reservacionEnIntervaloPlanificado;
-        $ventana = self::ventanaVisualMapa(
-            $segundos,
-            $ticketAbierto,
-            $reservacionInfluyeEnConsulta,
-            $reservacionEnIntervaloPlanificado,
-            $ausenciaPendiente
-        );
+        // La ventana del mapa es una proyección pura del instante consultado.
+        // El reloj operativo, el estado de ausencia y el ticket ligado a la
+        // reserva siguen gobernando POS, pero no mueven esta reserva en el mapa.
+        $ventana = self::ventanaVisualMapa($horaConsulta, $inicio, $fin);
 
         return [
             'ventana_mapa' => $ventana,
@@ -195,6 +200,7 @@ final class ReservacionPoliticaPosService
             'reservacion_influye_mapa' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_consulta' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_disponibilidad' => $influyeDisponibilidad,
+            'reservacion_cercana_mapa' => $reservacionCercana,
             'reservacion_en_intervalo_planificado' => $reservacionEnIntervaloPlanificado,
             'ausencia_pendiente_mapa' => $ausenciaPendiente,
             'en_inicio_exacto_mapa' => $segundos === 0,
@@ -205,29 +211,29 @@ final class ReservacionPoliticaPosService
     }
 
     private static function ventanaVisualMapa(
-        int $segundos,
-        bool $ticketAbierto,
-        bool $reservacionInfluyeEnConsulta,
-        bool $enIntervaloPlanificado,
-        bool $ausenciaPendiente
+        DateTimeImmutable $horaConsulta,
+        DateTimeImmutable $inicio,
+        DateTimeImmutable $fin
     ): string {
-        if ($ticketAbierto) {
-            return 'ticket';
+        if ($horaConsulta >= $inicio && $horaConsulta < $fin) {
+            return $horaConsulta == $inicio ? 'inicio' : 'activa';
         }
-        if ($reservacionInfluyeEnConsulta && $enIntervaloPlanificado && $segundos <= 0) {
-            return 'inicio';
+        if ($horaConsulta >= $fin) {
+            return 'irrelevante';
         }
-        if ($segundos > ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60) {
+
+        $segundosParaInicio = $inicio->getTimestamp() - $horaConsulta->getTimestamp();
+        if ($segundosParaInicio > ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60) {
             return 'futura';
         }
-        if ($segundos > ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60) {
+        if ($segundosParaInicio > ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60) {
             return 'advertencia';
         }
-        if ($segundos > 0) {
+        if ($segundosParaInicio > 0) {
             return 'bloqueo';
         }
 
-        return $ausenciaPendiente ? 'ausencia_pendiente' : 'futura';
+        return 'irrelevante';
     }
 
     private static function ventanaVisual(

@@ -13,8 +13,8 @@ use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionPublicaService;
-use Services\Reservations\ScheduleChangeNotificationService;
-use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Notifications\ScheduleChangeNotificationService;
+use Services\Scheduling\HorarioOperacionImpactoService;
 
 function developmentNotificationsAssert(bool $condition, string $message): void
 {

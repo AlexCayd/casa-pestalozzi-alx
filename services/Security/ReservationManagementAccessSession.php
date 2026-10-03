@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Security;
 
 /** Sesión efímera limitada a una fuente y una sola reservación. */
 final class ReservationManagementAccessSession

@@ -7,9 +7,10 @@
  * personal, pero usa exclusivamente el namespace reservation_client.
  */
 
-namespace Services\Reservations;
+namespace Services\Security;
 
 use Services\Contact\ContactoService;
+use Services\Reservations\ReservacionConfig;
 
 class ReservationClientSession
 {

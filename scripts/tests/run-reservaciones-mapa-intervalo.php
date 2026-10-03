@@ -32,26 +32,48 @@ $reservacion = [
     'id' => 1400,
     'estado' => 'confirmada',
     'fecha' => '2026-08-08',
-    'hora' => '14:00:00',
+    'hora' => '19:00:00',
     'mesa_ids' => [14],
     'comensales' => 2,
     'ticket_abierto' => false,
 ];
-$ahora = new DateTimeImmutable('2026-08-08 13:00:00', ReservacionConfig::timezone());
-$inicio = new DateTimeImmutable('2026-08-08 14:00:00', ReservacionConfig::timezone());
-$fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+$ahora = new DateTimeImmutable('2026-08-08 17:00:00', ReservacionConfig::timezone());
+$inicio = new DateTimeImmutable('2026-08-08 19:00:00', ReservacionConfig::timezone());
+$inicioConsecutivo = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+$inicioUnMinutoAntes = $inicioConsecutivo->modify('-1 minute');
+
+assertMapaIntervalo(
+    !OcupacionMesasService::intervalosSeTraslapan($inicio, $inicioConsecutivo),
+    'los intervalos consecutivos exactos no se solapan'
+);
+assertMapaIntervalo(
+    OcupacionMesasService::intervalosSeTraslapan($inicio, $inicioUnMinutoAntes),
+    'un inicio un minuto antes del fin sí se solapa'
+);
+$asignacionCompatibilidad = [[
+    'mesa_id' => 14,
+    'reservacion_id' => 1400,
+    'hora' => '19:00:00',
+]];
+assertMapaIntervalo(
+    OcupacionMesasService::ocupacionReservacionesEnVentana($asignacionCompatibilidad, '20:30:00') === [],
+    'la lectura de compatibilidad usa el mismo fin exclusivo'
+);
+assertMapaIntervalo(
+    isset(OcupacionMesasService::ocupacionReservacionesEnVentana($asignacionCompatibilidad, '20:29:00')[14]),
+    'la lectura de compatibilidad reconoce el último minuto de traslape'
+);
 
 $consultas = [
-    '12:59:59' => 'ocupada',
-    '13:00:00' => 'ocupada',
-    '13:29:59' => 'ocupada',
-    '13:30:00' => 'reservacion-proxima',
-    '13:59:59' => 'reservacion-proxima',
-    '14:00:00' => 'ocupada',
-    '14:15:00' => 'ocupada',
-    '14:30:00' => 'ocupada',
-    '15:00:00' => 'ocupada',
-    '15:30:00' => 'libre',
+    '17:30:00' => 'libre',
+    '17:31:00' => 'libre',
+    '18:00:00' => 'libre',
+    '18:15:00' => 'libre',
+    '18:30:00' => 'reservacion-proxima',
+    '18:59:00' => 'reservacion-proxima',
+    '19:00:00' => 'ocupada',
+    '20:29:00' => 'ocupada',
+    '20:30:00' => 'libre',
 ];
 
 foreach ($consultas as $hora => $estadoEsperado) {
@@ -77,27 +99,74 @@ foreach ($consultas as $hora => $estadoEsperado) {
         "mapa {$hora} conserva {$estadoEsperado}"
     );
     assertMapaIntervalo(
-        $estado['reservacion_influye_en_consulta'] === ($consulta >= $inicio && $consulta < $fin),
-        "hecho temporal {$hora}"
+        $estado['reservacion_influye_en_consulta'] === ($consulta >= $inicio && $consulta < $inicioConsecutivo),
+        "hecho de inicio consultado {$hora}"
     );
-    if ($hora === '13:00:00' || $hora === '13:29:59') {
-        assertMapaIntervalo(
-            in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
-            'advertencia conserva el fondo real del intervalo y añade borde discontinuo'
-        );
-    }
-    if ($hora === '12:59:59') {
+
+    if ($hora === '17:30:00') {
+        assertMapaIntervalo(!$estado['bloqueada_en_intervalo'], '17:30–19:00 y 19:00–20:30 no se solapan');
+        assertMapaIntervalo($estado['disponible_para_asignacion'], 'el intervalo sin bloqueo es asignable');
+        assertMapaIntervalo(!$estado['ocupada_fisicamente'], 'una reserva futura no crea ocupación física');
+        assertMapaIntervalo(!$estado['ticket_bloquea_consulta'], 'el caso principal no tiene ticket');
         assertMapaIntervalo(
             !in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
-            'a más de 60 minutos no aparece alerta temporal aunque el intervalo esté bloqueado'
+            'una reserva a más de 60 min no añade alerta'
+        );
+        assertMapaIntervalo(
+            $estado['aria_label_mapa'] === 'Mesa 14, disponible.',
+            'la etiqueta accesible anuncia disponibilidad sin alerta'
         );
     }
-    if ($hora === '13:30:00') {
+
+    if ($hora === '17:31:00') {
         assertMapaIntervalo(
-            in_array('reservacion_inminente', $estado['modificadores_visual_mapa'], true),
-            'a 30 minutos cambia a azul de reservación próxima'
+            in_array('reservacion', $estado['causas_bloqueo'], true)
+                && !$estado['disponible_para_asignacion']
+                && $estado['estado_visual_mapa'] === 'libre',
+            '17:31 se solapa un minuto: asignación bloqueada y proyección verde'
+        );
+        assertMapaIntervalo(
+            !in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
+            'una proyección futura a más de 60 min no muestra borde de advertencia'
+        );
+        assertMapaIntervalo(
+            $estado['aria_label_mapa'] === 'Mesa 14, disponible.',
+            'el label sigue describiendo la proyección verde aunque el intervalo esté bloqueado'
+        );
+    }
+
+    if ($hora === '18:00:00') {
+        assertMapaIntervalo(
+            $estado['bloqueada_en_intervalo']
+                && $estado['estado_visual_mapa'] === 'libre'
+                && in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true)
+                && $estado['label_visual_mapa'] === 'Disponible con reservación próxima',
+            '60 min: verde con borde, aunque el intervalo se solape'
+        );
+    }
+
+    if ($hora === '18:30:00') {
+        assertMapaIntervalo(
+            $estado['estado_visual_mapa'] === 'reservacion-proxima'
+                && $estado['label_visual_mapa'] === 'Reservación próxima',
+            '30 min: azul preventivo antes del inicio'
+        );
+    }
+
+    if ($hora === '19:00:00') {
+        assertMapaIntervalo(
+            $estado['estado_visual_mapa'] === 'ocupada'
+                && $estado['label_visual_mapa'] === 'Ocupada por reservación',
+            'inicio: rojo durante el periodo programado'
+        );
+    }
+
+    if ($hora === '20:30:00') {
+        assertMapaIntervalo(
+            !$estado['bloqueada_en_intervalo'] && $estado['ventana_mapa'] === 'irrelevante',
+            'fin exacto: verde por el límite final exclusivo'
         );
     }
 }
 
-fwrite(STDOUT, "Reservaciones: intervalo visual configurable OK\n");
+fwrite(STDOUT, "Reservaciones: disponibilidad visual por intervalo semiabierto OK\n");
