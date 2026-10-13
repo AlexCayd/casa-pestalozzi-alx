@@ -163,6 +163,5 @@ los tres nombres de reservaciones. **No se ejecuta en esta etapa y no es un
 backup ni un exportador conectado al nuevo volumen Docker.** No apuntarlo a
 datos vivos para probar esta receta; una futura adaptación queda fuera de alcance.
 
-`sugerencias.json` y `areas-de-mejora.json` son otros módulos. Esta receta no los
-importa, migra ni cambia sus secretos. Las fuentes oficiales, decisiones de
-versión y límites de las validaciones constan en [deploy/README.md](deploy/README.md).
+Las fuentes oficiales, decisiones de versión y límites de las validaciones
+constan en [deploy/README.md](deploy/README.md).

@@ -23,7 +23,7 @@ const RESERVATION_WORKFLOWS = new Map([
   ['Reservaciones - Cambio de horario', 'reservaciones-cambio-horario.json'],
 ]);
 
-// 'Áreas de mejora' -> 'areas-de-mejora'
+// 'Cambio de horario' -> 'cambio-de-horario'
 function archivoDe(nombre) {
   return nombre
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
