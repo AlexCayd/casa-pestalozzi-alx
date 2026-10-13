@@ -78,7 +78,6 @@ const paths = {
     "src/js/operation/reservation-card.js",
     "src/js/modules/punto-de-venta.js",
   ],
-  adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
@@ -249,15 +248,6 @@ function adminMapJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
-function adminAreaJavascript() {
-  return src(paths.adminAreaJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("area.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
 function adminFinanzasJavascript() {
   return src(paths.adminFinanzasJs)
     .pipe(sourcemaps.init())
@@ -422,7 +412,6 @@ function devWatch(done) {
   watch(
     [
       "src/scss/punto-de-venta/**/*.scss",
-      "src/scss/area/**/*.scss",
       "src/scss/auth/**/*.scss",
     ],
     operationAppCss,
@@ -446,7 +435,6 @@ function devWatch(done) {
     ],
     adminMapJavascript,
   );
-  watch("src/js/admin/area/**/*.js", adminAreaJavascript);
   watch("src/js/admin/finanzas/**/*.js", adminFinanzasJavascript);
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
   watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
@@ -493,7 +481,6 @@ exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
-exports.adminAreaJs = adminAreaJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
@@ -527,7 +514,6 @@ exports.dev = parallel(
   // que alguien tocaba punto-de-venta.js y saltaba el watch.
   adminMapJavascript,
   adminAnalyticsJavascript,
-  adminAreaJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
@@ -559,7 +545,6 @@ exports.build = series(
   javascript,
   adminJavascript,
   adminMapJavascript,
-  adminAreaJavascript,
   adminAnalyticsJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,

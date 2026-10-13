@@ -43,7 +43,6 @@
 @use 'empty-state';
 @use '../punto-de-venta/punto-de-venta';
 @use '../punto-de-venta/pago-modal';
-@use '../area/area';
 @use '../auth/login';
 
 // La capa de acabado va la última, como en el panel: refina el vocabulario ya

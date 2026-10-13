@@ -41,10 +41,6 @@ class AdminController
             'title' => 'Punto de Venta',
             'path' => '/admin/punto-de-venta'
         ],
-        'area' => [
-            'title' => 'Producción',
-            'path' => '/admin/area'
-        ],
         'reservations' => [
             'title' => 'Reservaciones',
             'path' => '/admin/reservaciones'

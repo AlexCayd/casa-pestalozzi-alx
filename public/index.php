@@ -130,14 +130,6 @@ $router->get('/admin/menu/categorias/edit',     [AdminMenuController::class, 'ca
 $router->post('/admin/menu/categorias/edit',    [AdminMenuController::class, 'categoryEdit']);
 $router->post('/admin/menu/categorias/delete',  [AdminMenuController::class, 'categoryDelete']);
 $router->get('/admin/punto-de-venta', [AdminPuntoVentaController::class, 'index']);
-$router->get('/admin/area', [AdminAreaController::class, 'index']);
-$router->get('/admin/area/cafe', [AdminAreaController::class, 'cafe']);
-$router->get('/admin/area/jugos', [AdminAreaController::class, 'jugos']);
-$router->get('/admin/area/cocina', [AdminAreaController::class, 'cocina']);
-$router->get('/admin/area/horno', [AdminAreaController::class, 'horno']);
-$router->get('/admin/api/area-items', [AdminAreaController::class, 'areaItems']);
-$router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceItem']);
-$router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
 $router->get('/admin/reservaciones', [AdminReservacionController::class, 'index']);
 $router->get('/admin/reservaciones/crear', [AdminReservacionController::class, 'create']);
 $router->post('/admin/reservaciones/crear', [AdminReservacionController::class, 'store']);
@@ -300,14 +292,6 @@ $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancela
 $router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
-$router->get('/area',        [AreaController::class, 'index']);
-$router->get('/area/cafe',   [AreaController::class, 'cafe']);
-$router->get('/area/jugos',  [AreaController::class, 'jugos']);
-$router->get('/area/cocina', [AreaController::class, 'cocina']);
-$router->get('/area/horno',  [AreaController::class, 'horno']);
-$router->get('/api/area-items',       [AreaController::class, 'areaItems']);
-$router->post('/api/avanzar-item',    [AreaController::class, 'avanzarItem']);
-$router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem']);
 
 // Feedback de clientes
 $router->get('/feedback',      [FeedbackController::class, 'index']);
