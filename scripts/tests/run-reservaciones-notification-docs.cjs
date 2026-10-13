@@ -44,7 +44,7 @@ const expectedDocs = [
 assert.deepEqual(names('docs'), expectedDocs, 'docs contiene sólo fuentes vigentes y pendientes verificados');
 assert.deepEqual(names('docs/reservaciones'), ['notificaciones.md', 'reservaciones.md']);
 assert.deepEqual(names('docs/privacidad'), ['privacidad.md']);
-assert.deepEqual(names('docs/usuarios'), ['credenciales.md', 'usuarios.md']);
+assert.deepEqual(names('docs/usuarios'), ['usuarios.md']);
 
 const architecture = source('docs/arquitectura.md');
 for (const domain of [

@@ -41,6 +41,5 @@ El tratamiento y la visibilidad de datos personales se rigen por la fuente de
 
 ## Referencias vigentes
 
-- [Credenciales de desarrollo](credenciales.md)
 - [Reservaciones](../reservaciones/reservaciones.md)
 - [Privacidad](../privacidad/privacidad.md)

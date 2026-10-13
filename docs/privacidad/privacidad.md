@@ -48,4 +48,3 @@ La persona puede solicitar acceso, rectificación, cancelación u oposición por
 
 - [Reservaciones](../reservaciones/reservaciones.md)
 - [Usuarios](../usuarios/usuarios.md)
-- [Credenciales de desarrollo](../usuarios/credenciales.md)
