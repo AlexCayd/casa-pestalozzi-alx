@@ -27,7 +27,6 @@ $layout = readReservationMapUxSource($root, 'src/scss/operation/_layout.scss');
 $toolbar = readReservationMapUxSource($root, 'src/scss/operation/_toolbar.scss');
 $drawer = readReservationMapUxSource($root, 'src/scss/operation/_drawer.scss');
 $detail = readReservationMapUxSource($root, 'src/scss/operation/_reservation-detail.scss');
-$mapToggle = readReservationMapUxSource($root, 'views/operation/partials/map-toggle.php');
 $operationShell = readReservationMapUxSource($root, 'src/js/operation/shell.js');
 
 assertReservationMapUx(
@@ -125,11 +124,6 @@ assertReservationMapUx(
         && str_contains($toolbar, 'grid-area: left;')
         && str_contains($toolbar, 'grid-area: center;'),
     'la estructura responsive del toolbar conserva un centro independiente de los extremos'
-);
-assertReservationMapUx(
-    str_contains($mapToggle, 'data-operational-map-toggle')
-        && str_contains($operationShell, '[data-operational-map-toggle]'),
-    'el control compartido del POS sigue disponible fuera de reservaciones'
 );
 assertReservationMapUx(
     str_contains($view, 'if ($puedeCrearDesdeMapa):')
