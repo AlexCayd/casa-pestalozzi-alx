@@ -5,76 +5,16 @@ namespace Classes;
 use Model\Usuario;
 
 /**
- * Sesión y protección de rutas del personal.
+ * Sesión y protección de rutas del panel.
  *
- * Un solo formulario en /login con dos pestañas; el rol guardado en la BD
- * decide qué rutas puede visitar cada quien:
- *   - waiter → /punto-de-venta, las APIs del POS y el mapa operativo de reservaciones
- *   - cook   → /area/* y las APIs de los tableros de producción
- *   - admin  → todo, incluido /admin
- * Cada pestaña envía a su propio endpoint (/login y /admin/login), que siguen
- * existiendo. Venga de donde venga la sesión, el rol es lo único que manda.
- *
- * Las listas de API se separan por rol a propósito: una ruta nueva que no esté
- * en ninguna lista queda pública, así que al añadir un endpoint hay que
- * anotarlo aquí.
+ * Hay un solo tipo de usuario —administrador— y entra por /admin/login con
+ * usuario y contraseña. Todo lo que cuelga de /admin/ queda cerrado por
+ * prefijo, y las APIs de horarios que viven fuera de /admin/ se cierran por
+ * la lista de abajo: una ruta /api/... que no esté en ella queda pública.
  */
 class Auth {
 
-    /**
-     * Superficie operativa compartida por administración y piso.
-     * Mantener esta lista explícita evita abrir el resto de /admin/*.
-     */
-    private const RUTAS_MAPA_RESERVACIONES_OPERACION = [
-        '/admin/reservaciones/operacion',
-        '/admin/reservations/operation',
-        '/admin/api/reservaciones/operacion',
-        '/admin/api/reservaciones/operacion/crear',
-        '/admin/api/reservaciones/operacion/disponibilidad',
-        '/admin/api/reservaciones/operacion/asignar-mesas',
-        '/admin/api/reservaciones/operacion/liberar-mesas',
-        '/admin/api/reservaciones/operacion/reasignar',
-        '/admin/api/reservaciones/operacion/comentario',
-        '/admin/api/reservaciones/operacion/estado',
-    ];
-
-    /** APIs del punto de venta: meseros y admin. */
-    private const APIS_POS = [
-        '/api/punto-de-venta',
-        '/api/abrir-ticket',
-        '/api/cerrar-ticket',
-        '/api/cancelar-mesa',
-        '/api/enviar-comanda',
-        '/api/entregar-item',
-        '/api/actualizar-ticket',
-        '/api/cancelar-item',
-        '/api/punto-de-venta/reservaciones',
-        '/api/punto-de-venta/mesa-contexto',
-        '/api/punto-de-venta/reservaciones/comenzar',
-        '/api/punto-de-venta/reservaciones/cancelar',
-        '/api/punto-de-venta/reservaciones/no-show',
-        '/api/corte-caja',
-        '/api/sugerencias',
-        '/api/impresion/alertas/atender',
-    ];
-
-    /** APIs de los tableros de producción: cocineros y admin. */
-    private const APIS_AREA = [
-        '/api/area-items',
-        '/api/avanzar-item',
-        '/api/retroceder-item',
-    ];
-
-    /**
-     * Lecturas que necesitan los dos roles de piso: el catálogo para pintar la
-     * carta y el detalle del ticket, que la comanda del área también consulta.
-     */
-    private const APIS_PISO = [
-        '/api/productos',
-        '/api/ticket-items',
-    ];
-
-    /** Escrituras de configuración que siempre exigen rol administrador. */
+    /** Escrituras de configuración que viven fuera de /admin/. */
     private const APIS_ADMIN = [
         '/api/configuracion/horarios/semanales',
         '/api/configuracion/horarios/especiales',
@@ -116,7 +56,6 @@ class Auth {
         $_SESSION['id']       = (int) $usuario->id;
         $_SESSION['nombre']   = $usuario->nombre;
         $_SESSION['username'] = $usuario->username;
-        $_SESSION['rol']      = $usuario->rol;
     }
 
     public static function logout(): void {
@@ -141,82 +80,17 @@ class Auth {
         return !empty($_SESSION['login']) && !empty($_SESSION['id']);
     }
 
-    public static function rol(): string {
-        self::start();
-        return (string) ($_SESSION['rol'] ?? '');
-    }
-
+    /** Todo usuario con sesión es administrador: no hay otro tipo de cuenta. */
     public static function esAdmin(): bool {
-        return self::check() && self::rol() === 'admin';
-    }
-
-    public static function esMesero(): bool {
-        return self::check() && self::rol() === 'waiter';
-    }
-
-    public static function esCocinero(): bool {
-        return self::check() && self::rol() === 'cook';
-    }
-
-    /**
-     * Áreas del sistema a las que un rol puede entrar, en lenguaje humano.
-     *
-     * Deriva de la misma guardia que aplica proteger(): si cambian las reglas
-     * de acceso hay que actualizar las dos, pero al menos el formulario de
-     * usuarios deja de describir permisos de memoria.
-     *
-     * @return array<int, array{titulo: string, detalle: string}>
-     */
-    public static function areasPorRol(string $rol): array {
-        $pos = [
-            'titulo' => 'Punto de venta',
-            'detalle' => 'Mapa de mesas, tickets, comandas y cobro',
-        ];
-        $areas = [
-            'titulo' => 'Tableros de producción',
-            'detalle' => 'Cola de platillos de su área y cambios de estado',
-        ];
-
-        if ($rol === 'admin') {
-            return [
-                [
-                    'titulo' => 'Panel de administración',
-                    'detalle' => 'Menú, inventario, recetas, analíticas, finanzas, usuarios y configuración',
-                ],
-                $pos,
-                $areas,
-            ];
-        }
-
-        if ($rol === 'cook') {
-            return [$areas];
-        }
-
-        return [$pos];
-    }
-
-    /** Vista inicial que corresponde a un rol tras iniciar sesión. */
-    public static function destinoPorRol(?string $rol = null): string {
-        $rol = $rol ?? self::rol();
-
-        if ($rol === 'admin') {
-            return '/admin';
-        }
-
-        return $rol === 'cook' ? '/area' : '/punto-de-venta';
+        return self::check();
     }
 
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
-     * /admin/*                 → solo admin, salvo el mapa operativo explícito
-     * mapa operativo de reservaciones → waiter y admin
-     * /punto-de-venta, APIs POS → waiter y admin
-     * /area, /area/*, APIs área → cook y admin
-     * El resto (sitio público, /feedback, /api/feedback…) queda libre.
+     * /admin y /admin/* (salvo el login) y las APIs de APIS_ADMIN exigen una
+     * sesión de administrador. El resto del sitio es público.
      *
-     * Sin sesión se redirige a /login (o 401 JSON). Con sesión pero sin el rol
-     * que toca, se manda a la vista de trabajo del rol (o 403 JSON): no hay
-     * página de error, la persona simplemente aterriza donde sí puede operar.
+     * Sin sesión se redirige a /login (o 401 JSON).
      */
     public static function proteger(string $url): void {
         // El endpoint del formulario de contraseña es público
@@ -224,18 +98,11 @@ class Auth {
             return;
         }
 
-        $esMapaReservacionesUrl = in_array($url, self::RUTAS_MAPA_RESERVACIONES_OPERACION, true);
-        $esAdminUrl = !$esMapaReservacionesUrl && ($url === '/admin'
+        $esAdminUrl = $url === '/admin'
             || str_starts_with($url, '/admin/')
-            || in_array($url, self::APIS_ADMIN, true));
-        $esPosUrl = $url === '/punto-de-venta'
-            || in_array($url, self::APIS_POS, true);
-        $esAreaUrl = $url === '/area'
-            || str_starts_with($url, '/area/')
-            || in_array($url, self::APIS_AREA, true);
-        $esPisoUrl = in_array($url, self::APIS_PISO, true);
+            || in_array($url, self::APIS_ADMIN, true);
 
-        if (!$esAdminUrl && !$esPosUrl && !$esAreaUrl && !$esPisoUrl) {
+        if (!$esAdminUrl) {
             return;
         }
 
@@ -248,39 +115,6 @@ class Auth {
             header('Location: /login');
             exit;
         }
-
-        // El admin entra a todo; para el resto, cada zona exige su rol.
-        $permitido = self::esAdmin()
-            || ($esMapaReservacionesUrl && self::esMesero())
-            || ($esPosUrl && self::esMesero())
-            || ($esAreaUrl && self::esCocinero())
-            || ($esPisoUrl && (self::esMesero() || self::esCocinero()));
-
-        if (!$permitido) {
-            if ($esApi) {
-                self::negarJson(403, 'No tienes permisos para esta acción.');
-            }
-            header('Location: ' . self::destinoPorRol());
-            exit;
-        }
-    }
-
-    /**
-     * Libera el candado del archivo de sesión sin perder $_SESSION en memoria.
-     *
-     * PHP mantiene un lock exclusivo desde session_start() hasta el final del
-     * script, así que dos peticiones del mismo navegador se atienden en serie.
-     * En el POS eso hacía que /api/ticket-items esperara a que /api/sugerencias
-     * terminara su llamada a n8n. Los endpoints de solo lectura llaman a esto
-     * justo después de la guardia de Auth para que se atiendan en paralelo.
-     *
-     * No usar en endpoints que escriban en $_SESSION: los cambios posteriores
-     * ya no se persisten.
-     */
-    public static function liberarSesion(): void {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_write_close();
-        }
     }
 
     private static function negarJson(int $codigo, string $msg): void {
@@ -288,7 +122,7 @@ class Auth {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'ok' => false,
-            'codigo' => $codigo === 401 ? 'NO_AUTORIZADO' : 'PERMISO_DENEGADO',
+            'codigo' => 'NO_AUTORIZADO',
             'mensaje' => $msg,
         ], JSON_UNESCAPED_UNICODE);
         exit;

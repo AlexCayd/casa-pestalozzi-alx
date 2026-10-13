@@ -1,10 +1,8 @@
 <?php
 $usuarios = isset($usuarios) && is_iterable($usuarios) ? $usuarios : [];
 $totalAdminsActivos = (int) ($totalAdminsActivos ?? 0);
-$filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'role' => '', 'status' => ''];
+$filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'status' => ''];
 $filtrosActivos = (bool) ($filtrosActivos ?? false);
-$roles = isset($roles) && is_iterable($roles) ? $roles : [];
-$roleLabels = is_array($roleLabels ?? null) ? $roleLabels : [];
 $partialOnly = (bool)($partialOnly ?? false);
 
 $valorUsuario = static function ($usuario, string $campo, $default = '') {
@@ -40,7 +38,7 @@ $iniciales = static function (string $nombre, string $username): string {
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
             <h2 class="admin-page__title">Usuarios</h2>
-            <p class="admin-page__subtitle">Gestiona los accesos, roles y estado de las personas con acceso al panel.</p>
+            <p class="admin-page__subtitle">Gestiona las cuentas y el estado de las personas con acceso al panel.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="/admin/usuarios/create" title="Nuevo usuario" aria-label="Nuevo usuario">
@@ -77,18 +75,6 @@ $iniciales = static function (string $nombre, string $username): string {
                 data-reactive-control
                 data-reactive-default=""
             >
-        </div>
-        <div class="admin-filters__group">
-            <label for="users-role">Rol</label>
-            <select id="users-role" name="role" data-reactive-control data-reactive-default="">
-                <option value="">Todos</option>
-                <?php foreach ($roles as $role) : ?>
-                    <?php $role = (string) $role; ?>
-                    <option value="<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($filtros['role'] ?? '') === $role ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($roleLabels[$role] ?? ucfirst($role), ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
         </div>
         <div class="admin-filters__group">
             <label for="users-status">Estado</label>
@@ -129,7 +115,6 @@ $iniciales = static function (string $nombre, string $username): string {
                     <thead>
                         <tr>
                             <th data-sort-type="text">Usuario</th>
-                            <th data-sort-type="text">Rol</th>
                             <th data-sort-type="number">Estado</th>
                             <th data-sort-type="text">Alta</th>
                             <th data-sort-disabled>Acciones</th>
@@ -141,17 +126,15 @@ $iniciales = static function (string $nombre, string $username): string {
                             $id = (int) $valorUsuario($usuario, 'id', 0);
                             $username = (string) $valorUsuario($usuario, 'username');
                             $nombre = (string) $valorUsuario($usuario, 'nombre');
-                            $rol = (string) $valorUsuario($usuario, 'rol');
                             $activo = (int) $valorUsuario($usuario, 'activo', 0) === 1;
                             $createdAt = (string) $valorUsuario($usuario, 'created_at', '');
                             $createdLabel = $createdAt !== '' ? date('d/m/Y', strtotime($createdAt)) : 'Sin fecha';
                             // Único freno a la eliminación: que no quede el
                             // panel sin nadie que pueda entrar. Un admin sí
                             // puede borrar a otro admin, e incluso a sí mismo.
-                            $esUnicoAdminActivo = $rol === 'admin' && $activo && $totalAdminsActivos <= 1;
+                            $esUnicoAdminActivo = $activo && $totalAdminsActivos <= 1;
                             $mensajeAdminActivo = 'Debe existir un usuario administrador activo siempre.';
                             $esYoMismo = $id === (int) ($_SESSION['id'] ?? 0);
-                            $rolClase = in_array($rol, ['admin', 'waiter', 'cook'], true) ? $rol : 'waiter';
                             ?>
                             <tr data-row-href="/admin/usuarios/edit?id=<?php echo $id; ?>">
                                 <td>
@@ -162,11 +145,6 @@ $iniciales = static function (string $nombre, string $username): string {
                                             <span class="admin-user-identity__handle">@<?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?></span>
                                         </span>
                                     </div>
-                                </td>
-                                <td>
-                                    <span class="admin-tag admin-role admin-role--<?php echo $rolClase; ?>">
-                                        <?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?>
-                                    </span>
                                 </td>
                                 <td data-sort-value="<?php echo $activo ? '1' : '0'; ?>">
                                     <form method="POST" action="/admin/usuarios/<?php echo $activo ? 'deactivate' : 'activate'; ?>">

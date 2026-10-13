@@ -2,8 +2,10 @@
 
 namespace Model;
 
-use Services\Users\NipService;
-
+/**
+ * Usuarios del panel. Hay un solo tipo de usuario —administrador— y entra con
+ * usuario + contraseña.
+ */
 class Usuario extends ActiveRecord
 {
     protected static $tabla = 'usuarios';
@@ -13,9 +15,6 @@ class Usuario extends ActiveRecord
         'username',
         'nombre',
         'password_hash',
-        'nip_hash',
-        'nip_lookup',
-        'rol',
         'activo',
         'created_at',
         'updated_at'
@@ -25,27 +24,13 @@ class Usuario extends ActiveRecord
     public $username;
     public $nombre;
     public $password_hash;
-    public $nip_hash;
-    public $nip_lookup;
-    public $rol = 'waiter';
     public $activo = 1;
     public $created_at;
     public $updated_at;
 
-    // Sólo la contraseña administrativa llega desde los formularios.
+    // La contraseña sólo llega desde los formularios; nunca se persiste en claro.
     public $password;
     public $password_confirm;
-
-    protected const ROLES_PERMITIDOS = [
-        'admin',
-        'waiter',
-        'cook'
-    ];
-
-    public static function rolesPermitidos(): array
-    {
-        return self::ROLES_PERMITIDOS;
-    }
 
     public static function buscarAdmin(array $filtros = []): array
     {
@@ -65,16 +50,11 @@ class Usuario extends ActiveRecord
     {
         $condiciones = [];
         $q = trim((string) ($filtros['q'] ?? ''));
-        $rol = (string) ($filtros['role'] ?? '');
         $status = (string) ($filtros['status'] ?? '');
 
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
             $condiciones[] = "(nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR username LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
-        }
-
-        if (in_array($rol, self::ROLES_PERMITIDOS, true)) {
-            $condiciones[] = "rol = '" . self::escaparString($rol) . "'";
         }
 
         if ($status === 'active') {
@@ -92,11 +72,7 @@ class Usuario extends ActiveRecord
 
         $this->normalizarDatos();
         $this->validarDatosBase();
-
-        if ($this->rol === 'admin') {
-            $this->validarPassword();
-        }
-
+        $this->validarPassword();
         $this->validarUsernameUnico();
 
         return static::$alertas;
@@ -138,7 +114,6 @@ class Usuario extends ActiveRecord
     {
         $this->nombre = trim((string) ($this->nombre ?? ''));
         $this->username = trim((string) ($this->username ?? ''));
-        $this->rol = (string) ($this->rol ?: 'waiter');
         $this->activo = (int) $this->activo;
     }
 
@@ -155,10 +130,6 @@ class Usuario extends ActiveRecord
                 'error',
                 'El usuario debe tener de 3 a 20 caracteres y solo usar letras, números o guion bajo'
             );
-        }
-
-        if (!in_array($this->rol, self::ROLES_PERMITIDOS, true)) {
-            static::setAlerta('error', 'El rol no es válido');
         }
 
         if ($this->activo !== 0 && $this->activo !== 1) {
@@ -210,51 +181,13 @@ class Usuario extends ActiveRecord
         static::setAlerta('error', 'El nombre de usuario ya está registrado');
     }
 
-    /** Login directo por HMAC; el hash sólo confirma el candidato recibido. */
-    public static function porNip(string $nip): ?Usuario
-    {
-        try {
-            $lookup = NipService::lookup($nip);
-            $db = self::getDB();
-            $stmt = $db->prepare(
-                "SELECT * FROM " . static::$tabla .
-                " WHERE nip_lookup = ? AND activo = 1 AND rol IN ('waiter', 'cook') LIMIT 1"
-            );
-
-            if (!$stmt) {
-                throw new \RuntimeException($db->error);
-            }
-
-            $stmt->bind_param('s', $lookup);
-            if (!$stmt->execute()) {
-                $stmt->close();
-                return null;
-            }
-
-            $fila = $stmt->get_result()->fetch_assoc() ?: null;
-            $stmt->close();
-
-            if (!$fila) {
-                return null;
-            }
-
-            return password_verify($nip, (string) $fila['nip_hash'])
-                ? static::crearObjeto($fila)
-                : null;
-        } catch (\Throwable $e) {
-            // La autenticación debe responder de forma genérica también si la
-            // configuración del HMAC está incompleta o la consulta falla.
-            return null;
-        }
-    }
-
-    /** Login administrativo por usuario + contraseña. */
+    /** Login por usuario + contraseña. */
     public static function porCredenciales(string $username, string $password): ?Usuario
     {
         $db = self::getDB();
         $stmt = $db->prepare(
             "SELECT * FROM " . static::$tabla .
-            " WHERE activo = 1 AND rol = 'admin' AND username = ? LIMIT 1"
+            " WHERE activo = 1 AND username = ? LIMIT 1"
         );
 
         if (!$stmt) {
@@ -275,25 +208,19 @@ class Usuario extends ActiveRecord
             : null;
     }
 
-    /** Admins tienen contraseña; el personal recibe un secreto aleatorio no utilizable. */
     public function hashPassword(): void
     {
-        $secreto = (string) $this->password;
-        if ($secreto === '') {
-            $secreto = bin2hex(random_bytes(32));
-        }
-
-        $this->password_hash = password_hash($secreto, PASSWORD_DEFAULT);
+        $this->password_hash = password_hash((string) $this->password, PASSWORD_DEFAULT);
     }
 
     public function esAdminActivo(): bool
     {
-        return $this->rol === 'admin' && (int) $this->activo === 1;
+        return (int) $this->activo === 1;
     }
 
     public static function contarAdminsActivos(): int
     {
-        $query = "SELECT COUNT(*) FROM " . static::$tabla . " WHERE rol = 'admin' AND activo = 1";
+        $query = "SELECT COUNT(*) FROM " . static::$tabla . " WHERE activo = 1";
         $resultado = self::$db->query($query);
 
         if (!$resultado) {

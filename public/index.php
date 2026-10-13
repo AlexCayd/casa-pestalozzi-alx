@@ -30,9 +30,8 @@ use Controllers\AreaController;
 
 $router = new Router();
 
-// Protección de rutas por rol: /admin/* exige admin, /punto-de-venta y las APIs
-// del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
-// admin pasa por todas. Todo lo demás queda público.
+// Protección de rutas: /admin/* y las APIs de horarios exigen sesión de
+// administrador. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
 // Home
@@ -126,8 +125,6 @@ $router->post('/admin/reservaciones/reasignar', [AdminReservacionController::cla
 $router->get('/admin/reservaciones/herramientas-desarrollo', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservaciones/herramientas-desarrollo/procesar-vencidas', [ReservacionMantenimientoController::class, 'procesarPendientes']);
 $router->get('/admin/api/reservaciones/operacion', [ReservacionOperacionController::class, 'operationData']);
-$router->post('/admin/api/reservaciones/operacion/crear', [ReservacionOperacionController::class, 'createFromOperation']);
-$router->get('/admin/api/reservaciones/operacion/disponibilidad', [ReservacionOperacionController::class, 'availability']);
 $router->post('/admin/api/reservaciones/operacion/asignar-mesas', [ReservacionOperacionController::class, 'apiAssignTables']);
 $router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOperacionController::class, 'apiClearTables']);
 $router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
@@ -186,19 +183,15 @@ $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
 $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-// Los administradores cambian contraseña; el personal de piso sólo puede
-// recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
 $router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
 $router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
-$router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
 
 
-// Login: NIP para personal de piso, usuario+contraseña para el admin
+// Login del panel: usuario + contraseña
 $router->get('/login', [AuthController::class, 'login']);
-$router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/logout', [AuthController::class, 'logout']);

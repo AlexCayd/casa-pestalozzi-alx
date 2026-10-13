@@ -15,12 +15,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 $operationalUsuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
-$operationalRolEtiquetas = [
-    'admin' => 'Administrador',
-    'cook' => 'Cocinero',
-    'waiter' => 'Mesero',
-];
-$operationalUsuarioRol = $operationalRolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
+$operationalUsuarioRol = 'Administrador';
 
 $operationalView = 'reservations';
 $operationalModule = 'reservations';

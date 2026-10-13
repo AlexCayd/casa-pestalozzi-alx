@@ -1,19 +1,9 @@
-// ── Casa Pestalozzi — Entry point de las pantallas de PISO ───
+// ── Casa Pestalozzi — Entry point del login ──────────────────
 //
-// Punto de venta, tableros de área y login. Antes cargaban `app.css` entero
-// —470 KB con la landing completa dentro: hero, galería, lightbox, el
-// formulario de reservación de 2.692 líneas— sólo para llegar a su propio
-// SCSS. En una tablet de comedor eso es red y memoria que no se usan nunca.
-//
-// Este bundle lleva el sistema ADMINISTRATIVO y nada más: los tokens en blanco
-// y negro, la tipografía Geist, el cromo compartido y las tres hojas de piso.
-// El puente de nombres públicos (@mixin puente-tokens-publicos, en
-// admin/shared/base/_globals) es lo que permite que las 4.500 líneas de estas
-// hojas sigan pidiendo --txt y --accent sin tocarse.
-//
-// La operación de reservaciones NO entra aquí: tiene su propia salida
-// (operation/reservations.scss → operation/reservations.css) que se carga
-// junto a admin.css, y así sigue.
+// El login lleva el sistema ADMINISTRATIVO y nada más: los tokens en blanco y
+// negro, la tipografía Geist y el cromo compartido. El puente de nombres
+// públicos (@mixin puente-tokens-publicos, en admin/shared/base/_globals) es
+// lo que permite que su hoja siga pidiendo --txt y --accent.
 
 // ── Sistema administrativo ───────────────────────────────────
 @use '../admin/shared/base/globals';
@@ -28,19 +18,12 @@
 @use '../admin/shared/components/modal';
 @use '../admin/shared/components/transitions';
 
-// Los dos componentes del árbol público que el piso consume: el diálogo de
-// confirmación y el aviso transitorio. Son los que sustituyen a confirm() y
-// alert(), prohibidos por CLAUDE.md.
-@use '../components/confirmation-modal';
-@use '../components/app-notice';
-
 // El wordmark de la marca (views/templates/header-casa-pestalozzi.php). Vive
 // en shared/ porque el parcial sirve a cualquier vista; cada bundle que lo
 // pinte lo declara, como aquí para el login.
 @use '../shared/header-casa-pestalozzi';
 
-// ── Pantallas de piso ────────────────────────────────────────
-@use 'empty-state';
+// ── Login ────────────────────────────────────────────────────
 @use '../auth/login';
 
 // La capa de acabado va la última, como en el panel: refina el vocabulario ya

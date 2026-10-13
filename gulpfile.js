@@ -51,7 +51,6 @@ const paths = {
     "src/js/admin/core/range-picker.js",
   ],
   adminReservationListJs: "src/js/admin/reservations/lista.js",
-  adminUsersJs: "src/js/admin/users/users-form.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
@@ -184,15 +183,6 @@ function adminReservationListJavascript() {
   return src(paths.adminReservationListJs)
     .pipe(sourcemaps.init())
     .pipe(concat("reservation-list.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
-function adminUsersJavascript() {
-  return src(paths.adminUsersJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("users.js"))
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
@@ -331,7 +321,6 @@ function devWatch(done) {
       adminReservationOperationJavascript,
     ),
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
-  watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
@@ -366,7 +355,6 @@ exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
-exports.adminUsersJs = adminUsersJavascript;
 exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
@@ -390,7 +378,6 @@ exports.dev = parallel(
   javascript,
   adminJavascript,
   adminReservationListJavascript,
-  adminUsersJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
@@ -416,7 +403,6 @@ exports.build = series(
   javascript,
   adminJavascript,
   adminReservationListJavascript,
-  adminUsersJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,

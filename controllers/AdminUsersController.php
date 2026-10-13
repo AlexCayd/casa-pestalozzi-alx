@@ -17,23 +17,13 @@ class AdminUsersController
 {
     private const MENU_CSS = '/build/css/admin/menu.css';
     private const USERS_CSS = '/build/css/admin/users.css';
-    private const USERS_JS = '/build/js/admin/users.js';
     private const ADMIN_ACTIVO_REQUERIDO = 'Debe existir un usuario administrador activo siempre.';
-    private const ROLE_LABELS = [
-        'admin' => 'Administrador',
-        'waiter' => 'Mesero',
-        'cook' => 'Cocinero',
-    ];
 
     public static function index(Router $router): void
     {
         $filtros = self::leerFiltros();
         $usuarios = Usuario::buscarAdmin($filtros);
         $alertas = self::alertasResultado($_GET['resultado'] ?? '');
-        // El listado nunca es una superficie válida para revelar un NIP. Si
-        // quedó un flash pendiente por una navegación manual, se consume y se
-        // descarta sin incorporarlo al HTML.
-        self::consumirNipFlash();
 
         $data = [
             'title' => 'Usuarios',
@@ -41,7 +31,6 @@ class AdminUsersController
             'usuarios' => $usuarios,
             'filtros' => $filtros,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'roleLabels' => self::ROLE_LABELS,
             'alertas' => $alertas,
             'totalAdminsActivos' => Usuario::contarAdminsActivos(),
             'partialUrl' => AdminController::filterUrl('/admin/usuarios', $filtros),
@@ -76,25 +65,13 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
-                $nip = $resultado['nip'] ?? null;
-                if ($nip !== null) {
-                    self::guardarNipFlash($nip, '/admin/usuarios?resultado=creado', 'alta');
-                    header('Location: /admin/usuarios/create?resultado=creado');
-                } else {
-                    self::limpiarNipFlash();
-                    header('Location: /admin/usuarios?resultado=creado');
-                }
+                header('Location: /admin/usuarios?resultado=creado');
                 exit;
             }
 
             if (empty($alertas['error'])) {
                 $alertas['error'][] = 'No se pudo crear el usuario. Intenta de nuevo.';
             }
-        }
-
-        $nipFlash = self::consumirNipFlash();
-        if ($nipFlash !== null) {
-            self::marcarRespuestaConNip();
         }
 
         self::render('users/create', [
@@ -106,7 +83,6 @@ class AdminUsersController
             'modo' => 'crear',
             'action' => '/admin/usuarios/create',
             'adminCsrfToken' => AdminCsrfService::token(),
-            'nipFlash' => $nipFlash,
         ]);
     }
 
@@ -126,7 +102,6 @@ class AdminUsersController
             exit;
         }
 
-        $rolOriginal = (string) $user->rol;
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -134,12 +109,8 @@ class AdminUsersController
                 self::redirect('/admin/usuarios?resultado=csrf_invalido');
             }
 
-            $nuevoRol = (string) ($_POST['rol'] ?? $user->rol);
-            $nuevoActivo = isset($_POST['activo']) ? 1 : 0;
-
             $datos = $_POST;
-            $datos['rol'] = $nuevoRol;
-            $datos['activo'] = $nuevoActivo;
+            $datos['activo'] = isset($_POST['activo']) ? 1 : 0;
             $resultado = UsuarioService::editar($id, $datos);
             $user = $resultado['usuario'] ?? $user;
             $alertas = $resultado['alertas'] ?? [];
@@ -148,14 +119,7 @@ class AdminUsersController
                 $queryResultado = ($resultado['codigo'] ?? '') === UsuarioService::USUARIO_SIN_CAMBIOS
                     ? 'usuario_sin_cambios'
                     : 'actualizado';
-                $nip = $resultado['nip'] ?? null;
-                if ($nip !== null) {
-                    self::guardarNipFlash($nip, '/admin/usuarios?resultado=actualizado', 'edicion');
-                    header('Location: /admin/usuarios/edit?id=' . $id . '&resultado=' . $queryResultado);
-                } else {
-                    self::limpiarNipFlash();
-                    header('Location: /admin/usuarios?resultado=' . $queryResultado);
-                }
+                header('Location: /admin/usuarios?resultado=' . $queryResultado);
                 exit;
             }
 
@@ -164,11 +128,6 @@ class AdminUsersController
             } elseif (empty($alertas['error'])) {
                 $alertas['error'][] = 'No se pudo actualizar el usuario. Intenta de nuevo.';
             }
-        }
-
-        $nipFlash = self::consumirNipFlash();
-        if ($nipFlash !== null) {
-            self::marcarRespuestaConNip();
         }
 
         self::render('users/edit', [
@@ -180,8 +139,6 @@ class AdminUsersController
             'modo' => 'editar',
             'action' => '/admin/usuarios/edit?id=' . $id,
             'adminCsrfToken' => AdminCsrfService::token(),
-            'rolOriginal' => $rolOriginal,
-            'nipFlash' => $nipFlash,
         ]);
     }
 
@@ -204,11 +161,6 @@ class AdminUsersController
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
-        }
-
-        if ($user->rol !== 'admin') {
-            header('Location: /admin/usuarios/edit?id=' . $id);
-            exit;
         }
 
         $esPropio = (int) ($_SESSION['id'] ?? 0) === $id;
@@ -299,100 +251,6 @@ class AdminUsersController
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
 
-    /** Regenera el NIP de un usuario de piso después de una confirmación CSRF. */
-    public static function regenerarNip(): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect('/admin/usuarios');
-        }
-
-        if (!self::adminCsrfValido()) {
-            self::redirect('/admin/usuarios?resultado=csrf_invalido');
-        }
-
-        $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
-        if (!$id) {
-            self::redirect('/admin/usuarios?resultado=id_invalido');
-        }
-
-        $resultado = UsuarioService::regenerarNip((int) $id);
-        if ($resultado['ok'] ?? false) {
-            self::guardarNipFlash(
-                $resultado['nip'] ?? null,
-                '',
-                'regeneracion'
-            );
-            self::redirect('/admin/usuarios/edit?id=' . (int) $id . '&resultado=nip_regenerado');
-        }
-
-        $codigo = (string) ($resultado['codigo'] ?? '');
-        if ($codigo === UsuarioService::USUARIO_NO_EXISTE) {
-            self::redirect('/admin/usuarios?resultado=no_existe');
-        }
-        if ($codigo === UsuarioService::ROL_INVALIDO) {
-            self::redirect('/admin/usuarios?resultado=rol_invalido');
-        }
-        if ($codigo === UsuarioService::NIP_CONFIGURACION_INVALIDA || $codigo === UsuarioService::NIP_NO_DISPONIBLE) {
-            self::redirect('/admin/usuarios?resultado=nip_error');
-        }
-
-        self::redirect('/admin/usuarios?resultado=error_guardado');
-    }
-
-    private static function guardarNipFlash(?string $nip, string $afterUrl, string $flujo): void
-    {
-        self::limpiarNipFlash();
-        if ($nip === null || !preg_match('/^\d{4}$/', $nip)) {
-            return;
-        }
-
-        Auth::start();
-        $_SESSION['_admin_user_nip_flash'] = [
-            'nip' => $nip,
-            'expires_at' => time() + 120,
-            'after_url' => $afterUrl,
-            'flujo' => $flujo,
-        ];
-    }
-
-    /** @return array{nip:string, after_url:string, flujo:string}|null */
-    private static function consumirNipFlash(): ?array
-    {
-        Auth::start();
-        $flash = $_SESSION['_admin_user_nip_flash'] ?? null;
-        unset($_SESSION['_admin_user_nip_flash']);
-
-        if (!is_array($flash) || (int) ($flash['expires_at'] ?? 0) < time()) {
-            return null;
-        }
-
-        $nip = (string) ($flash['nip'] ?? '');
-        if (!preg_match('/^\d{4}$/', $nip)) {
-            return null;
-        }
-
-        return [
-            'nip' => $nip,
-            'after_url' => (string) ($flash['after_url'] ?? '/admin/usuarios'),
-            'flujo' => (string) ($flash['flujo'] ?? 'alta'),
-        ];
-    }
-
-    private static function limpiarNipFlash(): void
-    {
-        Auth::start();
-        unset($_SESSION['_admin_user_nip_flash']);
-    }
-
-    private static function marcarRespuestaConNip(): void
-    {
-        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-        header('Pragma: no-cache');
-        header('Expires: 0');
-    }
-
     public static function delete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -434,26 +292,20 @@ class AdminUsersController
         AdminController::render($view, array_merge([
             'activeModule' => 'users',
             'styles' => [self::MENU_CSS, self::USERS_CSS],
-            'scripts' => [self::USERS_JS],
-            'roles' => Usuario::rolesPermitidos(),
+            'scripts' => [],
         ], $data));
     }
 
     private static function adminCsrfValido(): bool
     {
-        return Auth::esAdmin()
+        return Auth::check()
             && AdminCsrfService::validar($_POST['admin_csrf'] ?? null);
     }
 
     private static function leerFiltros(): array
     {
         $q = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
-        $role = (string) ($_GET['role'] ?? '');
         $status = (string) ($_GET['status'] ?? '');
-
-        if (!in_array($role, Usuario::rolesPermitidos(), true)) {
-            $role = '';
-        }
 
         if (!in_array($status, ['active', 'inactive'], true)) {
             $status = '';
@@ -461,7 +313,6 @@ class AdminUsersController
 
         return [
             'q' => $q,
-            'role' => $role,
             'status' => $status,
         ];
     }
@@ -492,7 +343,6 @@ class AdminUsersController
             'creado' => ['exito' => ['Usuario creado correctamente']],
             'actualizado' => ['exito' => ['Usuario actualizado correctamente']],
             'password' => ['exito' => ['Contraseña actualizada correctamente']],
-            'nip_regenerado' => ['exito' => ['NIP regenerado. Entrégalo ahora; por seguridad no podrá consultarse nuevamente.']],
             'activado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'desactivado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'eliminado' => ['exito' => ['Usuario eliminado correctamente.']],
@@ -504,8 +354,6 @@ class AdminUsersController
             'usuario_desactivado' => ['exito' => ['Usuario desactivado correctamente.']],
             'usuario_sin_cambios' => ['warning' => ['El usuario ya tenia el estado solicitado; no se realizaron cambios.']],
             'error_guardado' => ['error' => ['No fue posible guardar el cambio solicitado.']],
-            'nip_error' => ['error' => ['No fue posible generar un NIP disponible. Intenta nuevamente.']],
-            'rol_invalido' => ['error' => ['La regeneración sólo aplica a usuarios de piso.']],
             'csrf_invalido' => ['error' => ['La confirmación expiró. Recarga la página e inténtalo de nuevo.']],
             default => [],
         };
