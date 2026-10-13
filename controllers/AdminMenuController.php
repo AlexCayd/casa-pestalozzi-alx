@@ -55,7 +55,6 @@ class AdminMenuController
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
             'cartas' => CategoriasMenu::CARTAS,
-            'areasMap' => self::areasMap(),
             'filtros' => $filtros,
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
@@ -176,8 +175,8 @@ class AdminMenuController
      * Invierte la visibilidad de un platillo.
      *
      * Endpoint propio en vez de reenviar la fila entera por campos ocultos:
-     * sobre la tabla fusionada ese formulario tendría que arrastrar `area_id`
-     * y `descripcion`, y sin el primero la validación rechazaba cada clic.
+     * ese formulario tendría que arrastrar `descripcion` y la validación
+     * rechazaba cada clic.
      */
     public static function toggle(Router $router): void
     {
@@ -368,37 +367,9 @@ class AdminMenuController
             'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
             'categorias' => CategoriasMenu::ordenadas(),
-            'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => $accion,
         ]);
-    }
-
-    /** Áreas de producción, para las pestañas del formulario. */
-    public static function areas(): array
-    {
-        $areas = [];
-        $db = Producto::getDB();
-        $res = $db->query("SELECT id, nombre FROM areas_produccion ORDER BY id ASC");
-
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $areas[] = ['id' => (int) $row['id'], 'nombre' => $row['nombre']];
-            }
-            $res->free();
-        }
-
-        return $areas;
-    }
-
-    public static function areasMap(): array
-    {
-        $map = [];
-        foreach (self::areas() as $area) {
-            $map[$area['id']] = $area['nombre'];
-        }
-
-        return $map;
     }
 
     private static function render(string $view, array $data = []): void

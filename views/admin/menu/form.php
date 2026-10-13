@@ -3,13 +3,12 @@
      * Formulario único del platillo.
      *
      * Fusiona el antiguo item-form.php (nombre, descripción, precio, tag) con
-     * la parte de datos del form de Productos (categoría y área en pestañas).
+     * la parte de datos del form de Productos (categoría en pestañas).
      */
     $alertas = $alertas ?? [];
     $accion = $accion ?? 'Guardar';
     $platillo = $platillo ?? null;
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
-    $areas = isset($areas) && is_iterable($areas) ? $areas : [];
     $esNuevo = empty($platillo->id);
 ?>
 <section class="admin-menu admin-menu--form admin-page">
@@ -56,20 +55,6 @@
                     </div>
                 </div>
 
-                <div class="admin-field admin-form-grid__full">
-                    <span class="admin-field__label">Área de producción</span>
-                    <div class="admin-tabs" role="radiogroup" aria-label="Área de producción">
-                        <?php foreach ($areas as $area) : $aid = (int) $area['id']; ?>
-                            <label class="admin-tabs__tab">
-                                <input type="radio" name="area_id" value="<?php echo $aid; ?>"
-                                       <?php echo (int) ($platillo->area_id ?? 0) === $aid ? 'checked' : ''; ?> required>
-                                <span><?php echo htmlspecialchars($area['nombre']); ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                    <p class="admin-field__hint">Determina a qué comanda se envía cuando el mesero lo pide.</p>
-                </div>
-
                 <div class="admin-field">
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
                     <input type="number" id="precio" name="precio" step="0.01" min="0" required
@@ -79,7 +64,7 @@
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
-                    <span class="admin-switch__label">Platillo activo (visible en la carta y vendible en el punto de venta)</span>
+                    <span class="admin-switch__label">Platillo activo (visible en la carta)</span>
                 </label>
             </div>
         </section>

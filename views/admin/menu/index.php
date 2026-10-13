@@ -12,7 +12,6 @@
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $categoriasMap = $categoriasMap ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
-    $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
     $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'categoria' => '', 'visible' => ''];
     $categoriaActiva = (int) ($categoriaActiva ?? 0);
     $filtrosActivos = (bool) ($filtrosActivos ?? false);
@@ -210,7 +209,6 @@
                             <th data-sort-type="text">Descripción</th>
                             <th data-sort-type="number">Precio</th>
                             <th data-sort-type="text">Categoría</th>
-                            <th data-sort-type="text">Área</th>
                             <th data-sort-disabled>Visibilidad</th>
                             <th data-sort-disabled>Acciones</th>
                         </tr>
@@ -238,11 +236,6 @@
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo htmlspecialchars($categoriasMap[(int) $platillo->categoria_id] ?? '#' . $platillo->categoria_id); ?></span>
                                 </td>
                                 <td>
-                                    <span class="admin-table__cell-sub"><?php echo htmlspecialchars($areasMap[(int) $platillo->area_id] ?? '—'); ?></span>
-                                </td>
-                                <td>
-                                    <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos
-                                            fallaba la validación al faltarle area_id. */ ?>
                                     <form method="POST" action="/admin/menu/toggle">
                                         <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                         <button
