@@ -1,9 +1,13 @@
 # Casa Pestalozzi
 
-Sistema de gestión para el restaurante: landing público con carta y reservaciones,
-punto de venta para meseros, tableros de producción por área, y panel de
-administración (menú, inventario, recetas, analíticas, catas, usuarios,
-configuración).
+Landing pública del restaurante autogestionada desde un panel de administración:
+carta de comida y de maridaje (con sus PDF), platillos de temporada, agenda de
+catas, reservaciones con mapa de mesas, horarios con excepciones y un anuncio.
+
+Es la versión recortada al alcance de la cotización de servicios digitales
+(octubre de 2026). El punto de venta, los tableros de producción, inventario,
+recetas, finanzas, analíticas, feedback, impresión y el acceso por NIP se
+retiraron; el detalle está en `REFACTOR_REPORT.md`.
 
 ## Stack
 
@@ -18,169 +22,134 @@ componentes. Lo que parezca "convención de framework" aquí es código propio.
   El SQL se arma por concatenación de strings; usa `escaparString()` / `escaparLike()`
   o sentencias preparadas (`$db->prepare`) para todo lo que venga del usuario.
 - **Lógica de negocio**: en `services/`, no en los controladores.
-- **Vistas**: plantillas PHP en `views/`. `Router::render()` bufferiza la vista y la
-  envuelve en `views/layout.php` (o el layout del módulo).
+- **Vistas**: plantillas PHP en `views/`. El panel se pinta con
+  `AdminController::render()`, que envuelve la vista en `views/admin/layout.php`;
+  la operación de reservaciones usa `views/operation/layout.php`, y la landing,
+  el login y la 404 son documentos sueltos.
 - **Frontend**: JS vanilla ES5 (`var`, IIFEs, `fetch`, HTML por concatenación) y SCSS.
   Sin bundler más allá de gulp-concat/terser.
-- **Autenticación**: `classes/Auth.php`. `Auth::proteger()` corre en `public/index.php`
-  **antes** del ruteo y cierra `/admin/*` a `rol === 'admin'` **por prefijo**: una
-  ruta nueva bajo `/admin/` queda protegida sola, incluidas las `/admin/api/*`.
-  Las APIs que viven fuera de `/admin/` se abren a meseros o cocineros por
-  allowlist (`APIS_POS`, `APIS_AREA`, `APIS_PISO`, `APIS_ADMIN`): **una ruta
-  `/api/...` que no esté en ninguna lista queda pública**.
+- **Autenticación**: `classes/Auth.php`. Hay **un solo tipo de usuario**:
+  administrador, con usuario y contraseña. `Auth::proteger()` corre en
+  `public/index.php` **antes** del ruteo y cierra `/admin` y `/admin/*` **por
+  prefijo**: una ruta nueva bajo `/admin/` queda protegida sola, incluidas las
+  `/admin/api/*`. Las escrituras de horario que viven fuera de `/admin/` se
+  cierran por la lista `APIS_ADMIN`: **una ruta `/api/...` que no esté en ella
+  queda pública**.
 
 ### Rutas y convenciones
 
 - Páginas: renderizan HTML. Mutaciones de admin: POST-redirect-GET.
 - JSON: prefijo `/api/...` o `/admin/api/...`, responden `echo json_encode(...)`.
-- Los controladores de POS/áreas comparten helpers (`entradaJson()`, `responder()`).
 
 ### Build
 
 ```
-npx gulp            # todo
-npx gulp js         # solo JS
-npx gulp css        # solo SCSS
+npx gulp build      # todo
+npx gulp js         # solo JS de la landing
+npx gulp css        # solo SCSS de la landing
 ```
 
 Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
 
 | Fuente | Salida | Quién la carga |
 |---|---|---|
-| `src/scss/app.scss` | `public/build/css/app.css` + `assets/css/` | landing y **feedback** |
+| `src/scss/app.scss` | `public/build/css/app.css` + `assets/css/` | landing |
 | `src/scss/admin/shared/app-admin.scss` | `public/build/css/admin.css` | panel y operación de reservaciones |
 | `src/scss/admin/modules/*.scss` | `public/build/css/admin/*.css` | cada módulo del panel |
-| `src/scss/operation/app-operation.scss` | `public/build/css/operation.css` | **POS, áreas y login** |
+| `src/scss/operation/app-operation.scss` | `public/build/css/operation.css` | **login** |
 | `src/scss/operation/reservations.scss` | `public/build/css/operation/reservations.css` | operación, junto a `admin.css` |
-| `paths.adminMapJs` (POS: `punto-de-venta.js` + shell/mapa + `core/select.js`) | `public/build/js/admin/map.js` | POS |
-| `src/js/admin/area/area.js` | `public/build/js/admin/area.js` | módulo de áreas del panel |
-| resto de `src/js/` | `public/build/js/bundle.min.js` | landing y feedback |
+| `paths.adminJs` | `public/build/js/admin.js` | todo el panel |
+| `paths.adminReservation*Js`, `adminCatasJs`, `adminConfigurationJs` | `public/build/js/admin/*.js` | su módulo |
+| resto de `src/js/` | `public/build/js/bundle.min.js` | landing |
 
-`src/js/modules/punto-de-venta.js` está **excluido** del bundle general a propósito;
-llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
-`paths.adminMapJs`). El panel admin carga **solo** `admin.js`, nunca
-`bundle.min.js`: lo que deba estar disponible en ambos va en las dos listas.
+El panel admin carga **solo** `admin.js`, nunca `bundle.min.js`: lo que deba
+estar disponible en ambos va en las dos listas.
 
 Los bundles son concats en **scope global**, no módulos, así que el orden de la
-lista es lo que resuelve las dependencias. Dos casos que hay que respetar:
-`core/icons.js` va primero en `paths.adminJs` porque define `window.AdminIcons`,
-que consumen `buzon.js` y los bundles de módulo; y `sankey.js` va antes que
-`finanzas.js` por lo mismo. Y como `views/admin/layout.php` carga `admin.js`
-**antes** que cualquier bundle de módulo, los módulos pueden contar con lo que
-`admin.js` haya publicado.
+lista es lo que resuelve las dependencias: `core/icons.js` va primero en
+`paths.adminJs` porque define `window.AdminIcons`, que consumen `buzon.js` y los
+bundles de módulo. Y como `views/admin/layout.php` carga `admin.js` **antes** que
+cualquier bundle de módulo, los módulos pueden contar con lo que `admin.js` haya
+publicado.
 
 Tres bundles administrativos y no uno: `admin.css` (panel), `operation.css`
-(piso) y `operation/reservations.css` (parcial que se carga **junto a**
+(login) y `operation/reservations.css` (parcial que se carga **junto a**
 `admin.css`, por eso sus tokens no están declarados dentro). Los tres salen de
 `admin/shared/`, así que el watch de esa carpeta regenera `admin.css` **y**
 `operation.css`.
 
-El POS cargaba `app.css` entero —la landing completa, 470 KB— sólo para llegar a
-su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
-
-> Verificar con `php -l`, `node --check` y recorridos manuales.
+> Verificar con `php -l`, `node --check`, `npm test` y recorridos manuales.
 
 ## Base de datos
 
-**Tres archivos, y el orden es el nombre:**
+**Dos archivos para instalar, en este orden:**
 
-1. `database/ddl.sql` — estructura, DROP+CREATE completo.
-2. `database/deploy.sql` — datos mínimos de operación. Es la **única** fuente del
-   catálogo base: áreas, categorías, mesas, productos, `productos_semilla` y el
-   horario semanal.
-3. `database/development.sql` — opcional, sólo desarrollo y QA. Funde los tres
-   fixtures que antes vivían sueltos (`dml_pruebas`, `analiticas-datos-ex`,
-   `REVPash-pruebas`) en tres bloques que se acotan por rango para no pisarse:
-   analíticas trabaja sobre los tickets 200-299 y los tokens
-   `fx-analytics-res-%`; RevPASH sobre los 300-499 y `fx-revpash-res-%`.
+1. `database/schema.sql` — estructura, DROP+CREATE completo de las 16 tablas.
+2. `database/seed.sql` — datos mínimos: horario, mesas, categorías, carta, un
+   administrador de desarrollo (`admin` / `CasaPestalozzi-2026`, documentado en
+   el README) y un registro de ejemplo por módulo, con fechas relativas a
+   `CURDATE()` para que no caduquen.
 
-   **Los tres bloques se anclan a `CURDATE()` al cargar el dump.** Dos usaban
-   fechas absolutas —noviembre-diciembre de 2026 los escenarios de reservación,
-   la primera semana de agosto de 2026 el de RevPASH— y eso las condenaba a
-   caducar: cargado el dump unos meses después, las reservaciones quedaban a tres
-   meses vista y el panel abría vacío con la base llena. Ahora se derivan de un
-   solo `SET` por bloque: `@fecha_principal` (hoy + 3 días, y las otras cinco
-   fechas cuelgan de ella) y `@REVPASH_ANCLA`. El desplazamiento de RevPASH va en
-   **múltiplos de siete días** para no romper lo único que ese fixture necesita:
-   que cada día caiga en su día de la semana, que es lo que da forma al mapa de
-   calor. `SELECT @SEM_INI, @SEM_FIN;` dice en qué fechas quedó.
+Una base del sistema anterior se lleva a este esquema con
+`database/migrations/001_simplificar_esquema.sql` (re-ejecutable; respaldar
+antes: el DDL de MySQL no es transaccional).
 
-Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
-pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
-pasada choca contra `tickets.PRIMARY`. Para rehacer el entorno, recrear la base.
-
-`development.sql` declara los seis usuarios de desarrollo con id explícito porque
-los tickets de los fixtures apuntan a `mesero_id` 2..6 por llave foránea, pero los
-deja **sin credencial utilizable**. Para que además puedan entrar hay que correr
-después `php scripts/seed-usuarios-prueba.php`, que calcula el HMAC de cada NIP
-con `NIP_LOOKUP_SECRET` y los enseña sólo en la salida de esa ejecución. Casa por
-`username`, que es UNIQUE, así que actualiza esas filas en vez de duplicarlas.
-Credenciales de demo en `docs/usuarios/credenciales.md`.
+`schema.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
+agregar una tabla, añade su `DROP` al bloque correspondiente.
 
 Fuentes documentales vigentes: `docs/arquitectura.md`, `docs/config.md`,
 `docs/operacion.md`, `docs/reservaciones/reservaciones.md`,
 `docs/reservaciones/notificaciones.md`, `docs/usuarios/usuarios.md` y
 `docs/privacidad/privacidad.md`. Las reglas de mesas y reservaciones tienen una
-fuente normativa en `docs/reservaciones/reservaciones.md`.
-
-El esquema vigente está en `database/ddl.sql`. Los datos mínimos de operación
-están en `database/deploy.sql`; `database/development.sql` es opcional y se usa
-sólo para desarrollo y QA.
-
-`ddl.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
-agregar una tabla, añade su `DROP` al bloque correspondiente.
+fuente normativa en `docs/reservaciones/reservaciones.md`. ⚠️ Esos documentos
+son anteriores al recorte y todavía describen el punto de venta.
 
 Cosas que cargan peso y no son obvias:
 
-- `productos` es la **única** fuente de platillos. La tabla `menu` es legado de
-  solo lectura; no escribir ahí.
-- `productos.nombre` es UNIQUE por dependencia funcional: el descuento de
-  inventario, el COGS y el motor de sugerencias unen por nombre, no por id.
+- `productos` es la **única** fuente de platillos. `productos.nombre` es UNIQUE:
+  dos platillos homónimos en la carta no se distinguirían.
 - `categorias.carta` (`comida` | `maridaje`) parte el catálogo en las **dos
   piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
   categoría y no en el producto porque la carta es una decisión de SECCIÓN —
   «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
   Menú**: pastillas en el alta rápida del tab «+» y en la edición de la
-  categoría, más una columna en el listado. Tres consecuencias:
+  categoría, más una columna en el listado. Dos consecuencias:
   `Carta::publica($carta)` filtra por ella y **por defecto devuelve comida**,
   así que la sección de menú de la landing y `/menu/pdf` siguen siendo lo que
-  eran; `/maridaje/pdf` (admin: `/admin/menu/pdf/maridaje`) es la otra pieza,
-  y sale de la MISMA plantilla —`items-pdf.php`, que recibe rótulo, bajada,
-  título y aviso de vacío y no sabe cuál imprime—; y `Carta::paraPos()` **no**
-  la mira, porque el mesero cobra la copa y el plato en el mismo ticket.
+  eran; y `/maridaje/pdf` (admin: `/admin/menu/pdf/maridaje`) es la otra pieza,
+  que sale de la MISMA plantilla —`items-pdf.php`, que recibe rótulo, bajada,
+  título y aviso de vacío y no sabe cuál imprime—.
   ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
   por campos ocultos: si añades una columna a `categorias`, tiene que viajar
   ahí también o apagar una categoría la devuelve a su valor por defecto.
-- `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
-  `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
-- `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.
+- **Reservaciones sin punto de venta.** No hay ticket que marque la llegada, así
+  que no existe el estado `en_curso`: una `confirmada` se resuelve a mano —desde
+  la operación o el detalle— como `completada` (a partir de su hora
+  programada), `no_show` (vencida la tolerancia) o `cancelada`, y **ocupa sus
+  mesas durante todo su intervalo** de 90 minutos, también con la ausencia
+  pendiente. Las reglas viven en `ReservacionVigenciaService::clasificar()` y
+  las transiciones en `ReservacionService`. El contrato del mapa
+  (`Services\Pos\*`, nombre heredado) conserva campos con forma de ticket
+  —`ticket_abierto`, `disponible_para_ticket`…— que siempre valen falso: los
+  leen los bundles de operación y sus pruebas.
 - `catas` es una tabla de **anuncio**, no de reservas. `catas.disponible`
   significa **una sola cosa: si quedan lugares**. No decide la visibilidad —eso
   lo decide el reloj— así que apagar el interruptor NO retira la cata de la
   portada: la deja anunciada, marcada como «sin cupo» y **bloqueada**, sin
-  ningún enlace. Antes ofrecía un segundo CTA («avísame si se libera»); se
-  retiró porque invitaba a escribir por algo que no se puede dar, y el sello del
-  titular más el atenuado de `.cata--sin-cupo` ya dicen que está cerrada. Nace
-  en `1`,
-  porque una cata recién programada admite gente. La agenda pública es todo lo
-  que no ha ocurrido todavía; lo único que sale de la portada es el pasado.
-  Consecuencia asumida: no hay estado de borrador, una cata es pública en cuanto
-  se guarda. `idx_catas_agenda` va por `(fecha, hora)` — encabezarlo con el
-  booleano dejó de servir cuando la consulta pública dejó de filtrar por él.
-- **La landing ya no tiene ningún formulario anónimo.** Los dos que había
-  —inscripción a catas y cotización de catering— se fueron a WhatsApp, y con
-  ellos las tablas `cata_inscripciones` y `catering_solicitudes`, el cupo, los
-  endpoints `/api/catas/*` y `/api/catering/*`, y el tope de envíos por contacto
-  que sumaba las dos tablas. Catering no tiene módulo en el panel: su sección de
-  la landing es la rejilla de ocasiones de `SitioConfig::OCASIONES_EVENTO`, cada
-  una un enlace con su frase ya escrita. Las catas escriben al WhatsApp del
-  restaurante (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering, al de
-  eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
-- `usuarios` tiene dos vías de acceso: `password_hash` (admins, usuario+contraseña)
-  y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup
-  es un HMAC con `NIP_LOOKUP_SECRET` para resolver la fila directamente;
-  `password_verify` sólo confirma la credencial encontrada. La generación,
-  rotación y migración están documentadas en `docs/usuarios/usuarios.md`.
+  ningún enlace. Nace en `1`, porque una cata recién programada admite gente.
+  La agenda pública es todo lo que no ha ocurrido todavía; lo único que sale de
+  la portada es el pasado. Consecuencia asumida: no hay estado de borrador, una
+  cata es pública en cuanto se guarda. `idx_catas_agenda` va por `(fecha, hora)`.
+- **La landing no tiene formularios anónimos fuera de reservaciones.** Catas y
+  catering se fueron a WhatsApp. Catering no tiene módulo en el panel: su
+  sección de la landing es la rejilla de ocasiones de
+  `SitioConfig::OCASIONES_EVENTO`, cada una un enlace con su frase ya escrita.
+  Las catas escriben al WhatsApp del restaurante
+  (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering,
+  al de eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
+- **Platillos de temporada** («Especiales de temporada», `views/home/_firma.php`)
+  salen todavía de un arreglo fijo en `src/js/modules/gallery.js`; no hay tabla
+  ni CRUD.
 
 ## Design system
 
@@ -188,14 +157,14 @@ Todo el color vive en **custom properties de CSS**; las variables Sass son solo
 estructurales (breakpoints y anchos, en `src/scss/admin/shared/abstracts/_variables.scss`).
 
 **Son DOS sistemas visuales distintos, y es a propósito.** La marca del
-restaurante vive en la landing (y por ahora en POS, áreas y feedback); el panel
+restaurante vive en la landing; el panel
 administrativo tiene identidad propia —blanco y negro— para poder despegarse
 como producto sin arrastrar el manual del restaurante. No comparten un solo
 color ni una sola tipografía.
 
 Dos archivos de tokens, y son la única fuente de verdad:
 
-- `src/scss/layout/_reset.scss` → `:root`, para landing / POS / áreas.
+- `src/scss/layout/_reset.scss` → `:root`, para la landing.
 - `src/scss/admin/shared/base/_globals.scss` → `.admin-body`, con temas claro y
   oscuro bajo `[data-admin-theme]` en `<html>`. **El claro es el valor por
   defecto** (`.admin-body` a secas), fijado antes del primer paint por un script
@@ -353,38 +322,35 @@ estado, badges, series de gráfica y `--admin-estado-*`. Es la regla que hace qu
 el conjunto se lea como un sistema y no como un arcoíris: si los bordes y los
 rellenos usaran color, un badge ámbar dejaría de significar «advertencia».
 
-La excepción, y es una lista cerrada: **los disparadores de acción**. Los tres
-botones del topbar (reportar, notificaciones, salir) y los secundarios de una
-barra de acciones de módulo («Categorías» y «Generar PDF» en Menú, «Subrecetas»
-e «Inventario» en Recetas) llevan tono. Eran cajas idénticas donde sólo cambiaba
+La excepción, y es una lista cerrada: **los disparadores de acción**. Los dos
+botones del topbar (notificaciones, salir) y los secundarios de una barra de
+acciones de módulo («Categorías» y «Generar PDF» en Menú) llevan tono. Eran cajas idénticas donde sólo cambiaba
 la palabra y había que leerlas una por una para elegir. Tres condiciones:
 
 - El color es un **tinte derivado** (`color-mix` sobre `--admin-surface`, 11-12%
   en reposo y 20-22% en hover). El relleno sólido queda para
-  `.admin-btn--primary`, el conmutador de tema y **los dos avisos del topbar**,
+  `.admin-btn--primary`, el conmutador de tema y **el aviso del topbar**,
   que es lo que mantiene una sola acción principal por pantalla.
 - No toca bordes de tarjeta, filas de tabla ni tipografía.
 - Se consume por la clase `.admin-btn--tinted` más un `--tinted-{color}`
   (`_buttons.scss`), o por el patrón `--tono` del topbar (`_topbar.scss`).
 
-**Los dos avisos del topbar sí van en relleno sólido**, y son la única
-ampliación de esa lista: notificaciones en `--admin-c-azul` y reportar un
-problema en `--admin-c-ambar`, con la tinta encima declarada por botón
-(`--tono-tinta`: papel sobre el azul, `--admin-ink` sobre el ámbar, que tiene
-luminancia 0.52 y no admite texto claro). El tinte al 12% no resolvía lo que
-tenía que resolver: sobre el fondo casi negro del tema oscuro es
-indistinguible de gris, y los dos círculos volvían a leerse como «dos botones
-iguales». **Salir se queda en tinte a propósito** — terminar la sesión no debe
-ser lo más ruidoso del panel—, y por eso son dos y no cuatro.
+**El aviso del topbar sí va en relleno sólido**, y es la única ampliación de
+esa lista: notificaciones en `--admin-c-azul`, con la tinta encima declarada
+por botón (`--tono-tinta`: papel sobre el azul). El tinte al 12% no resolvía lo
+que tenía que resolver: sobre el fondo casi negro del tema oscuro es
+indistinguible de gris. **Salir se queda en tinte a propósito** — terminar la
+sesión no debe ser lo más ruidoso del panel—. Hubo un segundo aviso sólido,
+«Reportar un problema» en ámbar, que se retiró con los reportes internos.
 
 Dos trampas de esa zona, las dos por cascada:
 
-- Las reglas de caja de `.admin-topbar__support`, `.admin-topbar__logout`
-  (`_topbar.scss`) y `.admin-topbar__inbox` (`_buzon.scss`) van **después** del
+- Las reglas de caja de `.admin-topbar__logout` (`_topbar.scss`) y
+  `.admin-topbar__inbox` (`_buzon.scss`) van **después** del
   bloque de `--tono` y tienen su misma especificidad. No pueden declarar
   `background`, `color` ni el atajo `border` —que reescribe `border-color` a
-  `currentcolor`—: sólo `border-width` + `border-style`. Es lo que dejaba el
-  botón de reportar en gris mientras el bloque de color parecía aplicarse.
+  `currentcolor`—: sólo `border-width` + `border-style`. Es lo que llegó a dejar
+  un botón en gris mientras el bloque de color parecía aplicarse.
 - El contador del buzón (`.admin-topbar__inbox-badge`) vive **encima** de un
   relleno sólido, así que va invertido —papel con la cifra en tinta— y su aro
   toma `--tono`: un aro del color de la página se perdería contra el fondo del
@@ -548,15 +514,7 @@ Familias de retroalimentación derivadas de ella, para que un error o un éxito 
 vean igual en todas las pantallas: `--feedback-ok`, `--feedback-warn`,
 `--feedback-danger`, `--feedback-info` y sus `-bg`.
 
-Estados de platillo derivados (`--estado-*` / `--admin-estado-*`) para que el POS y
-los tableros de área nunca discrepen de color: preparación → ámbar, listo → verde,
-entregado → azul, cancelado → gris.
-
-Excepción deliberada: `areas_produccion.color` guarda un hex por área en BD
-(café, jugos, cocina, horno). Son datos del negocio, no tokens de diseño — y aun
-así salen de la paleta funcional.
-
-`Services\Configuration\AnuncioConfig::TIPOS[*]['acento']` era la otra excepción y dejó de
+`Services\Configuration\AnuncioConfig::TIPOS[*]['acento']` era una excepción y dejó de
 serlo: los cuatro tipos van en el café de marca. Cada uno llevaba un color de la
 paleta funcional y sobre la portada el rótulo cantaba — un anuncio no es una
 alerta, y lo que distingue a un tipo de otro es su icono y su etiqueta. En el
@@ -660,112 +618,36 @@ No hay `components/ui`. El equivalente es SCSS compartido más partials PHP:
 - `views/admin/partials/` y `views/operation/partials/`.
 
 **El shell operativo** (`views/operation/partials/shell.php` + `header.php`) lo
-comparten las **cuatro** pantallas de piso: mapa de mesas, operación de
-reservaciones, tablero de área (KDS) y selector de estación. Cada consumidor
-sólo entrega sus slots (`$operationalContentHtml`) y sus banderas; el header no
-cambia de geometría entre módulos. Las que hay que conocer:
-`$operationalView` (`'map'` saca el título centrado), `$operationalUserMenu`
-(en falso: chip informativo + salida de un toque, que es lo que quiere una
-tablet), `$operationalShowLastUpdate`, `$operationalHeaderDrawerToggle` (en
-falso donde no hay cajón — el KDS) y `$operationalHeaderBack`, que se apaga
-para meseros y cocineros porque su destino vive bajo `/admin/` y la guardia de
-rol los rebotaría.
-
-El KDS **no tiene diseño propio**, pero sí tiene un código de color cerrado, y
-es lo primero que hay que entender antes de tocarlo.
-
-**Un tablero, un color: el de su estación.** `areas_produccion.color` llega por
-`--area-accent` desde la vista y corona las **tres** columnas por igual, en un
-filete de 3 px. No hay color por estado de columna, ni filete de antigüedad en
-la comanda, ni sello azul de «entregado».
-
-Lo único que rompe ese monocromo es **la hora de la cabecera de una comanda**,
-que pasa a `--admin-warning-text` a los 5 minutos y a `--admin-danger-text` a
-los 10. Es el único dato del tablero que cambia solo con el tiempo y el único
-que exige mirar, así que se queda con el único color prestado de la paleta
-funcional.
-
-Lo que se probó y se retiró, con su motivo, para que no vuelva por inercia:
-
-- **Un color de estado por columna** (neutro / ámbar / verde en filete y
-  contador): el rótulo de la banda ya dice el estado, en palabras y a dos
-  centímetros del contador. Repetirlo en color no añadía nada y obligaba a
-  meter dos hues más.
-- **El filete de antigüedad en el costado de cada comanda**: con el servicio
-  acumulado acababa pintado en todas, así que dejaba de señalar la que iba
-  tarde, que era su único trabajo.
-
-Todo lo demás del tablero es neutro, **incluidos los dos botones de avance**,
-que van en `--admin-accent` / `--admin-on-accent` —el primario del sistema— y
-son idénticos en las tres columnas. Estuvieron teñidos con el estado DESTINO
-(ámbar el de «Prep», verde el de «Listo»), y eso hacía que el ámbar significara
-dos cosas a la vez en la misma pantalla: «esta banda es En preparación» en el
-contador de una columna y «manda esto a preparación» en un botón de otra. El
-verbo es el mismo en los dos botones, así que el botón es el mismo; a dónde
-avanza lo dicen su palabra y la banda en la que está.
-
-Dos consecuencias más, ya aplicadas: «Entregado» **no es azul** (era un color
-suelto; la fila va atenuada al 62 %, y eso ya dice que no es trabajo) y la
-**nota de un platillo no es ámbar** — se distingue por ser el único elemento
-HUNDIDO de la tarjeta, no por hue.
-
-⚠️ Dos avisos sobre `areas_produccion.color`, que es un campo que un admin
-edita en el panel y no un token: el de Cocina coincide hoy con `--c-rojo` y el
-de Jugos con `--c-ambar`, que son los dos colores que la hora usa para la
-antigüedad. Mientras el color de estación viva sólo en el filete superior de
-las columnas —arriba, a lo ancho, lejos de la hora de una comanda— no hay
-choque; **si alguna vez vuelve a pintar algo dentro de la tarjeta, lo habrá**.
-Y al elegir el color de un área nueva conviene no repetir esos dos.
-
-**Y una regla tipográfica igual de corta: mono para las CIFRAS (el contador y
-el `×N`), sans para las PALABRAS.** Tres pesos —400, 600 y 700— y ninguno más.
-El rótulo de columna estuvo en mono con versalitas, y con la mono apareciendo a
-la vez en palabras y en números no había forma de saber qué la convocaba.
-
-Las columnas **no llevan borde**: son bandas de superficie constante
-(`--admin-surface-soft`, radio `lg`) separadas por un hueco de 16 px, y la
-comanda se despega de ellas con `--admin-surface-strong` más canto de luz y
-sombra. Antes columna y comanda eran las dos `--admin-surface` —el mismo color
-exacto—, así que el borde de 1 px no era decoración: era lo único que las
-distinguía, y por eso había que repetirlo en cada nivel anidado.
-
-`[data-confirm-logout]` lo emite el header, pero el manejador vive en el JS de
-cada pantalla: `punto-de-venta.js` para el POS y `modules/area.js` para las dos
-de área. Una pantalla nueva que use el header y no ate el suyo cierra sesión al
-primer toque, sin preguntar.
+usa la operación de reservaciones (`/admin/reservaciones/operacion`). Nació para
+cuatro pantallas de piso y conserva sus banderas —`$operationalView`,
+`$operationalUserMenu`, `$operationalShowLastUpdate`,
+`$operationalHeaderDrawerToggle`, `$operationalHeaderBack`— aunque hoy sólo
+tenga un consumidor.
 
 **El cajón** (`views/operation/partials/drawer.php` + `operation/_drawer.scss`)
 tiene dos cosas medidas:
 
 - Los enlaces de módulo van a `flex: 1 1 0`, con base CERO. Con base por
   contenido el ancho de cada destino lo decidía el largo de su etiqueta —
-  "Reservaciones" salía notablemente más ancho que "Mesas"— y los dos mapas, que
-  son hermanos y el mesero alterna entre ellos todo el turno, pesaban distinto
-  sin que la diferencia significara nada. El `min-width: max-content` sigue
+  "Reservaciones" salía notablemente más ancho que "Mesas"— y los destinos
+  pesaban distinto sin que la diferencia significara nada. El `min-width: max-content` sigue
   mandando a la fila siguiente lo que no quepa.
 - La fecha se escribe **en cristiano** ("Mié 9 de septiembre"), no en ISO. El
   ISO es el formato del contrato con el backend y viaja en `data-iso`, que es
-  lo que lee `shell.js`; el rótulo lo formatean dos tablas escritas a mano —una
-  en `pos-workspace.php` para el primer render y otra en `shell.js` para cuando
-  el mesero cambia de fecha—. Ni `intl` ni `setlocale` ni
+  lo que lee `shell.js`; el rótulo lo formatea una tabla escrita a mano en
+  `shell.js`. Ni `intl` ni `setlocale` ni
   `toLocaleDateString`: la extensión no está garantizada, `setlocale` devuelve
   inglés en Windows y el idioma del navegador de una tablet nueva tampoco es una
-  garantía. Si se toca una tabla, se toca la otra.
+  garantía.
 
 ⚠️ `.operational-drawer__content` es `overflow: hidden`, así que **cualquier
-desplegable `position: absolute` de dentro se recorta**. Al calendario del POS
-le pasaba en vertical —la última semana del mes quedaba cortada contra el borde
-y no había forma de llegar a esos días— y antes le había pasado en horizontal.
-Ahí se resolvió poniéndolo **en flujo** (`position: static`): en el POS el
-calendario está abierto todo el tiempo y empujar la lista hacia abajo es más
-honesto que flotarle encima; la lista ya tiene scroll propio y absorbe la
-diferencia. Si alguna vez tiene que seguir siendo desplegable, la salida es
-portarlo al `<body>` con `position: fixed` —lo que hace `core/select.js`—
-revisando el `z-index` contra el modal de mesa, que está en 200.
+desplegable `position: absolute` de dentro se recorta**. La salida es ponerlo
+**en flujo** (`position: static`) o portarlo al `<body>` con `position: fixed`
+—lo que hace `core/select.js`— revisando el `z-index` contra los modales.
 
 **El selector de periodo** (`views/admin/partials/_range-picker.php` +
-`core/range-picker.js` + `Services\Shared\RangoPeriodo`) lo comparten analíticas,
-finanzas, inventario y reservaciones. Dos cosas que no son evidentes:
+`core/range-picker.js` + `Services\Shared\RangoPeriodo`) lo usa el listado de
+reservaciones. Dos cosas que no son evidentes:
 
 - La **comparación contra el periodo anterior va siempre encendida**. Era un
   interruptor dentro del popover y se retiró: comparar contra el periodo
@@ -774,8 +656,7 @@ finanzas, inventario y reservaciones. Dos cosas que no son evidentes:
   se calcula sin preguntar, así que los deltas también salen en la primera carga
   sin query string.
 - El rango por defecto de `RangoPeriodo` es **retrospectivo** (últimos 30 días).
-  Reservaciones no lo usa y tiene el suyo, `[hoy, hoy+30]`, porque es el único
-  módulo que mira hacia delante. Si un tablero sale vacío con datos en la base,
+  Reservaciones tiene el suyo, `[hoy, hoy+30]`, porque mira hacia delante. Si un tablero sale vacío con datos en la base,
   ése es el primer sitio donde mirar.
 
 **El listado de reservaciones son TARJETAS, no una tabla**, y es el único
@@ -815,8 +696,8 @@ Vocabulario de clases admin: `admin-page`, `admin-card`, `admin-panel`,
 `admin-pills` + `admin-pill`.
 
 **`admin-pills` sustituye a un `<select>`, no lo acompaña.** Es para el caso en
-que el catálogo entero cabe en pantalla —dos o tres opciones excluyentes, o las
-cuatro áreas de producción— y esconderlo tras un desplegable obligaba a abrirlo
+que el catálogo entero cabe en pantalla —dos o tres opciones excluyentes— y
+esconderlo tras un desplegable obligaba a abrirlo
 para saber qué había. Con veinte opciones, un select sigue siendo lo correcto.
 El control es un `<input type="radio">` **real**, recortado con `clip-path` (no
 `display:none`, que lo sacaría del recorrido de teclado): así conserva el envío
@@ -845,11 +726,9 @@ resuelve —el mismo icono con tres grosores según quién lo escribiera—. Un 
 desconocido devuelve cadena vacía y no un icono de relleno: un hueco se ve en la
 primera pasada, un icono equivocado dura años.
 
-Y la regla que ya estaba escrita para el POS vale igual aquí: **ni un emoji ni
-un glifo haciendo de icono**. Lo pinta la fuente del sistema, así que no hereda
+Y la regla de la casa: **ni un emoji ni un glifo haciendo de icono**. Lo pinta la fuente del sistema, así que no hereda
 `currentColor` —una flecha ▲ dentro de un badge rojo se quedaba en la tinta del
-navegador—, cambia de forma entre plataformas y a veces ni existe: la estrella
-vacía `☆` de Feedback salía como un rectángulo en algunas caras. Al cambiar un
+navegador—, cambia de forma entre plataformas y a veces ni existe. Al cambiar un
 glifo por SVG hay que dar `display: inline-flex` + `gap` a su contenedor: el
 espacio que lo separaba del texto era el del carácter y deja de existir.
 
@@ -862,16 +741,15 @@ Dos piezas compartidas que conviene conocer antes de escribirlas otra vez:
   `d/m/Y`, o que sea un `<form>`, **necesita `data-sort-value`**: si no, ordena
   por el `textContent` de todo lo que haya dentro. Expone
   `window.AdminTableSort.{init, initTable, reaplicar}` para las tablas que se
-  pintan o se reemplazan después (analíticas las genera en JS; menú y usuarios
-  las sustituyen con filtros reactivos), y se re-engancha solo en
+  pintan o se reemplazan después (menú y usuarios las sustituyen con filtros
+  reactivos), y se re-engancha solo en
   `admin:reactive-updated`.
 - **Paginar** — `views/admin/partials/_pagination.php` (`$pagPagina`,
   `$pagTotal`, `$pagUrl` como callable, `$pagReactiva`). Ventana deslizante de
   cinco páginas con elipsis; el estilo es `.admin-pagination` en `_tables.scss`.
-  Lo usan Menú (10/página, reactivo) y Tickets (20/página, enlaces normales).
-  **Al paginar, las métricas de cabecera necesitan consulta propia**: si se
-  calculan recorriendo las filas traídas pasan a describir la página, no el
-  total. Es lo que le pasaba a Tickets.
+  Lo usa Menú (10/página, reactivo). **Al paginar, las métricas de cabecera
+  necesitan consulta propia**: si se calculan recorriendo las filas traídas
+  pasan a describir la página, no el total.
 
 En la landing, `.btn-line` es el único vocabulario de CTA: `--solid` para el
 principal de una sección (relleno de acento con `--on-accent` encima),
@@ -879,103 +757,10 @@ principal de una sección (relleno de acento con `--on-accent` encima),
 principal sin competir con él. El texto del botón base va en `--txt-strong`,
 nunca en un alias: es lo que lo mantiene legible al cruzar de tono.
 
-### El modal de mesa del POS
-
-Lo que gobierna sus dos acciones de salida, que es lo que más veces se ha
-tocado mal:
-
-- **El título es el nombre de la mesa y nada más.** `mesa.nombre` ya es
-  "Mesa 9", así que el `#9` de al lado repetía la cifra y encima con aire de
-  ser otra cosa —un folio, un ticket—. El número sólo se emite si el nombre NO
-  lo contiene (`nombreIncluyeNumero()`, que compara el número como palabra: con
-  `indexOf`, "Mesa 1" daría por dicho el 12).
-- **«Cancelar mesa» desaparece con la primera comanda.** `actualizarCancelarMesaEstado(total)`
-  lo oculta con `[hidden]` en cuanto `total > 0`, donde `total` cuenta TODAS las
-  filas de `ticket_items` —cancelados incluidos, porque un item cancelado ya
-  movió inventario y el backend exige lo mismo—. Antes se quedaba en pantalla
-  bloqueada para poder explicar al pulsarla por qué no valía; con consumo,
-  cancelar deja de ser una opción y una pastilla apagada que nunca va a volver
-  a servir es ruido en la esquina más cara del modal. Va con `[hidden]` y no con
-  una clase para que salga también del recorrido de tabulación y de
-  `modalFocusables()`, que filtra por `:not([hidden])`.
-- **«Cerrar ticket» tiene DOS frenos, y el segundo faltaba.**
-  `actualizarCierreEstado(pendientes, total)` deshabilita si quedan productos
-  sin entregar **o si no se ha enviado nada**. Un ticket recién abierto tiene
-  cero pendientes, así que con la cuenta antigua el botón nacía habilitado y
-  ofrecía cobrar una mesa en la que no se ha pedido nada — el camino directo al
-  ticket vacío que luego hay que descartar a mano. El backend revalida al
-  cerrar; esto es la señal en pantalla.
-
-**Llevar es una ventanilla, no una mesa.** Admite varios pedidos abiertos a la
-vez, cada uno un ticket propio sobre la misma fila de `mesas`. Lo decide el
-SERVIDOR (`incluyeMesaLlevar()` en `abrirWalkIn`), no el cliente: antes bastaba
-con mandar `allow_multiple` para abrir un segundo ticket sobre cualquier mesa del
-salón. Tampoco se une a otras mesas. En el mapa nunca se pinta ocupada —un pin
-rojo decía «no cabe otro», lo contrario de la verdad—; su rótulo cuenta los
-pedidos (`subtitulo` de `map-visual.js`). El modal tiene tres pantallas que no
-lo cierran entre sí: tablero de pedidos, alta y el ticket normal con una tira
-encima (`buildLlevarSwitch`) para saltar a otro pedido o volver al tablero.
-Saltar con platillos sin enviar pide confirmación; cobrar o descartar un pedido
-vuelve al tablero si quedan otros. El folio del pedido es el id del ticket.
-
-Y tres cosas de su caja que no se deducen del archivo:
-
-- **Vidrio propio.** `.mesa-modal` declara una escala local (`--pos-glass-panel`,
-  `--pos-glass-col`, `--pos-glass-blur*`, `--pos-glass-sat`) en vez de consumir
-  `--glass-bg-strong`. El rol del sistema está calibrado para un diálogo del
-  panel, que tapa una página de lectura; aquí el modal se abre sobre el mapa del
-  salón y que el plano se adivine detrás **es información**. Los porcentajes
-  (78 % el panel, 64 % las columnas) están medidos contra el peor caso —el modal
-  sobre una zona llena de mesas—: más transparencia y los rótulos de los pines
-  empiezan a competir con el texto del modal, y en el POS la legibilidad manda
-  sobre el efecto. El `saturate` no es adorno: sin él, negro desenfocado sigue
-  siendo negro y el cristal no se distingue de un plano opaco.
-- **Ni un emoji.** Todo icono del POS sale de `SVG_PATHS` + `svgIcon(nombre,
-  tamaño)` en `punto-de-venta.js`, y las etiquetas de botón de `btnLabel()`. Un
-  emoji lo pinta la fuente del sistema: no hereda `currentColor`, cambia de
-  forma entre Windows, Android e iOS —y la tablet del piso no es siempre la
-  misma— y se sale de la caja tipográfica. Lo mismo vale para los glifos sueltos
-  que hacían de icono (`☰ ◎ ◌ ⚠ ↻ ✎ ✓ → ←`). Al cambiar uno por SVG hay que dar
-  `display: inline-flex` + `gap` a su contenedor: el espacio que los separaba
-  del texto era el del carácter y ya no existe.
-- ⚠ **La regla global de campos gana a cualquier clase.** `_forms.scss` declara
-  `.admin-body input:not([type=checkbox]):not([type=radio]):not([type=range])
-  :not([type=submit]):not([type=button])`, que suma **(0,6,1)** —cada `:not()`
-  aporta la especificidad de su argumento— e impone `padding: 12px 14px`, borde,
-  fondo y `min-height`. Un `.mi-clase` sobre un `<input>` del piso no la toca:
-  es lo que dejaba la lupa de «Buscar platillo» encima de la primera letra,
-  porque el `padding-left` del que dependía nunca llegaba a aplicarse. Igualarla
-  exige siete clases, así que se resuelve con `!important` acotado (el filtro de
-  búsqueda del cajón de reservaciones ya lo hacía) o, mejor, moviendo borde y
-  fondo al CONTENEDOR y dejando el input desnudo dentro de un flex con `gap`.
-
-Vocabulario de `.mmodal-btn`: `--primary` (relleno de acento), `--danger` (rojo:
-sólo lo que termina algo), `--release` (naranja: liberar una mesa por ausencia
-no destruye la cuenta, avisa), `--pending` (neutro, acompaña a `--primary`
-cuando aún no se puede pulsar), `--ghost`, `--secondary`, `--outline`.
-`--release` y `--pending` llegaron a existir sólo en el JS: sin regla en el SCSS
-salían transparentes, texto suelto donde debía haber un botón.
-
-**`--danger` va en relleno MACIZO desde el reposo**, no en tinte. Estuvo en un
-tinte al 24 % con borde, y sobre el cristal oscuro del modal eso es
-indistinguible del gris de un botón deshabilitado — «Cerrar ticket» enseña los
-dos estados seguidos en la misma esquina, así que la diferencia tenía que ser de
-familia y no de intensidad. No compite con `--primary`: en los tres sitios donde
-sale, su vecino es un `--ghost`. Y `--pending` no se distingue por color sino
-por el borde discontinuo de `&--pending:disabled`: el JS lo emite **siempre**
-junto a `disabled`, así que su color era código muerto.
-
-⚠️ Al añadir o cambiar una variante, comprobar que ningún bloque posterior del
-mismo archivo —o de `_pago-modal.scss`, que carga después— repite el selector.
-Ahí ya se perdieron **tres** veces el color del destructivo y el estado
-deshabilitado: llegó a haber dos `&:disabled` y dos `&--release`, y el segundo
-de cada par ganaba por orden y devolvía el botón justo al estado que el
-comentario de arriba decía haber arreglado. Una variante, una definición.
-
 ### Diálogos: nada nativo
 
 **Prohibido `alert()`, `confirm()` y `prompt()` en JS.** Un diálogo del navegador
-bloquea la pantalla —en la tablet del POS, el turno entero— y no admite estilo.
+bloquea la pantalla y no admite estilo.
 Toda comunicación es un componente:
 
 | Necesidad | Componente | Dónde |
@@ -992,10 +777,7 @@ Dos opciones para los borrados que arrastran otras filas por `ON DELETE
 CASCADE`:
 
 - `customContent` — un nodo que se monta en la ranura `[data-confirmation-custom]`.
-  Es donde va lo que hay que ver antes de decidir. Inventario lo usa para listar
-  los platillos y subrecetas que se quedarán sin el ingrediente, pedidos a
-  `GET /admin/api/inventario/uso` (`Services\Inventory\Inventario::recetasQueUsan()`, la
-  única consulta INVERSA del módulo: todo lo demás va producto → ingredientes).
+  Es donde va lo que hay que ver antes de decidir.
 - `requireText` — deja el botón principal deshabilitado hasta que se teclea ese
   texto. Compara sin acentos ni mayúsculas: se busca que el usuario LEA lo que
   borra, no que reproduzca la ortografía.
@@ -1005,10 +787,8 @@ CASCADE`:
 data-confirm-delete>`, que `admin.js` reenvía al componente. Va así para que
 cada vista decida qué hay que escribir sin tocar JS, y porque **sin el atributo
 el diálogo se comporta como siempre**: un borrado nuevo que se olvide de
-ponerlo sigue preguntando, sólo sin el freno extra. Lo llevan los nueve
-formularios del panel (finanzas, catas, inventario, proveedores, categorías,
-menú, impresoras, subrecetas). Inventario, que engancha su propio diálogo, lo
-pasa en su `open()`; Usuarios tiene modal dedicado y ya lo pedía.
+ponerlo sigue preguntando, sólo sin el freno extra. Lo llevan los borrados de
+catas, categorías y menú; Usuarios tiene modal dedicado y ya lo pedía.
 
 El diálogo **entra y sale animado**, y eso condiciona el JS: `close()` quita
 `.is-open` pero aplaza el `[hidden]` hasta que acaba la transición, porque
@@ -1021,7 +801,7 @@ número que sincronizar.
 
 Cuando un módulo quiera un diálogo más rico que el genérico de
 `[data-confirm-delete]`, se engancha **en captura sobre el `document`** y detiene
-la propagación (lo hace `inventario.js`). Registrar el listener en el propio
+la propagación. Registrar el listener en el propio
 formulario no sirve: `admin.js` ya tiene el suyo ahí y en el elemento destino
 corren por orden de registro. La ventaja de capturar es que si el JS del módulo
 no llega a cargar, el diálogo genérico sigue preguntando: nunca se borra sin
@@ -1108,88 +888,6 @@ Trampas conocidas:
   sangre dentro de una banda clara (el mosaico de Panadería) publica el tono que
   la marca debe usar mientras pasa por encima, y gana a la sección que lo
   contiene. Es lo mismo que hace `[data-tono="foto"]` con el contenido.
-
-### Gráficas
-
-Chart.js v4, vendorizado en `public/build/js/vendor/chart.umd.min.js`.
-La paleta vive en los tokens `--admin-chart-*` y `--admin-n1-*` de
-`_globals.scss`; `charts.js`, `nivel1.js` y `finanzas.js` la leen con
-`readToken()` y se re-renderizan con el evento `admin:themechange`. Los hex que
-quedan en esos archivos son sólo respaldo por si la hoja aún no ha pintado.
-
-Están **validados para daltonismo**: al cambiarlos, correr el validador del
-skill `dataviz` y no bajar la separación ΔE. Por eso la serie **no** adopta los
-colores de marca. Se declaran con valores literales y no con `color-mix`:
-`getComputedStyle` devuelve la función sin resolver y Chart.js no sabe leerla.
-
-Los colores categóricos solo se usan donde la identidad de la serie *es* el dato
-(las donas); las gráficas de magnitud van a un solo tono.
-
-**El Sankey de finanzas no es Chart.js**: lo dibuja `finanzas/sankey.js` en SVG
-a mano, porque `chartjs-chart-sankey` pintaba las etiquetas dentro del canvas
-sin medirlas y las de la última columna se cortaban. Tres cosas que hay que
-saber antes de tocarle la geometría:
-
-- **La última columna escribe hacia DENTRO** (`alaIzquierda`), que era el arreglo
-  por el que se abandonó el plugin. Así que a la derecha sólo hace falta el
-  respiro del canto: reservar ahí el ancho de la etiqueta más larga —como se
-  hacía— dejaba unos 200 px muertos y el diagrama encogido contra el borde
-  izquierdo. Lo que sí hay que comprobar es el **paso entre las dos últimas
-  columnas**, para que la etiqueta no invada el nodo de detrás.
-- El SVG sale a `width: 100%`, y eso significa que un `viewBox` más ancho que la
-  caja **no produce scroll**: el `preserveAspectRatio ... meet` reescala el
-  dibujo entero para que quepa y lo centra, dejando dos bandas vacías arriba y
-  abajo. Cuando el lienzo tiene que crecer, se le pone el ancho en **píxeles** y
-  el scroll horizontal del contenedor hace su trabajo.
-- ⚠️ El contenedor declara **los dos ejes** de `overflow`, y no es redundancia:
-  por especificación, cuando uno de los dos no es `visible` el otro computa a
-  `auto`. Tenía sólo `overflow-x: auto`, así que pedir scroll horizontal
-  encendía también el vertical, y el `svg.style.overflow = 'visible'` le daba
-  algo que desplazar — una barra vertical sobre un diagrama que cabe entero.
-
-Y como el ancho lo mide en runtime (`clientWidth`), lleva un `ResizeObserver`
-además del `resize` con debounce: **plegar el sidebar cambia el ancho sin que la
-ventana cambie de tamaño**, y sin el observer el diagrama se quedaba dibujado
-contra la medida vieja hasta la siguiente recarga.
-
-### Alertas de impresión
-
-Cada comanda (por área) o cuenta que no llega a su impresora queda en
-`impresion_alertas` y la ven **todas** las tablets del POS hasta que alguien
-la marca como atendida. Sólo con el servicio encendido
-(`configuracion_pos.impresion_activa`): apagado, `TicketPrinter` corta antes de
-intentar nada y `ImpresionAlertaService::pendientes()` devuelve vacío aunque
-queden filas viejas.
-
-- **Quién detecta**: `TicketPrinter` recoge los fallos de la petición
-  (`fallos()`) con tres motivos: `sin_impresora` (no hay una activa para ese
-  destino), `sin_conexion` (no respondió: el conector de red abre el socket en
-  el constructor) y `fallo_envio` (conectó, pero no terminó). **Quién guarda**:
-  el controlador, porque es quien sabe de qué mesa y de qué mesero era.
-- **Cómo llegan**: en la respuesta de `enviar-comanda` / `cerrar-ticket` (quien
-  la causó se entera al instante) y en `alertas_impresion` del refresco del
-  mapa (el resto, en ≤30 s). Lo que ya estaba al cargar la pantalla no se
-  anuncia: sólo sube el contador del botón ámbar del header.
-- No hay chequeo periódico de impresoras, a propósito: cada impresora caída
-  costaría hasta 2 s de espera (`TIMEOUT_CONEXION`) por chequeo.
-- El `detalle` técnico (IPs, rutas SMB) sólo viaja a un administrador.
-
-### El corte de caja
-
-`GET /api/corte-caja` (inline en `PuntoVentaController::corteCaja`, sin servicio)
-y `renderCajaModal()` en `punto-de-venta.js`. Es **sólo lectura**: no persiste
-ningún arqueo.
-
-Las cuatro consultas filtran por tickets **cerrados** del día
-(`DATE(COALESCE(hora_cierre, hora_apertura)) = CURDATE()`), y el ranking de
-«Más pedidos del día» —cinco puestos, por unidades— usa el mismo criterio a
-propósito: si contara también las mesas abiertas hablaría de un universo
-distinto al de «Ventas del día», que tiene justo encima en el mismo modal.
-
-`AdminFinanzasController::cortes()` **duplica** dos de esas consultas para el
-histórico por día del panel, y no incluye ni el top ni las áreas. Si alguna vez
-hay que tocar la definición del corte, ése es el momento de sacar un
-`services/CorteCajaService.php` en vez de editar los dos sitios.
 
 ## Notas de trabajo
 
