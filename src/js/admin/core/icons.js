@@ -27,23 +27,8 @@
         cerrar: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
         externo: '<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
         'flecha-derecha': '<path d="M5 12h13"/><path d="m12 6 6 6-6 6"/>',
-        // Espejo exacto de la anterior, no una variante: las dos aparecen juntas
-        // en el tablero de producción (devolver / avanzar) y un asta más corta
-        // en una de ellas se leería como dos iconos de familias distintas.
-        'flecha-izquierda': '<path d="M19 12H6"/><path d="m12 6-6 6 6 6"/>',
-        sube: '<path d="m6 15 6-7 6 7"/>',
-        baja: '<path d="m6 9 6 7 6-7"/>',
         alerta: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
-        info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-
-        // Cuadrantes de la matriz de Kasavana-Smith: la misma rejilla de 2×2
-        // con la celda que le toca rellena. Dice la POSICIÓN en el mapa de
-        // dispersión (popularidad en horizontal, margen en vertical), no el
-        // animal de la metáfora. Ver _icons.php.
-        'cuadrante-estrella': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 3h7a2 2 0 0 1 2 2v7h-9Z" fill="currentColor"/>',
-        'cuadrante-vaca': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 12h9v7a2 2 0 0 1-2 2h-7Z" fill="currentColor"/>',
-        'cuadrante-incognita': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 3H5a2 2 0 0 0-2 2v7h9Z" fill="currentColor"/>',
-        'cuadrante-perro': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 12H3v7a2 2 0 0 0 2 2h7Z" fill="currentColor"/>'
+        info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
     };
 
     /**

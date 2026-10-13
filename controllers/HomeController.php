@@ -46,7 +46,6 @@ class HomeController
             error_log('HomeController::index horario publico - ' . $e->getMessage());
         }
 
-        // La home tiene su propio shell HTML (no usa views/layout.php de auth)
         include_once __DIR__ . '/../views/home/index.php';
     }
 }

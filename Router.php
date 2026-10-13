@@ -69,19 +69,4 @@ class Router
         header('Content-Type: text/plain; charset=utf-8');
         echo 'Página no encontrada';
     }
-
-    public function render($view, $datos = [])
-    {
-        foreach ($datos as $key => $value) {
-            $$key = $value; 
-        }
-
-        ob_start(); 
-
-        include_once __DIR__ . "/views/$view.php";
-
-        $contenido = ob_get_clean(); // Limpia el Buffer
-
-        include_once __DIR__ . '/views/layout.php';
-    }
 }

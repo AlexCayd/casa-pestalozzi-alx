@@ -2,9 +2,7 @@
 /**
  * 404 pública. La sirve ErrorController::noEncontrado().
  *
- * Documento suelto: no pasa por
- * views/layout.php —legado muerto: DevWebCamp, Google Fonts, Leaflet— ni por el
- * layout del panel.
+ * Documento suelto: no pasa por el layout del panel.
  *
  * Sin nav, sin rail, sin cursor propio y sin GSAP/Lenis/three, así que tampoco
  * lleva bundle.min.js. Y de ahí la regla que más importa de este archivo:
