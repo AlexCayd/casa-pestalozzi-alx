@@ -34,10 +34,6 @@ class AdminController
             'title' => 'Catas',
             'path' => '/admin/catas'
         ],
-        'printers' => [
-            'title' => 'Estaciones de impresión',
-            'path' => '/admin/printers'
-        ],
         'users' => [
             'title' => 'Usuarios',
             'path' => '/admin/usuarios'

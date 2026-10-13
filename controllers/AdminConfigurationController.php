@@ -3,7 +3,6 @@
 namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
-use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\Configuration\AnuncioConfig;
 use Services\Security\AdminCsrfService;
@@ -18,8 +17,6 @@ class AdminConfigurationController
     private const MODULE_JS = '/build/js/admin/configuration.js';
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
-    private const POS_PATH = '/admin/configuracion/pos';
-    private const POS_IMPRESION_PATH = '/admin/configuracion/pos/impresion';
     private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
 
     public static function index(Router $router): void
@@ -47,12 +44,6 @@ class AdminConfigurationController
                     'descripcion' => 'Configura recordatorios automáticos y comunicaciones con clientes.',
                     'ruta' => self::RESERVATIONS_PATH,
                     'icono' => '<path d="M6 3v3M18 3v3M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="m9 14 2 2 4-4"/>',
-                ],
-                [
-                    'titulo' => 'POS',
-                    'descripcion' => 'Asignación de mesero al abrir una mesa y el interruptor del servicio de impresión.',
-                    'ruta' => self::POS_PATH,
-                    'icono' => '<rect x="4" y="3" width="16" height="13" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="M8 8h8"/>',
                 ],
                 [
                     'titulo' => 'Reportes del sistema',
@@ -332,90 +323,6 @@ class AdminConfigurationController
         ]);
     }
 
-    public static function pos(Router $router): void
-    {
-        $alertas = self::alertasResultado((string) ($_GET['resultado'] ?? ''));
-
-        try {
-            $configuracion = ConfiguracionPos::obtenerOCrear()->valoresFormulario();
-        } catch (\Throwable $e) {
-            error_log('AdminConfigurationController::pos - ' . $e->getMessage());
-            $configuracion = self::defaultPos();
-            $alertas['error'][] = 'No fue posible cargar la configuración actual del POS.';
-        }
-
-        self::renderPos($configuracion, $alertas);
-    }
-
-    public static function guardarPos(Router $router): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::POS_PATH);
-        }
-
-        // Checkbox: el navegador no envía el campo cuando está apagado, así que
-        // la ausencia es el "no" y no hay estado intermedio que validar.
-        $editable = isset($_POST['mesero_editable'])
-            && is_scalar($_POST['mesero_editable'])
-            && (string) $_POST['mesero_editable'] === '1';
-
-        $configuracion = new ConfiguracionPos([
-            'mesero_editable' => $editable ? 1 : 0,
-            'updated_by' => self::usuarioAutenticadoId(),
-        ]);
-
-        try {
-            if ($configuracion->guardarConfiguracion()) {
-                self::redirect(self::POS_PATH . '?resultado=pos_actualizado');
-            }
-            $alertas = ['error' => ['No fue posible actualizar la configuración del POS.']];
-        } catch (\Throwable $e) {
-            error_log('AdminConfigurationController::guardarPos - ' . $e->getMessage());
-            $alertas = ['error' => ['No fue posible actualizar la configuración del POS. Intenta de nuevo.']];
-        }
-
-        self::renderPos(self::valoresPosTrasFallo(['mesero_editable' => $editable]), $alertas);
-    }
-
-    /**
-     * POST /admin/configuracion/pos/impresion — interruptor global del envío a
-     * las impresoras térmicas.
-     *
-     * Acción aparte de guardarPos() y no un segundo campo del mismo formulario:
-     * los dos ajustes comparten fila pero se guardan con sentencias distintas
-     * —cada una nombra sólo su columna— y el diálogo que pide confirmar la
-     * pausa no debe saltar en un envío que quizá sólo cambió lo del mesero.
-     */
-    public static function guardarImpresion(Router $router): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::POS_PATH);
-        }
-
-        // Mismo criterio que el de arriba: el navegador no manda la casilla
-        // apagada, así que la ausencia es el "no".
-        $activa = isset($_POST['impresion_activa'])
-            && is_scalar($_POST['impresion_activa'])
-            && (string) $_POST['impresion_activa'] === '1';
-
-        $configuracion = new ConfiguracionPos([
-            'impresion_activa' => $activa ? 1 : 0,
-            'updated_by' => self::usuarioAutenticadoId(),
-        ]);
-
-        try {
-            if ($configuracion->guardarImpresionActiva()) {
-                self::redirect(self::POS_PATH . '?resultado=' . ($activa ? 'impresion_reanudada' : 'impresion_pausada'));
-            }
-            $alertas = ['error' => ['No fue posible cambiar el estado del servicio de impresión.']];
-        } catch (\Throwable $e) {
-            error_log('AdminConfigurationController::guardarImpresion - ' . $e->getMessage());
-            $alertas = ['error' => ['No fue posible cambiar el estado del servicio de impresión. Revisa que la columna `impresion_activa` exista en `configuracion_pos`.']];
-        }
-
-        self::renderPos(self::valoresPosTrasFallo(['impresion_activa' => $activa]), $alertas);
-    }
-
     public static function reservations(Router $router): void
     {
         $alertas = (string)($_GET['resultado'] ?? '') === 'reservaciones_actualizadas'
@@ -480,44 +387,6 @@ class AdminConfigurationController
         ]);
     }
 
-    private static function renderPos(array $configuracion, array $alertas): void
-    {
-        self::render('configuration/pos', [
-            'title' => 'POS',
-            'topbarSection' => 'Configuración',
-            'configuracionPos' => $configuracion,
-            'alertas' => $alertas,
-        ]);
-    }
-
-    private static function defaultPos(): array
-    {
-        // Ante un fallo de lectura se muestra el comportamiento histórico, que
-        // es el que sigue aplicando el POS mientras no pueda leer el ajuste.
-        return ['mesero_editable' => true, 'impresion_activa' => true, 'updated_at' => ''];
-    }
-
-    /**
-     * Valores con los que repintar la vista cuando un guardado falla.
-     *
-     * No sirve el `valoresFormulario()` del objeto que se intentó guardar: ese
-     * sólo trae el campo de SU formulario y el otro saldría con el valor por
-     * omisión de la clase, no con el que hay en la base. Desde que la vista
-     * pinta los dos ajustes, eso enseñaría el servicio de impresión encendido
-     * después de que fallara un guardado del mesero. Se releen los dos y se
-     * superpone lo que el usuario acababa de marcar.
-     */
-    private static function valoresPosTrasFallo(array $intento): array
-    {
-        try {
-            $actuales = ConfiguracionPos::obtenerOCrear()->valoresFormulario();
-        } catch (\Throwable $e) {
-            error_log('AdminConfigurationController::valoresPosTrasFallo - ' . $e->getMessage());
-            $actuales = self::defaultPos();
-        }
-
-        return array_merge($actuales, $intento);
-    }
     /** POST /admin/configuracion/reportes/estado — desde el modal de detalle. */
     public static function reportStatus(Router $router): void
     {
@@ -588,9 +457,6 @@ class AdminConfigurationController
             'excepcion_eliminada' => 'EXCEPCION_ELIMINADA',
             'estado_actualizado' => 'EXCEPCION_ESTADO_ACTUALIZADO',
             'anuncio_actualizado' => 'ANUNCIO_ACTUALIZADO',
-            'pos_actualizado' => 'POS_ACTUALIZADO',
-            'impresion_reanudada' => 'IMPRESION_REANUDADA',
-            'impresion_pausada' => 'IMPRESION_PAUSADA',
         ];
         $codigo = $codigos[$resultado] ?? null;
         if ($codigo === null || !ReservacionErrorCatalog::has($codigo)) {

@@ -7,8 +7,8 @@
  * Existe porque estaban repetidos a mano en las vistas —el teléfono en tres
  * sitios, el shortlink de Maps en dos, el Instagram sólo dentro del JSON-LD— y
  * los dos iconos de redes de Ubicación apuntaban a href="#". No hay tabla de
- * configuración general en la BD (sólo configuracion_anuncio y
- * configuracion_pos) y no se va a crear una para esto: el patrón de la casa
+ * configuración general en la BD (sólo configuracion_anuncio) y no se va a
+ * crear una para esto: el patrón de la casa
  * para valores de despliegue es variable de entorno con respaldo, igual que
  * Services\Reservations\ReservacionConfig.
  *

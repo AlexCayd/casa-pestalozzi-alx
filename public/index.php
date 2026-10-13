@@ -16,7 +16,6 @@ use Controllers\AdminAreaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
 use Controllers\AdminRecetasController;
-use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\ReservacionOperacionController;
@@ -101,9 +100,6 @@ $router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
 $router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
-$router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
-$router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
-$router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -231,14 +227,6 @@ $router->get('/admin/reservations/operation',        $redir301('/admin/reservaci
 $router->get('/admin/reservations/show',             $redir301('/admin/reservaciones/detalle'));
 $router->get('/admin/reservations/development-tools', $redir301('/admin/reservaciones/herramientas-desarrollo'));
 
-
-$router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
-$router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);
-$router->post('/admin/printers/create',  [AdminPrintersController::class, 'create']);
-$router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit']);
-$router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
-$router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
-$router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
 
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
