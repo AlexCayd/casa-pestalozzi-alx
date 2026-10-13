@@ -1010,8 +1010,7 @@
   margin-bottom: 0;
 }
 
-.admin-config-table-wrap[hidden],
-[data-report-empty][hidden] {
+.admin-config-table-wrap[hidden] {
   display: none;
 }
 
@@ -1023,75 +1022,6 @@
 
   &[hidden] {
     display: none;
-  }
-}
-
-.admin-report-detail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-
-  > div {
-    min-width: 0;
-    padding: 13px;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-  }
-
-  &__wide {
-    grid-column: 1 / -1;
-  }
-
-  dt {
-    margin-bottom: 5px;
-    color: var(--admin-muted);
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  dd {
-    color: var(--admin-text);
-    font-size: 14px;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-  }
-
-  &__open {
-    margin-top: 8px;
-
-    &[hidden] {
-      display: none;
-    }
-  }
-}
-
-// El estado del reporte se movía solo en la base de datos; ahora se cambia
-// desde el propio detalle, que es donde se acaba de leer el problema.
-.admin-report-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--admin-border-soft);
-
-  &__label {
-    color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  &__btns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
   }
 }
 
@@ -1196,8 +1126,7 @@
 
   .admin-schedule__row,
   .admin-announcement-form,
-  .admin-config-filters,
-  .admin-report-detail {
+  .admin-config-filters {
     grid-template-columns: 1fr;
   }
 
@@ -1212,8 +1141,7 @@
     padding: 16px;
   }
 
-  .admin-announcement-form__wide,
-  .admin-report-detail__wide {
+  .admin-announcement-form__wide {
     grid-column: auto;
   }
 

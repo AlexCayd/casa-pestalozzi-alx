@@ -9,7 +9,6 @@ use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Notifications\ReservacionNotificacionConfigService;
-use Services\Configuration\ReporteSistemaService;
 
 class AdminConfigurationController
 {
@@ -44,12 +43,6 @@ class AdminConfigurationController
                     'descripcion' => 'Configura recordatorios automáticos y comunicaciones con clientes.',
                     'ruta' => self::RESERVATIONS_PATH,
                     'icono' => '<path d="M6 3v3M18 3v3M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="m9 14 2 2 4-4"/>',
-                ],
-                [
-                    'titulo' => 'Reportes del sistema',
-                    'descripcion' => 'Consulta y administra los problemas reportados por los usuarios.',
-                    'ruta' => '/admin/configuracion/reportes',
-                    'icono' => '<path d="M9 4h6l1 2h3v15H5V6h3l1-2Z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
                 ],
             ],
         ]);
@@ -368,52 +361,6 @@ class AdminConfigurationController
             error_log('AdminConfigurationController::guardarReservaciones - guardado no disponible.');
             self::renderReservations($entrada, ['error' => ['No fue posible actualizar la configuración. Intenta de nuevo.']]);
         }
-    }
-
-    public static function reports(Router $router): void
-    {
-        $resultado = (string) ($_GET['resultado'] ?? '');
-        $alertas = match ($resultado) {
-            'estado' => ['exito' => ['Estado del reporte actualizado.']],
-            'estado_invalido' => ['error' => ['No se pudo actualizar el reporte.']],
-            default => [],
-        };
-
-        self::render('configuration/reports', [
-            'title' => 'Reportes del sistema',
-            'topbarSection' => 'Configuración',
-            'reportes' => ReporteSistemaService::listar(),
-            'alertas' => $alertas,
-        ]);
-    }
-
-    /** POST /admin/configuracion/reportes/estado — desde el modal de detalle. */
-    public static function reportStatus(Router $router): void
-    {
-        $resultado = ReporteSistemaService::cambiarEstado(
-            (int) ($_POST['id'] ?? 0),
-            (string) ($_POST['estado'] ?? '')
-        );
-
-        $query = ($resultado['ok'] ?? false) ? 'estado' : 'estado_invalido';
-        header('Location: /admin/configuracion/reportes?resultado=' . $query, true, 302);
-        exit;
-    }
-
-    /** POST /admin/api/reportes — envío del modal "Reportar un problema". */
-    public static function crearReporte(Router $router): void
-    {
-        header('Content-Type: application/json; charset=utf-8');
-
-        $datos = json_decode((string) file_get_contents('php://input'), true);
-        $datos = is_array($datos) ? $datos : $_POST;
-
-        $resultado = ReporteSistemaService::crear($datos, (int) ($_SESSION['id'] ?? 0));
-        if (!($resultado['ok'] ?? false)) {
-            http_response_code(($resultado['codigo'] ?? '') === ReporteSistemaService::DATOS_INVALIDOS ? 422 : 500);
-        }
-
-        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
     }
 
     private static function renderHours(array $data): void

@@ -100,10 +100,6 @@ $router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
 $router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
-$router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
-$router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
-// Envío del modal "Reportar un problema" del panel.
-$router->post('/admin/api/reportes', [AdminConfigurationController::class, 'crearReporte']);
 // Gestión de menú: los platillos viven en `productos` desde la fusión con
 // "Productos y recetas". La lista entra directo (ya no hay página de hub).
 $router->get('/admin/menu',                     [AdminMenuController::class, 'index']);

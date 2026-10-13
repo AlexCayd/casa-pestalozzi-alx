@@ -1497,107 +1497,6 @@
         validateLinkPair(false);
     }
 
-    function initReports() {
-        const filters = document.querySelector('[data-report-filters]');
-        if (!filters) {
-            return;
-        }
-
-        const search = filters.querySelector('[data-report-search]');
-        const statusFilter = filters.querySelector('[data-report-status]');
-        const rows = Array.from(document.querySelectorAll('[data-report-row]'));
-        const empty = document.querySelector('[data-report-empty]');
-        const tableWrap = document.querySelector('.admin-config-table-wrap');
-        const count = document.querySelector('[data-report-count]');
-
-        function normalize(value) {
-            return (value || '').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
-
-        function applyFilters() {
-            const query = normalize(search.value.trim());
-            const selectedStatus = statusFilter.value;
-            let visible = 0;
-
-            rows.forEach(function (row) {
-                const matchesSearch = !query || normalize(row.dataset.search).includes(query);
-                const matchesStatus = !selectedStatus || row.dataset.status === selectedStatus;
-                row.hidden = !(matchesSearch && matchesStatus);
-                if (!row.hidden) {
-                    visible += 1;
-                }
-            });
-
-            count.textContent = String(visible);
-            empty.hidden = visible > 0;
-            tableWrap.hidden = visible === 0;
-        }
-
-        search.addEventListener('input', applyFilters);
-        statusFilter.addEventListener('change', applyFilters);
-        filters.querySelector('[data-report-reset]').addEventListener('click', function () {
-            search.value = '';
-            statusFilter.value = '';
-            applyFilters();
-            search.focus();
-        });
-        filters.addEventListener('submit', function (event) {
-            event.preventDefault();
-            applyFilters();
-        });
-
-        document.querySelectorAll('[data-report-detail]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                let report = {};
-                try {
-                    report = JSON.parse(button.dataset.reportDetail || '{}');
-                } catch (error) {
-                    report = {};
-                }
-
-                const modal = document.getElementById('report-detail-modal');
-                const fields = {
-                    '[data-detail-folio]': report.folio || 'Reporte',
-                    '[data-detail-title]': report.titulo || 'Detalle del reporte',
-                    '[data-detail-description]': report.descripcion || '—',
-                    '[data-detail-module]': report.modulo || '—',
-                    '[data-detail-browser]': report.navegador || '—',
-                    '[data-detail-route]': report.ruta_origen || '—',
-                    '[data-detail-date]': report.fecha || '—',
-                    '[data-detail-status]': report.estado || '—'
-                };
-                Object.entries(fields).forEach(function ([selector, value]) {
-                    const element = modal.querySelector(selector);
-                    if (element) {
-                        element.textContent = value;
-                    }
-                });
-
-                // Abrir la pantalla donde se reportó el fallo. Solo rutas
-                // internas: el servidor ya descarta cualquier otra cosa al
-                // guardar, y aquí se vuelve a comprobar antes de ofrecerla.
-                const routeLink = modal.querySelector('[data-detail-route-link]');
-                if (routeLink) {
-                    const ruta = String(report.ruta_origen || '');
-                    const interna = /^\/[^\s]*$/.test(ruta);
-                    routeLink.hidden = !interna;
-                    if (interna) {
-                        routeLink.href = ruta;
-                    }
-                }
-
-                const idInput = modal.querySelector('[data-detail-id]');
-                if (idInput) {
-                    idInput.value = report.id || '';
-                }
-
-                document.dispatchEvent(new CustomEvent('admin:open-modal', { detail: { id: 'report-detail-modal', trigger: button } }));
-            });
-        });
-
-        applyFilters();
-    }
-
     function initReservationSettings() {
         const form = document.querySelector('[data-reservation-settings]');
         if (!form) return;
@@ -1704,7 +1603,6 @@
         initExceptionDelete();
         initExceptionStateToggles();
         initAnnouncement();
-        initReports();
         initReservationSettings();
         initPrintingSwitch();
     });

@@ -58,7 +58,7 @@
  * --tono es el color funcional; --tono-tinta, lo que se lee encima. Se
  * declaran por botón y el resto de las reglas es común.
  */
-.admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox) {
+.admin-topbar__actions :where(.admin-topbar__inbox) {
   --tono: var(--admin-muted);
   --tono-tinta: var(--admin-paper);
   /* El relieve del icono va en sentido CONTRARIO a su tinta. Un trazo claro se
@@ -96,16 +96,6 @@
   }
 }
 
-/* Ámbar y no rojo: reportar un problema AVISA, no destruye nada. El rojo de
-   esta barra está reservado a la acción que termina la sesión.
-   Sobre ámbar la tinta es la del papel invertida: #f5b400 tiene luminancia
-   0.52, así que un icono claro encima no llegaría ni a 2:1. */
-.admin-topbar__support {
-  --tono: var(--admin-c-ambar);
-  --tono-tinta: var(--admin-ink);
-  --tono-relieve: color-mix(in srgb, var(--admin-paper) 45%, transparent);
-}
-
 .admin-topbar__inbox { --tono: var(--admin-c-azul); }
 
 /* Salir conserva el tinte derivado: es la única acción destructiva de la barra
@@ -122,55 +112,6 @@
     background: color-mix(in srgb, var(--tono) 22%, var(--admin-surface));
     color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
     box-shadow: 0 6px 18px color-mix(in srgb, var(--tono) 22%, transparent);
-  }
-}
-
-// Botón-icono redondo (antes tenía el texto "Reportar un problema").
-/*
- * Los tres botones de la barra (reportar, tema, salir) medían 36 / 40 / 38px
- * con iconos de 17 / 18 / 17 y tres juegos distintos de borde y fondo, porque
- * se definieron en archivos separados. Aquí quedan al mismo tamaño; el tema
- * usa la misma caja en _theme-toggle.scss.
- */
-.admin-topbar__support {
-  display: inline-flex;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  /* Grosor y estilo por separado, NUNCA el atajo `border`: el color del borde,
-     el relleno y la tinta los pone el bloque de --tono de arriba, y `border:
-     1px solid` reescribiría border-color a currentcolor desde una regla
-     posterior de la misma especificidad. Es lo que dejaba el botón en gris
-     mientras el bloque de color parecía estar aplicándose. */
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 999px;
-  cursor: pointer;
-  /* El hover lo pone el patrón de --tono de arriba y el foco el anillo único
-     de _finishes.scss, así que aquí sólo queda la caja. */
-  transition:
-    color var(--admin-t-fast) var(--admin-ease-out),
-    border-color var(--admin-t-fast) var(--admin-ease-out),
-    background var(--admin-t-fast) var(--admin-ease-out),
-    box-shadow var(--admin-t-fast) var(--admin-ease-out);
-
-  /* El trazo sube de 1.8 a 2.15. A 18px de caja, 1.8 daba un dibujo demasiado
-     fino para el peso que tienen estos botones —dos son los únicos con relleno
-     de color de todo el panel— y de lejos se leían como grises. El relieve es
-     de un píxel y sin desenfoque apreciable a propósito: sobre un relleno
-     sólido, un drop-shadow marcado emborrona el trazo en vez de recortarlo. El
-     color lo decide --tono-relieve, arriba. */
-  svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2.15;
-    filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
   }
 }
 
@@ -220,7 +161,7 @@
   width: 40px;
   height: 40px;
   place-items: center;
-  // Igual que en support: aquí sólo la caja; el color va en el bloque de --tono.
+  // Aquí sólo la caja; el color va en el bloque de --tono.
   border-width: 1px;
   border-style: solid;
   border-radius: 999px;
@@ -277,8 +218,7 @@
     height: 32px;
   }
 
-  // En móvil encogen los tres a la vez, no solo el de soporte.
-  .admin-topbar__support,
+  // En móvil encogen a la vez.
   .admin-topbar__logout,
   .admin-theme-toggle {
     width: 34px;

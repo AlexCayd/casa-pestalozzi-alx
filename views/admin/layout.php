@@ -90,7 +90,6 @@
     </div>
 
     <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
-    <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
 
     <?php /*
         Vendorizados en /build/js/vendor por `gulp copyVendorJs`, igual que en la
