@@ -190,7 +190,7 @@ foreach (['NOTIFICACION_CALLBACK_INVALIDO', 'NOTIFICACION_SOURCE_NO_ENCONTRADO',
     communicationsAssert(ReservacionErrorCatalog::has($code), "catálogo contiene {$code}");
 }
 
-$ddl = file_get_contents($root . '/database/ddl.sql');
+$ddl = file_get_contents($root . '/database/schema.sql');
 $routes = file_get_contents($root . '/public/index.php');
 communicationsAssert(is_string($ddl) && is_string($routes), 'esquema y rutas legibles');
 foreach (['configuracion_reservaciones', 'reservacion_recordatorios', 'notification_delivery_status', 'notification_delivery_updated_at'] as $fragment) {

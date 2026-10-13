@@ -72,7 +72,7 @@ assertUxRefinement(str_contains($rangeScript, 'data-allow-future'), 'range picke
 assertUxRefinement(str_contains($rangeScript, 'preserveQuery'), 'range picker puede conservar filtros existentes');
 
 $model = $read('models/Reservacion.php');
-$ddl = $read('database/ddl.sql');
+$ddl = $read('database/schema.sql');
 $service = $read('services/Reservations/ReservacionAdministrativaService.php');
 $detail = $read('views/admin/reservations/show.php');
 assertUxRefinement(str_contains($ddl, 'motivo_cancelacion   VARCHAR(500) NULL'), 'DDL declara motivo_cancelacion');

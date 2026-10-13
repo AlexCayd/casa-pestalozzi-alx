@@ -77,9 +77,9 @@ try {
         array_splice($argv, 1, 1);
         echo "Migraciones desde f274eda y traducción de estados históricos: PASS\n";
     } else {
-        executeNotificationSql($db, file_get_contents($root . '/database/ddl.sql'));
+        executeNotificationSql($db, file_get_contents($root . '/database/schema.sql'));
     }
-    executeNotificationSql($db, file_get_contents($root . '/database/deploy.sql'));
+    executeNotificationSql($db, file_get_contents($root . '/database/seed.sql'));
     $browser = ($argv[1] ?? '') === '--browser';
     if ($browser) {
         $log = tempnam(sys_get_temp_dir(), 'cp-notifications-http-');

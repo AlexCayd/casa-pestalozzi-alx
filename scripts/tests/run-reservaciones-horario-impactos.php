@@ -44,7 +44,7 @@ $despues = [
 impactoAssert(HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-23', '10:30:00', $antes), 'horario válido en snapshot anterior');
 impactoAssert(!HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-23', '10:30:00', $despues), 'horario fuera del snapshot nuevo');
 
-$ddl = file_get_contents($root . '/database/ddl.sql');
+$ddl = file_get_contents($root . '/database/schema.sql');
 impactoAssert(is_string($ddl), 'se pudo leer el esquema vigente');
 impactoAssert(str_contains($ddl, 'CREATE TABLE IF NOT EXISTS buzon_notificaciones'), 'DDL crea el buzón genérico');
 foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'requiere_accion', 'dedup_key', 'uq_buzon_notificaciones_dedup', 'idx_buzon_notificaciones_visibles'] as $column) {
