@@ -3,9 +3,7 @@
    Gulp concatena src/js/**‌/*.js en orden alfabético de ruta:
    1. app.js (este archivo) — define estado compartido + boot()
    2. modules/*.js            — funciones init*, split*, etc.
-   window.CP_MENU / CP_AREAS ya no viven aquí: el punto de venta las emite en
-   línea desde la BD (ver Services\Menu\Carta y views/punto-de-venta/index.php), y
-   la landing pide su carta a /menu.
+   La landing pide su carta a /menu.
    boot() se llama en DOMContentLoaded, cuando todo ya está definido.
    ============================================================ */
 
@@ -56,7 +54,6 @@ function boot() {
   if (!T.anim) body.classList.add("no-anim");
 
   // Lo de abajo depende del marcado de la home (nav, hero, menú, rail…).
-  // /punto-de-venta y /area cargan este mismo bundle y se inicializan por su cuenta.
   if (body.dataset.page !== "home") return;
 
   // Lenis arranca ANTES que los diálogos, y ese orden importa. Lenis desplaza

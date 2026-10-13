@@ -183,7 +183,6 @@ if ($initialOperationNotice !== null) {
     $operationalDrawerListAttributes = ['data-operation-reservations' => true];
     $operationalDrawerListHtml = '<div class="reservation-operation-skeleton"><span></span><span></span><span></span></div>';
     $operationalActiveModule = 'reservations';
-    $operationalMapHref = '/punto-de-venta';
     $operationalReservationsHref = '/admin/reservaciones/operacion';
     include __DIR__ . '/../partials/drawer.php';
     ?>

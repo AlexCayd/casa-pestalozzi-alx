@@ -29,7 +29,6 @@ const paths = {
     "src/js/**/*.js",
     "!src/js/admin/**/*.js",
     "!src/js/operation/**/*.js",
-    "!src/js/modules/punto-de-venta.js",
   ],
   adminJs: [
     // El panel admin sólo carga /build/js/admin.js: nunca ve bundle.min.js, así
@@ -53,20 +52,6 @@ const paths = {
     // El histórico de precios lo abren las fichas de Menú y de Inventario: dos
     // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
     "src/js/admin/core/historial-precios.js",
-  ],
-  adminMapJs: [
-    // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que
-    // carga antes que map.js.
-    "src/js/components/confirmation-modal.js",
-    "src/js/admin/core/select.js",
-    "src/js/components/reservation-date-picker.js",
-    "src/js/operation/shell.js",
-    "src/js/operation/map-contract.js",
-    "src/js/operation/table-state-adapter.js",
-    "src/js/operation/map-visual.js",
-    "src/js/operation/map-help.js",
-    "src/js/operation/reservation-card.js",
-    "src/js/modules/punto-de-venta.js",
   ],
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
@@ -151,13 +136,6 @@ const paths = {
 // generados. El build es finito e idempotente: elimina sólo sus dos salidas
 // temporales antes de reemplazarlas, evitando que un handle viejo rompa toda
 // la compilación.
-function limpiarSalidaMapa() {
-  [
-    "public/build/js/admin/map.js",
-    "public/build/js/admin/map.js.map",
-  ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
-}
-
 function limpiarSalidaFormularioReservacion() {
   [
     "public/build/js/admin/reservation-form.js",
@@ -205,16 +183,6 @@ function adminJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js"));
-}
-
-function adminMapJavascript() {
-  limpiarSalidaMapa();
-  return src(paths.adminMapJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("map.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
 }
 
 function adminRecetasJavascript() {
@@ -367,7 +335,6 @@ function devWatch(done) {
   watch("src/scss/operation/**/*.scss", parallel(operationCss, operationAppCss));
   watch(
     [
-      "src/scss/punto-de-venta/**/*.scss",
       "src/scss/auth/**/*.scss",
     ],
     operationAppCss,
@@ -382,14 +349,10 @@ function devWatch(done) {
     ],
     adminJavascript,
   );
-  watch(
-    [
-      "src/js/modules/punto-de-venta.js",
-      "src/js/operation/*.js",
-      "src/js/admin/core/select.js",
-    ],
-    adminMapJavascript,
-  );
+    parallel(
+      adminReservationFormJavascript,
+      adminReservationOperationJavascript,
+    ),
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
   watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
@@ -402,11 +365,6 @@ function devWatch(done) {
   );
   watch(
     "src/js/components/reservation-*-picker.js",
-    parallel(
-      adminMapJavascript,
-      adminReservationFormJavascript,
-      adminReservationOperationJavascript,
-    ),
   );
   watch(
     [
@@ -432,7 +390,6 @@ exports.operationCss = operationCss;
 exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
-exports.adminMapJs = adminMapJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
@@ -459,10 +416,6 @@ exports.dev = parallel(
   versionAvif,
   javascript,
   adminJavascript,
-  // Estaba sólo en `build`: un `gulp dev` limpio nunca generaba map.js, así que
-  // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
-  // que alguien tocaba punto-de-venta.js y saltaba el watch.
-  adminMapJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,
@@ -491,7 +444,6 @@ exports.build = series(
   versionAvif,
   javascript,
   adminJavascript,
-  adminMapJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,

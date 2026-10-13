@@ -12,8 +12,7 @@
  * También es el reemplazo de los emojis y glifos sueltos que quedaban
  * (⭐ 🐎 ❓ 🐕 ★ ☆ ✓ → ▲ ▼ ↗). Un emoji lo pinta la fuente del sistema: no
  * hereda `currentColor`, cambia de forma entre plataformas y se sale de la caja
- * tipográfica. Es la misma regla que ya cumple el POS con SVG_PATHS/svgIcon()
- * en src/js/modules/punto-de-venta.js.
+ * tipográfica.
  *
  * Todos los trazos están dibujados sobre una caja de 24×24 y sin relleno, para
  * que el conjunto se lea como una familia. Al añadir uno nuevo, respetar las

@@ -21,7 +21,7 @@ $operationalHeaderModuleHref = (string)($operationalHeaderModuleHref ?? '');
 $operationalHeaderUserChip = (bool)($operationalHeaderUserChip ?? true);
 $operationalDate = (string)($operationalDate ?? date('Y-m-d'));
 $operationalHour = (string)($operationalHour ?? '');
-$operationalBrandHref = (string)($operationalBrandHref ?? '/punto-de-venta');
+$operationalBrandHref = (string)($operationalBrandHref ?? '/admin/reservaciones/operacion');
 $operationalHeaderBackUrl = (string)($operationalHeaderBackUrl ?? '');
 // El POS lo apaga para los meseros: el destino vive bajo /admin y la guardia de
 // rol los rebotaría a una pantalla de error.

@@ -8,8 +8,7 @@
      * piso el idioma del navegador no es una garantía —basta una tablet nueva en
      * inglés para que el cajón hable en otro idioma que el resto de la
      * pantalla—, y el formato de la casa (día corto, número, mes en minúscula)
-     * no es ninguno de los presets. Es la misma pareja de tablas que usa
-     * pos-workspace.php para el primer render; si se toca una, se toca la otra.
+     * no es ninguno de los presets.
      */
     var DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     var MESES = [

@@ -31,7 +31,6 @@ $operationalBrandHref = '/admin/reservaciones/operacion';
 $operationalHeaderBackUrl = '/admin/reservaciones';
 $operationalDrawerId = 'operation-reservations-drawer';
 $operationalActiveModule = 'reservations';
-$operationalMapHref = '/punto-de-venta';
 $operationalReservationsHref = '/admin/reservaciones/operacion';
 $operationalShellClass = 'operation-shell operation-shell--reservations';
 $operationalMainClass = 'operation-main operational-layout';

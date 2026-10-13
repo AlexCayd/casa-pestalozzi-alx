@@ -13,7 +13,6 @@ $operationalDrawerListId = trim((string)($operationalDrawerListId ?? ''));
 $operationalDrawerListClass = trim((string)($operationalDrawerListClass ?? ''));
 $operationalDrawerListAttributes = is_array($operationalDrawerListAttributes ?? null) ? $operationalDrawerListAttributes : [];
 $operationalActiveModule = (string)($operationalActiveModule ?? 'reservations');
-$operationalMapHref = (string)($operationalMapHref ?? '/punto-de-venta');
 // Un href vacío oculta el enlace: los destinos de /admin solo tienen sentido
 // para quien puede entrar en ellos.
 $operationalReservationsHref = (string)($operationalReservationsHref ?? '/admin/reservaciones/operacion');
@@ -54,15 +53,6 @@ $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$val
         </button>
     </div>
     <nav class="operational-drawer__modules" aria-label="Mapas operativos">
-        <a
-            class="operational-drawer__module-link<?php echo $operationalActiveModule === 'map' ? ' is-active' : ''; ?>"
-            href="<?php echo $operationalDrawerH($operationalMapHref); ?>"
-            data-operational-nav="map"
-            <?php echo $operationalActiveModule === 'map' ? 'aria-current="page"' : ''; ?>
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="7" height="7" rx="1"></rect><rect x="14" y="4" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
-            <span>Mesas</span>
-        </a>
         <?php if ($operationalReservationsHref !== ''): ?>
             <a
                 class="operational-drawer__module-link<?php echo $operationalActiveModule === 'reservations' ? ' is-active' : ''; ?>"

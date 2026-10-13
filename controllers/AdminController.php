@@ -26,10 +26,6 @@ class AdminController
             'title' => 'Inventario',
             'path' => '/admin/inventario'
         ],
-        'pdv' => [
-            'title' => 'Punto de Venta',
-            'path' => '/admin/punto-de-venta'
-        ],
         'reservations' => [
             'title' => 'Reservaciones',
             'path' => '/admin/reservaciones'

@@ -13,7 +13,6 @@ use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
 use Controllers\AdminBuzonController;
 use Controllers\AdminAreaController;
-use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
 use Controllers\AdminRecetasController;
@@ -30,7 +29,6 @@ use Controllers\ReservationManagementAccessController;
 use Controllers\N8nReservationsController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
-use Controllers\PuntoVentaController;
 use Controllers\AreaController;
 
 $router = new Router();
@@ -126,7 +124,6 @@ $router->post('/admin/menu/categorias/create',  [AdminMenuController::class, 'ca
 $router->get('/admin/menu/categorias/edit',     [AdminMenuController::class, 'categoryEdit']);
 $router->post('/admin/menu/categorias/edit',    [AdminMenuController::class, 'categoryEdit']);
 $router->post('/admin/menu/categorias/delete',  [AdminMenuController::class, 'categoryDelete']);
-$router->get('/admin/punto-de-venta', [AdminPuntoVentaController::class, 'index']);
 $router->get('/admin/reservaciones', [AdminReservacionController::class, 'index']);
 $router->get('/admin/reservaciones/crear', [AdminReservacionController::class, 'create']);
 $router->post('/admin/reservaciones/crear', [AdminReservacionController::class, 'store']);
@@ -256,31 +253,6 @@ $router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 're
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
-
-
-
-// Vistas standalone del personal (POS meseros y KDS cocina)
-$router->get('/punto-de-venta',        [PuntoVentaController::class, 'index']);
-$router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
-$router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
-$router->get('/api/punto-de-venta/reservaciones', [PuntoVentaController::class, 'reservaciones']);
-$router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 'mesaContexto']);
-$router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
-$router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
-$router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
-$router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
-$router->post('/api/impresion/alertas/atender', [PuntoVentaController::class, 'atenderAlertasImpresion']);
-$router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
-$router->post('/api/cancelar-mesa',       [PuntoVentaController::class, 'cancelarMesa']);
-$router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
-$router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
-$router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCaja']);
-$router->post('/api/entregar-item',       [PuntoVentaController::class, 'entregarItem']);
-// Estaba incrustada por error entre las rutas de /admin/menu/items.
-$router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancelarItem']);
-$router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
-$router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
-
 
 
 // Login: NIP para personal de piso, usuario+contraseña para el admin
