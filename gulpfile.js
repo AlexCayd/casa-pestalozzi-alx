@@ -37,9 +37,8 @@ const paths = {
     "src/js/components/confirmation-modal.js",
     "src/js/components/toast.js",
     // El catálogo de iconos va PRIMERO: define window.AdminIcons, que consumen
-    // buzon.js y los bundles de módulo (analytics, reservaciones). El bundle es
-    // un concat en scope global, así que el orden es lo que resuelve la
-    // dependencia — igual que con sankey.js y finanzas.js.
+    // buzon.js y los bundles de módulo (reservaciones). El bundle es un concat
+    // en scope global, así que el orden es lo que resuelve la dependencia.
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
     "src/js/admin/core/theme.js",
@@ -49,8 +48,7 @@ const paths = {
     "src/js/admin/core/table-sort.js",
     "src/js/admin/core/table-rows.js",
     "src/js/admin/buzon.js",
-    // El selector de periodo lo comparten analíticas, finanzas e inventario, así
-    // que vive aquí y no en el bundle de analíticas.
+    // El selector de periodo lo usa el listado de reservaciones.
     "src/js/admin/core/range-picker.js",
     // El histórico de precios lo abren las fichas de Menú y de Inventario: dos
     // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
@@ -103,18 +101,6 @@ const paths = {
     "src/js/admin/configuration/configuration.js",
   ],
   imagenes: "src/img/**/*",
-  // sankey.js va PRIMERO: define window.AdminSankey, que finanzas.js consume
-  // al arrancar. Es un concat en scope global, no un módulo, así que el orden
-  // es el que resuelve la dependencia.
-  adminFinanzasJs: [
-    "src/js/admin/finanzas/sankey.js",
-    "src/js/admin/finanzas/finanzas.js",
-  ],
-  // Chart.js, para la dona del reparto del gasto. El plugin
-  // chartjs-chart-sankey se retiró: pintaba las etiquetas de nodo dentro del
-  // canvas sin medirlas y las de la última columna se cortaban contra el
-  // borde. La descomposición del ingreso la dibuja ahora sankey.js en SVG.
-  chartJs: ["node_modules/chart.js/dist/chart.umd.min.js"],
   // GSAP + ScrollTrigger + Lenis, la capa de movimiento de la landing y del
   // panel. Antes llegaban por CDN en tres peticiones bloqueantes; vendorizarlas
   // deja el sitio funcionando sin red y fija la versión en package.json.
@@ -231,15 +217,6 @@ function adminMapJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
-function adminFinanzasJavascript() {
-  return src(paths.adminFinanzasJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("finanzas.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
 function adminRecetasJavascript() {
   return src(paths.adminRecetasJs)
     .pipe(sourcemaps.init())
@@ -324,10 +301,6 @@ function adminConfigurationJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
-}
-
-function copyChartJs() {
-  return src(paths.chartJs).pipe(dest("public/build/js/vendor"));
 }
 
 function copyVendorJs() {
@@ -417,7 +390,6 @@ function devWatch(done) {
     ],
     adminMapJavascript,
   );
-  watch("src/js/admin/finanzas/**/*.js", adminFinanzasJavascript);
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
   watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
@@ -443,7 +415,6 @@ function devWatch(done) {
     ],
     adminConfigurationJavascript,
   );
-  watch(paths.chartJs, copyChartJs);
   watch(paths.vendorJs, copyVendorJs);
   watch(paths.vendorFonts, copyVendorFonts);
   watch(paths.imagenes, imagenes);
@@ -462,7 +433,6 @@ exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminMapJs = adminMapJavascript;
-exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
@@ -471,7 +441,6 @@ exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
-exports.copyChartJs = copyChartJs;
 exports.copyVendorJs = copyVendorJs;
 exports.copyVendorFonts = copyVendorFonts;
 exports.imagenes = imagenes;
@@ -494,7 +463,6 @@ exports.dev = parallel(
   // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
   // que alguien tocaba punto-de-venta.js y saltaba el watch.
   adminMapJavascript,
-  adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,
@@ -503,7 +471,6 @@ exports.dev = parallel(
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
-  copyChartJs,
   copyVendorJs,
   copyVendorFonts,
   copyFonts,
@@ -525,7 +492,6 @@ exports.build = series(
   javascript,
   adminJavascript,
   adminMapJavascript,
-  adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,
@@ -534,9 +500,6 @@ exports.build = series(
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
-  // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas
-  // cargan desde /build/js/vendor.
-  copyChartJs,
   // Idem: sin esto la landing se queda sin GSAP/ScrollTrigger/Lenis y sin las
   // caras de Bodoni y la itálica de Crimson. copyVendorFonts va antes que
   // copyFonts porque siembra assets/fonts/, de donde parte la otra.

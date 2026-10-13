@@ -17,7 +17,6 @@ use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
 use Controllers\AdminRecetasController;
-use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionMantenimientoController;
@@ -235,10 +234,6 @@ $router->get('/admin/reservations/operation',        $redir301('/admin/reservaci
 $router->get('/admin/reservations/show',             $redir301('/admin/reservaciones/detalle'));
 $router->get('/admin/reservations/development-tools', $redir301('/admin/reservaciones/herramientas-desarrollo'));
 
-// Finanzas
-$router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);
-$router->post('/admin/finanzas/gasto/guardar',   [AdminFinanzasController::class, 'guardarGasto']);
-$router->post('/admin/finanzas/gasto/eliminar',  [AdminFinanzasController::class, 'eliminarGasto']);
 
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
 $router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);
