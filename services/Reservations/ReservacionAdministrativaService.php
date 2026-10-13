@@ -8,7 +8,6 @@ use InvalidArgumentException;
 use Model\ActiveRecord;
 use Model\Reservacion;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Scheduling\HorarioOperacionImpactoService;
@@ -89,7 +88,6 @@ final class ReservacionAdministrativaService
             ? OcupacionMesasService::prepararContextoFecha(
                 $fechaResuelta,
                 false,
-                null,
                 $ahora,
                 0,
                 true
@@ -577,20 +575,6 @@ final class ReservacionAdministrativaService
                 return ['ok' => true, 'codigo' => ReservacionService::CANCELADA, 'idempotente' => true];
             }
             if (!in_array((string)$fila['estado'], ReservacionConfig::ESTADOS_EDITABLES, true)) {
-                return self::rollback($db, ReservacionService::ESTADO_INVALIDO);
-            }
-            $ticket = $db->query(
-                "SELECT t.id FROM tickets t
-                 WHERE t.reservacion_id = {$id}
-                   AND " . TicketMesa::condicionSqlAbierto('t') . "
-                 LIMIT 1 FOR UPDATE"
-            );
-            if ($ticket === false) {
-                throw new \RuntimeException($db->error);
-            }
-            $ticketAbierto = $ticket->num_rows > 0;
-            $ticket->free();
-            if ($ticketAbierto) {
                 return self::rollback($db, ReservacionService::ESTADO_INVALIDO);
             }
 

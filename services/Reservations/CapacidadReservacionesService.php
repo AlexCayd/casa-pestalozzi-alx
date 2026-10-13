@@ -31,7 +31,6 @@ final class CapacidadReservacionesService
         string $hora,
         int|array $excluirReservacionId = 0,
         bool $bloquear = false,
-        ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null,
         string $origen = '',
         ?array $contextoFecha = null
@@ -41,7 +40,6 @@ final class CapacidadReservacionesService
             $hora,
             $excluirReservacionId,
             $bloquear,
-            $ticketsAbiertos,
             $ahora,
             $contextoFecha
         );

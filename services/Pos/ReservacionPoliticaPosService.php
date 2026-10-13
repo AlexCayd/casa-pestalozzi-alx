@@ -5,7 +5,6 @@ use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
-use Model\TicketMesa;
 
 /**
  * Política única para decidir qué puede hacer POS con una mesa/reservación.
@@ -19,7 +18,7 @@ final class ReservacionPoliticaPosService
     public const ACCION_ABRIR_TICKET = 'ABRIR_TICKET';
     public const ACCION_CONFIRMAR_RESERVACION = 'CONFIRMAR_RESERVACION_PROXIMA';
     public const ACCION_RESERVACION_PROXIMA = 'RESERVACION_PROXIMA';
-    public const ACCION_INICIAR_RESERVACION = 'INICIAR_SERVICIO';
+    public const ACCION_COMPLETAR_RESERVACION = 'COMPLETAR';
     public const ACCION_REGISTRAR_AUSENCIA = 'REGISTRAR_AUSENCIA';
     public const ACCION_CONSULTAR_TICKET = 'CONSULTAR_TICKET';
 
@@ -34,7 +33,7 @@ final class ReservacionPoliticaPosService
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $datos = self::aArray($reservacion);
         $ticketAbierto = self::ticketAbierto($datos, $ticket);
-        $vigencia = ReservacionVigenciaService::clasificar($datos, $ahora, $ticket);
+        $vigencia = ReservacionVigenciaService::clasificar($datos, $ahora);
         $inicio = self::fechaHora($datos);
         $finPlanificado = $inicio instanceof DateTimeImmutable
             ? $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes')
@@ -52,9 +51,6 @@ final class ReservacionPoliticaPosService
             ? null
             : (int)ceil($segundosParaInicio / 60);
         $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? 'futura');
-        if ((string)($datos['estado'] ?? '') === 'en_curso') {
-            $ventana = 'en_curso';
-        }
 
         $requiereAdvertencia = (string)($datos['estado'] ?? '') === 'confirmada'
             && !$ticketAbierto
@@ -72,15 +68,12 @@ final class ReservacionPoliticaPosService
                     && $segundosParaInicio >= 0
                     && $segundosParaInicio <= ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60)
             );
-        $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio']
-            && !$ticketAbierto
-            && empty($contexto['sin_mesas'])
-            && empty($contexto['conflicto_fisico']);
+        $puedeCompletar = (bool)$vigencia['puede_completar'];
         $disponibleParaTicket = !$ticketAbierto && !$bloqueoWalkIn;
         $accionPrimaria = self::accionPrimaria(
             $ticketAbierto,
             (bool)$vigencia['ausencia_pendiente'],
-            $puedeIniciar,
+            $puedeCompletar,
             $requiereAdvertencia,
             $bloqueoWalkIn
         );
@@ -93,8 +86,8 @@ final class ReservacionPoliticaPosService
         );
         $puedeNoShow = (bool)$vigencia['puede_marcar_no_show'] && !$ticketAbierto;
         $acciones = [];
-        if ($puedeIniciar) {
-            $acciones[] = ['id' => self::ACCION_INICIAR_RESERVACION, 'tipo' => 'primary'];
+        if ($puedeCompletar) {
+            $acciones[] = ['id' => self::ACCION_COMPLETAR_RESERVACION, 'tipo' => 'primary'];
         }
         if ($puedeNoShow) {
             $acciones[] = ['id' => self::ACCION_REGISTRAR_AUSENCIA, 'tipo' => 'primary'];
@@ -121,8 +114,7 @@ final class ReservacionPoliticaPosService
             'bloqueo_walk_in' => $bloqueoWalkIn,
             'disponible_para_ticket' => $disponibleParaTicket,
             'requiere_advertencia_ticket' => $requiereAdvertencia,
-            'puede_iniciar_reservacion' => $puedeIniciar,
-            'puede_iniciar_servicio' => $puedeIniciar,
+            'puede_completar' => $puedeCompletar,
             'puede_marcar_no_show' => $puedeNoShow,
             'accion_primaria' => $accionPrimaria,
             'accion_pendiente' => $vigencia['ausencia_pendiente']
@@ -274,7 +266,7 @@ final class ReservacionPoliticaPosService
     private static function accionPrimaria(
         bool $ticketAbierto,
         bool $ausenciaPendiente,
-        bool $puedeIniciar,
+        bool $puedeCompletar,
         bool $requiereAdvertencia,
         bool $bloqueoWalkIn
     ): string {
@@ -284,8 +276,8 @@ final class ReservacionPoliticaPosService
         if ($ausenciaPendiente) {
             return self::ACCION_REGISTRAR_AUSENCIA;
         }
-        if ($puedeIniciar) {
-            return self::ACCION_INICIAR_RESERVACION;
+        if ($puedeCompletar) {
+            return self::ACCION_COMPLETAR_RESERVACION;
         }
         if ($requiereAdvertencia) {
             return self::ACCION_CONFIRMAR_RESERVACION;
@@ -322,19 +314,13 @@ final class ReservacionPoliticaPosService
         return 100;
     }
 
+    /**
+     * Ya no hay tickets que abrir: el hecho se conserva en el contrato del mapa
+     * y siempre resuelve a falso.
+     */
     private static function ticketAbierto(array $reservacion, ?array $ticket): bool
     {
-        if ($ticket !== null) {
-            return true;
-        }
-        if (array_key_exists('ticket_abierto', $reservacion)) {
-            return filter_var($reservacion['ticket_abierto'], FILTER_VALIDATE_BOOL);
-        }
-        $estado = (string)($reservacion['ticket_estado'] ?? '');
-
-        return !empty($reservacion['ticket_id'])
-            && $estado === TicketMesa::ESTADO_ABIERTO
-            && empty($reservacion['ticket_closed_at']);
+        return false;
     }
 
     private static function fechaHora(array $reservacion): ?DateTimeImmutable

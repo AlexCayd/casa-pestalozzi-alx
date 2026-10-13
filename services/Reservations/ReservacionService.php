@@ -7,13 +7,13 @@
 
 namespace Services\Reservations;
 use Services\Contact\ContactoService;
-use Services\Pos\PuntoVentaReservacionService;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
+use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Shared\FechaOperacionLock;
@@ -35,6 +35,7 @@ class ReservacionService
     public const RESERVACION_PASADA = 'RESERVACION_PASADA';
     public const RESERVACION_HORARIO_PASADO = 'RESERVACION_HORARIO_PASADO';
     public const ESTADO_INVALIDO = 'ESTADO_INVALIDO';
+    public const TOLERANCIA_VIGENTE = 'TOLERANCIA_VIGENTE';
     public const ESTADO_NO_EDITABLE = 'ESTADO_NO_EDITABLE';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const HORARIO_INVALIDO = HorarioReservacionService::HORARIO_INVALIDO;
@@ -198,9 +199,25 @@ class ReservacionService
         return self::cambiarEstado($reservacionId, 'confirmada', $usuarioId);
     }
 
+    /**
+     * Registra que la mesa se atendió. Sin punto de venta no hay ticket que
+     * cerrar, así que la reservación se completa a mano desde la operación,
+     * a partir de su hora programada.
+     */
     public static function completar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
+        return self::mutarEstado($reservacionId, static function (array $r): array {
+            if ($r['estado'] === 'completada') {
+                return ['ok' => true, 'codigo' => self::COMPLETADA, 'idempotente' => true];
+            }
+            if ($r['estado'] !== 'confirmada'
+                || !ReservacionVigenciaService::clasificar($r)['puede_completar']
+            ) {
+                return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
+            }
+
+            return ['ok' => true, 'codigo' => self::COMPLETADA, 'estado' => 'completada'];
+        });
     }
 
     public static function cancelar(int $reservacionId, ?int $usuarioId = null): array
@@ -208,33 +225,40 @@ class ReservacionService
         return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
     }
 
+    /** No-show sólo sobre una confirmada con la tolerancia de llegada vencida. */
     public static function marcarNoShow(int $reservacionId, ?int $usuarioId = null): array
     {
-        return PuntoVentaReservacionService::noShow(
-            $reservacionId,
-            (int)($usuarioId ?? 0),
-            false,
-            false
-        );
+        return self::mutarEstado($reservacionId, static function (array $r): array {
+            if ($r['estado'] === 'no_show') {
+                return ['ok' => true, 'codigo' => self::NO_SHOW, 'idempotente' => true];
+            }
+            if ($r['estado'] !== 'confirmada') {
+                return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
+            }
+
+            $vigencia = ReservacionVigenciaService::clasificar($r);
+            if (!$vigencia['elegible_no_show']) {
+                return [
+                    'ok' => false,
+                    'codigo' => self::TOLERANCIA_VIGENTE,
+                    'tolerancia_hasta' => $vigencia['limite_tolerancia'],
+                ];
+            }
+
+            return ['ok' => true, 'codigo' => self::NO_SHOW, 'estado' => 'no_show'];
+        });
     }
 
     public static function ejecutarAccionOperativa(
         int $reservacionId,
         string $nuevoEstado,
         int $usuarioId,
-        string $motivo = '',
-        ?int $meseroId = null
+        string $motivo = ''
     ): array {
         $resultado = match ($nuevoEstado) {
             'confirmada' => self::cambiarEstado($reservacionId, 'confirmada', $usuarioId),
-            'en_curso' => PuntoVentaReservacionService::comenzar($reservacionId, $usuarioId, $meseroId),
-            'no_show' => PuntoVentaReservacionService::noShow(
-                $reservacionId,
-                $usuarioId,
-                false,
-                false,
-                $motivo
-            ),
+            'completada' => self::completar($reservacionId, $usuarioId),
+            'no_show' => self::marcarNoShow($reservacionId, $usuarioId),
             'cancelada' => ReservacionAdministrativaService::cancelar(
                 $reservacionId,
                 $usuarioId,
@@ -242,10 +266,91 @@ class ReservacionService
             ),
             default => ['ok' => false, 'codigo' => self::ESTADO_INVALIDO],
         };
-        if (($resultado['ok'] ?? false) === true && $nuevoEstado === 'no_show') {
+        // Completada y no-show sacan la reservación del horario: si estaba
+        // afectada por un cambio de horario, el seguimiento se cierra solo.
+        if (($resultado['ok'] ?? false) === true && in_array($nuevoEstado, ['completada', 'no_show'], true)) {
             HorarioOperacionImpactoService::reconciliarReservacion($reservacionId, $usuarioId);
         }
         return $resultado;
+    }
+
+    /**
+     * Aplica bajo bloqueo de fila la transición que decida $decision. Si la
+     * decisión trae 'estado', se persiste y se invalidan los reemplazos que
+     * quedaran pendientes de verificar sobre esta reservación.
+     */
+    private static function mutarEstado(int $reservacionId, callable $decision): array
+    {
+        if ($reservacionId < 1) {
+            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
+        }
+
+        $db = ActiveRecord::getDB();
+        try {
+            $db->begin_transaction();
+            $r = Reservacion::buscarFilaPorIdParaActualizar($reservacionId);
+            if (!$r) {
+                $db->rollback();
+                return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
+            }
+
+            $resultado = $decision($r);
+            if (!($resultado['ok'] ?? false) || empty($resultado['estado'])) {
+                $db->rollback();
+                return $resultado;
+            }
+
+            $estado = ActiveRecord::escaparString((string)$resultado['estado']);
+            self::ejecutar(
+                "UPDATE reservaciones
+                 SET estado = '{$estado}', estado_changed_at = NOW()
+                 WHERE id = {$reservacionId}"
+            );
+            self::invalidarReemplazosPendientes($reservacionId);
+            $db->commit();
+            unset($resultado['estado']);
+
+            return $resultado + ['idempotente' => false];
+        } catch (\Throwable $e) {
+            try {
+                $db->rollback();
+            } catch (\Throwable $rollbackError) {
+                error_log('ReservacionService rollback - ' . $rollbackError->getMessage());
+            }
+            error_log('ReservacionService::mutarEstado - ' . $e->getMessage());
+            return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
+        }
+    }
+
+    /** Un reemplazo sin verificar deja de tener sentido cuando la original se resuelve. */
+    private static function invalidarReemplazosPendientes(int $reservacionId): void
+    {
+        $db = ActiveRecord::getDB();
+        $resultado = $db->query(
+            "SELECT id FROM reservaciones
+             WHERE reemplaza_reservacion_id = {$reservacionId}
+               AND estado = 'pendiente_verificacion'
+             ORDER BY id DESC
+             FOR UPDATE"
+        );
+        if ($resultado === false) {
+            throw new \RuntimeException($db->error);
+        }
+        $ids = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $ids[] = (int)$fila['id'];
+        }
+        $resultado->free();
+        if ($ids === []) {
+            return;
+        }
+        $lista = implode(',', $ids);
+        self::ejecutar(
+            "UPDATE reservaciones
+             SET estado = 'expirada', hold_expires_at = NULL, estado_changed_at = NOW()
+             WHERE id IN ({$lista}) AND estado = 'pendiente_verificacion'"
+        );
+        VerificacionContacto::invalidarPorReservaciones($ids);
     }
 
     public static function cambiarEstado(
@@ -261,7 +366,7 @@ class ReservacionService
         if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
-        if (in_array($nuevoEstado, ['en_curso', 'completada', 'cancelada', 'no_show'], true)) {
+        if (in_array($nuevoEstado, ['completada', 'cancelada', 'no_show'], true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
 
@@ -388,12 +493,11 @@ class ReservacionService
      * reconstruir reglas temporales.
      *
      * @param array<string, mixed>|object $reservacion
-     * @param array<string, mixed>|object|null $ticket
      * @return array<string, mixed>
      */
-    public static function clasificarVigencia($reservacion, $ticket = null): array
+    public static function clasificarVigencia($reservacion): array
     {
-        return ReservacionVigenciaService::clasificar($reservacion, null, $ticket);
+        return ReservacionVigenciaService::clasificar($reservacion);
     }
 
     public static function puedeEditar($reservacion): bool

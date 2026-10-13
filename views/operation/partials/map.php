@@ -3,49 +3,25 @@
  * Componente visual compartido del mapa de mesas.
  *
  * Espera un arreglo $mapVisual. El consumidor conserva fuera de este parcial
- * toda decision de seleccion, asignacion, tickets y reglas de disponibilidad.
+ * toda decision de seleccion, asignacion y reglas de disponibilidad.
  */
 
 $mapVisual = is_array($mapVisual ?? null) ? $mapVisual : [];
 $mapEscape = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 $mapContext = (string)($mapVisual['context'] ?? 'mapa-mesas');
-$mapHelpContext = (string)($mapVisual['helpContext'] ?? 'pos');
-$mapHelpContext = in_array($mapHelpContext, ['pos', 'reservations'], true) ? $mapHelpContext : 'pos';
-$mapHelpSubtitle = $mapHelpContext === 'reservations'
-    ? 'Consulta la disponibilidad para la fecha y hora seleccionadas.'
-    : 'Consulta el estado actual de las mesas.';
-$mapHelpAvailableCopy = $mapHelpContext === 'reservations'
-    ? 'La mesa se proyecta disponible en la hora seleccionada.'
-    : 'Mesa disponible en el contexto mostrado.';
-$mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
-    ? 'La mesa se proyecta ocupada por una reservación activa, un ticket o una restricción operativa.'
-    : 'Mesa ocupada por un ticket o una restricción operativa.';
-$mapHelpReservationCopy = $mapHelpContext === 'reservations'
-    ? 'Hay una reservación que todavía no inicia y comienza en 30 minutos o menos; la mesa está bloqueada preventivamente.'
-    : 'Mesa comprometida por una reservación.';
-$mapHelpUnavailableCopy = $mapHelpContext === 'reservations'
-    ? 'Mesa no disponible para esta operación.'
-    : 'Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.';
-$mapHelpWarningCopy = $mapHelpContext === 'reservations'
-    ? 'Hay una reservación a más de 30 y hasta 60 minutos; la mesa todavía se proyecta disponible.'
-    : 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.';
+$mapHelpSubtitle = 'Consulta la disponibilidad para la fecha y hora seleccionadas.';
+$mapHelpAvailableCopy = 'La mesa se proyecta disponible en la hora seleccionada.';
+$mapHelpOccupiedCopy = 'La mesa se proyecta ocupada por una reservación activa o una restricción operativa.';
+$mapHelpReservationCopy = 'Hay una reservación que todavía no inicia y comienza en 30 minutos o menos; la mesa está bloqueada preventivamente.';
+$mapHelpUnavailableCopy = 'Mesa no disponible para esta operación.';
+$mapHelpWarningCopy = 'Hay una reservación a más de 30 y hasta 60 minutos; la mesa todavía se proyecta disponible.';
 $mapHelpWarningStateClass = 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';
-$mapHelpAbsenceCopy = $mapHelpContext === 'reservations'
-    ? 'La ausencia pendiente es una señal adicional y no sustituye la proyección de la mesa.'
-    : 'La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.';
-$mapHelpAbsenceStateClass = $mapHelpContext === 'reservations'
-    ? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'
-    : 'mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente';
-$mapHelpContextNotes = $mapHelpContext === 'reservations'
-    ? [
-        'El fondo representa la proyección de la mesa en la hora seleccionada. La asignación valida por separado el intervalo completo de 90 minutos.',
-        'La ausencia pendiente aparece como señal adicional y no cambia el estado proyectado.',
-    ]
-    : [
-        'Entre 60 y 30 minutos antes aparece una advertencia. A partir de 30 minutos antes, se bloquea el walk-in.',
-        'Hasta 15 minutos después del inicio hay tolerancia; después puede quedar una ausencia pendiente.',
-        'En POS, el rojo suele indicar un ticket abierto; también puede reflejar una restricción operativa.',
-    ];
+$mapHelpAbsenceCopy = 'La ausencia pendiente es una señal adicional y no sustituye la proyección de la mesa.';
+$mapHelpAbsenceStateClass = 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente';
+$mapHelpContextNotes = [
+    'El fondo representa la proyección de la mesa en la hora seleccionada. La asignación valida por separado el intervalo completo de 90 minutos.',
+    'La ausencia pendiente aparece como señal adicional y no cambia el estado proyectado.',
+];
 $mapSectionClass = trim((string)($mapVisual['sectionClass'] ?? ''));
 $mapTitle = (string)($mapVisual['title'] ?? 'Mapa de mesas');
 $mapAriaLabel = (string)($mapVisual['ariaLabel'] ?? ($mapTitle !== '' ? $mapTitle : 'Mapa operativo'));

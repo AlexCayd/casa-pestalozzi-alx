@@ -1,11 +1,11 @@
 <?php
 
 /**
- * Lector único del contrato POS–reservaciones.
+ * Lector único del contrato del mapa operativo de reservaciones.
  *
- * Este servicio concentra las lecturas que antes se repetían en POS y en el
- * panel de operación. No asigna mesas ni cambia estados: sólo compone filas,
- * ocupación física y la serialización canónica para sus consumidores.
+ * No asigna mesas ni cambia estados: sólo compone filas, ocupación y la
+ * serialización canónica para el mapa. Conserva el nombre y el espacio
+ * `Services\Pos` de cuando el punto de venta compartía este contrato.
  */
 
 namespace Services\Pos;
@@ -19,7 +19,6 @@ use Services\Reservations\ReservacionConfig;
 use DateTimeImmutable;
 use Model\Mesa;
 use Model\Reservacion;
-use Model\TicketMesa;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
 
@@ -69,25 +68,12 @@ final class PosReservacionQueryService
             );
 
         $filasReservaciones = Reservacion::buscarPorDiaOperacionAdmin($fecha);
-        $ticketsLeidos = TicketMesa::abiertosParaMapa();
-        $tickets = array_map(
-            static fn(array $ticket): array => PosReservacionSerializer::ticket($ticket),
-            $ticketsLeidos
-        );
-        $ticketsPorReservacion = [];
-        foreach ($tickets as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
 
         $ocupacionPorReservacion = [];
         if (($opciones['calcular_conflictos'] ?? true) === true) {
             $ocupacionPorReservacion = AsignacionMesasService::obtenerOcupacionPorReservacionDelDia(
                 $fecha,
-                $filasReservaciones,
-                $ticketsLeidos
+                $filasReservaciones
             );
         }
 
@@ -110,7 +96,6 @@ final class PosReservacionQueryService
             );
             $reservacionSerializada = PosReservacionSerializer::reservacion(
                 $fila,
-                $ticketsPorReservacion[$reservacionId] ?? null,
                 $mesas,
                 $ahora,
                 [
@@ -149,7 +134,6 @@ final class PosReservacionQueryService
             $contextoOcupacion = OcupacionMesasService::prepararContextoFecha(
                 $fecha,
                 false,
-                $ticketsLeidos,
                 $ahora,
                 0,
                 false,
@@ -177,23 +161,13 @@ final class PosReservacionQueryService
                 'contexto' => OcupacionMesasService::CONTEXTO_HISTORICO,
                 'ocupacion_bloqueante' => [],
                 'ocupacion_reservaciones' => [],
-                'tickets_por_mesa' => [],
-                'fisica' => [],
-                'alertas_operativas' => [],
             ];
             $evaluacionOcupacionAsignacion = $evaluacionOcupacion;
         }
 
-        $reservacionesParaAdvertencias = array_values(array_filter(
-            $reservaciones,
-            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
-                && !empty($reservacion['muestra_advertencia'])
-        ));
-        $tickets = self::adjuntarAdvertencias($tickets, $reservacionesParaAdvertencias);
         $mesasEstado = MesaEstadoService::normalizarMesas(
             $mesas,
             $reservacionesMapa,
-            $tickets,
             $fecha,
             $ahora,
             $horaEvaluacion,
@@ -245,7 +219,6 @@ final class PosReservacionQueryService
             'mesas_estado' => $mesasEstado,
             'reservaciones' => $reservaciones,
             'reservaciones_operativas' => $reservacionesOperativas,
-            'tickets' => $tickets,
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'evaluacion_ocupacion' => $evaluacionOcupacion,
             'capacidad_horario' => $capacidadHorario,
@@ -257,9 +230,7 @@ final class PosReservacionQueryService
             'actualizado_en' => $ahora->format(DATE_ATOM),
         ];
 
-        return strtolower((string)($opciones['superficie'] ?? 'waiter')) === 'waiter'
-            ? PosReservacionSerializer::sanitizarParaWaiter($respuesta)
-            : $respuesta;
+        return $respuesta;
     }
 
     /**
@@ -285,43 +256,6 @@ final class PosReservacionQueryService
                         && (string)($reservacion['proyeccion_mapa']['ventana_mapa'] ?? '') === 'irrelevante'))
                 && (!$mapaAdministrativo || empty($reservacion['fuera_horario_operacion']))
         ));
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $tickets
-     * @param array<int, array<string, mixed>> $reservaciones
-     * @return array<int, array<string, mixed>>
-     */
-    private static function adjuntarAdvertencias(array $tickets, array $reservaciones): array
-    {
-        foreach ($tickets as &$ticket) {
-            $mesaIdsTicket = self::ids($ticket['mesa_ids'] ?? []);
-            $proximas = [];
-            foreach ($reservaciones as $reservacion) {
-                if (
-                    empty($reservacion['muestra_advertencia'])
-                    || !self::intersecta($mesaIdsTicket, self::ids($reservacion['mesa_ids'] ?? []))
-                ) {
-                    continue;
-                }
-                $proximas[] = [
-                    'schema_version' => PosReservacionSerializer::SCHEMA_VERSION,
-                    'reservacion_id' => (int)$reservacion['reservacion_id'],
-                    'id' => (int)$reservacion['reservacion_id'],
-                    'hora' => (string)$reservacion['hora'],
-                    'nombre' => (string)$reservacion['nombre'],
-                    'mesa_ids' => $reservacion['mesa_ids'],
-                    'ventana_operativa' => $reservacion['ventana_operativa'],
-                    'minutos_para_reservacion' => $reservacion['minutos_para_reservacion'],
-                    'muestra_advertencia' => true,
-                ];
-            }
-            $ticket['reservaciones_proximas'] = $proximas;
-            $ticket['muestra_advertencia'] = $proximas !== [];
-        }
-        unset($ticket);
-
-        return $tickets;
     }
 
     private static function intervaloAplica(array $reservacion, string $horaConsultada): bool
@@ -355,9 +289,4 @@ final class PosReservacionQueryService
         return $ids;
     }
 
-    /** @param array<int, int> $a @param array<int, int> $b */
-    private static function intersecta(array $a, array $b): bool
-    {
-        return array_intersect($a, $b) !== [];
-    }
 }

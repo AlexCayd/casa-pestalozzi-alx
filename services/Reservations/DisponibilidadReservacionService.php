@@ -305,7 +305,6 @@ final class DisponibilidadReservacionService
             ? OcupacionMesasService::prepararContextoFecha(
                 $fecha,
                 false,
-                null,
                 $ahora,
                 0,
                 true
@@ -473,7 +472,6 @@ final class DisponibilidadReservacionService
                 (string)$horaValidada['hora'],
                 $excluirReservacionId,
                 $bloquear,
-                null,
                 $ahora
             );
         $mesas = $contextoFecha !== null

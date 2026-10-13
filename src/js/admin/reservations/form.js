@@ -1083,10 +1083,10 @@
                     eyebrow: isCancel ? 'Acción irreversible' : 'Acción operativa',
                     title: trigger.getAttribute('data-action-label') || (isNoShow ? 'Registrar que el cliente no se presentó' : 'Confirmar acción'),
                     description: isNoShow
-                        ? 'La tolerancia de llegada terminó y no existe llegada ni ticket abierto.'
+                        ? 'La tolerancia de llegada terminó sin que se registrara la visita.'
                         : (isCancel
                             ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
-                            : 'El servidor volverá a validar el estado, las mesas y los tickets antes de guardar.'),
+                            : 'El servidor volverá a validar el estado y las mesas antes de guardar.'),
                     consequence: isNoShow
                         ? 'La reservación cambiará a no show y sus mesas dejarán de estar comprometidas.'
                         : (isCancel

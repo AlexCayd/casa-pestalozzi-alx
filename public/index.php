@@ -12,7 +12,6 @@ use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
 use Controllers\AdminBuzonController;
-use Controllers\AdminAreaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionMantenimientoController;
@@ -26,7 +25,6 @@ use Controllers\ReservationManagementAccessController;
 use Controllers\N8nReservationsController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
-use Controllers\AreaController;
 
 $router = new Router();
 

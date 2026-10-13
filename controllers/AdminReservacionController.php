@@ -10,8 +10,6 @@ namespace Controllers;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
-use Model\Ticket;
 use MVC\Router;
 use Services\Reservations\AsignacionMesasService;
 use Services\Security\AdminCsrfService;
@@ -33,22 +31,10 @@ class AdminReservacionController
         $filtros = self::leerFiltros();
         $reservaciones = Reservacion::buscarAdmin($filtros);
         $metricas = Reservacion::metricasAdmin($filtros);
-        $ticketsPorReservacion = [];
-        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
         foreach ($reservaciones as $reservacion) {
-            $vigencia = ReservacionService::clasificarVigencia(
-                $reservacion,
-                $ticketsPorReservacion[(int)($reservacion->id ?? 0)] ?? null
-            );
-            foreach ($vigencia as $campo => $valor) {
+            foreach (ReservacionService::clasificarVigencia($reservacion) as $campo => $valor) {
                 $reservacion->{$campo} = $valor;
             }
-            $reservacion->ticket_id_abierto = (int)($ticketsPorReservacion[(int)($reservacion->id ?? 0)]['id'] ?? 0);
         }
 
         $data = [
@@ -289,15 +275,7 @@ class AdminReservacionController
         $mesasAsignadas = ReservacionMesa::obtenerPorReservacion((int)$reservacion->id);
         $capacidadTotal = (int)($reservacion->capacidad_total ?? 0);
         $capacidadRestaurante = Mesa::capacidadReservableTotal();
-        $ticketAbierto = null;
-        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
-            if ((int)($ticket['reservacion_id'] ?? 0) === (int)$reservacion->id) {
-                $ticketAbierto = $ticket;
-                break;
-            }
-        }
-        $ticketFisico = Ticket::buscarPorReservacion((int)$reservacion->id);
-        $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticketAbierto);
+        $vigencia = ReservacionService::clasificarVigencia($reservacion);
         $seguimientoHorario = null;
         $impactoReservacionId = filter_var($_GET['impacto_reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1],
@@ -329,8 +307,6 @@ class AdminReservacionController
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => $vigencia,
             'seguimientoHorario' => $seguimientoHorario,
-            'ticketAbierto' => $ticketAbierto,
-            'ticketFisico' => $ticketFisico,
             'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
@@ -448,8 +424,6 @@ class AdminReservacionController
             'errores' => $resultado['errors'] ?? [],
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => ReservacionService::clasificarVigencia($reservacion),
-            'ticketAbierto' => null,
-            'ticketFisico' => null,
             'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
@@ -481,6 +455,7 @@ class AdminReservacionController
         if ($resultado['ok'] ?? false) {
             self::redirectBack(match ($estado) {
                 'confirmada' => 'confirmada',
+                'completada' => 'completada',
                 'cancelada' => 'cancelada',
                 'no_show' => 'no_show',
                 default => 'actualizada',
@@ -744,11 +719,8 @@ class AdminReservacionController
             ReservacionService::CONFIRMAR_SIN_MESA => 'confirmar_sin_mesa',
             ReservacionService::RESERVACION_NO_EXISTE => 'no_existe',
             ReservacionService::ESTADO_INVALIDO => 'estado_invalido',
-            \Services\Pos\PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'tolerancia_vigente',
-            \Services\Pos\PuntoVentaReservacionService::TICKET_ABIERTO => 'ticket_abierto',
-            \Services\Pos\PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'requiere_reasignacion',
-            \Services\Pos\PuntoVentaReservacionService::SIN_CAPACIDAD => 'capacidad_insuficiente',
-            \Services\Pos\PuntoVentaReservacionService::DATOS_INVALIDOS => 'datos_invalidos',
+            ReservacionService::TOLERANCIA_VIGENTE => 'tolerancia_vigente',
+            ReservacionService::DATOS_INVALIDOS => 'datos_invalidos',
             default => 'error_interno',
         };
     }
@@ -762,11 +734,9 @@ class AdminReservacionController
             AsignacionMesasService::MESAS_INVALIDAS => 'mesas_invalidas',
             AsignacionMesasService::MESA_OCUPADA => 'mesa_ocupada',
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'capacidad_insuficiente',
-            AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS => 'ticket_mesa_abierto',
             AsignacionMesasService::CONFLICTO_CONCURRENTE => 'conflicto_concurrente',
             AsignacionMesasService::VERSION_DESACTUALIZADA => 'version_desactualizada',
             AsignacionMesasService::DATOS_INCOMPLETOS => 'asignacion_datos_incompletos',
-            AsignacionMesasService::SUPERPOSICION_NO_AUTORIZADA => 'superposicion_no_autorizada',
             AsignacionMesasService::ESTADO_INVALIDO,
             AsignacionMesasService::RESERVACION_NO_EDITABLE => 'estado_no_permite',
             AsignacionMesasService::RESERVACION_NO_EXISTE => 'no_existe',
@@ -796,16 +766,12 @@ class AdminReservacionController
             'mesas_invalidas' => 'MESAS_INVALIDAS',
             'mesa_ocupada' => 'MESA_OCUPADA',
             'capacidad_insuficiente' => 'CAPACIDAD_INSUFICIENTE',
-            'ticket_mesa_abierto' => 'CONFLICTO_TICKET_ABIERTO',
             'conflicto_concurrente' => 'CONFLICTO_CONCURRENTE',
             'version_desactualizada' => 'VERSION_DESACTUALIZADA',
             'asignacion_datos_incompletos' => 'DATOS_INCOMPLETOS',
-            'superposicion_no_autorizada' => 'SUPERPOSICION_NO_AUTORIZADA',
             'estado_no_permite' => 'ESTADO_NO_EDITABLE',
             'estado_invalido' => 'ESTADO_INVALIDO',
             'tolerancia_vigente' => 'TOLERANCIA_VIGENTE',
-            'ticket_abierto' => 'TICKET_ABIERTO',
-            'requiere_reasignacion' => 'REQUIERE_REASIGNACION',
             'datos_invalidos' => 'DATOS_INVALIDOS',
             'horario_invalido' => 'HORARIO_INVALIDO',
             'sin_disponibilidad' => 'SIN_DISPONIBILIDAD',

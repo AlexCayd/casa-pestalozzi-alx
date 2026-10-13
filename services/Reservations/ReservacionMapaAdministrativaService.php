@@ -6,7 +6,6 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Shared\FechaOperacionLock;
 
@@ -42,7 +41,6 @@ final class ReservacionMapaAdministrativaService
             $tieneContacto = $contacto !== '' && $contactoTipo !== 'ninguno';
             $terminal = in_array($estado, ReservacionConfig::ESTADOS_FINALES, true);
             $enListaOperativa = isset($operativas[$id]);
-            $ticketAbierto = !empty($reservacion['ticket_abierto']);
             $fueraHorarioOperacion = $estado === 'confirmada'
                 && !empty($reservacion['fuera_horario_operacion']);
 
@@ -72,11 +70,10 @@ final class ReservacionMapaAdministrativaService
                 : substr($nota, 0, 140);
             $reservacion['contexto_admin'] = $terminal
                 ? 'terminal'
-                : (($estado === 'en_curso' || $ticketAbierto) ? 'en_curso' : 'reservacion');
+                : 'reservacion';
             $reservacion['puede_liberar_asignacion'] = !$terminal
                 && $estado === 'confirmada'
                 && (string)($reservacion['origen'] ?? '') === 'admin'
-                && !$ticketAbierto
                 && !empty($reservacion['mesa_ids']);
 
             $proyeccion[] = $reservacion;
@@ -173,15 +170,6 @@ final class ReservacionMapaAdministrativaService
                 if ((string)($reservacion['origen'] ?? '') !== 'admin') {
                     $db->rollback();
                     return ['ok' => false, 'codigo' => AsignacionMesasService::LIBERACION_NO_AUTORIZADA];
-                }
-
-                $ticket = self::fila(
-                    "SELECT id FROM tickets WHERE reservacion_id = {$reservacionId} AND "
-                    . TicketMesa::condicionSqlAbierto('tickets') . " LIMIT 1 FOR UPDATE"
-                );
-                if ($ticket) {
-                    $db->rollback();
-                    return ['ok' => false, 'codigo' => AsignacionMesasService::RESERVACION_NO_EDITABLE];
                 }
 
                 $mesaIds = ReservacionMesa::obtenerIdsPorReservacion($reservacionId);

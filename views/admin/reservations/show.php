@@ -12,8 +12,6 @@ $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
 $editable = (bool)($editable ?? false);
 $vigencia = is_array($vigencia ?? null) ? $vigencia : [];
-$ticketAbierto = is_array($ticketAbierto ?? null) ? $ticketAbierto : null;
-$ticketFisico = is_array($ticketFisico ?? null) ? $ticketFisico : $ticketAbierto;
 $adminCsrfToken = (string)($adminCsrfToken ?? '');
 $returnUrl = (string)($returnUrl ?? '/admin/reservaciones');
 $backUrl = (string)($backUrl ?? '/admin/reservaciones');
@@ -163,7 +161,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
                 <?php if ($editable) : ?>
                     <button type="button" class="admin-btn admin-btn--primary" data-schedule-impact-edit>Modificar</button>
                 <?php endif; ?>
-                <?php if (!$estadoFinal && in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
+                <?php if (!$estadoFinal && in_array($estado, ['confirmada', 'pendiente_verificacion'], true)) : ?>
                     <?php $actionButton('cancelada', 'Cancelar', 'admin-btn admin-btn--secondary', true); ?>
                 <?php endif; ?>
                 <button
@@ -195,17 +193,6 @@ $seguimientoActivo = $seguimientoHorario !== null;
                         <div>
                             <dt>Condición operativa</dt>
                             <dd>Tolerancia vencida</dd>
-                        </div>
-                    <?php endif; ?>
-                    <?php if ($ticketAbierto) : ?>
-                        <div>
-                            <dt>Ticket abierto</dt>
-                            <dd>#<?php echo (int)$ticketAbierto['id']; ?></dd>
-                        </div>
-                    <?php elseif ($ticketFisico) : ?>
-                        <div>
-                            <dt>Ticket ligado</dt>
-                            <dd>#<?php echo (int)$ticketFisico['id']; ?> (<?php echo $h($ticketFisico['estado'] ?? 'cerrado'); ?>)</dd>
                         </div>
                     <?php endif; ?>
                     <div>
@@ -314,18 +301,6 @@ $seguimientoActivo = $seguimientoHorario !== null;
                     </dl>
                 </article>
             <?php endif; ?>
-
-            <?php if ($ticketFisico) : ?>
-                <article class="reservation-detail-card admin-card">
-                    <div class="reservation-detail-card__head">
-                        <div>
-                            <span class="reservation-detail-card__label">Relacion fisica</span>
-                            <h3>Ticket #<?php echo (int)$ticketFisico['id']; ?></h3>
-                        </div>
-                    </div>
-                    <p class="reservation-detail-empty">Estado: <?php echo $h($ticketFisico['estado'] ?? ''); ?> · Mesas fisicas: <?php echo $ticketFisico['mesa_ids'] !== [] ? $h(implode(', ', array_map('strval', (array)$ticketFisico['mesa_ids']))) : 'Sin mesas'; ?></p>
-                </article>
-            <?php endif; ?>
         </section>
 
         <aside class="reservation-detail-side">
@@ -397,14 +372,14 @@ $seguimientoActivo = $seguimientoHorario !== null;
                         <?php if (false && $estado === 'pendiente_verificacion' && $editable) : ?>
                             <?php $actionButton('confirmada', 'Confirmar verificación', 'admin-btn admin-btn--primary'); ?>
                         <?php endif; ?>
+                        <?php if (!empty($vigencia['puede_completar'])) : ?>
+                            <?php $actionButton('completada', 'Marcar como completada', 'admin-btn admin-btn--primary'); ?>
+                        <?php endif; ?>
                         <?php if (!empty($vigencia['elegible_no_show'])) : ?>
                             <?php $actionButton('no_show', 'Registrar que el cliente no se presentó', 'admin-btn admin-btn--ghost'); ?>
                         <?php endif; ?>
-                        <?php if (in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
+                        <?php if (in_array($estado, ['confirmada', 'pendiente_verificacion'], true)) : ?>
                             <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--danger', true); ?>
-                        <?php endif; ?>
-                        <?php if ($ticketAbierto) : ?>
-                            <a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Consultar ticket #<?php echo (int)$ticketAbierto['id']; ?></a>
                         <?php endif; ?>
                     <?php else : ?>
                         <p class="reservation-detail-actions__muted">Esta reservacion esta en modo de solo lectura.</p>

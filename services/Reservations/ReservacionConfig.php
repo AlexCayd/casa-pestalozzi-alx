@@ -45,7 +45,6 @@ class ReservacionConfig
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',
         'confirmada' => 'Confirmada',
-        'en_curso' => 'En curso',
         'expirada' => 'Expirada',
         'completada' => 'Completada',
         'cancelada' => 'Cancelada',
@@ -63,7 +62,6 @@ class ReservacionConfig
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
         'confirmada',
-        'en_curso',
         'completada',
         'no_show',
         'cancelada',
@@ -72,8 +70,7 @@ class ReservacionConfig
     ];
     public const TRANSICIONES = [
         'pendiente_verificacion' => ['confirmada', 'expirada'],
-        'confirmada' => ['en_curso', 'cancelada', 'no_show', 'reemplazada'],
-        'en_curso' => ['completada'],
+        'confirmada' => ['completada', 'cancelada', 'no_show', 'reemplazada'],
         'expirada' => [],
         'completada' => [],
         'cancelada' => [],
@@ -87,7 +84,6 @@ class ReservacionConfig
         'bloqueo',
         'tolerancia',
         'ausencia_pendiente',
-        'en_curso',
     ];
 
     // Genera los horarios de reservaciones hasta estos minutos antes.

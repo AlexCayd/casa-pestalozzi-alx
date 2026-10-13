@@ -69,22 +69,19 @@ class Reservacion extends ActiveRecord {
     public $dentro_tolerancia = false;
     public $influye_disponibilidad = false;
     /* Alias largo del anterior. Lo devuelve el mismo servicio porque es el
-       nombre con el que hablan MesaEstadoService y la política del POS; si
+       nombre con el que hablan MesaEstadoService y la política del mapa; si
        falta aquí, cada fila de la lista administrativa emite un Deprecated. */
     public $reservacion_influye_en_disponibilidad = false;
     public $visible_operacion = false;
     public $editable = false;
     public $elegible_no_show = false;
     public $puede_marcar_no_show = false;
-    public $puede_iniciar = false;
-    public $puede_iniciar_servicio = false;
+    public $puede_completar = false;
     public $tolerancia_vencida = false;
     public $ausencia_pendiente = false;
     public $ventana_operativa = [];
     public $hold_vigente = false;
-    public $ticket_abierto = false;
     public $limite_tolerancia = null;
-    public $ticket_id_abierto = 0;
 
     /*
      * Banderas del formulario administrativo: las pone el controlador al

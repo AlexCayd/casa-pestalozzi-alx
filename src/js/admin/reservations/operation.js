@@ -32,8 +32,7 @@
         }
 
         var collections = [
-            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa',
-            'ocupacion_fisica', 'alertas_operativas'
+            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa'
         ];
         for (var i = 0; i < collections.length; i += 1) {
             var collection = payload[collections[i]];
@@ -87,10 +86,8 @@
             reservaciones: [],
             mesas: [],
             mesasEstado: [],
-            ocupacionFisica: [],
             ocupacionPorReservacion: {},
             capacidadHorario: {},
-            alertasOperativas: [],
             estadoOperacion: 'disponible',
             mensajeOperacion: '',
             tituloOperacion: '',
@@ -495,7 +492,7 @@
 
         function canAssignTables(reservacion) {
             return state.editable && reservacion && String(reservacion.estado || '') === 'confirmada' &&
-                isEditable(reservacion) && reservacion.ticket_abierto !== true;
+                isEditable(reservacion);
         }
 
         function canClearAssignment(reservacion) {
@@ -597,17 +594,9 @@
             }
 
             var names = conflicts.map(mesaNombre).join(', ');
-            var ticketConflicts = conflicts.filter(function (mesaId) {
-                var mesa = tableStateById(mesaId);
-                return mesa && mesa.causa_conflicto_asignacion === 'ticket_abierto';
-            });
-            if (conflicts.length === 1 && ticketConflicts.length === 0) {
-                return 'La asignacion actual tiene un conflicto. ' + names +
-                    ' no esta disponible para una nueva asignacion. Selecciona otra mesa para completar la reasignacion.';
-            }
             if (conflicts.length === 1) {
                 return 'La asignación actual tiene un conflicto. ' + names +
-                    ' está ocupada por un ticket abierto. Selecciona una nueva mesa para completar la reasignación.';
+                    ' no está disponible para una nueva asignación. Selecciona otra mesa para completar la reasignación.';
             }
 
             return conflicts.length + ' de las mesas asignadas actualmente tienen un conflicto (' + names +
@@ -1619,8 +1608,8 @@
             if (String(reservacion.estado) === 'pendiente_verificacion' && editable) {
                 return { key: 'verify', html: renderActionButton('verify', 'Confirmar verificación', 'admin-btn admin-btn--primary', false) };
             }
-            if (reservacion.puede_iniciar_servicio === true) {
-                return { key: 'start-service', html: renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--primary', false) };
+            if (reservacion.puede_completar === true) {
+                return { key: 'complete', html: renderActionButton('complete', 'Marcar como completada', 'admin-btn admin-btn--primary', false) };
             }
             return { key: '', html: '' };
         }
@@ -1658,19 +1647,16 @@
             var detailLink = state.surface === 'admin'
                 ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? editIcon : '') + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
                 : '';
-            var canCancelReservation = estado === 'confirmada' && !reservacion.ticket_abierto;
+            var canCancelReservation = estado === 'confirmada';
             var clientNote = String(reservacion.nota || '').trim();
             var commentHtml = renderCommentBox(reservacion, editable);
             var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
             var otherActions = '';
-            if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true && mesaIds.length) {
-                otherActions += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--primary', false);
+            if (recommended.key !== 'complete' && reservacion.puede_completar === true) {
+                otherActions += renderActionButton('complete', 'Marcar como completada', 'admin-btn admin-btn--primary', false);
             }
             if (recommended.key !== 'no-show' && reservacion.puede_registrar_ausencia === true) {
                 otherActions += renderActionButton('no-show', 'Registrar ausencia', 'admin-btn admin-btn--danger', false);
-            }
-            if (reservacion.ticket_abierto && reservacion.ticket_id) {
-                otherActions += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>';
             }
             var moreActions = (recommended.html || '') +
                 detailLink +
@@ -1693,15 +1679,6 @@
                         '</dl>' +
                         (reservacion.fuera_horario_operacion === true
                             ? '<div class="reservation-operation-inline reservation-operation-inline--warning"><strong>Fuera de horario de operación.</strong> La reservación se conserva visible para seguimiento, pero no participa en la proyección del mapa.</div>'
-                            : '') +
-                        (reservacion.conflicto_proximo && reservacion.alerta_operativa
-                            ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
-                                '<strong>Ticket abierto dentro del bloqueo.</strong> ' +
-                                esc(reservacion.alerta_operativa.mensaje || 'La liberación proyectada no ocurrió.') +
-                                '<div class="reservation-operation-actions">' +
-                                     '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>' +
-                                '</div>' +
-                            '</div>'
                             : '') +
                         '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                             '<h4>' + mesaHeading + '</h4>' +
@@ -1881,7 +1858,7 @@
                     reservacion &&
                     normalized.estado_base === 'bloqueada' &&
                     associatedId === parseInt(reservacion.id, 10)
-                ) || normalized.ticket_abierto === true;
+                );
                 if (blockedBySelf) {
                     // Conserva el bloqueo visual, pero no lo interpreta como
                     // conflicto durante la reasignación de la misma reserva.
@@ -2147,10 +2124,8 @@
                 state.reservaciones = [];
                 state.mesas = [];
                 state.mesasEstado = [];
-                state.ocupacionFisica = [];
                 state.ocupacionPorReservacion = {};
                 state.capacidadHorario = {};
-                state.alertasOperativas = [];
                 state.estadoOperacion = 'disponible';
                 state.mensajeOperacion = '';
                 state.tituloOperacion = '';
@@ -2288,10 +2263,8 @@
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
                     state.mesasEstado = data.mesas_estado || [];
-                    state.ocupacionFisica = data.ocupacion_fisica || [];
                     state.ocupacionPorReservacion = data.ocupacion_por_reservacion || {};
                     state.capacidadHorario = data.capacidad_horario || {};
-                    state.alertasOperativas = data.alertas_operativas || [];
                     state.estadoOperacion = data.estado_operacion || 'disponible';
                     state.mensajeOperacion = data.mensaje || '';
                     state.tituloOperacion = data.titulo || '';
@@ -2510,10 +2483,6 @@
                 data.append('mesa_ids[]', String(mesaId));
             });
             if (conflictConfirmation) {
-                (conflictConfirmation.ticketIds || []).forEach(function (ticketId) {
-                    data.append('ticket_ids_aceptados[]', String(ticketId));
-                });
-                data.set('conflicto_token', String(conflictConfirmation.token || ''));
                 (conflictConfirmation.confirmaciones || []).forEach(function (codigo) {
                     data.append('confirmaciones[]', String(codigo));
                 });
@@ -2541,11 +2510,6 @@
                 .catch(function (error) {
                     if (error && error.codigo === 'CAPACIDAD_INSUFICIENTE') {
                         openCapacityConflictModal(error);
-                        return;
-                    }
-                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO'].indexOf(error.codigo) !== -1) {
-                        closeTicketConflictModal();
-                        showInlineError(error.mensaje || '', error);
                         return;
                     }
                     if (error && ['DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
@@ -2838,15 +2802,14 @@
             if (action === 'verify') {
                 return false;
             }
-            if (action === 'start-service') {
-                return reservacion.puede_iniciar_servicio === true;
+            if (action === 'complete') {
+                return reservacion.puede_completar === true;
             }
             if (action === 'no-show') {
                 return reservacion.puede_registrar_ausencia === true;
             }
             if (action === 'cancel') {
-                return (estado === 'confirmada' || estado === 'pendiente_verificacion')
-                    && !reservacion.ticket_abierto;
+                return estado === 'confirmada' || estado === 'pendiente_verificacion';
             }
             return false;
         }
@@ -2860,7 +2823,7 @@
 
             var estados = {
                 verify: 'confirmada',
-                'start-service': 'en_curso',
+                complete: 'completada',
                 cancel: 'cancelada',
                 'no-show': 'no_show'
             };
@@ -2877,17 +2840,6 @@
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    if (error && error.requiere_reasignacion) {
-                        showGlobalNotice({
-                            source: 'service-start-conflict',
-                            type: 'warning',
-                            title: 'El inicio de servicio requiere nuevas mesas',
-                            summary: error.mensaje || '',
-                            message: error.consecuencia || ''
-                        });
-                        enterAssignmentMode(null, { focus: true });
-                        return;
-                    }
                     if (error && error.codigo === 'RESERVACION_NO_EDITABLE') {
                         showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
@@ -2921,7 +2873,7 @@
                 ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
                 : (isClearAssignment
                     ? 'La reservación conservará el estado confirmado y quedará sin mesas asignadas para completar la asignación manual.'
-                    : 'La tolerancia venció y no existe llegada ni ticket abierto.');
+                    : 'La tolerancia de llegada venció sin que se registrara la visita.');
             var consequence = isCancel
                 ? 'La reservación dejará de comprometer sus mesas y no podrá recuperarse desde el mapa.'
                 : (isClearAssignment

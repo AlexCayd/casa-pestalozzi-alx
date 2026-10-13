@@ -3,9 +3,9 @@
 /**
  * Ocupación de mesas para el núcleo de reservaciones.
  *
- * La clase separa la ocupación planificada (reservacion_mesas) de la física
- * (ticket_mesas). Las consultas son de lectura; no expiran holds ni cierran
- * tickets como efecto secundario.
+ * La ocupación sale de las reservaciones con mesas asignadas
+ * (reservacion_mesas). Las consultas son de lectura; no expiran holds como
+ * efecto secundario.
  */
 
 namespace Services\Tables;
@@ -16,8 +16,6 @@ use Services\Reservations\ReservacionConfig;
 use DateTimeImmutable;
 use Model\Mesa;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
-use Services\Pos\TicketTemporalService;
 use Services\Reservations\HorarioReservacionService;
 
 final class OcupacionMesasService
@@ -37,7 +35,6 @@ final class OcupacionMesasService
         string $hora,
         int|array $excluirReservacionId = 0,
         bool $bloquear = false,
-        ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null,
         ?array $contextoFecha = null
     ): array {
@@ -51,17 +48,14 @@ final class OcupacionMesasService
                 'mesas' => [],
                 'ocupacion_bloqueante' => [],
                 'ocupacion_reservaciones' => [],
-                'tickets_por_mesa' => [],
                 'mesa_ids_disponibles' => [],
                 'mesa_ids_bloqueadas' => [],
                 'causas_bloqueo_por_mesa' => [],
                 'mesa_ids_proyectadas' => [],
-                'tickets_ignorados' => [],
-                'alertas_operativas' => [],
             ];
         }
 
-        $contextoTemporal = TicketTemporalService::contextoTemporal($fecha, $horaSql, $ahora);
+        $contextoTemporal = self::contextoTemporal($fecha, $horaSql, $ahora);
         $contexto = (string)$contextoTemporal['contexto'];
         $intervalo = [
             'inicio' => $objetivo,
@@ -70,7 +64,6 @@ final class OcupacionMesasService
         $contextoFecha = $contextoFecha ?? self::prepararContextoFecha(
             $fecha,
             $bloquear,
-            $ticketsAbiertos,
             $ahora,
             $excluirReservacionId
         );
@@ -83,16 +76,12 @@ final class OcupacionMesasService
             $intervalo,
             $excluirReservacionId
         );
-
-        $tickets = (array)($contextoFecha['tickets'] ?? []);
-        $evaluacionTickets = self::evaluarTickets($tickets, $fecha, $horaSql, $ahora);
         $mesas = (array)($contextoFecha['mesas'] ?? []);
         $mesasPorId = [];
         foreach ($mesas as $mesa) {
             $mesasPorId[(int)($mesa->id ?? 0)] = $mesa;
         }
         $porMesa = [];
-        $alertas = [];
 
         foreach ($mesas as $mesa) {
             $mesaId = (int)$mesa->id;
@@ -104,37 +93,17 @@ final class OcupacionMesasService
                 'disponible' => false,
                 'fuente' => $elegible ? 'libre' : 'no_reservable',
                 'reservacion_id' => null,
-                'ticket_id' => null,
                 'tipo' => $elegible ? 'libre' : 'no_reservable',
-                'liberacion_estimada' => null,
             ];
-
-            if (isset($evaluacionTickets['por_mesa'][$mesaId])
-                && $evaluacionTickets['por_mesa'][$mesaId]['bloquea_disponibilidad']
-            ) {
-                $ticket = $evaluacionTickets['por_mesa'][$mesaId];
-                $estado = array_merge($estado, [
-                    'disponible' => false,
-                    'fuente' => 'ticket_abierto',
-                    'tipo' => 'ticket_abierto',
-                    'ticket_id' => (int)$ticket['ticket_id'],
-                    'reservacion_id' => $ticket['reservacion_id'],
-                    'liberacion_estimada' => $ticket['liberacion_estimada'],
-                ]);
-            }
 
             if (isset($ocupacionReservaciones[$mesaId])) {
                 $reserva = $ocupacionReservaciones[$mesaId];
-                // Un ticket físico gana sobre la asignación planificada. Si
-                // no hay ticket bloqueante, la reservación sí ocupa la mesa.
-                if ($estado['fuente'] !== 'ticket_abierto') {
-                    $estado = array_merge($estado, [
-                        'disponible' => false,
-                        'fuente' => $reserva['fuente'],
-                        'tipo' => $reserva['fuente'],
-                        'reservacion_id' => (int)$reserva['reservacion_id'],
-                    ]);
-                }
+                $estado = array_merge($estado, [
+                    'disponible' => false,
+                    'fuente' => $reserva['fuente'],
+                    'tipo' => $reserva['fuente'],
+                    'reservacion_id' => (int)$reserva['reservacion_id'],
+                ]);
             }
 
             if ($estado['fuente'] === 'libre' && $elegible) {
@@ -143,41 +112,13 @@ final class OcupacionMesasService
             $porMesa[$mesaId] = $estado;
         }
 
-        foreach ($evaluacionTickets['por_mesa'] as $mesaId => $ticket) {
-            if (($ticket['tipo'] ?? '') === 'ticket_proyectado'
-                && ($porMesa[$mesaId]['fuente'] ?? '') === 'libre'
-            ) {
-                $porMesa[$mesaId]['fuente'] = 'ticket_proyectado';
-                $porMesa[$mesaId]['tipo'] = 'ticket_proyectado';
-                $porMesa[$mesaId]['ticket_id'] = (int)$ticket['ticket_id'];
-                $porMesa[$mesaId]['liberacion_estimada'] = $ticket['liberacion_estimada'];
-                $porMesa[$mesaId]['disponible'] = true;
-            }
-        }
-
-        foreach ($porMesa as $estado) {
-            if ($estado['fuente'] === 'ticket_abierto' && $estado['reservacion_id'] !== null) {
-                $alertas[] = [
-                    'tipo' => 'ticket_abierto',
-                    'mesa_id' => (int)$estado['mesa_id'],
-                    'ticket_id' => (int)$estado['ticket_id'],
-                    'reservacion_id' => (int)$estado['reservacion_id'],
-                ];
-            }
-        }
-
         $disponibles = [];
-        $proyectadas = [];
         foreach ($porMesa as $mesaId => $estado) {
             if ($estado['disponible']) {
                 $disponibles[] = (int)$mesaId;
             }
-            if ($estado['fuente'] === 'ticket_proyectado') {
-                $proyectadas[] = (int)$mesaId;
-            }
         }
         sort($disponibles, SORT_NUMERIC);
-        sort($proyectadas, SORT_NUMERIC);
 
         $ocupacionBloqueante = [];
         foreach ($porMesa as $mesaId => $estado) {
@@ -194,10 +135,6 @@ final class OcupacionMesasService
             $bloqueadaEnIntervalo = $esMesaFisicaElegible && !$estado['disponible'];
             $causas = [];
             if ($bloqueadaEnIntervalo) {
-                $ticket = $evaluacionTickets['por_mesa'][(int)$mesaId] ?? null;
-                if ($ticket !== null && !empty($ticket['bloquea_disponibilidad'])) {
-                    $causas[] = 'ticket';
-                }
                 $reservacion = $ocupacionReservaciones[(int)$mesaId] ?? null;
                 if ($reservacion !== null) {
                     $causas[] = ($reservacion['fuente'] ?? '') === 'hold'
@@ -237,14 +174,11 @@ final class OcupacionMesasService
             'ocupacion_reservaciones' => $ocupacionReservaciones,
             'mesa_ids_bloqueadas' => $mesaIdsBloqueadas,
             'causas_bloqueo_por_mesa' => $causasBloqueoPorMesa,
-            'tickets_por_mesa' => $evaluacionTickets['por_mesa'],
-            'tickets_bloqueantes' => $evaluacionTickets['bloqueantes'],
-            'ocupacion_fisica' => $evaluacionTickets['fisica'],
             'mesa_ids_disponibles' => $disponibles,
-            'mesa_ids_proyectadas' => $proyectadas,
-            'mesas_proyectadas' => $proyectadas,
-            'tickets_ignorados' => $evaluacionTickets['ignorados'],
-            'alertas_operativas' => $alertas,
+            // Sin tickets no hay liberaciones proyectadas; la llave se conserva
+            // vacía porque capacidad y asignación la leen.
+            'mesa_ids_proyectadas' => [],
+            'mesas_proyectadas' => [],
         ];
         if (array_key_exists('demanda_no_asignada', $contextoFecha)) {
             $resultado['demanda_no_asignada_reservaciones'] = self::demandaNoAsignadaEnIntervalo(
@@ -260,7 +194,6 @@ final class OcupacionMesasService
     public static function prepararContextoFecha(
         string $fecha,
         bool $bloquear = false,
-        ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null,
         int|array $excluirReservacionId = 0,
         bool $incluirDemandaNoAsignada = false,
@@ -280,7 +213,6 @@ final class OcupacionMesasService
             'bloquear' => $bloquear,
             'incluir_ausencias_pendientes_mapa_admin' => $incluirAusenciasPendientesEnMapaAdmin,
             'reservaciones' => $reservaciones,
-            'tickets' => $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear),
             'mesas' => Mesa::buscarTodasParaMapa(),
         ];
         $contexto['mesas_reservables'] = array_values(array_filter(
@@ -308,7 +240,6 @@ final class OcupacionMesasService
             $hora,
             $excluirReservacionId,
             (bool)($contextoFecha['bloquear'] ?? false),
-            (array)($contextoFecha['tickets'] ?? []),
             $ahora ?? ($contextoFecha['ahora'] ?? null),
             $contextoFecha
         );
@@ -329,72 +260,47 @@ final class OcupacionMesasService
     }
 
     /**
-     * Clasifica tickets abiertos sin alterar su estado. Sólo los tickets del
-     * día actual participan en una consulta del día actual; una fecha futura
-     * ignora los tickets abiertos actuales.
+     * Sitúa la consulta respecto al reloj: histórico, bloque actual, proyección
+     * del mismo día o fecha futura.
      *
-     * @param array<int, array<string, mixed>|object> $tickets
      * @return array<string, mixed>
      */
-    public static function evaluarTickets(
-        array $tickets,
+    public static function contextoTemporal(
         string $fecha,
         string $hora,
         ?DateTimeImmutable $ahora = null
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
-        $porMesa = [];
-        $fisica = [];
-        $bloqueantes = [];
-        $ignorados = [];
-        $contextoTemporal = TicketTemporalService::contextoTemporal($fecha, $hora, $ahora);
-        $contexto = (string)$contextoTemporal['contexto'];
+        $objetivo = self::fechaHora($fecha, $hora);
+        $fechaActual = $ahora->format('Y-m-d');
+        $esDiaActual = $fecha === $fechaActual;
+        $esFechaFutura = $fecha > $fechaActual;
+        $esFechaPasada = $fecha < $fechaActual;
+        $esBloqueActual = $esDiaActual
+            && $objetivo instanceof DateTimeImmutable
+            && $objetivo <= $ahora;
+        $esProyeccionFutura = $esDiaActual
+            && $objetivo instanceof DateTimeImmutable
+            && $objetivo > $ahora;
 
-        foreach ($tickets as $raw) {
-            $ticket = is_array($raw) ? $raw : get_object_vars($raw);
-            $ticketId = (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0);
-            $mesaIds = self::normalizarIds((array)($ticket['mesa_ids'] ?? []));
-            if ($ticketId < 1 || $mesaIds === []) {
-                continue;
-            }
-
-            $resumen = TicketTemporalService::proyectar($ticket, $fecha, $hora, $ahora);
-            if (!$resumen['ticket_abierto']) {
-                continue;
-            }
-            $fisica[] = $resumen;
-            if (!$resumen['aplica_fecha']) {
-                $ignorados[] = $resumen;
-                continue;
-            }
-            if ($resumen['bloquea_en_consulta']) {
-                $bloqueantes[] = $resumen;
-            }
-            foreach ($mesaIds as $mesaId) {
-                if (!isset($porMesa[$mesaId]) || $resumen['bloquea_en_consulta']) {
-                    $porMesa[$mesaId] = ['mesa_id' => $mesaId] + $resumen;
-                }
-            }
-        }
-
-        ksort($porMesa, SORT_NUMERIC);
         return [
-            'contexto' => $contexto,
-            'contexto_temporal' => $contextoTemporal,
-            'por_mesa' => $porMesa,
-            'fisica' => $fisica,
-            'bloqueantes' => $bloqueantes,
-            'ignorados' => $ignorados,
-            'mesas_proyectadas' => array_values(array_map(
-                'intval',
-                array_keys(array_filter($porMesa, static fn(array $ticket): bool => $ticket['tipo'] === 'ticket_proyectado'))
-            )),
+            'fecha_consulta' => $fecha,
+            'hora_consulta' => HorarioReservacionService::normalizarHoraSql($hora),
+            'fecha_hora_consulta' => $objetivo,
+            'fecha_hora_actual' => $ahora,
+            'es_dia_actual' => $esDiaActual,
+            'es_bloque_actual' => $esBloqueActual,
+            'es_proyeccion_futura' => $esProyeccionFutura,
+            'es_fecha_futura' => $esFechaFutura,
+            'es_fecha_pasada' => $esFechaPasada,
+            'zona_horaria' => $ahora->getTimezone()->getName(),
+            'contexto' => $esFechaPasada
+                ? self::CONTEXTO_HISTORICO
+                : ($esFechaFutura
+                    ? self::CONTEXTO_FUTURO
+                    : ($esProyeccionFutura ? self::CONTEXTO_PROYECTADO : self::CONTEXTO_ACTUAL)),
+            'objetivo' => $objetivo?->format('Y-m-d H:i:s'),
         ];
-    }
-
-    public static function calcularLiberacionEstimadaTicket($horaApertura): ?DateTimeImmutable
-    {
-        return TicketTemporalService::calcularLiberacionEstimadaTicket($horaApertura);
     }
 
     /**
@@ -586,13 +492,5 @@ final class OcupacionMesasService
         $consultaFin = $consultaInicio->modify('+' . $duracion . ' minutes');
 
         return $ocupacionInicio < $consultaFin && $ocupacionFin > $consultaInicio;
-    }
-
-    /** @return array<int, int> */
-    private static function normalizarIds(array $ids): array
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
-        sort($ids, SORT_NUMERIC);
-        return $ids;
     }
 }

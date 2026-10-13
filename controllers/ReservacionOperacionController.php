@@ -16,7 +16,6 @@ use Services\Reservations\HorarioReservacionService;
 use Services\Tables\OcupacionMesasService;
 use Services\Pos\PosReservacionQueryService;
 use Services\Pos\PosReservacionSerializer;
-use Services\Pos\PuntoVentaReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionMapaAdministrativaService;
@@ -211,16 +210,6 @@ class ReservacionOperacionController
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
         ));
         $evaluacionOcupacion = (array)$lectura['evaluacion_ocupacion'];
-        $alertasPorReservacion = [];
-        foreach ((array)($evaluacionOcupacion['alertas_operativas'] ?? []) as $alerta) {
-            $alertasPorReservacion[(int)($alerta['reservacion_id'] ?? 0)] = $alerta;
-        }
-        foreach ($reservacionesSerializadas as &$reservacionSerializada) {
-            $alerta = $alertasPorReservacion[(int)($reservacionSerializada['id'] ?? 0)] ?? null;
-            $reservacionSerializada['conflicto_proximo'] = $alerta !== null;
-            $reservacionSerializada['alerta_operativa'] = $alerta;
-        }
-        unset($reservacionSerializada);
         $reservacionesOperativas = \Services\Reservations\ReservacionVigenciaService::filtrarPendientesOperacion(
             $reservacionesSerializadas,
             $fecha,
@@ -283,11 +272,6 @@ class ReservacionOperacionController
             )),
             'depende_liberacion_proyectada' => (bool)($resumenCapacidad['depende_liberacion_proyectada'] ?? false),
         ];
-        $mostrarOcupacionFisica = in_array(
-            (string)($evaluacionOcupacion['contexto'] ?? ''),
-            [OcupacionMesasService::CONTEXTO_ACTUAL, OcupacionMesasService::CONTEXTO_PROYECTADO],
-            true
-        );
         $abierto = (bool)($disponibilidad['abierto'] ?? false);
         $estadoOperacion = !$abierto
             ? 'cerrado'
@@ -336,14 +320,6 @@ class ReservacionOperacionController
             'timezone' => $lectura['timezone'],
             'contexto_ocupacion' => $evaluacionOcupacion['contexto'] ?? null,
             'capacidad_horario' => $capacidadHorario,
-            'alertas_operativas' => $evaluacionOcupacion['alertas_operativas'] ?? [],
-            // El mapa sólo recibe contexto de ocupación; no se exponen
-            // consumos, importes ni acciones internas de los tickets.
-            'ocupacion_fisica' => $mostrarOcupacionFisica
-                ? self::serializarOcupacionFisica(
-                    (array)($evaluacionOcupacion['ocupacion_fisica'] ?? [])
-                )
-                : [],
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'config' => [
                 'estado_labels' => ReservacionService::estadoLabels(),
@@ -378,8 +354,6 @@ class ReservacionOperacionController
             $id,
             (array)$mesaIds,
             [
-                'ticket_ids_aceptados' => (array)($_POST['ticket_ids_aceptados'] ?? []),
-                'conflicto_token' => (string)($_POST['conflicto_token'] ?? ''),
                 'version_esperada' => (string)($_POST['version_esperada'] ?? ''),
                 'usuario_id' => (int)($_SESSION['id'] ?? 0),
                 'validar_contexto' => true,
@@ -464,8 +438,7 @@ class ReservacionOperacionController
                 self::reservacionIdOperacionPost(),
                 $estado,
                 (int)($_SESSION['id'] ?? 0),
-                trim((string)($_POST['motivo'] ?? '')),
-                !empty($_POST['mesero_id']) ? (int)$_POST['mesero_id'] : null
+                trim((string)($_POST['motivo'] ?? ''))
             )
         );
     }
@@ -596,29 +569,6 @@ class ReservacionOperacionController
         return HorarioReservacionService::fechaValida($fecha);
     }
 
-    /**
-     * Contrato mínimo de ocupación física para la vista de reservaciones.
-     *
-     * @param array<int, array<string, mixed>> $tickets
-     * @return array<int, array<string, mixed>>
-     */
-    private static function serializarOcupacionFisica(array $tickets): array
-    {
-        return array_map(static function (array $ticket): array {
-            return [
-                'ticket_id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
-                'reservacion_id' => $ticket['reservacion_id'] ?? null,
-                'mesa_ids' => array_values(array_map('intval', $ticket['mesa_ids'] ?? [])),
-                'ticket_abierto' => true,
-                'walk_in' => ($ticket['reservacion_id'] ?? null) === null,
-                'origen' => (string)($ticket['origen'] ?? 'walk_in'),
-                'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
-                'estado_proyeccion' => $ticket['estado_proyeccion'] ?? null,
-                'liberacion_proyectada' => $ticket['liberacion_proyectada'] ?? null,
-            ];
-        }, $tickets);
-    }
-
     private static function reservacionIdOperacionPost(): int
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -650,9 +600,6 @@ class ReservacionOperacionController
             'codigo' => $codigo,
             'mesa_ids' => $resultado['mesa_ids'] ?? [],
             'requiere_confirmacion' => (bool)($resultado['requiere_confirmacion'] ?? false),
-            'conflictos_ticket' => $resultado['conflictos_ticket'] ?? [],
-            'conflicto_token' => $resultado['conflicto_token'] ?? null,
-            'tickets_aceptados' => $resultado['tickets_aceptados'] ?? [],
             'version_actual' => $resultado['version_actual'] ?? null,
             'depende_liberacion_proyectada' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
             'mesas_proyectadas' => $resultado['mesas_proyectadas'] ?? [],
@@ -676,7 +623,6 @@ class ReservacionOperacionController
             'requiere_reasignacion' => (bool)($resultado['requiere_reasignacion'] ?? false),
             'motivo' => $resultado['motivo'] ?? null,
             'mesa_ids' => $resultado['mesa_ids'] ?? [],
-            'ticket_id' => $resultado['ticket_id'] ?? null,
         ], $httpStatus);
     }
 
@@ -706,9 +652,6 @@ class ReservacionOperacionController
             AsignacionMesasService::MESAS_INVALIDAS => 'mesas_invalidas',
             AsignacionMesasService::MESA_OCUPADA => 'mesa_ocupada',
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'capacidad_insuficiente',
-            AsignacionMesasService::CONFLICTO_TICKET_ABIERTO,
-            AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS,
-            AsignacionMesasService::DEPENDE_LIBERACION_PROYECTADA => 'conflicto_tickets',
             AsignacionMesasService::SIN_CONTACTO => 'asignacion_guardada',
             AsignacionMesasService::ESTADO_INVALIDO => 'estado_no_permite',
             AsignacionMesasService::RESERVACION_NO_EDITABLE => 'estado_no_permite',
@@ -764,7 +707,6 @@ class ReservacionOperacionController
             'mesas_invalidas' => 'MESAS_INVALIDAS',
             'mesa_ocupada' => 'MESA_OCUPADA',
             'capacidad_insuficiente' => 'CAPACIDAD_INSUFICIENTE',
-            'conflicto_tickets' => 'CONFLICTO_TICKETS_ABIERTOS',
             'conflicto_concurrencia' => 'CONFLICTO_CONCURRENTE',
             'datos_incompletos' => 'DATOS_INCOMPLETOS',
             'estado_no_permite' => 'ESTADO_INVALIDO',

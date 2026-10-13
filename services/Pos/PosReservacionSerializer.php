@@ -10,7 +10,7 @@ use DateTimeImmutable;
 use Services\Reservations\HorarioReservacionService;
 
 /**
- * Produce el contrato operativo compartido por POS y operación.
+ * Produce el contrato del mapa operativo de reservaciones.
  *
  * Esta clase no consulta la base de datos ni decide asignaciones. Recibe filas
  * y ocupación ya leídas, aplica la vigencia central y presenta una sola forma
@@ -77,14 +77,12 @@ final class PosReservacionSerializer
 
     /**
      * @param array<string, mixed>|object $fila
-     * @param array<string, mixed>|null $ticket
      * @param array<int, array<string, mixed>> $mesas
      * @param array<string, mixed> $opciones
      * @return array<string, mixed>
      */
     public static function reservacion(
         $fila,
-        ?array $ticket,
         array $mesas,
         ?DateTimeImmutable $ahora = null,
         array $opciones = []
@@ -94,7 +92,6 @@ final class PosReservacionSerializer
         $reservacionId = (int)($datos['id'] ?? $datos['reservacion_id'] ?? 0);
         $mesaIds = self::ids($datos['mesa_ids'] ?? []);
         $mesasAsignadas = self::mesasPorIds($mesaIds, $mesas, $datos);
-        $ticket = $ticket !== null ? self::ticket($ticket) : null;
         $estado = (string)($datos['estado'] ?? '');
         $conflictoFisico = (bool)($opciones['conflicto_fisico'] ?? false);
         $mesasBloqueantes = array_values(array_filter(
@@ -107,12 +104,9 @@ final class PosReservacionSerializer
             (string)($datos['fecha'] ?? '')
         );
         $politica = ReservacionPoliticaPosService::evaluar(
-            array_merge($datos, [
-                'ticket_id' => $ticket['id'] ?? null,
-                'ticket_abierto' => $ticket !== null,
-            ]),
+            $datos,
             $ahora,
-            $ticket,
+            null,
             $horaConsulta,
             [
                 'sin_mesas' => $sinMesas,
@@ -120,13 +114,13 @@ final class PosReservacionSerializer
             ]
         );
         $ventana = (string)($politica['ventana_pos'] ?? 'futura');
-        $puedeIniciar = (bool)$politica['puede_iniciar_reservacion'];
+        $puedeCompletar = (bool)$politica['puede_completar'];
         $puedeAusencia = (bool)$politica['puede_marcar_no_show'];
         $accionPendiente = $politica['accion_pendiente'];
         $acciones = (array)($politica['acciones'] ?? []);
         $muestraAdvertencia = (bool)$politica['muestra_advertencia'];
         $reservacionProgramada = $estado === 'confirmada'
-            && !$puedeIniciar
+            && !$puedeCompletar
             && !$politica['ausencia_pendiente']
             && $ventana === 'futura';
 
@@ -134,16 +128,14 @@ final class PosReservacionSerializer
             $estado,
             $ventana,
             $sinMesas,
-            $conflictoFisico,
-            $ticket !== null
+            $conflictoFisico
         );
         $motivoBloqueo = self::motivoBloqueo(
             $estado,
             $sinMesas,
             $conflictoFisico,
             $mesasBloqueantes,
-            $ticket !== null,
-            (bool)$politica['puede_iniciar_reservacion'],
+            $puedeCompletar,
             (bool)$politica['tolerancia_vencida']
         );
         $codigoBloqueo = $mesasBloqueantes[0]['codigo'] ?? self::codigoBloqueo($motivoBloqueo);
@@ -201,17 +193,10 @@ final class PosReservacionSerializer
             'mesas_asignadas' => $nombresMesas,
             'mesas_count' => count($mesaIds),
             'capacidad_asignada' => $capacidad,
-            'ticket_id' => $ticket['id'] ?? null,
-            'ticket_abierto' => $ticket !== null,
-            'ticket_mesa_ids' => $ticket['mesa_ids'] ?? [],
-            'ticket' => $ticket,
             'ventana_operativa' => $ventana,
             'minutos_para_reservacion' => $minutosPara,
             'minutos_retraso' => (int)($politica['minutos_desde_inicio'] ?? 0),
-            // Alias aditivos para el bloqueo de inicio multimesa. Se conserva
-            // puede_iniciar_servicio para los consumidores existentes.
-            'puede_iniciar' => $puedeIniciar,
-            'puede_iniciar_servicio' => $puedeIniciar,
+            'puede_completar' => $puedeCompletar,
             'reservacion_programada' => $reservacionProgramada,
             'motivo_bloqueo' => $codigoBloqueo,
             'bloqueo' => $bloqueo,
@@ -232,12 +217,8 @@ final class PosReservacionSerializer
             'dentro_tolerancia' => (bool)$politica['en_tolerancia'],
             'tolerancia_vencida' => (bool)$politica['tolerancia_vencida'],
             'ausencia_pendiente' => (bool)$politica['ausencia_pendiente'],
-            'ocupada_fisicamente' => (bool)$politica['ocupada_fisicamente'],
             'bloqueada_en_intervalo' => false,
             'disponible_para_asignacion' => false,
-            'disponible_para_ticket' => (bool)$politica['disponible_para_ticket'],
-            'requiere_advertencia_ticket' => (bool)$politica['requiere_advertencia_ticket'],
-            'puede_iniciar_reservacion' => (bool)$politica['puede_iniciar_reservacion'],
             'accion_primaria' => (string)$politica['accion_primaria'],
             'ventana_pos' => $politica['ventana_pos'],
             'ventana_visual_pos' => $politica['ventana_visual_pos'],
@@ -268,31 +249,6 @@ final class PosReservacionSerializer
         }
 
         return $serializado;
-    }
-
-    /**
-     * @param array<string, mixed> $ticket
-     * @return array<string, mixed>
-     */
-    public static function ticket(array $ticket): array
-    {
-        return [
-            'id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
-            'nombre' => $ticket['nombre'] ?? null,
-            'comensales' => (int)($ticket['comensales'] ?? 0),
-            'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
-            'estado' => (string)($ticket['estado'] ?? 'abierto'),
-            'closed_at' => $ticket['closed_at'] ?? null,
-            'reservacion_id' => !empty($ticket['reservacion_id'])
-                ? (int)$ticket['reservacion_id']
-                : null,
-            'mesero_id' => $ticket['mesero_id'] ?? null,
-            'mesa_ids' => self::ids($ticket['mesa_ids'] ?? []),
-            'origen' => (string)($ticket['origen'] ?? 'walk_in'),
-            'ticket_abierto' => true,
-            'muestra_advertencia' => false,
-            'reservaciones_proximas' => [],
-        ];
     }
 
     /**
@@ -354,20 +310,12 @@ final class PosReservacionSerializer
                     continue;
                 }
                 $eventoReservacionId = (int)($evento['reservacion_id'] ?? 0);
-                $ticketReservacionId = (int)($evento['ticket_reservacion_id'] ?? 0);
-                if (($reservacionId > 0 && $eventoReservacionId === $reservacionId)
-                    || ($reservacionId > 0 && $ticketReservacionId === $reservacionId)) {
+                if ($reservacionId > 0 && $eventoReservacionId === $reservacionId) {
                     continue;
                 }
 
                 $tipo = (string)($evento['tipo'] ?? $evento['fuente'] ?? '');
-                if ($tipo === 'ticket_abierto' || (string)($evento['fuente'] ?? '') === 'ticket_abierto') {
-                    $bloqueos[] = [
-                        'mesa_id' => $mesaId,
-                        'numero' => $numero,
-                        'motivo' => 'TICKET_ABIERTO',
-                    ];
-                } elseif (in_array($tipo, ['reservacion', 'hold'], true)
+                if (in_array($tipo, ['reservacion', 'hold'], true)
                     || $eventoReservacionId > 0) {
                     $bloqueos[] = [
                         'mesa_id' => $mesaId,
@@ -562,12 +510,8 @@ final class PosReservacionSerializer
         string $estado,
         string $ventana,
         bool $sinMesas,
-        bool $conflicto,
-        bool $ticketAbierto
+        bool $conflicto
     ): string {
-        if ($ticketAbierto && $estado === 'en_curso') {
-            return 'ticket_abierto';
-        }
         if ($sinMesas && $estado === 'confirmada') {
             return 'sin_mesas';
         }
@@ -580,7 +524,6 @@ final class PosReservacionSerializer
             'bloqueo' => 'reservacion_inminente',
             'tolerancia' => 'tolerancia_vigente',
             'ausencia_pendiente' => 'tolerancia_vencida',
-            'en_curso' => 'ticket_abierto',
             default => 'reservacion_futura',
         };
     }
@@ -593,15 +536,11 @@ final class PosReservacionSerializer
         bool $sinMesas,
         bool $conflictoFisico,
         array $mesasBloqueantes,
-        bool $ticketAbierto,
         bool $ventanaPermitida,
         bool $toleranciaVencida
     ): ?string {
         if ($mesasBloqueantes !== [] || $conflictoFisico) {
             return 'MESAS_ASIGNADAS_NO_DISPONIBLES';
-        }
-        if ($ticketAbierto) {
-            return 'TICKET_ABIERTO';
         }
         if ($estado === 'confirmada' && $toleranciaVencida) {
             return 'TOLERANCIA_LLEGADA_VENCIDA';
@@ -612,7 +551,7 @@ final class PosReservacionSerializer
         if ($estado === 'confirmada' && !$ventanaPermitida) {
             return 'VENTANA_NO_PERMITIDA';
         }
-        if ($estado !== 'confirmada' && $estado !== 'en_curso') {
+        if ($estado !== 'confirmada') {
             return 'ESTADO_NO_PERMITE_INICIO';
         }
 

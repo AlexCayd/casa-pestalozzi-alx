@@ -4,7 +4,6 @@ namespace Services\Reservations;
 
 use Model\ActiveRecord;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
 
 /**
  * Herramientas temporales y deliberadamente exclusivas de APP_ENV=development.
@@ -270,15 +269,7 @@ final class ReservacionMantenimientoService
         $resultado = $db->query(
             "SELECT r.*,
                     (SELECT COUNT(*) FROM reservacion_mesas rm WHERE rm.reservacion_id = r.id) AS relaciones_mesas,
-                    (SELECT COUNT(*) FROM verificaciones_contacto vc WHERE vc.reservacion_id = r.id) AS relaciones_verificaciones,
-                    EXISTS(
-                        SELECT 1 FROM tickets ta WHERE ta.reservacion_id = r.id
-                    ) AS tiene_ticket,
-                    EXISTS(
-                        SELECT 1 FROM tickets tope
-                        WHERE tope.reservacion_id = r.id
-                          AND " . TicketMesa::condicionSqlAbierto('tope') . "
-                    ) AS ticket_abierto
+                    (SELECT COUNT(*) FROM verificaciones_contacto vc WHERE vc.reservacion_id = r.id) AS relaciones_verificaciones
              FROM reservaciones r
              WHERE r.fecha BETWEEN '{$filtros['fecha_desde']}' AND '{$filtros['fecha_hasta']}'
                AND r.estado IN ({$estadosSql})
@@ -306,17 +297,6 @@ final class ReservacionMantenimientoService
 
     private static function motivoOmision(array $fila, array $filtros): string
     {
-        if (!empty($fila['ticket_abierto'])) {
-            return 'TICKET_ABIERTO';
-        }
-        if ((string)$fila['estado'] === 'en_curso') {
-            return 'ESTADO_OPERATIVO';
-        }
-        if (
-            !empty($fila['tiene_ticket'])
-        ) {
-            return 'EVIDENCIA_OPERATIVA';
-        }
         if (
             (string)$fila['estado'] === 'pendiente_verificacion'
             && !$filtros['incluir_pendientes_vigentes']
@@ -330,7 +310,7 @@ final class ReservacionMantenimientoService
 
     private static function resumenSeleccion(array $seleccion): array
     {
-        $relaciones = ['mesas' => 0, 'verificaciones' => 0, 'tickets' => 0];
+        $relaciones = ['mesas' => 0, 'verificaciones' => 0];
         foreach ($seleccion['procesables'] as $fila) {
             $relaciones['mesas'] += (int)$fila['relaciones_mesas'];
             $relaciones['verificaciones'] += (int)$fila['relaciones_verificaciones'];

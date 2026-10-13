@@ -19,7 +19,6 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Scheduling\HorarioOperacionImpactoService;
@@ -1127,26 +1126,6 @@ final class ReservacionPublicaService
                         'codigo' => self::CANCELACION_NO_PERMITIDA,
                     ];
                 }
-                $ticket = $db->query(
-                    "SELECT t.id FROM tickets t
-                     WHERE t.reservacion_id = {$id}
-                       AND " . TicketMesa::condicionSqlAbierto('t') . "
-                     LIMIT 1 FOR UPDATE"
-                );
-                if ($ticket === false) {
-                    throw new \RuntimeException($db->error);
-                }
-                $ticketAbierto = $ticket->num_rows > 0;
-                $ticket->free();
-                if ($ticketAbierto) {
-                    $db->rollback();
-                    $transaccion = false;
-                    return [
-                        'ok' => false,
-                        'codigo' => self::CANCELACION_NO_PERMITIDA,
-                    ];
-                }
-
                 $pendiente = self::buscarReemplazoPendienteParaActualizar($id);
                 if ($pendiente) {
                     self::marcarReemplazoExpirado((int)$pendiente['id']);

@@ -6,7 +6,7 @@ namespace Services\Reservations;
  * Catálogo único de resultados que cruzan las superficies de reservaciones.
  *
  * Los servicios devuelven códigos y contexto; esta clase es la única fuente
- * de traducción visible para las superficies de reservaciones y POS.
+ * de traducción visible para las superficies de reservaciones.
  */
 final class ReservacionErrorCatalog
 {
@@ -50,9 +50,6 @@ final class ReservacionErrorCatalog
         'EXCEPCION_ELIMINADA' => self::TIPO_INFORMACION,
         'EXCEPCION_ESTADO_ACTUALIZADO' => self::TIPO_INFORMACION,
         'ANUNCIO_ACTUALIZADO' => self::TIPO_INFORMACION,
-        'POS_ACTUALIZADO' => self::TIPO_INFORMACION,
-        'IMPRESION_REANUDADA' => self::TIPO_INFORMACION,
-        'IMPRESION_PAUSADA' => self::TIPO_INFORMACION,
         'DISPONIBILIDAD_CONSULTADA' => self::TIPO_INFORMACION,
         'HORARIO_DISPONIBLE' => self::TIPO_INFORMACION,
         'ASIGNACION_GUARDADA' => self::TIPO_INFORMACION,
@@ -81,27 +78,6 @@ final class ReservacionErrorCatalog
         'RESPUESTA_INVALIDA' => self::TIPO_ERROR,
         'FECHA_RESPUESTA_MISMATCH' => self::TIPO_CONFLICTO,
         'MAPA_CARGA_FALLIDA' => self::TIPO_ERROR,
-        'TOTAL_TICKET_NO_DISPONIBLE' => self::TIPO_ERROR,
-        'TICKET_NO_VALIDO' => self::TIPO_ERROR,
-        'TICKET_ITEMS_PENDIENTES' => self::TIPO_CONFLICTO,
-        'TICKET_CON_CONSUMO' => self::TIPO_CONFLICTO,
-        'TICKET_CIERRE_FALLIDO' => self::TIPO_ERROR,
-        'PAGO_INVALIDO' => self::TIPO_ERROR,
-        'PAGO_REQUERIDO' => self::TIPO_ERROR,
-        'PAGO_INSUFICIENTE' => self::TIPO_ERROR,
-        'METODO_PAGO_INVALIDO' => self::TIPO_ERROR,
-        'COMANDA_ENVIO_FALLIDO' => self::TIPO_ERROR,
-        'ITEM_ID_REQUERIDO' => self::TIPO_ERROR,
-        'ITEM_CANCELACION_FALLIDA' => self::TIPO_ERROR,
-        'ITEM_ENTREGA_FALLIDA' => self::TIPO_ERROR,
-        'ITEM_NO_ENTREGABLE' => self::TIPO_CONFLICTO,
-        'TICKET_ID_REQUERIDO' => self::TIPO_ERROR,
-        'TICKET_ACTUALIZACION_FALLIDA' => self::TIPO_ERROR,
-        'TICKET_ITEMS_NO_DISPONIBLES' => self::TIPO_ERROR,
-        'SUGERENCIAS_NO_CONFIGURADAS' => self::TIPO_INFORMACION,
-        'SUGERENCIAS_TICKET_INVALIDO' => self::TIPO_CONFLICTO,
-        'SUGERENCIAS_ERROR' => self::TIPO_ERROR,
-        'CORTE_CAJA_ERROR' => self::TIPO_ERROR,
         'ERROR_CONSULTA_HORARIOS' => self::TIPO_ERROR,
         'ERROR_ACTUALIZACION_HORARIOS' => self::TIPO_ERROR,
         'EXCEPCION_NO_ENCONTRADA' => self::TIPO_ERROR,
@@ -162,11 +138,8 @@ final class ReservacionErrorCatalog
         'MESA_OCUPADA_EN_HORARIO' => self::TIPO_CONFLICTO,
         'GRUPO_NO_DISPONIBLE' => self::TIPO_CONFLICTO,
         'AGRUPACION_NO_AUTORIZADA' => self::TIPO_ERROR,
-        'SUPERPOSICION_NO_AUTORIZADA' => self::TIPO_CONFLICTO,
         'CONFLICTO_DE_ASIGNACION' => self::TIPO_CONFLICTO,
         'RESERVACION_BLOQUEANTE' => self::TIPO_CONFLICTO,
-        'CONFLICTO_TICKETS_ABIERTOS' => self::TIPO_CONFLICTO,
-        'CONFLICTO_TICKET_ABIERTO' => self::TIPO_CONFLICTO,
         'DEPENDE_LIBERACION_PROYECTADA' => self::TIPO_ADVERTENCIA,
         'LIBERAR_ASIGNACION_ACTUAL' => self::TIPO_DECISION,
         'LIBERACION_NO_AUTORIZADA' => self::TIPO_ERROR,
@@ -201,23 +174,12 @@ final class ReservacionErrorCatalog
         'DISPONIBILIDAD_CAMBIO' => self::TIPO_CONFLICTO,
         'HORARIO_ORIGINAL_NO_PRESERVABLE' => self::TIPO_CONFLICTO,
 
-        // Tickets y operación POS.
-        'TICKET_CREADO' => self::TIPO_EXITO,
-        'TICKET_ABIERTO' => self::TIPO_CONFLICTO,
-        'TICKET_NO_ENCONTRADO' => self::TIPO_ERROR,
-        'TICKET_YA_CERRADO' => self::TIPO_CONFLICTO,
-        'TICKET_CERRADO' => self::TIPO_INFORMACION,
-        'MESA_CANCELADA' => self::TIPO_INFORMACION,
-        'TICKET_DUPLICADO' => self::TIPO_CONFLICTO,
-        'MESAS_TICKET_EN_CONFLICTO' => self::TIPO_CONFLICTO,
-        'RESERVACION_YA_EN_CURSO' => self::TIPO_CONFLICTO,
-        'RESERVACION_SIN_TICKET' => self::TIPO_ADVERTENCIA,
+        // Operación de reservaciones.
         'RESERVACION_PROXIMA' => self::TIPO_DECISION,
         'TOLERANCIA_VIGENTE' => self::TIPO_ADVERTENCIA,
         'TOLERANCIA_LLEGADA_VENCIDA' => self::TIPO_DECISION,
         'REGISTRO_AUSENCIA_NO_DISPONIBLE' => self::TIPO_ERROR,
         'RESERVACION_YA_NO_SHOW' => self::TIPO_INFORMACION,
-        'RESERVACION_CON_TICKET_ABIERTO' => self::TIPO_CONFLICTO,
 
         // Mantenimiento y compatibilidad histórica.
         'AMBIENTE_NO_PERMITIDO' => self::TIPO_ERROR,
@@ -291,11 +253,10 @@ final class ReservacionErrorCatalog
         'ASIGNAR_MESAS' => 'Asignar mesas',
         'CERRAR' => 'Cerrar',
         'CONFIRMAR' => 'Confirmar',
-        'CONFIRMAR_APERTURA' => 'Abrir ticket',
         'CONFIRMAR_SIN_CONTACTO' => 'Crear sin contacto',
         'CONFIRMAR_SIN_MESAS' => 'Asignar más tarde',
         'CONFIRMAR_SOBRECAPACIDAD' => 'Confirmar bajo responsabilidad',
-        'CONSULTAR_TICKET' => 'Consultar ticket',
+        'COMPLETAR' => 'Marcar como completada',
         'CORREGIR_DATOS' => 'Corregir datos',
         'GUARDAR_DE_TODAS_FORMAS' => 'Guardar de todas formas',
         'REINTENTAR' => 'Intentar nuevamente',
@@ -444,13 +405,6 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'No se aplicó la asignación solicitada.',
             'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary']],
         ],
-        'SUPERPOSICION_NO_AUTORIZADA' => [
-            'titulo' => 'Mesa ocupada por un ticket',
-            'mensaje' => 'La nueva asignaciÃ³n no puede incluir una mesa con un ticket abierto.',
-            'descripcion' => 'El ticket walk-in permanece vÃ¡lido y no se cerrarÃ¡ ni se moverÃ¡.',
-            'consecuencia' => 'Selecciona otra mesa para completar la reasignaciÃ³n.',
-            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
-        ],
         'CONFLICTO_CONCURRENTE' => [
             'titulo' => 'La información cambió',
             'mensaje' => 'La operación perdió vigencia porque otra acción actualizó los datos.',
@@ -462,30 +416,6 @@ final class ReservacionErrorCatalog
             'mensaje' => 'La reservación cambió desde la última consulta.',
             'consecuencia' => 'No se aplicó la modificación.',
             'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
-        ],
-        'TICKET_ABIERTO' => [
-            'titulo' => 'Ticket abierto existente',
-            'mensaje' => 'Esta mesa o reservación ya tiene un ticket abierto.',
-            'consecuencia' => 'No se abrió un ticket paralelo.',
-            'acciones' => [['id' => 'CONSULTAR_TICKET', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'TICKET_CREADO' => [
-            'titulo' => 'Ticket abierto',
-            'mensaje' => 'El ticket se abrió correctamente.',
-            'consecuencia' => 'La mesa quedó ocupada por el ticket.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'TICKET_CERRADO' => [
-            'titulo' => 'Ticket cerrado',
-            'mensaje' => 'El ticket se cerró correctamente.',
-            'consecuencia' => 'La mesa y la reservación quedaron liberadas según su estado operativo.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'MESA_CANCELADA' => [
-            'titulo' => 'Mesa liberada',
-            'mensaje' => 'La mesa quedó libre y no se registró ninguna cuenta.',
-            'consecuencia' => 'El ticket vacío se descartó: no aparece en el corte del día.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'TOLERANCIA_VIGENTE' => [
             'titulo' => 'Tolerancia vigente',
@@ -651,27 +581,9 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'Actualiza el estado antes de reintentar.',
             'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
         ],
-        'POS_ACTUALIZADO' => [
-            'titulo' => 'Configuración actualizada',
-            'mensaje' => 'La configuración del POS se actualizó correctamente.',
-            'consecuencia' => 'Los cambios ya están disponibles.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
         // El mensaje dice qué cambia en la operación —si sale papel o no—, no
         // que "se guardó": es lo que necesita saber quien acaba de mover el
         // interruptor desde la barra o desde la cocina.
-        'IMPRESION_REANUDADA' => [
-            'titulo' => 'Impresión reanudada',
-            'mensaje' => 'Las comandas y las cuentas vuelven a enviarse a las impresoras.',
-            'consecuencia' => 'Las estaciones activas imprimen desde el próximo envío.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'IMPRESION_PAUSADA' => [
-            'titulo' => 'Impresión pausada',
-            'mensaje' => 'Los pedidos se siguen guardando y llegan al tablero de producción, pero no se envía nada a las impresoras.',
-            'consecuencia' => 'Ninguna estación se dio de baja: reanudar es un toque.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
         'EXCEPCION_NO_ENCONTRADA' => [
             'titulo' => 'Excepción no encontrada',
             'mensaje' => 'La excepción seleccionada ya no existe.',
@@ -915,132 +827,6 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'No se actualizó el estado de mesas ni reservaciones.',
             'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
         ],
-        'TICKET_NO_VALIDO' => [
-            'titulo' => 'Ticket no válido',
-            'mensaje' => 'El ticket no existe o ya no puede utilizarse.',
-            'consecuencia' => 'No se realizó la operación sobre la cuenta.',
-            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
-        ],
-        'TICKET_ITEMS_PENDIENTES' => [
-            'titulo' => 'Hay productos pendientes',
-            'mensaje' => 'Entrega o cancela todos los productos antes de cerrar la cuenta.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
-        ],
-        'TICKET_CON_CONSUMO' => [
-            'titulo' => 'La mesa ya tiene consumo',
-            'mensaje' => 'Esta mesa ya registró productos, así que se cobra con el cierre normal.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
-        ],
-        'PAGO_INVALIDO' => [
-            'titulo' => 'Pago no válido',
-            'mensaje' => 'Revisa el comensal, método y monto del pago.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
-        ],
-        'PAGO_REQUERIDO' => [
-            'titulo' => 'Falta registrar un pago',
-            'mensaje' => 'Registra al menos un pago para continuar.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
-        ],
-        'PAGO_INSUFICIENTE' => [
-            'titulo' => 'Pago insuficiente',
-            'mensaje' => 'El monto recibido no cubre el total de la cuenta.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
-        ],
-        'METODO_PAGO_INVALIDO' => [
-            'titulo' => 'Método de pago no válido',
-            'mensaje' => 'Selecciona un método de pago válido.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
-        ],
-        'TOTAL_TICKET_NO_DISPONIBLE' => [
-            'titulo' => 'No se pudo calcular la cuenta',
-            'mensaje' => 'No fue posible calcular el total del ticket. Intenta de nuevo.',
-            'consecuencia' => 'El ticket permanece abierto.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'TICKET_CIERRE_FALLIDO' => [
-            'titulo' => 'No se pudo cerrar el ticket',
-            'mensaje' => 'No fue posible cerrar el ticket. Intenta de nuevo.',
-            'consecuencia' => 'La cuenta puede permanecer abierta.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'COMANDA_ENVIO_FALLIDO' => [
-            'titulo' => 'No se pudo enviar la comanda',
-            'mensaje' => 'No fue posible enviar la comanda. Intenta de nuevo.',
-            'consecuencia' => 'Los productos no se confirmaron para preparación.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'ITEM_ID_REQUERIDO' => [
-            'titulo' => 'Producto no identificado',
-            'mensaje' => 'Selecciona un producto válido para continuar.',
-            'consecuencia' => 'No se modificó el ticket.',
-            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
-        ],
-        'ITEM_CANCELACION_FALLIDA' => [
-            'titulo' => 'No se pudo cancelar el producto',
-            'mensaje' => 'No fue posible cancelar el producto. Intenta de nuevo.',
-            'consecuencia' => 'El ticket no cambió.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'ITEM_ENTREGA_FALLIDA' => [
-            'titulo' => 'No se pudo entregar el producto',
-            'mensaje' => 'No fue posible registrar la entrega. Intenta de nuevo.',
-            'consecuencia' => 'El producto permanece en su estado anterior.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'ITEM_NO_ENTREGABLE' => [
-            'titulo' => 'El producto ya no admite entrega',
-            'mensaje' => 'El producto ya se entregó o fue cancelado.',
-            'consecuencia' => 'El ticket no cambió.',
-            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
-        ],
-        'TICKET_ID_REQUERIDO' => [
-            'titulo' => 'Ticket no identificado',
-            'mensaje' => 'Selecciona un ticket válido para continuar.',
-            'consecuencia' => 'No se realizó la operación.',
-            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
-        ],
-        'TICKET_ACTUALIZACION_FALLIDA' => [
-            'titulo' => 'No se pudo actualizar el ticket',
-            'mensaje' => 'No fue posible actualizar el ticket. Intenta de nuevo.',
-            'consecuencia' => 'El ticket conserva sus datos anteriores.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'TICKET_ITEMS_NO_DISPONIBLES' => [
-            'titulo' => 'No se pudieron cargar los productos',
-            'mensaje' => 'No fue posible consultar los productos del ticket.',
-            'consecuencia' => 'La vista puede estar desactualizada.',
-            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
-        ],
-        'SUGERENCIAS_NO_CONFIGURADAS' => [
-            'titulo' => 'Sugerencias no configuradas',
-            'mensaje' => 'Las sugerencias automáticas todavía no están configuradas.',
-            'consecuencia' => 'El ticket no se modifica.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'SUGERENCIAS_TICKET_INVALIDO' => [
-            'titulo' => 'Ticket no disponible',
-            'mensaje' => 'El ticket ya no está abierto.',
-            'consecuencia' => 'No se pudieron obtener sugerencias.',
-            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
-        ],
-        'SUGERENCIAS_ERROR' => [
-            'titulo' => 'No se pudieron obtener sugerencias',
-            'mensaje' => 'Intenta consultar las sugerencias nuevamente.',
-            'consecuencia' => 'El ticket no se modifica.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
-        'CORTE_CAJA_ERROR' => [
-            'titulo' => 'No se pudo cargar el corte de caja',
-            'mensaje' => 'No fue posible cargar el corte de caja. Intenta de nuevo.',
-            'consecuencia' => 'No se mostró el resumen solicitado.',
-            'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
-        ],
     ];
 
     /** Traducciones de errores de campo; los servicios sólo emiten sus códigos. */
@@ -1240,7 +1026,7 @@ final class ReservacionErrorCatalog
         ];
 
         if (in_array($canonical, [
-            'TICKET_CREADO', 'TICKET_CERRADO', 'RESERVACION_CREADA', 'ACTUALIZADA', 'COMENTARIO_ACTUALIZADO',
+            'RESERVACION_CREADA', 'ACTUALIZADA', 'COMENTARIO_ACTUALIZADO',
             'CONFIRMADA', 'COMPLETADA', 'CANCELADA', 'NO_SHOW',
             'RESERVACION_CREADA_SIN_MESA', 'RESERVACION_CONFIRMADA', 'RESERVACION_MODIFICADA',
             'RESERVACION_CANCELADA', 'REEMPLAZO_CREADO', 'REEMPLAZO_CONFIRMADO',
@@ -1341,8 +1127,6 @@ final class ReservacionErrorCatalog
             'CAPACIDAD_OPERATIVA_EXCEDIDA',
             'CAPACIDAD_INSUFICIENTE',
             'REQUIERE_CONFIRMACION_SIN_CONTACTO',
-            'CONFLICTO_TICKETS_ABIERTOS',
-            'CONFLICTO_TICKET_ABIERTO',
         ], true)) {
             $codigos = [(string)$resultado['codigo']];
         }

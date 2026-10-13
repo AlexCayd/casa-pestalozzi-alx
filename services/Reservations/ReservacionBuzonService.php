@@ -4,9 +4,7 @@ namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
-use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\Pos\ReservacionPoliticaPosService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Scheduling\HorarioOperacionImpactoService;
 
@@ -61,8 +59,7 @@ final class ReservacionBuzonService
 
     /**
      * Sincroniza sólo las reservaciones del día actual y las que ya tienen un
-     * aviso temporal abierto. La lectura de reservaciones, mesas y tickets es
-     * por lote para que el refresco del buzón no introduzca N+1.
+     * aviso temporal abierto. La lectura de reservaciones y mesas es por lote para que el refresco del buzón no introduzca N+1.
      *
      * @return array{procesadas:int,avisos_creados:int,avisos_cerrados:int,resumen:array}
      */
@@ -72,13 +69,6 @@ final class ReservacionBuzonService
         $fechaActual = $ahora->format('Y-m-d');
         $reservaciones = self::reservacionesRelevantes($fechaActual);
         $abiertos = self::avisosTemporalesAbiertos();
-        $tickets = [];
-        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $tickets[$reservacionId] = $ticket;
-            }
-        }
 
         $horarioEfectivo = HorarioOperacionService::obtenerHorarioEfectivo($fechaActual);
         $db = ActiveRecord::getDB();
@@ -99,20 +89,11 @@ final class ReservacionBuzonService
                     continue;
                 }
 
-                $ticket = $tickets[$id] ?? null;
-                $vigencia = ReservacionVigenciaService::clasificar($reservacion, $ahora, $ticket);
-                $politica = ReservacionPoliticaPosService::evaluar(
-                    $reservacion,
-                    $ahora,
-                    $ticket,
-                    null,
-                    ['sin_mesas' => (int)($reservacion['mesas_count'] ?? 0) === 0]
-                );
+                $vigencia = ReservacionVigenciaService::clasificar($reservacion, $ahora);
                 $esActual = (string)($reservacion['fecha'] ?? '') === $fechaActual;
                 $esFinal = in_array((string)($reservacion['estado'] ?? ''), ReservacionConfig::ESTADOS_FINALES, true);
                 $ausenciaPendiente = (bool)($vigencia['ausencia_pendiente'] ?? false)
                     && (bool)($vigencia['puede_marcar_no_show'] ?? false)
-                    && !$ticket
                     && (string)($reservacion['estado'] ?? '') === 'confirmada';
                 $habiaAusencia = isset($abiertos[self::TIPO_AUSENCIA_PENDIENTE][$id]);
 
@@ -133,16 +114,15 @@ final class ReservacionBuzonService
                         self::ENTIDAD_RESERVACION,
                         $id,
                         null,
-                        self::motivoCierreAusencia($reservacion, $ticket, $esFinal)
+                        self::motivoCierreAusencia($reservacion, $esFinal)
                     );
                 }
 
                 $fueraHorario = $esActual && !self::dentroHorarioEfectivo($reservacion, $horarioEfectivo);
-                $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? $politica['ventana_pos'] ?? 'futura');
+                $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? 'futura');
                 $sinAsignacionProxima = $esActual
                     && !$esFinal
                     && (string)($reservacion['estado'] ?? '') === 'confirmada'
-                    && !$ticket
                     && (int)($reservacion['mesas_count'] ?? 0) === 0
                     && !$ausenciaPendiente
                     && !$fueraHorario
@@ -170,7 +150,7 @@ final class ReservacionBuzonService
                         self::ENTIDAD_RESERVACION,
                         $id,
                         null,
-                        self::motivoCierreSinAsignacion($reservacion, $ticket, $esFinal, $ausenciaPendiente, $fueraHorario)
+                        self::motivoCierreSinAsignacion($reservacion, $esFinal, $ausenciaPendiente, $fueraHorario)
                     );
                 }
 
@@ -410,13 +390,10 @@ final class ReservacionBuzonService
         return $hora !== '' && $apertura !== '' && $cierre !== '' && $hora >= $apertura && $hora < $cierre;
     }
 
-    private static function motivoCierreAusencia(array $reservacion, ?array $ticket, bool $estadoFinal): string
+    private static function motivoCierreAusencia(array $reservacion, bool $estadoFinal): string
     {
         if ($estadoFinal) {
             return 'reservacion_finalizada';
-        }
-        if ($ticket) {
-            return 'servicio_iniciado_ticket_abierto';
         }
         return (string)($reservacion['estado'] ?? '') === 'confirmada'
             ? 'tolerancia_no_vencida'
@@ -425,7 +402,6 @@ final class ReservacionBuzonService
 
     private static function motivoCierreSinAsignacion(
         array $reservacion,
-        ?array $ticket,
         bool $estadoFinal,
         bool $ausenciaPendiente,
         bool $fueraHorario
@@ -435,9 +411,6 @@ final class ReservacionBuzonService
         }
         if ($ausenciaPendiente) {
             return 'reservacion_ausencia_pendiente';
-        }
-        if ($ticket) {
-            return 'servicio_iniciado_ticket_abierto';
         }
         if ((int)($reservacion['mesas_count'] ?? 0) > 0) {
             return 'mesas_asignadas';

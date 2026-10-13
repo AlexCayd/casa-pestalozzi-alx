@@ -10,7 +10,6 @@ namespace Services\Reservations;
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
-use Model\TicketMesa;
 use Services\Tables\OcupacionMesasService;
 
 class AsignacionMesasService
@@ -23,14 +22,11 @@ class AsignacionMesasService
     public const ASIGNACION_VACIA = 'ASIGNACION_VACIA';
     public const MESAS_INVALIDAS = 'MESAS_INVALIDAS';
     public const CAPACIDAD_INSUFICIENTE = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
-    public const CONFLICTO_TICKETS_ABIERTOS = 'CONFLICTO_TICKETS_ABIERTOS';
     public const CONFLICTO_CONCURRENTE = 'CONFLICTO_CONCURRENTE';
     public const VERSION_DESACTUALIZADA = 'VERSION_DESACTUALIZADA';
     public const DATOS_INCOMPLETOS = 'DATOS_INCOMPLETOS';
     public const RESERVACION_NO_EDITABLE = 'RESERVACION_NO_EDITABLE';
-    public const SUPERPOSICION_NO_AUTORIZADA = 'SUPERPOSICION_NO_AUTORIZADA';
     public const AGRUPACION_NO_AUTORIZADA = 'AGRUPACION_NO_AUTORIZADA';
-    public const CONFLICTO_TICKET_ABIERTO = 'CONFLICTO_TICKET_ABIERTO';
     public const DEPENDE_LIBERACION_PROYECTADA = 'DEPENDE_LIBERACION_PROYECTADA';
     public const SIN_CONTACTO = ReservacionAdministrativaService::SIN_CONTACTO;
     public const LIBERAR_ASIGNACION_ACTUAL = 'LIBERAR_ASIGNACION_ACTUAL';
@@ -90,16 +86,10 @@ class AsignacionMesasService
 
     public static function obtenerOcupacionPorReservacionDelDia(
         string $fecha,
-        array $reservaciones,
-        ?array $ticketsAbiertos = null
+        array $reservaciones
     ): array
     {
-        $tickets = $ticketsAbiertos ?? TicketMesa::abiertosParaMapa();
-        $contextoFecha = OcupacionMesasService::prepararContextoFecha(
-            $fecha,
-            false,
-            $tickets
-        );
+        $contextoFecha = OcupacionMesasService::prepararContextoFecha($fecha, false);
         $ocupacion = [];
 
         foreach ($reservaciones as $reservacion) {
@@ -305,16 +295,6 @@ class AsignacionMesasService
             }
 
             $modoMapaAdministrativo = !empty($opciones['modo_administrativo_mapa']);
-            if ($modoMapaAdministrativo) {
-                $ticketVinculado = self::fila(
-                    "SELECT id FROM tickets WHERE reservacion_id = {$reservacionId} AND "
-                    . TicketMesa::condicionSqlAbierto('tickets') . " LIMIT 1 FOR UPDATE"
-                );
-                if ($ticketVinculado) {
-                    self::rollbackSiPropia($db, $gestionarTransaccion);
-                    return ['ok' => false, 'codigo' => self::RESERVACION_NO_EDITABLE];
-                }
-            }
             $codigoNoEditable = ReservacionService::codigoNoEditable($reservacion);
             if ($codigoNoEditable !== '') {
                 self::rollbackSiPropia($db, $gestionarTransaccion);
@@ -387,24 +367,19 @@ class AsignacionMesasService
                 ];
             }
 
-            $ticketsAbiertos = TicketMesa::abiertosParaMapa(true);
             $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
                 (string)$reservacion['fecha'],
                 (string)$reservacion['hora'],
                 $reservacionId,
-                true,
-                $ticketsAbiertos
+                true
             );
             $ocupacionReservaciones = (array)(
                 $evaluacionOcupacion['ocupacion_reservaciones'] ?? []
             );
             $ocupacion = (array)($evaluacionOcupacion['ocupacion_bloqueante'] ?? []);
-            $ticketsBloqueantes = (array)($evaluacionOcupacion['tickets_bloqueantes'] ?? []);
             $mesaIdsProyectadas = self::normalizarMesaIds(
                 (array)($evaluacionOcupacion['mesas_proyectadas'] ?? [])
             );
-            $conflictosTicket = [];
-            $ticketConfirmacionPendiente = false;
             $confirmaciones = self::normalizarConfirmaciones($opciones['confirmaciones'] ?? []);
 
             if ($automatico) {
@@ -441,57 +416,6 @@ class AsignacionMesasService
                 if (self::hayConflictoHorario($ocupacionReservaciones, $mesaIds)) {
                     self::rollbackSiPropia($db, $gestionarTransaccion);
                     return ['ok' => false, 'codigo' => self::MESA_OCUPADA];
-                }
-
-                $conflictosTicket = self::conflictosTicketsSeleccionados(
-                    $ticketsBloqueantes,
-                    $mesaIds
-                );
-                if ($conflictosTicket !== []) {
-                    if ($modoMapaAdministrativo || empty($opciones['permitir_superposicion_ticket_abierto'])) {
-                        self::rollbackSiPropia($db, $gestionarTransaccion);
-                        return [
-                            'ok' => false,
-                            'codigo' => self::SUPERPOSICION_NO_AUTORIZADA,
-                            'requiere_confirmacion' => false,
-                            'confirmaciones_requeridas' => [],
-                            'conflictos_ticket' => $conflictosTicket,
-                        ];
-                    }
-                    $ticketIdsActuales = array_column($conflictosTicket, 'ticket_id');
-                    $ticketIdsAceptados = self::normalizarMesaIds(
-                        (array)($opciones['ticket_ids_aceptados'] ?? [])
-                    );
-                    $tokenActual = self::tokenConflictosTicket($conflictosTicket);
-                    $tokenAceptado = trim((string)($opciones['conflicto_token'] ?? ''));
-
-                    if ($ticketIdsAceptados === []) {
-                        $ticketConfirmacionPendiente = true;
-                    }
-
-                    sort($ticketIdsActuales, SORT_NUMERIC);
-                    sort($ticketIdsAceptados, SORT_NUMERIC);
-                    if (
-                        !$ticketConfirmacionPendiente
-                        && ($ticketIdsActuales !== $ticketIdsAceptados
-                        || $tokenAceptado === ''
-                        || !hash_equals($tokenActual, $tokenAceptado))
-                    ) {
-                        self::rollbackSiPropia($db, $gestionarTransaccion);
-                        return [
-                            'ok' => false,
-                            'codigo' => self::CONFLICTO_CONCURRENTE,
-                            'conflictos_ticket' => $conflictosTicket,
-                            'conflicto_token' => $tokenActual,
-                        ];
-                    }
-                } elseif ((array)($opciones['ticket_ids_aceptados'] ?? []) !== []) {
-                    self::rollbackSiPropia($db, $gestionarTransaccion);
-                    return [
-                        'ok' => false,
-                        'codigo' => self::CONFLICTO_CONCURRENTE,
-                        'conflictos_ticket' => [],
-                    ];
                 }
             }
 
@@ -531,12 +455,6 @@ class AsignacionMesasService
                     $confirmacionesRequeridas[] = self::DEPENDE_LIBERACION_PROYECTADA;
                 }
             }
-            if ($conflictosTicket !== []) {
-                $advertencias[] = self::CONFLICTO_TICKET_ABIERTO;
-                if ($modoMapaAdministrativo) {
-                    $confirmacionesRequeridas[] = self::CONFLICTO_TICKET_ABIERTO;
-                }
-            }
             if (
                 trim((string)($reservacion['contacto'] ?? '')) === ''
                 || (string)($reservacion['contacto_tipo'] ?? 'ninguno') === 'ninguno'
@@ -545,23 +463,6 @@ class AsignacionMesasService
             }
             $advertencias = array_values(array_unique($advertencias));
             $confirmacionesRequeridas = array_values(array_unique($confirmacionesRequeridas));
-
-            if ($ticketConfirmacionPendiente || (
-                $modoMapaAdministrativo
-                && $conflictosTicket !== []
-                && !in_array(self::CONFLICTO_TICKET_ABIERTO, $confirmaciones, true)
-            )) {
-                self::rollbackSiPropia($db, $gestionarTransaccion);
-                return [
-                    'ok' => false,
-                    'codigo' => self::CONFLICTO_TICKETS_ABIERTOS,
-                    'requiere_confirmacion' => true,
-                    'advertencias' => $advertencias,
-                    'confirmaciones_requeridas' => $confirmacionesRequeridas,
-                    'conflictos_ticket' => $conflictosTicket,
-                    'conflicto_token' => self::tokenConflictosTicket($conflictosTicket),
-                ];
-            }
 
             $capacidadConfirmada = $permitirCapacidadInsuficiente
                 || in_array(self::CAPACIDAD_INSUFICIENTE, $confirmaciones, true);
@@ -606,9 +507,7 @@ class AsignacionMesasService
             )) {
                 throw new \RuntimeException('No fue posible actualizar la version de asignacion.');
             }
-            $motivo = !empty($conflictosTicket)
-                ? 'Asignación manual aceptó tickets abiertos #' . implode(', #', array_column($conflictosTicket, 'ticket_id'))
-                : ($automatico ? 'Asignación automática de mesas' : 'Asignación manual de mesas');
+            $motivo = $automatico ? 'Asignación automática de mesas' : 'Asignación manual de mesas';
             if ($dependeLiberacionProyectada) {
                 $motivo .= ' con liberación proyectada de mesas #'
                     . implode(', #', $seleccionProyectada);
@@ -622,7 +521,6 @@ class AsignacionMesasService
                 'ok' => true,
                 'codigo' => self::ASIGNACION_GUARDADA,
                 'mesa_ids' => $mesaIds,
-                'tickets_aceptados' => array_column($conflictosTicket ?? [], 'ticket_id'),
                 'depende_liberacion_proyectada' => $dependeLiberacionProyectada,
                 'mesas_proyectadas' => $seleccionProyectada,
                 'advertencias' => $advertencias,
@@ -650,47 +548,6 @@ class AsignacionMesasService
         if ($gestionarTransaccion) {
             $db->rollback();
         }
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private static function conflictosTicketsSeleccionados(array $tickets, array $mesaIds): array
-    {
-        $seleccion = array_fill_keys(self::normalizarMesaIds($mesaIds), true);
-        $conflictos = [];
-
-        foreach ($tickets as $ticket) {
-            $todas = self::normalizarMesaIds((array)($ticket['mesa_ids'] ?? []));
-            $enConflicto = array_values(array_filter(
-                $todas,
-                static fn(int $mesaId): bool => isset($seleccion[$mesaId])
-            ));
-            if ($enConflicto === []) {
-                continue;
-            }
-
-            $conflictos[] = [
-                'ticket_id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
-                'reservacion_id' => $ticket['reservacion_id'] ?? null,
-                'origen' => (string)($ticket['origen'] ?? 'walk_in'),
-                'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
-                'mesa_ids' => $todas,
-                'mesas_conflicto' => $enConflicto,
-            ];
-        }
-
-        usort(
-            $conflictos,
-            static fn(array $a, array $b): int => $a['ticket_id'] <=> $b['ticket_id']
-        );
-
-        return $conflictos;
-    }
-
-    private static function tokenConflictosTicket(array $conflictos): string
-    {
-        return hash('sha256', json_encode($conflictos, JSON_UNESCAPED_SLASHES) ?: '[]');
     }
 
     private static function normalizarMesaIds(array $mesaIds): array

@@ -130,26 +130,6 @@ class ReservacionMesa extends ActiveRecord
         $excluirSql = $exclusiones !== [] ? 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')' : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
         $condicionOcupacion = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
-        if ($incluirAusenciasPendientesEnMapaAdmin) {
-            $instante = self::$db->real_escape_string(
-                ($ahora ?? \Services\Reservations\ReservacionConfig::ahora())->format('Y-m-d H:i:s')
-            );
-            // El mapa administrativo conserva el bloqueo por intervalo de una
-            // confirmada mientras el operador resuelve el no-show. POS sigue
-            // usando la condición temporal ordinaria.
-            $condicionOcupacion = "(
-                (r.estado = 'confirmada' AND NOT EXISTS (
-                    SELECT 1 FROM tickets vigencia_ticket
-                    WHERE vigencia_ticket.reservacion_id = r.id
-                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
-                ))
-                OR (
-                    r.estado = 'pendiente_verificacion'
-                    AND r.hold_expires_at IS NOT NULL
-                    AND r.hold_expires_at > '{$instante}'
-                )
-            )";
-        }
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,

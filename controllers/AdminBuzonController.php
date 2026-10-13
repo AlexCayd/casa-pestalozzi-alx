@@ -3,7 +3,6 @@
 namespace Controllers;
 
 use Model\Reservacion;
-use Model\TicketMesa;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
@@ -11,7 +10,6 @@ use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
 use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Reservations\ReservacionConfig;
-use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionVigenciaService;
 
 /** API ligera del buzón flotante administrativo. */
@@ -49,16 +47,9 @@ final class AdminBuzonController
     public static function listar(Router $router): void
     {
         $notificaciones = BuzonNotificacionesService::listar(['limit' => 100]);
-        $ticketsPorReservacion = [];
-        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
         $grupos = [];
         foreach ($notificaciones as $notificacion) {
-            $item = self::fuente($notificacion, $ticketsPorReservacion);
+            $item = self::fuente($notificacion);
             $tipo = (string)$notificacion['tipo'];
             if ($item === null) {
                 // GET es estrictamente lectura. La reconciliación de fuentes
@@ -173,8 +164,7 @@ final class AdminBuzonController
         ], $ok ? 200 : 404);
     }
 
-    /** @param array<int, array<string, mixed>> $ticketsPorReservacion */
-    private static function fuente(array $notificacion, array $ticketsPorReservacion = []): ?array
+    private static function fuente(array $notificacion): ?array
     {
         $tipo = (string)$notificacion['tipo'];
         if ($tipo === ReservacionBuzonService::TIPO_HORARIO_AFECTADO) {
@@ -251,19 +241,11 @@ final class AdminBuzonController
             return null;
         }
         $reservacionId = (int)$reservacion->id;
-        $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
         $estado = (string)$reservacion->estado;
         $estadoFinal = in_array($estado, ReservacionConfig::ESTADOS_FINALES, true);
         $sinContacto = !in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true)
             || trim((string)($reservacion->contacto ?? '')) === '';
-        $vigencia = ReservacionVigenciaService::clasificar($reservacion, null, $ticket);
-        $politica = ReservacionPoliticaPosService::evaluar(
-            $reservacion,
-            null,
-            $ticket,
-            null,
-            ['sin_mesas' => (int)$reservacion->mesas_count === 0]
-        );
+        $vigencia = ReservacionVigenciaService::clasificar($reservacion);
 
         $base = [
             'reservacion_id' => $reservacionId,
@@ -292,14 +274,13 @@ final class AdminBuzonController
 
         if ($tipo === ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE) {
             if ($estado !== 'confirmada'
-                || $ticket
                 || !$vigencia['ausencia_pendiente']
                 || !$vigencia['puede_marcar_no_show']) {
                 return null;
             }
             return array_merge($base, [
                 'etiqueta' => 'Tolerancia vencida',
-                'descripcion' => 'El cliente no llegó dentro del tiempo de tolerancia.',
+                'descripcion' => 'Pasó la tolerancia de llegada: márcala como completada si llegó, o como no-show.',
                 'accion_primaria' => 'Registrar que no llegó',
                 'puede_registrar_no_show' => true,
                 'requiere_accion' => true,
@@ -311,10 +292,9 @@ final class AdminBuzonController
             (string)$reservacion->fecha,
             (string)$reservacion->hora
         );
-        $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? $politica['ventana_pos'] ?? 'futura');
+        $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? 'futura');
         if ($estado !== 'confirmada'
             || $estadoFinal
-            || $ticket
             || (int)$reservacion->mesas_count > 0
             || (int)$reservacion->comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
             || $vigencia['ausencia_pendiente']

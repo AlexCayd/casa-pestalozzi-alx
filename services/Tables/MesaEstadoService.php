@@ -10,7 +10,6 @@
 namespace Services\Tables;
 use Services\Pos\PosMesaProjectionPresenter;
 use Services\Pos\ReservacionPoliticaPosService;
-use Services\Pos\TicketTemporalService;
 use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\Reservations\ReservacionConfig;
 
@@ -27,13 +26,11 @@ final class MesaEstadoService
     /**
      * @param array<int, array<string, mixed>|object> $mesas
      * @param array<int, array<string, mixed>|object> $reservaciones
-     * @param array<int, array<string, mixed>|object> $tickets
      * @return array<int, array<string, mixed>>
      */
     public static function normalizarMesas(
         array $mesas,
         array $reservaciones,
-        array $tickets,
         string $fecha,
         ?DateTimeImmutable $ahora = null,
         string $hora = '',
@@ -43,7 +40,6 @@ final class MesaEstadoService
         return self::normalizarMesasCanonicas(
             $mesas,
             $reservaciones,
-            $tickets,
             $fecha,
             $ahora,
             $hora,
@@ -63,7 +59,6 @@ final class MesaEstadoService
     private static function normalizarMesasCanonicas(
         array $mesas,
         array $reservaciones,
-        array $tickets,
         string $fecha,
         ?DateTimeImmutable $ahora,
         string $hora,
@@ -71,27 +66,6 @@ final class MesaEstadoService
         array $opciones
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
-        $ticketsPorMesa = self::ticketsPorMesa(
-            $tickets,
-            $fecha,
-            $hora !== '' ? $hora : ReservacionConfig::horaActual(),
-            $ahora,
-            $evaluacionOcupacion
-        );
-        // Un ticket abierto ocupa físicamente sus ticket_mesa_ids aunque el
-        // horario consultado sea una proyección o su duración estimada haya
-        // terminado. La proyección sólo modifica los modificadores.
-        foreach ($tickets as $ticket) {
-            $proyeccion = TicketTemporalService::proyectar($ticket, $fecha, $hora, $ahora);
-            if (!$proyeccion['ticket_abierto'] || !$proyeccion['aplica_fecha']) {
-                continue;
-            }
-            foreach (self::ids($proyeccion['mesa_ids'] ?? []) as $mesaId) {
-                if (!isset($ticketsPorMesa[$mesaId])) {
-                    $ticketsPorMesa[$mesaId] = $proyeccion;
-                }
-            }
-        }
         $reservacionesPorMesa = [];
         foreach ($reservaciones as $reservacionRaw) {
             $reservacion = self::aArray($reservacionRaw);
@@ -132,7 +106,6 @@ final class MesaEstadoService
 
         return array_map(static function ($mesa) use (
             $reservacionesPorMesa,
-            $ticketsPorMesa,
             $ocupacionPorMesa,
             $mesaIdsBloqueadas,
             $causasBloqueoPorMesa,
@@ -168,59 +141,13 @@ final class MesaEstadoService
             $bloqueadaEnIntervalo = isset($mesaIdsBloqueadas[$mesaId]);
             $causasBloqueo = self::idsStrings($causasBloqueoPorMesa[$mesaId] ?? []);
             if ($bloqueadaEnIntervalo && $causasBloqueo === []) {
-                $causasBloqueo = self::causasBloqueoDesdeEstado($ocupacionMesa, $ticketsPorMesa[$mesaId] ?? null);
+                $causasBloqueo = self::causasBloqueoDesdeEstado($ocupacionMesa);
             }
             $holdVigente = ($ocupacionMesa['fuente'] ?? '') === 'hold';
 
             if (!$activada || !$reservable) {
                 $estadoBase = self::NO_RESERVABLE;
                 $motivoBloqueo = !$activada ? 'Mesa fuera de servicio.' : 'Elemento no reservable.';
-            } elseif (isset($ticketsPorMesa[$mesaId])) {
-                $ticket = $ticketsPorMesa[$mesaId];
-                $ticketBloqueaEnConsulta = array_key_exists('bloquea_en_consulta', $ticket)
-                    ? self::booleano($ticket['bloquea_en_consulta'])
-                    : (array_key_exists('bloquea_disponibilidad', $ticket)
-                        ? self::booleano($ticket['bloquea_disponibilidad'])
-                        : true);
-                $ocupacionActual = !array_key_exists('ocupada_fisicamente', $ticket)
-                    || self::booleano($ticket['ocupada_fisicamente']);
-                $ticketAbierto = [
-                    'id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
-                    'reservacion_id' => $ticket['reservacion_id'] ?? null,
-                    'mesa_ids' => $ticket['mesa_ids'] ?? [],
-                    'estado_proyeccion' => $ticket['estado_proyeccion'] ?? null,
-                    'hora_apertura' => $ticket['hora_apertura'] ?? null,
-                    'liberacion_estimada' => $ticket['liberacion_estimada'] ?? null,
-                    'bloquea_en_consulta' => $ticketBloqueaEnConsulta,
-                    'ocupada_fisicamente' => $ocupacionActual,
-                ];
-                $walkIn = empty($ticket['reservacion_id']);
-                if ($ticketBloqueaEnConsulta) {
-                    $estadoBase = self::OCUPADA;
-                } else {
-                    self::agregarUnaVez($modificadores, 'ticket_proyectado_liberado');
-                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
-                }
-                $modificadores[] = 'ticket_abierto';
-                $motivoBloqueo = $ocupacionActual
-                    ? 'Ocupada por servicio activo.'
-                    : 'No disponible por ticket.';
-                if ($ticketBloqueaEnConsulta && !empty($ticket['conflicto_proximo'])) {
-                    $modificadores[] = 'conflicto_proximo';
-                    $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
-                }
-                if (!empty($ticket['disponible_proyectada'])) {
-                    $modificadores[] = 'disponible_proyectada';
-                }
-                if ($walkIn) {
-                    $modificadores[] = 'walk_in';
-                }
-                if (count((array)($ticket['mesa_ids'] ?? [])) > 1) {
-                    $modificadores[] = 'varias_mesas';
-                }
-                if (!$ticketBloqueaEnConsulta) {
-                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
-                }
             }
 
             if ($holdVigente && $estadoBase !== self::OCUPADA && $estadoBase !== self::NO_RESERVABLE) {
@@ -237,7 +164,7 @@ final class MesaEstadoService
                 $hechos = ReservacionPoliticaPosService::evaluar(
                     $reservacion,
                     $ahora,
-                    !empty($reservacion['ticket_abierto']) ? (array)($reservacion['ticket'] ?? []) : null,
+                    null,
                     self::fechaHoraConsulta($fecha, $hora)
                 );
                 $mapa = (array)($hechos['proyeccion_mapa'] ?? []);
@@ -716,35 +643,6 @@ final class MesaEstadoService
         ];
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private static function ticketsPorMesa(
-        array $tickets,
-        string $fecha,
-        string $hora,
-        DateTimeImmutable $ahora,
-        array $evaluacionOcupacion = []
-    ): array
-    {
-        $evaluacion = $evaluacionOcupacion !== []
-            ? $evaluacionOcupacion
-            : OcupacionMesasService::evaluarTickets($tickets, $fecha, $hora, $ahora);
-        $porMesa = [];
-        foreach ((array)($evaluacion['tickets_por_mesa'] ?? $evaluacion['por_mesa'] ?? []) as $mesaId => $ticketRaw) {
-            $ticket = self::aArray($ticketRaw);
-            if (empty($ticket['aplica_fecha'])) {
-                continue;
-            }
-            $ticket['id'] = (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0);
-            $ticket['reservacion_id'] = !empty($ticket['reservacion_id'])
-                ? (int)$ticket['reservacion_id']
-                : null;
-            $ticket['mesa_ids'] = self::ids($ticket['mesa_ids'] ?? []);
-            $porMesa[(int)$mesaId] = $ticket;
-        }
-
-        return $porMesa;
-    }
-
     /** @return array<string, mixed> */
     private static function resumenReservacion(array $reservacion): array
     {
@@ -919,12 +817,9 @@ final class MesaEstadoService
     }
 
     /** @return array<int, string> */
-    private static function causasBloqueoDesdeEstado(array $ocupacionMesa, ?array $ticket): array
+    private static function causasBloqueoDesdeEstado(array $ocupacionMesa): array
     {
         $causas = [];
-        if ($ticket !== null && self::booleano($ticket['bloquea_en_consulta'] ?? false)) {
-            $causas[] = 'ticket';
-        }
         $fuente = (string)($ocupacionMesa['fuente'] ?? '');
         if ($fuente === 'hold') {
             $causas[] = 'hold';

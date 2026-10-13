@@ -18,7 +18,7 @@
         </li>
         <li class="mapa-leyenda-item mapa-leyenda-item--ocupada">
             <span class="mesa-pin mesa-pin--ocupada" aria-hidden="true"></span>
-            Rojo &mdash; Ticket abierto o intervalo no disponible
+            Rojo &mdash; Intervalo no disponible
         </li>
         <li class="mapa-leyenda-item mapa-leyenda-item--seleccionada">
             <span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada" aria-hidden="true"></span>
