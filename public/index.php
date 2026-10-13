@@ -141,43 +141,6 @@ $router->post('/admin/catas/disponibilidad', [AdminCataController::class, 'dispo
 $router->post('/admin/catas/eliminar', [AdminCataController::class, 'delete']);
 
 
-/*
- * Redirecciones 301 de las rutas previas a la fusión menu+productos (2026-07).
- * Se conserva el query string: mucha gente tiene abierto /admin/productos/edit?id=42.
- * Solo GET: un 301 sobre POST lo degrada a GET y pierde el cuerpo, y los POST
- * antiguos venían de vistas que este mismo cambio elimina.
- */
-$redir301 = static function (string $destino): callable {
-    return static function () use ($destino) {
-        $qs = $_SERVER['QUERY_STRING'] ?? '';
-        header('Location: ' . $destino . ($qs !== '' ? '?' . $qs : ''), true, 301);
-        exit;
-    };
-};
-
-$router->get('/admin/menu/items',                 $redir301('/admin/menu'));
-$router->get('/admin/menu/items/create',          $redir301('/admin/menu/create'));
-$router->get('/admin/menu/items/edit',            $redir301('/admin/menu/edit'));
-$router->get('/admin/menu/items/pdf',             $redir301('/admin/menu/pdf'));
-$router->get('/admin/menu/categories',            $redir301('/admin/menu/categorias'));
-$router->get('/admin/menu/categories/create',     $redir301('/admin/menu/categorias'));
-$router->get('/admin/menu/categories/edit',       $redir301('/admin/menu/categorias/edit'));
-$router->get('/admin/productos/create',           $redir301('/admin/menu/create'));
-
-/*
- * Rutas de reservaciones en inglés (2026-08). El resto del panel estaba en
- * español y este módulo se había quedado atrás. Solo GET, por lo mismo que
- * arriba: un 301 sobre POST lo degrada a GET y pierde el cuerpo. Las APIs no
- * llevan redirección: sus únicos clientes son los bundles de este repo, que se
- * recompilan con las rutas nuevas.
- */
-$router->get('/admin/reservations',                  $redir301('/admin/reservaciones'));
-$router->get('/admin/reservations/create',           $redir301('/admin/reservaciones/crear'));
-$router->get('/admin/reservations/operation',        $redir301('/admin/reservaciones/operacion'));
-$router->get('/admin/reservations/show',             $redir301('/admin/reservaciones/detalle'));
-$router->get('/admin/reservations/development-tools', $redir301('/admin/reservaciones/herramientas-desarrollo'));
-
-
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
