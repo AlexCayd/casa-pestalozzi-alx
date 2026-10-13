@@ -31,7 +31,6 @@ use Controllers\ReservationManagementAccessController;
 use Controllers\N8nReservationsController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
-use Controllers\FeedbackController;
 use Controllers\PuntoVentaController;
 use Controllers\AreaController;
 
@@ -80,7 +79,6 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
-$router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
@@ -159,10 +157,6 @@ $router->post('/admin/catas/editar', [AdminCataController::class, 'edit']);
 $router->post('/admin/catas/disponibilidad', [AdminCataController::class, 'disponibilidad']);
 $router->post('/admin/catas/eliminar', [AdminCataController::class, 'delete']);
 
-$router->get('/admin/feedback', [AdminController::class, 'feedback']);
-$router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
-$router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
-$router->get('/admin/tickets', [AdminController::class, 'tickets']);
 
 // Inventario (Ingredientes)
 $router->get('/admin/inventario',           [AdminInventarioController::class, 'index']);
@@ -293,10 +287,6 @@ $router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actuali
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
 
-// Feedback de clientes
-$router->get('/feedback',      [FeedbackController::class, 'index']);
-$router->post('/api/feedback', [FeedbackController::class, 'guardar']);
-$router->post('/api/feedback-n8n', [FeedbackController::class, 'recibirN8n']);
 
 // Login: NIP para personal de piso, usuario+contraseña para el admin
 $router->get('/login', [AuthController::class, 'login']);

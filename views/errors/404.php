@@ -2,7 +2,7 @@
 /**
  * 404 pública. La sirve ErrorController::noEncontrado().
  *
- * Documento suelto, como views/feedback/index.php: no pasa por
+ * Documento suelto: no pasa por
  * views/layout.php —legado muerto: DevWebCamp, Google Fonts, Leaflet— ni por el
  * layout del panel.
  *

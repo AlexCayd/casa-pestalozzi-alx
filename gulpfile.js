@@ -56,14 +56,6 @@ const paths = {
     // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
     "src/js/admin/core/historial-precios.js",
   ],
-  adminAnalyticsJs: [
-    // mock-data.js se retiró: los datos reales llegan desde PHP como
-    // window.AdminAnalyticsMock (ver AdminController::construirAnalytics).
-    "src/js/admin/analytics/charts.js",
-    "src/js/admin/analytics/nivel1.js",
-    "src/js/admin/analytics/analytics-page.js",
-    "src/js/admin/analytics/analytics.js",
-  ],
   adminMapJs: [
     // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que
     // carga antes que map.js.
@@ -227,15 +219,6 @@ function adminJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js"));
-}
-
-function adminAnalyticsJavascript() {
-  return src(paths.adminAnalyticsJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("analytics.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
 }
 
 function adminMapJavascript() {
@@ -426,7 +409,6 @@ function devWatch(done) {
     ],
     adminJavascript,
   );
-  watch("src/js/admin/analytics/**/*.js", adminAnalyticsJavascript);
   watch(
     [
       "src/js/modules/punto-de-venta.js",
@@ -479,7 +461,6 @@ exports.operationCss = operationCss;
 exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
-exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
@@ -513,7 +494,6 @@ exports.dev = parallel(
   // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
   // que alguien tocaba punto-de-venta.js y saltaba el watch.
   adminMapJavascript,
-  adminAnalyticsJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
@@ -545,7 +525,6 @@ exports.build = series(
   javascript,
   adminJavascript,
   adminMapJavascript,
-  adminAnalyticsJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
