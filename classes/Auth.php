@@ -150,6 +150,15 @@ class Auth {
         return self::check() && self::rol() === 'admin';
     }
 
+    /**
+     * Si la URL es del mapa operativo de reservaciones: cuelga de /admin/ pero
+     * es superficie de piso. Lo consulta también la guardia de visibilidad de
+     * módulos, que no debe cerrársela a los meseros.
+     */
+    public static function esMapaReservacionesOperacion(string $url): bool {
+        return in_array($url, self::RUTAS_MAPA_RESERVACIONES_OPERACION, true);
+    }
+
     public static function esMesero(): bool {
         return self::check() && self::rol() === 'waiter';
     }

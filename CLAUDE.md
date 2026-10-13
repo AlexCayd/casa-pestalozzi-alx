@@ -151,6 +151,17 @@ Cosas que cargan peso y no son obvias:
   ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
   por campos ocultos: si añades una columna a `categorias`, tiene que viajar
   ahí también o apagar una categoría la devuelve a su valor por defecto.
+- **Visibilidad de módulos del panel** (`/admin/configuracion/modulos`,
+  `Services\Configuration\ModuloVisibilidadService`, tabla `configuracion_modulos`).
+  El catálogo sigue siendo `AdminController::MODULES`; la tabla sólo guarda los
+  apagados, así que un módulo **sin fila es visible**. Un módulo oculto sale del
+  sidebar y `AdminController::protegerModulo()` —que corre en `public/index.php`
+  justo después de `Auth::proteger()`— responde 403 con la vista
+  `modulo-oculto` a sus páginas y formularios, casando por los prefijos de
+  `'rutas'` (o `'path'`). **No** cierra `/admin/api/*`, que comparten varios
+  módulos, ni el mapa operativo de reservaciones, que es de piso. Configuración
+  no se puede ocultar. Al añadir un módulo cuya URL no cuelgue de su `path`,
+  declarar sus prefijos en `'rutas'` o la guardia no lo verá.
 - `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
 - `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.

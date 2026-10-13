@@ -24,7 +24,10 @@ $sidebarIconoModulo = static function (string $clave): string {
 ?>
 <aside class="admin-sidebar" id="admin-sidebar" aria-label="Navegación de administración" data-admin-sidebar data-lenis-prevent>
     <div class="admin-sidebar__header">
-        <a class="admin-sidebar__brand" href="/admin/analytics" title="Casa Pestalozzi">
+        <?php /* La marca lleva al primer módulo visible y no a /admin/analytics
+                 a pelo: si Análisis está oculto, el enlace aterrizaría en la
+                 página de «módulo oculto». */ ?>
+        <a class="admin-sidebar__brand" href="<?php echo htmlspecialchars($panelInicio ?? '/admin', ENT_QUOTES, 'UTF-8'); ?>" title="Casa Pestalozzi">
             <span class="admin-sidebar__brand-mark" aria-hidden="true">CP</span>
             <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
                      Sin enlace: ya vamos dentro del <a> de la marca, y un <a>

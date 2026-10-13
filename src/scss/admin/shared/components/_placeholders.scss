@@ -32,7 +32,20 @@
     border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 35%, transparent);
     border-radius: 999px;
     background: color-mix(in srgb, var(--admin-gold-deep) 12%, transparent);
-    color: var(--accent-deep);
+    // Era `--accent-deep`, un nombre público que dentro de .admin-body no
+    // existe: la declaración caía a `inherit` y el rótulo salía en la tinta
+    // del bloque en vez del tono de su propia pastilla.
+    color: var(--admin-gold-deep);
     font-size: 13px;
     font-weight: 700;
+}
+
+/* Módulo oculto por el administrador: misma superficie que el provisional,
+   con las dos salidas (volver a encenderlo o seguir con otro módulo). */
+.admin-module-hidden__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
 }

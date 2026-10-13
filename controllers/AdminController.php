@@ -6,13 +6,24 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use MVC\Router;
 use Services\Analytics\Analiticas;
+use Services\Configuration\ModuloVisibilidadService;
 use Services\Analytics\AreasMejora;
 use Services\Shared\RangoPeriodo;
 
 class AdminController
 {
+    /*
+     * Catálogo de módulos del panel: lo pinta el sidebar y lo filtra
+     * ModuloVisibilidadService según lo que el administrador ocultó.
+     *
+     * 'rutas' son los prefijos de URL que pertenecen al módulo, para que la
+     * guardia de visibilidad cierre también sus subpáginas y formularios. Sin
+     * la clave vale 'path'; sólo la declaran los módulos cuya URL no coincide
+     * con su ruta de entrada o que conservan redirecciones de nombres viejos.
+     */
     public const MODULES = [
         'analytics' => [
             'title' => 'Análisis de datos',
@@ -27,7 +38,8 @@ class AdminController
         // en Gestión de menú y aquí solo queda la composición de recetas.
         'productos' => [
             'title' => 'Recetas',
-            'path' => '/admin/recetas'
+            'path' => '/admin/recetas',
+            'rutas' => ['/admin/recetas', '/admin/productos'],
         ],
         'inventario' => [
             'title' => 'Inventario',
@@ -47,7 +59,8 @@ class AdminController
         ],
         'reservations' => [
             'title' => 'Reservaciones',
-            'path' => '/admin/reservaciones'
+            'path' => '/admin/reservaciones',
+            'rutas' => ['/admin/reservaciones', '/admin/reservations'],
         ],
         'catas' => [
             'title' => 'Catas',
@@ -77,8 +90,53 @@ class AdminController
 
     public static function index(Router $router): void
     {
-        // Fase 1: /admin usa analytics como pantalla inicial del shell interno.
-        self::analytics($router);
+        // Análisis es la pantalla inicial del shell interno, salvo que el
+        // administrador la haya ocultado: entonces /admin lleva al primer
+        // módulo visible del sidebar, que es lo que el usuario ve arriba.
+        if (ModuloVisibilidadService::esVisible('analytics')) {
+            self::analytics($router);
+            return;
+        }
+
+        header('Location: ' . ModuloVisibilidadService::rutaInicial(self::MODULES), true, 302);
+        exit;
+    }
+
+    /**
+     * Guardia de visibilidad de módulos. Corre en public/index.php justo
+     * después de Auth::proteger(), así que aquí sólo llega quien ya tiene
+     * permiso de entrar a la URL.
+     *
+     * Cierra las páginas y los formularios de un módulo oculto, no sus APIs:
+     * las de /admin/api/* las comparten varios módulos (el histórico de precios
+     * lo consultan Menú e Inventario; el buzón, todo el panel) y ocultar uno no
+     * debe romper a otro que sigue visible. El mapa operativo de reservaciones
+     * tampoco pasa por aquí: cuelga de /admin/ pero es una pantalla de piso, y
+     * el alcance de la visibilidad son las vistas del panel.
+     */
+    public static function protegerModulo(string $url): void
+    {
+        if (!str_starts_with($url, '/admin/')
+            || str_starts_with($url, '/admin/api/')
+            || $url === '/admin/login'
+            || Auth::esMapaReservacionesOperacion($url)
+            || !Auth::esAdmin()
+        ) {
+            return;
+        }
+
+        $clave = ModuloVisibilidadService::moduloDeRuta($url, self::MODULES);
+        if ($clave === null || ModuloVisibilidadService::esVisible($clave)) {
+            return;
+        }
+
+        http_response_code(403);
+        self::render('modulo-oculto', [
+            'activeModule' => $clave,
+            'title' => self::MODULES[$clave]['title'],
+            'moduloOculto' => self::MODULES[$clave],
+        ]);
+        exit;
     }
 
     public static function analytics(Router $router): void
@@ -735,7 +793,8 @@ class AdminController
 
     public static function render(string $view, array $data = []): void
     {
-        $modules = self::MODULES;
+        $modules = ModuloVisibilidadService::filtrarVisibles(self::MODULES);
+        $panelInicio = ModuloVisibilidadService::rutaInicial(self::MODULES);
         $styles = [];
         $scripts = [];
         foreach ($data as $key => $value) {

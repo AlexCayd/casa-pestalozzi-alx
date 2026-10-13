@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS subreceta_ingredientes;
 DROP TABLE IF EXISTS subrecetas;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
+DROP TABLE IF EXISTS configuracion_modulos;
 DROP TABLE IF EXISTS configuracion_pos;
 DROP TABLE IF EXISTS configuracion_reservaciones;
 DROP TABLE IF EXISTS configuracion_anuncio;
@@ -900,6 +901,29 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
   PRIMARY KEY (id),
 
   CONSTRAINT fk_configuracion_pos_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL
+);
+
+-- Visibilidad de los módulos del panel de administración. Una fila por módulo
+-- que el administrador haya tocado alguna vez; el catálogo de módulos vive en
+-- código (AdminController::MODULES), no aquí. Un módulo SIN fila es visible:
+-- así un módulo nuevo aparece solo al desplegarlo, y una base sin la tabla
+-- sigue enseñando el panel entero en vez de vaciarlo.
+-- Alcance: sólo /admin. No toca el POS de meseros, los tableros de cocina ni
+-- el mapa operativo de reservaciones, aunque éste cuelgue de /admin/.
+CREATE TABLE IF NOT EXISTS configuracion_modulos (
+  clave       VARCHAR(40) NOT NULL,
+  visible     TINYINT(1) NOT NULL DEFAULT 1,
+  updated_by  INT NULL,
+  updated_at  TIMESTAMP NOT NULL
+                DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (clave),
+
+  CONSTRAINT fk_configuracion_modulos_usuario
     FOREIGN KEY (updated_by)
     REFERENCES usuarios(id)
     ON DELETE SET NULL

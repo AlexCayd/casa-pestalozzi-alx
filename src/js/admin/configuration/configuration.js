@@ -1694,6 +1694,38 @@
         }, true);
     }
 
+    /**
+     * Visibilidad de módulos: la etiqueta de cada interruptor, el atenuado de
+     * la fila y el contador de la cabecera siguen a la casilla antes de
+     * guardar. Sin esto el rótulo decía «Visible» sobre un interruptor ya
+     * apagado hasta recargar, y se leía como si el cambio no hubiera entrado.
+     * Nada de esto persiste: lo que manda es el POST del formulario.
+     */
+    function initModuleVisibility() {
+        const form = document.querySelector('[data-modules-form]');
+        if (!form) return;
+
+        const contador = document.querySelector('[data-modules-visible-count]');
+
+        function sincronizar() {
+            let visibles = 0;
+            form.querySelectorAll('.admin-modules-item').forEach(function (fila) {
+                const input = fila.querySelector('input[type="checkbox"]');
+                const encendido = Boolean(input && input.checked);
+                if (encendido) visibles += 1;
+                fila.classList.toggle('is-hidden', !encendido);
+
+                const estado = fila.querySelector('[data-module-state]');
+                if (estado) estado.textContent = encendido ? 'Visible' : 'Oculto';
+            });
+            if (contador) contador.textContent = String(visibles);
+        }
+
+        form.addEventListener('change', function (event) {
+            if (event.target.matches('[data-module-toggle]')) sincronizar();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!document.querySelector('[data-configuration-page]')) {
             return;
@@ -1707,5 +1739,6 @@
         initReports();
         initReservationSettings();
         initPrintingSwitch();
+        initModuleVisibility();
     });
 })();

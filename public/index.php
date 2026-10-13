@@ -42,6 +42,11 @@ $router = new Router();
 // admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
+// Visibilidad de módulos del panel: un módulo que el administrador ocultó en
+// /admin/configuracion/modulos no se puede abrir escribiendo su URL. Sólo
+// alcanza las vistas de /admin; el piso y el sitio público no pasan por aquí.
+AdminController::protegerModulo($_SERVER['PATH_INFO'] ?? '/');
+
 // Home
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
@@ -109,6 +114,8 @@ $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::cla
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
+$router->get('/admin/configuracion/modulos', [AdminConfigurationController::class, 'modules']);
+$router->post('/admin/configuracion/modulos', [AdminConfigurationController::class, 'guardarModulos']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.

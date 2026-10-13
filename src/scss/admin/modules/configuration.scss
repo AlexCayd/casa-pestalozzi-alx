@@ -611,6 +611,117 @@
   line-height: 1.55;
 }
 
+/*
+ * Visibilidad de módulos. Una fila por módulo del sidebar, con su mismo icono
+ * y en su mismo orden, para que se reconozca de un vistazo qué entrada del
+ * menú lateral se está apagando. La fila oculta se atenúa pero no se tacha ni
+ * se tiñe de rojo: ocultar no es un error ni algo que haya que atender.
+ */
+.admin-modules-count {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  white-space: nowrap;
+
+  .admin-num {
+    color: var(--admin-text);
+    font-weight: 600;
+  }
+}
+
+.admin-modules-form {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-modules-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  @include mixins.down(vars.$breakpoint-tablet) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-modules-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  transition: background var(--admin-t-base) var(--admin-ease-out);
+
+  &__icon {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    transition: color var(--admin-t-base) var(--admin-ease-out);
+
+    svg {
+      stroke-width: 1.75;
+    }
+  }
+
+  &__body {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  &__title {
+    overflow: hidden;
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &__path {
+    overflow: hidden;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // El rótulo del interruptor cambia entre «Visible» y «Oculto»; con ancho
+  // fijo el interruptor no baila al cambiar de palabra.
+  &__switch .admin-switch__label {
+    min-width: 7.5em;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &.is-hidden {
+    background: var(--admin-surface-soft);
+
+    .admin-modules-item__icon,
+    .admin-modules-item__title {
+      color: var(--admin-faint);
+    }
+
+    .admin-modules-item__icon {
+      background: var(--admin-surface);
+    }
+  }
+}
+
 // Sin rejilla ni `gap`: la separación con las acciones la pone el margin-top de
 // .admin-config-form-actions, como en el horario semanal. Con los dos sumados
 // el botón quedaba a 36 px de la fila, el doble que en la pantalla hermana.
@@ -1174,6 +1285,17 @@
 
   .admin-config-grid {
     grid-template-columns: 1fr;
+  }
+
+  // En un teléfono el interruptor con su rótulo le dejaba al nombre del
+  // módulo unos 80 px: baja a una segunda línea bajo el título.
+  .admin-modules-item {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 4px;
+  }
+
+  .admin-modules-item__switch {
+    grid-column: 2;
   }
 
   .admin-config-option {

@@ -11,6 +11,7 @@ use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Notifications\ReservacionNotificacionConfigService;
 use Services\Configuration\ReporteSistemaService;
+use Services\Configuration\ModuloVisibilidadService;
 
 class AdminConfigurationController
 {
@@ -21,6 +22,7 @@ class AdminConfigurationController
     private const POS_PATH = '/admin/configuracion/pos';
     private const POS_IMPRESION_PATH = '/admin/configuracion/pos/impresion';
     private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
+    private const MODULES_PATH = '/admin/configuracion/modulos';
 
     public static function index(Router $router): void
     {
@@ -53,6 +55,12 @@ class AdminConfigurationController
                     'descripcion' => 'Asignación de mesero al abrir una mesa y el interruptor del servicio de impresión.',
                     'ruta' => self::POS_PATH,
                     'icono' => '<rect x="4" y="3" width="16" height="13" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="M8 8h8"/>',
+                ],
+                [
+                    'titulo' => 'Visibilidad de módulos',
+                    'descripcion' => 'Elige qué módulos aparecen en el panel de administración y cuáles se ocultan.',
+                    'ruta' => self::MODULES_PATH,
+                    'icono' => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
                 ],
                 [
                     'titulo' => 'Reportes del sistema',
@@ -414,6 +422,73 @@ class AdminConfigurationController
         }
 
         self::renderPos(self::valoresPosTrasFallo(['impresion_activa' => $activa]), $alertas);
+    }
+
+    /** GET /admin/configuracion/modulos — qué módulos enseña el panel. */
+    public static function modules(Router $router): void
+    {
+        $alertas = ((string) ($_GET['resultado'] ?? '')) === 'modulos_actualizados'
+            ? ['exito' => ['La visibilidad de los módulos se actualizó. El menú lateral ya refleja los cambios.']]
+            : [];
+
+        self::renderModules(null, $alertas);
+    }
+
+    /** POST /admin/configuracion/modulos — guarda el catálogo completo de una vez. */
+    public static function guardarModulos(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::MODULES_PATH);
+        }
+
+        // Las casillas apagadas no viajan: la ausencia de una clave es el «oculto».
+        $visibles = array_values(array_filter(
+            is_array($_POST['visible'] ?? null) ? $_POST['visible'] : [],
+            static fn ($clave): bool => is_string($clave) && isset(AdminController::MODULES[$clave])
+        ));
+
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+            self::renderModules($visibles, ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']]);
+            return;
+        }
+
+        try {
+            ModuloVisibilidadService::guardar(AdminController::MODULES, $visibles, self::usuarioAutenticadoId());
+            self::redirect(self::MODULES_PATH . '?resultado=modulos_actualizados');
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarModulos - ' . $e->getMessage());
+            self::renderModules($visibles, ['error' => ['No fue posible guardar la visibilidad de los módulos. Revisa que exista la tabla `configuracion_modulos` e intenta de nuevo.']]);
+        }
+    }
+
+    /**
+     * @param array<int, string>|null $visibles Lo que el usuario acababa de
+     *        marcar cuando el guardado falla; null para leer lo guardado.
+     */
+    private static function renderModules(?array $visibles, array $alertas): void
+    {
+        $marcados = $visibles !== null ? array_fill_keys($visibles, true) : null;
+        $modulos = [];
+        foreach (AdminController::MODULES as $clave => $modulo) {
+            $bloqueado = ModuloVisibilidadService::esBloqueado($clave);
+            $modulos[] = [
+                'clave' => $clave,
+                'titulo' => $modulo['title'],
+                'ruta' => $modulo['path'],
+                'bloqueado' => $bloqueado,
+                'visible' => $bloqueado || ($marcados !== null
+                    ? isset($marcados[$clave])
+                    : ModuloVisibilidadService::esVisible($clave)),
+            ];
+        }
+
+        self::render('configuration/modules', [
+            'title' => 'Visibilidad de módulos',
+            'topbarSection' => 'Configuración',
+            'modulosVisibilidad' => $modulos,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+        ]);
     }
 
     public static function reservations(Router $router): void
