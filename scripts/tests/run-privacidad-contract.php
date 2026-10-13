@@ -93,7 +93,6 @@ $admin = PosReservacionSerializer::reservacion(
         'estado' => 'confirmada',
         'updated_at' => '2026-08-15 12:00:00',
     ],
-    null,
     [],
     new DateTimeImmutable('2026-08-16 10:00:00')
 );
@@ -106,29 +105,18 @@ $publicService = file_get_contents($root . '/services/Reservations/ReservacionPu
 $landing = file_get_contents($root . '/views/home/_reserva.php');
 $form = file_get_contents($root . '/src/js/modules/form.js');
 $access = file_get_contents($root . '/src/js/modules/reservation-access.js');
-$pos = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $exporter = file_get_contents($root . '/n8n/exportar.js');
-$n8nSuggestionWorkflow = file_get_contents($root . '/n8n/sugerencias.json');
-$n8nFeedbackWorkflow = file_get_contents($root . '/n8n/areas-de-mejora.json');
 $browserBundles = [
     $root . '/assets/js/bundle.min.js',
     $root . '/public/build/js/bundle.min.js',
-    $root . '/public/build/js/admin/map.js',
 ];
 
 assertPrivacidad(str_contains($otpService, 'ReservationConfirmationService'), 'OTP delega transporte después del commit');
 assertPrivacidad(!str_contains($publicService, 'preview_code'), 'flujo público retiró el contrato preview heredado');
 assertPrivacidad(str_contains($form, 'development_confirmation_code'), 'landing consume sólo el campo explícito de development');
 assertPrivacidad(!str_contains($access, 'preview_code') && !str_contains($access, 'renderPreview'), 'gestión pública no consume preview OTP');
-assertPrivacidad(!str_contains($pos, '<dt>Contacto</dt>') && !str_contains($pos, 'Sin contacto'), 'UI POS no renderiza contacto');
-assertPrivacidad(!str_contains($pos, 'mostrarContextoAdmin'), 'UI POS no activa contexto administrativo');
 assertPrivacidad(!preg_match('/name=["\']alergias?["\']/iu', $landing), 'landing no persiste alergias en un campo dedicado');
 assertPrivacidad(!str_contains($exporter, 'pinData'), 'exportador n8n no versiona pinData');
-foreach ([$n8nSuggestionWorkflow, $n8nFeedbackWorkflow] as $workflow) {
-    assertPrivacidad(!str_contains($workflow, 'pinData'), 'workflow n8n no versiona pinData');
-    assertPrivacidad(!str_contains($workflow, 'r.email'), 'workflow n8n no consulta correo de reservaciones');
-    assertPrivacidad(!str_contains($workflow, 'cliente_email'), 'workflow n8n no recibe correo de cliente');
-}
 foreach ($browserBundles as $browserBundle) {
     $browserContents = file_get_contents($browserBundle);
     assertPrivacidad(

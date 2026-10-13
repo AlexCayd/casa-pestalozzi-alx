@@ -40,7 +40,6 @@ $snapshot = PosReservacionSerializer::reservacion(
         'mesa_ids' => [7, 2],
         'updated_at' => $marca,
     ],
-    null,
     [],
     new DateTimeImmutable('2026-08-11 12:00:00', ReservacionConfig::timezone()),
     ['incluir_contexto_administrativo' => true]

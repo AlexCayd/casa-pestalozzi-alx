@@ -70,7 +70,6 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
     $mesaEstado = MesaEstadoService::normalizarMesas(
         [$mesa],
         [$reservacion],
-        [],
         '2026-08-06',
         $ahoraConsulta,
         $hora,
@@ -85,7 +84,7 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
     assertMesaFacts($mesaEstado['reservacion_estado'] === 'confirmada', "reservacion_estado {$hora}");
     if ($hora >= '13:30:00') {
         assertMesaFacts($mesaEstado['ausencia_pendiente'] === true, "ausencia pendiente {$hora}");
-        assertMesaFacts($mesaEstado['reservacion_influye_en_disponibilidad'] === false, "ausencia libera influencia {$hora}");
+        assertMesaFacts($mesaEstado['reservacion_influye_en_disponibilidad'] === true, "sin señal de llegada, la ausencia conserva la influencia {$hora}");
         assertMesaFacts(
             $mesaEstado['disponible_para_asignacion'] === ($hora === '14:30:00'),
             "la asignación sólo vuelve al terminar el intervalo: {$hora}"
@@ -98,7 +97,6 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
 $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
     [$mesa],
     [$reservacion],
-    [],
     '2026-08-06',
     new DateTimeImmutable('2026-08-06 13:05:00', ReservacionConfig::timezone()),
     '13:05:00',
@@ -114,7 +112,6 @@ $otraReservacion = [
 $ausenciaConOtra = MesaEstadoService::normalizarMesas(
     [$mesa],
     [$reservacion, $otraReservacion],
-    [],
     '2026-08-06',
     new DateTimeImmutable('2026-08-06 13:16:00', ReservacionConfig::timezone()),
     '13:30:00',
@@ -143,7 +140,6 @@ $ticket = [
 $ticketFuturo = MesaEstadoService::normalizarMesas(
     [$mesa],
     [],
-    [$ticket],
     '2026-08-07',
     $ahora,
     '14:00:00',
@@ -176,7 +172,6 @@ foreach ($capacidadesPorElemento as [$id, $tipo, $nombre, $reservable, $activo, 
             'capacidad' => $tipo === 'mesa' ? 4 : 0,
         ]],
         [],
-        [],
         '2026-08-06',
         $ahora,
         '12:00:00',
@@ -202,7 +197,6 @@ $estadoBarra = MesaEstadoService::normalizarMesas(
         'activo' => 1,
         'reservable' => 0,
     ]],
-    [],
     [],
     '2026-08-06',
     $ahora,

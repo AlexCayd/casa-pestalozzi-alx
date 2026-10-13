@@ -96,10 +96,6 @@ assertContract(stripos($decisionPos['mensaje'], '13:00') !== false, 'decision PO
 assertContract($decisionPos['acciones'][0]['id'] === 'VOLVER', 'decision POS ofrece volver');
 assertContract($decisionPos['acciones'][1]['id'] === 'CONFIRMAR_APERTURA', 'decision POS ofrece abrir ticket');
 
-$ticketCreado = ReservacionErrorCatalog::presentar('TICKET_CREADO');
-assertContract($ticketCreado['tipo'] === ReservacionErrorCatalog::TIPO_EXITO, 'ticket creado usa tipo exito');
-assertContract($ticketCreado['commit'] === true, 'ticket creado confirma el commit');
-assertContract($ticketCreado['acciones'][0]['id'] === 'CERRAR', 'ticket creado expone accion de cierre');
 
 $creada = ReservacionErrorCatalog::presentar('RESERVACION_CREADA', [
     'reservacion_id' => 77,

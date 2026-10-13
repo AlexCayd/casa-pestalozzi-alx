@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\Pos\TicketTemporalService;
 use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionMapaMesaPresenter;
@@ -83,7 +82,6 @@ function mapMatrixState(string $hora, string $ahora, array $options = []): array
     $rows = MesaEstadoService::normalizarMesas(
         [$options['mesa'] ?? $mesa],
         $reservaciones,
-        $tickets,
         $fecha,
         new DateTimeImmutable($ahora, ReservacionConfig::timezone()),
         $hora,
@@ -177,31 +175,8 @@ assertMapMatrix($absence['ausencia_pendiente'], 'V09: la ausencia posterior a to
 $noShow = mapMatrixState('12:20:00', $fecha . ' 12:20:00', ['reservacion' => mapMatrixReservation('12:00:00', 'no_show')]);
 assertScenario('V10', $noShow, 'libre', 'Disponible', false, true);
 
-// V11–V15: un ticket tiene su proyección y POS conserva la realidad física.
-$ticketRecent = ['id' => 91, 'hora_apertura' => $fecha . ' 09:10:00'];
-$ticketOld = ['id' => 92, 'hora_apertura' => $fecha . ' 09:10:00'];
-assertScenario('V11', mapMatrixState('09:30:00', $fecha . ' 09:00:00', ['ticket' => $ticketRecent, 'causas' => ['ticket']]), 'ocupada', 'Ocupada por servicio activo', true, false);
-$ticketAfterRelease = mapMatrixState('10:41:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld]);
-assertScenario('V12', $ticketAfterRelease, 'libre', 'Disponible', false, true);
-assertMapMatrix($ticketAfterRelease['ticket_abierto_hecho'] && $ticketAfterRelease['ocupada_fisicamente'], 'V12: ticket aún abierto físicamente');
-assertMapMatrix($ticketAfterRelease['estado_visual_pos'] === 'ocupada', 'V12: POS sigue rojo mientras el ticket esté abierto');
-$ticketAtRelease = mapMatrixState('10:40:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld]);
-assertScenario('V13', $ticketAtRelease, 'libre', 'Disponible', false, true);
-assertMapMatrix($ticketAtRelease['estado_visual_pos'] === 'ocupada', 'V13: POS no confunde proyección con cierre físico');
-$ticketWarning = mapMatrixState('11:00:00', $fecha . ' 09:00:00', [
-    'reservacion' => mapMatrixReservation('11:45:00'),
-    'ticket' => ['id' => 93, 'hora_apertura' => $fecha . ' 10:00:00'],
-    'causas' => ['ticket', 'reservacion'],
-]);
-assertScenario('V14', $ticketWarning, 'ocupada', 'Ocupada por servicio activo', true, false, ['reservacion_advertencia']);
-$ticketAndReservation = mapMatrixState('12:00:00', $fecha . ' 09:00:00', [
-    'reservacion' => $atNoon,
-    'ticket' => ['id' => 94, 'hora_apertura' => $fecha . ' 11:30:00'],
-    'causas' => ['ticket', 'reservacion'],
-]);
-assertScenario('V15', $ticketAndReservation, 'ocupada', 'Ocupada por servicio activo', true, false);
-
 // V16–V22: restricciones, selección, edición propia y estado no verificado.
+// V11–V15 y V21 probaban tickets del punto de venta, que ya no existe.
 $hold = mapMatrixState('10:00:00', $nowMorning, ['causas' => ['hold']]);
 assertScenario('V16', $hold, 'ocupada', 'No disponible por retención', true, false);
 assertMapMatrix(!$hold['disponible_para_ticket'], 'V16: el hold vigente no permite abrir ticket en POS');
@@ -222,12 +197,6 @@ $selectedBlue = mapMatrixState('11:45:00', $nowMorning, [
     'asignacion_disponible' => true,
 ]);
 assertScenario('V20', $selectedBlue, 'reservacion-proxima', 'Reservación próxima', true, true);
-$selectedRed = mapMatrixState('09:30:00', $fecha . ' 09:00:00', [
-    'ticket' => $ticketRecent,
-    'causas' => ['ticket'],
-    'asignada_actualmente' => true,
-]);
-assertScenario('V21', $selectedRed, 'ocupada', 'Ocupada por servicio activo', true, false);
 $ownReservation = mapMatrixState('12:00:00', $nowMorning, [
     'reservacion' => $atNoon,
     'causas' => ['reservacion'],
@@ -292,32 +261,6 @@ foreach ($boundaryWindows as $time => $expected) {
         ]);
         assertMapMatrix($visual['estado_visual'] === 'reservacion-proxima', "invariante C: {$time} es bloqueo previo azul");
     }
-}
-
-// Los tickets usan el mismo fin semiabierto y duración canónica de la reserva.
-$ticket = [
-    'id' => 99,
-    'estado' => 'abierto',
-    'closed_at' => null,
-    'hora_apertura' => $fecha . ' 09:10:00',
-    'mesa_ids' => [14],
-    'ticket_abierto' => true,
-];
-foreach ([
-    '10:39:59' => true,
-    '10:40:00' => false,
-    '10:40:01' => false,
-] as $time => $blocks) {
-    $projection = TicketTemporalService::proyectar(
-        $ticket,
-        $fecha,
-        $time,
-        new DateTimeImmutable($fecha . ' 10:00:00', ReservacionConfig::timezone())
-    );
-    assertMapMatrix(
-        $projection['bloquea_en_consulta'] === $blocks,
-        "ticket hasta límite exclusivo en {$time}"
-    );
 }
 
 fwrite(STDOUT, "Reservaciones: matriz V01–V29, proyección temporal y límites semiabiertos OK\n");

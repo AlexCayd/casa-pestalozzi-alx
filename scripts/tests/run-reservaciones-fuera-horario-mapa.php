@@ -27,7 +27,7 @@ $reservation = PosReservacionSerializer::reservacion([
     'comensales' => 4,
     'mesa_ids' => [14],
     'hold_expires_at' => null,
-], null, [], $now, [
+], [], $now, [
     'horario_efectivo' => [
         'abierto' => true,
         'hora_apertura' => '12:00:00',
@@ -63,7 +63,7 @@ $baseFacts = [
     'tickets_por_mesa' => [],
 ];
 $pin = MesaEstadoService::normalizarMesas(
-    [$table], $projectionReservations, [], '2026-08-19', $now, '13:00:00', $baseFacts
+    [$table], $projectionReservations, '2026-08-19', $now, '13:00:00', $baseFacts
 )[0];
 assertFueraHorarioMapa($pin['estado_visual_mapa'] === 'libre', 'la reservación excluida no colorea el pin');
 assertFueraHorarioMapa($pin['modificadores_visual_mapa'] === [], 'la reservación excluida no agrega indicadores al pin');
@@ -73,7 +73,7 @@ $independentBlock['mesa_ids_bloqueadas'] = [14];
 $independentBlock['causas_bloqueo_por_mesa'] = [14 => ['hold']];
 $independentBlock['mesas'] = [14 => ['fuente' => 'hold']];
 $blockedPin = MesaEstadoService::normalizarMesas(
-    [$table], $projectionReservations, [], '2026-08-19', $now, '13:00:00', $independentBlock
+    [$table], $projectionReservations, '2026-08-19', $now, '13:00:00', $independentBlock
 )[0];
 assertFueraHorarioMapa($blockedPin['estado_visual_mapa'] === 'ocupada', 'un bloqueo independiente conserva rojo');
 assertFueraHorarioMapa(

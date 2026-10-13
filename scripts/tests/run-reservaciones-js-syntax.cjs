@@ -5,7 +5,6 @@ const childProcess = require('child_process');
 const root = path.resolve(__dirname, '..', '..');
 const files = [
   'src/js/components/confirmation-modal.js',
-  'src/js/modules/punto-de-venta.js',
   'src/js/admin/reservations/form.js',
   'src/js/admin/reservations/operation.js',
   'src/js/operation/map-visual.js',
@@ -35,27 +34,15 @@ for (const relative of files) {
 }
 
 const modal = fs.readFileSync(path.join(root, files[0]), 'utf8');
-const pos = fs.readFileSync(path.join(root, files[1]), 'utf8');
-const form = fs.readFileSync(path.join(root, files[2]), 'utf8');
-const operation = fs.readFileSync(path.join(root, files[3]), 'utf8');
-const mapVisual = fs.readFileSync(path.join(root, files[4]), 'utf8');
-const tableAdapter = fs.readFileSync(path.join(root, files[5]), 'utf8');
-const mapContract = fs.readFileSync(path.join(root, files[12]), 'utf8');
+const form = fs.readFileSync(path.join(root, files[1]), 'utf8');
+const operation = fs.readFileSync(path.join(root, files[2]), 'utf8');
+const mapVisual = fs.readFileSync(path.join(root, files[3]), 'utf8');
+const tableAdapter = fs.readFileSync(path.join(root, files[4]), 'utf8');
+const mapContract = fs.readFileSync(path.join(root, files[11]), 'utf8');
 const gulpfile = fs.readFileSync(path.join(root, 'gulpfile.js'), 'utf8');
-const operationPolicy = fs.readFileSync(path.join(root, files[6]), 'utf8');
+const operationPolicy = fs.readFileSync(path.join(root, files[5]), 'utf8');
 const mapShell = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
-assertContract(!pos.includes('warningsLocalesParaTicket'), 'POS no filtra reservaciones proximas localmente');
-assertContract(!pos.includes("reserva.ventana_operativa || '') !== '30_60'"), 'POS no decide por ventana 30_60');
-assertContract(pos.includes('confirmar_reservacion_proxima = 0'), 'POS envia confirmacion falsa en la primera peticion');
-assertContract(pos.includes("resultado.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
-assertContract(pos.includes('bloqueo.presentacion'), 'POS renderiza la presentacion de cada bloqueo');
-assertContract(!pos.includes('bloqueo.motivo'), 'POS no renderiza motivo interno');
-// El aviso ya no se desmonta a mano: get() reutiliza el singleton de <body>, asi
-// que no queda ningun root huerfano que recoger al cerrar el modal de mesa.
-assertContract(!pos.includes('ConfirmationModal.create'), 'POS no monta un root nuevo de modal por cada aviso');
-assertContract(pos.includes('closeModal({ refresh: false })'), 'POS cierra el modal antes de refrescar tras no-show');
-assertContract(pos.includes('refreshFailed'), 'POS informa refresco fallido sin reintentar la mutacion');
 
 assertContract(!form.includes('warningCodesForSubmit'), 'formulario no calcula decisiones locales');
 assertContract(!form.includes('labels[code] || code'), 'formulario no tiene mapa local de mensajes');
@@ -89,7 +76,7 @@ for (const endpointField of ['fecha', 'hora', 'mesas_estado', 'reservaciones', '
   assertContract(!mapVisual.includes(endpointField), `el renderer no consume el campo de endpoint ${endpointField}`);
 }
 assertContract(!mapContract.includes('document'), 'map-contract.js no depende del DOM');
-for (const bundleName of ['adminMapJs: [', 'adminReservationOperationJs: [']) {
+for (const bundleName of ['adminReservationOperationJs: [']) {
   const bundleStart = gulpfile.indexOf(bundleName);
   const bundleEnd = gulpfile.indexOf('],', bundleStart);
   const bundleSources = gulpfile.slice(bundleStart, bundleEnd);
@@ -121,7 +108,6 @@ assertContract(operation.includes('candidateSelectionIds'), 'operacion separa se
 assertContract(!operation.includes('state.mesasSeleccionadas'), 'operacion no reutiliza una coleccion ambigua de mesas');
 assertContract(operation.includes('mesa_ids_actuales[]'), 'operacion envia el snapshot actual al backend');
 assertContract(operation.includes('ReservationOperationPolicy.mesaPuedeSerCandidata'), 'operacion delega candidatura en la política temporal');
-assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
 assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
 assertContract(mapVisual.includes("data-disabled', isInteractive ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
@@ -141,11 +127,10 @@ assertContract(modal.includes('Decisión de reservación sin acciones canónicas
 assertContract(modal.includes('current.decisionActions'), 'ConfirmationModal configura botones desde acciones');
 assertContract(modal.includes('primaryCloses === false') && modal.includes('close(true, { action: \'primary\''), 'ConfirmationModal cierra al completar correctamente');
 assertContract(modal.includes("setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true)") && !modal.includes("settle({ action: 'error'"), 'ConfirmationModal conserva abierto el modal ante rechazo');
-assertContract(pos.includes('reservacion_programada') && pos.includes('Todavía no hay acciones disponibles.'), 'POS presenta reservación propia futura como información');
 
 const vm = require('vm');
 const policyContext = { window: {} };
-vm.runInNewContext(operationPolicy, policyContext, { filename: files[6] });
+vm.runInNewContext(operationPolicy, policyContext, { filename: files[5] });
 const operationPolicyApi = policyContext.window.ReservationOperationPolicy;
 function modalTableContract(overrides) {
   return Object.assign({
@@ -322,9 +307,9 @@ assertContract(
 );
 
 const adapterContext = { window: {} };
-vm.runInNewContext(fs.readFileSync(path.join(root, files[12]), 'utf8'), adapterContext, { filename: files[12] });
-vm.runInNewContext(mapVisual, adapterContext, { filename: files[4] });
-vm.runInNewContext(tableAdapter, adapterContext, { filename: files[5] });
+vm.runInNewContext(fs.readFileSync(path.join(root, files[11]), 'utf8'), adapterContext, { filename: files[11] });
+vm.runInNewContext(mapVisual, adapterContext, { filename: files[3] });
+vm.runInNewContext(tableAdapter, adapterContext, { filename: files[4] });
 const adapter = adapterContext.window.MesaEstadoAdapter;
 const sharedRaw = {
   id: 1,

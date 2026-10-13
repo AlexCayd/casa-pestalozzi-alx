@@ -165,12 +165,12 @@ $dbIndividual = new ContextQueryDatabase();
 ActiveRecord::setDB($dbIndividual);
 $individual = [];
 foreach ($horarios as $hora) {
-    $individual[] = CapacidadReservacionesService::evaluarHorario($fecha, $hora, 0, false, null, $ahora);
+    $individual[] = CapacidadReservacionesService::evaluarHorario($fecha, $hora, 0, false, $ahora);
 }
 
 $dbContexto = new ContextQueryDatabase();
 ActiveRecord::setDB($dbContexto);
-$contexto = OcupacionMesasService::prepararContextoFecha($fecha, false, null, $ahora, 0, true);
+$contexto = OcupacionMesasService::prepararContextoFecha($fecha, false, $ahora, 0, true);
 $preparado = [];
 foreach ($horarios as $hora) {
     $preparado[] = CapacidadReservacionesService::evaluarHorario(
@@ -178,7 +178,6 @@ foreach ($horarios as $hora) {
         $hora,
         0,
         false,
-        null,
         $ahora,
         '',
         $contexto
@@ -216,7 +215,7 @@ $consultasIndividuales = $dbIndividual->conteos();
 $consultasContexto = $dbContexto->conteos();
 assertContextQueries($consultasIndividuales['asignaciones'] === count($horarios), 'el control individual consulta ocupación una vez por slot');
 assertContextQueries($consultasContexto['asignaciones'] === 1, 'el contexto consulta asignaciones una vez por fecha');
-assertContextQueries($consultasContexto['tickets'] === 1, 'el contexto consulta tickets una vez por fecha');
+assertContextQueries($consultasContexto['tickets'] === 0, 'el contexto ya no consulta tickets');
 assertContextQueries($consultasContexto['mesas'] === 1, 'el contexto consulta mesas una vez por fecha');
 assertContextQueries($consultasContexto['demanda_dia'] === 1, 'el contexto consulta demanda una vez por fecha');
 assertContextQueries($consultasContexto['demanda_intervalo'] === 0, 'el contexto no vuelve a consultar demanda por slot');

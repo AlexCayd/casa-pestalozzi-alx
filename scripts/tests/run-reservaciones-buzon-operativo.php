@@ -35,9 +35,8 @@ $topbarView = file_get_contents($root . '/views/admin/partials/_topbar.php');
 $impactService = file_get_contents($root . '/services/Scheduling/HorarioOperacionImpactoService.php');
 $reservationModel = file_get_contents($root . '/models/Reservacion.php');
 $mapService = file_get_contents($root . '/services/Reservations/ReservacionMapaAdministrativaService.php');
-$posJs = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 
-foreach ([$service, $generic, $controller, $critical, $reservationView, $routes, $inboxJs, $inboxView, $topbarView, $impactService, $reservationModel, $mapService, $posJs] as $source) {
+foreach ([$service, $generic, $controller, $critical, $reservationView, $routes, $inboxJs, $inboxView, $topbarView, $impactService, $reservationModel, $mapService] as $source) {
     buzonAssert(is_string($source), 'se pudieron leer los contratos operativos');
 }
 
@@ -47,8 +46,8 @@ buzonAssert(ReservacionBuzonService::dedupAusencia(41) === 'reservacion_ausencia
 buzonAssert(ReservacionBuzonService::dedupSinAsignacion(41) === 'reservacion_sin_asignacion_proxima:41', 'deduplicación de asignación');
 buzonAssert(str_contains($service, 'sincronizarPendientesTemporales'), 'sincronización temporal disponible');
 buzonAssert(str_contains($service, 'ReservacionVigenciaService::clasificar'), 'sincronizador usa vigencia canónica');
-buzonAssert(str_contains($service, 'ReservacionPoliticaPosService::evaluar'), 'sincronizador usa política POS canónica');
-buzonAssert(str_contains($service, 'TicketMesa::abiertosParaMapa'), 'sincronizador lee tickets abiertos por lote');
+buzonAssert(str_contains($service, 'ReservacionVigenciaService::clasificar'), 'sincronizador usa la vigencia canónica');
+buzonAssert(!str_contains($service, 'TicketMesa'), 'sincronizador ya no lee tickets');
 buzonAssert(str_contains($generic, 'cerrarTipoEntidadEnTransaccion'), 'cierre transaccional por tipo y entidad');
 buzonAssert(str_contains($generic, 'WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ?'), 'cierre filtra tipo y entidad');
 buzonAssert(str_contains($generic, 'requiere_accion'), 'buzón distingue acción y seguimiento');
@@ -73,7 +72,6 @@ buzonAssert(str_contains($inboxView, 'Por atender') && str_contains($inboxView, 
 buzonAssert(str_contains($inboxJs, 'Reenviar aviso') && str_contains($inboxJs, 'Abrir reservación') && str_contains($inboxJs, 'Registrar que no llegó'), 'acciones del buzón usan copy canónico');
 buzonAssert(str_contains($reservationModel, "r.estado NOT IN ('pendiente_verificacion', 'expirada')"), 'listado admin excluye holds por defecto');
 buzonAssert(str_contains($mapService, "'fuera_horario_operacion'") && str_contains($mapService, '&& !$fueraHorarioOperacion'), 'mapa separa seguimiento de proyección');
-buzonAssert(str_contains($posJs, 'Fuera de horario de operación'), 'POS presenta el mismo indicador');
 
 $zona = ReservacionConfig::timezone();
 $ahora = new DateTimeImmutable('2026-08-19 13:00:00', $zona);
@@ -87,7 +85,7 @@ $ausencia = [
 ];
 $vigenciaAusencia = ReservacionVigenciaService::clasificar($ausencia, $ahora, null);
 buzonAssert($vigenciaAusencia['ausencia_pendiente'] === true, 'ausencia después de tolerancia');
-buzonAssert($vigenciaAusencia['puede_marcar_no_show'] === true, 'no-show permitido sin ticket');
+buzonAssert($vigenciaAusencia['puede_marcar_no_show'] === true, 'no-show permitido tras la tolerancia');
 
 $proxima = $ausencia;
 $proxima['id'] = 42;
@@ -106,7 +104,6 @@ buzonAssert($politicaCritica['bloqueo_walk_in'] === true, 'bloqueo canónico inc
 
 $fuera = PosReservacionSerializer::reservacion(
     array_merge($proxima, ['hora' => '11:00:00']),
-    null,
     [],
     $ahora,
     ['horario_efectivo' => ['abierto' => true, 'hora_apertura' => '12:00:00', 'hora_cierre' => '18:00:00']]
@@ -134,7 +131,6 @@ $mesaMapa = [
 $estadoFuera = MesaEstadoService::normalizarMesas(
     [$mesaMapa],
     $reservacionesMapa,
-    [],
     '2026-08-19',
     $ahora,
     '13:00:00',
@@ -150,7 +146,6 @@ buzonAssert($estadoFuera['modificadores_visual_mapa'] === [], 'pin de seguimient
 $estadoConflicto = MesaEstadoService::normalizarMesas(
     [$mesaMapa],
     $reservacionesMapa,
-    [],
     '2026-08-19',
     $ahora,
     '13:00:00',

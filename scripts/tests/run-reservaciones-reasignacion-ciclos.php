@@ -43,7 +43,6 @@ $render = static function (array $assignmentIds) use ($mesas, $evaluacionLibre):
     $estados = MesaEstadoService::normalizarMesas(
         $mesas,
         [],
-        [],
         '2026-08-08',
         new DateTimeImmutable('2026-08-08 12:00:00', ReservacionConfig::timezone()),
         '12:00:00',
@@ -100,7 +99,6 @@ foreach ($secuencias as $nombre => $ciclo) {
                 'mesa_ids' => $assignmentIds,
                 'updated_at' => '2026-08-08 11:00:00',
             ],
-            null,
             $mesas,
             new DateTimeImmutable('2026-08-08 12:00:00', ReservacionConfig::timezone()),
             ['incluir_contexto_administrativo' => true]

@@ -82,7 +82,6 @@ foreach ($consultas as $hora => $estadoEsperado) {
     $estado = MesaEstadoService::normalizarMesas(
         [$mesa],
         [$reservacion],
-        [],
         '2026-08-08',
         $ahora,
         $hora,

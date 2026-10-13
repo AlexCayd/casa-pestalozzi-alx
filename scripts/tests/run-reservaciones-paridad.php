@@ -79,7 +79,6 @@ assertParity($capacityBlocked['capacidad_fisica_comprometida'] === 4, 'capacidad
 $mapBlocked = MesaEstadoService::normalizarMesas(
     [$mesa4],
     [$reservation],
-    [],
     '2026-08-06',
     at('12:00:00'),
     '14:00:00',
@@ -109,7 +108,6 @@ $multiReservation = array_merge($reservation, ['id' => 101, 'mesa_ids' => [7, 8]
 $multiMap = MesaEstadoService::normalizarMesas(
     [$mesa7, $mesa8],
     [$multiReservation],
-    [],
     '2026-08-06',
     at('12:00:00'),
     '14:00:00',
@@ -137,7 +135,6 @@ assertParity($unassignedCapacity['mesa_ids_bloqueadas'] === [], 'sin mesas asign
 assertParity($unassignedCapacity['demanda_no_asignada'] === 3, 'sin mesas asignadas reduce demanda');
 $unassignedMap = MesaEstadoService::normalizarMesas(
     [$mesa4],
-    [],
     [],
     '2026-08-06',
     at('12:00:00'),
@@ -171,7 +168,6 @@ $ticketEvaluation = [
 $ticketMap = MesaEstadoService::normalizarMesas(
     [$mesa4],
     [],
-    [$ticket],
     '2026-08-06',
     at('14:00:00'),
     '14:00:00',
@@ -187,7 +183,6 @@ $releasedEvaluation['tickets_por_mesa'][4]['bloquea_en_consulta'] = false;
 $releasedMap = MesaEstadoService::normalizarMesas(
     [$mesa4],
     [],
-    [$ticket],
     '2026-08-06',
     at('16:00:00'),
     '16:00:00',
@@ -217,7 +212,6 @@ assertParity($alternativeCapacity['mesa_ids_bloqueadas'] === [4], 'duracion alte
 $alternativeMap = MesaEstadoService::normalizarMesas(
     [$mesa4],
     [$reservation],
-    [],
     '2026-08-06',
     at('12:00:00'),
     '13:01:00',
