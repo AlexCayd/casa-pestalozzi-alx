@@ -1167,8 +1167,7 @@
   margin-bottom: 0;
 }
 
-.admin-config-table-wrap[hidden],
-[data-report-empty][hidden] {
+.admin-config-table-wrap[hidden] {
   display: none;
 }
 
@@ -1180,65 +1179,6 @@
 }
 .admin-exception-times[hidden] {
   display: none;
-}
-
-.admin-report-detail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.admin-report-detail > div {
-  min-width: 0;
-  padding: 13px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface-soft);
-}
-.admin-report-detail__wide {
-  grid-column: 1/-1;
-}
-.admin-report-detail dt {
-  margin-bottom: 5px;
-  color: var(--admin-muted);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.admin-report-detail dd {
-  color: var(--admin-text);
-  font-size: 14px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.admin-report-detail__open {
-  margin-top: 8px;
-}
-.admin-report-detail__open[hidden] {
-  display: none;
-}
-
-.admin-report-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--admin-border-soft);
-}
-.admin-report-status__label {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.admin-report-status__btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 @media (max-width: 768px) {
@@ -1322,8 +1262,7 @@
   }
   .admin-schedule__row,
   .admin-announcement-form,
-  .admin-config-filters,
-  .admin-report-detail {
+  .admin-config-filters {
     grid-template-columns: 1fr;
   }
   .admin-schedule__row {
@@ -1332,8 +1271,7 @@
   .admin-reservation-settings__row {
     padding: 16px;
   }
-  .admin-announcement-form__wide,
-  .admin-report-detail__wide {
+  .admin-announcement-form__wide {
     grid-column: auto;
   }
   .admin-datetime-field__controls {

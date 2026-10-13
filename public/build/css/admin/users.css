@@ -54,32 +54,6 @@
   font-size: 12px;
   line-height: 1.3;
 }
-.admin-users {
-  /* ── Etiqueta de rol ────────────────────────────────────────
-     Sin punto y sin borde tintado: tres píldoras de colores saturados en una
-     columna angosta competían con los datos. Queda un tinte tenue por rol —
-     siguen siendo tres alcances distintos (todo / punto de venta / tableros)
-     y conviene distinguirlos— y un ancho fijo para que la columna no baile
-     entre "Mesero" y "Administrador".
-
-     La caja y el mecanismo del tinte se fueron a .admin-tag en _tables.scss, y
-     el marcado compone las dos clases (`admin-tag admin-role admin-role--x`)
-     como hace .admin-btn. No se puede @extend: users.scss es un entry point
-     propio y .admin-tag vive en admin.css, otra compilación.
-     Aquí quedan el ancho mínimo, que es propio de esta columna, y los tonos. */
-}
-.admin-users .admin-role {
-  min-width: 118px;
-}
-.admin-users .admin-role--admin {
-  --admin-tag-tono: var(--admin-c-magenta);
-}
-.admin-users .admin-role--waiter {
-  --admin-tag-tono: var(--admin-c-azul);
-}
-.admin-users .admin-role--cook {
-  --admin-tag-tono: var(--admin-c-naranja);
-}
 .admin-users .admin-table th,
 .admin-users .admin-table td {
   padding-block: 15px;
@@ -117,99 +91,6 @@
 }
 .admin-users-form__field.admin-users-access-status-card .admin-users-form__hint {
   margin: 0;
-}
-
-.admin-users-access-card .admin-btn--secondary {
-  border-color: color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border));
-  background: color-mix(in srgb, var(--admin-gold) 12%, var(--admin-surface-soft));
-  color: var(--admin-text);
-}
-.admin-users-access-card .admin-btn--secondary:hover {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface-soft));
-}
-
-.admin-users-access-card__status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold) 36%, var(--admin-border));
-  border-radius: var(--admin-radius-sm);
-  background: color-mix(in srgb, var(--admin-gold) 10%, var(--admin-surface-soft));
-  color: var(--admin-gold-soft);
-  font-size: 12px;
-  font-weight: 700;
-}
-.admin-users-access-card__status[hidden] {
-  display: none;
-}
-
-.confirmation-modal--user-nip .confirmation-modal__dialog {
-  width: min(480px, 100vw - 32px);
-}
-.confirmation-modal--user-nip .confirmation-modal__description {
-  max-width: 42ch;
-}
-
-.admin-user-nip-modal__code {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 18px 16px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold) 42%, var(--admin-border));
-  border-radius: var(--admin-radius-md);
-  background: color-mix(in srgb, var(--admin-gold) 8%, var(--admin-surface-soft));
-  text-align: center;
-}
-.admin-user-nip-modal__code strong {
-  color: var(--admin-gold-soft);
-  font-family: var(--admin-font-heading);
-  font-size: clamp(2.25rem, 8vw, 3.5rem);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  line-height: 1;
-  padding-left: 0.18em;
-}
-
-.admin-user-nip-modal__label {
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-user-nip-modal__progress {
-  align-self: stretch;
-  height: 6px;
-  margin-top: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold) 32%, var(--admin-border));
-  background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface));
-}
-
-.admin-user-nip-modal__progress-bar {
-  display: block;
-  width: 100%;
-  height: 4px;
-  margin: 0;
-  transform: scaleX(1);
-  transform-origin: left center;
-  border-radius: inherit;
-  background: var(--admin-gold-soft);
-}
-
-.admin-user-nip-modal__progress.is-running .admin-user-nip-modal__progress-bar {
-  transform: scaleX(0);
-  transition: transform var(--nip-modal-duration) linear;
-}
-
-.admin-user-nip-modal__auto-close {
-  color: var(--admin-muted);
-  font-size: 12px;
 }
 
 @media (max-width: 720px) {
@@ -343,33 +224,6 @@
 .admin-users-form__hint.is-invalid {
   color: var(--admin-danger-text);
 }
-.admin-users-form__hint--warn {
-  color: var(--admin-warning-text);
-}
-.admin-users-form {
-  /*
-   * Veredicto del NIP mientras se teclea. Va pegado al campo y no en la lista
-   * de errores de la cabecera: el duplicado se corregía a ciegas porque el
-   * aviso quedaba a media pantalla de distancia del input que lo causaba.
-   */
-}
-.admin-users-form__nip-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.45;
-}
-.admin-users-form__nip-status[hidden] {
-  display: none;
-}
-.admin-users-form__nip-status--libre {
-  color: var(--admin-success-text);
-}
-.admin-users-form__nip-status--ocupado {
-  color: var(--admin-danger-text);
-}
 .admin-users-form .admin-credential-step {
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: start;
@@ -456,58 +310,4 @@
   .admin-users-form__grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-/* Áreas a las que da acceso el rol seleccionado, bajo las pestañas del
-   formulario. Es informativo: se repinta al cambiar de rol, no se edita. */
-.admin-role-access {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface-soft);
-}
-
-.admin-role-access__title {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.admin-role-access__list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-role-access__item {
-  display: grid;
-  gap: 2px;
-  padding-left: 14px;
-  position: relative;
-}
-.admin-role-access__item::before {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--admin-gold);
-}
-.admin-role-access__item strong {
-  color: var(--admin-text);
-  font-size: 13px;
-  font-weight: 700;
-}
-.admin-role-access__item span {
-  color: var(--admin-muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
