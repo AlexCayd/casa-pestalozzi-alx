@@ -15,17 +15,6 @@ class AdminController
             'title' => 'Menú',
             'path' => '/admin/menu'
         ],
-        // La clave se conserva ('productos') porque _sidebar.php ya mapea ese
-        // icono; lo que cambió es el módulo: los datos del platillo se editan
-        // en Gestión de menú y aquí solo queda la composición de recetas.
-        'productos' => [
-            'title' => 'Recetas',
-            'path' => '/admin/recetas'
-        ],
-        'inventario' => [
-            'title' => 'Inventario',
-            'path' => '/admin/inventario'
-        ],
         'reservations' => [
             'title' => 'Reservaciones',
             'path' => '/admin/reservaciones'

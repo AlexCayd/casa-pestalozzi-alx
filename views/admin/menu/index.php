@@ -61,7 +61,7 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Menú</h2>
-            <p class="admin-page__subtitle">Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.</p>
+            <p class="admin-page__subtitle">Los platillos de la carta pública y de los dos PDF salen todos de aquí.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="/admin/menu/categorias">Categorías</a>

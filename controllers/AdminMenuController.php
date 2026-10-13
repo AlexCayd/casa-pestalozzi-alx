@@ -14,11 +14,9 @@ namespace Controllers;
 
 use Classes\ImagenUploader;
 use Model\CategoriasMenu;
-use Model\HistorialPrecio;
 use Model\Producto;
 use MVC\Router;
 use Services\Menu\CategoriaMenuService;
-use Services\Inventory\HistorialPrecios;
 use Services\Menu\MenuPdf;
 
 class AdminMenuController
@@ -105,11 +103,6 @@ class AdminMenuController
                 $resultado = $platillo->guardar();
 
                 if ($resultado && $resultado['resultado']) {
-                    HistorialPrecios::registrarAlta(
-                        HistorialPrecio::ENTIDAD_PRODUCTO,
-                        (int) $resultado['id'],
-                        $platillo->precio
-                    );
                     Producto::setAlerta('exito', 'Platillo creado correctamente');
                     self::index($router);
                     return;
@@ -137,23 +130,11 @@ class AdminMenuController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // El precio vigente hay que leerlo antes de sincronizar: después el
-            // objeto ya trae el nuevo y no queda con qué comparar.
-            $precioAnterior = $platillo->precio;
-
             self::sincronizarPlatillo($platillo);
             $alertas = $platillo->validar();
 
             if (empty($alertas)) {
                 if ($platillo->guardar()) {
-                    // registrar() no escribe si el precio no cambió, así que
-                    // guardar sólo la descripción no ensucia el histórico.
-                    HistorialPrecios::registrar(
-                        HistorialPrecio::ENTIDAD_PRODUCTO,
-                        (int) $platillo->id,
-                        $precioAnterior,
-                        $platillo->precio
-                    );
                     Producto::setAlerta('exito', 'Platillo actualizado correctamente');
                     self::index($router);
                     return;

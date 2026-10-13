@@ -128,10 +128,9 @@
 
 /* ── Botones tintados de cabecera ──────────────────────────────
  *
- * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú,
- * «Subrecetas» e «Inventario» en Recetas. Eran todos --secondary, es decir
- * cuatro cajas idénticas donde sólo cambiaba la palabra, y para elegir había
- * que leerlas una por una. El tono les da forma reconocible.
+ * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú.
+ * Eran --secondary, es decir cajas idénticas donde sólo cambiaba la palabra, y
+ * para elegir había que leerlas una por una. El tono les da forma reconocible.
  *
  * Mismo patrón que los botones de acción del topbar: un TINTE derivado con
  * color-mix sobre --admin-surface, nunca un relleno sólido. El relleno sólido

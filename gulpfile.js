@@ -49,12 +49,7 @@ const paths = {
     "src/js/admin/buzon.js",
     // El selector de periodo lo usa el listado de reservaciones.
     "src/js/admin/core/range-picker.js",
-    // El histórico de precios lo abren las fichas de Menú y de Inventario: dos
-    // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
-    "src/js/admin/core/historial-precios.js",
   ],
-  adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
-  adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
@@ -183,24 +178,6 @@ function adminJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js"));
-}
-
-function adminRecetasJavascript() {
-  return src(paths.adminRecetasJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("recipe-builder.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
-function adminInventarioJavascript() {
-  return src(paths.adminInventarioJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("inventario.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
 }
 
 function adminReservationListJavascript() {
@@ -353,8 +330,6 @@ function devWatch(done) {
       adminReservationFormJavascript,
       adminReservationOperationJavascript,
     ),
-  watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
-  watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
@@ -390,8 +365,6 @@ exports.operationCss = operationCss;
 exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
-exports.adminRecetasJs = adminRecetasJavascript;
-exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminUsersJs = adminUsersJavascript;
 exports.adminCatasJs = adminCatasJavascript;
@@ -416,8 +389,6 @@ exports.dev = parallel(
   versionAvif,
   javascript,
   adminJavascript,
-  adminRecetasJavascript,
-  adminInventarioJavascript,
   adminReservationListJavascript,
   adminUsersJavascript,
   adminCatasJavascript,
@@ -444,8 +415,6 @@ exports.build = series(
   versionAvif,
   javascript,
   adminJavascript,
-  adminRecetasJavascript,
-  adminInventarioJavascript,
   adminReservationListJavascript,
   adminUsersJavascript,
   adminCatasJavascript,

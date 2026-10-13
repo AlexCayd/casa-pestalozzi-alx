@@ -14,8 +14,6 @@ use Controllers\AdminHorarioImpactoController;
 use Controllers\AdminBuzonController;
 use Controllers\AdminAreaController;
 use Controllers\AdminMenuController;
-use Controllers\AdminInventarioController;
-use Controllers\AdminRecetasController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\ReservacionOperacionController;
@@ -146,42 +144,6 @@ $router->post('/admin/catas/disponibilidad', [AdminCataController::class, 'dispo
 $router->post('/admin/catas/eliminar', [AdminCataController::class, 'delete']);
 
 
-// Inventario (Ingredientes)
-$router->get('/admin/inventario',           [AdminInventarioController::class, 'index']);
-$router->get('/admin/inventario/create',    [AdminInventarioController::class, 'create']);
-$router->post('/admin/inventario/create',   [AdminInventarioController::class, 'create']);
-$router->get('/admin/inventario/edit',      [AdminInventarioController::class, 'edit']);
-$router->post('/admin/inventario/edit',     [AdminInventarioController::class, 'edit']);
-$router->post('/admin/inventario/delete',   [AdminInventarioController::class, 'delete']);
-$router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
-$router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
-$router->post('/admin/inventario/merma',    [AdminInventarioController::class, 'merma']);
-// Consulta previa al borrado: qué recetas usan el ingrediente. Bajo /admin/api/
-// queda protegida por el prefijo, sin tocar ninguna allowlist.
-$router->get('/admin/api/inventario/uso',   [AdminInventarioController::class, 'uso']);
-// Proveedores: submódulo de inventario. Cuelgan de los ingredientes, que es lo
-// que se compra; un platillo se produce aquí.
-$router->get('/admin/inventario/proveedores',         [AdminInventarioController::class, 'proveedores']);
-$router->get('/admin/inventario/proveedores/create',  [AdminInventarioController::class, 'proveedorCreate']);
-$router->post('/admin/inventario/proveedores/create', [AdminInventarioController::class, 'proveedorCreate']);
-$router->get('/admin/inventario/proveedores/edit',    [AdminInventarioController::class, 'proveedorEdit']);
-$router->post('/admin/inventario/proveedores/edit',   [AdminInventarioController::class, 'proveedorEdit']);
-$router->post('/admin/inventario/proveedores/delete', [AdminInventarioController::class, 'proveedorDelete']);
-// Histórico de precios: lo consultan las fichas de ingrediente y de platillo.
-$router->get('/admin/api/historial-precios', [AdminInventarioController::class, 'historialPrecios']);
-
-// Recetas (composición de platillos y subrecetas). Los datos del platillo se
-// editan en Gestión de menú; aquí solo se arma lo que consume cada unidad.
-$router->get('/admin/recetas',                       [AdminRecetasController::class, 'index']);
-$router->get('/admin/recetas/editar',                [AdminRecetasController::class, 'receta']);
-$router->post('/admin/recetas/editar',               [AdminRecetasController::class, 'receta']);
-$router->get('/admin/recetas/subrecetas',            [AdminRecetasController::class, 'subrecetas']);
-$router->get('/admin/recetas/subrecetas/create',     [AdminRecetasController::class, 'subrecetaCreate']);
-$router->post('/admin/recetas/subrecetas/create',    [AdminRecetasController::class, 'subrecetaCreate']);
-$router->get('/admin/recetas/subrecetas/edit',       [AdminRecetasController::class, 'subrecetaEdit']);
-$router->post('/admin/recetas/subrecetas/edit',      [AdminRecetasController::class, 'subrecetaEdit']);
-$router->post('/admin/recetas/subrecetas/delete',    [AdminRecetasController::class, 'subrecetaDelete']);
-
 /*
  * Redirecciones 301 de las rutas previas a la fusión menu+productos (2026-07).
  * Se conserva el query string: mucha gente tiene abierto /admin/productos/edit?id=42.
@@ -203,12 +165,7 @@ $router->get('/admin/menu/items/pdf',             $redir301('/admin/menu/pdf'));
 $router->get('/admin/menu/categories',            $redir301('/admin/menu/categorias'));
 $router->get('/admin/menu/categories/create',     $redir301('/admin/menu/categorias'));
 $router->get('/admin/menu/categories/edit',       $redir301('/admin/menu/categorias/edit'));
-$router->get('/admin/productos',                  $redir301('/admin/recetas'));
 $router->get('/admin/productos/create',           $redir301('/admin/menu/create'));
-$router->get('/admin/productos/edit',             $redir301('/admin/recetas/editar'));
-$router->get('/admin/productos/subrecetas',        $redir301('/admin/recetas/subrecetas'));
-$router->get('/admin/productos/subrecetas/create', $redir301('/admin/recetas/subrecetas/create'));
-$router->get('/admin/productos/subrecetas/edit',   $redir301('/admin/recetas/subrecetas/edit'));
 
 /*
  * Rutas de reservaciones en inglés (2026-08). El resto del panel estaba en
