@@ -102,6 +102,7 @@ $pasos = [
   <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
   <link rel="preload" href="/build/fonts/crimson-text-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/build/css/app.css?v=feedback-marca-v1">
+  <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
 <?php /* Sin data-modo="oscuro": esta pantalla es la landing, no el piso. */ ?>
 <body class="fb-page" data-tono="crema" data-page="feedback">

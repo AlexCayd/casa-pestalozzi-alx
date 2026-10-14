@@ -105,6 +105,11 @@ if ($schemaHorarios !== []) {
         href="/build/fonts/crimson-text-latin-400-italic.woff2" />
 
   <link rel="stylesheet" href="/build/css/app.css?v=diseno-v3" />
+  <?php /* La paleta que se edita en Configuración → Paleta de la landing.
+           Redeclara la capa 1 de _reset.scss y va DESPUÉS de app.css: misma
+           especificidad que su :root, así que gana por orden. Sin cambios
+           guardados no emite nada. */ ?>
+  <?php echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
 <body class="reveal-ready" data-hero="cinema" data-page="home">
 

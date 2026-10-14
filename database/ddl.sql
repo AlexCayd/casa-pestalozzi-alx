@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS subreceta_ingredientes;
 DROP TABLE IF EXISTS subrecetas;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
+DROP TABLE IF EXISTS configuracion_paleta;
 DROP TABLE IF EXISTS configuracion_pos;
 DROP TABLE IF EXISTS configuracion_reservaciones;
 DROP TABLE IF EXISTS configuracion_anuncio;
@@ -941,6 +942,32 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
   CONSTRAINT chk_configuracion_pos_max_tickets_barra
     CHECK (max_tickets_barra BETWEEN 1 AND 12),
   CONSTRAINT fk_configuracion_pos_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL
+);
+
+-- Paleta de la landing. Fila única (id = 1), como configuracion_pos.
+-- Cada columna sobrescribe UNO de los cuatro colores de la capa 1 de
+-- src/scss/layout/_reset.scss (--brand-verde, --brand-cafe, --brand-beige,
+-- --brand-crema); escalas y roles se derivan solos con color-mix.
+-- NULL = el valor del manual de marca, que es el del SCSS. Se guarda NULL y no
+-- el hex de marca para que un color que nadie tocó siga al manual si algún día
+-- cambia la capa 1. Sin fila, o sin tabla, la landing se pinta como siempre.
+CREATE TABLE IF NOT EXISTS configuracion_paleta (
+  id          TINYINT UNSIGNED NOT NULL,
+  verde       CHAR(7) NULL,
+  cafe        CHAR(7) NULL,
+  beige       CHAR(7) NULL,
+  crema       CHAR(7) NULL,
+  updated_by  INT NULL,
+  updated_at  TIMESTAMP NOT NULL
+                DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_configuracion_paleta_usuario
     FOREIGN KEY (updated_by)
     REFERENCES usuarios(id)
     ON DELETE SET NULL

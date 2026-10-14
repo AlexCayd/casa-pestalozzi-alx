@@ -112,6 +112,8 @@ $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, '
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
+$router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
+$router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.

@@ -6,6 +6,8 @@ use Model\ConfiguracionAnuncio;
 use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\Configuration\AnuncioConfig;
+use Model\ConfiguracionPaleta;
+use Services\Configuration\PaletaLanding;
 use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
@@ -24,6 +26,7 @@ class AdminConfigurationController
     private const POS_PATH = '/admin/configuracion/pos';
     private const POS_IMPRESION_PATH = '/admin/configuracion/pos/impresion';
     private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
+    private const PALETTE_PATH = '/admin/configuracion/paleta';
 
     public static function index(Router $router): void
     {
@@ -44,6 +47,12 @@ class AdminConfigurationController
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                ],
+                [
+                    'titulo' => 'Paleta de la landing',
+                    'descripcion' => 'Los cuatro colores de marca con los que se pinta la página pública, el feedback y la carta en PDF.',
+                    'ruta' => self::PALETTE_PATH,
+                    'icono' => '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.8l-.3-.9a1.7 1.7 0 0 1 1.6-2.3H17a4 4 0 0 0 4-4c0-5-4-9-9-9Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/>',
                 ],
                 [
                     'titulo' => 'Reservaciones',
@@ -562,6 +571,67 @@ class AdminConfigurationController
         }
     }
 
+    public static function palette(Router $router): void
+    {
+        $alertas = (string) ($_GET['resultado'] ?? '') === 'paleta_actualizada'
+            ? ['exito' => ['La paleta de la landing se actualizó. La página pública ya se pinta con estos colores.']]
+            : [];
+
+        self::renderPalette(PaletaLanding::vigente(), $alertas);
+    }
+
+    /**
+     * POST /admin/configuracion/paleta.
+     *
+     * Un color que no llega al 4.5:1 no se rechaza —la paleta es una decisión
+     * de marca y el panel no debe impedirla—, pero tampoco se publica sin que
+     * nadie lo haya visto: el primer envío se detiene, enseña qué pares quedan
+     * por debajo y pide un segundo envío con `confirmar_contraste=1`. Es el
+     * mismo trato que `confirmar_conflictos` en los horarios.
+     */
+    public static function guardarPaleta(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::PALETTE_PATH);
+        }
+
+        $entrada = isset($_POST['paleta']) && is_array($_POST['paleta']) ? $_POST['paleta'] : [];
+        $validacion = PaletaLanding::validar($entrada);
+
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+            self::renderPalette($validacion['paleta'], ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']]);
+            return;
+        }
+        if ($validacion['errores'] !== []) {
+            self::renderPalette($validacion['paleta'], ['error' => $validacion['errores']]);
+            return;
+        }
+
+        $fallidos = array_values(array_filter(
+            PaletaLanding::contraste($validacion['paleta']),
+            static fn (array $c): bool => !$c['ok']
+        ));
+        $confirmado = (string) ($_POST['confirmar_contraste'] ?? '0') === '1';
+        if ($fallidos !== [] && !$confirmado) {
+            self::renderPalette($validacion['paleta'], [], $fallidos);
+            return;
+        }
+
+        try {
+            if (!ConfiguracionPaleta::guardarColores($validacion['guardar'], self::usuarioAutenticadoId())) {
+                throw new \RuntimeException('El guardado de la paleta no se completó.');
+            }
+            PaletaLanding::limpiarCache();
+            self::redirect(self::PALETTE_PATH . '?resultado=paleta_actualizada');
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarPaleta - ' . $e->getMessage());
+            self::renderPalette(
+                $validacion['paleta'],
+                ['error' => ['No fue posible guardar la paleta. Revisa que exista la tabla `configuracion_paleta` (database/ddl.sql).']]
+            );
+        }
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -575,6 +645,30 @@ class AdminConfigurationController
             'title' => 'Reportes del sistema',
             'topbarSection' => 'Configuración',
             'reportes' => ReporteSistemaService::listar(),
+            'alertas' => $alertas,
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $paleta lo que pinta el formulario
+     * @param list<array> $contrasteFallido pares por debajo de AA que esperan confirmación
+     */
+    private static function renderPalette(array $paleta, array $alertas, array $contrasteFallido = []): void
+    {
+        self::render('configuration/palette', [
+            'title' => 'Paleta de la landing',
+            'topbarSection' => 'Configuración',
+            'paleta' => $paleta,
+            'paletaMarca' => PaletaLanding::marca(),
+            'coloresPaleta' => PaletaLanding::COLORES,
+            'comprobacionesContraste' => PaletaLanding::COMPROBACIONES,
+            'contrasteMinimo' => PaletaLanding::AA_TEXTO,
+            'contrasteActual' => PaletaLanding::contraste(array_merge(PaletaLanding::marca(), array_filter(
+                $paleta,
+                static fn ($v): bool => PaletaLanding::normalizar($v) !== null
+            ))),
+            'contrasteFallido' => $contrasteFallido,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
         ]);
     }

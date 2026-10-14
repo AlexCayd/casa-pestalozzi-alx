@@ -424,6 +424,16 @@ que gana porque «la utilidad es negativa» importa más que «esto es la utilid
 **Ningún archivo fuera de esos dos contiene un hex ni un `rgba()` literal.** Ni
 el SCSS, ni el JS, ni las vistas. Cambiar la marca es editar la capa 1 y nada
 más; si hace falta escribir un color en otro sitio, es que falta un rol.
+
+La capa 1 además se puede **sobrescribir desde el panel** (Configuración →
+Paleta de la landing, `Services\Configuration\PaletaLanding`): lo guardado se
+emite como `:root{--brand-*}` DESPUÉS de `app.css` en cada página de marca.
+Dos consecuencias: toda página nueva que cargue `app.css` tiene que llevar
+`PaletaLanding::estiloEnLinea()` detrás de ese `<link>`, y `PaletaLanding::MARCA`
+es el único espejo en PHP de los cuatro hex — `run-paleta-landing.php` falla si
+se separa de `_reset.scss`, igual que si cambian los porcentajes de texto tenue
+que mide (`COMPROBACIONES`). Toda mezcla nueva de un rol de texto en los tonos
+de la landing es candidata a entrar en esa lista.
 Comprobación: `grep -rE '#[0-9a-fA-F]{3,8}|rgba\([0-9]' src/scss src/js` sólo
 debe encontrar `_reset.scss` y `_globals.scss`.
 

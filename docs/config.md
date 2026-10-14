@@ -54,6 +54,29 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   público. Al bajar el máximo, la pantalla avisa cuántas reservas futuras
   quedan por encima; no se tocan.
 - Horario efectivo y excepciones: sección de configuración de horarios.
+- `/admin/configuracion/paleta`: los **cuatro colores de marca de la landing**
+  (verde, café, beige y crema; tabla `configuracion_paleta`, fila única). Son
+  la capa 1 de `src/scss/layout/_reset.scss`: lo guardado se emite como
+  `<style id="paleta-landing">` en `:root` justo después de `app.css`
+  (`PaletaLanding::estiloEnLinea()`), así que escalas, roles y tonos de sección
+  se derivan solos. Lo aplican la landing, el feedback, el 404, la gestión de
+  reservación y la carta en PDF (`PaletaLanding::paraPdf()`); el panel y las
+  pantallas de piso no cambian, y el oro no es editable porque sólo lo usa el
+  piso. Un color igual al de marca se guarda como `NULL`, para que siga al
+  manual si la capa 1 cambia. Si alguna comprobación de contraste (el texto
+  más tenue de cada sección a 4.5:1) queda por debajo, el guardado pide
+  confirmación explícita. Para una base existente:
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS configuracion_paleta (
+    id TINYINT UNSIGNED NOT NULL, verde CHAR(7) NULL, cafe CHAR(7) NULL,
+    beige CHAR(7) NULL, crema CHAR(7) NULL, updated_by INT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_configuracion_paleta_usuario FOREIGN KEY (updated_by)
+      REFERENCES usuarios(id) ON DELETE SET NULL
+  );
+  ```
 
 Las columnas son tolerantes: en una base sin migrar se leen los valores por
 defecto. Los `ALTER` están en

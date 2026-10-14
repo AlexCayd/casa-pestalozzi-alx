@@ -43,40 +43,19 @@ $pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
 $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
 
 /**
- * Unico sitio del archivo con hex.
+ * La paleta llega resuelta de Services\Configuration\PaletaLanding::paraPdf().
  *
  * Dompdf no entiende custom properties ni color-mix, asi que los roles de la
- * capa 3 vienen ya resueltos contra el fondo de su ambito: cada valor es lo que
- * computa el navegador en la landing, no un color elegido a ojo. Si cambia la
- * capa 1 de _reset.scss, se rehacen estas cuentas y no se toca nada mas.
+ * capa 3 vienen ya mezclados contra el fondo de su ambito: cada valor es lo que
+ * computa el navegador en la landing, no un color elegido a ojo. Antes era una
+ * tabla de hex escrita aqui a mano; salio al servicio cuando la paleta se hizo
+ * editable desde Configuracion, para que la carta impresa siga a la landing.
  *
- * Las lineas y los textos tenues van aplanados (sin alpha) porque el soporte de
- * rgba() en Dompdf es irregular segun la propiedad; el color plano sobre el
- * fondo del ambito da el mismo resultado impreso.
+ * Claves: verde, cafe, beige, crema (capa 1); bg, txt, txt_strong, txt_mute,
+ * txt_faint, accent, line_soft, line_strong (papel crema, :root); v_bg, v_txt,
+ * v_txt_mute, v_accent (la banda verde, [data-tono="verde"]).
  */
-$paleta = [
-    // Capa 1 · MARCA
-    'verde'          => '#225036',   // --brand-verde
-    'cafe'           => '#4a2f21',   // --brand-cafe
-    'beige'          => '#e3d5bb',   // --brand-beige
-    'crema'          => '#f5f1e8',   // --brand-crema
-
-    // Capa 3 · ROLES sobre papel crema (:root)
-    'bg'             => '#f5f1e8',   // --bg
-    'txt'            => '#183a27',   // --txt        (verde-deep)  11.18:1
-    'txt_strong'     => '#372318',   // --txt-strong (cafe-deep)   13.19:1
-    'txt_mute'       => '#455e4e',   // --txt-mute                  6.27:1
-    'txt_faint'      => '#5d7263',   // --txt-faint                 4.58:1 (AA justo)
-    'accent'         => '#4a2f21',   // --accent / --accent-text   10.83:1
-    'line_soft'      => '#c2b7ac',   // --line-soft  (cafe 30%)
-    'line_strong'    => '#705a4d',   // --line-strong(cafe 78%)
-
-    // Capa 3 · ROLES sobre la banda verde ([data-tono="verde"])
-    'v_bg'           => '#225036',   // --bg
-    'v_txt'          => '#f5f1e8',   // --txt         (crema)       8.21:1
-    'v_txt_mute'     => '#c7cec1',   // --txt-mute                  5.72:1
-    'v_accent'       => '#e3d5bb',   // --accent      (beige)       6.39:1
-];
+$paleta = \Services\Configuration\PaletaLanding::paraPdf();
 
 /**
  * Icono de Instagram del pie: el MISMO trazo que la landing
