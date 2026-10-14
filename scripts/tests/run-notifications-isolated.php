@@ -98,10 +98,19 @@ try {
         'run-reservaciones-notificaciones-development-db.php',
         'run-reservaciones-cambio-horario-matrix-db.php',
         'run-reservaciones-map-state-integration-db.php',
+        'run-reservaciones-ajustes-db.php',
+        'run-reservaciones-asignacion-bloque-db.php',
+        'run-analiticas-revpash-db.php',
+        'run-pos-api-contrato-db.php',
+        'run-reservaciones-casos-accionables-db.php',
+        'run-reservaciones-agenda-grupos-db.php',
+        'run-reservaciones-ausencia-automatica-db.php',
+        'run-reservaciones-mesas-obligatorias-db.php',
+        'run-reservaciones-reubicacion-ticket-db.php',
     ]);
     foreach ($suites as $suite) {
         $suiteEsValida = preg_match('/^run-reservaciones-[a-z-]+\.php$/D', $suite)
-            || in_array($suite, ['run-pos-print-alerts-db.php', 'run-pos-llevar-multiples-db.php', 'run-punto-venta-cierre-db.php'], true);
+            || in_array($suite, ['run-pos-print-alerts-db.php', 'run-pos-llevar-multiples-db.php', 'run-punto-venta-cierre-db.php', 'run-analiticas-revpash-db.php', 'run-pos-api-contrato-db.php'], true);
         if (!$suiteEsValida || !is_file(__DIR__ . '/' . $suite)) {
             throw new RuntimeException('Suite no disponible: ' . basename($suite));
         }

@@ -121,6 +121,7 @@ final class ReservacionErrorCatalog
         'FECHA_FUERA_DE_HORIZONTE' => self::TIPO_ERROR,
         'FECHA_CERRADA' => self::TIPO_ERROR,
         'FECHA_PASADA_SOLO_LECTURA' => self::TIPO_INFORMACION,
+        'SIN_HORARIOS_FUTUROS' => self::TIPO_INFORMACION,
         'HORARIO_INVALIDO' => self::TIPO_ERROR,
         'HORARIO_NO_VALIDO' => self::TIPO_ERROR,
         'HORARIO_PASADO' => self::TIPO_ERROR,
@@ -169,6 +170,7 @@ final class ReservacionErrorCatalog
         'CONFLICTO_TICKET_ABIERTO' => self::TIPO_CONFLICTO,
         'DEPENDE_LIBERACION_PROYECTADA' => self::TIPO_ADVERTENCIA,
         'LIBERAR_ASIGNACION_ACTUAL' => self::TIPO_DECISION,
+        'REUBICAR_RESERVACIONES' => self::TIPO_DECISION,
         'LIBERACION_NO_AUTORIZADA' => self::TIPO_ERROR,
         'VERSION_DESACTUALIZADA' => self::TIPO_CONFLICTO,
         'CONFLICTO_CONCURRENTE' => self::TIPO_CONFLICTO,
@@ -204,6 +206,8 @@ final class ReservacionErrorCatalog
         // Tickets y operación POS.
         'TICKET_CREADO' => self::TIPO_EXITO,
         'TICKET_ABIERTO' => self::TIPO_CONFLICTO,
+        'BARRA_LLENA' => self::TIPO_CONFLICTO,
+        'MESAS_REQUERIDAS' => self::TIPO_CONFLICTO,
         'TICKET_NO_ENCONTRADO' => self::TIPO_ERROR,
         'TICKET_YA_CERRADO' => self::TIPO_CONFLICTO,
         'TICKET_CERRADO' => self::TIPO_INFORMACION,
@@ -400,7 +404,7 @@ final class ReservacionErrorCatalog
         'ASIGNACION_MANUAL_REQUERIDA' => [
             'titulo' => 'Asignación manual de mesas',
             'mensaje' => 'Asignación manual de mesas',
-            'descripcion' => 'Las reservaciones de más de 12 personas requieren asignar las mesas manualmente.',
+            'descripcion' => 'Las reservaciones de más de {max_comensales} personas requieren asignar las mesas manualmente.',
             'consecuencia' => 'Puedes crear la reservación ahora y asignar las mesas posteriormente desde el mapa de reservaciones.',
             'acciones' => [
                 ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
@@ -462,6 +466,31 @@ final class ReservacionErrorCatalog
             'mensaje' => 'La reservación cambió desde la última consulta.',
             'consecuencia' => 'No se aplicó la modificación.',
             'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        // Una barra admite varios tickets a la vez, hasta el tope de
+        // Configuración → POS. El siguiente se rechaza aquí: no es un ticket
+        // paralelo de la misma mesa, es que no cabe nadie más.
+        'REUBICAR_RESERVACIONES' => [
+            'titulo' => 'Mover reservaciones del exterior',
+            'mensaje' => 'Para dar el bloque exterior a esta reservación hay que mover {reservaciones_a_mover} al interior.',
+            'consecuencia' => 'Cada reservación movida queda marcada como reubicada para que el equipo la revise. Al cliente no se le avisa: nunca se le comunica la mesa.',
+            'acciones' => [
+                ['id' => 'MOVER_Y_GUARDAR', 'label' => 'Mover y guardar', 'tipo' => 'primary'],
+                ['id' => 'VOLVER_A_SELECCIONAR', 'label' => 'Volver a seleccionar', 'tipo' => 'secondary'],
+            ],
+        ],
+        // Toda reservación confirmada tiene mesas: no hay «asignar más tarde».
+        'MESAS_REQUERIDAS' => [
+            'titulo' => 'Sin mesas para esta reservación',
+            'mensaje' => 'No hay mesas libres para {comensales} personas a esa hora.',
+            'consecuencia' => 'No se guardó. Elige otra hora o, para un grupo grande, elige sus mesas en el mapa.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'BARRA_LLENA' => [
+            'titulo' => 'Barra llena',
+            'mensaje' => '{nombre} ya tiene {tickets_abiertos} de {tope_tickets} tickets abiertos.',
+            'consecuencia' => 'No se abrió otro ticket. Cierra uno de la barra o sienta al cliente en otro lugar.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'TICKET_ABIERTO' => [
             'titulo' => 'Ticket abierto existente',
@@ -753,6 +782,15 @@ final class ReservacionErrorCatalog
             'mensaje' => 'No se pueden elegir fechas anteriores.',
             'consecuencia' => 'Selecciona una fecha vigente.',
             'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
+        ],
+        // El día sigue abierto pero ya pasó la última hora que se puede
+        // reservar. No es un fallo: sin entrada aquí caía a ERROR_INTERNO y el
+        // POS decía «Ocurrió un problema interno» cada noche.
+        'SIN_HORARIOS_FUTUROS' => [
+            'titulo' => 'Sin horas por hoy',
+            'mensaje' => 'Ya no quedan horas para reservar hoy.',
+            'consecuencia' => 'Elige otro día.',
+            'acciones' => [['id' => 'ELEGIR_OTRA_FECHA', 'tipo' => 'primary']],
         ],
         'FECHA_PASADA_SOLO_LECTURA' => [
             'titulo' => 'Modo histórico',
@@ -1387,6 +1425,7 @@ final class ReservacionErrorCatalog
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
             'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
             'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
+            'tickets_abiertos', 'tope_tickets', 'reservaciones_a_mover',
         ]));
         $contexto = self::contextoSeguro(array_merge(
             $contextoResultado,
@@ -1488,6 +1527,13 @@ final class ReservacionErrorCatalog
 
     private static function interpolar(string $texto, array $contexto): string
     {
+        // Sin contexto, el máximo es el de la reserva en línea. La landing
+        // nunca lo pasaba y «entre 1 y {max_comensales}» salía con el hueco
+        // vacío; el panel sí lo pasa cuando su tope es otro (44).
+        if (!array_key_exists('max_comensales', $contexto) && str_contains($texto, '{max_comensales}')) {
+            $contexto['max_comensales'] = ReservacionConfig::maxComensalesPublico();
+        }
+
         return preg_replace_callback('/\{([a-z_]+)\}/', static function (array $match) use ($contexto): string {
             $valor = $contexto[$match[1]] ?? '';
             return is_scalar($valor) ? (string)$valor : '';
@@ -1535,6 +1581,7 @@ final class ReservacionErrorCatalog
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
             'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
             'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
+            'tickets_abiertos', 'tope_tickets', 'reservaciones_a_mover',
         ];
         $seguro = [];
         foreach ($permitidos as $clave) {

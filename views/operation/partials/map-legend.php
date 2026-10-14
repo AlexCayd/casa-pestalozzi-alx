@@ -22,7 +22,7 @@
         </li>
         <li class="mapa-leyenda-item mapa-leyenda-item--seleccionada">
             <span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada" aria-hidden="true"></span>
-            Amarillo &mdash; Mesa seleccionada; se conservan los bloqueos
+            Contorno claro &mdash; Mesa seleccionada; se conservan los bloqueos
         </li>
         <li class="mapa-leyenda-item mapa-leyenda-item--no-utilizable">
             <span class="mesa-pin mesa-pin--no-utilizable" aria-hidden="true"></span>

@@ -135,6 +135,44 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/*
+ * Panel principal de administracion de reservaciones.
+ * Extiende los patrones del modulo de usuarios sin tocar el mapa operativo.
+ */
+/*
+ * Sub-navegación del módulo de reservaciones (views/admin/reservations/_subnav.php).
+ *
+ * La comparten TRES pantallas con dos hojas distintas —el histórico carga
+ * reservations.css y Grupos grandes / Casos cargan reservations-estrategia.css—,
+ * así que vive en un parcial que las dos hojas incluyen. Está en una
+ * subcarpeta y no suelto en modules/ porque el glob de gulp
+ * (`src/scss/admin/modules/*.scss`) compilaría cada archivo como hoja propia.
+ *
+ * El componente es .admin-tabs--links tal cual; aquí sólo cambia el ancho.
+ * Repartido a lo ancho, cada pestaña medía un tercio de la pantalla y tres
+ * palabras quedaban flotando en una barra de mil píxeles: se leía como un
+ * conmutador de opciones de un formulario y no como «estás en esta sección».
+ */
+.reservations-subnav {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+.reservations-subnav .admin-tabs__tab {
+  flex: 0 0 auto;
+}
+@media (max-width: 576px) {
+  .reservations-subnav {
+    width: 100%;
+  }
+  .reservations-subnav .admin-tabs__tab {
+    flex: 1 1 auto;
+  }
+  .reservations-subnav .admin-tabs__tab a span {
+    padding-block: 13px;
+  }
+}
+
 .admin-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 220px)) auto;

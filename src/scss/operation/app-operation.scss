@@ -11,9 +11,9 @@
 // admin/shared/base/_globals) es lo que permite que las 4.500 líneas de estas
 // hojas sigan pidiendo --txt y --accent sin tocarse.
 //
-// La operación de reservaciones NO entra aquí: tiene su propia salida
-// (operation/reservations.scss → operation/reservations.css) que se carga
-// junto a admin.css, y así sigue.
+// La antigua pantalla de Operación de reservaciones tenía salida propia
+// (operation/reservations.css); se retiró y sus funciones viven en el POS, así
+// que éste es el ÚNICO bundle del piso.
 
 // ── Sistema administrativo ───────────────────────────────────
 @use '../admin/shared/base/globals';

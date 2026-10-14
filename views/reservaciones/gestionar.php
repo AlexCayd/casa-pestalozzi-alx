@@ -74,7 +74,7 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
                 <div class="schedule-change-editor">
                     <?php if ($canModify) : ?>
                         <p class="schedule-change-editor__eyebrow"><?php echo $isReminder ? 'Modificar reservación' : 'Nueva visita'; ?></p>
-                        <form class="schedule-change-form" data-schedule-change-form data-max-guests="<?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?>" novalidate>
+                        <form class="schedule-change-form" data-schedule-change-form data-max-guests="<?php echo (int)ReservacionConfig::maxComensalesPublico(); ?>" novalidate>
                             <div class="field reservation-field reservation-field--date">
                                 <span class="reservation-field__label">Fecha</span>
                                 <?php
@@ -111,7 +111,7 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
                                     <button class="step-btn" type="button" data-change-plus aria-label="Aumentar personas" title="Aumentar personas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
                                 </div>
                                 <input type="hidden" name="personas" value="<?php echo $personasActuales; ?>" data-change-guests>
-                                <span class="reservation-field__help">Hasta <?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?> personas en este acceso.</span>
+                                <span class="reservation-field__help">Hasta <?php echo (int)ReservacionConfig::maxComensalesPublico(); ?> personas en este acceso.</span>
                             </div>
 
                             <div class="field reservation-field reservation-field--time">
@@ -148,10 +148,10 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
                                 </button>
                             </div>
                         </form>
-                    <?php elseif ($isReminder && $personasActuales > ReservacionConfig::MAX_COMENSALES_PUBLICO) : ?>
+                    <?php elseif ($isReminder && $personasActuales > ReservacionConfig::umbralGrupoGrande()) : ?>
                         <div class="schedule-change-limited" role="note">
                             <h2>La modificación requiere atención personal</h2>
-                            <p>Para cambiar el horario de un grupo de más de 12 personas, contáctanos.</p>
+                            <p>Para cambiar el horario de un grupo de más de <?php echo (int)ReservacionConfig::umbralGrupoGrande(); ?> personas, contáctanos.</p>
                         </div>
                     <?php else : ?>
                         <div class="schedule-change-limited" role="note">

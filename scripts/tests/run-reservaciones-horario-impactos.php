@@ -113,7 +113,7 @@ impactoAssert(!str_contains($inboxJs, 'Mantener reservación') && !str_contains(
 impactoAssert(str_contains($inboxJs, 'AdminScrollLock') && str_contains($inboxJs, 'window.AdminScrollLock.bloquear'), 'drawer usa el lock de scroll administrativo');
 impactoAssert(str_contains($inboxJs, 'data-schedule-impact-resolve'), 'detalle administrativo puede resolver el seguimiento');
 impactoAssert(str_contains($impactService, 'clasificarSeguimientosEnTransaccion'), 'impacto clasifica seguimiento al persistir');
-impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'MAX_COMENSALES_PUBLICO'), 'impacto aplica acceso diferido y umbral');
+impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'umbralGrupoGrande()'), 'impacto aplica acceso diferido y umbral');
 impactoAssert(
     preg_match('/BuzonNotificacionesService::PRIORIDAD_NORMAL,\s+null,\s+true/', $impactService) === 1,
     'seguimiento no espera a la expiración para aparecer'

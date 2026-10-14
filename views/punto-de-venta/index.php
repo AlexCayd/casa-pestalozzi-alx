@@ -1,12 +1,7 @@
 <?php
-$mapFecha = trim((string)($_GET['fecha'] ?? \Services\Reservations\ReservacionConfig::fechaActual()));
-if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $mapFecha) !== 1) {
-  $mapFecha = \Services\Reservations\ReservacionConfig::fechaActual();
-}
-$mapHora = trim((string)($_GET['hora'] ?? ''));
-if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $mapHora) !== 1) {
-  $mapHora = '';
-}
+// Validado en el controlador (PuntoVentaController::enlaceInicial).
+$enlaceInicial = $enlaceInicial ?? \Controllers\PuntoVentaController::enlaceInicial([]);
+$mapFecha = $enlaceInicial['fecha'];
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 
 // Usuario/mesero activo en la sesión (para mostrarlo en el header).
@@ -39,10 +34,14 @@ $usuarioJson = json_encode([
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
+  <?php /* El `?v=` es el mtime: una tablet con la hoja vieja en caché la renueva sola. */ ?>
+  <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
 
-<body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\Security\StaffCsrfService::token()) ?>">
+<body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\Security\StaffCsrfService::token()) ?>"
+  data-initial-hora="<?= $h($enlaceInicial['hora']) ?>"
+  data-initial-reservation-id="<?= (int)$enlaceInicial['reservacion_id'] ?>"
+  data-initial-mode="<?= $h($enlaceInicial['modo']) ?>">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
   // Selector de fecha; se muestra dentro del cajón de reservaciones.
@@ -117,8 +116,8 @@ $usuarioJson = json_encode([
       );
     ?>;
   </script>
-  <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js?v=pos-map-fullwidth-v11"></script>
+  <script src="<?= $h(recursoVersionado('/build/js/bundle.min.js')) ?>"></script>
+  <script src="<?= $h(recursoVersionado('/build/js/admin/map.js')) ?>"></script>
 </body>
 
 </html>

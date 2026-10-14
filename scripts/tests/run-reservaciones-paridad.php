@@ -85,9 +85,8 @@ $mapBlocked = MesaEstadoService::normalizarMesas(
     '14:00:00',
     $evaluationBlocked
 )[0];
-assertParity($mapBlocked['estado_visual_mapa'] === 'libre', 'a 60 min la reserva aún se proyecta verde');
 assertParity(
-    in_array('reservacion_advertencia', $mapBlocked['modificadores_visual_mapa'], true),
+    in_array('reservacion_advertencia', $mapBlocked['modificadores'], true),
     'la advertencia acompaña el intervalo bloqueado para asignación'
 );
 assertParity($mapBlocked['bloqueada_en_intervalo'] === true, 'mapa expone hecho de bloqueo');
@@ -116,7 +115,6 @@ $multiMap = MesaEstadoService::normalizarMesas(
     $multiEvaluation
 );
 foreach ($multiMap as $mesaEstado) {
-    assertParity($mesaEstado['estado_visual_mapa'] === 'libre', 'multimesa a 60 min sigue verde con advertencia');
     assertParity($mesaEstado['bloqueada_en_intervalo'] === true, 'multimesa conserva bloqueo de intervalo');
 }
 
@@ -144,7 +142,6 @@ $unassignedMap = MesaEstadoService::normalizarMesas(
     '14:00:00',
     $unassignedEvaluation
 )[0];
-assertParity($unassignedMap['estado_visual_mapa'] === 'libre', 'sin mesas asignadas no inventa rojo');
 
 $ticket = [
     'id' => 500,
@@ -177,7 +174,6 @@ $ticketMap = MesaEstadoService::normalizarMesas(
     '14:00:00',
     $ticketEvaluation
 )[0];
-assertParity($ticketMap['estado_visual_mapa'] === 'ocupada', 'ticket bloqueante coincide en mapa');
 
 $releasedEvaluation = $ticketEvaluation;
 $releasedEvaluation['mesa_ids_disponibles'] = [4];
@@ -193,7 +189,6 @@ $releasedMap = MesaEstadoService::normalizarMesas(
     '16:00:00',
     $releasedEvaluation
 )[0];
-assertParity($releasedMap['estado_visual_mapa'] === 'libre', 'ticket proyectado liberado deja de bloquear');
 
 $alternativeDuration = 120;
 $alternativeStart = at('15:00:00');
@@ -223,7 +218,6 @@ $alternativeMap = MesaEstadoService::normalizarMesas(
     '13:01:00',
     $alternativeEvaluation
 )[0];
-assertParity($alternativeMap['estado_visual_mapa'] === 'libre', 'bloqueo de asignación a más de 60 min no cambia el verde');
 assertParity($alternativeMap['bloqueada_en_intervalo'] === true, 'duracion alternativa conserva bloqueo de capacidad');
 
 fwrite(STDOUT, "Reservaciones: paridad capacidad-mapa OK\n");

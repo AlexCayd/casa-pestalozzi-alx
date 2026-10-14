@@ -38,9 +38,10 @@ componentes. Lo que parezca "convención de framework" aquí es código propio.
 ### Build
 
 ```
-npx gulp            # todo
-npx gulp js         # solo JS
-npx gulp css        # solo SCSS
+npx gulp build      # todo (`npx gulp` a secas no existe)
+npx gulp js         # solo JS de la landing
+npx gulp css        # solo SCSS de la landing
+npx gulp operationAppCss adminMapJs   # el piso: operation.css y el POS
 ```
 
 Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
@@ -48,10 +49,9 @@ Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
 | Fuente | Salida | Quién la carga |
 |---|---|---|
 | `src/scss/app.scss` | `public/build/css/app.css` + `assets/css/` | landing y **feedback** |
-| `src/scss/admin/shared/app-admin.scss` | `public/build/css/admin.css` | panel y operación de reservaciones |
+| `src/scss/admin/shared/app-admin.scss` | `public/build/css/admin.css` | panel |
 | `src/scss/admin/modules/*.scss` | `public/build/css/admin/*.css` | cada módulo del panel |
 | `src/scss/operation/app-operation.scss` | `public/build/css/operation.css` | **POS, áreas y login** |
-| `src/scss/operation/reservations.scss` | `public/build/css/operation/reservations.css` | operación, junto a `admin.css` |
 | `paths.adminMapJs` (POS: `punto-de-venta.js` + shell/mapa + `core/select.js`) | `public/build/js/admin/map.js` | POS |
 | `src/js/admin/area/area.js` | `public/build/js/admin/area.js` | módulo de áreas del panel |
 | resto de `src/js/` | `public/build/js/bundle.min.js` | landing y feedback |
@@ -69,11 +69,14 @@ que consumen `buzon.js` y los bundles de módulo; y `sankey.js` va antes que
 **antes** que cualquier bundle de módulo, los módulos pueden contar con lo que
 `admin.js` haya publicado.
 
-Tres bundles administrativos y no uno: `admin.css` (panel), `operation.css`
-(piso) y `operation/reservations.css` (parcial que se carga **junto a**
-`admin.css`, por eso sus tokens no están declarados dentro). Los tres salen de
-`admin/shared/`, así que el watch de esa carpeta regenera `admin.css` **y**
-`operation.css`.
+Dos bundles administrativos y no uno: `admin.css` (panel) y `operation.css`
+(piso). Los dos salen de `admin/shared/`, así que el watch de esa carpeta
+regenera ambos. Había un tercero, `operation/reservations.css`, de la pantalla
+de Operación de reservaciones; se retiró con ella.
+
+⚠️ `npx gulp adminModuleCss` (y `build`) recompila TODOS los módulos del
+panel: si hay SCSS de un módulo a medio editar, su CSS sale en el mismo
+cambio. Para tocar sólo el piso, `operationAppCss` y `adminMapJs`.
 
 El POS cargaba `app.css` entero —la landing completa, 470 KB— sólo para llegar a
 su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
@@ -104,6 +107,13 @@ su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
    **múltiplos de siete días** para no romper lo único que ese fixture necesita:
    que cada día caiga en su día de la semana, que es lo que da forma al mapa de
    calor. `SELECT @SEM_INI, @SEM_FIN;` dice en qué fechas quedó.
+
+   Además hay un bloque **«Reservaciones de hoy»** (tokens `fx-hoy-%`): un día
+   de servicio en `CURDATE()`, con nombres de cliente y mesas, para que el POS
+   abra con reservas. Es idempotente (borra por token y vuelve a sembrar) y el
+   estado sale del reloj al cargar: lo ya pasado entra atendido. Toda reserva
+   confirmada del dump tiene mesas y ninguna mesa se reserva dos veces en un
+   mismo intervalo de 90 minutos; al añadir fixtures hay que mantenerlo.
 
 Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
 pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
@@ -141,7 +151,12 @@ Cosas que cargan peso y no son obvias:
   categoría y no en el producto porque la carta es una decisión de SECCIÓN —
   «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
   Menú**: pastillas en el alta rápida del tab «+» y en la edición de la
-  categoría, más una columna en el listado. Tres consecuencias:
+  categoría, más una columna en el listado. El listado además se **filtra por
+  carta** (`?carta=comida|maridaje`, selector «Ambas / Comida / Maridaje» sobre
+  las pestañas de categoría): acota las pestañas y la tabla, y un valor fuera
+  de la lista cae a «ambas». Sustituyó a los dos botones de PDF del encabezado,
+  así que desde el panel ya no se abre ningún PDF; las rutas
+  `/admin/menu/pdf*` siguen registradas pero sin enlace. Tres consecuencias:
   `Carta::publica($carta)` filtra por ella y **por defecto devuelve comida**,
   así que la sección de menú de la landing y `/menu/pdf` siguen siendo lo que
   eran; `/maridaje/pdf` (admin: `/admin/menu/pdf/maridaje`) es la otra pieza,
@@ -339,9 +354,13 @@ compartido recibe **roles propios** —hoy los `--confirmation-*`: `-scrim`,
 `-strong`, `-faint`, `-field-bg`, `-shadow`, `-heading-font`, `-ok`, `-danger`,
 `-danger-text`, `-on-danger`— y **cada sistema los declara con su paleta**:
 `alias-heredados` en `_reset.scss` y `alias-admin-heredados` en `_globals.scss`.
-Al añadir una regla con color o tipografía a uno de esos componentes, el token
-nuevo se declara en los DOS mixins; en uno solo, el otro lado vuelve a romperse
-sin ruido.
+El aviso (`AppNotice`) suma los suyos, `--app-notice-*`: en la landing salen
+del mixin `roles-aviso` (que `alias-heredados` incluye, y también el bloque de
+`[data-modo="oscuro"]`, escrito a mano), y en el panel van dentro de
+`alias-admin-heredados`, derivados de los roles de estado y no de los hex para
+que en el POS hablen el mismo color que el mapa. Al añadir una regla con color o
+tipografía a uno de esos componentes, el token nuevo se declara en los DOS
+lados; en uno solo, el otro vuelve a romperse sin ruido.
 
 Ojo a `-danger` frente a `-danger-text`: el primero es el rojo **pleno** de un
 relleno y el segundo el rojo **legible como texto** sobre el fondo del modo
@@ -355,8 +374,8 @@ rellenos usaran color, un badge ámbar dejaría de significar «advertencia».
 
 La excepción, y es una lista cerrada: **los disparadores de acción**. Los tres
 botones del topbar (reportar, notificaciones, salir) y los secundarios de una
-barra de acciones de módulo («Categorías» y «Generar PDF» en Menú, «Subrecetas»
-e «Inventario» en Recetas) llevan tono. Eran cajas idénticas donde sólo cambiaba
+barra de acciones de módulo («Categorías» en Menú, «Subrecetas» e «Inventario»
+en Recetas) llevan tono. Eran cajas idénticas donde sólo cambiaba
 la palabra y había que leerlas una por una para elegir. Tres condiciones:
 
 - El color es un **tinte derivado** (`color-mix` sobre `--admin-surface`, 11-12%
@@ -660,13 +679,22 @@ No hay `components/ui`. El equivalente es SCSS compartido más partials PHP:
 - `views/admin/partials/` y `views/operation/partials/`.
 
 **El shell operativo** (`views/operation/partials/shell.php` + `header.php`) lo
-comparten las **cuatro** pantallas de piso: mapa de mesas, operación de
-reservaciones, tablero de área (KDS) y selector de estación. Cada consumidor
+comparten las **tres** pantallas de piso: mapa de mesas (el POS), tablero de
+área (KDS) y selector de estación. La cuarta, «Operación de reservaciones», se
+retiró: sus direcciones redirigen al POS, que es donde se operan las reservas
+(cajón por horario, ficha acoplada, «Cambiar mesas», «Nueva reservación»; la
+norma está en `docs/reservaciones/reservaciones.md`). Cada consumidor
 sólo entrega sus slots (`$operationalContentHtml`) y sus banderas; el header no
 cambia de geometría entre módulos. Las que hay que conocer:
 `$operationalView` (`'map'` saca el título centrado), `$operationalUserMenu`
-(en falso: chip informativo + salida de un toque, que es lo que quiere una
-tablet), `$operationalShowLastUpdate`, `$operationalHeaderDrawerToggle` (en
+(en falso: salida de un toque, que es lo que quiere una tablet),
+`$operationalHeaderCenterHtml` (sólo el POS lo llena: modo Ahora/proyección,
+libres, próxima llegada y el aviso «sin mesa» viven en la barra para no
+robarle una fila al plano; las reglas van acotadas a
+`.operational-header--con-centro`, así que el KDS no cambia),
+`$operationalHeaderMenuHtml` (el POS mete ahí, tras el avatar, lo que se
+consulta de vez en cuando: ajustes de la vista, «Cómo leer el mapa» y, sólo
+admin, el panel; el POS no lleva wordmark), `$operationalShowLastUpdate`, `$operationalHeaderDrawerToggle` (en
 falso donde no hay cajón — el KDS) y `$operationalHeaderBack`, que se apaga
 para meseros y cocineros porque su destino vive bajo `/admin/` y la guardia de
 rol los rebotaría.
@@ -774,8 +802,8 @@ finanzas, inventario y reservaciones. Dos cosas que no son evidentes:
   se calcula sin preguntar, así que los deltas también salen en la primera carga
   sin query string.
 - El rango por defecto de `RangoPeriodo` es **retrospectivo** (últimos 30 días).
-  Reservaciones no lo usa y tiene el suyo, `[hoy, hoy+30]`, porque es el único
-  módulo que mira hacia delante. Si un tablero sale vacío con datos en la base,
+  Reservaciones mira hacia delante: el histórico tiene su propio `[hoy, hoy+30]`
+  y Grupos grandes y Casos usan `RangoPeriodo::resolverProspectivo()`. Si un tablero sale vacío con datos en la base,
   ése es el primer sitio donde mirar.
 
 **El listado de reservaciones son TARJETAS, no una tabla**, y es el único
@@ -799,9 +827,7 @@ cancelada no es una alerta que atender. Lo que sí gana al estado es
 anfitrión que tiene algo que resolver ahora.
 
 ⚠️ `.reservations-table__status--*` **sobrevive** al cambio y no es CSS muerto:
-lo consumen el detalle (`show.php`), la operación de reservaciones
-(`admin/reservations/operation.js`) y la tarjeta del cajón operativo
-(`operation/reservation-card.js`). El listado ya no; usa `.admin-badge`, que es
+lo consume el detalle (`show.php`). El listado ya no; usa `.admin-badge`, que es
 el vocabulario del panel. Lo que sí se retiró de ese badge es el
 `max-width: 104px`: con `nowrap` no recortaba con puntos suspensivos sino a
 hueso, y "Pendiente de verificación" salía cortado a media palabra.
@@ -906,9 +932,11 @@ tocado mal:
   ticket vacío que luego hay que descartar a mano. El backend revalida al
   cerrar; esto es la señal en pantalla.
 
-**Llevar es una ventanilla, no una mesa.** Admite varios pedidos abiertos a la
-vez, cada uno un ticket propio sobre la misma fila de `mesas`. Lo decide el
-SERVIDOR (`incluyeMesaLlevar()` en `abrirWalkIn`), no el cliente: antes bastaba
+**Llevar —y las barras— son ventanillas, no mesas.** Admiten varios pedidos
+abiertos a la vez, cada uno un ticket propio sobre la misma fila de `mesas`; las
+barras, hasta `configuracion_pos.max_tickets_barra` (4 por defecto, `BARRA_LLENA`
+al pasarse; Llevar no tiene tope). Lo decide el SERVIDOR
+(`elementoMultiTicket()` en `abrirWalkIn`), no el cliente: antes bastaba
 con mandar `allow_multiple` para abrir un segundo ticket sobre cualquier mesa del
 salón. Tampoco se une a otras mesas. En el mapa nunca se pinta ocupada —un pin
 rojo decía «no cabe otro», lo contrario de la verdad—; su rótulo cuenta los
@@ -1040,7 +1068,7 @@ El `view-transition-name` del morfo se pone justo antes y se retira al terminar
 tween de GSAP, que produciría dos aperturas superpuestas.
 
 `select.js` tampoco usa el `<select>` nativo visible. Excluye las vistas
-operativas (`.mapa-page`, `.area-page`, `.admin-reservation-operation`), pero un
+operativas (`.mapa-page`, `.area-page`), pero un
 select puede pedirlo dentro de ellas con `[data-enhance]`.
 
 Trampas conocidas:
@@ -1195,4 +1223,8 @@ hay que tocar la definición del corte, ése es el momento de sacar un
 
 - Escribe en español: comentarios, mensajes de UI, mensajes de commit.
 - Los comentarios explican **por qué**, no qué hace la línea.
-- `.claude/` y `docs/` están en `.gitignore`.
+- `.claude/` está en `.gitignore`; `docs/` sí se versiona.
+- Pruebas: `npm run test:php`, `npm run test:js` y, contra una base aislada
+  que se crea y se borra sola, `php scripts/tests/run-notifications-isolated.php
+  [suite]` (sin argumento corre su lista). `run-privacidad-contract.php` lee los
+  bundles construidos: compilar antes de correrlo.

@@ -54,7 +54,9 @@ foreach (['10:30' => true, '10:59' => true, '11:00' => false, '12:00' => false] 
         $ahora,
         $hora,
         $evaluacion,
-        ['current_assignment_ids' => [1], 'reservacion_en_edicion_id' => 25]
+        // Proyección: el mapa del POS a esa hora pinta rojo sólo si el ticket
+        // sigue ahí; el ticket físico abierto no basta.
+        ['current_assignment_ids' => [1], 'reservacion_en_edicion_id' => 25, 'modo' => 'proyeccion']
     )[0];
 
     assertTicketProjection($proyeccion['liberacion_estimada'] === '2026-08-18 11:00:00', "liberación estimada {$hora}");
@@ -63,8 +65,8 @@ foreach (['10:30' => true, '10:59' => true, '11:00' => false, '12:00' => false] 
     assertTicketProjection($estado['ticket_bloquea_consulta'] === $bloqueaEsperado, "bloqueo del ticket {$hora}");
     assertTicketProjection($estado['bloqueada_en_intervalo'] === $bloqueaEsperado, "bloqueo de intervalo {$hora}");
     assertTicketProjection(
-        $estado['estado_visual_mapa'] === ($bloqueaEsperado ? 'ocupada' : 'libre'),
-        "fondo del mapa de reservaciones {$hora}"
+        $estado['estado_visual_pos'] === ($bloqueaEsperado ? 'ocupada' : 'libre'),
+        "mapa POS proyectado {$hora}"
     );
     assertTicketProjection($estado['disponible_para_asignacion'] === !$bloqueaEsperado, "asignabilidad {$hora}");
     assertTicketProjection(
@@ -102,16 +104,15 @@ $estadoRojoConReservaCercana = MesaEstadoService::normalizarMesas(
         'causas_bloqueo_por_mesa' => [1 => ['ticket']],
     ]
 )[0];
-assertTicketProjection($estadoRojoConReservaCercana['estado_visual_mapa'] === 'ocupada', 'ticket que intersecta conserva rojo');
 assertTicketProjection($estadoRojoConReservaCercana['ocupada_fisicamente'], 'el ticket sigue siendo ocupación física');
 assertTicketProjection($estadoRojoConReservaCercana['ticket_bloquea_consulta'], 'el ticket bloquea el intervalo');
 assertTicketProjection(
-    in_array('reservacion_advertencia', $estadoRojoConReservaCercana['modificadores_visual_mapa'], true),
+    in_array('reservacion_advertencia', $estadoRojoConReservaCercana['modificadores'], true),
     'la reserva consecutiva coexiste como señal secundaria azul'
 );
 assertTicketProjection(
-    $estadoRojoConReservaCercana['aria_label_mapa'] === 'Mesa 1, ocupada por servicio activo.',
-    'servicio activo sólo se anuncia por la ocupación física del ticket'
+    $estadoRojoConReservaCercana['estado_visual_pos'] === 'ocupada',
+    'el servicio activo manda sobre la reserva consecutiva: rojo'
 );
 
 $ticketLiberado = [
@@ -134,6 +135,5 @@ $estadoTicketLiberado = MesaEstadoService::normalizarMesas(
 assertTicketProjection($estadoTicketLiberado['ticket_abierto'], 'el ticket liberado sigue físicamente abierto');
 assertTicketProjection($estadoTicketLiberado['ocupada_fisicamente'], 'la proyección no borra ocupación física actual');
 assertTicketProjection(!$estadoTicketLiberado['ticket_bloquea_consulta'], 'la liberación estimada antecede al intervalo consultado');
-assertTicketProjection($estadoTicketLiberado['estado_visual_mapa'] === 'libre', 'ticket proyectado liberado no fuerza rojo');
 
 fwrite(STDOUT, "Reservaciones: proyección temporal de tickets OK\n");

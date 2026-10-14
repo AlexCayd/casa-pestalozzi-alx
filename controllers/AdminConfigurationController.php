@@ -9,6 +9,9 @@ use Services\Configuration\AnuncioConfig;
 use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionAjustesService;
+use Services\Reservations\ReservacionConfig;
+use Model\ConfiguracionReservaciones;
 use Services\Notifications\ReservacionNotificacionConfigService;
 use Services\Configuration\ReporteSistemaService;
 
@@ -44,7 +47,7 @@ class AdminConfigurationController
                 ],
                 [
                     'titulo' => 'Reservaciones',
-                    'descripcion' => 'Configura recordatorios automáticos y comunicaciones con clientes.',
+                    'descripcion' => 'Tamaño máximo de grupo en línea, WhatsApp del restaurante y recordatorios automáticos.',
                     'ruta' => self::RESERVATIONS_PATH,
                     'icono' => '<path d="M6 3v3M18 3v3M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="m9 14 2 2 4-4"/>',
                 ],
@@ -334,7 +337,10 @@ class AdminConfigurationController
 
     public static function pos(Router $router): void
     {
-        $alertas = self::alertasResultado((string) ($_GET['resultado'] ?? ''));
+        $resultado = (string) ($_GET['resultado'] ?? '');
+        $alertas = $resultado === 'barras_actualizadas'
+            ? ['exito' => ['El tope de tickets por barra se actualizó.']]
+            : self::alertasResultado($resultado);
 
         try {
             $configuracion = ConfiguracionPos::obtenerOCrear()->valoresFormulario();
@@ -378,6 +384,47 @@ class AdminConfigurationController
     }
 
     /**
+     * POST /admin/configuracion/pos/barras — tickets abiertos a la vez por
+     * barra. Formulario y sentencia propios, como el de impresión: comparte
+     * fila con los otros ajustes del POS y cada guardado nombra sólo su columna.
+     */
+    public static function guardarBarras(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::POS_PATH);
+        }
+
+        $tope = filter_var($_POST['max_tickets_barra'] ?? null, FILTER_VALIDATE_INT);
+        $tope = $tope !== false ? (int) $tope : 0;
+        $minimo = ConfiguracionPos::MAX_TICKETS_BARRA_MINIMO;
+        $maximo = ConfiguracionPos::MAX_TICKETS_BARRA_TOPE;
+        if ($tope < $minimo || $tope > $maximo) {
+            self::renderPos(
+                self::valoresPosTrasFallo(['max_tickets_barra' => $tope]),
+                ['error' => ["El tope de tickets por barra debe estar entre {$minimo} y {$maximo}."]]
+            );
+            return;
+        }
+
+        $configuracion = new ConfiguracionPos([
+            'max_tickets_barra' => $tope,
+            'updated_by' => self::usuarioAutenticadoId(),
+        ]);
+
+        try {
+            if ($configuracion->guardarMaxTicketsBarra()) {
+                self::redirect(self::POS_PATH . '?resultado=barras_actualizadas');
+            }
+            $alertas = ['error' => ['No fue posible actualizar el tope de tickets por barra.']];
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarBarras - ' . $e->getMessage());
+            $alertas = ['error' => ['No fue posible actualizar el tope de tickets por barra. Revisa que la columna `max_tickets_barra` exista en `configuracion_pos`.']];
+        }
+
+        self::renderPos(self::valoresPosTrasFallo(['max_tickets_barra' => $tope]), $alertas);
+    }
+
+    /**
      * POST /admin/configuracion/pos/impresion — interruptor global del envío a
      * las impresoras térmicas.
      *
@@ -418,9 +465,11 @@ class AdminConfigurationController
 
     public static function reservations(Router $router): void
     {
-        $alertas = (string)($_GET['resultado'] ?? '') === 'reservaciones_actualizadas'
-            ? ['exito' => ['La configuración de reservaciones se actualizó correctamente.']]
-            : [];
+        $alertas = match ((string)($_GET['resultado'] ?? '')) {
+            'reservaciones_actualizadas' => ['exito' => ['La configuración de reservaciones se actualizó correctamente.']],
+            'limites_actualizados' => ['exito' => ['Los límites de la reserva en línea se actualizaron.']],
+            default => [],
+        };
         try {
             $configuracion = ReservacionNotificacionConfigService::obtenerOCrear();
         } catch (\Throwable $e) {
@@ -463,6 +512,56 @@ class AdminConfigurationController
         }
     }
 
+    /**
+     * POST /admin/configuracion/reservaciones/limites — máximo de comensales de
+     * la landing y WhatsApp del restaurante. Formulario y sentencia propios: el
+     * recordatorio vive en la misma fila y no debe pisarse (ver
+     * ConfiguracionReservaciones::guardarLimites()).
+     */
+    public static function guardarLimitesReservaciones(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::RESERVATIONS_PATH);
+        }
+        $maximo = filter_var($_POST['max_comensales_publico'] ?? null, FILTER_VALIDATE_INT);
+        $whatsappCrudo = is_scalar($_POST['whatsapp_reservas'] ?? null) ? (string)$_POST['whatsapp_reservas'] : '';
+        $intento = [
+            'max_comensales_publico' => $maximo !== false ? (int)$maximo : 0,
+            'whatsapp_reservas' => ReservacionAjustesService::normalizarWhatsapp($whatsappCrudo),
+        ];
+        $recordatorio = ReservacionNotificacionConfigService::obtener();
+
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string)$_POST['admin_csrf'] : null)) {
+            self::renderReservations($recordatorio, ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']], $intento);
+            return;
+        }
+
+        $modelo = new ConfiguracionReservaciones($intento + ['updated_by' => self::usuarioAutenticadoId()]);
+        $errores = $modelo->validarLimites(
+            ReservacionConfig::MAX_COMENSALES_PUBLICO_MINIMO,
+            ReservacionConfig::MAX_COMENSALES_PUBLICO_TOPE
+        );
+        if ($errores !== []) {
+            self::renderReservations($recordatorio, ['error' => array_values($errores['error'] ?? [])], $intento);
+            return;
+        }
+
+        try {
+            if (!$modelo->guardarLimites()) {
+                throw new \RuntimeException('El guardado de límites no se completó.');
+            }
+            ReservacionAjustesService::limpiarCache();
+            self::redirect(self::RESERVATIONS_PATH . '?resultado=limites_actualizados');
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarLimitesReservaciones - ' . $e->getMessage());
+            self::renderReservations(
+                $recordatorio,
+                ['error' => ['No fue posible guardar los límites. Revisa que existan las columnas `max_comensales_publico` y `whatsapp_reservas` en `configuracion_reservaciones`.']],
+                $intento
+            );
+        }
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -494,7 +593,12 @@ class AdminConfigurationController
     {
         // Ante un fallo de lectura se muestra el comportamiento histórico, que
         // es el que sigue aplicando el POS mientras no pueda leer el ajuste.
-        return ['mesero_editable' => true, 'impresion_activa' => true, 'updated_at' => ''];
+        return [
+            'mesero_editable' => true,
+            'impresion_activa' => true,
+            'max_tickets_barra' => ConfiguracionPos::MAX_TICKETS_BARRA_PREDETERMINADO,
+            'updated_at' => '',
+        ];
     }
 
     /**
@@ -563,12 +667,31 @@ class AdminConfigurationController
         ], $data));
     }
 
-    private static function renderReservations(array $configuracion, array $alertas): void
+    /**
+     * `$intentoLimites` repinta lo que el admin acababa de escribir cuando el
+     * guardado de límites falla; sin él, el panel vuelve a los valores vigentes.
+     */
+    private static function renderReservations(array $configuracion, array $alertas, array $intentoLimites = []): void
     {
+        $limites = [
+            'max_comensales_publico' => ReservacionConfig::maxComensalesPublico(),
+            'whatsapp_reservas' => (string)(ReservacionAjustesService::whatsappReservas() ?? ''),
+        ];
+        if ($intentoLimites !== []) {
+            $limites['max_comensales_publico'] = (int)($intentoLimites['max_comensales_publico'] ?? $limites['max_comensales_publico']);
+            $limites['whatsapp_reservas'] = (string)($intentoLimites['whatsapp_reservas'] ?? '');
+        }
+
         self::render('configuration/reservations', [
             'title' => 'Reservaciones',
             'topbarSection' => 'Configuración',
             'configuracionReservaciones' => $configuracion,
+            'limitesReservaciones' => $limites + [
+                'minimo' => ReservacionConfig::MAX_COMENSALES_PUBLICO_MINIMO,
+                'tope' => ReservacionConfig::MAX_COMENSALES_PUBLICO_TOPE,
+                'whatsapp_respaldo' => ReservacionConfig::whatsappRespaldo(),
+                'reservaciones_por_tamano' => ReservacionAjustesService::reservacionesFuturasPorTamano(),
+            ],
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
         ]);

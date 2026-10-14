@@ -56,6 +56,9 @@ if (!function_exists('admin_icon_paths')) {
             'tickets' => '<path d="M6 3h12v18l-2-1-2 1-2-1-2 1-2-1-2 1V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>',
             'printers' => '<path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/>',
             'users' => '<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a3 3 0 0 0-2-2.8"/>',
+            // Rejilla de módulos: «ir al panel». Es la que dibujaba a mano el
+            // header operativo; ahora la pide el menú de cuenta del POS.
+            'panel' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
             'configuration' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
 
             // ── Acciones ──────────────────────────────────────────────
@@ -64,6 +67,9 @@ if (!function_exists('admin_icon_paths')) {
             'editar' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
             'imprimir' => '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/>',
             'mas' => '<path d="M12 5v14"/><path d="M5 12h14"/>',
+            // Pareja exacta de 'mas' (mismo trazo horizontal): van juntos en
+            // los steppers y un largo distinto los haría parecer de dos familias.
+            'menos' => '<path d="M5 12h14"/>',
             'cerrar' => '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
             'buscar' => '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
             'descargar' => '<path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/>',
@@ -82,6 +88,30 @@ if (!function_exists('admin_icon_paths')) {
             'estrella' => '<path d="m12 3 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.9 6.1 21l1.2-6.5L2.5 9.9 9.1 9Z"/>',
             'alerta' => '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
             'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+
+            // ── Estados de mesa del POS ───────────────────────────────
+            //
+            // El mismo círculo y una marca distinta dentro: visto (libre),
+            // guion (no disponible), manecillas (reservada) y exclamación (el
+            // cliente no llegó). Con daltonismo el verde y el rojo se leen
+            // casi iguales; la forma es lo que los separa. Pareja de icons.js.
+            'estado-libre' => '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5.5"/>',
+            'estado-ocupada' => '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+            'estado-reservada' => '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+            'estado-sin-llegar' => '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2h.01"/>',
+            // Reservaciones en el POS: barra de contexto, cajón y ficha.
+            'chevron-izquierda' => '<path d="m15 6-6 6 6 6"/>',
+            'chevron-derecha' => '<path d="m9 6 6 6-6 6"/>',
+            'ahora' => '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V10H9"/><path d="M12 8v4.5l3 1.8"/>',
+            'reloj' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 1.9"/>',
+            'plano' => '<rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+            'grupo' => '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+            'reubicar' => '<path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/>',
+            'nota' => '<path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/><path d="M8 9h8M8 12.5h5"/>',
+            'ayuda' => '<circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.4 2.4 0 1 1 3.8 1.9c-1 .7-1.5 1.1-1.5 2.6M12 17h.01"/>',
+            // Fichas del mapa: la bolsa de Llevar y el recibo del corte de caja.
+            'bolsa' => '<path d="M5 8h14l-1 12H6Z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/>',
+            'caja' => '<path d="M6 3h12v18l-2-1-2 1-2-1-2 1-2-1-2 1V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
 
             // ── Cuadrantes de ingeniería de menú (analíticas) ─────────
             //

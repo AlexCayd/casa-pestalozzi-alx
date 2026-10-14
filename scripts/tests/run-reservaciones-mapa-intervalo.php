@@ -64,15 +64,22 @@ assertMapaIntervalo(
     'la lectura de compatibilidad reconoce el último minuto de traslape'
 );
 
+/*
+ * El mapa del POS proyectado a la hora consultada (el mesero toca un horario
+ * en el cajón). La regla: azul desde 60 min antes del inicio hasta el fin del
+ * intervalo [inicio, inicio + 90), semiabierto. Lo que bloquea la ASIGNACIÓN es
+ * otra cosa —el solape de intervalos— y aquí se comprueba que no se confundan:
+ * a las 17:31 el intervalo ya choca, pero la mesa sigue verde en el mapa.
+ */
 $consultas = [
     '17:30:00' => 'libre',
     '17:31:00' => 'libre',
-    '18:00:00' => 'libre',
-    '18:15:00' => 'libre',
+    '17:59:00' => 'libre',
+    '18:00:00' => 'reservacion-proxima',
     '18:30:00' => 'reservacion-proxima',
     '18:59:00' => 'reservacion-proxima',
-    '19:00:00' => 'ocupada',
-    '20:29:00' => 'ocupada',
+    '19:00:00' => 'reservacion-proxima',
+    '20:29:00' => 'reservacion-proxima',
     '20:30:00' => 'libre',
 ];
 
@@ -91,73 +98,35 @@ foreach ($consultas as $hora => $estadoEsperado) {
             'causas_bloqueo_por_mesa' => $bloqueada ? [14 => ['reservacion']] : [],
             'mesas' => [],
             'tickets_por_mesa' => [],
-        ]
+        ],
+        ['modo' => 'proyeccion']
     )[0];
 
     assertMapaIntervalo(
-        $estado['estado_visual_mapa'] === $estadoEsperado,
-        "mapa {$hora} conserva {$estadoEsperado}"
+        $estado['estado_visual_pos'] === $estadoEsperado,
+        "POS proyectado {$hora}: se esperaba {$estadoEsperado}, salió {$estado['estado_visual_pos']}"
     );
     assertMapaIntervalo(
         $estado['reservacion_influye_en_consulta'] === ($consulta >= $inicio && $consulta < $inicioConsecutivo),
         "hecho de inicio consultado {$hora}"
     );
+    if ($estadoEsperado === 'reservacion-proxima') {
+        // En proyección el subrótulo es la hora de la reserva, no un conteo.
+        assertMapaIntervalo($estado['subtitulo_pos'] === '19:00', "subrótulo con la hora de la reserva {$hora}");
+    }
 
     if ($hora === '17:30:00') {
         assertMapaIntervalo(!$estado['bloqueada_en_intervalo'], '17:30–19:00 y 19:00–20:30 no se solapan');
         assertMapaIntervalo($estado['disponible_para_asignacion'], 'el intervalo sin bloqueo es asignable');
         assertMapaIntervalo(!$estado['ocupada_fisicamente'], 'una reserva futura no crea ocupación física');
         assertMapaIntervalo(!$estado['ticket_bloquea_consulta'], 'el caso principal no tiene ticket');
-        assertMapaIntervalo(
-            !in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
-            'una reserva a más de 60 min no añade alerta'
-        );
-        assertMapaIntervalo(
-            $estado['aria_label_mapa'] === 'Mesa 14, disponible.',
-            'la etiqueta accesible anuncia disponibilidad sin alerta'
-        );
     }
 
     if ($hora === '17:31:00') {
         assertMapaIntervalo(
             in_array('reservacion', $estado['causas_bloqueo'], true)
-                && !$estado['disponible_para_asignacion']
-                && $estado['estado_visual_mapa'] === 'libre',
-            '17:31 se solapa un minuto: asignación bloqueada y proyección verde'
-        );
-        assertMapaIntervalo(
-            !in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
-            'una proyección futura a más de 60 min no muestra borde de advertencia'
-        );
-        assertMapaIntervalo(
-            $estado['aria_label_mapa'] === 'Mesa 14, disponible.',
-            'el label sigue describiendo la proyección verde aunque el intervalo esté bloqueado'
-        );
-    }
-
-    if ($hora === '18:00:00') {
-        assertMapaIntervalo(
-            $estado['bloqueada_en_intervalo']
-                && $estado['estado_visual_mapa'] === 'libre'
-                && in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true)
-                && $estado['label_visual_mapa'] === 'Disponible con reservación próxima',
-            '60 min: verde con borde, aunque el intervalo se solape'
-        );
-    }
-
-    if ($hora === '18:30:00') {
-        assertMapaIntervalo(
-            $estado['estado_visual_mapa'] === 'reservacion-proxima'
-                && $estado['label_visual_mapa'] === 'Reservación próxima',
-            '30 min: azul preventivo antes del inicio'
-        );
-    }
-
-    if ($hora === '19:00:00') {
-        assertMapaIntervalo(
-            $estado['estado_visual_mapa'] === 'ocupada'
-                && $estado['label_visual_mapa'] === 'Ocupada por reservación',
-            'inicio: rojo durante el periodo programado'
+                && !$estado['disponible_para_asignacion'],
+            '17:31 se solapa un minuto: la asignación se bloquea aunque el mapa siga verde'
         );
     }
 
@@ -169,4 +138,4 @@ foreach ($consultas as $hora => $estadoEsperado) {
     }
 }
 
-fwrite(STDOUT, "Reservaciones: disponibilidad visual por intervalo semiabierto OK\n");
+fwrite(STDOUT, "Reservaciones: mapa POS proyectado por intervalo semiabierto OK\n");

@@ -5,14 +5,14 @@
  * fuente de verdad para el envío de formularios. La lista se monta en <body>
  * (portal) y se posiciona fija para no ser recortada por tarjetas con overflow.
  *
- * Se excluyen las vistas operativas (mapa/áreas/operación) y cualquier select
+ * Se excluyen las vistas operativas (mapa y áreas) y cualquier select
  * marcado con [data-native]. Dentro de esas vistas, un select puede pedir el
  * componente explícitamente con [data-enhance]: así el POS estiliza el de
  * mesero sin arrastrar consigo al resto de la pantalla.
  */
 (function () {
     var uid = 0;
-    var EXCLUDE = '.mapa-page, .area-page, .admin-reservation-operation';
+    var EXCLUDE = '.mapa-page, .area-page';
     var registry = [];
     var instancias = [];
 

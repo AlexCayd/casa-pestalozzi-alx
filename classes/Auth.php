@@ -22,20 +22,15 @@ use Model\Usuario;
 class Auth {
 
     /**
-     * Superficie operativa compartida por administración y piso.
-     * Mantener esta lista explícita evita abrir el resto de /admin/*.
+     * Direcciones de la antigua pantalla de Operación de reservaciones. Ya no
+     * pintan nada: redirigen al POS, que es donde vive la operación. Se abren
+     * a meseros como el POS porque una tablet con el favorito viejo debe
+     * aterrizar en el mapa, no rebotar contra la guardia de /admin/. Sus APIs
+     * NO están aquí: desaparecieron y quedan cerradas por el prefijo.
      */
-    private const RUTAS_MAPA_RESERVACIONES_OPERACION = [
+    private const REDIRECCIONES_OPERACION = [
         '/admin/reservaciones/operacion',
         '/admin/reservations/operation',
-        '/admin/api/reservaciones/operacion',
-        '/admin/api/reservaciones/operacion/crear',
-        '/admin/api/reservaciones/operacion/disponibilidad',
-        '/admin/api/reservaciones/operacion/asignar-mesas',
-        '/admin/api/reservaciones/operacion/liberar-mesas',
-        '/admin/api/reservaciones/operacion/reasignar',
-        '/admin/api/reservaciones/operacion/comentario',
-        '/admin/api/reservaciones/operacion/estado',
     ];
 
     /** APIs del punto de venta: meseros y admin. */
@@ -53,6 +48,14 @@ class Auth {
         '/api/punto-de-venta/reservaciones/comenzar',
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',
+        // Reservaciones operadas desde el POS (fase 4). Ruta exacta, nunca por
+        // prefijo: una ruta /api/ fuera de las listas queda pública.
+        '/api/punto-de-venta/reservaciones/disponibilidad',
+        '/api/punto-de-venta/reservaciones/crear',
+        '/api/punto-de-venta/reservaciones/asignar-mesas',
+        '/api/punto-de-venta/reservaciones/reasignar',
+        '/api/punto-de-venta/reservaciones/comentario',
+        '/api/punto-de-venta/reservaciones/reubicaciones/revisar',
         '/api/corte-caja',
         '/api/sugerencias',
         '/api/impresion/alertas/atender',
@@ -208,8 +211,8 @@ class Auth {
 
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
-     * /admin/*                 → solo admin, salvo el mapa operativo explícito
-     * mapa operativo de reservaciones → waiter y admin
+     * /admin/*                 → solo admin, salvo las redirecciones de Operación
+     * redirecciones de Operación → waiter y admin (aterrizan en el POS)
      * /punto-de-venta, APIs POS → waiter y admin
      * /area, /area/*, APIs área → cook y admin
      * El resto (sitio público, /feedback, /api/feedback…) queda libre.
@@ -224,11 +227,12 @@ class Auth {
             return;
         }
 
-        $esMapaReservacionesUrl = in_array($url, self::RUTAS_MAPA_RESERVACIONES_OPERACION, true);
-        $esAdminUrl = !$esMapaReservacionesUrl && ($url === '/admin'
+        $esRedireccionOperacion = in_array($url, self::REDIRECCIONES_OPERACION, true);
+        $esAdminUrl = !$esRedireccionOperacion && ($url === '/admin'
             || str_starts_with($url, '/admin/')
             || in_array($url, self::APIS_ADMIN, true));
         $esPosUrl = $url === '/punto-de-venta'
+            || $esRedireccionOperacion
             || in_array($url, self::APIS_POS, true);
         $esAreaUrl = $url === '/area'
             || str_starts_with($url, '/area/')
@@ -251,7 +255,6 @@ class Auth {
 
         // El admin entra a todo; para el resto, cada zona exige su rol.
         $permitido = self::esAdmin()
-            || ($esMapaReservacionesUrl && self::esMesero())
             || ($esPosUrl && self::esMesero())
             || ($esAreaUrl && self::esCocinero())
             || ($esPisoUrl && (self::esMesero() || self::esCocinero()));

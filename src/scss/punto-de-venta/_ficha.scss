@@ -1,0 +1,684 @@
+// ── Ficha de la reservación ─────────────────────────────────────────
+//
+// Acoplada al mapa, no flotante (decisión del dueño): flotando, a 1024×768
+// tapaba el exterior de los grupos grandes. Conserva el vidrio propio del POS
+// como material —la misma receta de .mesa-modal, escala local y no
+// --glass-bg-strong—, aunque acoplada lo que se ve detrás es la página.
+//
+// Trampa medida al prototipar: con un cuerpo en grid + overflow-y, un hijo con
+// overflow:hidden se aplastaba a 2 px (min-height:auto = 0 en contenedores con
+// scroll). El cuerpo va en flex column, hijos flex 0 0 auto y NINGÚN hijo con
+// overflow:hidden.
+
+.pos-ficha {
+  --pos-glass-panel: color-mix(in srgb, var(--admin-surface) 78%, transparent);
+
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--admin-radius-md);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 6%, transparent), transparent 30%),
+    var(--pos-glass-panel);
+  -webkit-backdrop-filter: blur(32px) saturate(1.7);
+  backdrop-filter: blur(32px) saturate(1.7);
+  box-shadow:
+    inset 0 1px 0 var(--admin-glass-edge),
+    0 24px 60px color-mix(in srgb, var(--admin-sombra) 40%, transparent);
+  overflow: hidden;
+
+  &[hidden] { display: none; }
+  &:focus-visible { outline: 0; }
+
+  svg { stroke-width: 1.9; }
+}
+
+.pos-ficha__cuerpo {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 18px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--admin-border); }
+
+  > * { flex: 0 0 auto; }
+}
+
+.pos-ficha__cab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 4px 10px;
+}
+
+// La jerarquía la hace el par mono/sans: rótulo en mono versalitas, nombre en
+// sans con el tracking cerrado.
+.pos-ficha__rotulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pos-ficha__nombre {
+  grid-column: 1;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+
+  &:focus-visible { outline: 0; }
+}
+
+.pos-ficha__cerrar {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+
+  svg { width: 18px; height: 18px; stroke-width: 2; }
+  &:hover { background: var(--admin-surface-soft); color: var(--admin-text); }
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+}
+
+// ── Datos: hora · personas, y mesas a todo el ancho ─────────────────
+.pos-ficha__datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 12px;
+
+  > div {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+    padding: 10px 12px;
+    border-right: 1px solid var(--admin-border-soft);
+  }
+
+  > div:nth-child(2) { border-right: 0; }
+
+  > div:last-child {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--admin-border-soft);
+    border-right: 0;
+  }
+
+  dt {
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
+
+// El día, sólo si no es hoy: en sans y en gris, detrás de la hora. Antes no
+// estaba en ninguna celda y lo suplía una frase de estado.
+.pos-ficha__dia {
+  margin-left: 8px;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pos-ficha__mesas-dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+
+  .pos-ficha__datos & {
+    font-family: var(--admin-font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  &.is-vacio > span:first-child { color: var(--admin-warning-text); }
+}
+
+// «Grupo grande», «Exterior completo»: la misma palabra que en la tarjeta.
+.pos-ficha__matiz {
+  display: block;
+  width: 100%;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+// Botón en línea: 32 px visibles, 44 tocables por el ::after.
+// Con el ancestro: `.admin-body button` (0,1,1) le pondría `font: inherit` y
+// heredaría la mono del rótulo en el que vive.
+.pos-ficha .pos-ficha__inline {
+  position: relative;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-family: var(--admin-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &::after { position: absolute; inset: -6px -4px; content: ""; }
+  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+  &:disabled { border-color: var(--admin-border); color: var(--admin-muted); cursor: default; }
+}
+
+// ── Estado, avisos y secciones ───────────────────────────────────────
+// La etiqueta de estado y, debajo, lo que hay que saber de ese estado. La
+// etiqueta neutra va en tinta y no en el gris de la tarjeta: aquí es el
+// titular del bloque, no un matiz.
+.pos-ficha__estado {
+  display: grid;
+  gap: 6px;
+
+  .pos-senal {
+    min-height: 28px;
+    justify-self: start;
+    color: var(--admin-text);
+    font-size: 13px;
+  }
+
+  .pos-senal--reservada { color: var(--map-table-reservation-text); }
+  .pos-senal--vencida { color: var(--map-table-reservation-overdue-text); }
+  .pos-senal--reservada,
+  .pos-senal--vencida { padding: 0 10px; }
+}
+
+// Las reglas de .admin-body p (0,1,1) le ganarían a una clase suelta: los
+// párrafos de la ficha llevan el ancestro.
+.pos-ficha .pos-ficha__frase,
+.pos-ficha .pos-ficha__aviso p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+// Reubicada y «mesa libre ahora»: neutros. No son errores. Llevaban un
+// filete de 3 px en el costado que el radio doblaba en las esquinas —el gesto
+// que el dueño pidió quitar de los avisos y de esta pantalla—; se despegan del
+// cuerpo por superficie y contorno completo, y el titular en tinta con su
+// icono dice «mira aquí».
+.pos-ficha__aviso {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+
+  strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  svg { width: 16px; height: 16px; flex: 0 0 16px; }
+
+  .pos-ficha__inline,
+  .mmodal-btn { justify-self: start; }
+}
+
+.pos-ficha__seccion { display: grid; gap: 6px; }
+
+.pos-ficha .pos-ficha__etiqueta {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pos-ficha .pos-ficha__texto {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+// La nota del cliente es el único elemento HUNDIDO: se distingue por relieve,
+// no por hue (la misma idea que la nota del KDS).
+.pos-ficha .pos-ficha__nota {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-bg) 55%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 40%, transparent);
+}
+
+.pos-ficha__contacto {
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+
+  span { font-family: var(--admin-font-mono); }
+  small { color: var(--admin-muted); font-size: 12px; }
+}
+
+// Comentario en edición. Los dos botones compactos, nunca --primary: la
+// ficha ya tiene su acción principal.
+.pos-ficha__editor {
+  display: grid;
+  gap: 8px;
+
+  textarea {
+    width: 100%;
+    min-height: 88px;
+    resize: vertical;
+  }
+
+  .pos-ficha__editor-botones {
+    display: flex;
+    gap: 8px;
+
+    .mmodal-btn { width: auto; min-height: 44px; }
+  }
+
+  [role="alert"] { margin: 0; color: var(--admin-danger-text); font-size: 13px; }
+}
+
+.pos-ficha__mesero:empty { display: none; }
+
+.pos-ficha__pie {
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border-soft);
+
+  .mmodal-btn { width: 100%; }
+}
+
+// ── Pie fijo: una sola decisión, fuera del scroll ────────────────────
+.pos-ficha__acciones {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-surface) 60%, transparent);
+
+  &:empty { display: none; }
+
+  .mmodal-btn { min-height: 48px; }
+  .pos-ficha__ancho { grid-column: 1 / -1; }
+}
+
+.pos-ficha .pos-ficha__pista {
+  grid-column: 1 / -1;
+  margin: -2px 0 2px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+// Teléfono (no es objetivo): hoja inferior fija.
+@media (max-width: 699px) {
+  .mapa-page .pos-map > .pos-ficha {
+    position: fixed;
+    z-index: 150;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-height: 88dvh;
+  }
+}
+
+// ── Botones de la casa en las piezas nuevas ──────────────────────────
+// `.mmodal-btn` (0,1,0) declara versalitas sans a 700, pero `.admin-body
+// button` (0,1,1) le gana con `font: inherit` + `text-transform: none`: lo que
+// quedaba era Geist a 400 en caja normal CON el tracking de .09em de las
+// versalitas — «Llegó» y «Nueva reservación» se leían deshilachados y más
+// flojos que el texto de la ficha. Aquí se fija la voz del sistema
+// administrativo: sans 600, sin tracking. Sólo en la ficha, el pie del cajón y
+// el alta; el modal de mesa tiene el mismo síntoma y es otra revisión.
+:is(.pos-ficha, .operational-drawer__pie, .pos-alta) .mmodal-btn {
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+// ── Motivos de cancelación (dentro del ConfirmationModal) ────────────
+.pos-motivos {
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  .admin-pills__group { flex-wrap: wrap; }
+}
+
+// La pill del panel mide 42 px: está pensada para un formulario de escritorio.
+// En la tablet del piso, motivos y tipo de contacto se tocan con el dedo.
+:is(.pos-motivos, .pos-alta) .admin-pill {
+  min-height: 44px;
+  align-items: center;
+
+  &::before { margin-top: 0; }
+}
+
+.pos-motivos__otro {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+
+  &[hidden] { display: none; }
+
+  textarea {
+    width: 100%;
+    min-height: 72px;
+    resize: vertical;
+  }
+}
+
+// ── Pie del cajón: la única acción primaria del cajón ─────────────────
+.operational-drawer__pie {
+  flex: 0 0 auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.pos-cajon__nueva {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  svg { width: 18px; height: 18px; stroke-width: 2; }
+}
+
+// ── Reubicaciones dentro de una confirmación ─────────────────────────
+.pos-reubicaciones {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 10px;
+  list-style: none;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Nueva reservación (diálogo nativo) ───────────────────────────────
+.pos-alta {
+  // Un reset global deja el margen en 0 y el diálogo se pegaba arriba a la
+  // izquierda: el centrado del navegador ES ese margin:auto.
+  margin: auto;
+  // Ancho para que la rejilla de horas quepa en menos filas y el formulario
+  // entero se lea sin desplazarse en una tablet apaisada.
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 0;
+  // Desplaza el cuerpo, no el diálogo: con los dos salían dos barras de
+  // desplazamiento, una dentro de otra.
+  overflow: hidden;
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--admin-sombra) 50%, transparent);
+
+  &::backdrop { background: var(--admin-scrim); }
+  &:not([open]) { display: none; }
+}
+
+.pos-alta__form {
+  display: flex;
+  max-height: inherit;
+  flex-direction: column;
+}
+
+.pos-alta__cab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 10px;
+  padding: 18px 18px 6px;
+}
+
+.pos-alta .pos-alta__rotulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pos-alta .pos-alta__titulo {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.pos-alta__cuerpo {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 18px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--admin-border); }
+
+  > * { flex: 0 0 auto; }
+}
+
+.pos-alta__campo {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pos-alta__etiqueta {
+  padding: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pos-alta__opcional { letter-spacing: 0; text-transform: none; }
+
+// Personas al centro: es el dato que decide el resto (horas, cupo, si las
+// mesas se proponen o se asignan solas), y centrado se lee como el eje del
+// formulario en vez de un control más pegado al margen.
+.pos-alta__campo--personas {
+  justify-items: center;
+  text-align: center;
+}
+
+.pos-alta__stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// La cifra de lugares es lo que se vino a leer; la frase alrededor, contexto.
+.pos-alta .pos-alta__cupo-cifra {
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pos-alta__personas {
+  min-width: 3ch;
+  font-family: var(--admin-font-mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pos-alta .pos-alta__ayuda {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+
+  &:empty { display: none; }
+  &[hidden] { display: none; }
+  // Falta elegir hora: el aviso vive junto a la rejilla, en el rojo legible.
+  &.is-error { color: var(--admin-danger-text); font-weight: 600; }
+}
+
+// Horas en rejilla: el catálogo del día cabe entero, no hace falta un select.
+.pos-alta__rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+// Con el ancestro: `.admin-body button` (0,1,1) le pondría `font: inherit`.
+.pos-alta .pos-alta__hora {
+  min-height: 44px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+
+  &:disabled {
+    border-color: var(--admin-border-soft);
+    color: var(--admin-muted);
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+
+  // También bajo el dedo: sin el :hover aquí, el hover (más específico)
+  // apagaba la hora recién elegida.
+  &.is-elegida,
+  &.is-elegida:hover:not(:disabled) {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+  }
+}
+
+// Sin filete lateral, por lo mismo que `.pos-ficha__aviso`.
+.pos-alta__previa {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+
+  &[hidden] { display: none; }
+
+  ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.9; }
+}
+
+.pos-alta .pos-alta__previa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  // En tinta y no en el gris del cuerpo (`.admin-body p`): es la respuesta a
+  // «¿dónde quedaría?», y con la caja es lo que dice «mira aquí».
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pos-alta .pos-alta__previa-nota {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.pos-alta .pos-alta__error {
+  margin: 0;
+  color: var(--admin-danger-text);
+  font-size: 13px;
+
+  &[hidden] { display: none; }
+}
+
+.pos-alta__tipos { flex-wrap: wrap; }
+
+.pos-alta textarea { resize: vertical; }
+
+.pos-alta__acciones {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  padding: 12px 18px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--admin-border-soft);
+
+  .mmodal-btn { min-height: 48px; }
+}

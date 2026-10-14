@@ -258,8 +258,9 @@
          * Icono de cabecera y aspa de cierre. En el panel salen del catálogo de
          * AdminIcons (core/icons.js, que viaja en admin.js): el «!» y el «×»
          * eran glifos de la fuente, con otro grosor y otra caja que el resto de
-         * iconos del panel. Fuera de él —landing, piso— no hay catálogo y se
-         * quedan los glifos, que es el respaldo de siempre. Un icono que pase
+         * iconos del panel. El catálogo viaja ahora también en bundle.min.js
+         * (landing) y en map.js (piso); el glifo queda sólo como respaldo por si
+         * no llegara a cargarse. Un icono que pase
          * quien abre el diálogo (options.icon) manda sobre los dos.
          */
         function pintarIcono(options) {

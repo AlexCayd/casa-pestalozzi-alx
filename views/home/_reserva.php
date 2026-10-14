@@ -269,7 +269,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
                 aria-controls="guestsExtra">7 +</button>
             </div>
             <div class="guests-extra" id="guestsExtra" hidden>
-              <div class="guests-stepper" role="group" aria-label="Cantidad de comensales; después de 12 se activa la atención directa">
+              <div class="guests-stepper" role="group" aria-label="Cantidad de comensales; después de <?php echo (int)$contactoReservas['max_comensales']; ?> se activa la atención directa">
                 <button type="button" class="step-btn" id="guestsMinus" aria-label="Reducir comensales">−</button>
                 <span class="step-val" id="guestsVal" aria-live="polite">7</span>
                 <button type="button" class="step-btn" id="guestsPlus" aria-label="Aumentar comensales">+</button>
@@ -315,11 +315,11 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             encima, y para eso está el paso 4.
 
             Lo único que sigue sacándolo a la luz es el aviso de grupo grande
-            —más de 12 comensales no se reservan en línea—, así que el rótulo
-            lo dice y el botón "Editar" salió: apuntaba al paso 1 estando ya en
-            el paso 1. Los campos de detalle siguen en el marcado porque
-            updateSummaries() los mantiene al día por si el conteo sube de 12 a
-            media selección.
+            —por encima del máximo de Configuración no se reserva en línea—, así
+            que el rótulo lo dice y el botón "Editar" salió: apuntaba al paso 1
+            estando ya en el paso 1. Los campos de detalle siguen en el marcado
+            porque updateSummaries() los mantiene al día por si el conteo pasa
+            del máximo a media selección.
           */ ?>
           <aside class="reserva__selection-summary reservation-summary reservation-summary--compact" data-reservation-selection-summary hidden aria-live="polite">
             <div class="reservation-summary__head">
@@ -333,12 +333,15 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               <div><small>Comensales</small><span data-selection-secondary></span></div>
             </div>
             <div class="reservation-summary__large-party" data-large-party-info hidden>
-              <p>Las reservaciones para más de 12 personas se gestionan directamente con el restaurante.</p>
+              <p>Las reservaciones para más de <?php echo (int)$contactoReservas['max_comensales']; ?> personas se gestionan directamente con el restaurante.</p>
               <div class="reservation-summary__contact-actions">
                 <a href="tel:<?php echo s($contactoReservas['telefono_tel']); ?>">
                   Llamar al <?php echo s($contactoReservas['telefono_visible']); ?>
                 </a>
-                <a href="<?php echo s($contactoReservas['whatsapp_url']); ?>" target="_blank" rel="noopener noreferrer">
+                <?php /* form.js le añade el mensaje con el tamaño del grupo: la
+                         conversación llega empezada, como en la agenda de catas. */ ?>
+                <a href="<?php echo s($contactoReservas['whatsapp_url']); ?>" target="_blank" rel="noopener noreferrer"
+                  data-large-party-whatsapp>
                   Contactar por WhatsApp
                 </a>
               </div>

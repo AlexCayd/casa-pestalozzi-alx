@@ -24,19 +24,6 @@ use Services\Inventory\Inventario;
 class Analiticas
 {
     /**
-     * Asientos del comedor usados como denominador del RevPASH (§3.2).
-     *
-     * Se fija aquí en lugar de derivarlo de SUM(mesas.capacidad), que da 64:
-     * esa suma incluye las barras (Barra Blanca 8 + Barra Roja 6 + Barra Roja 2
-     * = 20) además de las 11 mesas de sala (11 × 4 = 44). La capacidad real
-     * contra la que se mide el rendimiento por asiento es 44.
-     *
-     * Si cambia el acomodo del comedor, este es el único número que hay que
-     * tocar: el RevPASH de todas las franjas se recalcula solo.
-     */
-    private const ASIENTOS_COMEDOR = 44;
-
-    /**
      * Columnas del mapa de calor del RevPASH (§3.2), en orden de semana
      * laboral. La clave es el día tal como lo numera PHP date('w') y MySQL
      * DAYOFWEEK()-1 (0 = domingo), por eso el domingo va al final.
@@ -217,9 +204,13 @@ class Analiticas
      * un viernes a las 21:00 y un martes a las 21:00 son la misma hora y
      * negocios distintos. Agregar las siete columnas escondía justo eso.
      *
-     * Numerador: ticket_items de tickets cerrados, agrupados por día de la
-     * semana y HORA de apertura del ticket.
-     * Denominador: ASIENTOS_COMEDOR × nº de fechas del rango que cayeron en ese
+     * Numerador: ticket_items de tickets cerrados DEL SALÓN, agrupados por día
+     * de la semana y HORA de apertura del ticket. Barras, Llevar y Caja quedan
+     * fuera: no ocupan un asiento del comedor, y sumar su venta sobre los
+     * asientos del salón inflaba el rendimiento por asiento justo en las franjas
+     * de más barra (ver condicionTicketDeSalon()).
+     * Denominador: asientos del salón (Mesa::capacidadReservableTotal(), la
+     * misma cuenta que el «N/44» del POS) × nº de fechas del rango que cayeron en ese
      * día de la semana y en las que el restaurante estuvo abierto en esa franja
      * (horarios_operacion menos excepciones). Ese conteo normaliza que en 30
      * días haya cuatro viernes y cinco sábados.
@@ -238,11 +229,19 @@ class Analiticas
             if (!$db) {
                 return $vacio;
             }
-            $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
+            // Rango y salón van juntos en las tres consultas: el respaldo de
+            // días y horas operados también tiene que contar sólo venta de
+            // salón, o un día con sólo barra pasaría por día operado.
+            $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'"
+                . ' AND ' . self::condicionTicketDeSalon('t');
 
-            // Asientos disponibles: capacidad declarada del comedor, no la suma
-            // de mesas.capacidad (ver ASIENTOS_COMEDOR).
-            $asientos = self::ASIENTOS_COMEDOR;
+            // Asientos: los de las mesas del salón activas y reservables, la
+            // misma definición que el «N/44» del POS. Antes era una constante
+            // de 44 escrita a mano —la tercera copia de ese número—; ahora
+            // desactivar una mesa baja el denominador sin tocar código. No hay
+            // historial de capacidad: el cambio reescala también los periodos
+            // pasados.
+            $asientos = \Model\Mesa::capacidadReservableTotal();
             if ($asientos <= 0) {
                 return $vacio;
             }
@@ -407,6 +406,27 @@ class Analiticas
             error_log('Analiticas::revpash - ' . $e->getMessage());
             return $vacio;
         }
+    }
+
+    /**
+     * Un ticket es «de salón» si alguna de sus mesas es una mesa del comedor
+     * (tipo 'mesa'). Uno sin filas en ticket_mesas también cuenta: son
+     * históricos de antes de esa tabla y en su época sólo existía el salón.
+     * Lo que queda fuera son los tickets que viven sólo en barras, Llevar o
+     * Caja, que no ocupan asiento del comedor.
+     *
+     * El alias se interpola en SQL, así que sólo se aceptan identificadores.
+     */
+    private static function condicionTicketDeSalon(string $alias): string
+    {
+        if (!preg_match('/^[a-z_][a-z0-9_]*$/i', $alias)) {
+            throw new \InvalidArgumentException('Alias de ticket inválido.');
+        }
+
+        return "(EXISTS (SELECT 1 FROM ticket_mesas tm_salon
+                           JOIN mesas m_salon ON m_salon.id = tm_salon.mesa_id
+                          WHERE tm_salon.ticket_id = {$alias}.id AND m_salon.tipo = 'mesa')
+                 OR NOT EXISTS (SELECT 1 FROM ticket_mesas tm_sin WHERE tm_sin.ticket_id = {$alias}.id))";
     }
 
     /**

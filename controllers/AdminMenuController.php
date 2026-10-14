@@ -30,15 +30,31 @@ class AdminMenuController
     /** Listado de platillos con pestañas de categoría. */
     public static function index(Router $router): void
     {
-        $categorias = CategoriasMenu::ordenadas();
+        $todasLasCategorias = CategoriasMenu::ordenadas();
         $categoriasMap = [];
 
-        foreach ($categorias as $cat) {
+        // El mapa lleva TODAS las categorías aunque haya una carta elegida: es
+        // sólo para rotular filas, y la fila de una carta nunca trae otra, pero
+        // un platillo suelto no debe quedarse sin nombre de categoría si cambia
+        // el criterio.
+        foreach ($todasLasCategorias as $cat) {
             $categoriasMap[(int) $cat->id] = $cat->nombre;
         }
 
         $porPagina = 10;
-        $filtros = self::leerFiltrosItems();
+        $filtros = self::leerFiltrosItems($todasLasCategorias);
+        $cartaActiva = (string) $filtros['carta'];
+
+        // Las pestañas son las categorías de la carta elegida. Sin carta, las
+        // dos piezas juntas, que es lo que se veía antes de existir el filtro.
+        $categorias = $cartaActiva === ''
+            ? $todasLasCategorias
+            : array_values(array_filter(
+                $todasLasCategorias,
+                static fn($cat): bool => $cat->carta === $cartaActiva
+            ));
+
+
         $totalMenu = Producto::totalAdmin($filtros);
         $totalPaginas = max(1, (int) ceil($totalMenu / $porPagina));
 
@@ -60,6 +76,7 @@ class AdminMenuController
             'areasMap' => self::areasMap(),
             'filtros' => $filtros,
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
+            'cartaActiva' => $cartaActiva,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
             'alertas' => array_merge_recursive(Producto::getAlertas(), CategoriasMenu::getAlertas()),
             'paginaActual' => $paginaActual,
@@ -429,17 +446,40 @@ class AdminMenuController
         ], $data));
     }
 
-    private static function leerFiltrosItems(): array
+    /**
+     * @param CategoriasMenu[] $categorias Todas las categorías, para comprobar
+     *                                     que la elegida cae en la carta elegida.
+     */
+    private static function leerFiltrosItems(array $categorias): array
     {
-        // Solo nombre y categoría: el filtro de visibilidad se retiró del
+        // Nombre, carta y categoría: el filtro de visibilidad se retiró del
         // formulario porque la columna "Visible" de la tabla ya lo resuelve.
         $q = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
         $categoryId = filter_var($_GET['categoria'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1]
         ]);
 
+        // Un valor fuera de la lista cerrada se trata como «sin carta»: es lo
+        // que pasa con un enlace viejo o escrito a mano, y mostrar las dos
+        // piezas es mejor que una tabla vacía sin explicación.
+        $carta = $_GET['carta'] ?? '';
+        $carta = is_string($carta) && isset(CategoriasMenu::CARTAS[$carta]) ? $carta : '';
+
+        // Una categoría de OTRA carta no se combina con ésta: la tabla saldría
+        // vacía con ninguna pestaña marcada, porque la fila de pestañas ya sólo
+        // trae las de la carta elegida. Se descarta la categoría y manda la carta.
+        if ($categoryId && $carta !== '') {
+            foreach ($categorias as $categoria) {
+                if ((int) $categoria->id === $categoryId && $categoria->carta !== $carta) {
+                    $categoryId = false;
+                    break;
+                }
+            }
+        }
+
         return [
             'q' => $q,
+            'carta' => $carta,
             'categoria' => $categoryId ?: '',
         ];
     }

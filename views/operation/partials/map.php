@@ -6,6 +6,8 @@
  * toda decision de seleccion, asignacion, tickets y reglas de disponibilidad.
  */
 
+require_once __DIR__ . '/../../admin/partials/_icons.php';
+
 $mapVisual = is_array($mapVisual ?? null) ? $mapVisual : [];
 $mapEscape = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 $mapContext = (string)($mapVisual['context'] ?? 'mapa-mesas');
@@ -53,7 +55,9 @@ $mapTitleId = trim((string)($mapVisual['titleId'] ?? ''));
 $mapSubtitle = (string)($mapVisual['subtitle'] ?? '');
 $mapToolbarActionsHtml = (string)($mapVisual['toolbarActionsHtml'] ?? ($mapVisual['leadingHtml'] ?? ''));
 $mapHelpPosition = (string)($mapVisual['helpPosition'] ?? 'header');
-$mapHelpPosition = in_array($mapHelpPosition, ['header', 'overlay'], true) ? $mapHelpPosition : 'header';
+// 'externo': el consumidor pinta el botón en otro sitio (el POS, en su barra de
+// contexto) y aquí sólo se emite el diálogo.
+$mapHelpPosition = in_array($mapHelpPosition, ['header', 'overlay', 'externo'], true) ? $mapHelpPosition : 'header';
 $mapHelpIdSuffix = preg_replace('/[^a-z0-9_-]+/i', '-', $mapContext) ?: 'mapa-mesas';
 $mapHelpDialogId = 'map-help-dialog-' . $mapHelpIdSuffix;
 $mapHelpTitleId = $mapHelpDialogId . '-title';
@@ -155,6 +159,42 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                 </button>
             </header>
             <div class="map-help-dialog__body">
+                <?php if ($mapHelpContext === 'pos'): ?>
+                <?php
+                /*
+                 * El POS tiene TRES estados y ninguno compuesto. Cada muestra es un pin
+                 * de verdad —misma clase, misma línea de icono y palabra— para
+                 * que la ayuda enseñe exactamente lo que se ve en el mapa.
+                 */
+                // La muestra se pinta IGUAL que el pin del mapa: libre y ocupada
+                // sólo con su forma, sin palabra —el color y el icono la dicen—.
+                // La palabra va al lado, en el título: ésta es la leyenda.
+                $mapHelpPosEstados = [
+                    ['clase' => 'mesa-pin--libre', 'icono' => 'estado-libre', 'linea' => '', 'titulo' => 'Libre', 'copia' => 'Se puede sentar a alguien. En una barra, la cifra dice cuántos tickets lleva contra su tope (2/4).'],
+                    ['clase' => 'mesa-pin--ocupada', 'icono' => 'estado-ocupada', 'linea' => '', 'titulo' => 'No disponible', 'copia' => 'Tiene un ticket abierto, o es una barra llena. Si una reservación iba a esta mesa y sigue ocupada cuando está por llegar, se mueve sola a otra libre.'],
+                    ['clase' => 'mesa-pin--reservacion-proxima', 'icono' => 'estado-reservada', 'linea' => 'en 45 min', 'titulo' => 'Reservada', 'copia' => 'Una reservación llega en menos de una hora. Hasta 30 minutos antes puedes sentar a alguien confirmando que se libera a tiempo; después, ya no. Si no llega al vencer la tolerancia (15 minutos), la ausencia se registra sola y la mesa vuelve a estar libre.'],
+                ];
+                ?>
+                <section class="map-help-dialog__group" aria-labelledby="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">
+                    <h3 id="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">Estado de las mesas</h3>
+                    <ul class="map-help-dialog__states map-help-dialog__states--pos">
+                        <?php foreach ($mapHelpPosEstados as $mapHelpPosEstado): ?>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--con-estado <?php echo $mapEscape($mapHelpPosEstado['clase']); ?>"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__estado<?php echo $mapHelpPosEstado['linea'] === '' ? ' is-solo-icono' : ''; ?>"><?php echo admin_icon($mapHelpPosEstado['icono'], 13); ?><?php if ($mapHelpPosEstado['linea'] !== ''): ?><span class="mesa-pin__estado-texto"><?php echo $mapEscape($mapHelpPosEstado['linea']); ?></span><?php endif; ?></span></span></span>
+                                <span class="map-help-dialog__copy"><strong><?php echo $mapEscape($mapHelpPosEstado['titulo']); ?></strong><span><?php echo $mapEscape($mapHelpPosEstado['copia']); ?></span></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </section>
+                <div class="map-help-dialog__context-note" role="note">
+                    <ul>
+                        <li>Caja y Llevar no son mesas: no tienen estado y siempre se pueden abrir.</li>
+                        <li>Las barras admiten varios tickets a la vez y no se reservan.</li>
+                        <li>La trama diagonal en el suelo significa que estás viendo otra hora: el mapa sólo se consulta. Toca «Ahora» para operar.</li>
+                    </ul>
+                </div>
+                <?php unset($mapHelpPosEstados, $mapHelpPosEstado); ?>
+                <?php else: ?>
                 <div class="map-help-dialog__groups">
                     <section class="map-help-dialog__group" aria-labelledby="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">
                         <h3 id="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">Estado de las mesas</h3>
@@ -190,7 +230,7 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>El contorno amarillo indica selección y no reemplaza el estado real.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>El contorno claro, separado del borde, indica selección y no reemplaza el estado real.</span></span>
                             </li>
                         </ul>
                     </section>
@@ -202,6 +242,7 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                         <?php endforeach; ?>
                     </ul>
                 </div>
+                <?php endif; ?>
                 <div class="map-help-dialog__note" role="note">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>
                     <p>Los colores orientan; las acciones se verifican al realizar la operación.</p>

@@ -196,6 +196,10 @@ final class PosReservacionSerializer
             'comment' => (string)($datos['nota'] ?? ''),
             'comentario' => (string)($datos['nota'] ?? ''),
             'comentario_admin' => $datos['comentario_admin'] ?? null,
+            // La ficha del POS dice por qué se canceló y quién la registró
+            // («Reservó en la página» / «Registrada por el personal»).
+            'motivo_cancelacion' => $datos['motivo_cancelacion'] ?? null,
+            'origen_alta' => (string)($datos['origen'] ?? ''),
             'mesa_ids' => $mesaIds,
             'mesas' => $mesasAsignadas,
             'mesas_asignadas' => $nombresMesas,
@@ -445,6 +449,7 @@ final class PosReservacionSerializer
             'nombre' => (string)($datos['nombre'] ?? ''),
             'etiqueta' => (string)($datos['nombre'] ?? ''),
             'tipo' => (string)($datos['tipo'] ?? 'mesa'),
+            'zona' => isset($datos['zona']) && $datos['zona'] !== '' ? (string)$datos['zona'] : null,
             'capacidad' => (int)($datos['capacidad'] ?? 0),
             'pos_x' => (float)($datos['pos_x'] ?? 50),
             'pos_y' => (float)($datos['pos_y'] ?? 50),

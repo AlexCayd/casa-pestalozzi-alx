@@ -1,11 +1,10 @@
 /*
- * Estado vacío / de carga de la lista de reservaciones.
+ * Estado vacío / de carga del mapa y de la lista de reservaciones del cajón.
  *
- * Vive en su propio partial porque lo comparten dos bundles distintos:
- * la operación de reservaciones del panel admin (via operation/reservations.scss)
- * y el punto de venta (via app.scss). Antes solo lo cargaba el primero, así que
- * en el POS el bloque salía sin estilos: el SVG a tamaño natural y los dos spans
- * corridos en la misma línea.
+ * Vive en su propio partial, cargado directamente por app-operation.scss,
+ * porque nació compartido con la pantalla de Operación de reservaciones (ya
+ * retirada). Cuando sólo lo cargaba aquélla, en el POS el bloque salía sin
+ * estilos: el SVG a tamaño natural y los dos spans corridos en la misma línea.
  */
 .mapa-empty-state {
   display: grid;

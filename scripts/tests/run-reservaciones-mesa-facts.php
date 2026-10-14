@@ -40,9 +40,14 @@ $reservacion = [
 $ahora = new DateTimeImmutable('2026-08-06 12:00:00', ReservacionConfig::timezone());
 $inicioReservacion = new DateTimeImmutable('2026-08-06 13:00:00', ReservacionConfig::timezone());
 
+// Columnas: [estado de la antigua pantalla de Operación —ya no se emite; queda
+// como referencia de la semántica de intervalo—, estado POS, bloqueo, permiso
+// de ticket, advertencia].
 $consultas = [
     '11:30:00' => ['libre', 'libre', false, true, false],
-    '12:00:00' => ['libre', 'libre', true, true, true],
+    // Una hora antes el POS ya aparta la mesa en azul (antes era verde con borde):
+    // sentar a alguien sigue permitido con confirmación, por eso el permiso no cambia.
+    '12:00:00' => ['libre', 'reservacion-proxima', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
@@ -76,7 +81,6 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
         $hora,
         $mapaEvaluacion($hora)
     )[0];
-    assertMesaFacts($mesaEstado['estado_visual_mapa'] === $mapa, "mapa {$hora}");
     assertMesaFacts($mesaEstado['estado_visual_pos'] === $pos, "POS {$hora}");
     assertMesaFacts($mesaEstado['bloqueada_en_intervalo'] === $bloqueadaEsperada, "paridad bloqueo {$hora}");
     assertMesaFacts($mesaEstado['disponible_para_ticket'] === $ticketEsperado, "permiso ticket {$hora}");
@@ -91,7 +95,7 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
             "la asignación sólo vuelve al terminar el intervalo: {$hora}"
         );
         assertMesaFacts($mesaEstado['disponible_para_ticket'] === false, "ausencia conserva bloqueo POS {$hora}");
-        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "indicador de ausencia {$hora}");
+        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores'], true), "indicador de ausencia {$hora}");
     }
 }
 
@@ -104,7 +108,8 @@ $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
     '13:05:00',
     $mapaEvaluacion('13:05:00')
 )[0];
-assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_tolerancia'], 'POS conserva azul durante la tolerancia');
+assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['ventana_tolerancia'], 'POS conserva azul durante la tolerancia');
+assertMesaFacts($sinToleranciaVisual['estado_visual_pos'] === 'reservacion-proxima' && $sinToleranciaVisual['subtitulo_pos'] === 'Esperando', 'la tolerancia se rotula «Esperando»');
 
 $otraReservacion = [
     ...$reservacion,
@@ -125,12 +130,11 @@ $ausenciaConOtra = MesaEstadoService::normalizarMesas(
         'causas_bloqueo_por_mesa' => [4 => ['reservacion']],
     ]
 )[0];
-assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'ocupada', 'la reserva activa prioriza sobre el bloqueo previo');
 assertMesaFacts($ausenciaConOtra['reservacion_mapa_id'] === 25, 'el mapa elige la reserva activa sobre otra próxima');
 assertMesaFacts($ausenciaConOtra['reservacion_mapa_hora'] === '13:00', 'el resumen del mapa conserva la hora de la reserva activa');
 assertMesaFacts($ausenciaConOtra['reservacion_id'] === 26, 'la autoridad POS conserva la reserva próxima para su operación');
 assertMesaFacts($ausenciaConOtra['disponible_para_asignacion'] === false, 'otra reservacion conserva el bloqueo');
-assertMesaFacts(in_array('ausencia_pendiente', $ausenciaConOtra['modificadores_visual_mapa'], true), 'otra reservacion compone gris');
+assertMesaFacts(in_array('ausencia_pendiente', $ausenciaConOtra['modificadores'], true), 'otra reservacion compone gris');
 
 $ticket = [
     'id' => 77,
@@ -210,5 +214,44 @@ $estadoBarra = MesaEstadoService::normalizarMesas(
     ['mesa_ids_bloqueadas' => []]
 )[0];
 assertMesaFacts($estadoBarra['estado_visual_pos'] === 'libre', 'Barra operativa recibe su estado POS desde backend');
+assertMesaFacts($estadoBarra['capacidades_pos']['multi_ticket'] === true, 'la barra admite varios tickets');
+assertMesaFacts($estadoBarra['capacidades_pos']['tope_tickets'] === 4, 'sin base, el tope de la barra es el histórico de 4');
+
+// Una barra se pinta por cuántos tickets la ocupan, nunca azul.
+$ticketsBarra = static function (int $cuantos): array {
+    $tickets = [];
+    for ($i = 1; $i <= $cuantos; $i++) {
+        $tickets[] = [
+            'id' => 900 + $i,
+            'estado' => 'abierto',
+            'closed_at' => null,
+            'hora_apertura' => '2026-08-06 11:30:00',
+            'mesa_ids' => [12],
+            'ticket_abierto' => true,
+        ];
+    }
+    return $tickets;
+};
+$barra = ['id' => 12, 'tipo' => 'barra', 'nombre' => 'Barra Blanca', 'activo' => 1, 'reservable' => 0, 'capacidad' => 8];
+$barraDos = MesaEstadoService::normalizarMesas([$barra], [], $ticketsBarra(2), '2026-08-06', $ahora, '', ['mesa_ids_bloqueadas' => []])[0];
+assertMesaFacts($barraDos['estado_visual_pos'] === 'libre' && $barraDos['subtitulo_pos'] === '2/4', 'dos tickets dejan la barra libre con 2/4');
+assertMesaFacts($barraDos['tickets_abiertos'] === 2, 'la barra cuenta sus tickets');
+$barraLlena = MesaEstadoService::normalizarMesas([$barra], [], $ticketsBarra(4), '2026-08-06', $ahora, '', ['mesa_ids_bloqueadas' => []])[0];
+assertMesaFacts($barraLlena['estado_visual_pos'] === 'ocupada' && $barraLlena['subtitulo_pos'] === '4/4', 'cuatro tickets llenan la barra');
+assertMesaFacts($barraLlena['etiqueta_estado_pos'] === 'Llena', 'la barra llena se rotula «Llena»');
+
+// Caja y Llevar son fichas de acción, sin estado de color.
+foreach (['Caja', 'Llevar'] as $indice => $nombreFicha) {
+    $ficha = MesaEstadoService::normalizarMesas(
+        [['id' => 13 + $indice, 'tipo' => 'especial', 'nombre' => $nombreFicha, 'activo' => 1, 'reservable' => 0, 'capacidad' => 0]],
+        [],
+        [],
+        '2026-08-06',
+        $ahora,
+        '',
+        ['mesa_ids_bloqueadas' => []]
+    )[0];
+    assertMesaFacts($ficha['ficha'] === true && $ficha['etiqueta_estado_pos'] === '', "{$nombreFicha} es una ficha sin estado");
+}
 
 fwrite(STDOUT, "Reservaciones: hechos de mesa OK\n");

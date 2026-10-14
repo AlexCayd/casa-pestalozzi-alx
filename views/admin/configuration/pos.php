@@ -2,6 +2,13 @@
 $configuracionPos = is_array($configuracionPos ?? null) ? $configuracionPos : [];
 $meseroEditable = !empty($configuracionPos['mesero_editable']);
 $impresionActiva = !empty($configuracionPos['impresion_activa']);
+$topeBarraMinimo = \Model\ConfiguracionPos::MAX_TICKETS_BARRA_MINIMO;
+$topeBarraMaximo = \Model\ConfiguracionPos::MAX_TICKETS_BARRA_TOPE;
+$topeBarra = (int)($configuracionPos['max_tickets_barra'] ?? \Model\ConfiguracionPos::MAX_TICKETS_BARRA_PREDETERMINADO);
+// Tras un POST fallido llega lo que se tecleó; el stepper sólo pinta valores
+// dentro de rango y el error de arriba explica por qué no se guardó.
+$topeBarra = max($topeBarraMinimo, min($topeBarraMaximo, $topeBarra));
+require_once __DIR__ . '/../partials/_icons.php';
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 ?>
 <section class="admin-configuration admin-menu admin-page" data-configuration-page="pos">
@@ -63,6 +70,64 @@ $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                 lista— el campo se deja editable de todos modos: no hay ningún valor con el que
                 bloquearlo.
             </p>
+
+            <div class="admin-config-form-actions">
+                <p class="admin-form-status" aria-live="polite"></p>
+                <button type="submit" class="admin-btn admin-btn--primary">Guardar cambios</button>
+            </div>
+        </form>
+    </section>
+
+    <?php /* Barras: cuántos tickets abiertos admite cada una a la vez. Formulario
+             propio por la misma razón que el de impresión: se guarda con su
+             sentencia y no debe arrastrar los otros ajustes del POS. */ ?>
+    <section class="admin-panel admin-card admin-config-panel" aria-labelledby="pos-barras-title">
+        <div class="admin-config-panel__head">
+            <div>
+                <h2 id="pos-barras-title">Barras</h2>
+                <p>Cuántos tickets puede tener abiertos a la vez cada barra. Las barras no se reservan y sus comensales no cuentan en la capacidad del salón.</p>
+            </div>
+        </div>
+
+        <form class="admin-pos-form" method="POST" action="/admin/configuracion/pos/barras" data-barras-form novalidate>
+            <div class="admin-field">
+                <label class="admin-field__label" for="max-tickets-barra">Tickets abiertos por barra</label>
+
+                <?php /* El mismo stepper que el máximo de comensales de
+                         Reservaciones: número real dentro, botones que sólo lo
+                         empujan y aria-disabled —no `disabled`— en los topes,
+                         para que el foco de teclado no salte al <body>. */ ?>
+                <div class="admin-stepper" data-stepper>
+                    <button type="button" class="admin-stepper__btn" data-stepper-step="-1"
+                            aria-label="Un ticket menos" aria-controls="max-tickets-barra"
+                            <?php echo $topeBarra <= $topeBarraMinimo ? 'aria-disabled="true"' : ''; ?>>
+                        <?php echo admin_icon('menos', 18); ?>
+                    </button>
+                    <input id="max-tickets-barra"
+                           class="admin-stepper__input"
+                           type="number"
+                           name="max_tickets_barra"
+                           min="<?php echo $topeBarraMinimo; ?>"
+                           max="<?php echo $topeBarraMaximo; ?>"
+                           step="1"
+                           inputmode="numeric"
+                           value="<?php echo $topeBarra; ?>"
+                           required
+                           aria-describedby="max-tickets-barra-error max-tickets-barra-ayuda"
+                           data-barras-tope>
+                    <button type="button" class="admin-stepper__btn" data-stepper-step="1"
+                            aria-label="Un ticket más" aria-controls="max-tickets-barra"
+                            <?php echo $topeBarra >= $topeBarraMaximo ? 'aria-disabled="true"' : ''; ?>>
+                        <?php echo admin_icon('mas', 18); ?>
+                    </button>
+                </div>
+                <span class="admin-field__error" id="max-tickets-barra-error" data-field-error aria-live="polite"></span>
+
+                <p class="admin-field__hint" id="max-tickets-barra-ayuda">
+                    Entre <?php echo $topeBarraMinimo; ?> y <?php echo $topeBarraMaximo; ?>. Al llegar al tope, la barra se pinta en rojo en el mapa y no admite otro ticket hasta que se cobre o descarte uno. Bajarlo no cierra los tickets que ya estén abiertos. Llevar no tiene tope.
+                </p>
+                <p class="admin-visually-hidden" aria-live="polite" data-barras-live></p>
+            </div>
 
             <div class="admin-config-form-actions">
                 <p class="admin-form-status" aria-live="polite"></p>

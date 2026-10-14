@@ -195,6 +195,9 @@ final class ReservacionPublicaService
                     $vence,
                     ReservacionConfig::ahora()->format('Y-m-d H:i:s')
                 );
+                // Un grupo grande despeja el bloque exterior antes de ocuparlo;
+                // en esta misma transacción, así que un fallo deshace ambos.
+                ReservacionReubicacionService::aplicar((array)($disponibilidad['reubicaciones'] ?? []), $reservacionId);
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
                     throw new \RuntimeException('La retención quedó sin mesas.');
@@ -505,6 +508,9 @@ final class ReservacionPublicaService
                     null,
                     ReservacionConfig::ahora()->format('Y-m-d H:i:s')
                 );
+                // Un grupo grande despeja el bloque exterior antes de ocuparlo;
+                // en esta misma transacción, así que un fallo deshace ambos.
+                ReservacionReubicacionService::aplicar((array)($disponibilidad['reubicaciones'] ?? []), $reservacionId);
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
                     throw new \RuntimeException('La reservación confirmada quedó sin mesas.');
@@ -545,7 +551,7 @@ final class ReservacionPublicaService
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
             return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::maxComensalesPublico()) {
             return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
@@ -676,6 +682,7 @@ final class ReservacionPublicaService
                     $vence,
                     $token
                 );
+                ReservacionReubicacionService::aplicar((array)($disponibilidad['reubicaciones'] ?? []), $reemplazoId);
                 ReservacionMesa::reemplazarAsignacion($reemplazoId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reemplazoId)) {
                     throw new \RuntimeException('El reemplazo quedó sin mesas.');
@@ -738,7 +745,7 @@ final class ReservacionPublicaService
         ], true) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
             return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::maxComensalesPublico()) {
             return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
@@ -828,6 +835,7 @@ final class ReservacionPublicaService
                     $requestToken,
                     'confirmada'
                 );
+                ReservacionReubicacionService::aplicar((array)($disponibilidad['reubicaciones'] ?? []), $reemplazoId);
                 ReservacionMesa::reemplazarAsignacion($reemplazoId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reemplazoId)) {
                     throw new \RuntimeException('El reemplazo autorizado quedó sin mesas.');
@@ -1273,7 +1281,7 @@ final class ReservacionPublicaService
         if ($nombre === '' || self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
             return self::datosInvalidos('NOMBRE_REQUERIDO');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::maxComensalesPublico()) {
             return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($notas) > ReservacionConfig::NOTA_MAX_CARACTERES) {

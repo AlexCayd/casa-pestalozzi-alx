@@ -12,10 +12,6 @@
   min-height: 0;
 }
 
-.operational-toolbar {
-  min-width: 0;
-}
-
 .operational-page .operational-drawer-toggle,
 .operational-page .operational-icon-button {
   display: inline-flex;
@@ -75,22 +71,6 @@
 .operational-page .operational-drawer-toggle--icon {
   width: 44px;
   padding: 0;
-}
-
-.operational-drawer-toggle__count {
-  display: inline-grid;
-  min-width: 25px;
-  min-height: 25px;
-  padding: 0 7px;
-  place-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-gold-soft);
-  font-size: var(--operational-text-xs);
-  font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0;
-  line-height: 1;
 }
 
 .operational-drawer {
@@ -304,72 +284,6 @@
   border-bottom: 1px solid var(--admin-border-soft);
 }
 
-.operational-drawer__filters .reservation-operation__filters {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  width: 100%;
-  min-height: 0;
-}
-
-.operational-drawer__filters .reservation-operation__filters[data-operation-filters] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.operational-drawer__filters .reservation-operation__filter-actions {
-  display: none;
-}
-
-.operational-drawer__filters .reservation-operation__filter {
-  width: 100%;
-}
-
-.operational-drawer__filters .reservation-operation__assignment-filter select,
-.operational-drawer__filters .reservation-operation__search-filter input {
-  width: 100%;
-}
-
-.operational-drawer .reservation-operation-card {
-  min-width: 0;
-  height: auto;
-}
-
-.operational-drawer .reservation-operation-card__button {
-  min-width: 0;
-  min-height: 0;
-  padding: 11px 12px 12px;
-}
-
-.operational-drawer .reservation-operation-card__head {
-  align-items: flex-start;
-}
-
-.operational-drawer .reservation-operation-card__time {
-  flex: 0 0 auto;
-}
-
-.operational-drawer .reservation-operation-card__customer,
-.operational-drawer .reservation-operation-card__meta,
-.operational-drawer .reservation-operation-card__tables {
-  min-width: 0;
-}
-
-.operational-drawer .reservation-operation-card__customer strong {
-  overflow-wrap: anywhere;
-  line-height: 1.25;
-}
-
-.operational-drawer .reservation-operation-card__meta,
-.operational-drawer .reservation-operation-card__tables {
-  align-items: flex-start;
-  line-height: 1.35;
-}
-
-.operational-drawer .reservation-operation-card__tables span {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
 .operational-drawer-backdrop {
   position: fixed;
   inset:
@@ -415,40 +329,6 @@
   .operational-drawer {
     transition: none;
   }
-}
-
-// La consulta del drawer es el único filtro: ocupa todo el ancho útil.
-.operational-drawer__filters .reservation-operation__search-filter {
-  order: -1;
-  width: 100%;
-}
-
-.operational-drawer__filters .reservation-operation__search-filter {
-  position: relative;
-}
-
-.operational-drawer__filters .reservation-operation__search-filter input {
-  width: 100%;
-  min-height: 44px;
-  padding-inline: 42px 12px !important;
-  line-height: 1.2;
-}
-
-.reservation-operation__search-icon {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  width: 17px;
-  height: 17px;
-  color: var(--admin-muted);
-  fill: none;
-  pointer-events: none;
-  transform: translateY(-50%);
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  transform: translateY(-50%);
 }
 
 // El drawer es una herramienta de búsqueda, no una segunda columna de trabajo.

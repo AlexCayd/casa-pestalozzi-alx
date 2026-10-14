@@ -84,7 +84,8 @@ $formId = $modo . '-reservation-admin-form';
 $fieldId = static fn (string $field): string => $formId . '-' . $field;
 $fieldErrorId = static fn (string $field): string => $fieldId($field) . '-error';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\Security\AdminCsrfService::token());
-$autoAssignmentDisabled = $comensales > \Services\Reservations\ReservacionConfig::MAX_COMENSALES_PUBLICO;
+$autoAssignmentMax = \Services\Reservations\ReservacionConfig::maxComensalesPublico();
+$autoAssignmentDisabled = $comensales > $autoAssignmentMax;
 $contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
@@ -313,14 +314,22 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <?php if ($modo === 'crear' || $modo === 'editar') : ?>
             <fieldset class="reservation-detail-form__assignment-section">
                 <legend>Asignación de mesas</legend>
-            <label class="reservation-admin-form__check">
-                <input type="hidden" name="asignar_automaticamente" value="0">
-                <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
-                <span class="reservation-admin-form__check-copy">
-                    <span>Asignar mesas automáticamente</span>
-                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Disponible hasta 12 personas.'; ?></small>
-                </span>
-            </label>
+                <?php /* Ya no es una opción: toda reservación confirmada tiene mesas y
+                         el servidor las asigna siempre (o no guarda). El campo oculto
+                         conserva el gancho que lee form.js (máximo automático).
+                         Es la descripción de la SECCIÓN, no el hint de un campo
+                         (`__helper`, 11.5 px): con un párrafo solo bajo un legend de
+                         19 px, el hint se leía como letra pequeña. Dos ideas, dos
+                         párrafos: así ninguna línea pasa de ~95 caracteres a lo
+                         ancho de la tarjeta. */ ?>
+                <input type="hidden" name="asignar_automaticamente" value="1" data-automatic-assignment data-auto-max="<?php echo (int)$autoAssignmentMax; ?>">
+                <p class="reservation-detail-form__section-description" data-assignment-help>
+                    Las mesas se asignan solas al guardar. Si a esa hora no hay lugar, la reservación no se guarda.
+                </p>
+                <p class="reservation-detail-form__section-description">
+                    ¿Más de <?php echo (int)$autoAssignmentMax; ?> personas? Créala desde el
+                    <a href="/punto-de-venta">punto de venta</a>: ahí se eligen sus mesas en el mapa.
+                </p>
             </fieldset>
         <?php endif; ?>
 
@@ -329,7 +338,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 <?php if ($modo === 'editar') : ?>
                     <button type="button" class="admin-btn admin-btn--ghost" data-form-cancel <?php echo !$iniciarEdicion ? 'hidden' : ''; ?>>Cancelar edición</button>
                 <?php endif; ?>
-                <button type="submit" class="admin-btn admin-btn--primary" data-form-save <?php echo (!$editable || !$iniciarEdicion) ? 'hidden disabled' : ''; ?>><?php echo $modo === 'crear' ? 'Crear reservacion' : 'Guardar cambios'; ?></button>
+                <button type="submit" class="admin-btn admin-btn--primary" data-form-save <?php echo (!$editable || !$iniciarEdicion) ? 'hidden disabled' : ''; ?>><?php echo $modo === 'crear' ? 'Crear reservación' : 'Guardar cambios'; ?></button>
             </div>
         <?php endif; ?>
     </form>

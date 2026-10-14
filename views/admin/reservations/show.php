@@ -116,11 +116,10 @@ $puedeAsignar = $editable;
 $capacidadRestaurante = max((int)($capacidadRestaurante ?? 0), $comensales, 1);
 $diferenciaCapacidad = $capacidadTotal - $comensales;
 $horaCorta = $horaLegible($hora);
-$operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
+// La operación vive en el POS: abre el mapa del día con esta ficha abierta.
+$operationUrl = '/punto-de-venta?' . http_build_query([
     'fecha' => $fecha,
-    'hora' => $horaCorta,
     'reservation_id' => $id,
-    'return_url' => $returnUrl,
 ]);
 $seguimientoActivo = $seguimientoHorario !== null;
 ?>
@@ -380,7 +379,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
 
                 <div class="reservation-detail-actions">
                     <div class="reservation-detail-actions__primary">
-                        <a class="admin-btn admin-btn--primary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Gestionar en operacion</a>
+                        <a class="admin-btn admin-btn--primary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Abrir en el POS</a>
                     </div>
 
                     <div class="reservation-detail-actions__secondary">

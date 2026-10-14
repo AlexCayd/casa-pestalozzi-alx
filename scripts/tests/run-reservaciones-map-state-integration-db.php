@@ -8,7 +8,7 @@ if (PHP_SAPI !== 'cli' || !getenv('CP_NOTIFICATION_TEST_DATABASE')) {
 
 require dirname(__DIR__, 2) . '/includes/app.php';
 
-use Controllers\ReservacionOperacionController;
+use Controllers\PuntoVentaController;
 use Model\ActiveRecord;
 use Model\ReservacionMesa;
 use Services\Pos\PosReservacionQueryService;
@@ -89,18 +89,30 @@ function readMapState(array $response, int $tableId): array
     throw new RuntimeException('la respuesta mesas_estado no contiene la mesa fixture ' . $tableId);
 }
 
-function readOperationEndpoint(array $query): array
+/** GET /api/punto-de-venta con hora: el mapa del POS proyectado. */
+function readPosEndpoint(array $query): array
 {
     $_GET = $query;
     $_SERVER['REQUEST_METHOD'] = 'GET';
     http_response_code(200);
     ob_start();
-    ReservacionOperacionController::operationData();
+    PuntoVentaController::api(new \MVC\Router());
     $body = (string)ob_get_clean();
     $response = json_decode($body, true);
-    assertMapStateIntegration(is_array($response), 'operationData no devolvió JSON válido: ' . $body);
-    assertMapStateIntegration(($response['ok'] ?? false) === true, 'operationData rechazó el fixture: ' . $body);
+    assertMapStateIntegration(is_array($response), 'el endpoint del POS no devolvió JSON válido: ' . $body);
+    assertMapStateIntegration(($response['ok'] ?? false) === true, 'el endpoint del POS rechazó el fixture: ' . $body);
     return $response;
+}
+
+/** La lectura del POS proyectada a una hora con un reloj fijo. */
+function readPosProjection(string $date, string $hour, string $clock): array
+{
+    return PosReservacionQueryService::paraFecha($date, $hour, [
+        'ahora' => new DateTimeImmutable($date . ' ' . $clock, ReservacionConfig::timezone()),
+        'incluir_inactivas' => true,
+        'superficie' => 'admin',
+        'contexto_pos' => true,
+    ]);
 }
 
 $db = ActiveRecord::getDB();
@@ -133,65 +145,53 @@ try {
     $reservationIds[] = $endpointReservationId;
     $_SESSION = ['login' => true, 'id' => 1, 'rol' => 'admin'];
 
-    $adjacentJson = json_decode(json_encode(readOperationEndpoint([
-        'fecha' => $endpointDate,
-        'hora' => '17:30',
-    ]), JSON_UNESCAPED_UNICODE), true);
-    $adjacent = readMapState($adjacentJson, $endpointTableId);
-    assertMapStateIntegration(
-        !$adjacent['bloqueada_en_intervalo']
-            && $adjacent['causas_bloqueo'] === []
-            && $adjacent['disponible_para_asignacion']
-            && $adjacent['estado_visual_mapa'] === 'libre'
-            && $adjacent['label_visual_mapa'] === 'Disponible'
-            && $adjacentJson['hora'] === '17:30:00',
-        'endpoint V23: R-90 exacto conserva hora y no agrega alerta'
-    );
-
+    // B — el endpoint real del POS proyecta a la hora pedida. Azul de
+    // inicio − 60 a inicio + 90, semiabierto; la asignación es otro hecho.
     $expectedProjection = [
-        '17:45' => ['libre', 'futura', false, 'Disponible'],
-        '18:00' => ['libre', 'advertencia', false, 'Disponible con reservación próxima'],
-        '18:15' => ['libre', 'advertencia', false, 'Disponible con reservación próxima'],
-        '18:30' => ['reservacion-proxima', 'bloqueo', false, 'Reservación próxima'],
-        '18:59' => ['reservacion-proxima', 'bloqueo', false, 'Reservación próxima'],
-        '19:00' => ['ocupada', 'inicio', false, 'Ocupada por reservación'],
-        '20:29' => ['ocupada', 'activa', false, 'Ocupada por reservación'],
-        '20:30' => ['libre', 'irrelevante', true, 'Disponible'],
+        '17:30' => ['libre', 'futura', true],
+        '17:45' => ['libre', 'futura', false],
+        '18:00' => ['reservacion-proxima', 'advertencia', false],
+        '18:15' => ['reservacion-proxima', 'advertencia', false],
+        '18:30' => ['reservacion-proxima', 'bloqueo', false],
+        '18:59' => ['reservacion-proxima', 'bloqueo', false],
+        '19:00' => ['reservacion-proxima', 'inicio', false],
+        '20:29' => ['reservacion-proxima', 'activa', false],
+        '20:30' => ['libre', 'irrelevante', true],
     ];
-    foreach ($expectedProjection as $queryHour => [$visual, $window, $assignable, $label]) {
-        $response = readOperationEndpoint(['fecha' => $endpointDate, 'hora' => $queryHour]);
+    foreach ($expectedProjection as $queryHour => [$visual, $window, $assignable]) {
+        $response = readPosEndpoint(['fecha' => $endpointDate, 'hora' => $queryHour]);
         $state = readMapState($response, $endpointTableId);
+        $contexto = (array)($response['contexto'] ?? []);
         assertMapStateIntegration(
-            $response['hora'] === $queryHour . ':00'
-                && $state['estado_visual_mapa'] === $visual
+            ($contexto['modo'] ?? '') === 'proyeccion'
+                && substr((string)($contexto['hora'] ?? ''), 0, 5) === $queryHour
+                && $state['estado_visual_pos'] === $visual
                 && $state['ventana_mapa'] === $window
-                && $state['disponible_para_asignacion'] === $assignable
-                && $state['label_visual_mapa'] === $label,
-            "endpoint temporal {$queryHour}: visual, ventana, asignación y hora resuelta"
+                && $state['disponible_para_asignacion'] === $assignable,
+            "endpoint POS {$queryHour}: modo, hora, color, ventana y asignación: "
+                . json_encode([$contexto, $state['estado_visual_pos'], $state['ventana_mapa'], $state['disponible_para_asignacion']], JSON_UNESCAPED_UNICODE)
         );
-        if (in_array($queryHour, ['17:45', '18:00', '18:15'], true)) {
+        if ($queryHour === '17:45') {
             assertMapStateIntegration(
                 $state['bloqueada_en_intervalo'],
-                "endpoint temporal {$queryHour}: hecho del intervalo permanece separado"
+                'endpoint POS 17:45: el intervalo ya choca aunque el mapa siga verde'
             );
         }
     }
 
-    $selectedJson = readOperationEndpoint([
+    // N — enfocar la reserva (al abrir su ficha) no cambia su color.
+    $selectedJson = readPosEndpoint([
         'fecha' => $endpointDate,
         'hora' => '19:00',
-        'reservation_id' => (string)$endpointReservationId,
+        'reservacion_id' => (string)$endpointReservationId,
     ]);
     $selected = readMapState($selectedJson, $endpointTableId);
     assertMapStateIntegration(
         $selected['bloqueada_en_intervalo']
             && $selected['causas_bloqueo'] === ['reservacion']
-            && $selected['disponible_para_asignacion']
-            && $selected['estado_visual_mapa'] === 'ocupada'
-            && $selected['label_visual_mapa'] === 'Ocupada por reservación'
-            && $selected['aria_label_mapa'] === 'Fixture mapa 9801, ocupada por reservación.'
-            && $selected['titulo_mapa'] === $selected['aria_label_mapa'],
-        'endpoint JSON N: la reserva propia conserva proyección roja y puede mantenerse asignable durante la edición'
+            && $selected['estado_visual_pos'] === 'reservacion-proxima'
+            && $selected['subtitulo_pos'] === '19:00',
+        'endpoint POS N: la reserva enfocada sigue azul y rotulada con su hora'
     );
 
     // C and D — interval facts stay stable for one-minute overlap and changing now.
@@ -200,19 +200,12 @@ try {
     $tableIds[] = $overlapTableId;
     $overlapReservationId = insertMapStateReservation($db, $matrixDate, '19:00:00', $overlapTableId);
     $reservationIds[] = $overlapReservationId;
-    $overlap = PosReservacionQueryService::paraFecha($matrixDate, '17:31:00', [
-        'ahora' => new DateTimeImmutable($matrixDate . ' 16:00:00', ReservacionConfig::timezone()),
-        'incluir_inactivas' => true,
-        'superficie' => 'admin',
-    ]);
-    $caseC = readMapState($overlap, $overlapTableId);
+    $caseC = readMapState(readPosProjection($matrixDate, '17:31:00', '16:00:00'), $overlapTableId);
     assertMapStateIntegration(
         $caseC['bloqueada_en_intervalo']
             && in_array('reservacion', $caseC['causas_bloqueo'], true)
             && !$caseC['disponible_para_asignacion']
-            && $caseC['estado_visual_mapa'] === 'libre'
-            && !$caseC['disponible_para_asignacion']
-            && $caseC['label_visual_mapa'] === 'Disponible',
+            && $caseC['estado_visual_pos'] === 'libre',
         'query real C: un solapamiento futuro bloquea asignación, no el estado visual'
     );
 
@@ -222,68 +215,50 @@ try {
     $reservationIds[] = $clockReservationId;
     $clockFacts = [];
     foreach (['18:00:00', '19:54:00', '20:15:00'] as $clock) {
-        $response = PosReservacionQueryService::paraFecha($matrixDate, '19:30:00', [
-            'ahora' => new DateTimeImmutable($matrixDate . ' ' . $clock, ReservacionConfig::timezone()),
-            'incluir_inactivas' => true,
-            'superficie' => 'admin',
-        ]);
-        $state = readMapState($response, $clockTableId);
+        $state = readMapState(readPosProjection($matrixDate, '19:30:00', $clock), $clockTableId);
         $clockFacts[] = array_intersect_key($state, array_flip([
             'bloqueada_en_intervalo',
             'causas_bloqueo',
             'disponible_para_asignacion',
-            'estado_visual_mapa',
-            'modificadores_visual_mapa',
-            'label_visual_mapa',
+            'estado_visual_pos',
+            'subtitulo_pos',
         ]));
         assertMapStateIntegration(
             $state['bloqueada_en_intervalo']
                 && $state['causas_bloqueo'] === ['reservacion']
-                && $state['estado_visual_mapa'] === 'libre'
-                && in_array('reservacion_advertencia', $state['modificadores_visual_mapa'], true)
-                && $state['label_visual_mapa'] === 'Disponible con reservación próxima',
-            'query real D: ventana del mapa no depende del reloj actual: ' . json_encode($state, JSON_UNESCAPED_UNICODE)
+                && $state['estado_visual_pos'] === 'reservacion-proxima'
+                && $state['subtitulo_pos'] === '20:30',
+            'query real D: la proyección no depende del reloj actual: ' . json_encode($state, JSON_UNESCAPED_UNICODE)
         );
     }
     assertMapStateIntegration(
         $clockFacts[0] === $clockFacts[1] && $clockFacts[1] === $clockFacts[2],
-        'query real D: la hora actual no altera hechos ni etiqueta del intervalo'
+        'query real D: la hora actual no altera hechos ni color de la proyección'
     );
 
-    // P and Q — admin map keeps an overdue confirmed reservation until no_show persists.
+    // P and Q — una reserva vencida sigue apartando la mesa hasta que se registra la ausencia.
     $absenceTableId = insertMapStateTable($db, 9804);
     $tableIds[] = $absenceTableId;
     $absenceReservationId = insertMapStateReservation($db, $matrixDate, '18:00:00', $absenceTableId);
     $reservationIds[] = $absenceReservationId;
-    $absencePending = PosReservacionQueryService::paraFecha($matrixDate, '18:00:00', [
-        'ahora' => new DateTimeImmutable($matrixDate . ' 18:20:00', ReservacionConfig::timezone()),
-        'incluir_inactivas' => true,
-        'superficie' => 'admin',
-    ]);
-    $caseP = readMapState($absencePending, $absenceTableId);
+    $caseP = readMapState(readPosProjection($matrixDate, '18:00:00', '18:20:00'), $absenceTableId);
     assertMapStateIntegration(
         $caseP['ausencia_pendiente']
             && $caseP['puede_marcar_no_show']
-            && in_array('ausencia_pendiente', $caseP['modificadores_visual_mapa'], true)
+            && in_array('ausencia_pendiente', $caseP['modificadores'], true)
             && $caseP['bloqueada_en_intervalo']
-            && $caseP['estado_visual_mapa'] === 'ocupada'
-            && $caseP['label_visual_mapa'] === 'Ocupada por reservación',
-        'query real P: proyección activa roja conserva la señal de ausencia pendiente'
+            && $caseP['estado_visual_pos'] === 'reservacion-proxima',
+        'query real P: la ausencia pendiente sigue azul y conserva su señal'
     );
 
     $db->query("UPDATE reservaciones SET estado = 'no_show' WHERE id = {$absenceReservationId}");
-    $noShow = PosReservacionQueryService::paraFecha($matrixDate, '18:00:00', [
-        'ahora' => new DateTimeImmutable($matrixDate . ' 18:20:00', ReservacionConfig::timezone()),
-        'incluir_inactivas' => true,
-        'superficie' => 'admin',
-    ]);
-    $caseQ = readMapState($noShow, $absenceTableId);
+    $caseQ = readMapState(readPosProjection($matrixDate, '18:00:00', '18:20:00'), $absenceTableId);
     assertMapStateIntegration(
         !$caseQ['bloqueada_en_intervalo']
             && !$caseQ['ausencia_pendiente']
             && !$caseQ['puede_marcar_no_show']
-            && $caseQ['estado_visual_mapa'] === 'libre'
-            && $caseQ['modificadores_visual_mapa'] === [],
+            && $caseQ['estado_visual_pos'] === 'libre'
+            && $caseQ['modificadores_visual_pos'] === [],
         'query real Q: no-show confirmado sale de ocupación y modificadores'
     );
 

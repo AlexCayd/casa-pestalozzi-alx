@@ -668,7 +668,7 @@ class ReservacionService
     {
         $errors = [];
         $fieldCodes = [];
-        $maxComensales = (int)($opciones['max_comensales'] ?? ReservacionConfig::MAX_COMENSALES_PUBLICO);
+        $maxComensales = (int)($opciones['max_comensales'] ?? ReservacionConfig::maxComensalesPublico());
         $permitirComentarioAdmin = (bool)($opciones['permitir_comentario_admin'] ?? false);
         $validarNota = (bool)($opciones['validar_nota'] ?? true);
         $validarHorario = (bool)($opciones['validar_horario'] ?? true);

@@ -9,7 +9,6 @@
  */
 
 namespace Services\Tables;
-use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;
 use Services\Reservations\ReservacionConfig;
 
@@ -448,20 +447,6 @@ final class OcupacionMesasService
         ) + [
             'mesa_ids_estimadas' => array_values(array_map('intval', (array)($evaluacion['mesa_ids_libres'] ?? []))),
         ];
-    }
-
-    /** @return array<int, object> */
-    public static function seleccionarAgrupacionAutorizada(
-        array $mesas,
-        int $comensales,
-        array $mesaIdsProyectadas = []
-    ): array
-    {
-        return AsignacionMesasService::seleccionarMesasPublicas(
-            $mesas,
-            $comensales,
-            $mesaIdsProyectadas
-        );
     }
 
     public static function agrupacionValida(array $mesas, int $comensales): bool

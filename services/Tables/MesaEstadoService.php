@@ -8,10 +8,10 @@
  */
 
 namespace Services\Tables;
+use Model\ConfiguracionPos;
 use Services\Pos\PosMesaProjectionPresenter;
 use Services\Pos\ReservacionPoliticaPosService;
 use Services\Pos\TicketTemporalService;
-use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
@@ -92,6 +92,23 @@ final class MesaEstadoService
                 }
             }
         }
+        // Las barras y Llevar admiten varios tickets sobre la misma fila de
+        // `mesas`, así que además se cuentan: una barra se pinta por CUÁNTOS
+        // tickets siguen ocupándola en el instante consultado, no por si hay
+        // uno. Sin hora explícita, el instante es el reloj recibido.
+        $horaConteo = $hora !== '' ? $hora : $ahora->format('H:i:s');
+        $conteoTicketsPorMesa = [];
+        foreach ($tickets as $ticket) {
+            $proyeccion = TicketTemporalService::proyectar($ticket, $fecha, $horaConteo, $ahora);
+            if (empty($proyeccion['ticket_abierto'])
+                || empty($proyeccion['aplica_fecha'])
+                || empty($proyeccion['bloquea_en_consulta'])) {
+                continue;
+            }
+            foreach (self::ids($proyeccion['mesa_ids'] ?? []) as $mesaId) {
+                $conteoTicketsPorMesa[$mesaId] = ($conteoTicketsPorMesa[$mesaId] ?? 0) + 1;
+            }
+        }
         $reservacionesPorMesa = [];
         foreach ($reservaciones as $reservacionRaw) {
             $reservacion = self::aArray($reservacionRaw);
@@ -129,10 +146,16 @@ final class MesaEstadoService
             true
         );
         $reservacionEnEdicionId = (int)($opciones['reservacion_en_edicion_id'] ?? 0);
+        // Proyección: el POS mira el mapa a una hora elegida desde el cajón.
+        // Cambia QUÉ reserva manda en cada mesa (la de la hora consultada, no
+        // la del reloj) y quién pinta de rojo (sólo el ticket que siga ahí).
+        $proyeccion = ($opciones['modo'] ?? 'ahora') === 'proyeccion';
 
         return array_map(static function ($mesa) use (
+            $proyeccion,
             $reservacionesPorMesa,
             $ticketsPorMesa,
+            $conteoTicketsPorMesa,
             $ocupacionPorMesa,
             $mesaIdsBloqueadas,
             $causasBloqueoPorMesa,
@@ -319,14 +342,6 @@ final class MesaEstadoService
                 $reservacionPrincipalMapa,
                 $ausenciaPendiente
             );
-            $mapaVisual = self::proyeccionVisualMapa(
-                $utilizable,
-                $bloqueadaEnIntervalo,
-                $causasBloqueo,
-                $reservacionVisual,
-                $ticketBloqueaEnConsulta,
-                $ocupacionActual
-            );
             $disponibleParaAsignacion = $utilizable && (bool)(
                 $evaluacionOcupacionAsignacion['mesas'][$mesaId]['disponible']
                     ?? !$bloqueadaEnIntervalo
@@ -344,8 +359,6 @@ final class MesaEstadoService
                 $utilizable,
                 $ticketAbierto,
                 $ticketBloqueaEnConsulta,
-                $reservacionVisual,
-                $mapaVisual,
                 $bloqueadaEnIntervalo,
                 $disponibleParaAsignacion,
                 $causasBloqueo,
@@ -355,7 +368,10 @@ final class MesaEstadoService
                 $capacidadesPos,
                 $reservacionPrincipalPos,
                 $reservacionVisual,
-                $holdVigente
+                $holdVigente,
+                (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
+                !empty($capacidadesPos['multi_ticket']) ? (int)($conteoTicketsPorMesa[$mesaId] ?? 0) : 0,
+                $proyeccion
             );
             $titulo = self::tituloAccesible(
                 (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
@@ -407,21 +423,8 @@ final class MesaEstadoService
                 'ocupacion_actual' => $ocupacionActual,
                 'disponible_proyectada' => $estadoBase === self::DISPONIBLE,
                 'estado_visual' => $estadoVisual,
-                'estado_visual_mapa' => $mapaVisual['estado_visual'],
-                'label_visual_mapa' => $mapaVisual['label'],
-                'modificadores_mapa' => $mapaVisual['modificadores'],
-                'modificadores_visual_mapa' => $mapaVisual['modificadores'],
                 'estado_visual_pos' => $hechosMesa['estado_visual_pos'],
                 'modificadores_visual_pos' => $hechosMesa['modificadores_visual_pos'],
-                'aria_label_mapa' => self::ariaLabelMapa(
-                    (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
-                    $hechosMesa
-                ),
-                'titulo_mapa' => self::ariaLabelMapa(
-                    (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
-                    $hechosMesa
-                ),
-                'precedencia_visual_mapa' => $mapaVisual['precedencia'],
                 'modificadores' => $modificadores,
                 'reservacion_proxima' => $reservacionProxima,
                 'minutos_restantes' => $minutosRestantes,
@@ -479,34 +482,14 @@ final class MesaEstadoService
             'mostrar_estado_ticket' => $mostrarTicketEnMapa,
             'decorativo' => $decorativo,
             'etiqueta_operacion' => $barra ? 'Barra' : ($ticketable && !$utilizable ? 'Elemento' : ''),
+            // Varios tickets sobre la misma fila: Llevar sin tope, la barra
+            // hasta el de Configuración → POS. Ninguno se reserva.
+            'multi_ticket' => $barra || $llevar,
+            'tope_tickets' => $barra ? ConfiguracionPos::maxTicketsBarra() : null,
+            'etiqueta_multi' => $barra ? 'tickets' : ($llevar ? 'pedidos' : ''),
+            // Caja y Llevar no son mesas: fichas de acción, sin estado de color.
+            'ficha' => $caja || $llevar,
         ];
-    }
-
-    private static function proyeccionVisualMapa(
-        bool $utilizable,
-        bool $bloqueadaEnIntervalo,
-        array $causasBloqueo,
-        ?array $reservacionPrincipal = null,
-        bool $ticketBloqueaEnConsulta = false,
-        bool $ocupadaFisicamente = false
-    ): array {
-        // El presenter recibe hechos ya calculados. El modificador de
-        // proximidad acompaña al estado real de disponibilidad del intervalo.
-        $resultado = ReservacionMapaMesaPresenter::presentar([
-            'utilizable' => $utilizable,
-            'bloqueada_en_intervalo' => $bloqueadaEnIntervalo,
-            'causas_bloqueo' => $causasBloqueo,
-            'ticket_bloquea_consulta' => $ticketBloqueaEnConsulta,
-            'ocupada_fisicamente' => $ocupadaFisicamente,
-            'reservacion' => $reservacionPrincipal,
-        ]);
-        return [
-            'estado_visual' => $resultado['estado_visual'],
-            'modificadores' => $resultado['modificadores'],
-            'label' => $resultado['label'],
-            'precedencia' => $resultado['precedencia'],
-        ];
-
     }
 
     /** @param array<int, array<string, mixed>> $reservaciones */
@@ -578,8 +561,6 @@ final class MesaEstadoService
         bool $utilizable,
         ?array $ticketAbierto,
         bool $ticketBloqueaEnConsulta,
-        ?array $reservacionPrincipal,
-        array $mapaVisual,
         bool $bloqueadaEnIntervalo,
         bool $disponibleParaAsignacion,
         array $causasBloqueo,
@@ -589,7 +570,10 @@ final class MesaEstadoService
         array $capacidadesPos,
         ?array $reservacionPrincipalPos,
         ?array $reservacionPrincipalMapa,
-        bool $holdVigente
+        bool $holdVigente,
+        string $nombre = '',
+        int $ticketsElemento = 0,
+        bool $proyeccion = false
     ): array {
         $reservacion = $reservacionPrincipalPos ?? [];
         $reservacionMapa = $reservacionPrincipalMapa ?? [];
@@ -601,14 +585,24 @@ final class MesaEstadoService
         }
         $presentacionPos = PosMesaProjectionPresenter::presentar([
             'mesa_id' => $mesaId,
+            'nombre' => $nombre,
             'utilizable' => $utilizable,
+            'ficha' => $capacidadesPos['ficha'] ?? false,
+            'multi_ticket' => $capacidadesPos['multi_ticket'] ?? false,
+            'tickets_elemento' => $ticketsElemento,
+            'tope_tickets' => $capacidadesPos['tope_tickets'] ?? null,
             'mostrar_estado_ticket_pos' => $capacidadesPos['mostrar_estado_ticket'] ?? false,
             'etiqueta_operacion_pos' => $capacidadesPos['etiqueta_operacion'] ?? '',
             'ticket_abierto' => $ticketAbierto !== null,
             'ocupada_fisicamente' => $ocupadaFisicamente,
             'ticket_bloquea_consulta' => $ticketBloqueaEnConsulta,
-            'reservacion' => $reservacionPrincipalPos,
+            // En proyección manda la reserva ordenada por su ventana respecto a
+            // la hora consultada (la del mapa), no la del reloj.
+            'reservacion' => $proyeccion ? $reservacionPrincipalMapa : $reservacionPrincipalPos,
+            'asignada_actualmente' => $asignadaActualmente,
             'puede_abrir_ticket' => $disponibleParaTicket,
+            'hold_vigente' => $holdVigente,
+            'proyeccion' => $proyeccion,
         ]);
 
         return [
@@ -665,27 +659,12 @@ final class MesaEstadoService
             'modificadores_visual_pos' => $presentacionPos['modificadores'],
             'precedencia_visual_pos' => $presentacionPos['precedencia'],
             'aria_label_pos' => $presentacionPos['aria_label'],
-            'estado_visual_mapa_detalle' => $mapaVisual,
+            'etiqueta_estado_pos' => $presentacionPos['etiqueta'],
+            'subtitulo_pos' => $presentacionPos['subtitulo'],
+            'ficha' => $presentacionPos['ficha'],
+            'tickets_abiertos' => $ticketsElemento,
+            'tope_tickets' => $capacidadesPos['tope_tickets'] ?? null,
         ];
-    }
-
-    /** @param array<string, mixed> $hechos */
-    private static function ariaLabelMapa(string $nombre, array $hechos): string
-    {
-        $detalle = is_array($hechos['estado_visual_mapa_detalle'] ?? null)
-            ? $hechos['estado_visual_mapa_detalle']
-            : [];
-        $modificadores = array_map('strval', (array)($detalle['modificadores'] ?? []));
-        $estadoBase = lcfirst((string)($detalle['label'] ?? 'No disponible para el intervalo seleccionado'));
-        $label = $nombre . ', ' . $estadoBase . '.';
-
-        if (self::booleano($hechos['ausencia_pendiente'] ?? false)
-            || in_array('ausencia_pendiente', $modificadores, true)) {
-            $label .= ' Tolerancia vencida; registra que el cliente no llegó antes de utilizar la mesa.';
-        }
-
-        return $label;
-
     }
 
     private static function enteroNulo($valor): ?int

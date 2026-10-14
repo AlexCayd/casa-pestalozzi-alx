@@ -19,8 +19,14 @@ class ReservacionConfig
     /** Vigencia canónica del hold. */
     public const VIGENCIA_HOLD_MINUTOS = 15;
     public const MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO = 5;
-    public const MAX_COMENSALES_PUBLICO = 12;
-    public const MAX_PUBLIC_TABLES = 3;
+    /**
+     * El máximo de comensales que la landing reserva sola se edita en
+     * Configuración; leerlo siempre por maxComensalesPublico(). Estos tres son
+     * su valor por omisión y el rango que el sistema sabe atender.
+     */
+    public const MAX_COMENSALES_PUBLICO_PREDETERMINADO = 12;
+    public const MAX_COMENSALES_PUBLICO_MINIMO = 7;
+    public const MAX_COMENSALES_PUBLICO_TOPE = 16;
     public const NOMBRE_MAX_CARACTERES = 100;
     public const EMAIL_MAX_CARACTERES = 150;
     public const MAX_COMENSALES_ADMIN = 44;
@@ -97,18 +103,32 @@ class ReservacionConfig
     public const TOLERANCIA_CANCELACION_PUBLICA_MINUTOS = 15;
     public const HORIZONTE_MAXIMO_DIAS = 90;
     public const MAX_HORARIOS_ALTERNATIVOS = 5;
-    /** Fuente canónica: las agrupaciones se expresan por mesas.numero. */
+    /**
+     * Parejas que el salón sabe juntar para 5 a 8 personas, por mesas.numero.
+     * El ORDEN es la preferencia: primero la única 100 % interior, luego las
+     * que tocan una mesa exterior y al final la que es toda exterior, para
+     * dejar libre el bloque de los grupos grandes mientras se pueda.
+     *
+     * No hay tríos: de 9 en adelante el grupo ocupa el exterior completo (ver
+     * AsignacionPlanificadorService).
+     */
     public const GRUPOS_DOS_MESAS = [
+        [3, 4],
         [7, 8],
         [6, 9],
         [10, 11],
-        [3, 4],
     ];
 
-    public const GRUPOS_TRES_MESAS = [
-        [2, 4, 5],
-        [11, 10, 9],
-    ];
+    public const ZONA_INTERIOR = 'interior';
+    public const ZONA_EXTERIOR = 'exterior';
+    /** Desde cuántas personas el grupo toma el bloque exterior completo. */
+    public const MIN_COMENSALES_BLOQUE_EXTERIOR = 9;
+    /**
+     * Tope de la búsqueda de reubicaciones. En una ventana de 90 min hay pocas
+     * reservas que mover, así que nunca se acerca; existe para que un caso
+     * patológico termine con «sin cupo» en vez de colgar la petición.
+     */
+    public const REUBICACION_MAX_NODOS = 5000;
 
     public static function timezone(): DateTimeZone
     {
@@ -166,9 +186,40 @@ class ReservacionConfig
         return self::normalizarTel(self::env('RESERVAS_TELEFONO_TEL', '+525614818297'));
     }
 
+    /**
+     * El que capturó el admin en Configuración; si no hay, el de .env, y si
+     * tampoco, el teléfono. Es el mismo número para grupos grandes y catas.
+     */
     public static function whatsappNumero(): string
     {
+        return ReservacionAjustesService::whatsappReservas() ?? self::whatsappRespaldo();
+    }
+
+    /** El número que rige cuando Configuración deja el WhatsApp vacío. */
+    public static function whatsappRespaldo(): string
+    {
         return self::normalizarWhatsapp(self::env('RESERVAS_WHATSAPP', self::telefonoTel()));
+    }
+
+    /**
+     * Tamaño máximo de grupo que la landing reserva y que el motor asigna sin
+     * intervención. Por encima, el grupo se gestiona a mano.
+     */
+    public static function maxComensalesPublico(): int
+    {
+        return ReservacionAjustesService::maxComensalesPublico();
+    }
+
+    /**
+     * A partir de qué tamaño una reservación es «grupo grande»: sin
+     * autoservicio, con prioridad en el buzón y en los cambios de horario. Es
+     * el mismo número que maxComensalesPublico() —lo que el sistema no resuelve
+     * solo lo resuelve una persona—, pero cada llamada declara cuál de las dos
+     * preguntas hace.
+     */
+    public static function umbralGrupoGrande(): int
+    {
+        return self::maxComensalesPublico();
     }
 
     /**
@@ -190,7 +241,7 @@ class ReservacionConfig
             'telefono_tel' => self::telefonoTel(),
             'whatsapp' => self::whatsappNumero(),
             'whatsapp_url' => self::whatsappUrl(),
-            'max_comensales' => self::MAX_COMENSALES_PUBLICO,
+            'max_comensales' => self::maxComensalesPublico(),
         ];
     }
 

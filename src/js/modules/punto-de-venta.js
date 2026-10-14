@@ -32,7 +32,10 @@ function initMapa() {
     contexto: 'mapa-mesas',
     interactivo: true,
     seleccionMultiple: true,
-    mostrarLeyenda: true
+    mostrarLeyenda: true,
+    // Icono + palabra en cada pin: verde y rojo son justo el par que se
+    // confunde con daltonismo, así que el color nunca va solo.
+    mostrarEstado: true
   });
   if (!mapVisual) return;
 
@@ -79,7 +82,6 @@ function initMapa() {
   // y lo ya pedido; se re-consulta cada tanto por si la mesa cambió de etapa
   // con el modal abierto.
   var SUG_REFRESCO = 5 * 60 * 1000;
-  var sliderMin     = 0;
   var isLive        = false;
   var liveInterval  = null;
   var pollTimer     = null;
@@ -88,32 +90,66 @@ function initMapa() {
   var dataAbortTimer = null;
   var mapSnapshotStale = false;
   var loadedMapDate = '';
+  /*
+   * Qué se le pide al servidor: vacío es AHORA. Con hora (o con una reserva
+   * enfocada) es una PROYECCIÓN, que el mesero lanza desde el cajón. El sondeo
+   * la conserva: si cada 30 s volviera a «ahora», el mapa saltaría bajo el dedo.
+   */
+  var consultaPos = { hora: '', reservacionId: 0, intencion: '' };
+  /*
+   * Lo que pidió el enlace con el que se abrió el POS (buzón, panel, favorito
+   * de Operación). El servidor ya lo validó; se consume UNA vez, tras la
+   * primera carga, porque la ficha necesita la reserva ya en la lista.
+   */
+  var enlaceInicial = (function() {
+    var body = document.body;
+    var id = parseInt(body.getAttribute('data-initial-reservation-id') || '0', 10) || 0;
+    return {
+      hora: body.getAttribute('data-initial-hora') || '',
+      reservacionId: id,
+      asignar: id > 0 && body.getAttribute('data-initial-mode') === 'asignar'
+    };
+  })();
+  if (enlaceInicial.hora && !enlaceInicial.reservacionId) consultaPos.hora = enlaceInicial.hora;
+  // Lo que el servidor resolvió para esa consulta (modo, hora, sólo lectura).
+  var contextoMapa = { modo: 'ahora', fecha: '', hora: '', solo_lectura: false };
+  var horarioPos = null;
+  var mapaDatePicker = null;
+  var capacidadHorarioPos = null;
+  var permisosPos = {};
   var temporalConfig = window.CP_RESERVATION_OPERATION_CONFIG || {};
   var POS_REQUEST_TIMEOUT_MS = 15000;
   var serverClockOffsetMs = 0;
 
   // ── Refs DOM ──────────────────────────────────────────────
-  var slider        = $('#mapa-time-slider');
-  var sliderProg    = $('#mapa-slider-progress');
-  var sliderTip     = $('#mapa-slider-tooltip');
   var fechaInput    = $('#mapa-fecha');
   var reservasList  = $('#mapa-reservas-list');
-  var ahoraBtn      = $('#mapa-ahora-btn');
-  var currentTimeEl = $('#mapa-current-time');
   var reservaCount  = $('#mapa-reserva-count');
   var loadingEl     = $('#mapa-loading');
   var selectionBar = $('#pos-ticket-selection-bar');
   var selectionToggle = $('#pos-ticket-selection-toggle');
   var selectionCancel = $('#pos-ticket-selection-cancel');
   var selectionMessage = $('#pos-ticket-selection-message');
+  var selectionActions = selectionBar ? selectionBar.querySelector('.pos-ticket-selection-bar__actions:not(#pos-asignacion-pregunta)') : null;
+  var asignacionPregunta = $('#pos-asignacion-pregunta');
   var selectionShell = canvas.closest('.pos-map');
   var modal         = $('#mesa-modal');
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
   var modalLastFocus = null;
-  var activeReservationModal = null;
   var reservationRequestInFlight = false;
+  // El día entero para el cajón (incluye en mesa, apartadas y resueltas);
+  // `reservaciones` sigue siendo sólo confirmadas, que es lo que la lógica de
+  // mesas da por hecho.
+  var reservacionesDia = [];
+  // Mesas de la reserva cuya ficha está abierta: se pintan con la selección.
+  var fichaMesaIds = [];
+  // Después de aplicar una respuesta, abrir esta ficha (tocar una tarjeta
+  // proyecta y abre en la misma transición).
+  var fichaPendiente = null;
+  var transicionPendiente = '';
+  var posMapEl = canvas.closest('.pos-map');
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -204,11 +240,6 @@ function initMapa() {
     if (Number.isFinite(timestamp)) {
       serverClockOffsetMs = timestamp - Date.now();
     }
-  }
-
-  function snapToReservationInterval(min) {
-    var interval = temporalNumber('intervalo_reservacion_minutos');
-    return interval > 0 ? Math.round(min / interval) * interval : min;
   }
 
   function mesaPorId(id) {
@@ -708,13 +739,79 @@ function initMapa() {
   }
 
   /*
-   * Llevar es una ventanilla, no una mesa: atiende varios pedidos a la vez y
-   * cada uno es un ticket propio sobre la misma fila de `mesas`. Por eso NUNCA
-   * se pinta ocupada —un pin rojo le dice al mesero que ya no cabe otro, que
-   * es justo lo contrario— y lo que se muestra es cuántos pedidos lleva.
+   * Llevar y las barras son ventanillas, no mesas: atienden varios tickets a
+   * la vez y cada uno es propio sobre la misma fila de `mesas`. Llevar no tiene
+   * tope y por eso NUNCA se pinta ocupada —un pin rojo le diría al mesero que
+   * ya no cabe otro, que es justo lo contrario—; la barra admite hasta el tope
+   * de Configuración → POS y sólo al llenarse pasa a rojo.
+   *
+   * Quién es multi-ticket lo decide el SERVIDOR (capacidades_pos.multi_ticket),
+   * igual que el tope: el cliente no adivina por nombre ni por tipo.
    */
-  function pedidosLlevar(mesa) {
+  function esMultiTicket(mesa) {
+    return capacidadesPosMesa(mesa).multi_ticket === true;
+  }
+
+  function ticketsMulti(mesa) {
     return mesa ? ticketsParaMesa(mesa.id) : [];
+  }
+
+  // Tickets abiertos a la vez que admite el elemento; null es sin tope (Llevar).
+  function topeTickets(mesa) {
+    var tope = parseInt(capacidadesPosMesa(mesa).tope_tickets, 10);
+    return tope > 0 ? tope : null;
+  }
+
+  function multiLleno(mesa) {
+    var tope = topeTickets(mesa);
+    return tope !== null && ticketsMulti(mesa).length >= tope;
+  }
+
+  /*
+   * El vocabulario es lo único que separa Llevar de una barra. En la
+   * ventanilla se entregan PEDIDOS, con un nombre para la bolsa; en la barra se
+   * sienta gente con su TICKET, como en una mesa, y el título es el de la barra
+   * porque hay más de una.
+   */
+  function vocabMulti(mesa) {
+    if (isLlevar(mesa)) {
+      return {
+        singular: 'pedido',
+        plural: 'pedidos',
+        titulo: 'Para llevar',
+        nuevo: 'Nuevo pedido',
+        abrir: 'Abrir pedido',
+        tablero: 'Pedidos',
+        verAbiertos: 'Ver pedidos abiertos',
+        volver: 'Volver a pedidos',
+        placeholder: 'Nombre para entregar el pedido'
+      };
+    }
+    return {
+      singular: 'ticket',
+      plural: 'tickets',
+      titulo: String(mesa && mesa.nombre || 'Barra'),
+      nuevo: 'Nuevo ticket',
+      abrir: 'Abrir ticket',
+      tablero: 'Tickets',
+      verAbiertos: 'Ver tickets abiertos',
+      volver: 'Volver a tickets',
+      placeholder: 'Nombre del comensal'
+    };
+  }
+
+  // Con tope se dice contra el tope («2 de 4 tickets»): es la cifra que decide
+  // si cabe otro. Sin tope, sólo cuántos van.
+  function rotuloTicketsMulti(mesa, total) {
+    var v = vocabMulti(mesa);
+    var tope = topeTickets(mesa);
+    if (tope !== null) return total + ' de ' + tope + ' ' + v.plural;
+    if (!total) return '';
+    return total + ' ' + (total === 1 ? v.singular : v.plural);
+  }
+
+  function pedidosLlevar(mesa) {
+    return ticketsMulti(mesa);
   }
 
   function rotuloPedidosLlevar(total) {
@@ -1077,7 +1174,9 @@ function initMapa() {
     var estadoVisualPos = estadoVisualPosMesa(mesa, backend, estado);
     var capacidades = capacidadesPosMesa(mesa);
     var titulo = backend.aria_label_pos || tituloMesaMapa(mesa, estado, ticket, proxima, ticketBloquea);
-    if (capacidades.mostrar_estado_ticket === true) {
+    // Respaldo sólo si el servidor no mandó su rótulo: el suyo ya cuenta los
+    // tickets de una barra contra su tope, y éste no sabe hacerlo.
+    if (capacidades.mostrar_estado_ticket === true && !backend.aria_label_pos) {
       titulo = ticket
         ? tituloMesaMapa(mesa, estadoVisualPos, ticket, null, ticketBloquea)
         : (ticketBloquea
@@ -1135,7 +1234,7 @@ function initMapa() {
       accion_pendiente: null,
       motivo_bloqueo: null,
       bloqueo: null,
-      titulo: tituloLlevarMapa(mesa, total),
+      titulo: (mesaEstadoPorId(parseInt(mesa.id, 10)) || {}).aria_label_pos || tituloLlevarMapa(mesa, total),
       estado_visual_pos: 'libre',
       independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true
     });
@@ -1152,7 +1251,53 @@ function initMapa() {
     return estado.valido && modificadoresValidos;
   }
 
+  /*
+   * «Cambiar mesas» enseña el resultado, no el estado guardado: la mesa que
+   * se elige pasa a azul con la hora de la reserva, y la que deja pasa a
+   * libre. Sin esto, la vieja seguía azul (el servidor aún la tiene asignada)
+   * y la nueva sólo ganaba el contorno, así que parecían dos reservas.
+   * Un ticket que ocupa manda siempre: esa mesa no se toca.
+   */
+  function vistaAsignacion(mesa) {
+    if (!modoAsignacion || !mesa) return null;
+    var id = parseInt(mesa.id, 10);
+    var reserva = modoAsignacion.reserva;
+    var backend = mesaEstadoPorId(id) || {};
+    if (backend.ticket_bloquea_consulta === true || backend.estado_visual_pos === 'ocupada') return null;
+    var reservaId = parseInt(reserva.id, 10) || 0;
+    var duena = backend.estado_visual_pos === 'reservacion-proxima'
+      ? parseInt(backend.reservacion_mapa_id || backend.reservacion_id
+        || (backend.hold && backend.hold.reservacion_id)
+        || (backend.reservacion_proxima && (backend.reservacion_proxima.reservacion_id || backend.reservacion_proxima.id)), 10) || -1
+      : 0;
+    var elegida = modoAsignacion.seleccion.indexOf(id) !== -1 || modoAsignacion.pendiente === id;
+    if (elegida) {
+      // Si ya la tiene OTRA reserva a esa hora, se queda con su hora y su
+      // color: pintarla con la nuestra borraba del mapa el choque que el
+      // servidor va a pedir confirmar al guardar. El contorno ya dice que
+      // está elegida.
+      if (duena !== 0 && duena !== reservaId) return null;
+      return {
+        estadoVisual: 'reservacion-proxima',
+        etiquetaEstado: 'Reservada',
+        subtitulo: V.hhmm(reserva.hora),
+        aria: modoAsignacion.pendiente === id
+          ? ' Por confirmar: elige abajo si se añade o sustituye. Toca para descartarla.'
+          : ' Para esta reservación, a las ' + V.hhmm(reserva.hora) + '. Toca para quitarla.'
+      };
+    }
+    var eraSuya = reservaId > 0 && duena === reservaId && V.ids(reserva).indexOf(id) !== -1;
+    if (eraSuya) {
+      return { estadoVisual: 'libre', etiquetaEstado: 'Libre', subtitulo: '',
+        aria: ' Libre: sale de esta reservación. Toca para elegirla de nuevo.' };
+    }
+    return null;
+  }
+
   function opcionesVisualesMesa(mesa, estado) {
+    // Caja y Llevar son FICHAS: botones de acción con su icono, sin línea de
+    // estado ni color. No hay nada que decidir sobre ellas antes de tocarlas.
+    var backendFicha = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     if (isLlevar(mesa)) {
       var totalLlevar = pedidosLlevar(mesa).length;
       return {
@@ -1164,7 +1309,9 @@ function initMapa() {
         independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
         seleccionValida: false,
         estadoVisual: 'libre',
-        ariaLabel: tituloLlevarMapa(mesa, totalLlevar),
+        ficha: true,
+        icono: 'bolsa',
+        ariaLabel: backendFicha.aria_label_pos || tituloLlevarMapa(mesa, totalLlevar),
         seleccionActual: false,
         clasesEstado: totalLlevar ? ['mesa-pin--con-pedidos'] : [],
         atributos: {
@@ -1188,7 +1335,9 @@ function initMapa() {
         independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
         seleccionValida: false,
         estadoVisual: 'libre',
-        ariaLabel: 'Caja operativa. Abre el corte de caja.',
+        ficha: true,
+        icono: 'caja',
+        ariaLabel: backendFicha.aria_label_pos || 'Caja operativa. Abre el corte de caja.',
         seleccionActual: false,
         clasesEstado: [],
         atributos: {
@@ -1203,11 +1352,56 @@ function initMapa() {
     var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     var ticketBloquea = backend.ticket_bloquea_consulta === true;
     var ticketable = mesaTicketable(mesa);
-    var seleccionValida = (ticketSelectionMode
+    // Las mesas de la reserva con la ficha abierta se pintan con la selección
+    // de siempre (el contorno que la ayuda ya explica): no hay un segundo
+    // código para «enfocada».
+    var enFicha = !ticketSelectionMode && fichaMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1;
+    if (modoAsignacion) {
+      // Cambiando mesas: la selección es la de la reserva, y sólo se tocan
+      // las mesas que pueden recibirla.
+      var elegible = mesaElegibleAsignacion(mesa);
+      enFicha = modoAsignacion.seleccion.indexOf(parseInt(mesa.id, 10)) !== -1
+        || modoAsignacion.pendiente === parseInt(mesa.id, 10);
+      var vista = vistaAsignacion(mesa);
+      return {
+        x: insetPos(mesa.pos_x),
+        y: insetPos(mesa.pos_y),
+        ancho: mesa.ancho,
+        alto: mesa.alto,
+        interactivo: elegible,
+        seleccionValida: elegible || enFicha,
+        independienteDeConsulta: false,
+        estadoVisual: vista ? vista.estadoVisual : estadoVisualPosMesa(mesa, backend, estado),
+        etiquetaEstado: vista ? vista.etiquetaEstado : (backend.etiqueta_estado_pos || null),
+        // «Seleccionada» lo añade map-visual: aquí no se repite «elegida».
+        ariaLabel: vista
+          ? mesa.nombre + '.' + vista.aria
+          : (backend.aria_label_pos || mesa.nombre + '.') + (elegible
+            ? (enFicha
+              ? ' Para esta reservación'
+                + (backend.estado_visual_pos === 'reservacion-proxima' ? ', aunque ya tiene otra reserva' : '')
+                + '. Toca para quitarla.'
+              : ' Toca para elegirla.')
+            : ' No puede recibir la reservación.'),
+        seleccionActual: enFicha,
+        clasesEstado: [],
+        atributos: {
+          'data-id': mesa.id,
+          'data-estado': estado,
+          'data-ticket-id': ticket ? ticket.id : ''
+        }
+      };
+    }
+    var seleccionValida = enFicha || (ticketSelectionMode
       ? mesaPuedeSeleccionarse(mesa, estado)
       : mesaReservable(mesa) && !ticketBloquea && !(
         reservaParaModal(parseInt(mesa.id, 10)) || {}
       ).bloquea_walk_ins);
+    var etiquetaAccesible = backend.aria_label_pos || null;
+    if (etiquetaAccesible && enProyeccion()) {
+      etiquetaAccesible += ' Vista de las ' + String(contextoMapa.hora || '').substring(0, 5) + ', sólo consulta.'
+        + (backend.estado_visual_pos === 'reservacion-proxima' ? ' Abre la ficha de la reservación.' : '');
+    }
     return {
       x: insetPos(mesa.pos_x),
       y: insetPos(mesa.pos_y),
@@ -1219,11 +1413,13 @@ function initMapa() {
       seleccionValida: seleccionValida,
       independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
       estadoVisual: estadoVisualPosMesa(mesa, backend, estado),
-      etiquetaEstado: capacidadesPosMesa(mesa).operable
+      // La palabra la pone el servidor («Libre», «Ocupada», «Reservada»,
+      // «Llena»): es la misma que el aria-label y no puede discrepar del color.
+      etiquetaEstado: backend.etiqueta_estado_pos || (capacidadesPosMesa(mesa).operable
         ? null
-        : 'No disponible para esta operación',
-      ariaLabel: backend.aria_label_pos || null,
-      seleccionActual: selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
+        : 'No disponible'),
+      ariaLabel: etiquetaAccesible,
+      seleccionActual: enFicha || selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
       clasesEstado: !capacidadesPosMesa(mesa).operable ? ['mesa-pin--no-utilizable'] : [],
       atributos: {
         'data-id': mesa.id,
@@ -1275,7 +1471,14 @@ function initMapa() {
     return visual;
   }
 
+  // El dato que decide («en 45 min», «Sin llegar», «2/4», «3 pedidos») lo
+  // calcula el servidor; el conteo local de Llevar sólo cubre una respuesta
+  // sin ese campo.
   function subtituloMesaMapa(mesa) {
+    var vista = vistaAsignacion(mesa);
+    if (vista) return vista.subtitulo;
+    var backend = mesaEstadoPorId(parseInt(mesa && mesa.id, 10)) || {};
+    if (typeof backend.subtitulo_pos === 'string') return backend.subtitulo_pos;
     return isLlevar(mesa) ? rotuloPedidosLlevar(pedidosLlevar(mesa).length) : '';
   }
 
@@ -1290,15 +1493,23 @@ function initMapa() {
         contratoMesaMapa(mesa, estado),
         opcionesVisualesMesa(mesa, estado)
       );
+      // Con la vista previa de «Cambiar mesas» los modificadores del servidor
+      // describen la asignación GUARDADA («asignada_actualmente» enmarca la
+      // mesa que se deja): sólo sobrevive el de selección.
+      var modificadores = vistaAsignacion(mesa)
+        ? (visual.modificadores || []).filter(function(m) { return m === 'seleccion_actual'; })
+        : visual.modificadores;
       mapVisual.actualizarEstado(mesa.id, {
         estadoVisual: visual.estadoVisual,
         estadoNoVerificado: visual.estadoNoVerificado,
         interactivo: visual.interactivo,
         seleccionValida: visual.seleccionValida,
         seleccionada: visual.seleccionada,
-        modificadores: visual.modificadores,
+        modificadores: modificadores,
         clasesEstado: visual.clasesEstado,
         titulo: visual.titulo,
+        etiquetaEstado: visual.etiquetaEstado,
+        ariaLabel: visual.ariaLabel,
         subtitulo: subtituloMesaMapa(mesa),
         atributos: visual.atributos
       });
@@ -1313,80 +1524,851 @@ function initMapa() {
     });
   }
 
-  // ── Render: sidebar de reservaciones ──────────────────────
-  function renderSidebar() {
-    if (!reservaciones.length) {
-      reservasList.innerHTML =
-        '<div class="mapa-empty-state">' +
-          '<span class="mapa-empty-icon" aria-hidden="true">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
-              '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' +
-            '</svg>' +
-          '</span>' +
-          '<span class="mapa-empty-title">Sin reservaciones para este día</span>' +
-          '<span class="mapa-empty-hint">Elige otra fecha en el calendario o registra una nueva reservación.</span>' +
-        '</div>';
-      reservaCount.textContent = '0';
-      return;
+  // ── Reservaciones en el POS: barra de contexto, cajón y ficha ─────────
+  //
+  // La pantalla de Operación se retira: aquí se ve el día entero (cajón), se
+  // proyecta el mapa a la hora de una reserva o de un horario (barra) y se
+  // opera la reserva (ficha). Las tres piezas sólo pintan; las decisiones de
+  // flujo viven aquí y las de negocio en el servidor.
+  var V = window.PosReservaVista;
+  var configReservacionesPos = {};
+  var avisoSoloLecturaHasta = 0;
+  // Con qué se abrió la ficha (mesa tocada, walk-in): el refresco lo revalida.
+  var fichaApertura = {};
+
+  var contextoBarra = window.PosContexto ? window.PosContexto.crear({
+    raiz: document.querySelector('[data-pos-contexto]'),
+    onAhora: function() { irAAhora(); },
+    onHora: function(hora) { proyectarHorario(hora); }
+  }) : null;
+
+  var cajon = window.PosCajon ? window.PosCajon.crear({
+    lista: reservasList,
+    contador: reservaCount,
+    onAhora: function() { irAAhora(); },
+    onHorario: function(hora) { proyectarHorario(hora); },
+    onReserva: function(id) { abrirReservaDesdeLista(id); },
+    onReintentar: function() { fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false); }
+  }) : null;
+
+  // Al abrir el cajón, la lista se coloca en el horario que se está mirando
+  // o en lo primero que pide algo, no arriba del todo.
+  document.addEventListener('click', function(event) {
+    if (cajon && event.target.closest && event.target.closest('[data-operational-drawer-toggle]')) {
+      window.setTimeout(function() { cajon.enfocarActual(); }, 80);
     }
-    reservaCount.textContent = reservaciones.length;
-    reservasList.innerHTML   = '';
-    for (var i = 0; i < reservaciones.length; i++) {
-      var r          = reservaciones[i];
-      var tempEstado = temporalEstadoReserva(r);
-      var cardClasses = [];
-      var tableNames = mesaIdsReserva(r).map(function(mesaId) {
-        var mesa = mesaPorId(mesaId);
-        return mesa ? mesa.nombre : '';
-      }).filter(Boolean);
+  });
 
-      if (r.estado === 'cancelada' || tempEstado === 'ausencia_pendiente') cardClasses.push('reserva-card--pasada');
-      else if (['en_curso', 'bloqueo', 'inicio', 'tolerancia'].indexOf(tempEstado) !== -1) {
-        cardClasses.push('reserva-card--activa');
-      } else if (tempEstado === 'advertencia') cardClasses.push('reserva-card--proxima');
-      if (r.fuera_horario_operacion === true) cardClasses.push('reserva-card--fuera-horario');
+  var ficha = window.PosFicha ? window.PosFicha.crear({
+    raiz: document.getElementById('pos-ficha'),
+    acciones: accionesFicha(),
+    onCerrar: function(anterior) { ocultarFicha(anterior); }
+  }) : null;
 
-      var temporalLabel = r.accion_pendiente === 'REGISTRAR_AUSENCIA'
-        ? 'Acción pendiente: registrar ausencia'
-        : TEMPORAL_LABELS[tempEstado];
-      if (r.fuera_horario_operacion === true) {
-        temporalLabel = temporalLabel
-          ? temporalLabel + ' · Fuera de horario de operación'
-          : 'Fuera de horario de operación';
+  // «Nueva reservación» (pie del cajón): para el día que se está mirando.
+  var cambioPendienteId = 0;
+  var alta = window.PosAlta ? window.PosAlta.crear({
+    mesaPorId: mesaPorId,
+    maxComensales: function() { return parseInt(configReservacionesPos.max_comensales_publico, 10) || 12; },
+    disponibilidad: function(fecha, personas) {
+      return fetch('/api/punto-de-venta/reservaciones/disponibilidad?fecha=' + encodeURIComponent(fecha)
+        + '&personas=' + encodeURIComponent(personas), { cache: 'no-store' })
+        .then(function(res) { return res.json(); });
+    },
+    crear: function(datos) {
+      return postJson('/api/punto-de-venta/reservaciones/crear', datos);
+    },
+    elegirMesas: function(datos, sugeridas) { iniciarAltaConMesas(datos, sugeridas); },
+    alCrear: function(resultado, datos) {
+      var id = parseInt(resultado.reservacion_id || resultado.reservationId, 10);
+      var mesas = Array.isArray(resultado.mesa_ids) ? resultado.mesa_ids : [];
+      aviso('Reservación creada: ' + datos.nombre + ', ' + datos.hora
+        + (mesas.length ? ' en ' + V.nombresMesas(mesas, mesaPorId) + '.' : '.'), 'success');
+      if (!id) {
+        silentRefresh();
+        return;
       }
-      var card = window.OperationalReservationCard.create(r, {
-        hora: r.hora.substring(0, 5),
-        estado: r.estado,
-        mesas: tableNames,
-        clases: cardClasses,
-        meta: temporalLabel ? {
-          label: temporalLabel,
-          className: 'reserva-card__temporal reserva-card__temporal--' + tempEstado
-        } : null
-      });
+      // Se proyecta a su hora y se abre su ficha, para ver dónde quedó. Toda
+      // reservación nace con mesas: el servidor no guarda una sin ellas.
+      fichaPendiente = { id: id, opciones: {} };
+      transicionPendiente = 'pos-ficha';
+      proyectarMapa({ hora: datos.hora, reservacionId: id });
+    }
+  }) : null;
 
-      (function(rid, mesaIds, button) {
-        button.addEventListener('click', function() { onCardClick(rid, mesaIds); });
-      })(r.id, mesaIdsReserva(r), card.querySelector('button'));
-      reservasList.appendChild(card);
+  document.addEventListener('click', function(event) {
+    var abrir = event.target.closest && event.target.closest('[data-alta-abrir]');
+    if (abrir && alta) {
+      // El botón vive en el cajón, que se cierra (data-cierra-cajon); el
+      // diálogo se abre en el siguiente fotograma para no pelear el foco.
+      window.setTimeout(function() { alta.abrir(fechaMapa()); }, 60);
+    }
+  });
+
+  function esAdmin() {
+    return permisosPos && permisosPos.es_admin === true;
+  }
+
+  function pad2(n) {
+    return ('0' + n).slice(-2);
+  }
+
+  function relojHM() {
+    var p = partesRelojOperativo();
+    return pad2(p.hora) + ':' + pad2(p.minuto);
+  }
+
+  function fechaMapa() {
+    return fechaInput ? fechaInput.value : fechaHoyLocal();
+  }
+
+  function esHoyMapa() {
+    return fechaMapa() === fechaHoyLocal();
+  }
+
+  function idsBloqueExterior() {
+    return mesas.filter(function(m) {
+      return String(m.tipo || 'mesa') === 'mesa' && String(m.zona || '') === 'exterior';
+    }).map(function(m) { return parseInt(m.id, 10); }).sort(function(a, b) { return a - b; });
+  }
+
+  function esBloqueExterior(ids) {
+    var bloque = idsBloqueExterior();
+    var elegidas = (ids || []).map(Number).sort(function(a, b) { return a - b; });
+    return bloque.length > 0 && bloque.join(',') === elegidas.join(',');
+  }
+
+  function reservaDiaPorId(id) {
+    id = parseInt(id, 10);
+    for (var i = 0; i < reservacionesDia.length; i++) {
+      if (parseInt(reservacionesDia[i].id, 10) === id) return reservacionesDia[i];
+    }
+    return reservacionPorId(id);
+  }
+
+  function opcionesVistaReserva(extra) {
+    return Object.assign({
+      mesaPorId: mesaPorId,
+      esBloque: esBloqueExterior,
+      maxComensales: parseInt(configReservacionesPos.max_comensales_publico, 10) || 0,
+      esAdmin: esAdmin(),
+      esHoy: esHoyMapa(),
+      temporal: temporalConfig,
+      reservasDia: reservacionesDia,
+      proyeccion: enProyeccion()
+    }, extra || {});
+  }
+
+  // ── Cajón ──────────────────────────────────────────────────────────
+  function renderSidebar() {
+    if (!cajon) return;
+    cajon.pintar({
+      reservas: reservacionesDia,
+      esHoy: esHoyMapa(),
+      ahoraHM: relojHM(),
+      fechaIso: fechaMapa(),
+      contexto: contextoMapa,
+      enfocadaId: ficha ? ficha.reservaId() : 0,
+      esAdmin: esAdmin(),
+      mesaPorId: mesaPorId,
+      esBloque: esBloqueExterior,
+      maxComensales: parseInt(configReservacionesPos.max_comensales_publico, 10) || 0
+    });
+  }
+
+  function clearHighlight() {
+    fichaMesaIds = [];
+    mapVisual.setSeleccionadas([]);
+  }
+
+  // ── Barra de contexto ──────────────────────────────────────────────
+  function reservasVivas() {
+    return reservacionesDia.filter(function(r) { return !V.estaResuelta(r); });
+  }
+
+  function pintarContexto() {
+    if (!contextoBarra) return;
+    var horaVista = V.hhmm(contextoMapa.hora);
+    var enHora = reservasVivas().filter(function(r) { return V.hhmm(r.hora) === horaVista; });
+    contextoBarra.pintar({
+      modo: contextoMapa.modo,
+      esHoy: esHoyMapa(),
+      fecha: contextoMapa.fecha || fechaMapa(),
+      hora: horaVista,
+      ahoraHM: relojHM(),
+      horario: horarioPos,
+      capacidad: capacidadHorarioPos ? {
+        libre: parseInt(capacidadHorarioPos.capacidad_real_disponible != null
+          ? capacidadHorarioPos.capacidad_real_disponible
+          : capacidadHorarioPos.capacidad_fisica_libre, 10) || 0,
+        total: parseInt(capacidadHorarioPos.capacidad_fisica_total, 10) || 0
+      } : null,
+      enHora: {
+        reservas: enHora.length,
+        personas: enHora.reduce(function(acc, r) { return acc + (parseInt(r.comensales, 10) || 0); }, 0)
+      },
+      esAdmin: esAdmin()
+    });
+  }
+
+  // El reloj de «Ahora» y las señales de minutos avanzan entre consultas.
+  window.setInterval(function() {
+    if (contextoBarra) contextoBarra.reloj(relojHM());
+  }, 20000);
+
+  // ── Proyección y regla de tiempo ───────────────────────────────────
+  // Mientras corre una transición, el mapa que se ve no es todavía el que se
+  // pidió: un toque ahí actuaría sobre una mesa en el estado equivocado.
+  function enTransicion() {
+    return !!(window.PosTransicion && window.PosTransicion.enCurso());
+  }
+
+  // Navegar a otra hora, a «Ahora» o a otra reserva deja el modo «Cambiar
+  // mesas»: seguir eligiendo mesas mientras el mapa enseña otra cosa asignaría
+  // a ciegas.
+  function dejarAsignacionAlNavegar() {
+    if (!modoAsignacion || modoAsignacion.guardando) return;
+    // Cambiar de hora o volver a Ahora a media alta de un grupo grande tira el
+    // borrador: sin aviso, el nombre y la nota tecleados desaparecían en
+    // silencio. Es lo mismo que dice «Descartar».
+    var eraBorrador = !!modoAsignacion.borrador;
+    salirModoAsignacion();
+    if (eraBorrador) aviso('No se creó la reservación.', 'info');
+  }
+
+  function proyectarHorario(hora) {
+    if (enTransicion()) return;
+    dejarAsignacionAlNavegar();
+    // Cambiar de hora con la ficha de OTRA hora abierta la cierra: la ficha
+    // describe una reserva de la hora que se está mirando.
+    var abierta = ficha && ficha.reserva();
+    if (abierta && V.hhmm(abierta.hora) !== hora) ficha.cerrar();
+    transicionPendiente = 'pos-proyeccion';
+    proyectarMapa({ hora: hora });
+  }
+
+  function irAAhora() {
+    if (enTransicion()) return;
+    dejarAsignacionAlNavegar();
+    // La ficha abierta se queda: ahora enseña dónde están sus mesas en vivo.
+    transicionPendiente = 'pos-proyeccion';
+    var vuelta = volverAAhora();
+    if (contextoBarra && vuelta && typeof vuelta.then === 'function') {
+      vuelta.then(function() { contextoBarra.enfocar(); });
     }
   }
 
-  // ── Click en canvas / sidebar ─────────────────────────────
-  function clearHighlight() {
-    var cards = $$('.reserva-card', reservasList);
-    mapVisual.setSeleccionadas([]);
-    for (var i = 0; i < cards.length; i++) {
-      cards[i].classList.remove('reserva-card--selected');
-      var button = cards[i].querySelector('button');
-      if (button) button.setAttribute('aria-pressed', 'false');
+  /*
+   * Regla de tiempo: una reserva cuya hora ya llegó (hoy), o resuelta, se
+   * abre EN AHORA; una futura se proyecta a su hora; otro día, a su hora.
+   * Proyectar al pasado enseñaría un salón que ya no existe.
+   */
+  function abrirReservaDesdeLista(id) {
+    if (enTransicion()) return;
+    dejarAsignacionAlNavegar();
+    var reserva = reservaDiaPorId(id);
+    if (!reserva) {
+      aviso('Esa reservación ya no está en la lista.', 'warning');
+      return;
     }
+    var hora = V.hhmm(reserva.hora);
+    var resuelta = V.estaResuelta(reserva) || V.enMesa(reserva);
+    var hoy = esHoyMapa();
+    var proyectar = !resuelta && (!hoy || hora > relojHM());
+    if (proyectar) {
+      if (enProyeccion() && V.hhmm(contextoMapa.hora) === hora) {
+        abrirFicha(reserva, {});
+        return;
+      }
+      fichaPendiente = { id: parseInt(reserva.id, 10), opciones: {} };
+      transicionPendiente = 'pos-ficha';
+      proyectarMapa({ hora: hora, reservacionId: reserva.id });
+      return;
+    }
+    if (enProyeccion() && hoy) {
+      fichaPendiente = { id: parseInt(reserva.id, 10), opciones: {} };
+      transicionPendiente = 'pos-ficha';
+      volverAAhora();
+      return;
+    }
+    abrirFicha(reserva, {});
+  }
+
+  // ── Ficha ──────────────────────────────────────────────────────────
+  function mostrarFichaSinTransicion(reserva, extra) {
+    if (!ficha) return;
+    fichaApertura = extra || {};
+    ficha.abrir(reserva, opcionesVistaReserva(extra));
+    if (posMapEl) posMapEl.classList.add('has-ficha');
+    fichaMesaIds = V.ids(reserva);
+    renderEstados();
+    renderSidebar();
+  }
+
+  function llamarMesasFicha() {
+    if (!window.PosTransicion) return;
+    window.PosTransicion.llamar(fichaMesaIds.map(function(id) {
+      return canvas.querySelector('[data-mapa-mesa="' + id + '"]');
+    }).filter(Boolean));
+  }
+
+  function abrirFicha(reserva, extra) {
+    if (!ficha || !reserva) return;
+    if (ticketSelectionMode) cancelarModoSeleccion();
+    var yaAbierta = ficha.abierta();
+    var hecho = function() {
+      mostrarFichaSinTransicion(reserva, extra);
+    };
+    var transicion = !yaAbierta && window.PosTransicion
+      ? window.PosTransicion.ejecutar('pos-ficha', hecho)
+      : (hecho(), Promise.resolve());
+    transicion.then(function() {
+      llamarMesasFicha();
+      ficha.enfocarTitulo();
+    });
+  }
+
+  function ocultarFicha(anterior) {
+    var hecho = function() {
+      var raiz = document.getElementById('pos-ficha');
+      if (raiz) raiz.hidden = true;
+      if (posMapEl) posMapEl.classList.remove('has-ficha');
+      fichaMesaIds = [];
+      renderEstados();
+      renderSidebar();
+    };
+    var transicion = window.PosTransicion
+      ? window.PosTransicion.ejecutar('pos-ficha', hecho)
+      : (hecho(), Promise.resolve());
+    transicion.then(function() {
+      // El foco vuelve al pin de su primera mesa; si no está, al menú.
+      var primera = anterior ? V.ids(anterior)[0] : 0;
+      var pin = primera ? canvas.querySelector('[data-mapa-mesa="' + primera + '"]') : null;
+      var destino = pin && !pin.disabled ? pin : document.querySelector('[data-operational-drawer-toggle]');
+      if (destino && typeof destino.focus === 'function') destino.focus();
+    });
+  }
+
+  // Después de cada respuesta: la ficha pendiente se abre, la abierta se
+  // repinta sólo si su reserva cambió.
+  function sincronizarFicha() {
+    if (!ficha) return false;
+    if (fichaPendiente) {
+      var pendiente = reservaDiaPorId(fichaPendiente.id);
+      var opcionesPendientes = fichaPendiente.opciones || {};
+      fichaPendiente = null;
+      if (pendiente) {
+        mostrarFichaSinTransicion(pendiente, opcionesPendientes);
+        return true;
+      }
+      aviso('Esa reservación ya no está en la lista.', 'warning');
+      return false;
+    }
+    if (ficha.abierta()) {
+      var reserva = reservaDiaPorId(ficha.reservaId());
+      if (reserva) {
+        var extra = { proyeccion: enProyeccion(), esHoy: esHoyMapa(), reservasDia: reservacionesDia };
+        // «Abrir ticket de todas formas» se revalida con los hechos nuevos:
+        // si la ventana se cerró entretanto, el botón se va.
+        if (fichaApertura.allowWalkIn && fichaApertura.mesa) {
+          extra.allowWalkIn = resolverOpcionesModalReservacion({
+            mesa: fichaApertura.mesa,
+            reserva: reserva,
+            previousOptions: { allowWalkIn: true }
+          }).allowWalkIn;
+        }
+        ficha.refrescar(reserva, extra);
+        fichaMesaIds = V.ids(reserva);
+      }
+    }
+    return false;
+  }
+
+  // Una reservación recién creada sin mesas entra directo a elegirlas.
+  function continuarCambioPendiente() {
+    continuarEnlaceInicial();
+    if (!cambioPendienteId) return;
+    var reserva = reservaDiaPorId(cambioPendienteId);
+    cambioPendienteId = 0;
+    if (reserva) iniciarCambioMesas(reserva);
+  }
+
+  function continuarEnlaceInicial() {
+    if (!enlaceInicial || !enlaceInicial.reservacionId) return;
+    var pedido = enlaceInicial;
+    enlaceInicial = null;
+    // Recargar la pestaña no debe volver a abrir la ficha ni el modo de mesas:
+    // de la URL sólo sobrevive la fecha.
+    if (window.history && typeof window.history.replaceState === 'function') {
+      window.history.replaceState(null, '', window.location.pathname + '?fecha=' + encodeURIComponent(fechaMapa()));
+    }
+    var reserva = reservaDiaPorId(pedido.reservacionId);
+    if (!reserva) {
+      aviso('Esa reservación ya no está activa en el día.', 'warning');
+      return;
+    }
+    if (pedido.asignar) iniciarCambioMesas(reserva);
+    else abrirReservaDesdeLista(reserva.id);
+  }
+
+  function postReservacion(endpoint, payload) {
+    return postJson(endpoint, payload).then(function(result) {
+      if (!result || result.ok !== true) throw result || {};
+      return result;
+    });
+  }
+
+  function accionesFicha() {
+    return {
+      llego: function(reserva, boton) {
+        apiIniciarServicio(reserva, selectedMeseroId(), boton);
+      },
+      cancelar: function(reserva, motivo) {
+        return postReservacion('/api/punto-de-venta/reservaciones/cancelar', {
+          reservacion_id: reserva.id,
+          motivo: motivo
+        }).then(function(result) {
+          if (ficha) ficha.cerrar();
+          aviso('Reservación cancelada: ' + (reserva.nombre || '#' + reserva.id) + '.', 'success');
+          silentRefresh();
+          return result;
+        });
+      },
+      cambiarMesas: function(reserva) {
+        iniciarCambioMesas(reserva);
+      },
+      revisar: function(reubicacionId) {
+        return postReservacion('/api/punto-de-venta/reservaciones/reubicaciones/revisar', {
+          reubicacion_id: reubicacionId
+        }).then(function(result) {
+          silentRefresh();
+          return result;
+        }, function(error) {
+          aviso((error && error.mensaje) || 'No se pudo marcar como revisada.');
+          throw error;
+        });
+      },
+      comentario: function(reserva, texto) {
+        return postReservacion('/api/punto-de-venta/reservaciones/comentario', {
+          reservacion_id: reserva.id,
+          comentario_admin: texto
+        }).then(function(result) {
+          aviso('Comentario guardado.', 'success');
+          return result;
+        });
+      },
+      walkIn: function(reserva, mesa, boton) {
+        if (!mesa) return;
+        requestOpenTicket({
+          mesa_ids: [mesa.id],
+          comensales: parseInt(reserva.comensales || '2', 10) || 2,
+          nombre: null,
+          mesero_id: selectedMeseroId()
+        }, { button: boton });
+      },
+      abrirTicket: function(reserva) {
+        var mesaId = V.ids(reserva)[0];
+        var mesa = mesaId ? mesaPorId(mesaId) : null;
+        if (!mesa) return;
+        if (ficha) ficha.cerrar();
+        showModal(mesa, 'con-ticket');
+      },
+      montarMesero: function(slot) {
+        mountMeseroSelect(slot);
+      }
+    };
+  }
+
+  /*
+   * Toque en una mesa en proyección: las azules abren su ficha; el resto sólo
+   * recuerda cómo volver. Un segundo toque antes de 4 s no apila otro aviso.
+   */
+  function tocarMesaEnProyeccion(mesa) {
+    var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
+    if (backend.estado_visual_pos === 'reservacion-proxima') {
+      var id = backend.reservacion_mapa_id || backend.reservacion_id
+        || (backend.hold && backend.hold.reservacion_id);
+      var reserva = id ? reservaDiaPorId(id) : null;
+      if (reserva) {
+        abrirFicha(reserva, { mesa: mesa });
+        return;
+      }
+    }
+    if (Date.now() > avisoSoloLecturaHasta) {
+      avisoSoloLectura();
+      avisoSoloLecturaHasta = Date.now() + 4000;
+    }
+    if (contextoBarra) contextoBarra.llamarAhora();
+  }
+
+  // ── Cambiar mesas de una reservación (desde la ficha) ────────────────
+  //
+  // El mapa se proyecta a la hora de la reserva (es el intervalo que importa)
+  // y se eligen mesas tocándolas. La barra flotante del modo selección se
+  // reutiliza con otro texto. Guardar viaja con la versión y las mesas que se
+  // tenían en pantalla: si otra tablet la movió entretanto, el servidor lo
+  // rechaza en vez de pisar el cambio. Elegir el exterior completo con reservas
+  // dentro las reubica, después de enseñar a quién y pedir confirmación.
+  var modoAsignacion = null;
+
+  function mesaElegibleAsignacion(mesa) {
+    if (!mesa || String(mesa.tipo || 'mesa') !== 'mesa' || !mesaReservable(mesa)) return false;
+    var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
+    // Un ticket que sigue ahí a esa hora no se mueve: la gente está sentada.
+    return !(backend.ticket_bloquea_consulta === true && backend.asignada_actualmente !== true);
+  }
+
+  /*
+   * Alta de un grupo mayor al máximo: las mesas se eligen ANTES de que exista
+   * la reservación. El modo es el mismo que «Cambiar mesas», sobre un
+   * borrador: al guardar se crea con esas mesas en una sola petición, y si se
+   * descarta no queda nada.
+   */
+  // Mesas que el anfitrión ya había elegido cuando el alta volvió al diálogo
+  // por un dato del formulario: al regresar al plano no se pierden.
+  var altaSeleccionPrevia = null;
+
+  function iniciarAltaConMesas(datos, sugeridas) {
+    if (!datos) return;
+    var previa = altaSeleccionPrevia;
+    altaSeleccionPrevia = null;
+    if (previa && previa.fecha === datos.fecha && previa.hora === datos.hora) sugeridas = previa.ids;
+    if (ticketSelectionMode) cancelarModoSeleccion();
+    if (ficha && ficha.abierta()) ficha.cerrar();
+    modoAsignacion = {
+      borrador: datos,
+      // Si se empezó en vivo, descartar devuelve a Ahora y no deja al
+      // mesero mirando la hora de un grupo que no existe.
+      volverAAhora: contextoMapa.modo !== 'proyeccion',
+      reserva: { id: 0, nombre: datos.nombre, comensales: datos.comensales, hora: datos.hora, fecha: datos.fecha, mesa_ids: [] },
+      // El mapa abre con la propuesta del servidor ya marcada: se ajusta en
+      // vez de empezar a tocar mesas en blanco.
+      seleccion: (sugeridas || []).map(function(id) { return parseInt(id, 10); }).filter(function(id) { return id > 0; }),
+      guardando: false
+    };
+    pintarModoAsignacion();
+    transicionPendiente = 'pos-proyeccion';
+    proyectarMapa({ hora: V.hhmm(datos.hora), intencion: 'asignar' })
+      .then(function() {
+        // Entre la consulta y el mapa proyectado alguien pudo ocupar una de
+        // las propuestas: sólo sobrevive lo que el plano deja elegir.
+        if (modoAsignacion && modoAsignacion.borrador === datos) {
+          modoAsignacion.seleccion = modoAsignacion.seleccion.filter(function(id) {
+            var mesa = mesaPorId(id);
+            return mesa && mesaElegibleAsignacion(mesa);
+          });
+          pintarModoAsignacion();
+          renderEstados();
+        }
+        if (selectionMessage) selectionMessage.focus();
+      });
+  }
+
+  function guardarAltaConMesas(confirmaciones) {
+    var borrador = modoAsignacion.borrador;
+    var ids = modoAsignacion.seleccion.slice();
+    modoAsignacion.guardando = true;
+    pintarModoAsignacion();
+    return postJson('/api/punto-de-venta/reservaciones/crear', Object.assign({}, borrador, {
+      mesa_ids: ids,
+      confirmaciones: confirmaciones || []
+    })).then(function(result) {
+      if (!modoAsignacion) return;
+      modoAsignacion.guardando = false;
+      if (result && result.ok === true && result.commit === true) {
+        var id = parseInt(result.reservacion_id || result.reservationId || result.id, 10);
+        aviso('Reservación creada: ' + borrador.nombre + ', ' + V.hhmm(borrador.hora)
+          + ' en ' + V.nombresMesas(ids, mesaPorId) + '.', 'success');
+        salirModoAsignacion();
+        if (id) fichaPendiente = { id: id, opciones: {} };
+        transicionPendiente = 'pos-ficha';
+        consultaPos.intencion = '';
+        fetchData(fechaMapa(), true);
+        return;
+      }
+      var decision = result && Array.isArray(result.confirmaciones_requeridas) ? result.confirmaciones_requeridas[0] : null;
+      if (decision && window.ConfirmationModal) {
+        pintarModoAsignacion();
+        var principal = (decision.acciones || []).find(function(a) { return a.tipo === 'primary'; });
+        window.ConfirmationModal.get().open({
+          variant: 'warning',
+          eyebrow: 'Nueva reservación',
+          title: decision.titulo || decision.mensaje || 'Confirma el alta',
+          description: decision.mensaje || '',
+          consequence: decision.consecuencia || '',
+          secondaryLabel: 'Volver a elegir',
+          primaryLabel: principal && principal.label ? principal.label : 'Crear de todas formas',
+          onPrimary: function() {
+            return guardarAltaConMesas((confirmaciones || []).concat([decision.codigo_canonico || decision.codigo]));
+          }
+        });
+        return;
+      }
+      // Un dato del formulario (el contacto, el nombre) no se arregla en el
+      // plano: se vuelve al diálogo con el campo señalado y las mesas ya
+      // elegidas se guardan para cuando regrese al mapa.
+      if (alta && alta.retomar && result && result.codigo === 'DATOS_INVALIDOS') {
+        altaSeleccionPrevia = { fecha: borrador.fecha, hora: borrador.hora, ids: ids.slice() };
+        salirModoAsignacion();
+        renderEstados();
+        if (alta.retomar(result)) return;
+        altaSeleccionPrevia = null;
+      }
+      pintarModoAsignacion();
+      aviso((result && result.mensaje) || 'No se pudo crear la reservación con esas mesas.');
+    }, function() {
+      if (modoAsignacion) {
+        modoAsignacion.guardando = false;
+        pintarModoAsignacion();
+      }
+      avisoConexion();
+    });
+  }
+
+  function iniciarCambioMesas(reserva) {
+    if (!reserva) return;
+    if (ticketSelectionMode) cancelarModoSeleccion();
+    modoAsignacion = { reserva: reserva, seleccion: V.ids(reserva).slice(), guardando: false };
+    if (ficha && ficha.abierta()) ficha.cerrar();
+    pintarModoAsignacion();
+    transicionPendiente = 'pos-proyeccion';
+    proyectarMapa({ hora: V.hhmm(reserva.hora), reservacionId: reserva.id, intencion: 'asignar' })
+      .then(function() {
+        if (selectionMessage) selectionMessage.focus();
+      });
+  }
+
+  function capacidadSeleccion(ids) {
+    return ids.reduce(function(acc, id) {
+      var mesa = mesaPorId(id);
+      return acc + (mesa ? parseInt(mesa.capacidad, 10) || 0 : 0);
+    }, 0);
+  }
+
+  function pintarModoAsignacion() {
+    if (!modoAsignacion) return;
+    var reserva = modoAsignacion.reserva;
+    var ids = modoAsignacion.seleccion;
+    if (selectionShell) selectionShell.classList.add('is-ticket-selection-mode');
+    if (selectionBar) selectionBar.hidden = false;
+    // Pregunta pendiente: la barra la hace en su sitio y esconde guardar y
+    // descartar hasta que se conteste.
+    var pendiente = modoAsignacion.pendiente;
+    if (asignacionPregunta) asignacionPregunta.hidden = !pendiente;
+    if (selectionActions) selectionActions.hidden = !!pendiente;
+    if (pendiente && selectionMessage) {
+      var nuevaMesa = mesaPorId(pendiente);
+      // La pregunta va en el orden de sus respuestas —«además» a la izquierda,
+      // «en su lugar» a la derecha, como «Añadir» y «Cambiar»—: leída de
+      // corrido, cada mitad de la frase cae encima de su botón.
+      selectionMessage.textContent = (nuevaMesa ? nuevaMesa.nombre : 'Esta mesa') + ': ¿además de '
+        + V.nombresMesas(ids, mesaPorId) + ', o en su lugar?';
+      return;
+    }
+    if (selectionMessage) {
+      var comensales = parseInt(reserva.comensales, 10) || 0;
+      var lugares = capacidadSeleccion(ids);
+      // «14 personas … (8 lugares)» dejaba la resta al anfitrión, y con el
+      // botón de guardar ya encendido. El faltante se dice en palabras; el
+      // servidor sigue pidiendo confirmación si se guarda así.
+      //
+      // Dos renglones: quién arriba y qué mesas debajo. En una sola frase, un
+      // grupo grande dejaba nombre, mesas y cuenta de lugares pegados en una
+      // línea que había que leer entera para saber si ya alcanzaba.
+      var quien = V.esc(reserva.nombre || 'Reservación') + ' · ' + V.esc(V.plural(comensales, 'persona', 'personas'))
+        + (modoAsignacion.borrador ? ' · ' + V.esc(V.hhmm(reserva.hora)) : '');
+      selectionMessage.innerHTML = ids.length
+        ? '<span class="pos-ticket-selection-message__quien">' + quien + '</span>'
+          + '<span class="pos-ticket-selection-message__mesas">' + V.esc(V.nombresMesas(ids, mesaPorId))
+          + ' · <span class="pos-ticket-selection-message__cupo' + (lugares < comensales ? ' is-falta' : '') + '">'
+          + V.esc(V.plural(lugares, 'lugar', 'lugares'))
+          + (lugares < comensales ? ', faltan ' + (comensales - lugares) : '') + '</span></span>'
+        : '<span class="pos-ticket-selection-message__quien">' + quien + '</span>'
+          + '<span class="pos-ticket-selection-message__mesas">Toca las mesas en el plano.</span>';
+    }
+    if (selectionToggle) {
+      selectionToggle.textContent = modoAsignacion.guardando
+        ? 'Guardando…'
+        : (modoAsignacion.borrador ? 'Crear reservación' : 'Guardar mesas');
+      var bloqueado = modoAsignacion.guardando || !ids.length;
+      selectionToggle.disabled = bloqueado;
+      selectionToggle.setAttribute('aria-disabled', bloqueado ? 'true' : 'false');
+      if (modoAsignacion.guardando) selectionToggle.setAttribute('aria-busy', 'true');
+      else selectionToggle.removeAttribute('aria-busy');
+    }
+    if (selectionCancel) {
+      selectionCancel.disabled = modoAsignacion.guardando;
+      selectionCancel.textContent = 'Descartar';
+    }
+  }
+
+  /*
+   * Tocar una mesa en «Cambiar mesas»:
+   * - una ya elegida se quita;
+   * - si a la reserva todavía le faltan lugares, la nueva se suma (no hay
+   *   nada que cambiar: necesita más);
+   * - si ya le alcanza, se pregunta en la barra si la nueva SUSTITUYE a las
+   *   elegidas o se añade. Antes siempre se añadía, y para mover una pareja
+   *   de la Mesa 1 a la 11 había que acordarse de quitar la 1.
+   */
+  function alternarMesaAsignacion(mesa) {
+    if (!modoAsignacion || modoAsignacion.guardando || !mesaElegibleAsignacion(mesa)) return;
+    var id = parseInt(mesa.id, 10);
+    var sel = modoAsignacion.seleccion;
+    if (modoAsignacion.pendiente === id) {
+      modoAsignacion.pendiente = 0;
+    } else if (sel.indexOf(id) !== -1) {
+      sel.splice(sel.indexOf(id), 1);
+      modoAsignacion.pendiente = 0;
+    } else if (sel.length && capacidadSeleccion(sel) >= (parseInt(modoAsignacion.reserva.comensales, 10) || 0)) {
+      modoAsignacion.pendiente = id;
+    } else {
+      sel.push(id);
+      modoAsignacion.pendiente = 0;
+    }
+    sel.sort(function(a, b) { return a - b; });
+    pintarModoAsignacion();
+    renderEstados();
+    if (modoAsignacion.pendiente && asignacionPregunta) {
+      var cambiar = asignacionPregunta.querySelector('[data-asignacion-eleccion="cambiar"]');
+      if (cambiar) cambiar.focus();
+    }
+  }
+
+  function resolverPreguntaAsignacion(eleccion) {
+    if (!modoAsignacion || !modoAsignacion.pendiente) return;
+    var id = modoAsignacion.pendiente;
+    modoAsignacion.pendiente = 0;
+    if (eleccion === 'cambiar') modoAsignacion.seleccion = [id];
+    else if (eleccion === 'anadir') modoAsignacion.seleccion.push(id);
+    modoAsignacion.seleccion.sort(function(a, b) { return a - b; });
+    pintarModoAsignacion();
+    renderEstados();
+    if (selectionToggle && !selectionToggle.disabled) selectionToggle.focus();
+  }
+
+  function salirModoAsignacion() {
+    modoAsignacion = null;
+    if (selectionShell) selectionShell.classList.remove('is-ticket-selection-mode');
+    if (selectionBar) selectionBar.hidden = true;
+    if (asignacionPregunta) asignacionPregunta.hidden = true;
+    if (selectionActions) selectionActions.hidden = false;
+    if (selectionCancel) selectionCancel.textContent = 'Cancelar';
+    renderEstados();
+  }
+
+  function cancelarCambioMesas() {
+    if (!modoAsignacion) return;
+    // Un borrador descartado no deja nada: la reservación nunca existió.
+    if (modoAsignacion.borrador) {
+      var regresar = modoAsignacion.volverAAhora;
+      salirModoAsignacion();
+      aviso('No se creó la reservación.', 'info');
+      if (regresar) irAAhora();
+      return;
+    }
+    var reserva = modoAsignacion.reserva;
+    salirModoAsignacion();
+    abrirFicha(reservaDiaPorId(reserva.id) || reserva, {});
+  }
+
+  function listaReubicaciones(reubicaciones) {
+    var nodo = document.createElement('ul');
+    nodo.className = 'pos-reubicaciones';
+    (reubicaciones || []).forEach(function(r) {
+      var reserva = reservaDiaPorId(r.reservacion_id);
+      var item = document.createElement('li');
+      item.textContent = (reserva ? reserva.nombre + ' · ' : 'Reservación #' + r.reservacion_id + ' · ')
+        + V.hhmm(r.hora || (reserva && reserva.hora)) + ': de '
+        + V.nombresMesas(r.mesas_antes || [], mesaPorId) + ' a ' + V.nombresMesas(r.mesas_despues || [], mesaPorId);
+      nodo.appendChild(item);
+    });
+    return nodo;
+  }
+
+  function guardarCambioMesas(confirmaciones, extra) {
+    if (!modoAsignacion || modoAsignacion.guardando) return Promise.resolve();
+    if (modoAsignacion.borrador) return guardarAltaConMesas(confirmaciones);
+    var reserva = modoAsignacion.reserva;
+    var ids = modoAsignacion.seleccion.slice();
+    modoAsignacion.guardando = true;
+    pintarModoAsignacion();
+    return postJson('/api/punto-de-venta/reservaciones/asignar-mesas', Object.assign({
+      reservacion_id: reserva.id,
+      mesa_ids: ids,
+      fecha: reserva.fecha,
+      hora: reserva.hora,
+      version_esperada: reserva.version,
+      mesa_ids_actuales: V.ids(reserva),
+      confirmaciones: confirmaciones || []
+    }, extra || {})).then(function(result) {
+      if (!modoAsignacion) return;
+      modoAsignacion.guardando = false;
+      if (result && result.ok === true) {
+        var movidas = Array.isArray(result.reubicaciones) ? result.reubicaciones.length : 0;
+        aviso('Mesas guardadas: ' + V.nombresMesas(ids, mesaPorId) + '.'
+          + (movidas ? ' Se ' + (movidas === 1 ? 'movió 1 reservación' : 'movieron ' + movidas + ' reservaciones') + ' al interior.' : ''), 'success');
+        salirModoAsignacion();
+        fichaPendiente = { id: parseInt(reserva.id, 10), opciones: {} };
+        transicionPendiente = 'pos-ficha';
+        consultaPos.intencion = '';
+        fetchData(fechaMapa(), true);
+        return;
+      }
+      var decision = result && Array.isArray(result.confirmaciones_requeridas) ? result.confirmaciones_requeridas[0] : null;
+      if (result && result.requiere_confirmacion && decision && window.ConfirmationModal) {
+        pintarModoAsignacion();
+        var principal = (decision.acciones || []).find(function(a) { return a.tipo === 'primary'; });
+        window.ConfirmationModal.get().open({
+          variant: 'warning',
+          eyebrow: 'Cambiar mesas',
+          title: decision.titulo || decision.mensaje || 'Confirma el cambio',
+          description: decision.mensaje || '',
+          consequence: decision.consecuencia || '',
+          customContent: result.reubicaciones && result.reubicaciones.length ? listaReubicaciones(result.reubicaciones) : null,
+          secondaryLabel: 'Volver a seleccionar',
+          primaryLabel: principal && principal.label ? principal.label : 'Confirmar',
+          onPrimary: function() {
+            var codigo = decision.codigo_canonico || decision.codigo || result.codigo;
+            return guardarCambioMesas((confirmaciones || []).concat([codigo]), {
+              ticket_ids_aceptados: (result.conflictos_ticket || []).map(function(c) { return c.ticket_id; }),
+              conflicto_token: result.conflicto_token || ''
+            });
+          }
+        });
+        return;
+      }
+      if (result && result.codigo === 'VERSION_DESACTUALIZADA') {
+        aviso(result.mensaje || 'Otra tablet cambió esta reservación. Revisa y vuelve a intentarlo.', 'warning');
+        salirModoAsignacion();
+        silentRefresh();
+        return;
+      }
+      pintarModoAsignacion();
+      aviso((result && result.mensaje) || 'No se pudieron guardar las mesas.');
+    }, function() {
+      if (modoAsignacion) {
+        modoAsignacion.guardando = false;
+        pintarModoAsignacion();
+      }
+      avisoConexion();
+    });
   }
 
   function onMesaClick(mesaId) {
     var mesa = mesaPorId(mesaId);
-    if (!mesa) return;
+    if (!mesa || enTransicion()) return;
+    if (modoAsignacion) {
+      alternarMesaAsignacion(mesa);
+      return;
+    }
     if (ticketSelectionState.opening) return;
+    // En proyección el mapa enseña cómo ESTARÁ el salón: no se abren tickets
+    // sobre una hora que todavía no llega. La Caja es del día, no de la hora.
+    if (enProyeccion() && !esCaja(mesa)) {
+      tocarMesaEnProyeccion(mesa);
+      return;
+    }
     if (mapSnapshotStale && !esCaja(mesa) && !isLlevar(mesa)) return;
     if (ticketSelectionMode) {
       mesaSeleccionadaToggle(mesaId);
@@ -1396,10 +2378,11 @@ function initMapa() {
       showCajaModal(mesa);
       return;
     }
-    // Llevar no mira ticket ni reservación: siempre abre su tablero de
-    // pedidos, con o sin pedidos abiertos.
-    if (isLlevar(mesa)) {
-      showLlevarModal(mesa);
+    // Llevar y las barras no miran ticket ni reservación: siempre abren su
+    // tablero, con o sin tickets abiertos. La barra llena también: desde ahí
+    // se cobra el que libera el lugar.
+    if (esMultiTicket(mesa)) {
+      showMultiTicketModal(mesa);
       return;
     }
     var canOpen = mesaTicketable(mesa) || esCaja(mesa);
@@ -1414,14 +2397,27 @@ function initMapa() {
     var walkInConAdvertencia = reserva
       && backend.disponible_para_ticket === true
       && backend.requiere_advertencia_ticket === true;
+    // La ficha sustituye al modal de reservación: tocar una mesa azul abre la
+    // ficha de su reserva. Con la reserva a 60–30 min y la mesa libre, la
+    // ficha ofrece además «Abrir ticket de todas formas».
     if (walkInConAdvertencia) {
-      showReservationModal(reserva, { allowWalkIn: true, mesa: mesa });
+      abrirFicha(reservaDiaPorId(reserva.id) || reserva, { allowWalkIn: true, mesa: mesa });
       return;
     }
     if (reserva && backend.disponible_para_ticket !== true) {
-      showReservationModal(reserva, { mesa: mesa });
+      abrirFicha(reservaDiaPorId(reserva.id) || reserva, { mesa: mesa });
       return;
     }
+    // Apartada por un hold: no está en `reservaciones` (sólo confirmadas).
+    if (!reserva && backend.estado_visual_pos === 'reservacion-proxima' && backend.hold) {
+      var apartada = reservaDiaPorId(backend.hold.reservacion_id);
+      if (apartada) {
+        abrirFicha(apartada, { mesa: mesa });
+        return;
+      }
+    }
+    // Una mesa sin reserva abre su modal; la ficha que hubiera se cierra.
+    if (ficha && ficha.abierta()) ficha.cerrar();
     showModal(mesa, estadoMesaActual(mesaId));
   }
 
@@ -1437,6 +2433,11 @@ function initMapa() {
   }
 
   function actualizarControlesApertura() {
+    // Cambiando mesas de una reserva, la barra es suya.
+    if (modoAsignacion) {
+      pintarModoAsignacion();
+      return;
+    }
     // La barra entera solo existe dentro del modo selección: fuera de él, el
     // punto de entrada es "Unir mesas" en el modal de la mesa.
     if (selectionBar) selectionBar.hidden = !ticketSelectionMode;
@@ -1698,20 +2699,22 @@ function initMapa() {
     return h;
   }
 
-  // ── Modal Llevar ──────────────────────────────────────────
+  // ── Modal de ventanilla: Llevar y barras ──────────────────
   //
   // Tres pantallas dentro del mismo modal, sin cerrarlo nunca entre ellas:
-  // el TABLERO (todos los pedidos abiertos), el ALTA de uno nuevo y el TICKET
+  // el TABLERO (todos los tickets abiertos), el ALTA de uno nuevo y el TICKET
   // de uno concreto —el mismo que el de una mesa—, que lleva encima una tira
-  // para saltar a otro pedido o volver al tablero. Así el mesero lleva varios
-  // pedidos en paralelo como lleva varias mesas, sin pasar por el mapa.
-  function showLlevarModal(mesa) {
+  // para saltar a otro o volver al tablero. Así el mesero lleva varios tickets
+  // en paralelo como lleva varias mesas, sin pasar por el mapa.
+  //
+  // Nació para Llevar y lo heredaron las barras; las clases `mmodal-llevar-*`
+  // conservan ese nombre porque son el componente, no el elemento.
+  function showMultiTicketModal(mesa) {
     if (!modal || !modalContent) return;
-    activeReservationModal = null;
-    if (pedidosLlevar(mesa).length === 0) {
-      mostrarAltaLlevar(mesa, false);
+    if (ticketsMulti(mesa).length === 0) {
+      mostrarAltaMulti(mesa, false);
     } else {
-      mostrarTableroLlevar(mesa);
+      mostrarTableroMulti(mesa);
     }
     openModalShell();
     // Igual que showModal(): detrás del modal no se ve el mapa.
@@ -1726,23 +2729,23 @@ function initMapa() {
     sugPedidas = false;
   }
 
-  function mostrarTableroLlevar(mesa) {
+  function mostrarTableroMulti(mesa) {
     limpiarPedidoEnCurso();
-    modalContent.innerHTML = buildLlevarList(mesa, pedidosLlevar(mesa));
-    bindLlevarList(mesa);
+    modalContent.innerHTML = buildMultiList(mesa, ticketsMulti(mesa));
+    bindMultiList(mesa);
     enfocarPrimero();
   }
 
-  function mostrarAltaLlevar(mesa, conRegreso) {
+  function mostrarAltaMulti(mesa, conRegreso) {
     limpiarPedidoEnCurso();
     modalContent.innerHTML = buildModalContent(mesa, 'libre', null, null, {
-      llevarRegreso: conRegreso === true
+      multiRegreso: conRegreso === true
     });
     bindModalActions(mesa, null, null);
     enfocarPrimero();
   }
 
-  function mostrarPedidoLlevar(mesa, ticket) {
+  function mostrarTicketMulti(mesa, ticket) {
     limpiarPedidoEnCurso();
     modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
     bindModalActions(mesa, null, ticket);
@@ -1760,9 +2763,9 @@ function initMapa() {
     });
   }
 
-  // Saltar de pedido descarta lo que haya en el Pedido sin enviar: se avisa
+  // Saltar de ticket descarta lo que haya en el Pedido sin enviar: se avisa
   // antes, como al cancelar una mesa.
-  function conPedidoSinEnviar(continuar) {
+  function conPedidoSinEnviar(mesa, continuar) {
     if (!commandaItems.length || !window.ConfirmationModal) {
       continuar();
       return;
@@ -1771,7 +2774,7 @@ function initMapa() {
     window.ConfirmationModal.get().open({
       variant: 'warning',
       eyebrow: 'Pedido sin enviar',
-      title: '¿Salir de este pedido?',
+      title: '¿Salir de este ' + vocabMulti(mesa).singular + '?',
       description: 'Tienes ' + n + (n === 1 ? ' platillo' : ' platillos') +
         ' en el Pedido que todavía no se envía a producción.',
       consequence: 'Si sales ahora, se pierden. Lo ya enviado no cambia.',
@@ -1781,14 +2784,19 @@ function initMapa() {
     });
   }
 
-  function buildLlevarList(mesa, pedidos) {
+  function buildMultiList(mesa, pedidos) {
+    var v = vocabMulti(mesa);
+    var lleno = multiLleno(mesa);
     var h = '';
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
-    h += '<span class="mmodal-title">Para llevar</span>';
-    h += '<span class="mmodal-llevar-count">' + rotuloPedidosLlevar(pedidos.length) + '</span>';
+    h += '<span class="mmodal-title">' + escHtml(v.titulo) + '</span>';
+    // Llena, la cifra toma el rojo del pin que el mesero acaba de tocar: el
+    // tablero continúa lo que dijo el mapa en vez de contarlo en neutro.
+    h += '<span class="mmodal-llevar-count' + (lleno ? ' mmodal-llevar-count--lleno' : '') + '">' +
+         escHtml(rotuloTicketsMulti(mesa, pedidos.length)) + '</span>';
     h += '</div></div>';
 
-    h += '<ul class="mmodal-llevar-list" aria-label="Pedidos abiertos">';
+    h += '<ul class="mmodal-llevar-list" aria-label="' + escHtml(v.tablero + ' abiertos') + '">';
     for (var i = 0; i < pedidos.length; i++) {
       var t = pedidos[i];
       var horaAp = t.hora_apertura ? String(t.hora_apertura).substring(11, 16) : '--:--';
@@ -1808,34 +2816,51 @@ function initMapa() {
     }
     h += '</ul>';
 
+    /*
+     * Barra llena: el alta se APAGA, no desaparece. Si se fuera, el mesero no
+     * sabría si la barra admite otro ticket o si el botón nunca estuvo; con la
+     * nota debajo sabe qué falta —que se cobre o descarte uno— sin probar.
+     * El servidor revalida igual (BARRA_LLENA): esto es la señal en pantalla.
+     */
     h += '<div class="mmodal-actions">';
-    h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llevar-nuevo">' +
-         btnLabel('plus', 'Nuevo pedido') + '</button>';
+    if (lleno) {
+      h += '<button class="mmodal-btn mmodal-btn--pending" id="mmodal-llevar-nuevo" disabled' +
+           ' aria-describedby="mmodal-llevar-lleno">' + btnLabel('plus', v.nuevo) + '</button>';
+    } else {
+      h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llevar-nuevo">' +
+           btnLabel('plus', v.nuevo) + '</button>';
+    }
     h += '</div>';
+    if (lleno) {
+      // Sin el nombre del elemento delante: «Mostrador está llena» saldría
+      // con el género equivocado, y el tope ya dice cuál es el límite.
+      h += '<p class="mmodal-field-hint mmodal-field-hint--bloqueo" id="mmodal-llevar-lleno">Tope de ' + topeTickets(mesa) +
+           ' ' + v.plural + ' alcanzado: cobra o descarta uno para abrir otro.</p>';
+    }
     return h;
   }
 
-  function bindLlevarList(mesa) {
+  function bindMultiList(mesa) {
     var rows = modalContent.querySelectorAll('.mmodal-llevar-row[data-tid]');
     for (var i = 0; i < rows.length; i++) {
       (function(row) {
         row.addEventListener('click', function() {
-          var ticket = pedidoLlevarPorId(mesa, parseInt(row.dataset.tid, 10));
-          if (ticket) mostrarPedidoLlevar(mesa, ticket);
+          var ticket = ticketMultiPorId(mesa, parseInt(row.dataset.tid, 10));
+          if (ticket) mostrarTicketMulti(mesa, ticket);
         });
       })(rows[i]);
     }
 
     var nuevoBtn = modalContent.querySelector('#mmodal-llevar-nuevo');
-    if (nuevoBtn) {
+    if (nuevoBtn && !nuevoBtn.disabled) {
       nuevoBtn.addEventListener('click', function() {
-        mostrarAltaLlevar(mesa, true);
+        mostrarAltaMulti(mesa, true);
       });
     }
   }
 
-  function pedidoLlevarPorId(mesa, ticketId) {
-    var pedidos = pedidosLlevar(mesa);
+  function ticketMultiPorId(mesa, ticketId) {
+    var pedidos = ticketsMulti(mesa);
     for (var i = 0; i < pedidos.length; i++) {
       if (Number(pedidos[i].id) === Number(ticketId)) return pedidos[i];
     }
@@ -1843,17 +2868,22 @@ function initMapa() {
   }
 
   /*
-   * Tira de pedidos dentro del ticket: el tablero, un chip por pedido abierto
+   * Tira de tickets dentro del ticket: el tablero, un chip por ticket abierto
    * y el alta. El actual siempre figura, aunque el refresco que lo trae a
-   * `tickets` aún no haya llegado (es el caso del pedido recién abierto).
+   * `tickets` aún no haya llegado (es el caso del ticket recién abierto), y por
+   * eso el tope se mide contra esta lista y no contra `tickets`.
    */
-  function buildLlevarSwitch(mesa, actual) {
-    var pedidos = pedidosLlevar(mesa).slice();
-    if (actual && !pedidoLlevarPorId(mesa, actual.id)) pedidos.push(actual);
+  function buildMultiSwitch(mesa, actual) {
+    var v = vocabMulti(mesa);
+    var pedidos = ticketsMulti(mesa).slice();
+    if (actual && !ticketMultiPorId(mesa, actual.id)) pedidos.push(actual);
+    var tope = topeTickets(mesa);
+    var lleno = tope !== null && pedidos.length >= tope;
 
-    var h = '<nav class="mmodal-llevar-switch" aria-label="Pedidos para llevar">';
+    var h = '<nav class="mmodal-llevar-switch" data-singular="' + escHtml(v.singular) + '"' +
+            ' aria-label="' + escHtml(v.tablero + ' de ' + v.titulo) + '">';
     h += '<button type="button" class="mmodal-llevar-switch__todos" data-llevar-tablero>' +
-         svgIcon('list', 15) + '<span>Pedidos</span>' +
+         svgIcon('list', 15) + '<span>' + escHtml(v.tablero) + '</span>' +
          '<span class="mmodal-llevar-switch__total">' + pedidos.length + '</span></button>';
     h += '<div class="mmodal-llevar-switch__track" data-lenis-prevent>';
     for (var i = 0; i < pedidos.length; i++) {
@@ -1866,13 +2896,19 @@ function initMapa() {
       h += '</button>';
     }
     h += '</div>';
-    h += '<button type="button" class="mmodal-llevar-chip mmodal-llevar-chip--nuevo" data-llevar-nuevo>' +
+    // Lleno, el chip se apaga con aria-disabled y NO con `disabled`: un botón
+    // deshabilitado no recibe el toque, y en la tablet el title no se ve nunca,
+    // así que el mesero tocaba y no pasaba nada. Así sigue a la vista, apagado,
+    // y al tocarlo explica el motivo (bindMultiSwitch).
+    var motivoLleno = 'Tope de ' + tope + ' ' + v.plural + ' alcanzado: cobra o descarta uno para abrir otro.';
+    h += '<button type="button" class="mmodal-llevar-chip mmodal-llevar-chip--nuevo" data-llevar-nuevo' +
+         (lleno ? ' aria-disabled="true" title="' + escHtml(motivoLleno) + '" data-motivo="' + escHtml(motivoLleno) + '"' : '') + '>' +
          svgIcon('plus', 14) + '<span>Nuevo</span></button>';
     h += '</nav>';
     return h;
   }
 
-  function bindLlevarSwitch(mesa, actual) {
+  function bindMultiSwitch(mesa, actual) {
     var nav = modalContent.querySelector('.mmodal-llevar-switch');
     if (!nav) return;
     var activo = nav.querySelector('.mmodal-llevar-chip.is-active');
@@ -1880,40 +2916,44 @@ function initMapa() {
 
     nav.addEventListener('click', function(event) {
       var btn = event.target.closest('button');
-      if (!btn || !nav.contains(btn)) return;
+      if (!btn || !nav.contains(btn) || btn.disabled) return;
+      if (btn.getAttribute('aria-disabled') === 'true') {
+        aviso(btn.getAttribute('data-motivo') || 'Ya no se puede abrir otro.', 'warning');
+        return;
+      }
       if (btn.hasAttribute('data-llevar-tablero')) {
-        conPedidoSinEnviar(function() { volverATableroLlevar(mesa); });
+        conPedidoSinEnviar(mesa, function() { volverATableroMulti(mesa); });
         return;
       }
       if (btn.hasAttribute('data-llevar-nuevo')) {
-        conPedidoSinEnviar(function() { mostrarAltaLlevar(mesa, true); });
+        conPedidoSinEnviar(mesa, function() { mostrarAltaMulti(mesa, true); });
         return;
       }
       var tid = parseInt(btn.getAttribute('data-llevar-tid') || '0', 10);
       if (!tid || (actual && Number(actual.id) === tid)) return;
-      var destino = pedidoLlevarPorId(mesa, tid);
-      if (destino) conPedidoSinEnviar(function() { mostrarPedidoLlevar(mesa, destino); });
+      var destino = ticketMultiPorId(mesa, tid);
+      if (destino) conPedidoSinEnviar(mesa, function() { mostrarTicketMulti(mesa, destino); });
     });
   }
 
   /*
    * Vuelta al tablero con datos frescos: otra tablet pudo abrir o cobrar un
-   * pedido mientras éste estaba en pantalla, y con el modal abierto no hay
+   * ticket mientras éste estaba en pantalla, y con el modal abierto no hay
    * sondeo. Se pinta con lo que hay y se repinta al llegar el refresco, sólo
    * si el mesero sigue en el tablero.
    *
    * `cerrarSiVacio` es la salida tras cobrar o descartar: si no queda ningún
-   * pedido, el modal se cierra en vez de ofrecer un alta que nadie pidió.
+   * ticket, el modal se cierra en vez de ofrecer un alta que nadie pidió.
    */
-  function volverATableroLlevar(mesa, opciones) {
+  function volverATableroMulti(mesa, opciones) {
     opciones = opciones || {};
     var pintar = function() {
-      if (pedidosLlevar(mesa).length) {
-        mostrarTableroLlevar(mesa);
+      if (ticketsMulti(mesa).length) {
+        mostrarTableroMulti(mesa);
       } else if (opciones.cerrarSiVacio) {
         closeModal({ refresh: false });
       } else {
-        mostrarAltaLlevar(mesa, false);
+        mostrarAltaMulti(mesa, false);
       }
     };
     if (!opciones.cerrarSiVacio) pintar();
@@ -1934,33 +2974,8 @@ function initMapa() {
     });
   }
 
-  function onCardClick(reservaId, mesaIds) {
-    if (ticketSelectionMode || ticketSelectionState.opening) return;
-    clearHighlight();
-    highlightReserva(reservaId, mesaIds);
-    var reserva = reservacionPorId(reservaId);
-    if (reserva) showReservationModal(reserva);
-  }
-
-  function highlightReserva(reservaId, mesaIds) {
-    var card = reservasList.querySelector('[data-id="' + reservaId + '"]');
-    if (card) {
-      card.classList.add('reserva-card--selected');
-      var button = card.querySelector('button');
-      if (button) button.setAttribute('aria-pressed', 'true');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    mesaIds = Array.isArray(mesaIds) ? mesaIds : [];
-    mapVisual.setSeleccionadas(mesaIds.filter(function (mesaId) {
-      var mesa = mesaPorId(mesaId);
-      return mesa && mesaReservable(mesa) && !ticketActual(mesaId);
-    }));
-  }
-
-  // ── Modal ─────────────────────────────────────────────────
   function showModal(mesa, estado, reservaOverride, ticketOverride) {
     if (!modal || !modalContent) return;
-    activeReservationModal = null;
     commandaItems    = [];
     selectedComensal = 0;
     var reserva = reservaOverride === undefined
@@ -1975,51 +2990,9 @@ function initMapa() {
     bindModalActions(mesa, reserva, ticket, null);
   }
 
-  function showReservationModal(reserva, options) {
-    if (!modal || !modalContent || !reserva || ticketSelectionMode || ticketSelectionState.opening) return;
-    options = options || {};
-
-    var mesaIds = mesaIdsReserva(reserva);
-    var mesa = options.mesa || (mesaIds.length ? mesaPorId(mesaIds[0]) : null);
-    if (!mesa) {
-      mesa = {
-        id: 0,
-        nombre: 'Reservación #' + reserva.id,
-        numero: null,
-        reservable: false,
-        tipo: 'especial'
-      };
-    }
-
-    var modalOptions = resolverOpcionesModalReservacion({
-      mesa: mesa,
-      reserva: reserva,
-      previousOptions: {
-        allowWalkIn: options.allowWalkIn === true
-      }
-    });
-
-    activeReservationModal = {
-      id: parseInt(reserva.id || reserva.reservacion_id, 10),
-      mesaId: mesa.id,
-      reserva: reserva,
-      options: modalOptions
-    };
-
-    var estado = reserva.estado === 'en_curso'
-      ? 'ocupada'
-      : 'reservada';
-    commandaItems = [];
-    selectedComensal = 0;
-    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null, modalOptions);
-    openModalShell();
-    bindModalActions(mesa, reserva, null, modalOptions);
-  }
-
   function closeModal(options) {
     if (!modal) return;
     options = options || {};
-    activeReservationModal = null;
     modal.classList.remove('mesa-modal--open');
     modal.setAttribute('aria-hidden', 'true');
     modal.inert = true;
@@ -2531,13 +3504,15 @@ function initMapa() {
     }
 
     // El encabezado identifica la mesa una sola vez y mantiene el estado cerca.
-    // En Llevar lo que se identifica es el PEDIDO: el nombre de la fila de
-    // `mesas` es el mismo para todos y el folio es lo que los distingue.
-    var llevar = isLlevar(mesa);
+    // En Llevar y en una barra lo que se identifica es el TICKET: el nombre de
+    // la fila de `mesas` es el mismo para todos y el folio es lo que los
+    // distingue.
+    var multi = esMultiTicket(mesa);
+    var vocab = multi ? vocabMulti(mesa) : null;
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' +
-         escHtml(llevar ? 'Para llevar' : (reservaDisplayName || mesa.nombre)) + '</span>';
-    if (llevar && ticket) {
+         escHtml(multi ? vocab.titulo : (reservaDisplayName || mesa.nombre)) + '</span>';
+    if (multi && ticket) {
       h += '<span class="mmodal-table-number">' + escHtml(folioPedido(ticket)) + '</span>';
     }
     /*
@@ -2549,7 +3524,7 @@ function initMapa() {
      * aporta cuando alguien la ha renombrado ("Terraza", "Barra 2") y hace
      * falta saber contra qué fila del mapa se está trabajando.
      */
-    if (!llevar && !reserva && mesa.numero && !nombreIncluyeNumero(mesa.nombre, mesa.numero)) {
+    if (!multi && !reserva && mesa.numero && !nombreIncluyeNumero(mesa.nombre, mesa.numero)) {
       h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
     h += '</div>';
@@ -2564,12 +3539,12 @@ function initMapa() {
       // Ahora la salida es una sola y está donde se la busca: el botón de la
       // pestaña Ticket (ver actualizarCierreEstado).
       h += '<div class="mmodal-header-estado">';
-      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
+      h += '<span class="mmodal-chip mmodal-chip--ticket"><span class="mmodal-chip__texto">Ticket abierto</span></span>';
       h += '</div>';
     } else if (reserva) {
-      h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '">' + reservaChipLabel + '</span>';
-    } else if (llevar) {
-      h += '<span class="mmodal-chip mmodal-chip--ticket">Nuevo pedido</span>';
+      h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '"><span class="mmodal-chip__texto">' + reservaChipLabel + '</span></span>';
+    } else if (multi) {
+      h += '<span class="mmodal-chip mmodal-chip--ticket"><span class="mmodal-chip__texto">' + escHtml(vocab.nuevo) + '</span></span>';
     }
     h += '</div>';
 
@@ -2597,8 +3572,8 @@ function initMapa() {
         var mesaTicket = mesaPorId(mesaId);
         return mesaTicket ? mesaTicket.nombre : 'Mesa ' + mesaId;
       });
-      if (llevar) {
-        h += buildLlevarSwitch(mesa, ticket);
+      if (multi) {
+        h += buildMultiSwitch(mesa, ticket);
       } else if (ticketMesaNames.length) {
         h += '<div class="mmodal-ticket-tables">Mesas: ' + escHtml(ticketMesaNames.join(', ')) + '</div>';
       }
@@ -2879,12 +3854,14 @@ function initMapa() {
 
     } else {
       // ── Vista de mesa libre: abrir ticket ─────────────────
-      var defaultCom = isLlevar(mesa) ? 1 : 2;
+      // En una ventanilla se arranca en 1: un pedido no ocupa asientos y en la
+      // barra cada banco es una persona. En una mesa, la pareja es lo común.
+      var defaultCom = multi ? 1 : 2;
       h += '<div class="mmodal-name-wrap">';
       h += '<div class="mmodal-label">Nombre</div>';
       h += '<input type="text" class="mmodal-name-input" id="mmodal-nombre"';
       // En Llevar el nombre es con lo que se entrega la bolsa en la barra.
-      h += ' placeholder="' + (isLlevar(mesa) ? 'Nombre para entregar el pedido' : 'Nombre del comensal') +
+      h += ' placeholder="' + escHtml(multi ? vocab.placeholder : 'Nombre del comensal') +
            '" autocomplete="off" maxlength="80">';
       h += '</div>';
       h += '<div data-mesero-slot></div>';
@@ -2898,14 +3875,15 @@ function initMapa() {
       h += '</div>';
       h += '<div class="mmodal-actions">';
       h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir">' +
-           (isLlevar(mesa) ? 'Abrir pedido' : 'Abrir ticket') + '</button>';
+           escHtml(multi ? vocab.abrir : 'Abrir ticket') + '</button>';
       // Punto de entrada al modo selección: reemplaza al botón fijo que vivía
-      // en el mapa y le comía ancho al salón.
-      if (!isLlevar(mesa)) {
+      // en el mapa y le comía ancho al salón. Una ventanilla no se une a nada:
+      // el servidor rechaza combinarla con otra mesa.
+      if (!multi) {
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-unir-mesas">Unir mesas</button>';
-      } else if (modalOptions && modalOptions.llevarRegreso) {
+      } else if (modalOptions && modalOptions.multiRegreso) {
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-llevar-volver">' +
-             'Ver pedidos abiertos</button>';
+             escHtml(vocab.verAbiertos) + '</button>';
       }
       h += '</div>';
     }
@@ -3282,9 +4260,11 @@ function initMapa() {
     }
 
     var accion = sinComandas ? 'cancelar' : 'cobrar';
-    var llevar = Boolean(modalContent.querySelector('.mmodal-llevar-switch'));
+    // La tira sólo existe en una ventanilla (Llevar o barra), y trae la palabra
+    // con la que ésa llama a sus tickets.
+    var tira = modalContent.querySelector('.mmodal-llevar-switch');
     var etiqueta = sinComandas
-      ? (llevar ? 'Descartar pedido' : 'Cerrar mesa')
+      ? (tira ? 'Descartar ' + (tira.getAttribute('data-singular') || 'pedido') : 'Cerrar mesa')
       : 'Cerrar ticket';
     btn.dataset.accion = accion;
 
@@ -3699,18 +4679,20 @@ function initMapa() {
       });
     }
 
-    var llevarVolverBtn = modalContent.querySelector('#mmodal-llevar-volver');
-    if (llevarVolverBtn) {
-      llevarVolverBtn.addEventListener('click', function() {
-        volverATableroLlevar(mesa);
+    var multiVolverBtn = modalContent.querySelector('#mmodal-llevar-volver');
+    if (multiVolverBtn) {
+      multiVolverBtn.addEventListener('click', function() {
+        volverATableroMulti(mesa);
       });
     }
-    if (ticket && isLlevar(mesa)) bindLlevarSwitch(mesa, ticket);
+    if (ticket && esMultiTicket(mesa)) bindMultiSwitch(mesa, ticket);
 
     var unirBtn = modalContent.querySelector('#mmodal-unir-mesas');
     if (unirBtn) {
       unirBtn.addEventListener('click', function() {
-        closeModal();
+        // Sin refrescar: el refresco marca el mapa como desactualizado mientras
+        // viaja, y entonces la mesa de origen no se podía preseleccionar.
+        closeModal({ refresh: false });
         activarModoSeleccion();
         // La mesa de origen entra preseleccionada: es la que el mesero tocó.
         mesaSeleccionadaToggle(mesa.id);
@@ -3725,8 +4707,8 @@ function initMapa() {
         var nombreEl   = modalContent.querySelector('#mmodal-nombre');
         var nombre     = nombreEl ? nombreEl.value.trim() : '';
         var meseroId   = selectedMeseroId();
-        if (isLlevar(mesa)) {
-          apiAbrirLlevarTicket(mesa, comensales, nombre || null, meseroId, abrirBtn);
+        if (esMultiTicket(mesa)) {
+          apiAbrirTicketMulti(mesa, comensales, nombre || null, meseroId, abrirBtn);
         } else {
           apiAbrirTicket([mesa.id], comensales, null, nombre || null, meseroId, abrirBtn);
         }
@@ -4648,15 +5630,16 @@ function initMapa() {
   // ── Pantalla de encuesta de feedback ──────────────────────
   function showFeedbackEncuesta(token, mesaNombre, mesa, ticketId) {
     var url = window.location.origin + '/feedback?token=' + token;
-    var llevar = isLlevar(mesa);
-    // `tickets` todavía incluye el pedido recién cobrado: el refresco llega
+    var multi = esMultiTicket(mesa);
+    var vocab = multi ? vocabMulti(mesa) : null;
+    // `tickets` todavía incluye el ticket recién cobrado: el refresco llega
     // después. Quedan otros si hay más de uno.
-    var quedanPedidos = llevar && pedidosLlevar(mesa).filter(function(t) {
+    var quedanOtros = multi && ticketsMulti(mesa).filter(function(t) {
       return Number(t.id) !== Number(ticketId);
     }).length > 0;
     var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' +
-         escHtml(llevar ? 'Para llevar ' + folioPedido({ id: ticketId }) : mesaNombre) + '</span>';
+         escHtml(multi ? vocab.titulo + ' ' + folioPedido({ id: ticketId }) : mesaNombre) + '</span>';
     h += '<span class="mmodal-title-cliente">— Ticket cerrado</span>';
     h += '</div></div>';
     h += '<div class="mmodal-feedback-encuesta">';
@@ -4664,7 +5647,7 @@ function initMapa() {
     h += '<div class="mmodal-cerrar-confirm__btns">';
     h += '<button class="mmodal-btn mmodal-btn--primary" id="encuesta-abrir">Pasar a encuesta</button>';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="encuesta-cerrar">' +
-         (quedanPedidos ? 'Volver a pedidos' : 'Cerrar') + '</button>';
+         escHtml(quedanOtros ? vocab.volver : 'Cerrar') + '</button>';
     h += '</div>';
     h += '</div>';
 
@@ -4677,8 +5660,8 @@ function initMapa() {
     });
 
     modalContent.querySelector('#encuesta-cerrar').addEventListener('click', function() {
-      if (llevar) {
-        volverATableroLlevar(mesa, { cerrarSiVacio: true });
+      if (multi) {
+        volverATableroMulti(mesa, { cerrarSiVacio: true });
         return;
       }
       closeModal({ refresh: false });
@@ -4804,7 +5787,6 @@ function initMapa() {
   function showOpenTicketNotice(options) {
     options = options || {};
     if (!modal || !modalContent) return;
-    activeReservationModal = null;
     if (!window.ConfirmationModal) return;
     sugTimerStop();
     sugTicket = null;
@@ -5035,6 +6017,11 @@ function initMapa() {
           return options.onCommit(result);
         }
         if (result.ticket_id) {
+          // La llegada es un hecho del presente: la ficha se cierra y, si se
+          // estaba mirando otra hora, el mapa vuelve a Ahora antes de abrir el
+          // ticket nuevo.
+          if (ficha && ficha.abierta()) ficha.cerrar();
+          if (enProyeccion()) consultaPos = { hora: '', reservacionId: 0, intencion: '' };
           var mesaIdsServicio = Array.isArray(result.mesa_ids) && result.mesa_ids.length
             ? result.mesa_ids
             : (options.reserva && Array.isArray(options.reserva.mesa_ids)
@@ -5101,17 +6088,11 @@ function initMapa() {
     });
   }
 
+  // El POS no monta el indicador de actualización del header, así que el aviso
+  // va por el componente de toasts: antes leía una variable que aquí no existe
+  // y lanzaba ReferenceError justo cuando el refresco ya había fallado.
   function showNonBlockingReservationNotice(message) {
-    if (!updateStatus) return;
-    var previous = updateStatus.textContent;
-    updateStatus.textContent = message;
-    updateStatus.setAttribute('data-status', 'warning');
-    window.setTimeout(function() {
-      if (updateStatus.textContent === message) {
-        updateStatus.textContent = previous || '';
-        updateStatus.setAttribute('data-status', 'ready');
-      }
-    }, 5000);
+    aviso(message, 'warning');
   }
 
   function apiIniciarServicio(reserva, meseroId, button) {
@@ -5137,6 +6118,9 @@ function initMapa() {
           // La mutación ya está confirmada: el overlay debe desaparecer antes
           // de consultar el snapshot canónico del servidor.
           closeModal({ refresh: false });
+          if (ficha && ficha.abierta()) ficha.cerrar();
+          var mesasLibres = V.nombresMesas(mesaIdsReserva(reserva), mesaPorId);
+          aviso('Ausencia registrada' + (mesasLibres ? ': ' + mesasLibres + ' libre.' : '.'), 'success');
           var refresh = silentRefresh();
           if (!refresh || typeof refresh.then !== 'function') return result;
           return refresh.then(function(refreshResult) {
@@ -5166,8 +6150,9 @@ function initMapa() {
     }, { button: button });
   }
 
-  // Abre un ticket de Llevar y va directo al POS sin cerrar el modal
-  function apiAbrirLlevarTicket(mesa, comensales, nombre, meseroId, button) {
+  // Abre un ticket de ventanilla (Llevar o barra) y va directo al POS sin
+  // cerrar el modal.
+  function apiAbrirTicketMulti(mesa, comensales, nombre, meseroId, button) {
     if (ticketRequestInFlight) return;
     ticketRequestInFlight = true;
     setActionBusy(button, true, 'Abriendo ticket…');
@@ -5190,9 +6175,14 @@ function initMapa() {
           hora_apertura: horaAperturaLocal()
         };
         silentRefresh();
-        mostrarPedidoLlevar(mesa, newTicket);
+        mostrarTicketMulti(mesa, newTicket);
+      } else if (result && result.codigo === 'BARRA_LLENA') {
+        // Otra tablet ocupó el último lugar mientras éste llenaba el alta. Se
+        // vuelve al tablero ya refrescado, que es donde se ve qué cobrar.
+        aviso(result.mensaje || 'La barra ya está llena.', 'warning');
+        volverATableroMulti(mesa);
       } else {
-        aviso(result.mensaje);
+        aviso(result.mensaje || 'No se pudo abrir el ticket.');
       }
     })
     .catch(function() { avisoConexion(); })
@@ -5326,13 +6316,18 @@ function initMapa() {
       apiCancelarMesa(ticketId, mesa);
       return;
     }
-    if (isLlevar(mesa)) {
+    if (esMultiTicket(mesa)) {
+      var v = vocabMulti(mesa);
+      var llevar = isLlevar(mesa);
       window.ConfirmationModal.get().open({
         variant: 'danger',
         eyebrow: 'Acción irreversible',
-        title: 'Descartar pedido',
-        description: '¿Descartar el pedido para llevar ' + folioPedido({ id: ticketId }) + ' sin registrar consumo?',
-        consequence: 'No queda cuenta en el corte del día. Los demás pedidos para llevar no cambian.',
+        title: 'Descartar ' + v.singular,
+        description: llevar
+          ? '¿Descartar el pedido para llevar ' + folioPedido({ id: ticketId }) + ' sin registrar consumo?'
+          : '¿Descartar el ticket ' + folioPedido({ id: ticketId }) + ' de ' + v.titulo + ' sin registrar consumo?',
+        consequence: 'No queda cuenta en el corte del día. ' +
+                     (llevar ? 'Los demás pedidos para llevar no cambian.' : 'Los demás tickets de ' + v.titulo + ' no cambian.'),
         secondaryLabel: 'No, conservar',
         primaryLabel: 'Sí, descartar',
         onPrimary: function() {
@@ -5372,11 +6367,13 @@ function initMapa() {
         // mesa que se abra en esta sesión hereda los platillos.
         commandaItems = [];
         selectedComensal = 0;
-        if (isLlevar(mesa)) {
-          // Un pedido descartado no cierra la ventanilla: se vuelve a los
+        if (esMultiTicket(mesa)) {
+          // Un ticket descartado no cierra la ventanilla: se vuelve a los
           // que siguen abiertos.
-          aviso('Pedido ' + folioPedido({ id: ticketId }) + ' descartado sin registrar cuenta.', 'success');
-          volverATableroLlevar(mesa, { cerrarSiVacio: true });
+          var singular = vocabMulti(mesa).singular;
+          aviso(singular.charAt(0).toUpperCase() + singular.slice(1) + ' ' + folioPedido({ id: ticketId }) +
+                ' descartado sin registrar cuenta.', 'success');
+          volverATableroMulti(mesa, { cerrarSiVacio: true });
           return;
         }
         closeModal({ refresh: false });
@@ -5436,17 +6433,85 @@ function initMapa() {
   }
 
   // ── Selector compartido de fecha ─────────────────────────
+  /*
+   * Fila de fecha del cajón: «‹ Hoy · Vie 9 de octubre ›». El calendario va
+   * plegado y en flujo: abierto se comía la lista a 1024×768.
+   */
+  var filaFecha = document.querySelector('[data-cajon-fecha]');
+  var calendarioCajon = document.getElementById('pos-cajon-calendario');
+
+  function diaRelativo(iso) {
+    var hoy = fechaHoyLocal();
+    var parte = function(f) { var m = f.split('-'); return Date.UTC(+m[0], +m[1] - 1, +m[2]); };
+    var diferencia = Math.round((parte(iso) - parte(hoy)) / 86400000);
+    return { '-1': 'Ayer · ', '0': 'Hoy · ', '1': 'Mañana · ' }[String(diferencia)] || '';
+  }
+
+  function sumarDias(iso, dias) {
+    var m = iso.split('-');
+    var fecha = new Date(Date.UTC(+m[0], +m[1] - 1, +m[2] + dias));
+    return fecha.getUTCFullYear() + '-' + pad2(fecha.getUTCMonth() + 1) + '-' + pad2(fecha.getUTCDate());
+  }
+
+  function actualizarFilaFecha(iso) {
+    if (!filaFecha) return;
+    var relativo = filaFecha.querySelector('[data-cajon-relativo]');
+    if (relativo) relativo.textContent = diaRelativo(iso);
+    var anterior = filaFecha.querySelector('[data-cajon-dia="-1"]');
+    var siguiente = filaFecha.querySelector('[data-cajon-dia="1"]');
+    if (anterior) anterior.setAttribute('aria-label', 'Día anterior: ' + V.fechaLarga(sumarDias(iso, -1)).toLowerCase());
+    if (siguiente) siguiente.setAttribute('aria-label', 'Día siguiente: ' + V.fechaLarga(sumarDias(iso, 1)).toLowerCase());
+  }
+
+  function plegarCalendario(devolverFoco) {
+    if (!calendarioCajon || calendarioCajon.hidden) return;
+    calendarioCajon.hidden = true;
+    var boton = filaFecha && filaFecha.querySelector('[data-cajon-calendario]');
+    if (boton) {
+      boton.setAttribute('aria-expanded', 'false');
+      if (devolverFoco) boton.focus();
+    }
+  }
+
+  if (filaFecha) {
+    actualizarFilaFecha(fechaMapa());
+    filaFecha.addEventListener('click', function(event) {
+      var boton = event.target.closest('button');
+      if (!boton) return;
+      if (boton.hasAttribute('data-cajon-calendario')) {
+        var abrir = calendarioCajon && calendarioCajon.hidden;
+        if (calendarioCajon) calendarioCajon.hidden = !abrir;
+        boton.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        return;
+      }
+      var dias = parseInt(boton.getAttribute('data-cajon-dia') || '0', 10);
+      if (!dias) return;
+      var destino = sumarDias(fechaMapa(), dias);
+      // setValue sin silencio dispara el onChange del calendario: ahí se
+      // reinicia la consulta y se pide el mapa del día nuevo.
+      if (mapaDatePicker && typeof mapaDatePicker.setValue === 'function') {
+        mapaDatePicker.setValue(destino, false);
+      }
+    });
+  }
+
   function initMapaCalendar() {
     var picker = document.getElementById('mapa-date-picker');
     if (!picker || !fechaInput || typeof window.createReservationDatePicker !== 'function') return;
 
-    window.createReservationDatePicker({
+    mapaDatePicker = window.createReservationDatePicker({
       root: picker,
       input: fechaInput,
       initialValue: fechaInput.value,
       today: picker.getAttribute('data-today-date'),
       allowPast: true,
       onChange: function(val) {
+        // Otro día es otra consulta: la proyección del día anterior no aplica.
+        // El servidor decide: hoy abre en «ahora», otro día en su primera reserva.
+        consultaPos = { hora: '', reservacionId: 0, intencion: '' };
+        if (ficha && ficha.abierta()) ficha.cerrar();
+        actualizarFilaFecha(val);
+        plegarCalendario(true);
         document.dispatchEvent(new CustomEvent('operational:contextchange', {
           detail: { fecha: val, hora: '' }
         }));
@@ -5458,61 +6523,87 @@ function initMapa() {
   }
 
   // ── Fetch datos ───────────────────────────────────────────
-  function actualizarModalReservacionActiva() {
-    if (!activeReservationModal || !modal || !modalContent
-      || !modal.classList.contains('mesa-modal--open')) {
-      return;
-    }
+  function urlConsultaMapa(fecha) {
+    var url = '/api/punto-de-venta?fecha=' + encodeURIComponent(fecha);
+    if (consultaPos.hora) url += '&hora=' + encodeURIComponent(consultaPos.hora);
+    if (consultaPos.reservacionId > 0) url += '&reservacion_id=' + consultaPos.reservacionId;
+    if (consultaPos.intencion === 'asignar') url += '&intencion=asignar';
+    return url;
+  }
 
-    var reservaActual = reservacionPorId(activeReservationModal.id);
-    if (!reservaActual) {
-      // El endpoint del POS omite en_curso del listado de reservaciones. Si
-      // existe el ticket vinculado, el modal sigue mostrando el estado actual
-      // sin ofrecer una segunda apertura.
-      for (var ti = 0; ti < tickets.length; ti++) {
-        if (parseInt(tickets[ti].reservacion_id, 10) === activeReservationModal.id) {
-          reservaActual = {};
-          Object.keys(activeReservationModal.reserva || {}).forEach(function (key) {
-            reservaActual[key] = activeReservationModal.reserva[key];
-          });
-          reservaActual.estado = 'en_curso';
-          reservaActual.ticket_abierto = true;
-          reservaActual.ticket_id = tickets[ti].id;
-          reservaActual.ticket = tickets[ti];
-          reservaActual.puede_iniciar = false;
-          reservaActual.puede_iniciar_servicio = false;
-          break;
-        }
+  function aplicarContextoMapa(data) {
+    var contexto = data && data.contexto && typeof data.contexto === 'object' ? data.contexto : null;
+    contextoMapa = {
+      modo: contexto && contexto.modo === 'proyeccion' ? 'proyeccion' : 'ahora',
+      fecha: String((contexto && contexto.fecha) || data.fecha || ''),
+      hora: String((contexto && contexto.hora) || ''),
+      solo_lectura: Boolean(contexto && contexto.solo_lectura === true),
+      reservacion_id: contexto && contexto.reservacion_id ? parseInt(contexto.reservacion_id, 10) : 0,
+      intencion: contexto && contexto.intencion ? String(contexto.intencion) : ''
+    };
+    horarioPos = data.horario && typeof data.horario === 'object' ? data.horario : null;
+    capacidadHorarioPos = data.capacidad_horario && typeof data.capacidad_horario === 'object'
+      ? data.capacidad_horario
+      : null;
+    permisosPos = data.permisos && typeof data.permisos === 'object' ? data.permisos : {};
+    // La trama de proyección cuelga de aquí (_proyeccion.scss).
+    if (posMapEl) {
+      posMapEl.setAttribute('data-modo', contextoMapa.modo);
+    }
+    // La barra de contexto, el cajón y la ficha escuchan esto: el mapa sólo
+    // anuncia qué está mirando, no decide cómo se presenta.
+    document.dispatchEvent(new CustomEvent('pos:contexto', {
+      detail: {
+        contexto: contextoMapa,
+        horario: horarioPos,
+        capacidad: capacidadHorarioPos,
+        permisos: permisosPos
       }
-    }
-    if (!reservaActual) {
-      closeModal({ refresh: false });
-      return;
-    }
+    }));
+  }
 
-    var mesaIds = mesaIdsReserva(reservaActual);
-    var mesa = mesaPorId(activeReservationModal.mesaId)
-      || (mesaIds.length ? mesaPorId(mesaIds[0]) : null);
-    if (!mesa) return;
+  function enProyeccion() {
+    return contextoMapa.modo === 'proyeccion';
+  }
 
-    var focused = document.activeElement;
-    var focusedId = focused && modalContent.contains(focused) ? focused.id : '';
-    var modalOptions = resolverOpcionesModalReservacion({
-      mesa: mesa,
-      reserva: reservaActual,
-      previousOptions: activeReservationModal.options
-    });
-    activeReservationModal.reserva = reservaActual;
-    activeReservationModal.mesaId = mesa.id;
-    activeReservationModal.options = modalOptions;
-    var estado = reservaActual.estado === 'en_curso' ? 'ocupada' : 'reservada';
-    modalContent.innerHTML = buildModalContent(mesa, estado, reservaActual, null, modalOptions);
-    bindModalActions(mesa, reservaActual, null, modalOptions);
+  function avisoSoloLectura() {
+    var hora = String(contextoMapa.hora || '').substring(0, 5);
+    aviso((hora ? 'Estás viendo el salón a las ' + hora + '. ' : 'Estás viendo una proyección. ') +
+      'Vuelve a «Ahora» para operar.', 'info');
+  }
 
-    if (focusedId) {
-      var nextFocus = document.getElementById(focusedId);
-      if (nextFocus && modal.contains(nextFocus) && !nextFocus.disabled) nextFocus.focus();
+  /*
+   * Proyecta el mapa a una hora (o a la hora de una reserva) del día que se
+   * está mirando. No hay selector libre: se llega aquí tocando un horario o
+   * una reserva del cajón. Es silencioso para no vaciar el cajón mientras
+   * carga: lo que cambia es el mapa.
+   */
+  function proyectarMapa(opciones) {
+    opciones = opciones || {};
+    if (ticketSelectionMode) cancelarModoSeleccion();
+    consultaPos = {
+      hora: opciones.hora ? String(opciones.hora).substring(0, 5) : '',
+      reservacionId: parseInt(opciones.reservacionId || 0, 10) || 0,
+      intencion: opciones.intencion === 'asignar' ? 'asignar' : ''
+    };
+    return fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), true);
+  }
+
+  // «Ahora»: vuelve a la operación en vivo del día de hoy.
+  function volverAAhora() {
+    consultaPos = { hora: '', reservacionId: 0, intencion: '' };
+    var hoy = fechaHoyLocal();
+    if (fechaInput && fechaInput.value !== hoy) {
+      // En silencio: el onChange del calendario volvería a pedir el mapa.
+      if (mapaDatePicker && typeof mapaDatePicker.setValue === 'function') {
+        mapaDatePicker.setValue(hoy, true);
+      } else {
+        fechaInput.value = hoy;
+      }
+      document.dispatchEvent(new CustomEvent('operational:contextchange', { detail: { fecha: hoy, hora: '' } }));
+      actualizarFilaFecha(hoy);
     }
+    return fetchData(hoy, true);
   }
 
   function validatePosMapResponse(data, expectedDate) {
@@ -5583,14 +6674,10 @@ function initMapa() {
     actualizarControlesApertura();
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
-      reservasList.innerHTML =
-        '<div class="mapa-empty-state">' +
-          '<span class="mapa-empty-icon" aria-hidden="true"><span class="mapa-empty-spinner"></span></span>' +
-          '<span class="mapa-empty-title">Cargando reservaciones…</span>' +
-        '</div>';
+      if (cajon) cajon.cargando();
     }
     requestOptions.cache = 'no-store';
-    return fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha), requestOptions)
+    return fetch(urlConsultaMapa(fecha), requestOptions)
       .then(function(res) {
         return res.json().then(function(data) {
           if (!res.ok) throw { kind: 'http' };
@@ -5606,33 +6693,65 @@ function initMapa() {
         if (!responseValidation.valida) {
           throw { kind: responseValidation.motivo === 'contexto' ? 'context' : 'invalid_response' };
         }
-        mesas         = data.mesas         || [];
-        mesasEstado   = data.mesas_estado  || [];
-        reservaciones = data.reservaciones  || [];
-        tickets       = data.tickets        || [];
-        meseros       = data.meseros        || [];
-        sincronizarAlertasImpresion(data.alertas_impresion || []);
-        temporalConfig = (data.config && data.config.temporal) || temporalConfig;
-        posConfig      = (data.config && data.config.pos)      || posConfig;
-        sincronizarRelojOperativo(data.server_time || data.actualizado_en);
         var recoveringMap = mapSnapshotStale;
-        mapSnapshotStale = false;
-        loadedMapDate = data.fecha;
-        if (mapVisual && typeof mapVisual.setConsultaEstado === 'function') {
-          mapVisual.setConsultaEstado('', false);
-        }
-        if (ticketSelectionMode) {
-          selectedMesaIds = selectedMesaIds.filter(function(mesaId) {
-            var mesa = mesaPorId(mesaId);
-            return mesa && mesaPuedeSeleccionarse(mesa, estadoMesaActual(mesaId));
+        var aplicar = function() {
+          mesas         = data.mesas         || [];
+          mesasEstado   = data.mesas_estado  || [];
+          reservaciones = data.reservaciones  || [];
+          reservacionesDia = Array.isArray(data.reservaciones_dia) ? data.reservaciones_dia : reservaciones;
+          tickets       = data.tickets        || [];
+          meseros       = data.meseros        || [];
+          sincronizarAlertasImpresion(data.alertas_impresion || []);
+          temporalConfig = (data.config && data.config.temporal) || temporalConfig;
+          posConfig      = (data.config && data.config.pos)      || posConfig;
+          configReservacionesPos = (data.config && data.config.reservaciones) || configReservacionesPos;
+          aplicarContextoMapa(data);
+          sincronizarRelojOperativo(data.server_time || data.actualizado_en);
+          mapSnapshotStale = false;
+          loadedMapDate = data.fecha;
+          if (mapVisual && typeof mapVisual.setConsultaEstado === 'function') {
+            mapVisual.setConsultaEstado('', false);
+          }
+          if (ticketSelectionMode) {
+            selectedMesaIds = selectedMesaIds.filter(function(mesaId) {
+              var mesa = mesaPorId(mesaId);
+              return mesa && mesaPuedeSeleccionarse(mesa, estadoMesaActual(mesaId));
+            });
+          }
+          actualizarControlesApertura();
+          var fichaNueva = sincronizarFicha();
+          if (!silent || recoveringMap) renderMesas();
+          renderEstados();
+          renderSidebar();
+          pintarContexto();
+          if (loadingEl) loadingEl.classList.add('hidden');
+          return fichaNueva;
+        };
+        /*
+         * Si la consulta la pidió el mesero (tocar un horario, una reserva,
+         * «Ahora»), el cambio entra con su transición; el sondeo repinta en
+         * seco. Al terminar, la «llamada» señala las mesas de la ficha nueva.
+         */
+        var tipoTransicion = transicionPendiente;
+        transicionPendiente = '';
+        if (tipoTransicion && window.PosTransicion) {
+          var fichaAbierta = false;
+          return window.PosTransicion.ejecutar(tipoTransicion, function() {
+            fichaAbierta = aplicar();
+          }).then(function() {
+            if (fichaAbierta) {
+              llamarMesasFicha();
+              if (ficha) ficha.enfocarTitulo();
+            }
+            continuarCambioPendiente();
+            return { ok: true };
           });
         }
-        actualizarControlesApertura();
-        if (!silent || recoveringMap) renderMesas();
-        renderEstados();
-        renderSidebar();
-        actualizarModalReservacionActiva();
-        if (loadingEl) loadingEl.classList.add('hidden');
+        if (aplicar()) {
+          llamarMesasFicha();
+          if (ficha) ficha.enfocarTitulo();
+        }
+        continuarCambioPendiente();
         return { ok: true };
       })
       .catch(function(error) {
@@ -5640,6 +6759,13 @@ function initMapa() {
         if (dataAbortTimer === requestTimer) dataAbortTimer = null;
         if (error && error.name === 'AbortError' && !timedOut) return;
         if (requestSequence !== dataRequestSequence) return { stale: true };
+        // Una proyección que no llega no abre su ficha a destiempo, y se queda
+        // el modo anterior: el mesero lo pidió, así que se le dice.
+        if (transicionPendiente) {
+          aviso('No se pudo cargar el mapa' + (consultaPos.hora ? ' de las ' + consultaPos.hora : '') + '. Revisa la conexión.');
+        }
+        fichaPendiente = null;
+        transicionPendiente = '';
         mapSnapshotStale = true;
         var mapFailureCause = error && error.kind === 'context'
           ? 'La respuesta del mapa correspondía a otra fecha y se descartó.'
@@ -5657,12 +6783,9 @@ function initMapa() {
         }
         actualizarControlesApertura();
         if (!silent) {
-          reservasList.innerHTML =
-            '<div class="mapa-empty-state mapa-empty-state--error">' +
-              '<span class="mapa-empty-icon" aria-hidden="true">' + svgIcon('alert', 24) + '</span>' +
-              '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
-              '<span class="mapa-empty-hint">Revisa la conexión e intenta actualizar la consulta.</span>' +
-            '</div>';
+          // La lista anterior se conserva debajo del aviso: datos de hace 30 s
+          // valen más que una pantalla vacía.
+          if (cajon) cajon.error();
           if (loadingEl) loadingEl.classList.add('hidden');
         }
         return { refreshFailed: true, timedOut: timedOut };
@@ -5698,18 +6821,15 @@ function initMapa() {
   });
 
   // ── Modo en vivo ──────────────────────────────────────────
+  // Redibuja con los datos ya cargados para que los rótulos relativos al reloj
+  // («en 45 min») avancen entre dos consultas al servidor.
   function syncLive() {
-    var reloj = partesRelojOperativo();
-    var min = snapToReservationInterval(reloj.hora * 60 + reloj.minuto);
-    min = Math.max(510, Math.min(1320, min));
-    sliderMin = min;
     renderEstados();
     renderSidebar();
   }
 
   function activateLive() {
     isLive = true;
-    if (ahoraBtn)  ahoraBtn.classList.add('mapa-ahora-btn--active');
     syncLive();
     if (liveInterval) clearInterval(liveInterval);
     var refreshSeconds = temporalNumber('refresco_estados_segundos');
@@ -5721,7 +6841,6 @@ function initMapa() {
 
   function deactivateLive() {
     isLive = false;
-    if (ahoraBtn)  ahoraBtn.classList.remove('mapa-ahora-btn--active');
     if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
   }
 
@@ -5731,8 +6850,25 @@ function initMapa() {
   initAlertasImpresion();
   actualizarModoSeleccion();
   initLogoutConfirm();
-  if (selectionToggle) selectionToggle.addEventListener('click', confirmarAperturaSeleccion);
-  if (selectionCancel) selectionCancel.addEventListener('click', cancelarModoSeleccion);
+  if (selectionToggle) selectionToggle.addEventListener('click', function() {
+    if (modoAsignacion) guardarCambioMesas([]);
+    else confirmarAperturaSeleccion();
+  });
+  if (selectionCancel) selectionCancel.addEventListener('click', function() {
+    if (modoAsignacion) cancelarCambioMesas();
+    else cancelarModoSeleccion();
+  });
+  if (asignacionPregunta) asignacionPregunta.addEventListener('click', function(event) {
+    var boton = event.target.closest('[data-asignacion-eleccion]');
+    if (boton) resolverPreguntaAsignacion(boton.getAttribute('data-asignacion-eleccion'));
+  });
+  // Escape con la pregunta abierta la deja sin efecto: ni cambia ni añade.
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modoAsignacion && modoAsignacion.pendiente) {
+      e.preventDefault();
+      resolverPreguntaAsignacion('ninguna');
+    }
+  });
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
@@ -5796,8 +6932,6 @@ function initMapa() {
   });
 
   // ── Init ──────────────────────────────────────────────────
-  var relojInicial = partesRelojOperativo();
-  sliderMin = Math.max(510, Math.min(1320, snapToReservationInterval(relojInicial.hora * 60 + relojInicial.minuto)));
   fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
   activateLive();
 }

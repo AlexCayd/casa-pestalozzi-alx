@@ -1669,6 +1669,203 @@
     }
 
     /**
+     * Límites de la reserva en línea: el máximo de comensales y el WhatsApp.
+     *
+     * El input numérico es la fuente de verdad —teclado, flechas y envío
+     * nativos—; los botones sólo lo empujan dentro del rango. En el tope llevan
+     * aria-disabled y no `disabled`: deshabilitar el botón que tiene el foco lo
+     * tira al <body> y quien va con teclado pierde su sitio.
+     *
+     * Los dos regímenes (hasta N reservan solos; N+1 o más van al WhatsApp) se
+     * reescriben con el número, y el aviso cuenta sólo las reservas próximas que
+     * CAMBIAN de régimen al guardar: las que quedan entre el máximo vigente y el
+     * nuevo. reservasQueCambian() y textoAviso() son las mismas dos funciones de
+     * views/admin/configuration/reservations.php; si se toca el texto aquí, se
+     * toca allí.
+     */
+    function initReservationLimits() {
+        const form = document.querySelector('[data-reservation-limits]');
+        if (!form) return;
+
+        const max = form.querySelector('[data-limits-max]');
+        const maxLabel = form.querySelector('[data-limits-max-label]');
+        const overLabel = form.querySelector('[data-limits-over-label]');
+        const notice = form.querySelector('[data-limits-notice]');
+        const noticeText = form.querySelector('[data-limits-notice-text]');
+        const live = form.querySelector('[data-limits-live]');
+        const whatsapp = form.querySelector('[data-limits-whatsapp]');
+        const preview = form.querySelector('[data-limits-preview]');
+        const previewNumber = form.querySelector('[data-limits-preview-number]');
+        const pasos = Array.from(form.querySelectorAll('[data-stepper-step]'));
+        if (!max) return;
+
+        const minimo = Number(max.min) || 7;
+        const tope = Number(max.max) || 16;
+        const guardado = Number(form.dataset.savedMax) || Number(max.value) || 12;
+        let porTamano = {};
+        try {
+            porTamano = JSON.parse(form.dataset.futureSizes || '{}') || {};
+        } catch (error) {
+            porTamano = {};
+        }
+
+        function valorMaximo() {
+            const valor = parseInt(max.value, 10);
+            return Number.isFinite(valor) ? valor : NaN;
+        }
+
+        function acotar(valor) {
+            return Math.max(minimo, Math.min(tope, valor));
+        }
+
+        function reservasQueCambian(desde, hasta) {
+            const bajo = Math.min(desde, hasta);
+            const alto = Math.max(desde, hasta);
+            return Object.keys(porTamano).reduce(function (total, tamano) {
+                const n = Number(tamano);
+                return n > bajo && n <= alto ? total + (Number(porTamano[tamano]) || 0) : total;
+            }, 0);
+        }
+
+        function textoAviso(cambian, baja) {
+            if (baja) {
+                return cambian === 1
+                    ? 'Al guardar, 1 reservación próxima queda por encima del máximo. No se cancela: el restaurante la atiende como grupo grande.'
+                    : 'Al guardar, ' + cambian + ' reservaciones próximas quedan por encima del máximo. No se cancelan: el restaurante las atiende como grupo grande.';
+            }
+            return cambian === 1
+                ? 'Al guardar, 1 reservación próxima deja de contar como grupo grande.'
+                : 'Al guardar, ' + cambian + ' reservaciones próximas dejan de contar como grupo grande.';
+        }
+
+        function syncMaximo() {
+            const valor = valorMaximo();
+            const valido = Number.isFinite(valor) && valor >= minimo && valor <= tope;
+
+            pasos.forEach(function (btn) {
+                const paso = Number(btn.dataset.stepperStep);
+                const enTope = valido && ((paso < 0 && valor <= minimo) || (paso > 0 && valor >= tope));
+                if (enTope) {
+                    btn.setAttribute('aria-disabled', 'true');
+                } else {
+                    btn.removeAttribute('aria-disabled');
+                }
+            });
+
+            if (!valido) return;
+
+            if (maxLabel) maxLabel.textContent = String(valor);
+            if (overLabel) overLabel.textContent = String(valor + 1);
+
+            if (notice && noticeText) {
+                const cambian = valor === guardado ? 0 : reservasQueCambian(guardado, valor);
+                notice.hidden = cambian === 0;
+                noticeText.textContent = cambian === 0 ? '' : textoAviso(cambian, valor < guardado);
+            }
+        }
+
+        // Lo único que oye un lector de pantalla al pulsar «más» o «menos»: el
+        // foco se queda en el botón y el número cambia en otro elemento.
+        //
+        // El aviso de las reservas que cambian de régimen se dice por la misma
+        // región, y sólo cuando su texto cambia: es un mensaje de estado y vive
+        // dentro de un [hidden], donde una región viva propia no llega a
+        // anunciarse al aparecer. Sin esto, quien navega con lector movía el
+        // máximo sin enterarse de que al guardar cambiaban reservas ya hechas.
+        // `valor` en null dice sólo el aviso (al teclear, el lector ya repite
+        // las cifras).
+        let avisoDicho = notice && noticeText && !notice.hidden ? noticeText.textContent.trim() : '';
+
+        function anunciar(valor) {
+            if (!live) return;
+            const partes = [];
+            if (valor !== null) partes.push('Máximo: ' + valor + ' personas.');
+            const aviso = notice && noticeText && !notice.hidden ? noticeText.textContent.trim() : '';
+            if (aviso !== avisoDicho) {
+                if (aviso) partes.push(aviso);
+                avisoDicho = aviso;
+            }
+            if (partes.length) live.textContent = partes.join(' ');
+        }
+
+        pasos.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (btn.getAttribute('aria-disabled') === 'true') return;
+                const actual = valorMaximo();
+                const base = Number.isFinite(actual) ? actual : guardado;
+                const siguiente = acotar(base + Number(btn.dataset.stepperStep));
+                max.value = String(siguiente);
+                setFieldError(max, '');
+                syncMaximo();
+                anunciar(siguiente);
+            });
+        });
+
+        max.addEventListener('input', function () {
+            setFieldError(max, '');
+            syncMaximo();
+            anunciar(null);
+        });
+        // Un valor fuera de rango tecleado a mano se corrige al salir, no
+        // mientras se escribe: borrar el «1» de «12» no debe saltar a 7. Sale
+        // también como entero —«12.5» o «012» pasan por parseInt pero el
+        // servidor valida con FILTER_VALIDATE_INT y los rechazaría—. La
+        // corrección se anuncia: el foco ya está en otro sitio y el cambio, en
+        // silencio, sólo lo vería quien mira el número.
+        max.addEventListener('blur', function () {
+            const valor = valorMaximo();
+            if (!Number.isFinite(valor)) return;
+            const acotado = acotar(valor);
+            if (String(acotado) === max.value) return;
+            max.value = String(acotado);
+            syncMaximo();
+            anunciar(acotado);
+        });
+
+        function digitosWhatsapp() {
+            return whatsapp ? whatsapp.value.replace(/\D+/g, '') : '';
+        }
+
+        function syncWhatsapp() {
+            if (!preview || !whatsapp) return;
+            const numero = digitosWhatsapp() || whatsapp.dataset.whatsappFallback || '';
+            preview.href = 'https://wa.me/' + numero;
+            if (previewNumber) previewNumber.textContent = 'wa.me/' + numero;
+        }
+
+        if (whatsapp) {
+            whatsapp.addEventListener('input', function () {
+                setFieldError(whatsapp, '');
+                syncWhatsapp();
+            });
+        }
+
+        form.addEventListener('submit', function (event) {
+            let primero = null;
+            const valor = valorMaximo();
+            if (!Number.isFinite(valor) || valor < minimo || valor > tope) {
+                setFieldError(max, 'Elige un número entre ' + minimo + ' y ' + tope + '.');
+                primero = primero || max;
+            } else {
+                // Enviar con Enter no pasa por el blur: el entero se fija aquí.
+                max.value = String(valor);
+            }
+            const digitos = digitosWhatsapp();
+            if (digitos !== '' && (digitos.length < 10 || digitos.length > 15)) {
+                setFieldError(whatsapp, 'Escribe entre 10 y 15 dígitos, con la lada del país.');
+                primero = primero || whatsapp;
+            }
+            if (primero) {
+                event.preventDefault();
+                primero.focus();
+            }
+        });
+
+        syncMaximo();
+        syncWhatsapp();
+    }
+
+    /**
      * El interruptor del servicio de impresión reutiliza el diálogo genérico de
      * [data-confirm-delete], pero sólo hay que preguntar cuando se APAGA: al
      * reanudar no hay nada que advertir.
@@ -1694,6 +1891,96 @@
         }, true);
     }
 
+    /*
+     * Tope de tickets por barra (Configuración → POS). El mismo stepper que el
+     * máximo de comensales, sin regímenes ni aviso: aquí no hay reservas que
+     * cambien de categoría, sólo un número.
+     */
+    function initBarrasTope() {
+        const form = document.querySelector('[data-barras-form]');
+        if (!form) return;
+        const input = form.querySelector('[data-barras-tope]');
+        const live = form.querySelector('[data-barras-live]');
+        const error = form.querySelector('[data-field-error]');
+        const field = input ? input.closest('.admin-field') : null;
+        const pasos = Array.from(form.querySelectorAll('[data-stepper-step]'));
+        if (!input) return;
+
+        const minimo = parseInt(input.min, 10) || 1;
+        const maximo = parseInt(input.max, 10) || 12;
+
+        const acotar = function (valor) {
+            return Math.min(maximo, Math.max(minimo, valor));
+        };
+
+        const sincronizarBotones = function () {
+            const valor = parseInt(input.value, 10);
+            pasos.forEach(function (paso) {
+                const sube = paso.getAttribute('data-stepper-step') === '1';
+                const enTope = Number.isNaN(valor) ? false : (sube ? valor >= maximo : valor <= minimo);
+                if (enTope) paso.setAttribute('aria-disabled', 'true');
+                else paso.removeAttribute('aria-disabled');
+            });
+        };
+
+        const limpiarError = function () {
+            if (field) field.classList.remove('has-error');
+            if (error) error.textContent = '';
+        };
+
+        // Se anuncia sólo lo que cambió y en corto: el foco se queda en el
+        // botón y el número cambia en otro elemento, así que sin esto un lector
+        // de pantalla no oye nada al pulsar.
+        const anunciar = function () {
+            if (!live) return;
+            const valor = parseInt(input.value, 10);
+            live.textContent = Number.isNaN(valor)
+                ? ''
+                : 'Tope: ' + valor + (valor === 1 ? ' ticket' : ' tickets') + ' por barra.';
+        };
+
+        // «4.5» o «04» se reescriben como entero: el servidor valida con
+        // FILTER_VALIDATE_INT y los rechazaría.
+        const normalizar = function () {
+            const valor = Math.round(parseFloat(input.value));
+            if (Number.isNaN(valor)) return false;
+            const acotado = acotar(valor);
+            const cambio = String(acotado) !== input.value;
+            input.value = String(acotado);
+            sincronizarBotones();
+            if (cambio) anunciar();
+            return true;
+        };
+
+        pasos.forEach(function (paso) {
+            paso.addEventListener('click', function () {
+                if (paso.getAttribute('aria-disabled') === 'true') return;
+                const actual = parseInt(input.value, 10);
+                const base = Number.isNaN(actual) ? minimo : actual;
+                input.value = String(acotar(base + parseInt(paso.getAttribute('data-stepper-step'), 10)));
+                limpiarError();
+                sincronizarBotones();
+                anunciar();
+            });
+        });
+
+        input.addEventListener('input', function () {
+            limpiarError();
+            sincronizarBotones();
+        });
+        input.addEventListener('blur', normalizar);
+
+        form.addEventListener('submit', function (event) {
+            if (normalizar()) return;
+            event.preventDefault();
+            if (field) field.classList.add('has-error');
+            if (error) error.textContent = 'Escribe un número entre ' + minimo + ' y ' + maximo + '.';
+            input.focus();
+        });
+
+        sincronizarBotones();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!document.querySelector('[data-configuration-page]')) {
             return;
@@ -1706,6 +1993,8 @@
         initAnnouncement();
         initReports();
         initReservationSettings();
+        initReservationLimits();
+        initBarrasTope();
         initPrintingSwitch();
     });
 })();

@@ -17,8 +17,27 @@ final class ReservacionBuzonService
     public const TIPO_GRUPO_GRANDE = 'reservacion_grupo_grande';
     public const TIPO_AUSENCIA_PENDIENTE = 'reservacion_ausencia_pendiente';
     public const TIPO_SIN_ASIGNACION_PROXIMA = 'reservacion_sin_asignacion_proxima';
+    public const TIPO_REUBICADA = 'reservacion_reubicada';
     public const ENTIDAD_IMPACTO_RESERVACION = 'horario_impacto_reservacion';
     public const ENTIDAD_RESERVACION = 'reservacion';
+    public const ENTIDAD_REUBICACION = 'reservacion_reubicacion';
+
+    /**
+     * Una reserva cambió de mesa sola para dar el bloque exterior a un grupo.
+     * Va a la fila de la bitácora y no a la reserva: si la misma reserva se
+     * mueve dos veces, son dos avisos, cada uno con su «de… a…».
+     */
+    public static function crearAvisoReubicacionEnTransaccion(\mysqli $db, int $reubicacionId): int
+    {
+        return BuzonNotificacionesService::crearEnTransaccion($db, [
+            'tipo' => self::TIPO_REUBICADA,
+            'modulo' => 'reservaciones',
+            'entidad_tipo' => self::ENTIDAD_REUBICACION,
+            'entidad_id' => $reubicacionId,
+            'requiere_accion' => false,
+            'dedup_key' => self::TIPO_REUBICADA . ':' . $reubicacionId,
+        ]);
+    }
 
     public static function dedupHorario(int $impactoReservacionId): string
     {
@@ -146,7 +165,7 @@ final class ReservacionBuzonService
                     && (int)($reservacion['mesas_count'] ?? 0) === 0
                     && !$ausenciaPendiente
                     && !$fueraHorario
-                    && (int)($reservacion['comensales'] ?? 0) <= ReservacionConfig::MAX_COMENSALES_PUBLICO
+                    && (int)($reservacion['comensales'] ?? 0) <= ReservacionConfig::maxComensalesPublico()
                     && in_array($ventana, ['advertencia', 'bloqueo', 'tolerancia'], true);
                 $habiaSinAsignacion = isset($abiertos[self::TIPO_SIN_ASIGNACION_PROXIMA][$id]);
 
@@ -395,7 +414,7 @@ final class ReservacionBuzonService
 
         return (string)($reservacion['estado'] ?? '') === 'confirmada'
             && !$estadoFinal
-            && (int)($reservacion['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            && (int)($reservacion['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande()
             && ($sinContacto || (int)($reservacion['mesas_count'] ?? 0) === 0);
     }
 

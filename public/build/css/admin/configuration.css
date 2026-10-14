@@ -832,6 +832,259 @@
   line-height: 1.55;
 }
 
+/*
+ * Límites de la reserva en línea. Dos campos —el número que parte a los
+ * clientes en dos y el WhatsApp al que van los de arriba—, lado a lado cuando
+ * el panel tiene ancho y apilados si no. El máximo es la pieza principal y se
+ * lee como cifra: en mono, igual que importes y KPIs.
+ *
+ * Cuatro reglas de la base del panel ganan a una clase suelta, y aquí había
+ * declaraciones que se perdían sin avisar: `.admin-body p` (0,1,1) le quitaba
+ * el color al aviso; `.admin-body a` (0,1,1) le imponía `color: inherit` a la
+ * vista previa del enlace, que salía en tinta plena y sin respuesta al hover;
+ * la regla global de campos de _forms.scss (0,6,1) le imponía al número del
+ * stepper su `font` de 14 px y su sombra interior, y `.admin-body
+ * :focus-visible` (0,2,0) le añadía a los botones del stepper un anillo
+ * EXTERIOR que la caja recorta y que sólo asomaba por el lado del número. De ahí
+ * el ancestro del aviso y del enlace, los !important acotados del input y el
+ * `box-shadow: none` del foco de los botones.
+ *
+ * Sin rejilla ni `gap` en el formulario: la separación con las acciones la pone
+ * el margin-top de .admin-config-form-actions, igual que en el recordatorio de
+ * debajo. Con los dos sumados el botón quedaba a 42 px de los campos aquí y a
+ * 18 en el panel de abajo, en la misma pantalla.
+ */
+.admin-reservation-limits {
+  container: limites-reserva/inline-size;
+}
+.admin-reservation-limits__fields {
+  display: grid;
+  align-items: start;
+  gap: 28px;
+}
+@container limites-reserva (min-width: 760px) {
+  .admin-reservation-limits__fields {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+.admin-reservation-limits__field {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  max-width: 64ch;
+}
+.admin-reservation-limits {
+  /*
+   * El error vacío reserva 18 px de alto más 5 de margen, y con los dos huecos
+   * de 8 de la rejilla del campo dejaba 39 px muertos bajo cada control: el
+   * stepper quedaba a 45 px de sus regímenes y el WhatsApp a 39 de su ayuda,
+   * más lejos que los 28 que separan un campo del siguiente, así que la ayuda
+   * se leía como del campo de arriba. Sale del flujo mientras está vacío en vez
+   * de ocultarse —el mismo arreglo que el picker del recordatorio—: con
+   * `display:none` el aria-live dejaría de anunciar el primer mensaje en
+   * algunos lectores.
+   */
+}
+.admin-reservation-limits .admin-field__error:empty {
+  position: absolute;
+  min-height: 0;
+  margin: 0;
+}
+.admin-reservation-limits__regimes {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+.admin-reservation-limits__regime {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-reservation-limits__regime dt {
+  margin: 0;
+  color: var(--admin-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.admin-reservation-limits__regime dd {
+  margin: 0;
+  color: var(--admin-muted);
+}
+.admin-reservation-limits .admin-reservation-limits__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-info-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-info-bg);
+  color: var(--admin-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-reservation-limits .admin-reservation-limits__notice[hidden] {
+  display: none;
+}
+.admin-reservation-limits__notice-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--admin-info-text);
+  stroke-width: 2;
+}
+.admin-reservation-limits__whatsapp {
+  max-width: 24ch;
+}
+.admin-reservation-limits {
+  /*
+   * Vista previa del enlace: una acción secundaria, en gris y con subrayado, que
+   * pasa a tinta al apuntarla. El ancestro es para ganar a `.admin-body a`
+   * (ver arriba). Mide 44 px de alto aunque el texto sea de 12: el panel también
+   * se usa en el teléfono, y un enlace suelto de 19 px de alto es un blanco
+   * difícil con el pulgar. El margen negativo devuelve a la columna el aire que
+   * el blanco añade arriba, para que la ayuda y el enlace se sigan leyendo juntos.
+   *
+   * El subrayado va en un solo tramo (__preview-text) y no en el enlace: el
+   * enlace es flex, y cada hijo se subrayaba por separado — «Probar el enlace» y
+   * el número salían como dos enlaces con un hueco entre ellos.
+   */
+}
+.admin-reservation-limits .admin-reservation-limits__preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  min-height: 44px;
+  margin-top: -8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-reservation-limits .admin-reservation-limits__preview:hover {
+  color: var(--admin-text);
+}
+.admin-reservation-limits .admin-reservation-limits__preview svg {
+  flex: none;
+  stroke-width: 2;
+}
+.admin-reservation-limits__preview-text {
+  text-decoration: underline;
+  text-decoration-color: var(--admin-border-strong);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-reservation-limits .admin-reservation-limits__preview:hover .admin-reservation-limits__preview-text {
+  text-decoration-color: currentColor;
+}
+
+/*
+ * Stepper: un número con «menos» y «más». La caja es del contenedor —con el
+ * mismo hundido, el mismo anillo de foco y el mismo fondo al enfocar que
+ * cualquier campo del panel— y el input va desnudo dentro; ver el comentario
+ * del bloque anterior para los !important.
+ */
+.admin-stepper {
+  --stepper-radio-interior: calc(var(--admin-radius-sm) - 1px);
+  display: inline-flex;
+  align-items: stretch;
+  justify-self: start;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-stepper:focus-within {
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-focus-ring);
+}
+.admin-stepper {
+  /*
+   * Error. `.admin-field.has-error input` no puede llegar al número —el input va
+   * desnudo a propósito—, así que el aviso cae en la caja. El borde rojo se
+   * queda también con el foco puesto, que es justo cuando se corrige; lo que
+   * cambia es el halo, que pasa al anillo de foco para que enfocado y sin
+   * enfocar no se vean iguales.
+   */
+}
+.admin-field.has-error .admin-stepper {
+  border-color: var(--admin-danger);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), 0 0 0 3px var(--admin-danger-bg);
+}
+.admin-field.has-error .admin-stepper:focus-within {
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-focus-ring);
+}
+.admin-stepper__btn {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  cursor: pointer;
+  transition: background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-stepper__btn:first-child {
+  border-start-start-radius: var(--stepper-radio-interior);
+  border-end-start-radius: var(--stepper-radio-interior);
+}
+.admin-stepper__btn:last-child {
+  border-start-end-radius: var(--stepper-radio-interior);
+  border-end-end-radius: var(--stepper-radio-interior);
+}
+.admin-stepper__btn:hover:not([aria-disabled=true]) {
+  background: color-mix(in srgb, var(--admin-text) 7%, transparent);
+}
+.admin-stepper__btn:active:not([aria-disabled=true]) {
+  background: color-mix(in srgb, var(--admin-text) 12%, transparent);
+}
+.admin-stepper__btn:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+.admin-stepper__btn[aria-disabled=true] {
+  color: var(--admin-faint);
+  cursor: not-allowed;
+}
+.admin-stepper__btn svg {
+  stroke-width: 2;
+}
+.admin-stepper__input {
+  width: 4.5ch !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-inline: 1px solid var(--admin-border-soft) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  text-align: center;
+  appearance: textfield;
+}
+.admin-stepper__input::-webkit-inner-spin-button, .admin-stepper__input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
 .admin-reservation-settings {
   /*
    * La fila es la de un día del horario semanal (.admin-schedule__row): caja,

@@ -1,0 +1,515 @@
+// ── Reservaciones en el POS: retícula, contexto y proyección ──
+//
+// El mapa del POS mira AHORA o una hora elegida desde el cajón (PROYECCIÓN).
+// Tres señales dicen lo mismo en tres canales, ninguna con un color de estado:
+// la pastilla invertida del contexto (forma y peso), la trama diagonal del
+// suelo (textura) y el subrótulo de los pines azules con la hora de su reserva.
+// Sólo tokens existentes; nada de hex ni rgba literal.
+//
+// El contexto vive en el centro de la barra operativa, no en una fila propia
+// sobre el plano: la fila le quitaba al salón ~54 px de alto mientras el
+// centro de la barra —el POS no pinta título— estaba vacío.
+
+.mapa-page {
+  --pos-ficha-w: clamp(300px, 30vw, 384px);
+  --pos-contexto-h: 44px;
+}
+
+// ── Retícula del área de trabajo ─────────────────────────────────────
+.mapa-page .pos-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "plano";
+  row-gap: 10px;
+  column-gap: var(--operational-shell-gap);
+
+  > .mesas-map { grid-area: plano; min-width: 0; min-height: 0; }
+  > .pos-ficha { grid-area: ficha; }
+}
+
+.mapa-page .pos-map.has-ficha {
+  grid-template-columns: minmax(0, 1fr) var(--pos-ficha-w);
+  grid-template-areas: "plano ficha";
+}
+
+// Con ficha, el plano se pega arriba: comparte canto superior con la ficha y
+// el hueco queda abajo, no repartido arriba y abajo.
+@media (orientation: landscape) {
+  .mapa-page .pos-map.has-ficha .mesas-map__viewport { align-items: start; }
+}
+
+// Vertical: la ficha va debajo del plano, en el hueco que hoy queda vacío. La
+// fila del plano mide lo que mide el suelo (ancho / ratio): el viewport es
+// contenedor de tamaño y no puede tomar el alto de su contenido.
+@media (orientation: portrait) and (min-width: 700px) {
+  .mapa-page .mesas-map__viewport { align-items: start; }
+
+  .mapa-page .pos-map.has-ficha {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: calc((100vw - 2 * var(--operational-shell-pad)) / var(--mesas-map-ratio)) minmax(0, 1fr);
+    grid-template-areas: "plano" "ficha";
+  }
+}
+
+// La barra del modo selección («Unir mesas», «Cambiar mesas») entra EN FLUJO,
+// como fila propia bajo el plano. Flotando abajo al centro tapaba la Mesa 1 a
+// 1180×820 —el tamaño de la tablet— y en un modo que consiste en tocar mesas,
+// una mesa tapada es una mesa que no se puede elegir. El plano encoge un paso
+// para dejarle sitio: empujar es más honesto que flotar encima (la misma
+// decisión que el calendario del cajón). Con la ficha abierta, o sin :has(),
+// sigue flotando como antes.
+@supports selector(:has(*)) {
+  .mapa-page .pos-map:not(.has-ficha):has(> .pos-ticket-selection-bar:not([hidden])) {
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "plano" "barra";
+
+    > .pos-ticket-selection-bar {
+      position: static;
+      grid-area: barra;
+      justify-self: center;
+      transform: none;
+      // En flujo no flota sobre nada: sin la sombra se lee como el pie del
+      // plano y no como un diálogo encima de él.
+      box-shadow: none;
+    }
+  }
+}
+
+// ── Botón redondo neutro (contexto y fila de fecha del cajón) ──
+// Con el ancestro: `.admin-body button` (0,1,1) le pone `font: inherit`, que
+// reescribe el peso, y a una clase suelta (0,1,0) le gana. «Hoy» y «Ahora»
+// salían en 400, más flojos que el texto de alrededor.
+.mapa-page .pos-btn-redondo {
+  display: inline-flex;
+  min-width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  // --admin-border-strong: 3.3:1 contra el fondo, el mínimo de un control.
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-weight: var(--operational-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) var(--admin-ease-out);
+
+  &--icono { width: 44px; padding: 0; }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    stroke-width: 1.9;
+  }
+
+  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+
+  &:disabled {
+    border-color: var(--admin-border);
+    color: var(--admin-faint);
+    cursor: default;
+  }
+
+  // Alguien tocó una mesa en proyección: el botón «Ahora» llama dos veces.
+  &.is-llamando { position: relative; }
+  &.is-llamando::after {
+    position: absolute;
+    inset: -4px;
+    border: 2px solid var(--admin-text);
+    border-radius: inherit;
+    content: "";
+    pointer-events: none;
+    animation: pos-llamada 560ms var(--admin-ease-out) 2;
+  }
+}
+
+// ── Contexto (centro de la barra operativa) ─────────────────────────
+// Ocupa todo el hueco entre el cajón y el avatar. El MODO hace de título de la
+// pantalla y abre la barra, pegado al ☰: es el sitio que dejó el wordmark —el
+// más legible— y el cajón es de donde sale la hora que se proyecta, así que
+// ‹ › y la lista quedan juntos. Los datos y el aviso se arriman a la derecha,
+// junto al avatar. Sin fondo ni borde propios: la barra ya es el contenedor.
+//
+// Es contenedor de su propio ancho: se pliega por lo que le queda DE VERDAD
+// (con o sin alertas de impresión), no por el ancho de la ventana.
+.pos-contexto {
+  display: flex;
+  min-width: 0;
+  min-height: var(--pos-contexto-h);
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  container: pos-contexto / inline-size;
+  font-size: var(--operational-text-sm);
+
+  &:focus-visible { outline: 0; }
+  &[hidden] { display: none; }
+}
+
+.pos-contexto__modo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+// Ahora: pastilla tranquila. Proyección: la misma caja INVERTIDA, la única
+// superficie maciza neutra de la pantalla — por eso no se confunde con nada.
+.pos-contexto__reloj,
+.pos-contexto__vista {
+  display: inline-flex;
+  height: var(--pos-contexto-h);
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-weight: var(--operational-weight-semibold);
+  white-space: nowrap;
+
+  time {
+    font-family: var(--admin-font-mono);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    stroke-width: 1.9;
+  }
+}
+
+.pos-contexto__vista {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+// Sin punto de «en vivo»: la palabra «Ahora» y la hora ya lo dicen, y al
+// proyectar la pastilla se invierte entera, que es la señal que cuenta.
+.pos-contexto__datos {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+
+  &:empty { display: none; }
+}
+
+.pos-contexto__dato {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 0 16px;
+  color: var(--admin-muted);
+  white-space: nowrap;
+
+  b {
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+}
+
+// Los datos van en UNA pastilla con la misma caja que el modo de la
+// izquierda, y dentro una sola celda: «38/44 libres», o «Cerrado hoy» en su
+// lugar —la sustituye, no se suma—. Sin botones ni separadores: la barra ya
+// no tiene nada que tocar a la derecha.
+.pos-contexto__pastilla {
+  display: inline-flex;
+  min-width: 0;
+  height: var(--pos-contexto-h);
+  align-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  // Red de seguridad: si algo la aprieta, la palabra se recorta dentro de la
+  // píldora en vez de montarse sobre el avatar.
+  overflow: clip;
+}
+
+// «38/44»: una sola cifra en mono, la parte libre en tinta y el total atenuado.
+.pos-contexto__fraccion {
+  font-family: var(--admin-font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Horario no configurado: persistente y en la familia de advertencia. Sin
+// horario la página no ofrece ninguna reserva y nadie se entera.
+.pos-contexto__aviso {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  height: var(--pos-contexto-h);
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-warning-border);
+  // Píldora, como el modo y la pastilla de datos con los que comparte barra.
+  border-radius: 999px;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  font-weight: var(--operational-weight-semibold);
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  a {
+    margin-left: auto;
+    color: inherit;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    stroke-width: 1.9;
+  }
+
+  &[hidden] { display: none; }
+}
+
+
+// ── Pliegues por ancho disponible ────────────────────────────────────
+// Lo que se va primero es lo que otra cosa ya dice: la palabra «libres» (la
+// fracción conserva su etiqueta accesible y su title) y el reloj de la
+// pastilla de proyección (la pastilla invertida ya es la señal). Después, el día de la semana de la
+// fecha proyectada. Al final, y sólo en proyección, la palabra de
+// «Hoy/Ahora». Nunca se van las cifras ni los ‹ ›.
+// Dos mitades porque en dos filas (≤900) cada una pliega por su línea: la
+// pastilla tiene la segunda fila entera y no tiene por qué perder «libres»
+// cuando lo que aprieta es el modo de arriba.
+@mixin pos-contexto-compacto-modo {
+  .pos-contexto__vista > svg { display: none; }
+  .pos-contexto__vista { padding-inline: 14px; }
+}
+
+@mixin pos-contexto-compacto-datos {
+  .pos-contexto__fraccion + span { display: none; }
+  .pos-contexto__dato { padding-inline: 12px; }
+}
+
+@mixin pos-contexto-compacto {
+  @include pos-contexto-compacto-modo;
+  @include pos-contexto-compacto-datos;
+}
+
+@mixin pos-contexto-minimo {
+  .pos-contexto__dia { display: none; }
+
+  .pos-contexto__modo { gap: 4px; }
+  .pos-contexto__vista { padding-inline: 12px; }
+}
+
+// «Hoy/Ahora» se queda en su icono: conserva su etiqueta accesible, su sitio
+// y su llamada.
+@mixin pos-contexto-estrecho {
+  [data-contexto-ahora] {
+    width: 44px;
+    padding: 0;
+
+    > span { display: none; }
+  }
+}
+
+// En una sola línea (≥901 px). Cada umbral es lo que pide su modo SIN ese
+// pliegue, medido en el peor caso (cifras de dos dígitos; en proyección, la de
+// otro día, que añade la fecha), más ~20 px de holgura. Proyección pide más
+// que Ahora, por eso van aparte. Lo que piden, en px, desde que la pastilla
+// quedó en una sola celda («40/44 libres», 117 px; 71 sin la palabra):
+//   Ahora       completo 246 · compacto 200
+//   Proyección  completo 482 · compacto 410 · mínimo 374 · estrecho 344
+// En Ahora el pliegue mínimo no tiene qué quitar (sólo pliega la fecha de la
+// proyección), así que no se declara. El contenedor mide ~1090 a 1366, ~910 a
+// 1180 y ~767 a 1024 (70 menos con alertas de impresión a la vista): hoy no
+// se pliega nada en ninguno de los tres, y la red queda para lo que venga.
+@media (min-width: 901px) {
+  @container pos-contexto (max-width: 265px) {
+    .pos-contexto:not([data-modo="proyeccion"]) { @include pos-contexto-compacto; }
+  }
+
+  @container pos-contexto (max-width: 500px) {
+    .pos-contexto[data-modo="proyeccion"] { @include pos-contexto-compacto; }
+  }
+
+  @container pos-contexto (max-width: 430px) {
+    .pos-contexto[data-modo="proyeccion"] { @include pos-contexto-minimo; }
+  }
+
+  @container pos-contexto (max-width: 395px) {
+    .pos-contexto[data-modo="proyeccion"] { @include pos-contexto-estrecho; }
+  }
+}
+
+// Hasta 900 px —las tablets en vertical, 820 y 768— la barra gana una
+// segunda fila (_header.scss): el modo se queda arriba, en el hueco entre el
+// cajón y el avatar, y los datos bajan debajo de él, alineados al mismo canto:
+// una sola columna de lectura que empieza junto al ☰.
+// En una sola línea cabía a 820 sólo plegado del todo y sin un píxel de
+// holgura (con el botón de panel del admin y la proyección de otro día
+// apretaba las celdas de la pastilla). Y en vertical el alto no es lo
+// escaso: el suelo del plano está limitado por el ANCHO (796 × 455 px a
+// 820 × 1180, en un hueco de casi 1000), así que esta fila no le quita al
+// salón ni un píxel. Desde que la ayuda y la rejilla del panel se fueron al
+// menú del avatar, en Ahora cabría en una sola fila; se queda en dos a
+// propósito, para que la barra no cambie de alto —ni empuje el plano— al
+// entrar o salir de una proyección. Cada línea lleva lo suyo, de modo que los
+// umbrales se miden contra la más larga de las dos (el modo en proyección de
+// otro día: 357 px completo, 331 compacto, 299 mínimo). En Ahora las dos
+// líneas miden casi lo mismo —el reloj 121 px, la pastilla 117—, así que
+// «libres» sólo se pliega por debajo de 137 —en los dos modos, porque la
+// pastilla va sola en su fila—: ningún teléfono llega ahí, la regla queda
+// para el zoom al 200 %.
+@media (max-width: 900px) {
+  .mapa-page {
+    // Lo que el modo baja para centrarse en la primera fila, y el alto total
+    // de la barra: lo necesita el cajón, que nace justo debajo.
+    --pos-contexto-arriba: calc((var(--operational-header-height) - 2px - var(--pos-contexto-h)) / 2);
+    --pos-barra-alto: calc(2px + var(--pos-contexto-arriba) + 2 * var(--pos-contexto-h) + 8px + 10px);
+  }
+
+  .operational-header .pos-contexto {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-top: var(--pos-contexto-arriba);
+  }
+
+  .pos-contexto__modo { flex-basis: 100%; }
+  .pos-contexto__datos { margin-left: 0; }
+
+  @container pos-contexto (max-width: 380px) {
+    .pos-contexto[data-modo="proyeccion"] { @include pos-contexto-compacto-modo; }
+  }
+
+  @container pos-contexto (max-width: 137px) {
+    .pos-contexto { @include pos-contexto-compacto-datos; }
+  }
+
+  @container pos-contexto (max-width: 350px) {
+    .pos-contexto { @include pos-contexto-minimo; }
+  }
+
+  @container pos-contexto (max-width: 330px) {
+    .pos-contexto[data-modo="proyeccion"] { @include pos-contexto-estrecho; }
+  }
+
+  .mapa-page .mapa-shell .operational-drawer,
+  .mapa-page .mapa-shell .operational-drawer-backdrop {
+    inset-block-start: calc(var(--operational-shell-pad) + var(--pos-barra-alto) + var(--operational-shell-gap));
+  }
+}
+
+// Teléfono: el contexto baja entero a la segunda fila, así que ya no se
+// centra contra los iconos: la barra mide su primera fila más las dos líneas.
+@media (max-width: 639px) {
+  .mapa-page {
+    --pos-barra-alto: calc(var(--operational-header-height) + 2 * var(--pos-contexto-h) + 8px + 10px);
+  }
+
+  .operational-header .pos-contexto { padding-top: 0; }
+}
+
+// ── El plano en proyección: trama, no color ─────────────────────────
+// La rejilla de 46 px se sustituye por una trama a 135°: «esto es el salón a
+// otra hora», no el salón en vivo. Los pines conservan sus tres colores y no
+// se apagan: «sólo lectura» no es «deshabilitado».
+.pos-map[data-modo="proyeccion"] .mesas-map__floor {
+  border-color: color-mix(in srgb, var(--admin-text) 62%, transparent);
+  background:
+    radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 60%, transparent), transparent 65%),
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--admin-text) 7%, transparent) 0 1px, transparent 1px 11px),
+    var(--admin-surface-soft);
+  background-size: auto;
+}
+
+// ── Momento firma: la «llamada» sobre las mesas de la reserva enfocada ──
+// Un anillo que sale dos veces y se va. Sólo transform y opacity: compositor.
+.mesas-map .mesa-pin.pos-llamada::after {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--map-table-selected-border);
+  border-radius: 17px;
+  content: "";
+  pointer-events: none;
+  animation: pos-llamada 560ms var(--admin-ease-out) 2;
+}
+
+@keyframes pos-llamada {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.22); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  // Reducido no es inmóvil: queda el contorno de selección fijo, que ya es la
+  // señal.
+  .mesas-map .mesa-pin.pos-llamada::after,
+  .mapa-page .pos-btn-redondo.is-llamando::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+// ── Transiciones (View Transitions con tipo propio) ──────────────────
+// Los nombres se ponen sólo durante la transición (pos-proyeccion.js): con
+// nombre fijo, plano y ficha tendrían grupo propio también en la del tema.
+@supports (view-transition-name: none) {
+  :root:active-view-transition-type(pos-proyeccion)::view-transition-group(pos-plano) {
+    animation-duration: 200ms;
+    animation-timing-function: var(--admin-ease-out);
+  }
+
+  :root:active-view-transition-type(pos-ficha)::view-transition-group(pos-plano) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--admin-ease-out);
+  }
+
+  :root:active-view-transition-type(pos-ficha)::view-transition-new(pos-ficha):only-child {
+    animation: pos-ficha-entra 260ms var(--admin-ease-out) both;
+  }
+
+  :root:active-view-transition-type(pos-ficha)::view-transition-old(pos-ficha):only-child {
+    animation: pos-ficha-sale 180ms ease-in both;
+  }
+}
+
+// La ficha entra desde su lado: derecha en horizontal, abajo en vertical.
+:root { --pos-ficha-desde: translateX(24px); }
+
+@media (orientation: portrait) {
+  :root { --pos-ficha-desde: translateY(24px); }
+}
+
+@keyframes pos-ficha-entra {
+  from { opacity: 0; transform: var(--pos-ficha-desde); }
+}
+
+@keyframes pos-ficha-sale {
+  to { opacity: 0; transform: var(--pos-ficha-desde); }
+}

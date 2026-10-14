@@ -70,8 +70,6 @@
   --operational-shell-gap: clamp(8px, 0.8vw, 12px);
   --operational-header-height: 64px;
   --operational-context-height: 56px;
-  --operational-module-max-width: 1440px;
-  --operational-workspace-max-height: 760px;
   --operational-accent: var(--admin-gold);
   --operational-accent-soft: var(--admin-gold-soft);
   // Los cuatro salían de un azul frío elegido a mano. Ahora derivan del
@@ -95,18 +93,6 @@
   line-height: 1;
 }
 
-.operation-body[data-operation-module="reservations"] {
-  // La diferencia entre módulos queda limitada al fondo: el resto del
-  // sistema visual comparte color, jerarquía y estados con el mapa de mesas.
-  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, var(--feedback-info-bg));
-}
-
-.operation-shell--reservations {
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem),
-    var(--operational-shell-background, var(--admin-bg));
-}
-
 .operation-shell,
 .mapa-shell,
 .operational-shell {
@@ -127,39 +113,6 @@
   gap: var(--operational-shell-gap);
 }
 
-.operational-page .operational-module {
-  display: flex;
-  width: min(100%, var(--operational-module-max-width));
-  height: 100%;
-  max-width: var(--operational-module-max-width);
-  max-height: calc(var(--operational-workspace-max-height) + var(--operational-context-height) + var(--operational-shell-gap));
-  min-width: 0;
-  min-height: 0;
-  margin-inline: auto;
-  align-self: start;
-  flex-direction: column;
-  gap: var(--operational-shell-gap);
-  overflow: hidden;
-}
-
-.operational-page .reservation-operation.operational-module {
-  width: 100%;
-  max-height: none;
-  max-width: none;
-}
-
-.operational-workspace {
-  width: 100%;
-  max-height: var(--operational-workspace-max-height);
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.operational-page .reservation-operation .operational-workspace {
-  max-height: none;
-}
-
 @media (min-width: 1600px) {
   .operational-page {
     --operational-shell-pad: 24px;
@@ -174,101 +127,26 @@
   }
 }
 
-// ── Botón flotante: maximizar mapa ────────────────────────────
-.operational-map-toggle {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 15px;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  box-shadow: none;
-  font-family: var(--operational-font-ui);
-  font-size: var(--operational-text-sm);
-  font-weight: var(--operational-weight-semibold);
-  line-height: 1;
-  cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
-
-  svg {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  &__collapse {
-    display: none;
-  }
-
-  &:hover {
-    border-color: var(--admin-border);
-    background: var(--admin-surface);
-    color: var(--admin-gold-soft);
-  }
-
-  &:focus-visible {
-    outline: 0;
-    box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
-  }
-}
-
-.operational-page.is-map-maximized .operational-map-toggle__expand {
-  display: none;
-}
-
-.operational-page.is-map-maximized .operational-map-toggle__collapse {
-  display: inline-flex;
-}
-
-// En pantallas angostas el botón queda compacto (solo ícono).
-@media (max-width: 640px) {
-  .operational-map-toggle {
-    padding: 0;
-    width: 44px;
-    justify-content: center;
-  }
-
-  .operational-map-toggle__label {
-    display: none;
-  }
-}
-
 // ── Estado: mapa maximizado (oculta chrome, mapa a pantalla) ───
 .operational-page.is-map-maximized {
   // El chrome compartido permanece visible; solo se libera el área que
-  // antes quedaba limitada por el detalle y por max-height del workspace.
+  // limitaba el max-height de la tarjeta del mapa.
+  //
+  // Hoy nada lo enciende: shell.js sólo pone la clase si la página trae un
+  // [data-operational-map-toggle], y el botón que lo emitía se retiró con la
+  // pantalla de Operación. Se conserva porque la clase sigue en el JS.
   .operational-header {
-    display: grid;
-  }
-
-  .operational-context-bar {
     display: grid;
   }
 
   .operation-main,
   .operational-layout,
-  .operational-module,
-  .reservation-operation,
-  .reservation-operation__workspace,
-  .operational-workspace,
   .operational-map-card,
   .operational-map__viewport {
     height: 100%;
     min-height: 0;
   }
 
-  .operational-module,
-  .operational-workspace,
   .operational-map-card,
   .operational-map__viewport {
     max-height: none;
@@ -277,22 +155,6 @@
   .operational-map__viewport {
     height: auto;
     flex: 1 1 0;
-  }
-
-  .operational-module {
-    max-width: none;
-  }
-
-  .reservation-operation__workspace {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .reservation-operation__content {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .reservation-operation__panel {
-    display: none !important;
   }
 
   // El mapa aprovecha más superficie disponible.
@@ -306,11 +168,4 @@
   .operational-drawer-backdrop {
     inset-block-start: var(--operational-shell-pad);
   }
-}
-
-.operational-map-toggle--icon {
-  width: 44px;
-  padding: 0;
-  justify-content: center;
-  border-radius: var(--admin-radius-sm, 10px);
 }

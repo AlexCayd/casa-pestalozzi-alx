@@ -7,7 +7,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 use Services\Pos\TicketTemporalService;
 use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservacionMapaMesaPresenter;
+use Services\Pos\PosMesaProjectionPresenter;
 use Services\Tables\MesaEstadoService;
 
 function assertMapMatrix(bool $condition, string $message): void
@@ -92,6 +92,7 @@ function mapMatrixState(string $hora, string $ahora, array $options = []): array
             'current_assignment_ids' => !empty($options['asignada_actualmente']) ? [14] : [],
             'evaluacion_ocupacion_asignacion' => $assignmentEvaluation,
             'reservacion_en_edicion_id' => (int)($options['reservacion_en_edicion_id'] ?? 0),
+            'modo' => (string)($options['modo'] ?? 'proyeccion'),
         ]
     );
     return $rows[0];
@@ -110,11 +111,17 @@ function mapMatrixReservation(string $hora, string $estado = 'confirmada', int $
     ];
 }
 
+/*
+ * Cada escenario se mira con el mapa del POS PROYECTADO a la hora consultada
+ * (el mesero toca un horario en el cajón). Tres estados: rojo si un ticket
+ * sigue ahí a esa hora, azul de inicio − 60 a inicio + 90 y verde lo demás.
+ * Lo que decide la ASIGNACIÓN es otro hecho —el solape de intervalos— y la
+ * matriz comprueba que no se confundan.
+ */
 function assertScenario(
     string $id,
     array $state,
     string $visual,
-    string $label,
     bool $blocked,
     bool $assignable,
     array $modifiers = []
@@ -123,25 +130,25 @@ function assertScenario(
         'utilizable', 'ocupada_fisicamente', 'ticket_abierto_hecho', 'ticket_bloquea_consulta',
         'bloqueada_en_intervalo', 'causas_bloqueo', 'disponible_para_asignacion',
         'disponible_para_ticket', 'ventana_mapa', 'reservacion_cercana_mapa',
-        'ausencia_pendiente', 'puede_marcar_no_show', 'estado_visual_mapa',
-        'modificadores_visual_mapa', 'aria_label_mapa', 'titulo_mapa', 'label_visual_mapa',
+        'ausencia_pendiente', 'puede_marcar_no_show', 'estado_visual_pos',
+        'modificadores_visual_pos', 'aria_label_pos', 'etiqueta_estado_pos',
     ] as $field) {
         assertMapMatrix(array_key_exists($field, $state), "{$id}: falta hecho {$field}");
     }
     assertMapMatrix($state['bloqueada_en_intervalo'] === $blocked, "{$id}: bloqueada_en_intervalo esperado {$blocked}");
     assertMapMatrix($state['disponible_para_asignacion'] === $assignable, "{$id}: asignabilidad esperada {$assignable}");
-    assertMapMatrix($state['estado_visual_mapa'] === $visual, "{$id}: estado visual esperado {$visual}, recibido {$state['estado_visual_mapa']}");
-    assertMapMatrix($state['label_visual_mapa'] === $label, "{$id}: label esperado {$label}, recibido {$state['label_visual_mapa']}");
+    assertMapMatrix($state['estado_visual_pos'] === $visual, "{$id}: estado visual esperado {$visual}, recibido {$state['estado_visual_pos']}");
+    assertMapMatrix(
+        $state['etiqueta_estado_pos'] === PosMesaProjectionPresenter::ETIQUETAS[$visual],
+        "{$id}: rótulo esperado " . PosMesaProjectionPresenter::ETIQUETAS[$visual] . ", recibido {$state['etiqueta_estado_pos']}"
+    );
+    assertMapMatrix(trim((string)$state['aria_label_pos']) !== '', "{$id}: el pin tiene nombre accesible");
     foreach ($modifiers as $modifier) {
         assertMapMatrix(
-            in_array($modifier, $state['modificadores_visual_mapa'], true),
+            in_array($modifier, $state['modificadores'], true),
             "{$id}: falta modificador {$modifier}"
         );
     }
-    assertMapMatrix(
-        $state['aria_label_mapa'] === $state['titulo_mapa'],
-        "{$id}: title y aria-label deben coincidir"
-    );
     if ($assignable) {
         assertMapMatrix(
             !$blocked || ($state['asignada_actualmente'] && $state['reservacion_id'] !== null),
@@ -153,9 +160,7 @@ function assertScenario(
             in_array('ticket', $state['causas_bloqueo'], true),
             "{$id}: ticket proyectado requiere causa de bloqueo"
         );
-    }
-    if ($state['label_visual_mapa'] === 'Ocupada por servicio activo') {
-        assertMapMatrix($state['ocupada_fisicamente'], "{$id}: servicio activo requiere ocupación física");
+        assertMapMatrix($visual === 'ocupada', "{$id}: un ticket que sigue ahí pinta rojo");
     }
 }
 
@@ -163,56 +168,65 @@ $nowMorning = $fecha . ' 09:00:00';
 $atNoon = mapMatrixReservation('12:00:00');
 
 // V01–V10: reservaciones y sus ventanas visuales.
-assertScenario('V01', mapMatrixState('10:00:00', $nowMorning), 'libre', 'Disponible', false, true);
-assertScenario('V02', mapMatrixState('10:00:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', 'Disponible', false, true);
-assertScenario('V03', mapMatrixState('11:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'libre', 'Disponible con reservación próxima', true, false, ['reservacion_advertencia']);
-assertScenario('V04', mapMatrixState('11:15:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'libre', 'Disponible con reservación próxima', true, false, ['reservacion_advertencia']);
-assertScenario('V05', mapMatrixState('11:30:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', 'Reservación próxima', true, false);
-assertScenario('V06', mapMatrixState('11:45:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', 'Reservación próxima', true, false);
-assertScenario('V07', mapMatrixState('12:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'ocupada', 'Ocupada por reservación', true, false);
-assertScenario('V08', mapMatrixState('12:10:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'ocupada', 'Ocupada por reservación', true, false);
+assertScenario('V01', mapMatrixState('10:00:00', $nowMorning), 'libre', false, true);
+assertScenario('V02', mapMatrixState('10:00:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', false, true);
+assertScenario('V03', mapMatrixState('11:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false, ['reservacion_advertencia']);
+assertScenario('V04', mapMatrixState('11:15:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false, ['reservacion_advertencia']);
+assertScenario('V05', mapMatrixState('11:30:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V06', mapMatrixState('11:45:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V07', mapMatrixState('12:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V08', mapMatrixState('12:10:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
 $absence = mapMatrixState('12:20:00', $fecha . ' 12:20:00', ['reservacion' => $atNoon, 'causas' => ['reservacion']]);
-assertScenario('V09', $absence, 'ocupada', 'Ocupada por reservación', true, false, ['ausencia_pendiente']);
+assertScenario('V09', $absence, 'reservacion-proxima', true, false, ['ausencia_pendiente']);
 assertMapMatrix($absence['ausencia_pendiente'], 'V09: la ausencia posterior a tolerancia se informa como hecho');
+$absenceNow = mapMatrixState('12:20:00', $fecha . ' 12:20:00', ['reservacion' => $atNoon, 'causas' => ['reservacion'], 'modo' => 'ahora']);
+assertMapMatrix(
+    $absenceNow['estado_visual_pos'] === 'reservacion-proxima' && in_array('sin_llegar', $absenceNow['modificadores_visual_pos'], true),
+    'V09: en Ahora la ausencia sigue azul, marcada «sin llegar»'
+);
 $noShow = mapMatrixState('12:20:00', $fecha . ' 12:20:00', ['reservacion' => mapMatrixReservation('12:00:00', 'no_show')]);
-assertScenario('V10', $noShow, 'libre', 'Disponible', false, true);
+assertScenario('V10', $noShow, 'libre', false, true);
 
-// V11–V15: un ticket tiene su proyección y POS conserva la realidad física.
+// V11–V15: un ticket tiene su proyección y «Ahora» conserva la realidad física.
 $ticketRecent = ['id' => 91, 'hora_apertura' => $fecha . ' 09:10:00'];
 $ticketOld = ['id' => 92, 'hora_apertura' => $fecha . ' 09:10:00'];
-assertScenario('V11', mapMatrixState('09:30:00', $fecha . ' 09:00:00', ['ticket' => $ticketRecent, 'causas' => ['ticket']]), 'ocupada', 'Ocupada por servicio activo', true, false);
+assertScenario('V11', mapMatrixState('09:30:00', $fecha . ' 09:00:00', ['ticket' => $ticketRecent, 'causas' => ['ticket']]), 'ocupada', true, false);
 $ticketAfterRelease = mapMatrixState('10:41:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld]);
-assertScenario('V12', $ticketAfterRelease, 'libre', 'Disponible', false, true);
+assertScenario('V12', $ticketAfterRelease, 'libre', false, true);
 assertMapMatrix($ticketAfterRelease['ticket_abierto_hecho'] && $ticketAfterRelease['ocupada_fisicamente'], 'V12: ticket aún abierto físicamente');
-assertMapMatrix($ticketAfterRelease['estado_visual_pos'] === 'ocupada', 'V12: POS sigue rojo mientras el ticket esté abierto');
+$ticketAfterReleaseNow = mapMatrixState('10:41:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld, 'modo' => 'ahora']);
+assertMapMatrix($ticketAfterReleaseNow['estado_visual_pos'] === 'ocupada', 'V12: en Ahora sigue rojo mientras el ticket esté abierto');
 $ticketAtRelease = mapMatrixState('10:40:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld]);
-assertScenario('V13', $ticketAtRelease, 'libre', 'Disponible', false, true);
-assertMapMatrix($ticketAtRelease['estado_visual_pos'] === 'ocupada', 'V13: POS no confunde proyección con cierre físico');
+assertScenario('V13', $ticketAtRelease, 'libre', false, true);
+$ticketAtReleaseNow = mapMatrixState('10:40:00', $fecha . ' 10:00:00', ['ticket' => $ticketOld, 'modo' => 'ahora']);
+assertMapMatrix($ticketAtReleaseNow['estado_visual_pos'] === 'ocupada', 'V13: «Ahora» no confunde proyección con cierre físico');
 $ticketWarning = mapMatrixState('11:00:00', $fecha . ' 09:00:00', [
     'reservacion' => mapMatrixReservation('11:45:00'),
     'ticket' => ['id' => 93, 'hora_apertura' => $fecha . ' 10:00:00'],
     'causas' => ['ticket', 'reservacion'],
 ]);
-assertScenario('V14', $ticketWarning, 'ocupada', 'Ocupada por servicio activo', true, false, ['reservacion_advertencia']);
+assertScenario('V14', $ticketWarning, 'ocupada', true, false, ['reservacion_advertencia']);
 $ticketAndReservation = mapMatrixState('12:00:00', $fecha . ' 09:00:00', [
     'reservacion' => $atNoon,
     'ticket' => ['id' => 94, 'hora_apertura' => $fecha . ' 11:30:00'],
     'causas' => ['ticket', 'reservacion'],
 ]);
-assertScenario('V15', $ticketAndReservation, 'ocupada', 'Ocupada por servicio activo', true, false);
+assertScenario('V15', $ticketAndReservation, 'ocupada', true, false);
 
 // V16–V22: restricciones, selección, edición propia y estado no verificado.
 $hold = mapMatrixState('10:00:00', $nowMorning, ['causas' => ['hold']]);
-assertScenario('V16', $hold, 'ocupada', 'No disponible por retención', true, false);
+// Un hold es una reserva a medio confirmar: se pinta azul («Apartada»), como
+// cualquier reserva, no rojo como un ticket.
+assertScenario('V16', $hold, 'reservacion-proxima', true, false);
 assertMapMatrix(!$hold['disponible_para_ticket'], 'V16: el hold vigente no permite abrir ticket en POS');
-assertMapMatrix($hold['estado_visual_pos'] === 'ocupada', 'V16: POS presenta en rojo la retención operativa');
+assertMapMatrix(in_array('hold_vigente', $hold['modificadores_visual_pos'], true) && $hold['subtitulo_pos'] === 'Apartada', 'V16: la retención se nombra «Apartada»');
 $inactive = $mesa;
 $inactive['activo'] = 0;
-assertScenario('V17', mapMatrixState('10:00:00', $nowMorning, ['mesa' => $inactive]), 'no-utilizable', 'No utilizable', false, false);
-$invalidContract = ReservacionMapaMesaPresenter::presentar(['utilizable' => false]);
+assertScenario('V17', mapMatrixState('10:00:00', $nowMorning, ['mesa' => $inactive]), 'no-utilizable', false, false);
+$invalidContract = PosMesaProjectionPresenter::presentar(['utilizable' => false]);
 assertMapMatrix($invalidContract['estado_visual'] === 'no-utilizable', 'V18: el fallback seguro es neutro');
 $selectedFree = mapMatrixState('10:00:00', $nowMorning, ['asignada_actualmente' => true]);
-assertScenario('V19', $selectedFree, 'libre', 'Disponible', false, true);
+assertScenario('V19', $selectedFree, 'libre', false, true);
 assertMapMatrix($selectedFree['asignada_actualmente'], 'V19: la selección no sustituye el estado base');
 $selectedBlue = mapMatrixState('11:45:00', $nowMorning, [
     'reservacion' => $atNoon,
@@ -221,13 +235,13 @@ $selectedBlue = mapMatrixState('11:45:00', $nowMorning, [
     'reservacion_en_edicion_id' => 20,
     'asignacion_disponible' => true,
 ]);
-assertScenario('V20', $selectedBlue, 'reservacion-proxima', 'Reservación próxima', true, true);
+assertScenario('V20', $selectedBlue, 'reservacion-proxima', true, true);
 $selectedRed = mapMatrixState('09:30:00', $fecha . ' 09:00:00', [
     'ticket' => $ticketRecent,
     'causas' => ['ticket'],
     'asignada_actualmente' => true,
 ]);
-assertScenario('V21', $selectedRed, 'ocupada', 'Ocupada por servicio activo', true, false);
+assertScenario('V21', $selectedRed, 'ocupada', true, false);
 $ownReservation = mapMatrixState('12:00:00', $nowMorning, [
     'reservacion' => $atNoon,
     'causas' => ['reservacion'],
@@ -235,24 +249,24 @@ $ownReservation = mapMatrixState('12:00:00', $nowMorning, [
     'reservacion_en_edicion_id' => 20,
     'asignacion_disponible' => true,
 ]);
-assertScenario('V22', $ownReservation, 'ocupada', 'Ocupada por reservación', true, true);
+assertScenario('V22', $ownReservation, 'reservacion-proxima', true, true);
 
 // V23–V29: límites de asignabilidad contra el estado visual proyectado.
-assertScenario('V23', mapMatrixState('10:30:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', 'Disponible', false, true);
+assertScenario('V23', mapMatrixState('10:30:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', false, true);
 $earlyOverlap = mapMatrixState('10:45:00', $nowMorning, [
     'reservacion' => $atNoon,
     'causas' => ['reservacion'],
 ]);
-assertScenario('V24', $earlyOverlap, 'libre', 'Disponible', true, false);
+assertScenario('V24', $earlyOverlap, 'libre', true, false);
 assertMapMatrix($earlyOverlap['bloqueada_en_intervalo'] && !$earlyOverlap['disponible_para_asignacion'], 'V24: la reserva cruza los siguientes 90 min');
-assertScenario('V25', mapMatrixState('11:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'libre', 'Disponible con reservación próxima', true, false, ['reservacion_advertencia']);
-assertScenario('V26', mapMatrixState('11:30:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', 'Reservación próxima', true, false);
-assertScenario('V27', mapMatrixState('12:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'ocupada', 'Ocupada por reservación', true, false);
-assertScenario('V28', mapMatrixState('13:29:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'ocupada', 'Ocupada por reservación', true, false);
-assertScenario('V29', mapMatrixState('13:30:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', 'Disponible', false, true);
+assertScenario('V25', mapMatrixState('11:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false, ['reservacion_advertencia']);
+assertScenario('V26', mapMatrixState('11:30:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V27', mapMatrixState('12:00:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V28', mapMatrixState('13:29:00', $nowMorning, ['reservacion' => $atNoon, 'causas' => ['reservacion']]), 'reservacion-proxima', true, false);
+assertScenario('V29', mapMatrixState('13:30:00', $nowMorning, ['reservacion' => $atNoon]), 'libre', false, true);
 
 // Invariante A: el bloqueo de asignación no decide por sí mismo el color.
-assertMapMatrix($earlyOverlap['estado_visual_mapa'] === 'libre', 'invariante A: V24 sigue visualmente verde');
+assertMapMatrix($earlyOverlap['estado_visual_pos'] === 'libre', 'invariante A: V24 sigue visualmente verde');
 
 // Invariantes B/C y los límites de segundo se evalúan con la proyección canónica.
 $reservation = ['estado' => 'confirmada', 'fecha' => $fecha, 'hora' => '12:00:00'];
@@ -278,20 +292,18 @@ foreach ($boundaryWindows as $time => $expected) {
         $now
     );
     assertMapMatrix($projection['ventana_mapa'] === $expected, "ventana {$time} = {$expected}");
-    if ($expected === 'inicio' || $expected === 'activa') {
-        $visual = ReservacionMapaMesaPresenter::presentar([
-            'utilizable' => true,
-            'reservacion' => $projection,
-        ]);
-        assertMapMatrix($visual['estado_visual'] === 'ocupada', "invariante B: hora {$time} dentro de reserva debe ser roja");
-    }
-    if ($expected === 'bloqueo') {
-        $visual = ReservacionMapaMesaPresenter::presentar([
-            'utilizable' => true,
-            'reservacion' => $projection,
-        ]);
-        assertMapMatrix($visual['estado_visual'] === 'reservacion-proxima', "invariante C: {$time} es bloqueo previo azul");
-    }
+    $visual = PosMesaProjectionPresenter::presentar([
+        'utilizable' => true,
+        'proyeccion' => true,
+        'reservacion' => array_merge($reservation, $projection),
+    ]);
+    // Invariante B: de inicio − 60 a inicio + 90 la mesa es de la reserva
+    // (azul); antes y después, verde. Sin ticket no hay rojo que valga.
+    $azul = in_array($expected, ['advertencia', 'bloqueo', 'inicio', 'activa'], true);
+    assertMapMatrix(
+        $visual['estado_visual'] === ($azul ? 'reservacion-proxima' : 'libre'),
+        "invariante B: {$time} ({$expected}) debe ser " . ($azul ? 'azul' : 'verde') . ", salió {$visual['estado_visual']}"
+    );
 }
 
 // Los tickets usan el mismo fin semiabierto y duración canónica de la reserva.

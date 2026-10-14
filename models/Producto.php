@@ -305,6 +305,7 @@ class Producto extends ActiveRecord {
         $categoriaId = (int) ($filtros['categoria'] ?? $filtros['category_id'] ?? 0);
         $visible = (string) ($filtros['visible'] ?? '');
         $areaId = (int) ($filtros['area'] ?? 0);
+        $carta = (string) ($filtros['carta'] ?? '');
 
         // Solo por nombre. Buscar también en la descripción devolvía platillos
         // que no contienen el término buscado en ningún sitio visible de la
@@ -316,6 +317,15 @@ class Producto extends ActiveRecord {
 
         if ($categoriaId > 0) {
             $condiciones[] = "categoria_id = {$categoriaId}";
+        }
+
+        // La carta vive en la categoría, no en el producto: el platillo
+        // pertenece a la pieza impresa que le toca a su sección. Subconsulta y
+        // no JOIN para que el resto de la consulta —columnas sin calificar,
+        // `SELECT *`— siga igual.
+        if ($carta !== '' && isset(CategoriasMenu::CARTAS[$carta])) {
+            $cartaEscapada = self::escaparString($carta);
+            $condiciones[] = "categoria_id IN (SELECT id FROM categorias WHERE carta = '{$cartaEscapada}')";
         }
 
         if ($areaId > 0) {

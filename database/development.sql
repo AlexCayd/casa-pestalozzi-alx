@@ -774,70 +774,89 @@ INSERT INTO reservaciones
   (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Límite Una', 'email', 'limite.una@example.test',
-   @fecha_principal, '13:00:00', 2, 'Una activa', 'admin', 'confirmada',
+  ('Mariana López', 'email', 'mariana.lopez@example.test',
+   @fecha_principal, '13:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-una-0001', @reloj_prueba),
 
-  ('Límite Cuatro 1', 'email', 'limite.cuatro@example.test',
+  ('Jorge Ramírez', 'email', 'jorge.ramirez@example.test',
    @fecha_principal, '14:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-01', @reloj_prueba),
-  ('Límite Cuatro 2', 'email', 'limite.cuatro@example.test',
+  ('Jorge Ramírez', 'email', 'jorge.ramirez@example.test',
    @fecha_posterior, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-02', @reloj_prueba),
-  ('Límite Cuatro 3', 'email', 'limite.cuatro@example.test',
+  ('Jorge Ramírez', 'email', 'jorge.ramirez@example.test',
    @fecha_especial, '16:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-03', @reloj_prueba),
-  ('Límite Cuatro 4', 'email', 'limite.cuatro@example.test',
+  ('Jorge Ramírez', 'email', 'jorge.ramirez@example.test',
    @fecha_futura, '17:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-04', @reloj_prueba),
 
-  ('Límite Cinco 1', 'email', 'limite.cinco@example.test',
+  ('Sofía Hernández', 'email', 'sofia.hernandez@example.test',
    @fecha_principal, '13:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-01', @reloj_prueba),
-  ('Límite Cinco 2', 'email', 'limite.cinco@example.test',
+  ('Sofía Hernández', 'email', 'sofia.hernandez@example.test',
    @fecha_principal, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-02', @reloj_prueba),
-  ('Límite Cinco 3', 'email', 'limite.cinco@example.test',
+  ('Sofía Hernández', 'email', 'sofia.hernandez@example.test',
    @fecha_posterior, '16:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-03', @reloj_prueba),
-  ('Límite Cinco 4', 'email', 'limite.cinco@example.test',
+  ('Sofía Hernández', 'email', 'sofia.hernandez@example.test',
    @fecha_especial, '18:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-04', @reloj_prueba),
-  ('Límite Cinco 5', 'email', 'limite.cinco@example.test',
+  ('Sofía Hernández', 'email', 'sofia.hernandez@example.test',
    @fecha_futura, '19:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-05', @reloj_prueba),
 
-  ('Identidad Teléfono', 'telefono', '+525544442026',
-   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'landing', 'confirmada',
+  ('Ricardo Mendoza', 'telefono', '+525544442026',
+   @fecha_futura, '18:30:00', 3, 'Prefiere terraza', 'landing', 'confirmada',
    'fx-contacto-tel-001', @reloj_prueba),
-  ('Histórica', 'email', 'historial@example.test',
+  ('Elena Castillo', 'email', 'elena.castillo@example.test',
    @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
    'fx-historica-000001', CONCAT(@fecha_historica, ' 19:30:00'));
+
+-- Toda reservación confirmada tiene mesas, también éstas: cada una va a una
+-- mesa que nadie más ocupa en su intervalo de 90 minutos ese día.
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT res.id, m.mesa_id, 1
+FROM reservaciones res
+JOIN (
+  SELECT 'fx-limite-una-0001' AS token, 2 AS mesa_id
+  UNION ALL SELECT 'fx-limite-cinco-01', 5
+  UNION ALL SELECT 'fx-limite-cuatro-01', 6
+  UNION ALL SELECT 'fx-limite-cinco-02', 7
+  UNION ALL SELECT 'fx-limite-cuatro-02', 2
+  UNION ALL SELECT 'fx-limite-cinco-03', 3
+  UNION ALL SELECT 'fx-limite-cuatro-03', 1
+  UNION ALL SELECT 'fx-limite-cinco-04', 2
+  UNION ALL SELECT 'fx-limite-cuatro-04', 1
+  UNION ALL SELECT 'fx-limite-cinco-05', 6
+  UNION ALL SELECT 'fx-contacto-tel-001', 7
+) AS m ON m.token = res.request_token;
 
 -- Retenciones, modificación, cancelación y falta de capacidad.
 INSERT INTO reservaciones
   (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
    hold_expires_at, request_token, estado_changed_at)
 VALUES
-  ('Retención Vigente', 'email', 'hold.vigente@example.test',
+  ('Daniel Ortiz', 'email', 'daniel.ortiz@example.test',
    @fecha_principal, '17:30:00', 2, '', 'landing', 'pendiente_verificacion',
    CONCAT(@fecha_principal, ' 12:05:00'),
    'fx-hold-vigente-001', @reloj_prueba),
-  ('Retención Vencida', 'email', 'hold.vencida@example.test',
+  ('Paola Navarro', 'email', 'paola.navarro@example.test',
    @fecha_principal, '18:00:00', 2, '', 'landing', 'pendiente_verificacion',
    CONCAT(@fecha_principal, ' 11:59:59'),
    'fx-hold-vencida-001', @reloj_prueba),
-  ('Modificable', 'email', 'modificar@example.test',
-   @fecha_principal, '18:30:00', 2, 'Mover a otra hora',
+  ('Luis Guerrero', 'email', 'luis.guerrero@example.test',
+   @fecha_principal, '18:30:00', 2, 'Puede llegar un poco tarde',
    'admin', 'confirmada', NULL, 'fx-modificable-0001', @reloj_prueba),
-  ('Cancelable', 'email', 'cancelar@example.test',
+  ('Andrea Fuentes', 'email', 'andrea.fuentes@example.test',
    @fecha_principal, '19:00:00', 2, '',
    'admin', 'confirmada', NULL, 'fx-cancelable-0001', @reloj_prueba),
-  ('Sin Capacidad', 'email', 'sin.capacidad@example.test',
-   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación',
+  ('Miguel Herrera', 'email', 'miguel.herrera@example.test',
+   @fecha_posterior, '13:00:00', 2, '',
    'admin', 'confirmada', NULL, 'fx-sin-capacidad-01', @reloj_prueba),
-  ('Bloqueo Total', 'email', 'bloqueo@example.test',
-   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas',
+  ('Boda Martínez Ruiz', 'email', 'boda.martinez@example.test',
+   @fecha_posterior, '20:00:00', 44, 'Evento privado: todo el salón',
    'admin', 'confirmada', NULL, 'fx-bloqueo-total-01', @reloj_prueba);
 
 SET @hold_vigente = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vigente-001');
@@ -860,27 +879,28 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@bloqueo_total, 9, 9), (@bloqueo_total, 10, 10),
   (@bloqueo_total, 11, 11);
 
--- Asignaciones de una, dos y tres mesas, más reservas consecutivas.
+-- Asignaciones canónicas: una mesa, una pareja y el bloque exterior completo
+-- (un grupo de 10 ocupa las cuatro mesas de afuera), más reservas consecutivas.
 INSERT INTO reservaciones
   (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Una Mesa', 'email', 'una.mesa@example.test',
+  ('Carmen Vega', 'email', 'carmen.vega@example.test',
    @fecha_principal, '13:00:00', 2, '', 'admin', 'confirmada',
    'fx-una-mesa-000001', @reloj_prueba),
-  ('Dos Mesas', 'email', 'dos.mesas@example.test',
+  ('Familia Rojas', 'email', 'familia.rojas@example.test',
    @fecha_principal, '14:30:00', 6, '', 'admin', 'confirmada',
    'fx-dos-mesas-00001', @reloj_prueba),
-  ('Tres Mesas', 'email', 'tres.mesas@example.test',
-   @fecha_principal, '16:00:00', 10, '', 'admin', 'confirmada',
+  ('Cumpleaños de Valeria', 'email', 'valeria.cumple@example.test',
+   @fecha_principal, '16:00:00', 10, 'Traen su pastel', 'admin', 'confirmada',
    'fx-tres-mesas-0001', @reloj_prueba),
-  ('Cuatro Mesas Administrativa', 'email', 'cuatro.mesas@example.test',
-   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'admin', 'confirmada',
+  ('Despacho Ibarra y Asociados', 'email', 'ibarra.asociados@example.test',
+   @fecha_futura, '20:00:00', 13, 'Comida de trabajo', 'admin', 'confirmada',
    'fx-cuatro-mesas-001', @reloj_prueba),
-  ('Consecutiva A', 'email', 'consecutiva@example.test',
+  ('Tomás Aguilar', 'email', 'tomas.aguilar@example.test',
    @fecha_futura, '13:00:00', 2, '', 'admin', 'confirmada',
    'fx-consecutiva-a-01', @reloj_prueba),
-  ('Consecutiva B', 'email', 'consecutiva@example.test',
+  ('Tomás Aguilar', 'email', 'tomas.aguilar@example.test',
    @fecha_futura, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-consecutiva-b-01', @reloj_prueba);
 
@@ -893,33 +913,60 @@ SET @consecutiva_b = (SELECT id FROM reservaciones WHERE request_token = 'fx-con
 
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@una_mesa, 1, 1),
-  (@dos_mesas, 5, 1), (@dos_mesas, 11, 2),
-  (@tres_mesas, 8, 1), (@tres_mesas, 9, 2), (@tres_mesas, 10, 3),
+  (@dos_mesas, 3, 1), (@dos_mesas, 4, 2),
+  (@tres_mesas, 8, 1), (@tres_mesas, 9, 2), (@tres_mesas, 10, 3), (@tres_mesas, 11, 4),
   (@cuatro_mesas, 1, 1), (@cuatro_mesas, 2, 2),
   (@cuatro_mesas, 3, 3), (@cuatro_mesas, 4, 4),
   (@consecutiva_a, 2, 1), (@consecutiva_b, 2, 1);
+
+-- Reubicación automática: una pareja estaba en la Mesa 9 cuando un grupo de
+-- 10 apartó el exterior, y el sistema la movió a la Mesa 5. La fila de la
+-- bitácora queda sin revisar para que aparezca en Casos y en la ficha del POS.
+INSERT INTO reservaciones
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
+VALUES
+  ('Graduación Sánchez', 'email', 'graduacion.sanchez@example.test',
+   @fecha_futura, '18:00:00', 10, 'Cumpleaños', 'landing', 'confirmada',
+   'fx-bloque-exterior-01', @reloj_prueba),
+  ('Alejandro y Fernanda', 'email', 'alejandro.fernanda@example.test',
+   @fecha_futura, '18:30:00', 2, '', 'landing', 'confirmada',
+   'fx-reubicada-000001', @reloj_prueba);
+
+SET @grupo_exterior = (SELECT id FROM reservaciones WHERE request_token = 'fx-bloque-exterior-01');
+SET @pareja_reubicada = (SELECT id FROM reservaciones WHERE request_token = 'fx-reubicada-000001');
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
+  (@grupo_exterior, 8, 1), (@grupo_exterior, 9, 2),
+  (@grupo_exterior, 10, 3), (@grupo_exterior, 11, 4),
+  (@pareja_reubicada, 5, 1);
+
+INSERT INTO reservacion_reubicaciones
+  (reservacion_id, causa_reservacion_id, motivo, mesas_antes, mesas_despues)
+VALUES
+  (@pareja_reubicada, @grupo_exterior, 'bloque_exterior', '9', '5');
 
 -- Estados operativos: llegada, tolerancia, no-show, servicio y cierre.
 INSERT INTO reservaciones
   (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('POS Confirmada', 'email', 'pos.confirmada@example.test',
+  ('Ana Morales', 'email', 'ana.morales@example.test',
    @fecha_principal, '19:30:00', 2, '', 'admin', 'confirmada',
    'fx-pos-confirmada-01', @reloj_prueba),
-  ('POS Convertida', 'email', 'pos.convertida@example.test',
+  ('Raúl Domínguez', 'email', 'raul.dominguez@example.test',
    @fecha_principal, '20:00:00', 2, '', 'admin', 'confirmada',
    'fx-pos-convertida-000001', CONCAT(@fecha_principal, ' 19:50:00')),
-  ('POS En Curso', 'email', 'pos.encurso@example.test',
+  ('Familia Cortés', 'email', 'familia.cortes@example.test',
    @fecha_principal, '20:00:00', 6, '', 'admin', 'en_curso',
    'fx-pos-encurso-001', CONCAT(@fecha_principal, ' 20:00:00')),
-  ('POS Completada', 'email', 'pos.completa@example.test',
+  ('Héctor Pineda', 'email', 'hector.pineda@example.test',
    @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
    'fx-pos-completa-001', CONCAT(@fecha_historica, ' 19:30:00')),
-  ('POS Tolerancia', 'email', 'pos.tolerancia@example.test',
+  ('Isabel Ríos', 'email', 'isabel.rios@example.test',
    @fecha_principal, '20:30:00', 2, '', 'admin', 'confirmada',
    'fx-pos-tolerancia-1', @reloj_prueba),
-  ('POS No Show', 'email', 'pos.noshow@example.test',
+  ('Fernando Luna', 'email', 'fernando.luna@example.test',
    @fecha_principal, '19:00:00', 2, '', 'admin', 'no_show',
    'fx-pos-noshow-0001', @reloj_prueba);
 
@@ -931,8 +978,10 @@ SET @pos_tolerancia = (SELECT id FROM reservaciones WHERE request_token = 'fx-po
 SET @pos_noshow = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-noshow-0001');
 
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
-  (@pos_confirmada, 3, 1),
-  (@pos_convertida, 4, 1),
+  -- Mesas 2 y 8: la 3 y la 4 ya están tomadas a esa hora por las reservas
+  -- de Luis Guerrero y Andrea Fuentes, y una mesa no se reserva dos veces.
+  (@pos_confirmada, 2, 1),
+  (@pos_convertida, 8, 1),
   (@pos_en_curso, 5, 1), (@pos_en_curso, 6, 2),
   (@pos_completada, 6, 1),
   (@pos_tolerancia, 7, 1),
@@ -941,8 +990,8 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 INSERT INTO tickets
   (comensales, nombre, hora_apertura, closed_at, estado, metodo_pago, reservacion_id)
 VALUES
-  (6, 'POS En Curso', CONCAT(@fecha_principal, ' 20:00:00'), NULL, 'abierto', NULL, @pos_en_curso),
-  (2, 'POS Completada', CONCAT(@fecha_historica, ' 18:00:00'), CONCAT(@fecha_historica, ' 19:30:00'),
+  (6, 'Familia Cortés', CONCAT(@fecha_principal, ' 20:00:00'), NULL, 'abierto', NULL, @pos_en_curso),
+  (2, 'Héctor Pineda', CONCAT(@fecha_historica, ' 18:00:00'), CONCAT(@fecha_historica, ' 19:30:00'),
    'cerrado', 'efectivo', @pos_completada);
 
 SET @ticket_en_curso = (SELECT id FROM tickets WHERE reservacion_id = @pos_en_curso);
@@ -955,14 +1004,14 @@ INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
 -- Walk-in de varias mesas y una reserva futura sobre la misma zona.
 INSERT INTO tickets (comensales, nombre, hora_apertura, estado)
 VALUES
-  (2, 'Walk-in Una Mesa', CONCAT(@fecha_principal, ' 20:10:00'), 'abierto'),
-  (6, 'Walk-in Varias Mesas', CONCAT(@fecha_principal, ' 20:15:00'), 'abierto');
+  (2, 'Pareja de paso', CONCAT(@fecha_principal, ' 20:10:00'), 'abierto'),
+  (6, 'Grupo de paso', CONCAT(@fecha_principal, ' 20:15:00'), 'abierto');
 
 SET @walkin_una = (
-  SELECT id FROM tickets WHERE nombre = 'Walk-in Una Mesa' ORDER BY id DESC LIMIT 1
+  SELECT id FROM tickets WHERE nombre = 'Pareja de paso' ORDER BY id DESC LIMIT 1
 );
 SET @walkin_varias = (
-  SELECT id FROM tickets WHERE nombre = 'Walk-in Varias Mesas' ORDER BY id DESC LIMIT 1
+  SELECT id FROM tickets WHERE nombre = 'Grupo de paso' ORDER BY id DESC LIMIT 1
 );
 
 INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
@@ -973,11 +1022,11 @@ INSERT INTO reservaciones
   (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Reserva Futura', 'email', 'pos.futura@example.test',
-   @fecha_posterior, '13:00:00', 2, 'Advertencia de reserva próxima',
+  ('Gabriela Soto', 'email', 'gabriela.soto@example.test',
+   @fecha_posterior, '13:00:00', 2, '',
    'admin', 'confirmada', 'fx-pos-futura-00001', @reloj_prueba),
-  ('Horario Afectado', 'email', 'horario@example.test',
-   @fecha_principal, '21:00:00', 2, 'Conflicto al adelantar el cierre',
+  ('Roberto Salinas', 'email', 'roberto.salinas@example.test',
+   @fecha_principal, '21:00:00', 2, 'Aniversario',
    'admin', 'confirmada', 'fx-horario-afectado', @reloj_prueba);
 
 SET @reserva_futura = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-futura-00001');
@@ -986,6 +1035,68 @@ SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@reserva_futura, 10, 1),
   (@horario_afectado, 11, 1);
+
+-- -------------------------------------------------------
+-- RESERVACIONES DE HOY
+--
+-- Un día de servicio normal, siempre en la fecha de carga (CURDATE()), para
+-- que el POS abra con reservas que mirar. Las horas son fijas; el estado sale
+-- del reloj al cargar: lo que ya pasó (más la tolerancia de 15 minutos) entra
+-- como atendido y lo demás como confirmado. Si entrara confirmado, la primera
+-- lectura del POS lo registraría como ausencia.
+--
+-- Idempotente: se borra y se vuelve a sembrar por el prefijo de token
+-- 'fx-hoy-', así que este bloque se puede correr solo, otro día, para tener
+-- reservas de ese día. Las mesas no se pisan: cada intervalo de 90 minutos
+-- usa mesas distintas, y el grupo de 10 toma el bloque exterior (8 a 11).
+-- -------------------------------------------------------
+
+DELETE FROM reservaciones WHERE request_token LIKE 'fx-hoy-%';
+
+INSERT INTO reservaciones
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
+SELECT r.nombre, r.contacto_tipo, r.contacto, CURDATE(), r.hora, r.comensales, r.nota,
+       r.origen,
+       CASE WHEN TIMESTAMP(CURDATE(), r.hora) < NOW() - INTERVAL 15 MINUTE
+            THEN 'completada' ELSE 'confirmada' END,
+       r.token, NOW()
+FROM (
+  SELECT 'Valentina Cruz' AS nombre, 'telefono' AS contacto_tipo, '+525512340101' AS contacto,
+         '13:00:00' AS hora, 2 AS comensales, '' AS nota, 'landing' AS origen, 'fx-hoy-01' AS token
+  UNION ALL SELECT 'Familia Paredes', 'email', 'familia.paredes@example.test',
+         '13:30:00', 6, 'Una silla para bebé', 'landing', 'fx-hoy-02'
+  UNION ALL SELECT 'Óscar Medina', 'telefono', '+525512340103',
+         '14:00:00', 4, '', 'admin', 'fx-hoy-03'
+  UNION ALL SELECT 'Daniela y Marco', 'email', 'daniela.marco@example.test',
+         '15:00:00', 2, 'Aniversario', 'landing', 'fx-hoy-04'
+  UNION ALL SELECT 'Patricia Gómez', 'telefono', '+525512340105',
+         '18:00:00', 3, '', 'landing', 'fx-hoy-05'
+  UNION ALL SELECT 'Cena de exalumnos', 'email', 'exalumnos@example.test',
+         '16:00:00', 10, 'Traen pastel', 'admin', 'fx-hoy-06'
+  UNION ALL SELECT 'Rodrigo Vázquez', 'telefono', '+525512340107',
+         '19:30:00', 2, '', 'landing', 'fx-hoy-07'
+  UNION ALL SELECT 'Natalia Flores', 'email', 'natalia.flores@example.test',
+         '20:00:00', 4, 'Prefiere interior', 'landing', 'fx-hoy-08'
+  UNION ALL SELECT 'Familia Treviño', 'telefono', '+525512340109',
+         '17:30:00', 5, '', 'admin', 'fx-hoy-09'
+) AS r;
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT res.id, m.mesa_id, m.orden
+FROM reservaciones res
+JOIN (
+  SELECT 'fx-hoy-01' AS token, 1 AS mesa_id, 1 AS orden
+  UNION ALL SELECT 'fx-hoy-02', 3, 1 UNION ALL SELECT 'fx-hoy-02', 4, 2
+  UNION ALL SELECT 'fx-hoy-03', 2, 1
+  UNION ALL SELECT 'fx-hoy-04', 5, 1
+  UNION ALL SELECT 'fx-hoy-05', 6, 1
+  UNION ALL SELECT 'fx-hoy-06', 8, 1 UNION ALL SELECT 'fx-hoy-06', 9, 2
+  UNION ALL SELECT 'fx-hoy-06', 10, 3 UNION ALL SELECT 'fx-hoy-06', 11, 4
+  UNION ALL SELECT 'fx-hoy-07', 7, 1
+  UNION ALL SELECT 'fx-hoy-08', 1, 1
+  UNION ALL SELECT 'fx-hoy-09', 3, 1 UNION ALL SELECT 'fx-hoy-09', 4, 2
+) AS m ON m.token = res.request_token;
 
 -- Mantiene vigentes los históricos independientes usados por analítica y
 -- finanzas. Los tickets ligados a fixtures de reservaciones conservan sus
@@ -1601,7 +1712,8 @@ UPDATE tickets
 -- (días flojos, picos y un par de días sin reservas) y la mezcla de estados
 -- que alimenta la gráfica de estado. Las fechas ya pasadas usan estados
 -- terminales (completada / cancelada / no_show) para no ensuciar la vista de
--- operación; solo hoy y ayer quedan como 'confirmada'. Los nombres se reciclan
+-- operación; sólo hoy queda 'confirmada', y con mesa: una pasada no puede
+-- seguir confirmada (la ausencia se registra sola). Los nombres se reciclan
 -- a propósito: representan clientes recurrentes.
 -- ---------------------------------------------------------------------
 INSERT INTO reservaciones
@@ -1764,17 +1876,27 @@ VALUES
   ('Elena Ferrer', 'email', 'elena.076@example.test',
    DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00', 8, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-076'),
   ('Fabián Ortuño', 'email', 'fabian.077@example.test',
-   DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 4, '', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-077'),
+   DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 4, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-077'),
   ('Gabriela Rentería', 'email', 'gabriela.078@example.test',
-   DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00', 2, 'Alergia a nueces', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-078'),
+   DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00', 2, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-078'),
   ('Héctor Salcedo', 'email', 'hector.079@example.test',
-   DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00', 5, 'Aniversario', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-079'),
+   DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00', 5, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-079'),
   ('Irene Bustos', 'email', 'irene.080@example.test',
-   DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 2, 'Celebración de trabajo', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-080'),
+   DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 2, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-080'),
   ('Joaquín Nieto', 'email', 'joaquin.081@example.test',
    DATE_SUB(@HOY, INTERVAL 0 DAY), '20:30:00', 4, 'Mesa junto a ventana', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 0 DAY), '20:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-081'),
   ('Karla Villalobos', 'email', 'karla.082@example.test',
    DATE_SUB(@HOY, INTERVAL 0 DAY), '15:30:00', 2, 'Carriola', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 0 DAY), '15:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-082');
+
+-- Las dos de hoy, con mesa: libres en su intervalo frente al bloque de
+-- reservaciones de hoy de más arriba.
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT res.id, m.mesa_id, 1
+FROM reservaciones res
+JOIN (
+  SELECT 'fx-analytics-res-081' AS token, 2 AS mesa_id
+  UNION ALL SELECT 'fx-analytics-res-082', 1
+) AS m ON m.token = res.request_token;
 
 -- Fin de analiticas-datos-ex.sql
 

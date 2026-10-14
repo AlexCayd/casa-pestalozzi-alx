@@ -40,6 +40,7 @@ DROP TABLE IF EXISTS horarios_operacion;
 DROP TABLE IF EXISTS verificaciones_contacto;
 DROP TABLE IF EXISTS ticket_mesas;
 DROP TABLE IF EXISTS ticket_pagos;
+DROP TABLE IF EXISTS reservacion_reubicaciones;
 DROP TABLE IF EXISTS reservacion_mesas;
 -- cata_inscripciones y catering_solicitudes ya no se crean —los dos flujos se
 -- fueron a WhatsApp— pero se siguen soltando: este archivo también reinicia
@@ -74,11 +75,17 @@ CREATE TABLE IF NOT EXISTS mesas (
   numero     INT NOT NULL UNIQUE,
   nombre     VARCHAR(60) NOT NULL,
   tipo       ENUM('mesa','barra','especial') NOT NULL DEFAULT 'mesa',
+  -- Zona del salón. La asignación automática llena primero el interior y
+  -- reserva el exterior COMPLETO como bloque para los grupos de 9 en adelante.
+  -- Sólo las mesas la llevan: barras, Caja y Llevar no se asignan a nadie.
+  -- Una mesa nueva sin zona no entra al bloque ni recibe reubicaciones.
+  zona       ENUM('interior','exterior') NULL DEFAULT NULL,
   capacidad  INT NOT NULL DEFAULT 4,
   pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0,
   pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0,
   activo     TINYINT(1) NOT NULL DEFAULT 1,
-  reservable TINYINT(1) NOT NULL DEFAULT 1
+  reservable TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT chk_mesas_zona CHECK (zona IS NULL OR tipo = 'mesa')
 );
 
 CREATE TABLE IF NOT EXISTS areas_produccion (
@@ -252,6 +259,34 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
   UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
   INDEX idx_rm_mesa (mesa_id),
   INDEX idx_rm_reservacion (reservacion_id)
+);
+
+-- Bitácora de reubicaciones automáticas. Un grupo de 9 en adelante aparta el
+-- exterior completo y las reservas que ya estaban ahí se mueven solas a otras
+-- mesas; cada movimiento queda aquí para que el anfitrión lo vea en la ficha
+-- («Reubicada de Mesa 9 a Mesa 3») y el panel lo liste en Casos hasta que
+-- alguien lo marque como revisado. Las mesas se guardan como ids en texto:
+-- son un registro de lo que pasó y no deben cambiar si la mesa se edita.
+CREATE TABLE IF NOT EXISTS reservacion_reubicaciones (
+  id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id       INT NOT NULL,
+  -- La reserva que provocó el movimiento. SET NULL: si se borra, la
+  -- reubicación sigue siendo un hecho.
+  causa_reservacion_id INT NULL,
+  motivo               VARCHAR(40) NOT NULL DEFAULT 'bloque_exterior',
+  mesas_antes          VARCHAR(60) NOT NULL,
+  mesas_despues        VARCHAR(60) NOT NULL,
+  revisada_at          DATETIME NULL,
+  revisada_por         INT NULL,
+  created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_reubicacion_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
+  CONSTRAINT fk_reubicacion_causa
+    FOREIGN KEY (causa_reservacion_id) REFERENCES reservaciones(id) ON DELETE SET NULL,
+  CONSTRAINT fk_reubicacion_revisor
+    FOREIGN KEY (revisada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+  INDEX idx_reubicacion_reservacion (reservacion_id, created_at),
+  INDEX idx_reubicacion_pendiente (revisada_at, created_at)
 );
 
 -- -------------------------------------------------------
@@ -892,6 +927,10 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
   --     rehacerla al reconectar el hardware; esto es un solo interruptor y no
   --     toca ninguna fila de impresoras.
   impresion_activa TINYINT(1) NOT NULL DEFAULT 1,
+  -- Tickets abiertos a la vez por barra. Una barra no se reserva ni cuenta en
+  -- la capacidad del salón: se llena por tickets, como Llevar pero con tope.
+  -- Al llegar al tope el pin se pinta ocupado y el siguiente ticket se rechaza.
+  max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4,
   updated_by       INT NULL,
   updated_at       TIMESTAMP NOT NULL
                      DEFAULT CURRENT_TIMESTAMP
@@ -899,22 +938,36 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
 
   PRIMARY KEY (id),
 
+  CONSTRAINT chk_configuracion_pos_max_tickets_barra
+    CHECK (max_tickets_barra BETWEEN 1 AND 12),
   CONSTRAINT fk_configuracion_pos_usuario
     FOREIGN KEY (updated_by)
     REFERENCES usuarios(id)
     ON DELETE SET NULL
 );
 
--- Comunicaciones de reservaciones. Fila única y desactivada por omisión.
+-- Comunicaciones y límites de reservaciones. Fila única; el recordatorio nace
+-- desactivado.
 CREATE TABLE IF NOT EXISTS configuracion_reservaciones (
   id                                  TINYINT UNSIGNED NOT NULL,
   recordatorio_dia_anterior_activo    TINYINT(1) NOT NULL DEFAULT 0,
   hora_recordatorio                   TIME NOT NULL DEFAULT '18:00:00',
+  -- Grupo más grande que la landing reserva sola. Por encima, el formulario se
+  -- bloquea y manda al WhatsApp del restaurante. El techo de 16 es físico: el
+  -- bloque exterior (Mesas 8–11) tiene 16 asientos y es lo más grande que el
+  -- motor asigna sin intervención. El piso de 7 lo pone el control de
+  -- comensales de la landing, que pinta 1–6 como pastillas fijas.
+  max_comensales_publico              TINYINT UNSIGNED NOT NULL DEFAULT 12,
+  -- WhatsApp del restaurante, sólo dígitos y con lada de país. NULL = el de
+  -- .env (RESERVAS_WHATSAPP). Lo usan los grupos grandes y la agenda de catas.
+  whatsapp_reservas                   VARCHAR(20) NULL,
   updated_by                          INT NULL,
   updated_at                          TIMESTAMP NOT NULL
                                         DEFAULT CURRENT_TIMESTAMP
                                         ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  CONSTRAINT chk_configuracion_reservaciones_max_comensales
+    CHECK (max_comensales_publico BETWEEN 7 AND 16),
   CONSTRAINT fk_configuracion_reservaciones_usuario
     FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
 );

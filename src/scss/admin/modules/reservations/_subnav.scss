@@ -1,0 +1,43 @@
+/*
+ * Sub-navegación del módulo de reservaciones (views/admin/reservations/_subnav.php).
+ *
+ * La comparten TRES pantallas con dos hojas distintas —el histórico carga
+ * reservations.css y Grupos grandes / Casos cargan reservations-estrategia.css—,
+ * así que vive en un parcial que las dos hojas incluyen. Está en una
+ * subcarpeta y no suelto en modules/ porque el glob de gulp
+ * (`src/scss/admin/modules/*.scss`) compilaría cada archivo como hoja propia.
+ *
+ * El componente es .admin-tabs--links tal cual; aquí sólo cambia el ancho.
+ * Repartido a lo ancho, cada pestaña medía un tercio de la pantalla y tres
+ * palabras quedaban flotando en una barra de mil píxeles: se leía como un
+ * conmutador de opciones de un formulario y no como «estás en esta sección».
+ */
+@use "../../shared/abstracts/variables" as vars;
+@use "../../shared/abstracts/mixins" as mixins;
+
+.reservations-subnav {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 20px;
+
+  .admin-tabs__tab {
+    flex: 0 0 auto;
+  }
+
+  // En el teléfono vuelve a repartirse: ahí el ancho es el de la pantalla y
+  // las tres caben, así que dejar hueco a la derecha no gana nada.
+  @include mixins.down(vars.$breakpoint-mobile) {
+    width: 100%;
+
+    .admin-tabs__tab {
+      flex: 1 1 auto;
+    }
+
+    // Objetivo táctil: con el relleno de escritorio la pestaña medía 35 px.
+    // Con .admin-tabs__tab delante para igualar el (0,2,2) de la regla
+    // compartida; gana por orden porque esta hoja carga después de admin.css.
+    .admin-tabs__tab a span {
+      padding-block: 13px;
+    }
+  }
+}

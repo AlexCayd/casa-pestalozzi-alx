@@ -20,7 +20,6 @@ const paths = {
   scss: "src/scss/app.scss",
   adminScss: "src/scss/admin/shared/app-admin.scss",
   adminModulesScss: "src/scss/admin/modules/*.scss",
-  operationScss: "src/scss/operation/reservations.scss",
   // POS, tableros de área y login. Salen del bundle público —cargaban la
   // landing entera para llegar a su propio SCSS— y estrenan salida con el
   // sistema administrativo dentro.
@@ -30,6 +29,12 @@ const paths = {
     "!src/js/admin/**/*.js",
     "!src/js/operation/**/*.js",
     "!src/js/modules/punto-de-venta.js",
+    // El catálogo de iconos vuelve a entrar, y DESPUÉS de las negaciones
+    // (gulp evalúa los globs en orden). La landing no tenía catálogo, así que
+    // el aviso (toast.js) y el diálogo de confirmación caían a glifos de
+    // texto. En el POS llega dos veces —aquí y en map.js—, y es inocuo: las
+    // dos copias publican el mismo objeto.
+    "src/js/admin/core/icons.js",
   ],
   adminJs: [
     // El panel admin sólo carga /build/js/admin.js: nunca ve bundle.min.js, así
@@ -67,6 +72,9 @@ const paths = {
   adminMapJs: [
     // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que
     // carga antes que map.js.
+    // icons.js va PRIMERO por la misma razón que en adminJs: define
+    // window.AdminIcons, que el renderer del mapa usa para la línea de estado.
+    "src/js/admin/core/icons.js",
     "src/js/components/confirmation-modal.js",
     "src/js/admin/core/select.js",
     "src/js/components/reservation-date-picker.js",
@@ -75,13 +83,23 @@ const paths = {
     "src/js/operation/table-state-adapter.js",
     "src/js/operation/map-visual.js",
     "src/js/operation/map-help.js",
-    "src/js/operation/reservation-card.js",
+    // Reservaciones dentro del POS. La vista compartida va antes que quienes
+    // la usan (barra de contexto, cajón y ficha), y todos antes del POS.
+    "src/js/operation/pos-reserva-vista.js",
+    "src/js/operation/pos-proyeccion.js",
+    "src/js/operation/pos-contexto.js",
+    "src/js/operation/pos-cajon.js",
+    "src/js/operation/pos-ficha.js",
+    "src/js/operation/pos-alta.js",
     "src/js/modules/punto-de-venta.js",
   ],
   adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
+  // Casos del panel estratégico. ConfirmationModal y AppNotice ya llegan en
+  // admin.js, que el layout carga antes que cualquier bundle de módulo.
+  adminReservationEstrategiaJs: "src/js/admin/reservations/estrategia.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
   adminReservationFormJs: [
@@ -90,21 +108,6 @@ const paths = {
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/reservations/form.js",
-  ],
-  adminReservationOperationJs: [
-    "src/js/components/confirmation-modal.js",
-    "src/js/components/reservation-form-state.js",
-    "src/js/components/reservation-date-picker.js",
-    "src/js/components/reservation-time-picker.js",
-    "src/js/admin/reservations/form.js",
-    "src/js/operation/shell.js",
-    "src/js/operation/map-contract.js",
-    "src/js/operation/table-state-adapter.js",
-    "src/js/operation/map-visual.js",
-    "src/js/operation/map-help.js",
-    "src/js/operation/reservation-card.js",
-    "src/js/operation/reservation-operation-policy.js",
-    "src/js/admin/reservations/operation.js",
   ],
   adminConfigurationJs: [
     "src/js/components/reservation-date-picker.js",
@@ -294,6 +297,15 @@ function adminReservationListJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminReservationEstrategiaJavascript() {
+  return src(paths.adminReservationEstrategiaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("reservation-estrategia.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminUsersJavascript() {
   return src(paths.adminUsersJs)
     .pipe(sourcemaps.init())
@@ -310,21 +322,6 @@ function adminCatasJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
-}
-
-function adminReservationOperationJavascript() {
-  return src(paths.adminReservationOperationJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("reservation-operation.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
-function operationCss() {
-  return src(paths.operationScss)
-    .pipe(sass({ outputStyle: "expanded" }))
-    .pipe(dest("public/build/css/operation"));
 }
 
 function operationAppCss() {
@@ -416,9 +413,9 @@ function devWatch(done) {
   // shared/ es lo que comparten el árbol público y el del piso: el wordmark de
   // marca entra en app.css y en operation.css a la vez.
   watch("src/scss/shared/**/*.scss", parallel(css, operationAppCss));
-  // El árbol de operación alimenta DOS salidas: reservations.css y el bundle
-  // nuevo del piso, que además cuelga de admin/shared.
-  watch("src/scss/operation/**/*.scss", parallel(operationCss, operationAppCss));
+  // El árbol de operación sólo alimenta el bundle del piso (operation.css):
+  // la pantalla de Operación de reservaciones, que tenía hoja propia, se retiró.
+  watch("src/scss/operation/**/*.scss", operationAppCss);
   watch(
     [
       "src/scss/punto-de-venta/**/*.scss",
@@ -451,20 +448,13 @@ function devWatch(done) {
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
   watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
+  watch("src/js/admin/reservations/estrategia.js", adminReservationEstrategiaJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
-    ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
-    adminReservationOperationJavascript,
-  );
-  watch(
     "src/js/components/reservation-*-picker.js",
-    parallel(
-      adminMapJavascript,
-      adminReservationFormJavascript,
-      adminReservationOperationJavascript,
-    ),
+    parallel(adminMapJavascript, adminReservationFormJavascript),
   );
   watch(
     [
@@ -487,7 +477,6 @@ function devWatch(done) {
 exports.css = css;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
-exports.operationCss = operationCss;
 exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
@@ -498,10 +487,10 @@ exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
+exports.adminReservationEstrategiaJs = adminReservationEstrategiaJavascript;
 exports.adminUsersJs = adminUsersJavascript;
 exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
-exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.copyChartJs = copyChartJs;
 exports.copyVendorJs = copyVendorJs;
@@ -515,7 +504,6 @@ exports.dev = parallel(
   css,
   adminCss,
   adminModuleCss,
-  operationCss,
   operationAppCss,
   imagenes,
   versionWebp,
@@ -532,10 +520,10 @@ exports.dev = parallel(
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,
+  adminReservationEstrategiaJavascript,
   adminUsersJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
-  adminReservationOperationJavascript,
   adminConfigurationJavascript,
   copyChartJs,
   copyVendorJs,
@@ -551,7 +539,6 @@ exports.build = series(
   css,
   adminCss,
   adminModuleCss,
-  operationCss,
   operationAppCss,
   imagenes,
   versionWebp,
@@ -565,10 +552,10 @@ exports.build = series(
   adminRecetasJavascript,
   adminInventarioJavascript,
   adminReservationListJavascript,
+  adminReservationEstrategiaJavascript,
   adminUsersJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
-  adminReservationOperationJavascript,
   adminConfigurationJavascript,
   // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas
   // cargan desde /build/js/vendor.

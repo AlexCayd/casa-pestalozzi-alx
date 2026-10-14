@@ -34,6 +34,9 @@ final class AdminBuzonController
             return;
         }
 
+        // Primero las ausencias vencidas: así el buzón no abre un aviso de
+        // «no llegó» para algo que ya quedó registrado.
+        \Services\Reservations\ReservacionAusenciaAutomaticaService::procesarEnLectura();
         $resultado = ReservacionBuzonService::sincronizarPendientesTemporales();
         self::json(array_merge(
             ['ok' => true, 'codigo' => 'BUZON_SINCRONIZADO'],
@@ -73,6 +76,9 @@ final class AdminBuzonController
                     'fecha' => (string)$item['fecha'],
                     'hora' => (string)$item['hora'],
                     'comensales' => (int)$item['comensales'],
+                    // El umbral es configurable: el JS no debe compararlo por
+                    // su cuenta contra un número fijo.
+                    'grupo_grande' => (int)$item['comensales'] > ReservacionConfig::umbralGrupoGrande(),
                     'prioridad' => 'normal',
                     'severidad' => (int)($item['severidad'] ?? 50),
                     'leida' => true,
@@ -189,7 +195,7 @@ final class AdminBuzonController
             $expirada = (string)($fuente['access_expires_at'] ?? '') !== ''
                 && (string)$fuente['access_expires_at'] <= $ahora;
             $tieneContacto = (bool)($fuente['tiene_contacto'] ?? false);
-            $esGrupoGrande = (int)($fuente['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO;
+            $esGrupoGrande = (int)($fuente['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande();
             $estadoEntrega = (string)($fuente['notification_delivery_status'] ?? 'pending');
             $requiereAccion = !$tieneContacto
                 || $esGrupoGrande
@@ -197,7 +203,7 @@ final class AdminBuzonController
                 || $expirada;
             if ($esGrupoGrande) {
                 $fuente['etiqueta'] = 'Requiere gestión manual';
-                $fuente['descripcion'] = 'Los grupos de más de 12 personas se coordinan desde la reservación.';
+                $fuente['descripcion'] = 'Los grupos de más de ' . ReservacionConfig::umbralGrupoGrande() . ' personas se coordinan desde la reservación.';
                 $fuente['severidad'] = 30;
             } elseif (!$tieneContacto) {
                 $fuente['etiqueta'] = 'Falta un contacto';
@@ -236,6 +242,10 @@ final class AdminBuzonController
                 ? 'Reenviar aviso'
                 : null;
             return $fuente;
+        }
+
+        if ($tipo === ReservacionBuzonService::TIPO_REUBICADA) {
+            return self::fuenteReubicacion((int)$notificacion['entidad_id']);
         }
 
         if (!in_array($tipo, [
@@ -283,7 +293,7 @@ final class AdminBuzonController
             }
             return array_merge($base, [
                 'etiqueta' => 'Requiere gestión manual',
-                'descripcion' => 'Los grupos de más de 12 personas se coordinan desde la reservación.',
+                'descripcion' => 'Los grupos de más de ' . ReservacionConfig::umbralGrupoGrande() . ' personas se coordinan desde la reservación.',
                 'accion_primaria' => 'Abrir reservación',
                 'requiere_accion' => true,
                 'severidad' => 30,
@@ -316,7 +326,7 @@ final class AdminBuzonController
             || $estadoFinal
             || $ticket
             || (int)$reservacion->mesas_count > 0
-            || (int)$reservacion->comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            || (int)$reservacion->comensales > ReservacionConfig::umbralGrupoGrande()
             || $vigencia['ausencia_pendiente']
             || $fueraHorario
             || !in_array($ventana, ['advertencia', 'bloqueo', 'tolerancia'], true)) {
@@ -331,6 +341,50 @@ final class AdminBuzonController
             'ventana_operativa' => $ventana,
             'severidad' => 40,
         ]);
+    }
+
+    /**
+     * «Reubicada»: informativo. El sistema ya movió la reserva; lo que hace
+     * falta es que alguien lo sepa antes de sentar al cliente en la mesa que
+     * creía suya. Desaparece cuando se marca revisada (desde el POS) o cuando
+     * la reserva deja de estar viva.
+     */
+    private static function fuenteReubicacion(int $reubicacionId): ?array
+    {
+        $reubicacion = \Model\ReservacionReubicacion::buscarConReservacion($reubicacionId);
+        if (!$reubicacion || $reubicacion['revisada']) {
+            return null;
+        }
+        $reservacion = Reservacion::findWithMesas($reubicacion['reservacion_id']);
+        if (!$reservacion || in_array((string)$reservacion->estado, ReservacionConfig::ESTADOS_FINALES, true)) {
+            return null;
+        }
+        $nombres = [];
+        foreach (\Model\Mesa::buscarTodasParaMapa() as $mesa) {
+            $nombres[(int)$mesa->id] = (string)$mesa->nombre;
+        }
+        $describir = static function (array $ids) use ($nombres): string {
+            $lista = array_map(static fn(int $id): string => $nombres[$id] ?? ('Mesa ' . $id), $ids);
+            return $lista === [] ? 'sin mesa' : implode(' y ', $lista);
+        };
+
+        return [
+            'reservacion_id' => (int)$reservacion->id,
+            'nombre' => (string)$reservacion->nombre,
+            'fecha' => (string)$reservacion->fecha,
+            'hora' => substr((string)$reservacion->hora, 0, 5),
+            'comensales' => (int)$reservacion->comensales,
+            'estado' => (string)$reservacion->estado,
+            'tiene_contacto' => in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true),
+            'test_link_disponible' => false,
+            'etiqueta' => 'Reubicada',
+            'descripcion' => 'Pasó de ' . $describir($reubicacion['mesas_antes']) . ' a '
+                . $describir($reubicacion['mesas_despues'])
+                . ' para dar el exterior a un grupo grande. Al cliente no se le avisa.',
+            'accion_primaria' => 'Abrir reservación',
+            'requiere_accion' => false,
+            'severidad' => 60,
+        ];
     }
 
     private static function entrada(): array

@@ -40,7 +40,8 @@ if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaOperacion) !== 1) {
     $fechaOperacion = date('Y-m-d');
 }
 
-$operationUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaOperacion);
+// La operación del día vive en el POS.
+$operationUrl = '/punto-de-venta?fecha=' . rawurlencode($fechaOperacion);
 $rango = [
     'start' => (string)($filtros['fecha_inicio'] ?? $fechaDefault),
     'end' => (string)($filtros['fecha_fin'] ?? $fechaDefault),
@@ -230,6 +231,7 @@ foreach ($alertas as $tipo => $mensajes) {
 
 <?php if (!$partialOnly) : ?>
 <section class="admin-reservations admin-menu admin-page">
+    <?php $subnavActiva = 'historico'; include __DIR__ . '/_subnav.php'; ?>
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
@@ -250,7 +252,7 @@ foreach ($alertas as $tipo => $mensajes) {
                     <path d="M9 3v15"/>
                     <path d="M15 6v15"/>
                 </svg>
-                <span>Vista operativa</span>
+                <span>Abrir en el POS</span>
             </a>
         </div>
     </header>
@@ -495,11 +497,9 @@ foreach ($alertas as $tipo => $mensajes) {
                                 $origen = (string)$valor($reservacion, 'origen', 'admin');
                                 $toleranciaVencida = !empty($valor($reservacion, 'tolerancia_vencida', false));
                                 $showUrl = '/admin/reservaciones/detalle?id=' . $id . '&return_url=' . rawurlencode($returnTo);
-                                $operationContextUrl = '/admin/reservaciones/operacion?' . http_build_query([
+                                $operationContextUrl = '/punto-de-venta?' . http_build_query([
                                     'fecha' => $fecha,
-                                    'hora' => $horaLegible($hora),
                                     'reservation_id' => $id,
-                                    'return_url' => $returnTo,
                                 ]);
                                 ?>
                                 <?php
@@ -565,8 +565,8 @@ foreach ($alertas as $tipo => $mensajes) {
                                             <a
                                                 class="admin-btn admin-btn--ghost admin-btn--small reservations-card__operate"
                                                 href="<?php echo $h($operationContextUrl); ?>"
-                                                title="Abrir esta reservación en la vista operativa"
-                                                aria-label="Abrir en la vista operativa la reservación de <?php echo $h($nombre); ?>"
+                                                title="Abrir esta reservación en el POS"
+                                                aria-label="Abrir en el POS la reservación de <?php echo $h($nombre); ?>"
                                             >
                                                 <span>Operar</span>
                                                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

@@ -11,6 +11,10 @@
     root.ReservationFormState = api;
   }
 })(typeof window !== "undefined" ? window : globalThis, function () {
+  // El máximo real lo fija Configuración y llega del servidor en
+  // data-max-guests; éste sólo cubre un marcado que no lo traiga.
+  var MAX_GUESTS_FALLBACK = 12;
+
   function normalizeHour(value) {
     var match = String(value || "").match(/^([01]\d|2[0-3]):([0-5]\d)/);
     return match ? match[1] + ":" + match[2] : "";
@@ -91,7 +95,7 @@
   }
 
   function guestTransition(state, action, value, maximum) {
-    maximum = Math.max(1, parseInt(maximum, 10) || 12);
+    maximum = Math.max(1, parseInt(maximum, 10) || MAX_GUESTS_FALLBACK);
     state = state || {};
     var guests = Math.max(1, Math.min(maximum, parseInt(state.guests, 10) || 1));
     var largeParty = state.largeParty === true;
@@ -257,7 +261,7 @@
       && /^\d{4}-\d{2}-\d{2}$/.test(String(state.date || ""))
       && time
       && parseInt(state.guests, 10) >= 1
-      && parseInt(state.guests, 10) <= (parseInt(state.maxGuests, 10) || 12)
+      && parseInt(state.guests, 10) <= (parseInt(state.maxGuests, 10) || MAX_GUESTS_FALLBACK)
       && state.availabilityStatus === "ready"
       && state.availabilityPending !== true
       && slots.indexOf(time) !== -1
@@ -265,6 +269,7 @@
   }
 
   return {
+    MAX_GUESTS_FALLBACK: MAX_GUESTS_FALLBACK,
     normalizeHour: normalizeHour,
     normalizeDate: normalizeDate,
     normalizeSlots: normalizeSlots,

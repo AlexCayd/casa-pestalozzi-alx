@@ -3,6 +3,7 @@
     'use strict';
 
     var lastTriggerByDialog = new WeakMap();
+    var lastFocusByDialog = new WeakMap();
     var initializedDialogs = new WeakSet();
     var initializedHelpLayouts = new WeakSet();
     var scheduledHelpLayouts = new WeakSet();
@@ -14,6 +15,14 @@
     }
 
     function dialogFor(trigger) {
+        // El POS emite el botón fuera del mapa (en su barra de contexto), así
+        // que se resuelve primero por aria-controls y sólo después por el
+        // mapa que lo contiene.
+        var controlado = typeof trigger.getAttribute === 'function' ? trigger.getAttribute('aria-controls') : '';
+        if (controlado && typeof document.getElementById === 'function') {
+            var porId = document.getElementById(controlado);
+            if (porId && porId.hasAttribute && porId.hasAttribute('data-map-help-dialog')) return porId;
+        }
         var map = trigger.closest('[data-map-component]');
         return map ? map.querySelector('[data-map-help-dialog]') : null;
     }
@@ -154,9 +163,19 @@
 
         dialog.addEventListener('close', function () {
             var trigger = lastTriggerByDialog.get(dialog);
+            var foco = lastFocusByDialog.get(dialog);
             lastTriggerByDialog.delete(dialog);
-            if (trigger && trigger.isConnected && typeof trigger.focus === 'function') {
-                trigger.focus();
+            lastFocusByDialog.delete(dialog);
+            // En el POS el disparador es una opción del menú del avatar, que
+            // al cerrarse el diálogo sigue dentro de un panel oculto: enfocarlo
+            // no hace nada y el foco caería al <body>. Entonces vuelve a lo que
+            // estaba enfocado al abrir —el avatar, que shell.js enfocó al
+            // cerrar el menú—.
+            var oculto = trigger && typeof trigger.getClientRects === 'function'
+                && trigger.getClientRects().length === 0;
+            var destino = oculto && foco && foco.isConnected ? foco : trigger;
+            if (destino && destino.isConnected && typeof destino.focus === 'function') {
+                destino.focus();
             }
         });
     }
@@ -179,6 +198,7 @@
 
         initializeDialog(dialog);
         lastTriggerByDialog.set(dialog, trigger);
+        if (document.activeElement) lastFocusByDialog.set(dialog, document.activeElement);
         dialog.showModal();
 
         var initialFocus = dialog.querySelector('[data-map-help-initial-focus], [data-map-help-close]');

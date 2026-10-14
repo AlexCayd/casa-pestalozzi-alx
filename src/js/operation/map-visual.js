@@ -72,6 +72,8 @@
             etiquetaEstado: String(raw.etiquetaEstado || ''),
             subtitulo: String(raw.subtitulo || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
+            ficha: toBoolean(raw.ficha),
+            icono: /^[a-z0-9-]+$/.test(String(raw.icono || '')) ? String(raw.icono) : '',
             estadoBase: String(raw.estadoBase || ''),
             modificadores: normalizeClasses(raw.modificadores),
             seleccionValida: raw.seleccionValida === true,
@@ -95,6 +97,9 @@
         var context = String(options.contexto || canvas.getAttribute('data-map-context') || 'mapa-mesas');
         var interactive = options.interactivo !== false;
         var multiple = options.seleccionMultiple === true;
+        // Línea de estado (icono + palabra) dentro de cada pin. Opt-in: el POS
+        // la pide; la pantalla de Operación conserva su pin de siempre.
+        var showState = options.mostrarEstado === true;
         var tables = [];
         var tablesById = {};
         var resizeObserver = null;
@@ -146,9 +151,13 @@
                     && suppliedLower.indexOf('reservaci') === -1) {
                     suppliedLabel += ' Reservación cercana.';
                 }
-                return suppliedLabel
-                    + unverifiedCopy
-                    + (table.seleccionada ? ', seleccionada' : '');
+                var label = suppliedLabel + unverifiedCopy;
+                if (!table.seleccionada) return label;
+                // Las etiquetas del servidor cierran con punto: pegarles
+                // «, seleccionada» dejaba «… disponible., seleccionada».
+                return /[.!?]\s*$/.test(label)
+                    ? label.replace(/\s+$/, '') + ' Seleccionada.'
+                    : label + ', seleccionada';
             }
             var parts = [table.titulo];
             if (table.capacidad > 0) {
@@ -176,6 +185,82 @@
 
         function visibleTableContext(table) {
             return table.estadoNoVerificado ? '' : table.subtitulo;
+        }
+
+        function iconMarkup(name, size) {
+            return name && window.AdminIcons && typeof window.AdminIcons.get === 'function'
+                ? window.AdminIcons.get(name, size)
+                : '';
+        }
+
+        /*
+         * Cada estado lleva una FORMA propia dentro del mismo círculo —visto,
+         * guion, manecillas, exclamación—: es lo que separa verde de rojo con
+         * daltonismo, donde los dos rellenos se leen casi iguales.
+         */
+        function stateIconName(table) {
+            if (table.estadoNoVerificado) return 'alerta';
+            if (table.estadoVisual === 'libre') return 'estado-libre';
+            // Ya no hay «sin llegar» como estado propio: al vencer la
+            // tolerancia la ausencia se registra sola. Toda reserva es una.
+            if (table.estadoVisual === 'reservacion-proxima') return 'estado-reservada';
+            return 'estado-ocupada';
+        }
+
+        // Sin la palabra del estado («Libre», «Ocupada», «Reservada»): el color
+        // ya la dice, y la forma del icono la repite para quien no distingue
+        // verde de rojo. Sólo queda el dato que decide —«en 45 min», «20:00»,
+        // «Sin llegar», «3/4»—; la palabra sigue entera en el aria-label.
+        function stateText(table) {
+            if (table.estadoNoVerificado) return 'Sin verificar';
+            return table.subtitulo || '';
+        }
+
+        function syncStateLine(pin, table) {
+            var line = pin.querySelector('.mesa-pin__estado');
+            if (!showState || table.ficha) {
+                if (line) line.parentNode.removeChild(line);
+                return;
+            }
+            if (!line) {
+                line = document.createElement('span');
+                line.className = 'mesa-pin__estado';
+                // Lo que dice ya está entero en el aria-label del botón.
+                line.setAttribute('aria-hidden', 'true');
+                pin.insertBefore(line, pin.querySelector('.mesa-pin__verification-warning'));
+            }
+            // Una forma por pin: no hay estados compuestos.
+            var icon = stateIconName(table);
+            var text = stateText(table);
+            var key = icon + '|' + text;
+            if (line.getAttribute('data-key') === key) return;
+            line.setAttribute('data-key', key);
+            line.innerHTML = iconMarkup(icon, 13);
+            line.classList.toggle('is-solo-icono', !text);
+            if (!text) return;
+            var label = document.createElement('span');
+            label.className = 'mesa-pin__estado-texto';
+            label.textContent = text;
+            line.appendChild(label);
+        }
+
+        // Rótulo secundario fuera de la línea de estado: el conteo de una ficha
+        // («3 pedidos») o el contexto de un elemento en un mapa sin línea de
+        // estado. Vacío, no se pinta: «Área operativa» era relleno.
+        function syncTypeLabel(pin, table) {
+            var typeLabel = pin.querySelector('.mesa-pin__type-label');
+            var wanted = (table.ficha || (!showState && !table.reservable)) ? table.subtitulo : '';
+            if (!wanted) {
+                if (typeLabel) typeLabel.parentNode.removeChild(typeLabel);
+                return;
+            }
+            if (!typeLabel) {
+                typeLabel = document.createElement('span');
+                typeLabel.className = 'mesa-pin__type-label';
+                var stateLine = pin.querySelector('.mesa-pin__estado');
+                pin.insertBefore(typeLabel, stateLine || null);
+            }
+            typeLabel.textContent = wanted;
         }
 
         function dispatch(name, detail) {
@@ -224,8 +309,6 @@
             });
 
             pin.classList.remove('mesa-pin--highlight');
-            pin.classList.remove('reservation-operation-pin--assigned');
-            pin.classList.remove('reservation-operation-pin--selected');
             pin.classList.remove(UNVERIFIED_CLASS);
 
             pin.classList.add('mesa-pin--' + table.estadoVisual);
@@ -261,6 +344,7 @@
             pin.disabled = !isInteractive;
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
+            syncStateLine(pin, table);
 
             var warningIcon = pin.querySelector('.mesa-pin__verification-warning');
             if (table.estadoNoVerificado && !warningIcon) {
@@ -383,18 +467,27 @@
                 pin.setAttribute(name, table.atributos[name]);
             });
 
-            var label = document.createElement('span');
-            label.className = 'mesa-pin__label';
-            label.textContent = table.nombre;
-            pin.appendChild(label);
-
-            if (!table.reservable) {
-                var typeLabel = document.createElement('span');
-                typeLabel.className = 'mesa-pin__type-label';
-                typeLabel.textContent = table.subtitulo || 'Área operativa';
-                pin.appendChild(typeLabel);
+            if (table.ficha) {
+                pin.classList.add('mesa-pin--ficha');
+            }
+            if (showState) {
+                pin.classList.add('mesa-pin--con-estado');
             }
 
+            var label = document.createElement('span');
+            label.className = 'mesa-pin__label';
+            var labelIcon = table.ficha ? iconMarkup(table.icono, 16) : '';
+            if (labelIcon) {
+                label.innerHTML = labelIcon;
+                var labelText = document.createElement('span');
+                labelText.textContent = table.nombre;
+                label.appendChild(labelText);
+            } else {
+                label.textContent = table.nombre;
+            }
+            pin.appendChild(label);
+
+            syncTypeLabel(pin, table);
             applyState(pin, table);
             return pin;
         }
@@ -487,12 +580,18 @@
                 pin.setAttribute('aria-label', table.titulo);
             }
 
+            if (changes.etiquetaEstado != null) {
+                table.etiquetaEstado = String(changes.etiquetaEstado);
+            }
+            // Sin esto el lector de pantalla seguía anunciando el estado con
+            // el que se pintó el pin la primera vez: el color cambiaba y la
+            // voz no.
+            if (changes.ariaLabel != null) {
+                table.ariaLabel = String(changes.ariaLabel);
+            }
             if (changes.subtitulo != null) {
                 table.subtitulo = String(changes.subtitulo);
-                var typeLabelActual = pin.querySelector('.mesa-pin__type-label');
-                if (typeLabelActual) {
-                    typeLabelActual.textContent = table.subtitulo || 'Área operativa';
-                }
+                syncTypeLabel(pin, table);
             }
 
             if (changes.seleccionada != null) {

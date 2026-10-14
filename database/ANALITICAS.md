@@ -126,8 +126,9 @@ dos preguntas de operación —qué franjas rinden y dónde hay huecos— depend
 día: un viernes a las 21:00 y un martes a las 21:00 son la misma hora y negocios
 distintos. Agregar las columnas escondía exactamente eso.
 
-**Cálculo:** numerador de `ticket_items` agrupado por `DAYOFWEEK` y `HOUR` de
-`tickets.hora_apertura`; denominador de los asientos del comedor por el número
+**Cálculo:** numerador de `ticket_items` **de tickets de salón** agrupado por
+`DAYOFWEEK` y `HOUR` de `tickets.hora_apertura`; denominador de los asientos del
+salón por el número
 de fechas del rango que cayeron en ese día de la semana **y** tuvieron el local
 abierto en esa franja, según `horarios_operacion` descontando
 `excepciones_operacion`.
@@ -136,9 +137,20 @@ Ese conteo por día es lo que hace comparables las columnas: en 30 días puede
 haber cuatro viernes y cinco sábados, y sin dividir entre los días efectivos el
 sábado se vería más fuerte solo por ocurrir más veces.
 
-Los asientos son la constante `Analiticas::ASIENTOS_COMEDOR` (**44**), no
-`SUM(mesas.capacidad)`: esa suma da 64 porque incluye las barras (Barra Blanca 8
-+ Barra Roja 6 + Barra Roja 2 = 20) además de las 11 mesas de sala (11 × 4 = 44).
+**Sólo el salón, arriba y abajo.** Un ticket es de salón si alguna de sus mesas
+es `tipo = 'mesa'`; uno sin filas en `ticket_mesas` (histórico) también cuenta.
+Los tickets que viven sólo en barras, Llevar o Caja salen del numerador porque
+no ocupan un asiento del comedor: sumarlos sobre los asientos del salón inflaba
+el rendimiento justo en las franjas de más barra. El mismo filtro aplica a los
+respaldos de días y horas con venta, para que un día con sólo barra no pase por
+día operado.
+
+Los asientos salen de `Mesa::capacidadReservableTotal()`: la suma de capacidad
+de las mesas `tipo = 'mesa'` activas y reservables (hoy 11 × 4 = **44**), la
+misma definición que el «N/44» del POS. Sustituyó a la constante
+`ASIENTOS_COMEDOR`, que era la tercera copia escrita a mano de ese número. No
+hay historial de capacidad: desactivar una mesa reescala también los periodos
+pasados.
 
 **Codificación visual:** la intensidad del color es relativa a la celda más
 fuerte del periodo. Se distinguen tres estados que no hay que confundir:

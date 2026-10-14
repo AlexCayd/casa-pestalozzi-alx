@@ -412,6 +412,31 @@
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
   --confirmation-on-danger: var(--admin-paper);
+  /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
+     en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
+     mensaje en Geist— y el estado sacado de los ROLES de estado, no de los
+     hex de la paleta: el POS los redeclara (`.mapa-page.operational-page`:
+     éxito en lima, advertencia en naranja) y el aviso tiene que hablar el
+     mismo idioma que el mapa sobre el que cae, con chip y rótulo del mismo
+     tono.
+
+     Los `-text` se empujan un 15% hacia la tinta. Los del sistema están
+     calculados contra el fondo y la superficie base; el aviso se apoya en
+     --admin-surface-strong, un paso más claro en oscuro, y ahí el rojo del
+     POS se quedaba en 4.35:1 para un rótulo de 11 px. Mezclar con
+     --admin-text sube el contraste en los dos temas (en claro oscurece, en
+     oscuro aclara). */
+  --app-notice-font: var(--admin-font-sans);
+  --app-notice-label-font: var(--admin-font-mono);
+  --app-notice-edge: var(--admin-edge);
+  --app-notice-danger: var(--admin-danger);
+  --app-notice-warn: var(--admin-warning);
+  --app-notice-ok: var(--admin-success);
+  --app-notice-info: var(--admin-info);
+  --app-notice-danger-text: color-mix(in srgb, var(--admin-danger-text) 85%, var(--admin-text));
+  --app-notice-warn-text: color-mix(in srgb, var(--admin-warning-text) 85%, var(--admin-text));
+  --app-notice-ok-text: color-mix(in srgb, var(--admin-success-text) 85%, var(--admin-text));
+  --app-notice-info-text: color-mix(in srgb, var(--admin-info-text) 85%, var(--admin-text));
 }
 
 /* ── TEMA OSCURO ───────────────────────────────────────────────
@@ -608,6 +633,31 @@
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
   --confirmation-on-danger: var(--admin-paper);
+  /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
+     en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
+     mensaje en Geist— y el estado sacado de los ROLES de estado, no de los
+     hex de la paleta: el POS los redeclara (`.mapa-page.operational-page`:
+     éxito en lima, advertencia en naranja) y el aviso tiene que hablar el
+     mismo idioma que el mapa sobre el que cae, con chip y rótulo del mismo
+     tono.
+
+     Los `-text` se empujan un 15% hacia la tinta. Los del sistema están
+     calculados contra el fondo y la superficie base; el aviso se apoya en
+     --admin-surface-strong, un paso más claro en oscuro, y ahí el rojo del
+     POS se quedaba en 4.35:1 para un rótulo de 11 px. Mezclar con
+     --admin-text sube el contraste en los dos temas (en claro oscurece, en
+     oscuro aclara). */
+  --app-notice-font: var(--admin-font-sans);
+  --app-notice-label-font: var(--admin-font-mono);
+  --app-notice-edge: var(--admin-edge);
+  --app-notice-danger: var(--admin-danger);
+  --app-notice-warn: var(--admin-warning);
+  --app-notice-ok: var(--admin-success);
+  --app-notice-info: var(--admin-info);
+  --app-notice-danger-text: color-mix(in srgb, var(--admin-danger-text) 85%, var(--admin-text));
+  --app-notice-warn-text: color-mix(in srgb, var(--admin-warning-text) 85%, var(--admin-text));
+  --app-notice-ok-text: color-mix(in srgb, var(--admin-success-text) 85%, var(--admin-text));
+  --app-notice-info-text: color-mix(in srgb, var(--admin-info-text) 85%, var(--admin-text));
 }
 
 /* ── Las pantallas de piso ─────────────────────────────────────
@@ -6299,79 +6349,190 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .app-notice-stack {
   position: fixed;
   z-index: 12000;
-  top: max(16px, env(safe-area-inset-top));
+  top: var(--app-notice-top, max(16px, env(safe-area-inset-top)));
   right: max(16px, env(safe-area-inset-right));
   display: flex;
-  width: min(380px, 100vw - 32px);
+  width: min(400px, 100vw - 32px);
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
 
+.operational-page > .app-notice-stack {
+  right: max(var(--operational-shell-pad), env(safe-area-inset-right));
+}
+
 .app-notice {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
+  --app-notice-in: 240ms;
+  --app-notice-out: 160ms;
+  --app-notice-tono: var(--app-notice-info);
+  --app-notice-tono-texto: var(--app-notice-info-text);
+  --app-notice-linea: color-mix(in srgb, var(--confirmation-text) 12%, transparent);
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
-  padding: 14px 14px 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
-  border-left-width: 4px;
-  border-radius: 12px;
-  background: var(--confirmation-surface, var(--admin-surface));
-  color: var(--confirmation-text, var(--admin-text));
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--sombra) 42%, transparent);
+  min-height: 60px;
+  grid-template-areas: "icono cuerpo cerrar";
+  grid-template-columns: auto minmax(0, 1fr) 52px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
+  border-radius: 14px;
+  background: var(--confirmation-surface);
+  box-shadow: inset 0 1px 0 var(--app-notice-edge, transparent), 0 2px 6px color-mix(in srgb, var(--confirmation-shadow) 16%, transparent), 0 18px 44px color-mix(in srgb, var(--confirmation-shadow) 32%, transparent);
+  color: var(--confirmation-text);
+  font-family: var(--app-notice-font, inherit);
   opacity: 0;
   pointer-events: auto;
-  transform: translateY(-8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(-6px);
+  transition: opacity var(--app-notice-out) cubic-bezier(0.4, 0, 1, 1), transform var(--app-notice-out) cubic-bezier(0.4, 0, 1, 1);
 }
 .app-notice.is-open {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition-duration: var(--app-notice-in);
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 .app-notice--error {
-  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo));
+  --app-notice-tono: var(--app-notice-danger);
+  --app-notice-tono-texto: var(--app-notice-danger-text);
 }
 .app-notice--warning {
-  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar));
+  --app-notice-tono: var(--app-notice-warn);
+  --app-notice-tono-texto: var(--app-notice-warn-text);
 }
 .app-notice--success {
-  --app-notice-accent: var(--c-verde, var(--admin-c-verde));
+  --app-notice-tono: var(--app-notice-ok);
+  --app-notice-tono-texto: var(--app-notice-ok-text);
 }
-.app-notice--info {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
+.app-notice__icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  align-self: start;
+  grid-area: icono;
+  margin: 14px 0 0 14px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--app-notice-tono) 16%, transparent);
+  color: var(--app-notice-tono-texto);
+}
+.app-notice__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+.app-notice__icon:empty {
+  display: none;
+}
+.app-notice__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  grid-area: cuerpo;
+  padding: 13px 14px 14px 12px;
+}
+.app-notice__label {
+  display: block;
+  margin: 0;
+  color: var(--app-notice-tono-texto);
+  font-family: var(--app-notice-label-font, inherit);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
 .app-notice__text {
+  display: block;
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 .app-notice__close {
+  position: relative;
   display: grid;
-  width: 28px;
-  height: 28px;
+  min-height: 44px;
   place-items: center;
+  grid-area: cerrar;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0 13px 13px 0;
   background: transparent;
-  color: inherit;
+  color: var(--confirmation-faint, currentColor);
   cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-  opacity: 0.65;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  font: inherit;
+  transition: background 150ms ease, color 150ms ease;
 }
-.app-notice__close:hover {
-  opacity: 1;
+.app-notice__close::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--app-notice-linea);
+  content: "";
 }
-.app-notice__close:focus-visible {
-  outline: 2px solid var(--app-notice-accent);
-  outline-offset: 2px;
-  opacity: 1;
+.app-notice__close svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+@media (hover: hover) {
+  .app-notice__close:hover {
+    background: color-mix(in srgb, var(--confirmation-text) 7%, transparent);
+    color: var(--confirmation-text);
+  }
+}
+.app-notice__close:active {
+  background: color-mix(in srgb, var(--confirmation-text) 11%, transparent);
+}
+.app-notice .app-notice__close:focus-visible {
+  outline: 2px solid var(--confirmation-text);
+  outline-offset: -6px;
+  border-radius: 14px;
+  box-shadow: none;
+  color: var(--confirmation-text);
+}
+.app-notice__close--texto {
+  font-size: 12px;
+  font-weight: 600;
+}
+.app-notice__timer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--confirmation-text) 30%, transparent);
+  pointer-events: none;
+  transform-origin: left center;
+  animation: app-notice-tiempo var(--app-notice-espera, 6s) linear forwards;
+}
+.app-notice.is-paused .app-notice__timer {
+  animation-play-state: paused;
 }
 
+@keyframes app-notice-tiempo {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes app-notice-tiempo-fundido {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.12;
+  }
+}
 @media (max-width: 520px) {
   .app-notice-stack {
     left: max(12px, env(safe-area-inset-left));
@@ -6381,8 +6542,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 @media (prefers-reduced-motion: reduce) {
   .app-notice {
-    transition: none;
     transform: none;
+    transition: opacity 120ms linear;
+  }
+  .app-notice.is-open {
+    transform: none;
+    transition-duration: 120ms;
+    transition-timing-function: linear;
+  }
+  .app-notice__timer {
+    animation-name: app-notice-tiempo-fundido;
   }
 }
 /*

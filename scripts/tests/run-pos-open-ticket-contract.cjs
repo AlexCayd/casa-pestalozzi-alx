@@ -112,7 +112,12 @@ const specialMapContext = {
   ticketActual() { return null; },
   reservacionProximaMesa() { return null; },
   ticketSelectionMode: false,
-  selectedMesaIds: []
+  selectedMesaIds: [],
+  // Ficha cerrada, sin cambio de mesas y en vivo.
+  fichaMesaIds: [],
+  modoAsignacion: null,
+  contextoMapa: { modo: 'ahora', hora: '' },
+  enProyeccion() { return false; }
 };
 function evaluatePosFunction(startMarker, endMarker, targetContext) {
   return vm.runInNewContext('(' + sourceBetween(startMarker, endMarker) + ')', targetContext);
@@ -160,4 +165,32 @@ const barraProjection = mapRuntime.window.MesaEstadoAdapter.paraMapaVisual(barra
 assertContract(barraContract.estado_visual_pos === 'libre', 'Barra activa no reservable recibe el contrato visual operativo de POS');
 assertContract(barraProjection.interactivo && barraProjection.estadoNoVerificado === false, 'Barra sigue operable según su permiso POS aunque no sea reservable');
 
+// ── Ventanillas: Llevar sin tope, barra hasta el tope de Configuración ──
+const multiStart = source.indexOf('function esMultiTicket(mesa)');
+const multiEnd = source.indexOf('\n  function pedidosLlevar', multiStart);
+assertContract(multiStart !== -1 && multiEnd > multiStart, 'se encuentran los helpers multi-ticket');
+const multiContext = { tickets: [], capacidades: {} };
+multiContext.capacidadesPosMesa = (mesa) => multiContext.capacidades[mesa.id] || {};
+multiContext.isLlevar = (mesa) => multiContext.capacidadesPosMesa(mesa).crear_pedido_llevar === true;
+multiContext.ticketsParaMesa = (id) => multiContext.tickets.filter((t) => t.mesa_ids.includes(id));
+const multi = vm.runInNewContext('(function () {' + source.slice(multiStart, multiEnd) + '; return { esMultiTicket, ticketsMulti, topeTickets, multiLleno, vocabMulti, rotuloTicketsMulti }; })()', multiContext);
+multiContext.capacidades[12] = { multi_ticket: true, tope_tickets: 4 };
+multiContext.capacidades[14] = { multi_ticket: true, tope_tickets: null, crear_pedido_llevar: true };
+multiContext.capacidades[1] = { multi_ticket: false };
+const barraMulti = { id: 12, nombre: 'Barra Blanca' };
+const llevarMulti = { id: 14, nombre: 'Llevar' };
+assertContract(multi.esMultiTicket(barraMulti) && multi.esMultiTicket(llevarMulti) && !multi.esMultiTicket({ id: 1 }), 'barra y Llevar son ventanillas; una mesa no');
+multiContext.tickets = [1, 2, 3].map((id) => ({ id, mesa_ids: [12] }));
+assertContract(!multi.multiLleno(barraMulti) && multi.rotuloTicketsMulti(barraMulti, 3) === '3 de 4 tickets', 'con 3 de 4 la barra admite otro');
+multiContext.tickets.push({ id: 4, mesa_ids: [12] });
+assertContract(multi.multiLleno(barraMulti), 'con 4 de 4 la barra está llena');
+multiContext.tickets = [1, 2, 3, 4, 5, 6].map((id) => ({ id, mesa_ids: [14] }));
+assertContract(!multi.multiLleno(llevarMulti) && multi.topeTickets(llevarMulti) === null, 'Llevar no tiene tope');
+assertContract(multi.rotuloTicketsMulti(llevarMulti, 1) === '1 pedido' && multi.rotuloTicketsMulti(llevarMulti, 6) === '6 pedidos', 'Llevar cuenta pedidos');
+assertContract(multi.vocabMulti(barraMulti).titulo === 'Barra Blanca' && multi.vocabMulti(barraMulti).abrir === 'Abrir ticket', 'la barra habla de tickets y usa su nombre');
+assertContract(multi.vocabMulti(llevarMulti).titulo === 'Para llevar' && multi.vocabMulti(llevarMulti).abrir === 'Abrir pedido', 'Llevar habla de pedidos');
+const clickSource = sourceBetween('function onMesaClick(mesaId)', '\n  // ── Selección multimesa');
+assertContract(clickSource.includes('if (esMultiTicket(mesa))') && clickSource.includes('showMultiTicketModal(mesa)'), 'la barra abre el tablero de tickets como Llevar');
+assertContract(source.includes("result.codigo === 'BARRA_LLENA'"), 'el alta maneja la barra llena devuelta por el servidor');
+assertContract(/if \(!multi\) \{\s*h \+= '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-unir-mesas">/.test(source), 'una ventanilla no ofrece Unir mesas');
 console.log('POS: apertura y contratos de elementos operativos OK');

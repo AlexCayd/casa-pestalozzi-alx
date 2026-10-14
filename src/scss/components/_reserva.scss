@@ -578,8 +578,9 @@
   font-family: var(--serif);
   font-size: 1.5rem;
   color: var(--beige);
-  // Reserva el ancho de "Más de 12": con 2ch el grupo saltaba al cruzar ese
-  // umbral y los botones −/+ cambiaban de posición.
+  // Reserva el ancho de "Más de N" (el máximo es configurable, de 7 a 16): con
+  // 2ch el grupo saltaba al cruzar ese umbral y los botones −/+ cambiaban de
+  // posición.
   min-width: 6ch;
   font-variant-numeric: tabular-nums;
   text-align: center;

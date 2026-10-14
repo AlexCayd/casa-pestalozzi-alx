@@ -127,7 +127,7 @@ final class ReservationManagementAccessService
         }
         if ($accion === 'modify') {
             return ($sourceType !== self::SOURCE_REMINDER_NEXT_DAY
-                    || (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO)
+                    || (int)$fila['comensales'] <= ReservacionConfig::umbralGrupoGrande())
                 && ReservacionPublicaService::puedeModificarPublicamente($fila);
         }
         return ReservacionPublicaService::puedeCancelarPublicamente($fila);
@@ -184,7 +184,7 @@ final class ReservationManagementAccessService
         ];
         $canModify = ReservacionPublicaService::puedeModificarPublicamente($base)
             && ($sourceType !== self::SOURCE_REMINDER_NEXT_DAY
-                || (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO);
+                || (int)$fila['comensales'] <= ReservacionConfig::umbralGrupoGrande());
         $canCancel = ReservacionPublicaService::puedeCancelarPublicamente($base);
         if (!$canModify && !$canCancel) {
             return null;

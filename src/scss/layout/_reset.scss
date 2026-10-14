@@ -26,6 +26,30 @@
 // por eso los títulos de la carta, los textos de los botones y el lightbox
 // entero salían en café sobre verde. Incluyendo el mixin en cada ámbito, los
 // alias se vuelven a resolver ahí y siguen al rol que representan.
+// Roles del aviso transitorio (components/_app-notice.scss), la pareja de los
+// que declara `alias-admin-heredados` en _globals.scss: el componente vive en
+// los dos sistemas y cada uno lo pinta con su paleta. Al añadir uno aquí, se
+// añade allí, o el otro lado se queda con una declaración inválida.
+//
+// Los `-text` NO son --feedback-*: sobre crema, --feedback-ok da 3.4:1,
+// --feedback-info 3.9:1 y --feedback-warn 2.6:1, y aquí pintan un rótulo de
+// 11 px que necesita 4.5:1. Se mezclan con --txt-strong y no con un color fijo
+// para que en un ámbito oscuro el mismo porcentaje los aclare en vez de
+// hundirlos. Cuentas sobre crema: rojo 5.7, ámbar 4.9, verde 5.3, azul 5.5.
+@mixin roles-aviso {
+  --app-notice-font: var(--sans);
+  --app-notice-label-font: var(--sans);
+  --app-notice-edge: var(--glass-edge);
+  --app-notice-danger: var(--c-rojo);
+  --app-notice-warn: var(--c-ambar);
+  --app-notice-ok: var(--c-verde);
+  --app-notice-info: var(--c-azul);
+  --app-notice-danger-text: color-mix(in srgb, var(--c-rojo) 72%, var(--txt-strong));
+  --app-notice-warn-text: color-mix(in srgb, var(--c-ambar) 38%, var(--txt-strong));
+  --app-notice-ok-text: color-mix(in srgb, var(--c-verde) 52%, var(--txt-strong));
+  --app-notice-info-text: color-mix(in srgb, var(--c-azul) 56%, var(--txt-strong));
+}
+
 @mixin alias-heredados {
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
@@ -86,6 +110,7 @@
   /* El rojo de la paleta funcional no admite texto oscuro encima. */
   --confirmation-on-danger: var(--brand-crema);
 
+  @include roles-aviso;
   @include tokens-vidrio;
 }
 
@@ -318,6 +343,7 @@
   --confirmation-danger: var(--c-rojo);
   --confirmation-danger-text: var(--feedback-danger);
   --confirmation-on-danger: var(--brand-crema);
+  @include roles-aviso;
 }
 
 // ── Tonos de sección ──────────────────────────────────────────

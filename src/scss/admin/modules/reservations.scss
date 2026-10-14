@@ -5,6 +5,8 @@
 @use "../shared/abstracts/variables" as vars;
 @use "../shared/abstracts/mixins" as mixins;
 @use "../../shared/reservation-form-controls";
+// Histórico · Grupos grandes · Casos: la comparte con reservations-estrategia.scss.
+@use "reservations/subnav";
 
 .admin-filters {
   display: grid;

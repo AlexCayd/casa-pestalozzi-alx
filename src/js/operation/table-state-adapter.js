@@ -87,7 +87,7 @@
     }
 
     function modifiersValid(raw, options) {
-        var fields = ['modificadores_visual_pos', 'modificadores_visual_mapa', 'modificadores'];
+        var fields = ['modificadores_visual_pos', 'modificadores'];
         for (var i = 0; i < fields.length; i += 1) {
             var field = fields[i];
             if (Object.prototype.hasOwnProperty.call(raw, field)
@@ -103,7 +103,6 @@
         return firstPresent([
             options.estadoVisual,
             raw.estado_visual_pos,
-            raw.estado_visual_mapa,
             raw.estadoVisual,
             raw.estado_visual
         ]);
@@ -219,13 +218,17 @@
             independienteDeConsulta: booleanValue(options.independienteDeConsulta)
                 || booleanValue(raw.independienteDeConsulta),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ('Mesa ' + (raw.id || ''))),
-            ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),
+            ariaLabel: String(options.ariaLabel || raw.aria_label || ''),
             etiquetaEstado: estadoNoVerificado
                 ? 'Estado no verificado'
                 : visualLabel(estadoVisual, visualModifiers, raw, options),
             subtitulo: String(options.subtitulo || raw.subtitulo || (
                 estadoVisual === 'no-utilizable' ? raw.motivo_bloqueo || raw.motivoBloqueo || '' : ''
             )),
+            // Caja y Llevar: fichas de acción, sin línea de estado. El icono
+            // es un NOMBRE del catálogo (AdminIcons), nunca marcado.
+            ficha: booleanValue(options.ficha != null ? options.ficha : raw.ficha),
+            icono: /^[a-z0-9-]+$/.test(String(options.icono || '')) ? String(options.icono) : '',
             modificadores: visualModifiers,
             estadoVisual: estadoVisual,
             clasesEstado: classes,

@@ -72,13 +72,9 @@
         var closeButtons = Array.prototype.slice.call(page.querySelectorAll('[data-operational-drawer-close]'));
         var countSource = page.querySelector('[data-operation-count], #mapa-reserva-count');
         var countTargets = Array.prototype.slice.call(page.querySelectorAll('[data-operational-drawer-count]'));
-        var panelClose = page.querySelector('[data-operation-panel-close]');
-        var detailPanel = page.querySelector('[data-operation-panel-shell]');
-        var operationRoot = page.querySelector('[data-page="reservation-operation"]');
         var mapToggles = Array.prototype.slice.call(page.querySelectorAll('[data-operational-map-toggle]'));
         var userMenus = Array.prototype.slice.call(page.querySelectorAll('[data-operational-user-menu]'));
         var lastFocus = null;
-        var detailLastFocus = null;
         var mapStateKey = page.getAttribute('data-operational-map-state-key') || 'pos';
         var MAP_MAX_KEY = 'cp-' + mapStateKey + '-map-maximized';
 
@@ -176,6 +172,13 @@
                         setUserMenu(otherMenu, false, false);
                     }
                 });
+                // El cajón es modal (velo en z 70 y él en 80) y el menú nace
+                // dentro de la barra (z 50): abiertos a la vez, el panel
+                // quedaba debajo del velo —y en teléfono, debajo del cajón—.
+                // Son dos capas que se excluyen; gana la que se acaba de pedir.
+                if (page.classList.contains('is-drawer-open')) {
+                    setDrawer(false, false);
+                }
             }
 
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -194,9 +197,17 @@
                 return;
             }
 
-            toggle.addEventListener('click', function () {
+            toggle.addEventListener('click', function (event) {
                 var open = toggle.getAttribute('aria-expanded') === 'true';
                 setUserMenu(menu, !open, false);
+                // Abierto con Enter o Espacio (detail 0: no hubo puntero), el
+                // foco entra en la primera opción, como pide un botón de menú.
+                if (!open && event && event.detail === 0) {
+                    var primera = userMenuItems(menu)[0];
+                    if (primera) {
+                        primera.focus();
+                    }
+                }
             });
 
             toggle.addEventListener('keydown', function (event) {
@@ -212,6 +223,33 @@
                         firstItem.focus();
                     }
                 }
+            });
+
+            // Elegir una opción cierra el menú y devuelve el foco al avatar.
+            // En CAPTURA, antes que el manejador de la opción: el que abre un
+            // diálogo (ajustes, ayuda) guarda el foco activo para devolverlo
+            // al cerrar, y tiene que encontrar el avatar —visible— y no la
+            // opción, que se queda dentro de un panel oculto.
+            panel.addEventListener('click', function (event) {
+                var item = event.target && event.target.closest
+                    ? event.target.closest('[role="menuitem"]')
+                    : null;
+                if (!item || !panel.contains(item)) {
+                    return;
+                }
+                setUserMenu(menu, false, true);
+            }, true);
+
+            // Si el tabulador sale del panel, el menú se cierra sin robar el
+            // foco: quedaría abierto encima del mapa sin nadie mirándolo.
+            menu.addEventListener('focusout', function (event) {
+                if (panel.hidden || (event.relatedTarget && menu.contains(event.relatedTarget))) {
+                    return;
+                }
+                if (!event.relatedTarget) {
+                    return;
+                }
+                setUserMenu(menu, false, false);
             });
 
             panel.addEventListener('keydown', function (event) {
@@ -291,63 +329,6 @@
             });
         }
 
-        function detailFocusableElements() {
-            if (!detailPanel) {
-                return [];
-            }
-
-            return Array.prototype.slice.call(detailPanel.querySelectorAll(
-                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-            )).filter(function (element) {
-                return !element.hidden && element.offsetParent !== null;
-            });
-        }
-
-        function detailUsesOverlay() {
-            return Boolean(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
-        }
-
-        function detailIsOpen() {
-            return Boolean(
-                detailPanel &&
-                detailUsesOverlay() &&
-                !detailPanel.hidden &&
-                detailPanel.getAttribute('aria-hidden') !== 'true' &&
-                operationRoot &&
-                !operationRoot.classList.contains('is-panel-dismissed') &&
-                !operationRoot.classList.contains('is-panel-suppressed')
-            );
-        }
-
-        function syncDetailInert() {
-            if (!operationRoot) {
-                return;
-            }
-
-            var mapSurface = operationRoot.querySelector('.reservation-operation__map');
-            if (mapSurface) {
-                mapSurface.toggleAttribute('inert', detailIsOpen());
-            }
-        }
-
-        function focusDetail() {
-            var focusable = detailFocusableElements();
-            (focusable[0] || detailPanel).focus();
-        }
-
-        function closeDetail() {
-            if (!operationRoot) {
-                return;
-            }
-
-            document.dispatchEvent(new CustomEvent('operational:close-panel'));
-            operationRoot.classList.add('is-panel-dismissed');
-            syncDetailInert();
-            if (detailLastFocus && typeof detailLastFocus.focus === 'function') {
-                detailLastFocus.focus();
-            }
-        }
-
         function setDrawer(open, restoreFocus) {
             if (!drawer) {
                 return;
@@ -364,17 +345,11 @@
             if (backdrop) {
                 backdrop.hidden = !open;
             }
-            if (operationRoot) {
-                operationRoot.classList.toggle('is-panel-suppressed', open);
-            }
             if (open) {
                 var focusable = focusableElements();
                 (focusable[0] || drawer).focus();
             } else if (restoreFocus !== false && lastFocus && typeof lastFocus.focus === 'function') {
                 lastFocus.focus();
-                if (detailIsOpen()) {
-                    focusDetail();
-                }
             }
         }
 
@@ -403,32 +378,10 @@
                 setDrawer(false);
             });
         }
-        if (detailPanel && window.MutationObserver) {
-            new MutationObserver(function () {
-                if (detailIsOpen()) {
-                    syncDetailInert();
-                    if (!detailPanel.contains(document.activeElement)) {
-                        focusDetail();
-                    }
-                } else {
-                    syncDetailInert();
-                }
-            }).observe(detailPanel, { attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
-        }
-        if (panelClose && operationRoot) {
-            panelClose.addEventListener('click', function () {
-                closeDetail();
-            });
-        }
-
         page.addEventListener('click', function (event) {
-            if (event.target.closest('[data-operation-reservation]')) {
-                detailLastFocus = event.target.closest('[data-operation-reservation]');
-                if (operationRoot) {
-                    operationRoot.classList.remove('is-panel-dismissed');
-                }
-                setDrawer(false, false);
-            } else if (event.target.closest('.reserva-card')) {
+            if (event.target.closest('[data-cierra-cajon]')) {
+                // Elegir en el cajón lo cierra: lo que sigue (la proyección, la
+                // ficha) pasa en el mapa, y la petición viaja mientras se cierra.
                 setDrawer(false, false);
             }
         });
@@ -444,36 +397,13 @@
                     setUserMenu(openUserMenu, false, true);
                     return;
                 }
-                if (detailIsOpen()) {
-                    event.preventDefault();
-                    closeDetail();
-                    return;
-                }
                 if (page.classList.contains('is-drawer-open')) {
                     event.preventDefault();
                     setDrawer(false);
                     return;
                 }
             }
-            if (event.key !== 'Tab' || (!page.classList.contains('is-drawer-open') && !detailIsOpen())) {
-                return;
-            }
-            if (detailIsOpen()) {
-                var detailFocusable = detailFocusableElements();
-                if (!detailFocusable.length) {
-                    event.preventDefault();
-                    focusDetail();
-                    return;
-                }
-                var detailFirst = detailFocusable[0];
-                var detailLast = detailFocusable[detailFocusable.length - 1];
-                if (event.shiftKey && document.activeElement === detailFirst) {
-                    event.preventDefault();
-                    detailLast.focus();
-                } else if (!event.shiftKey && document.activeElement === detailLast) {
-                    event.preventDefault();
-                    detailFirst.focus();
-                }
+            if (event.key !== 'Tab' || !page.classList.contains('is-drawer-open')) {
                 return;
             }
             if (!drawer) {

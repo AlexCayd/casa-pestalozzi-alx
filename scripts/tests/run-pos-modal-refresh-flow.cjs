@@ -85,16 +85,15 @@ assertContract(activeState.listeners === 1, 'la acción walk-in conserva un úni
 renderModal(resolve(options, warningFacts));
 assertContract(activeState.listeners === 1, 'el segundo refresh no duplica el handler');
 
-assertContract(source.includes('options: modalOptions'), 'el modal guarda sus opciones resueltas');
-assertContract(source.includes('previousOptions: activeReservationModal.options'), 'el refresh recupera opciones previas');
-assertContract(
-  source.includes('buildModalContent(mesa, estado, reservaActual, null, modalOptions)'),
-  'el refresh reconstruye el contenido con opciones efectivas'
-);
-assertContract(
-  source.includes('bindModalActions(mesa, reservaActual, null, modalOptions)'),
-  'el refresh enlaza acciones con opciones efectivas'
-);
+// La ficha sustituye al modal de reservación: al refrescar, el walk-in se
+// revalida con los hechos nuevos y la ficha se repinta sólo si cambió.
+const sincronizar = source.slice(source.indexOf('function sincronizarFicha()'), source.indexOf('function postReservacion('));
+assertContract(sincronizar.includes('resolverOpcionesModalReservacion({') && sincronizar.includes('previousOptions: { allowWalkIn: true }'),
+  'el refresco revalida «Abrir ticket de todas formas» con el resolver');
+assertContract(sincronizar.includes('ficha.refrescar(reserva, extra)'), 'el refresco pasa las opciones efectivas a la ficha');
+const fichaSource = fs.readFileSync(path.join(root, 'src/js/operation/pos-ficha.js'), 'utf8');
+assertContract(fichaSource.includes('opcionesNuevas.allowWalkIn') && fichaSource.includes('editando || confirmando'),
+  'la ficha repinta si cambia el walk-in y nunca a media edición');
 assertContract(source.includes('requestOpenTicket({'), 'el botón conserva requestOpenTicket');
 assertContract(!helperSource.includes('minutos'), 'el resolver no duplica ventanas temporales');
 

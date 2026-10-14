@@ -15,6 +15,7 @@ use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
+use Model\ConfiguracionPos;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
@@ -35,6 +36,7 @@ final class PuntoVentaReservacionService
     public const TOLERANCIA_LLEGADA_VENCIDA = 'TOLERANCIA_LLEGADA_VENCIDA';
     public const REQUIERE_CONFIRMACION = 'REQUIERE_CONFIRMACION';
     public const TICKET_ABIERTO = 'TICKET_ABIERTO';
+    public const BARRA_LLENA = 'BARRA_LLENA';
     public const TICKET_CON_CONSUMO = 'TICKET_CON_CONSUMO';
     public const REQUIERE_REASIGNACION = 'REQUIERE_REASIGNACION';
     public const SIN_CAPACIDAD = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
@@ -290,7 +292,11 @@ final class PuntoVentaReservacionService
         int $usuarioId,
         string $motivo = ''
     ): array {
-        return self::mutarReservacion($reservacionId, function (array $r, \mysqli $db) use ($usuarioId, $motivo): array {
+        $motivo = trim($motivo);
+        if (strlen($motivo) > 500) {
+            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
+        }
+        $resultado = self::mutarReservacion($reservacionId, function (array $r, \mysqli $db) use ($motivo): array {
             if ($r['estado'] === 'cancelada') {
                 return ['ok' => true, 'codigo' => self::OK, 'idempotente' => true];
             }
@@ -300,20 +306,31 @@ final class PuntoVentaReservacionService
             if (self::ticketAbiertoReservacion($db, (int)$r['id'])) {
                 return ['ok' => false, 'codigo' => self::TICKET_ABIERTO];
             }
-            if (trim($motivo) === '') {
+            if ($motivo === '') {
                 return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
             }
 
+            // El motivo se pedía y se tiraba: ahora se guarda igual que en el
+            // panel, que es donde se consulta después.
+            $motivoSql = ActiveRecord::escaparString($motivo);
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
                 "estado = 'cancelada',
+                 motivo_cancelacion = '{$motivoSql}',
                  estado_changed_at = NOW()"
             );
             self::invalidarReemplazosPendientes($db, (int)$r['id']);
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
         });
+        if (($resultado['ok'] ?? false) && empty($resultado['idempotente'])) {
+            // Fuera de la transacción, como el camino del panel: una reserva
+            // cancelada deja de contar en las afectaciones por cambio de horario.
+            \Services\Scheduling\HorarioOperacionImpactoService::reconciliarReservacion($reservacionId, $usuarioId ?: null);
+        }
+
+        return $resultado;
     }
 
     /**
@@ -366,16 +383,35 @@ final class PuntoVentaReservacionService
             if (!self::meseroActivo($db, $meseroId)) {
                 return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
             }
-            // Llevar no es una mesa física: es la ventanilla de pedidos para
-            // llevar y atiende varios a la vez. La excepción la decide la mesa
-            // y no el cliente — antes bastaba con mandar `allow_multiple` para
-            // abrir un segundo ticket sobre cualquier mesa del salón. Tampoco
-            // se une a otras: un pedido para llevar no ocupa lugar en el piso.
-            $esLlevar = self::incluyeMesaLlevar($db, $mesaIds);
-            if ($esLlevar && count($mesaIds) > 1) {
+            // Llevar y las barras admiten varios tickets a la vez sobre la misma
+            // fila de `mesas`: Llevar sin tope, la barra hasta el de
+            // Configuración → POS. La excepción la decide la mesa y no el
+            // cliente — antes bastaba con mandar `allow_multiple` para abrir un
+            // segundo ticket sobre cualquier mesa del salón. Ninguno de los dos
+            // se une a otras mesas: no ocupan lugar en el salón.
+            $multiTicket = self::elementoMultiTicket($db, $mesaIds);
+            if ($multiTicket !== null && count($mesaIds) > 1) {
                 return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
             }
-            if (!$esLlevar) {
+            if ($multiTicket !== null && $multiTicket['tope'] !== null) {
+                // Los locks de fecha del día ya serializan las aperturas; el
+                // FOR UPDATE de ticketsAbiertosEnMesa() es la revalidación.
+                $abiertos = self::ticketsAbiertosEnMesa($db, $multiTicket['mesa_id']);
+                if ($abiertos >= $multiTicket['tope']) {
+                    return self::rollbackResultado(
+                        $db,
+                        $transaccion,
+                        self::BARRA_LLENA,
+                        [
+                            'mesa_id' => $multiTicket['mesa_id'],
+                            'nombre' => $multiTicket['nombre'],
+                            'tickets_abiertos' => $abiertos,
+                            'tope_tickets' => $multiTicket['tope'],
+                        ]
+                    );
+                }
+            }
+            if ($multiTicket === null) {
                 $conflicto = self::ticketAbiertoEnMesas($db, $mesaIds);
                 if ($conflicto !== null) {
                     return self::rollbackResultado(
@@ -960,17 +996,52 @@ final class PuntoVentaReservacionService
     }
 
     /**
-     * La ventanilla de Llevar se reconoce por nombre, igual que la Caja en
-     * mesasNoTicketables(): son las dos piezas especiales del mapa.
+     * La pieza multi-ticket de la selección, si la hay. La barra se reconoce
+     * por tipo; Llevar, por nombre, igual que la Caja en mesasNoTicketables():
+     * las dos son `especial` y el nombre es lo único que las distingue.
+     *
+     * @return array{mesa_id:int, nombre:string, tipo:string, tope:?int}|null
      */
-    private static function incluyeMesaLlevar(\mysqli $db, array $mesaIds): bool
+    private static function elementoMultiTicket(\mysqli $db, array $mesaIds): ?array
     {
         $ids = implode(',', array_map('intval', $mesaIds));
-        return self::fila(
-            "SELECT id FROM mesas
-             WHERE id IN ({$ids}) AND tipo = 'especial' AND nombre = 'Llevar'
+        $fila = self::fila(
+            "SELECT id, nombre, tipo FROM mesas
+             WHERE id IN ({$ids})
+               AND (tipo = 'barra' OR (tipo = 'especial' AND nombre = 'Llevar'))
+             ORDER BY id
              LIMIT 1"
-        ) !== null;
+        );
+        if ($fila === null) {
+            return null;
+        }
+        $esBarra = (string)$fila['tipo'] === 'barra';
+
+        return [
+            'mesa_id' => (int)$fila['id'],
+            'nombre' => (string)$fila['nombre'],
+            'tipo' => $esBarra ? 'barra' : 'llevar',
+            'tope' => $esBarra ? ConfiguracionPos::maxTicketsBarra() : null,
+        ];
+    }
+
+    private static function ticketsAbiertosEnMesa(\mysqli $db, int $mesaId): int
+    {
+        $resultado = $db->query(
+            "SELECT t.id
+             FROM tickets t
+             INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
+             WHERE " . TicketMesa::condicionSqlAbierto('t') . "
+               AND tm.mesa_id = {$mesaId}
+             FOR UPDATE"
+        );
+        if ($resultado === false) {
+            throw new \RuntimeException($db->error);
+        }
+        $abiertos = $resultado->num_rows;
+        $resultado->free();
+
+        return $abiertos;
     }
 
     private static function ticketAbiertoEnMesas(\mysqli $db, array $mesaIds): ?array

@@ -6,7 +6,6 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\DisponibilidadReservacionService;
-use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\Pos\PosReservacionSerializer;
 
 /** @param mixed $condition */
@@ -151,11 +150,6 @@ $resultadoContextual = ReservacionErrorCatalog::contextoResultado([
     'capacidad_disponible' => 5,
 ]);
 assertContract($resultadoContextual['comensales'] === 9, 'contexto de resultado expone comensales');
-
-assertContract(
-    ReservacionMapaMesaPresenter::presentar(['utilizable' => true])['estado_visual'] === 'libre',
-    'presenter mapa pinta mesa disponible en verde'
-);
 
 $codigoConsultaPublica = new ReflectionMethod(DisponibilidadReservacionService::class, 'codigoConsultaPublica');
 $codigoConsultaPublica->setAccessible(true);

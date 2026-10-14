@@ -1,0 +1,470 @@
+// ── Cajón de reservaciones del POS ──────────────────────────────────
+//
+// Agrupado por horario: la cabecera de cada grupo proyecta el mapa a esa hora
+// y la tarjeta además abre la ficha. La hora va en la cabecera y no en cada
+// tarjeta; «Confirmada» no se escribe porque es el caso normal.
+//
+// Una regla de color para todo el cajón, la misma del plano: el color dice el
+// ESTADO de una reserva y nada más. Lo lleva la señal de tiempo (`.pos-senal`)
+// con los tokens del pin —azul de mesa reservada, azul hondo de tolerancia
+// vencida— y, en ámbar sólo en la tinta, lo que pide revisar algo («Sin mesa
+// asignada», «Fuera de horario»). Cabeceras, selección y foco van en la tinta
+// del sistema. Y una regla de forma: el contorno de pastilla es de lo que se
+// pulsa; una etiqueta de estado nunca lo lleva.
+//
+// Contraste medido sobre la tarjeta: --admin-muted 5.27–6.21:1, --admin-faint
+// 4.04:1. Por eso ningún texto de aquí usa --admin-faint.
+
+// ── Fila de fecha plegada ────────────────────────────────────────────
+.pos-cajon-fecha {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+
+  &[hidden] { display: none; }
+}
+
+// Con el ancestro, como el resto de botones de esta hoja que declaran peso:
+// `.admin-body button` (0,1,1) reescribe `font: inherit` y una clase suelta
+// pierde. La fecha salía en 400 y a 12 px —el cuerpo de la cabecera del
+// cajón—, la letra más pequeña de la fila.
+.mapa-page .pos-cajon-fecha__dia {
+  gap: 0.3em;
+  display: flex;
+  min-width: 0;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+  &[aria-expanded="true"] { border-color: var(--admin-border-strong); }
+}
+
+.pos-cajon-fecha__rel { color: var(--admin-muted); }
+
+// El calendario sigue en flujo (CLAUDE.md), sólo deja de estar siempre abierto.
+.mapa-page .pos-drawer-date[hidden] { display: none; }
+
+// ── Lista ────────────────────────────────────────────────────────────
+.pos-cajon {
+  display: grid;
+  gap: 18px;
+  // 4 px a los lados: el anillo de foco (3 px, por fuera) se recortaba contra
+  // el borde del scroller con el 0 que había a la izquierda.
+  padding: 12px 4px 16px;
+}
+
+.mapa-page .pos-cajon__ahora {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  time {
+    margin-left: auto;
+    font-family: var(--admin-font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.9; }
+
+  &[aria-current="true"] {
+    border-color: var(--admin-border-strong);
+    background: var(--admin-surface-soft);
+  }
+
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+}
+
+.pos-horario { display: grid; gap: 8px; }
+
+// Pegada arriba del scroller del cajón, con el vidrio del propio cajón para
+// que la tarjeta que pasa por debajo no se lea a través.
+.pos-horario__cab {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  font: inherit;
+}
+
+// La cabecera es un TITULAR de agenda, no una caja: la hora grande en mono,
+// el resumen y, a la derecha, la acción. Era un rectángulo con borde —igual
+// que las tarjetas que encabeza— y el proyectado se invertía a blanco macizo:
+// la superficie más ruidosa del cajón compitiendo con «Nueva reservación», que
+// es el único relleno sólido que le toca. Ahora la separa del grupo una regla
+// a todo el ancho, y el proyectado se dice con esa misma regla engrosada en
+// tinta, como la pestaña activa de un índice.
+.mapa-page .pos-horario__boton {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 52px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: var(--admin-glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur-sm));
+  backdrop-filter: blur(var(--admin-glass-blur-sm));
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+
+  // La regla es un pseudo-elemento y no un borde: así no se curva con ningún
+  // radio, que es el gesto que se quiso quitar de esta pantalla.
+  &::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 1px;
+    background: var(--admin-border);
+    content: "";
+  }
+
+  &:is(button) { cursor: pointer; }
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+
+  &[aria-current="true"]::after {
+    height: 2px;
+    background: var(--admin-accent);
+  }
+}
+
+// El vidrio sólo hace falta cuando la cabecera está pegada y la lista pasa
+// por debajo. En reposo, vidrio sobre el vidrio del cajón salía como una
+// banda más clara en cada horario y la lista se leía como una tabla. Donde no
+// hay consultas de estado de scroll se queda el vidrio siempre: es lo legible.
+@supports (container-type: scroll-state) {
+  .mapa-page .pos-horario__cab { container-type: scroll-state; }
+
+  .mapa-page .pos-horario__boton {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @container scroll-state(stuck: top) {
+    .mapa-page .pos-horario__boton {
+      background: var(--admin-glass-bg-strong);
+      -webkit-backdrop-filter: blur(var(--admin-glass-blur-sm));
+      backdrop-filter: blur(var(--admin-glass-blur-sm));
+    }
+  }
+}
+
+.pos-horario__hora {
+  font-family: var(--admin-font-mono);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pos-horario__resumen {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// «Ver» tiene la forma de acción de la casa —la pastilla con contorno de
+// «Cambiar» y «Agregar» en la ficha—; toda la cabecera es el blanco táctil,
+// la pastilla sólo dice dónde. Cuando ese horario ya es el del mapa deja de
+// ser acción y pasa a estado: sin contorno, en tinta.
+.pos-horario__ver {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.9; }
+
+  .pos-horario__boton:is(button):hover & { background: var(--admin-surface-soft); }
+
+  .pos-horario__boton[aria-current="true"] &,
+  .pos-horario__boton:not(button) & {
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .pos-horario__boton:not(button) & { color: var(--admin-muted); }
+}
+
+.pos-horario__lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// ── Tarjeta ──────────────────────────────────────────────────────────
+.pos-reserva {
+  position: relative;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+
+  svg { width: 14px; height: 14px; flex: 0 0 14px; stroke-width: 1.9; }
+
+  &:hover { border-color: var(--admin-border); }
+
+  // Enfocada: la ficha abierta es la suya. Se dice como se dice en el plano
+  // que una mesa está elegida —el contorno entero en la tinta del sistema—, y
+  // no con el filete de 3 px en el costado que había: con el radio de la
+  // tarjeta se doblaba en las dos esquinas y era el gesto genérico que el
+  // dueño pidió quitar. Un contorno completo sigue al radio sin deformarse.
+  &.is-enfocada {
+    border-color: var(--admin-accent);
+    background: var(--admin-surface-strong);
+    box-shadow: inset 0 0 0 1px var(--admin-accent);
+  }
+}
+
+.pos-reserva__boton {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+  padding: 10px 12px 11px 14px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  // Por fuera y en el halo del sistema: por dentro coincidía con el contorno
+  // de la enfocada y no había forma de saber cuál tenía el teclado.
+  &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
+}
+
+// Nombre a la izquierda, señal de tiempo a la derecha: como el pin, que dice
+// la mesa y debajo su estado. La señal siempre en la misma esquina se lee en
+// vertical bajando por la lista.
+.pos-reserva__fila {
+  display: flex;
+  min-width: 0;
+  min-height: 24px;
+  align-items: center;
+  gap: 10px;
+
+  .pos-senal { margin-left: auto; }
+}
+
+// Los hechos: mesas, personas y sus matices. Una sola línea que envuelve.
+.pos-reserva__datos {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.pos-reserva__nombre {
+  display: -webkit-box;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.pos-reserva__personas {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+
+  svg { color: var(--admin-muted); }
+}
+
+.pos-reserva__mesa { color: var(--admin-text); font-weight: 600; }
+
+// «antes» en palabra y no sólo tachado: el tachado no se anuncia en voz.
+.pos-reserva__antes { color: var(--admin-muted); }
+.pos-reserva__antes s { text-decoration-thickness: 1px; }
+
+.pos-reserva__sin-mesa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+
+.pos-reserva__nota {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.pos-reserva__contacto {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+
+// Resuelta (en mesa, cancelada, no llegó, atendida): una línea, sin relleno.
+// El contorno discontinuo que llevaba es el de «todavía no» (el «Llegó» de la
+// ficha, `--pending`), y aquí significaba lo contrario. Sin opacity: al 62 % el
+// texto secundario caía bajo 4.5:1.
+.pos-reserva--resuelta {
+  background: transparent;
+
+  .pos-reserva__boton {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding-block: 9px;
+    color: var(--admin-muted);
+  }
+}
+
+.pos-reserva__linea {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  b { color: var(--admin-text); font-weight: 600; }
+}
+
+.pos-cajon__cerradas {
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-border-soft);
+  color: var(--admin-muted);
+
+  summary {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .pos-horario__lista { padding-top: 6px; }
+}
+
+.pos-cajon__error {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-danger-border);
+  border-radius: 12px;
+  background: var(--admin-danger-bg);
+  color: var(--admin-text);
+
+  p { margin: 0; }
+}
+
+// ── Señales: misma etiqueta en tarjeta (24 px) y ficha (28 px) ────────
+// Neutra, es texto con icono: «Por llegar», «En mesa», «Apartada», «Grupo
+// grande». Era una pastilla con contorno, la misma silueta que «Cambiar» o
+// «Agregar», y el estado se leía como un botón más.
+//
+// Con color, es un pin en miniatura: relleno, canto y tinta del pin azul del
+// plano, con radio de pin y no de pastilla. La tarjeta, la ficha y la mesa se
+// reconocen así como la misma cosa. El ámbar va sólo en la tinta, sin relleno:
+// no es un estado de la mesa sino algo que revisar.
+.pos-senal {
+  display: inline-flex;
+  min-height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  b, time {
+    font-family: var(--admin-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  svg { width: 14px; height: 14px; flex: 0 0 14px; stroke-width: 2; }
+}
+
+.pos-senal--reservada,
+.pos-senal--vencida {
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.pos-senal--reservada {
+  border-color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
+}
+
+// La receta de `.mmodal-chip--overdue` del modal de mesa: se
+// libera sola en la siguiente lectura, así que es el azul hondo y no rojo
+// —el rojo del plano es «ocupada»—.
+.pos-senal--vencida {
+  border-color: var(--map-table-reservation-overdue-border);
+  background: var(--map-table-reservation-overdue-bg);
+  color: var(--map-table-reservation-overdue-text);
+}
+
+.pos-senal--aviso { color: var(--admin-warning-text); }

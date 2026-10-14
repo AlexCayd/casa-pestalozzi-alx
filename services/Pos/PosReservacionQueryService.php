@@ -50,7 +50,7 @@ final class PosReservacionQueryService
         $mesasLeidas = $incluirInactivas
             ? Mesa::buscarTodasParaMapa()
             : Mesa::consultarSQL(
-                "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+                "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
                  FROM mesas
                  WHERE activo = 1
                  ORDER BY numero ASC, id ASC"
@@ -91,7 +91,32 @@ final class PosReservacionQueryService
             );
         }
 
-        $horaEvaluacion = HorarioReservacionService::normalizarHoraSql($hora);
+        // El POS declara su contexto (ahora o proyección) y aquí se resuelve;
+        // el resto de consumidores conserva el comportamiento de siempre: hora
+        // dada o reloj, sin modo.
+        $contextoPos = !empty($opciones['contexto_pos']);
+        $reservacionEnfocadaId = (int)($opciones['reservacion_enfocada_id'] ?? 0);
+        if ($contextoPos && $reservacionEnfocadaId > 0
+            && HorarioReservacionService::normalizarHoraSql($hora) === '') {
+            // Tocar una reserva en el cajón (o llegar por un enlace a ella) sin
+            // hora explícita proyecta a SU hora: es lo que se quiere ver.
+            foreach ($filasReservaciones as $fila) {
+                if ((int)($fila->id ?? 0) === $reservacionEnfocadaId) {
+                    $hora = (string)($fila->hora ?? '');
+                    break;
+                }
+            }
+        }
+        $contexto = $contextoPos
+            ? self::resolverContexto($fecha, $hora, $ahora, $filasReservaciones, $horarioEfectivo)
+            : null;
+        if ($contexto !== null && $reservacionEnfocadaId > 0) {
+            $contexto['reservacion_id'] = $reservacionEnfocadaId;
+            $contexto['intencion'] = (string)($opciones['intencion'] ?? '') === 'asignar' ? 'asignar' : 'ver';
+        }
+        $horaEvaluacion = $contexto !== null
+            ? $contexto['hora']
+            : HorarioReservacionService::normalizarHoraSql($hora);
         if ($horaEvaluacion === '') {
             $horaEvaluacion = $ahora->format('H:i:s');
         }
@@ -131,6 +156,27 @@ final class PosReservacionQueryService
                 && $mesasBloqueantes === [];
             $reservaciones[] = $reservacionSerializada;
         }
+        // Insignia «Reubicada de Mesa 9 a Mesa 3»: la última reubicación de
+        // cada reserva, en una sola consulta. `reubicada` sólo mientras nadie la
+        // haya marcado como revisada; después queda el rastro, sin insignia.
+        if ($contextoPos && $reservaciones !== []) {
+            try {
+                $reubicaciones = \Model\ReservacionReubicacion::ultimasPorReservacion(
+                    array_map(static fn(array $r): int => (int)($r['id'] ?? 0), $reservaciones)
+                );
+            } catch (\Throwable $error) {
+                // Sin la tabla (base sin migrar) el POS sigue operando sin insignia.
+                error_log('PosReservacionQueryService::reubicaciones - ' . $error->getMessage());
+                $reubicaciones = [];
+            }
+            foreach ($reservaciones as &$reservacionConReubicacion) {
+                $reubicacion = $reubicaciones[(int)($reservacionConReubicacion['id'] ?? 0)] ?? null;
+                $reservacionConReubicacion['reubicacion'] = $reubicacion;
+                $reservacionConReubicacion['reubicada'] = $reubicacion !== null && empty($reubicacion['revisada']);
+            }
+            unset($reservacionConReubicacion);
+        }
+
         $superficie = strtolower(trim((string)($opciones['superficie'] ?? 'pos')));
         $reservacionesMapa = self::reservacionesParaProyeccionVisual($reservaciones, $superficie);
         $asignacionActualIds = [];
@@ -202,6 +248,7 @@ final class PosReservacionQueryService
                 'reservacion_en_edicion_id' => $reservacionEnEdicionId,
                 'current_assignment_ids' => $asignacionActualIds,
                 'evaluacion_ocupacion_asignacion' => $evaluacionOcupacionAsignacion,
+                'modo' => $contexto['modo'] ?? 'ahora',
             ]
         );
         $capacidadHorario = OcupacionMesasService::resumenCapacidad(
@@ -249,6 +296,13 @@ final class PosReservacionQueryService
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'evaluacion_ocupacion' => $evaluacionOcupacion,
             'capacidad_horario' => $capacidadHorario,
+            'contexto' => $contexto ?? [
+                'modo' => 'ahora',
+                'fecha' => $fecha,
+                'hora' => $horaEvaluacion,
+                'solo_lectura' => false,
+            ],
+            'horario' => self::resumenHorario($horarioEfectivo, $reservaciones, $fecha, $ahora),
             'server_time' => $ahora->format(DATE_ATOM),
             'timezone' => $ahora->getTimezone()->getName(),
             'config' => [
@@ -263,11 +317,10 @@ final class PosReservacionQueryService
     }
 
     /**
-     * Clasifica las reservaciones que alimentan el presenter de cada mapa.
-     * En el mapa administrativo, las fuera de horario siguen en los cálculos
-     * de ocupación/conflictos y en las listas, pero no alteran por sí solas la
-     * proyección de color. ReservacionMapaAdministrativaService usa el mismo
-     * hecho serializado para marcar `en_proyeccion_mapa`.
+     * Clasifica las reservaciones que alimentan el presenter del mapa. Las
+     * fuera de horario siguen en los cálculos de ocupación/conflictos y en la
+     * lista del día (el cajón y la ficha las señalan), pero no alteran por sí
+     * solas el color del pin.
      *
      * @param array<int, array<string, mixed>> $reservaciones
      * @return array<int, array<string, mixed>>
@@ -322,6 +375,115 @@ final class PosReservacionQueryService
         unset($ticket);
 
         return $tickets;
+    }
+
+    /**
+     * Contexto de la lectura del POS.
+     *
+     * - Hoy y sin hora: AHORA, la operación en vivo. Es lo único que se opera.
+     * - Con hora: PROYECCIÓN a esa hora, lanzada desde el cajón al tocar una
+     *   reserva o un horario. Sólo lectura: lo que se ve es cómo estará el
+     *   salón, no lo que se puede hacer ya.
+     * - Otro día sin hora: no existe «ahora», así que se proyecta al primer
+     *   horario con reservas confirmadas o, si no hay, a la apertura.
+     *
+     * @param array<int, object|array<string, mixed>> $filasReservaciones
+     * @param array<string, mixed> $horarioEfectivo
+     * @return array{modo:string, fecha:string, hora:string, solo_lectura:bool}
+     */
+    private static function resolverContexto(
+        string $fecha,
+        string $hora,
+        DateTimeImmutable $ahora,
+        array $filasReservaciones,
+        array $horarioEfectivo
+    ): array {
+        $horaPedida = HorarioReservacionService::normalizarHoraSql($hora);
+        $esHoy = $fecha === $ahora->format('Y-m-d');
+        if ($horaPedida === '' && $esHoy) {
+            return [
+                'modo' => 'ahora',
+                'fecha' => $fecha,
+                'hora' => $ahora->format('H:i:s'),
+                'solo_lectura' => false,
+            ];
+        }
+
+        if ($horaPedida === '') {
+            $horas = [];
+            foreach ($filasReservaciones as $fila) {
+                $datos = is_array($fila) ? $fila : get_object_vars($fila);
+                if ((string)($datos['estado'] ?? '') !== 'confirmada') {
+                    continue;
+                }
+                $horaReserva = HorarioReservacionService::normalizarHoraSql((string)($datos['hora'] ?? ''));
+                if ($horaReserva !== '') {
+                    $horas[] = $horaReserva;
+                }
+            }
+            sort($horas);
+            $horaPedida = $horas[0]
+                ?? (string)($horarioEfectivo['hora_apertura'] ?? '')
+                ?: '12:00:00';
+        }
+
+        return [
+            'modo' => 'proyeccion',
+            'fecha' => $fecha,
+            'hora' => $horaPedida,
+            'solo_lectura' => true,
+        ];
+    }
+
+    /**
+     * Lo que la barra del mapa necesita del horario: si se puede operar el día
+     * y cuál es la siguiente llegada. `sin_configurar` es el caso que hay que
+     * gritar: sin horario no se ofrece ninguna reserva y nadie se entera.
+     *
+     * @param array<string, mixed> $horarioEfectivo
+     * @param array<int, array<string, mixed>> $reservaciones
+     * @return array<string, mixed>
+     */
+    private static function resumenHorario(
+        array $horarioEfectivo,
+        array $reservaciones,
+        string $fecha,
+        DateTimeImmutable $ahora
+    ): array {
+        $codigo = !empty($horarioEfectivo['abierto'])
+            ? 'abierto'
+            : (array_key_exists('configurado', $horarioEfectivo) && empty($horarioEfectivo['configurado'])
+                ? 'sin_configurar'
+                : 'cerrado');
+
+        // La próxima llegada se cuenta desde el reloj en el día de hoy y desde
+        // el inicio del día en cualquier otro: es «quién es el siguiente».
+        $desde = $fecha === $ahora->format('Y-m-d') ? $ahora->format('H:i:s') : '00:00:00';
+        $proxima = null;
+        foreach ($reservaciones as $reservacion) {
+            if ((string)($reservacion['estado'] ?? '') !== 'confirmada' || !empty($reservacion['ticket_abierto'])) {
+                continue;
+            }
+            $horaReserva = HorarioReservacionService::normalizarHoraSql((string)($reservacion['hora'] ?? ''));
+            if ($horaReserva === '' || $horaReserva < $desde) {
+                continue;
+            }
+            if ($proxima === null || $horaReserva < $proxima['hora']) {
+                $proxima = [
+                    'reservacion_id' => (int)($reservacion['id'] ?? 0),
+                    'hora' => $horaReserva,
+                    'comensales' => (int)($reservacion['comensales'] ?? 0),
+                    'mesa_ids' => self::ids($reservacion['mesa_ids'] ?? []),
+                ];
+            }
+        }
+
+        return [
+            'codigo' => $codigo,
+            'hora_apertura' => $horarioEfectivo['hora_apertura'] ?? null,
+            'hora_cierre' => $horarioEfectivo['hora_cierre'] ?? null,
+            'proxima_llegada' => $proxima,
+        ];
     }
 
     private static function intervaloAplica(array $reservacion, string $horaConsultada): bool

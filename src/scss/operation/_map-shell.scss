@@ -41,9 +41,14 @@
   --map-table-occupied-bg: color-mix(in srgb, var(--admin-c-rojo) 22%, var(--admin-surface));
   --map-table-occupied-text: color-mix(in srgb, var(--admin-c-rojo) 50%, var(--admin-text));
   --map-table-occupied-border: color-mix(in srgb, var(--admin-c-rojo) 75%, var(--admin-text));
-  --map-table-selected-bg: color-mix(in srgb, var(--admin-c-ambar) 34%, var(--admin-surface));
-  --map-table-selected-text: color-mix(in srgb, var(--admin-c-ambar) 50%, var(--admin-text));
-  --map-table-selected-border: color-mix(in srgb, var(--admin-c-ambar) 75%, var(--admin-text));
+  /* La SELECCIÓN no es un estado: es la tinta del sistema. Fue ámbar, y un
+     aro amarillo de 4 px sobre un plano que sólo habla en verde, rojo y azul
+     se leía como un cuarto estado —y el ámbar, además, es «en preparación» en
+     el resto del piso—. El acento (casi blanco en oscuro) se separa igual
+     del verde que del azul sin competir con ninguno. */
+  --map-table-selected-bg: color-mix(in srgb, var(--admin-accent) 10%, var(--admin-surface));
+  --map-table-selected-text: var(--admin-text);
+  --map-table-selected-border: var(--admin-accent);
   --map-table-reservation-bg: color-mix(in srgb, var(--admin-c-azul) 24%, var(--admin-surface));
   --map-table-reservation-text: color-mix(in srgb, var(--admin-c-azul) 50%, var(--admin-text));
   --map-table-reservation-border: color-mix(in srgb, var(--admin-c-azul) 75%, var(--admin-text));
@@ -55,19 +60,32 @@
   --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 18%, var(--admin-surface));
   --map-table-unavailable-text: var(--admin-muted);
   --map-table-unavailable-border: var(--admin-border-strong);
+  /* Fichas del POS (Caja, Llevar): botones de acción, no mesas. Neutras a
+     propósito —ni verde ni gris de «no disponible»— porque no tienen estado
+     que decir; se despegan del suelo por superficie y contorno. Se derivan
+     de --admin-* en un solo sentido (nada de mapeo inverso: ver CLAUDE.md). */
+  --map-ficha-bg: var(--admin-surface-strong);
+  --map-ficha-text: var(--admin-text);
+  --map-ficha-border: var(--admin-border-strong);
   --map-action-primary-bg: var(--admin-gold);
   --map-action-primary-text: var(--admin-ink-on-gold);
   --map-action-primary-border: var(--admin-gold);
   --map-action-cancel-bg: var(--admin-danger-bg);
   --map-action-cancel-text: var(--admin-danger-text);
   --map-action-cancel-border: var(--admin-danger-border);
-  --map-action-utility-bg: var(--admin-surface-soft);
+  /* Hover del primario: hacia la superficie, 12 %. Sobre un relleno casi
+     blanco no queda más dirección que bajar; el tinte dorado que llevaba
+     mezclaba blanco con blanco y no se veía. */
+  --map-action-primary-hover-bg: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-surface));
+  /* El neutro es el de la casa (.pos-btn-redondo): sin relleno y con el
+     canto de --admin-border-strong, que es el 3:1 de un control. */
+  --map-action-utility-bg: transparent;
   --map-action-utility-text: var(--admin-text);
-  --map-action-utility-border: var(--admin-border);
-  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 70%, var(--admin-border-soft));
-  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 5%, transparent);
-  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 88%, var(--admin-gold) 12%);
-  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 62%, var(--admin-border-soft));
+  --map-action-utility-border: var(--admin-border-strong);
+  --map-action-utility-hover-bg: var(--admin-surface-strong);
+  --map-action-utility-hover-border: color-mix(in srgb, var(--admin-text) 55%, transparent);
+  --map-selection-message-bg: var(--admin-surface);
+  --map-selection-message-border: var(--admin-border);
   --map-selection-message-text: var(--admin-text);
   --map-reservation-warning-border: var(--map-table-reservation-border);
   --map-reservation-block-bg: var(--map-table-reservation-bg);
@@ -101,11 +119,6 @@
   border-color: var(--admin-border-soft);
   box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent));
   transform: none;
-}
-
-.reservation-operation__map.mesas-map:hover {
-  border-right-color: var(--admin-border-soft);
-  box-shadow: none;
 }
 
 .mesas-map::before {
@@ -186,13 +199,6 @@
   list-style: none;
 }
 
-.mapa-leyenda__note {
-  margin: 0.35rem 0 0;
-  color: var(--admin-faint);
-  font-size: var(--operational-text-xs);
-  line-height: 1.35;
-}
-
 // Alternativa accesible al mapa visual. Vive dentro de una tarjeta de alto
 // fijo, así que al abrirse se topa: sin el max-height + scroll propio, empujaba
 // el mapa fuera del viewport en vez de encogerlo.
@@ -208,65 +214,6 @@
     max-height: min(38%, 320px);
     flex-direction: column;
     border-color: color-mix(in srgb, var(--admin-gold) 26%, var(--admin-border-soft));
-  }
-}
-
-// Bandeja accesible sobre el mapa: abrirla no cambia la geometría del lienzo.
-.reservation-operation__map .operational-map__structured {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-  z-index: 20;
-  margin: 0;
-  border-color: var(--admin-glass-border);
-  background: var(--admin-glass-bg-strong);
-  box-shadow:
-    inset 0 1px 0 var(--admin-glass-edge),
-    0 16px 34px color-mix(in srgb, var(--admin-sombra) 28%, transparent);
-  backdrop-filter: blur(10px);
-}
-
-.reservation-operation__map .operational-map__structured[open] {
-  max-height: min(42%, 260px);
-}
-
-.reservation-operation__map .operational-map__structured-list {
-  display: flex;
-  gap: 8px;
-  padding: 0 10px 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-wrap: nowrap;
-}
-
-.reservation-operation__map .operational-map__structured-list > li {
-  flex: 0 0 160px;
-}
-
-.reservation-operation__map .operational-map__structured-list button {
-  grid-template-rows: auto auto auto;
-  min-height: 84px;
-  overflow: hidden;
-}
-
-.reservation-operation__map .operational-map__structured-list button::before {
-  grid-row: 1 / span 3;
-}
-
-.reservation-operation__map .operational-map__structured-context {
-  grid-column: 2;
-  color: var(--admin-muted);
-  font-size: var(--operational-text-xs);
-}
-
-.reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
-  right: 412px;
-}
-
-@media (max-width: 900px) {
-  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
-    right: 12px;
   }
 }
 
@@ -592,11 +539,6 @@
   container-type: inline-size;
 }
 
-.mapa-workspace {
-  height: auto;
-  flex: 1 1 0;
-}
-
 // Los pines se miden en cqw (el ancho del lienzo, que declara container-type)
 // y no en vw. Con unidades de viewport el pin no encogía cuando el alto
 // limitaba el lienzo, y pines vecinos como Caja y Llevar —separados por puntos
@@ -755,11 +697,14 @@
     inset 0 1px 0 var(--admin-glass-edge);
 }
 
+// Barras y especiales en gris sólo cuando el pin no trae línea de estado. En
+// el POS la barra tiene estado propio —verde hasta su tope, rojo llena— y Caja
+// y Llevar son fichas neutras.
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--no-utilizable,
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--no-reservable,
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--zona,
-:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--tipo-barra,
-:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--tipo-especial {
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--tipo-barra:not(.mesa-pin--con-estado),
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--tipo-especial:not(.mesa-pin--con-estado) {
   border-color: var(--map-table-unavailable-border);
   border-style: solid;
   background: var(--map-table-unavailable-bg);
@@ -769,8 +714,116 @@
     inset 0 1px 0 var(--admin-glass-edge);
 }
 
-.mesas-map .mesa-pin--tipo-barra {
+.mesas-map .mesa-pin--tipo-barra:not(.mesa-pin--con-estado) {
   background: var(--map-table-unavailable-bg);
+}
+
+// ── Pines del POS: tres estados con icono y, si lo hay, el dato ──────
+//
+// El color nunca va solo. Debajo del nombre, una línea con la FORMA del
+// estado (visto, guion, manecillas, exclamación) y sólo el dato que decide:
+// «en 45 min», «2/4». La palabra del estado («Libre», «Ocupada») salió
+// del pin —la dicen el color y la forma— y vive en el aria-label y en
+// «Cómo leer el mapa», en el menú del avatar. La línea
+// hereda el color de texto del estado, que ya está calculado a 4.5:1 contra
+// su relleno (ver los --map-table-* de arriba).
+.mesas-map .mesa-pin--con-estado {
+  align-content: center;
+  row-gap: 3px;
+  padding-inline: 6px;
+}
+
+// La mesa del POS es más ancha que el pin base porque lleva una segunda
+// línea que tiene que leerse entera: a 80-108 px, «Llega ahora», «Esperando» y
+// «No disponible» se cortaban (medido: 80, 74 y 91 px de línea contra 72-82 de
+// hueco). Cabe en el plano: la separación mínima entre centros de mesa es
+// ~20 % del ancho del suelo y el pin más ancho ocupa 10-12 %. Sólo la mesa:
+// barras y fichas ya tenían ancho de sobra. El !important es el de la regla
+// base, que tiene que ganarle al ancho en línea que pone el renderer.
+.mesas-map .mesa-pin--con-estado.mesa-pin--tipo-mesa {
+  width: clamp(96px, 10cqw, 116px) !important;
+  min-width: clamp(96px, 10cqw, 116px);
+}
+
+// Un pin con línea de estado ya dice «Sin verificar» con su icono de alerta:
+// la insignia de la esquina era la misma señal dos veces en 100 px.
+.mesas-map .mesa-pin--con-estado .mesa-pin__verification-warning {
+  display: none;
+}
+
+.mesas-map .mesa-pin__estado {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  font-family: var(--operational-font-ui);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-semibold);
+  // Sin tracking: Geist a 11-12 px no lo necesita, y cada décima de em es un
+  // píxel menos de hueco en un pin donde el rótulo va al límite.
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+
+  svg {
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    stroke-width: 2.25;
+  }
+}
+
+.mesas-map .mesa-pin__estado-texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+// No hay «ocupada, con reservación»: sólo verde, rojo y azul. Si la mesa de
+// una reserva por llegar sigue ocupada, la reserva se reubica sola.
+
+// Fichas: Caja y Llevar. Icono delante del nombre y, en Llevar, el conteo
+// de pedidos debajo; sin línea de estado.
+:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--con-estado.mesa-pin--ficha {
+  border-color: var(--map-ficha-border);
+  border-style: solid;
+  background: var(--map-ficha-bg);
+  color: var(--map-ficha-text);
+  box-shadow:
+    0 8px 20px color-mix(in srgb, var(--sombra) 22%, transparent),
+    inset 0 1px 0 var(--admin-glass-edge);
+}
+
+.mesas-map .mesa-pin--ficha .mesa-pin__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  svg {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+  }
+}
+
+// «3 pedidos» habla con la misma voz que la línea de estado de las mesas —sans,
+// cifras tabulares, caja normal— y no en las versalitas mono del rótulo de
+// tipo: en el POS la segunda línea de un pin es siempre «el dato», y si
+// cambiaba de familia en una sola ficha parecía otro tipo de información.
+.mesas-map .mesa-pin--con-estado.mesa-pin--ficha .mesa-pin__type-label {
+  color: inherit;
+  font-family: var(--operational-font-ui);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: none;
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre.mesa-pin--mod-reservacion_advertencia {
@@ -795,17 +848,6 @@
   color: var(--map-table-occupied-text);
 }
 
-:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--mod-ausencia_pendiente::after,
-:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--mod-accion_pendiente::after,
-:is(.mesas-map, .map-help-dialog__sample) .mesa-pin--mod-AUSENCIA_PENDIENTE::after {
-  position: absolute;
-  inset: 3px;
-  border: 2px solid var(--map-table-reservation-overdue-border);
-  border-radius: inherit;
-  content: '';
-  pointer-events: none;
-}
-
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_bloqueante {
   border-color: var(--map-reservation-block-border);
@@ -815,20 +857,7 @@
   color: var(--map-table-reservation-text);
 }
 
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_inminente,
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante {
-  border-color: var(--map-reservation-block-border);
-  border-style: solid;
-  border-width: 2.5px;
-  background: var(--map-table-occupied-bg);
-  color: var(--map-table-occupied-text);
-  box-shadow:
-    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
-}
-
-.mesas-map .mesa-pin--highlight,
-.mesas-map .reservation-operation-pin--selected {
+.mesas-map .mesa-pin--highlight {
   opacity: 1;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
@@ -836,11 +865,17 @@
   outline: 0;
 }
 
+// Elegida = un filete de 2 px en la tinta del sistema, separado del canto por
+// un hueco del color del suelo. Es la geometría de un contorno de foco con
+// separación: dice «ésta la tienes en la mano» sin tocar el relleno ni el
+// borde, que siguen diciendo libre / ocupada / reservada. El aro de 4 px
+// pegado al canto se fundía con el borde y engordaba la mesa.
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--seleccionada {
   opacity: 1;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent);
   outline: 0;
 }
@@ -854,7 +889,8 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     0 0 0 8px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
@@ -868,61 +904,54 @@
   color: var(--map-table-occupied-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     0 0 0 8px color-mix(in srgb, var(--map-reservation-warning-border) 70%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
-/*
- * Estado superpuesto: la ocupación física conserva el fondo rojo y la
- * selección queda como indicador amarillo secundario.
- */
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_inminente,
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_bloqueante {
-  border-color: var(--map-reservation-warning-border);
-  border-style: solid;
-  border-width: 2.5px;
-  background: var(--map-table-occupied-bg);
-  color: var(--map-table-occupied-text);
-  box-shadow:
-    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
-    0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
-    0 0 0 8px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
-}
-
-.pos-map.is-ticket-selection-mode {
-  border: 2px solid var(--map-selection-mode-border);
-  border-radius: 16px;
-  background: var(--map-selection-mode-overlay);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 18%, transparent);
-}
-
-.pos-map.is-ticket-selection-mode .mesas-map__viewport {
-  background: var(--map-selection-mode-overlay);
-}
-
-// Barra flotante del modo selección múltiple. Sustituye a la antigua columna
-// de acciones, que ocupaba ~200px permanentes aunque casi nunca se usara.
+// El modo selección («Unir mesas», «Cambiar mesas», mesas de un grupo) es el
+// mapa de siempre con una barra debajo. Envolvía el plano en un marco de 2 px
+// con velo propio, y eso lo convertía en otra pantalla: el anfitrión entraba a
+// mover una mesa y le cambiaba el salón entero. Lo que dice «estás eligiendo»
+// es la barra —con su frase y sus dos salidas— y el contorno de las elegidas.
+//
+// Barra flotante. Con :has() entra EN FLUJO bajo el plano (_proyeccion.scss);
+// flotando queda como respaldo y con la ficha abierta.
 .pos-ticket-selection-bar {
   position: absolute;
   z-index: 6;
   bottom: 12px;
   left: 50%;
   display: flex;
+  // Ancho mínimo estable: la frase cambia de largo con cada mesa que se toca
+  // («Mesas 3 a 11 · 36 lugares» → «Mesas 7 a 11 · 20 lugares, faltan 16»), y
+  // con la barra centrada y ajustada al texto los dos botones se desplazaban
+  // de sitio en cada toque. Así sólo crece cuando de verdad no cabe.
+  min-width: min(544px, calc(100% - 24px));
   max-width: calc(100% - 24px);
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 16px;
+  padding: 8px 8px 8px 16px;
   border: 1px solid var(--map-selection-message-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--map-selection-message-bg);
-  box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 42%, transparent);
+  // Sólo flotando: en flujo no tapa nada y la sombra la despegaría del plano.
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--sombra) 36%, transparent);
   transform: translateX(-50%);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
 
   &[hidden] { display: none; }
+}
+
+// La pregunta «¿en lugar de, o además?» comparte barra con guardar/descartar:
+// se distingue por un canto más firme, no por un color nuevo (sería un cuarto
+// estado en un plano que sólo tiene tres).
+@supports selector(:has(*)) {
+  .pos-ticket-selection-bar:has(> .pos-ticket-selection-bar__pregunta:not([hidden])) {
+    border-color: var(--admin-border-strong);
+  }
 }
 
 .pos-ticket-selection-bar__actions {
@@ -930,20 +959,61 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+
+  // `display: flex` (0,1,0) va después del reset y le ganaba a [hidden]: la
+  // pregunta «Añadir / Cambiar» salía siempre, junto a Descartar y Guardar.
+  &[hidden] { display: none; }
 }
 
-.pos-ticket-selection-message {
+// Con el ancestro: `.admin-body p` (0,1,1) le imponía el gris apagado del
+// cuerpo, y el mensaje es lo único de la barra que hay que leer.
+.pos-ticket-selection-bar .pos-ticket-selection-message {
   min-width: 0;
+  flex: 1 1 auto;
   margin: 0;
   color: var(--map-selection-message-text);
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
-  line-height: 1.25;
+  line-height: 1.3;
+  text-wrap: pretty;
+
+  &:focus { outline: 0; }
+
+  // Cambiar mesas: quién arriba, qué mesas debajo (punto-de-venta.js).
+  &__quien,
+  &__mesas { display: block; }
+
+  &__mesas {
+    font-weight: var(--operational-weight-regular);
+    color: var(--txt-mute);
+  }
+
+  &__cupo {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+
+    &.is-falta {
+      color: var(--admin-warning-text);
+      font-weight: var(--operational-weight-semibold);
+    }
+  }
 }
 
-.operational-map-action {
+// ── Botones de la barra ──
+// Con `.mapa-page` delante: `.admin-body button` (0,1,1) les ponía
+// `font: inherit` y a una clase suelta le ganaba familia, cuerpo y peso.
+//
+// Los tres tienen hover, y cada uno el suyo: antes el hover de TODOS era el
+// del primario, así que «Descartar» se volvía un segundo botón blanco al pasar
+// por encima —parecía que ibas a guardar— y el primario, que ya era blanco, no
+// cambiaba nada.
+.mapa-page .operational-map-action {
+  display: inline-flex;
+  min-width: 44px;
   min-height: 44px;
-  padding: 0 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
   border: 1px solid var(--map-action-utility-border);
   border-radius: 10px;
   background: var(--map-action-utility-bg);
@@ -951,49 +1021,63 @@
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition:
+    background-color var(--admin-t-fast) var(--admin-ease-out),
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    color var(--admin-t-fast) var(--admin-ease-out),
+    transform 120ms var(--admin-ease-out);
+
+  &:hover:not(:disabled) {
+    border-color: var(--map-action-utility-hover-border);
+    background: var(--map-action-utility-hover-bg);
+  }
+
+  // El press se siente en el dedo: en tablet no hay hover que avise.
+  &:active:not(:disabled) { transform: scale(0.97); }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }
 
-.operational-map-action--primary {
+.mapa-page .operational-map-action--primary {
   border-color: var(--map-action-primary-border);
   background: var(--map-action-primary-bg);
   color: var(--map-action-primary-text);
+
+  &:hover:not(:disabled) {
+    border-color: var(--map-action-primary-hover-bg);
+    background: var(--map-action-primary-hover-bg);
+  }
 }
 
-.operational-map-action--cancel {
+.mapa-page .operational-map-action--cancel {
   border-color: var(--map-action-cancel-border);
   background: var(--map-action-cancel-bg);
   color: var(--map-action-cancel-text);
+
+  &:hover:not(:disabled) {
+    border-color: var(--map-action-cancel-border);
+    background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
+  }
 }
 
-.operational-map-action:hover,
-.operational-map-action.is-active {
-  border-color: var(--map-action-primary-border);
-  background: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-gold-soft) 12%);
-  color: var(--map-action-primary-text);
-}
-
-.operational-map-action--cancel:hover {
-  border-color: var(--map-action-cancel-border);
-  background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
-  color: var(--map-action-cancel-text);
-}
-
-.operational-map-action:focus-visible {
-  outline: 0;
-  box-shadow: var(--admin-focus-ring);
-}
-
-.operational-map-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
-
+// Reducido no es inmóvil: el cambio de color se queda (es la señal de que el
+// botón responde); sólo se va el encogido del press.
 @media (prefers-reduced-motion: reduce) {
-  .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante,
-  .operational-map-action {
-    transition: none;
+  .mapa-page .operational-map-action {
+    transition: background-color var(--admin-t-fast) linear, border-color var(--admin-t-fast) linear, color var(--admin-t-fast) linear;
+
+    &:active:not(:disabled) { transform: none; }
   }
 }
 
@@ -1002,6 +1086,7 @@
     flex-direction: column;
     align-items: stretch;
     width: calc(100% - 24px);
+    padding: 12px;
     text-align: center;
   }
 
@@ -1056,39 +1141,6 @@
     width: 820px;
     min-width: 820px;
   }
-
-  // En la operación móvil el plano se adapta al viewport: el estado completo
-  // sigue visible y no obliga a desplazar horizontalmente para encontrar mesas.
-  .reservation-operation__map .mesas-map__viewport {
-    place-items: stretch;
-    overflow-x: hidden;
-  }
-
-  .reservation-operation__map .mesas-map__floor {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-    min-height: 320px;
-    height: 100%;
-    aspect-ratio: auto;
-  }
-
-  .reservation-operation__map.mesas-map .mesa-pin {
-    width: clamp(64px, 19cqw, 76px) !important;
-    min-width: clamp(64px, 19cqw, 76px);
-    height: clamp(48px, 5.5cqw, 56px) !important;
-    min-height: 48px;
-  }
-
-  .reservation-operation__map.mesas-map .mesa-pin--tipo-barra {
-    width: clamp(88px, 26cqw, 112px) !important;
-    min-width: clamp(88px, 26cqw, 112px);
-  }
-
-  .reservation-operation__map.mesas-map .mesa-pin--tipo-especial {
-    width: clamp(60px, 18cqw, 76px) !important;
-    min-width: clamp(60px, 18cqw, 76px);
-  }
 }
 
 @media (max-height: 680px) and (min-width: 901px) {
@@ -1127,6 +1179,25 @@
   .mesas-map .mesa-pin__label {
     font-size: var(--operational-text-section);
   }
+
+  // Tablet, que es la pantalla real del POS: pin y línea un paso más grandes.
+  // 12 px es lo mínimo que se lee a un brazo de distancia; con 104 px de pin
+  // caben todos los rótulos del servidor salvo «No disponible», que es raro
+  // (mesa bloqueada) y lleva el motivo entero en el aria-label y el title.
+  .mesas-map .mesa-pin--con-estado.mesa-pin--tipo-mesa {
+    width: clamp(104px, 12cqw, 128px) !important;
+    min-width: clamp(104px, 12cqw, 128px);
+  }
+
+  .mesas-map .mesa-pin__estado,
+  .mesas-map .mesa-pin--con-estado.mesa-pin--ficha .mesa-pin__type-label {
+    font-size: 12px;
+  }
+
+  .mesas-map .mesa-pin__estado svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 // En modo maximizado los pines pueden crecer aún más en tablet.
@@ -1136,13 +1207,6 @@
       padding: clamp(16px, 2vw, 28px);
     }
   }
-}
-
-/* Estado de ausencia en POS. Las reservaciones conserva el fondo del intervalo. */
-.pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-ausencia_pendiente {
-  border-color: var(--map-table-reservation-overdue-border);
-  background: var(--map-table-reservation-overdue-bg);
-  color: var(--map-table-reservation-overdue-text);
 }
 
 .mesas-map .mesa-pin__pending {
@@ -1175,7 +1239,8 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
@@ -1188,7 +1253,8 @@
   color: var(--map-table-available-text);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
@@ -1201,7 +1267,8 @@
   border-width: 2px;
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--map-table-selected-border) 96%, transparent),
+    0 0 0 2px var(--admin-surface),
+    0 0 0 4px var(--map-table-selected-border),
     0 0 0 6px color-mix(in srgb, var(--admin-surface) 88%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
@@ -1216,7 +1283,6 @@
 /* El contrato desconocido domina los estilos compuestos sin borrar señales
    operativas reales como el marcador de ausencia pendiente. */
 .pos-map .mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
-.reservation-operation__map.mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
 .mesas-map .mesa-pin.mesa-pin--estado-no-verificado {
   border: 2px dashed var(--map-table-unavailable-border);
   background: var(--map-table-unavailable-bg);
@@ -1481,6 +1547,21 @@
   font-size: var(--operational-text-xs);
   transform: none !important;
   transition: none;
+}
+
+// Muestras del POS a tamaño de pin real: llevan la línea de estado, y a 72×38
+// tres de cuatro salían cortadas («Ocupa…», «en 45 …») — la ayuda enseñaba
+// justo lo que el mapa no hace. La columna crece con ellas.
+.map-help-dialog__states--pos .map-help-dialog__state {
+  grid-template-columns: 108px minmax(0, 1fr);
+}
+
+.map-help-dialog__states--pos .map-help-dialog__sample .mesa-pin {
+  width: 104px !important;
+  min-width: 104px;
+  height: 58px !important;
+  min-height: 58px;
+  padding: 6px;
 }
 
 .map-help-dialog__copy {

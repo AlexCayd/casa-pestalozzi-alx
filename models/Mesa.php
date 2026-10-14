@@ -9,12 +9,18 @@ namespace Model;
 
 class Mesa extends ActiveRecord {
     protected static $tabla = 'mesas';
-    protected static $columnasDB = ['id', 'numero', 'nombre', 'tipo', 'capacidad', 'pos_x', 'pos_y', 'activo', 'reservable'];
+    protected static $columnasDB = ['id', 'numero', 'nombre', 'tipo', 'zona', 'capacidad', 'pos_x', 'pos_y', 'activo', 'reservable'];
 
     public $id;
     public $numero;
     public $nombre;
     public $tipo = 'mesa';
+    /**
+     * 'interior' | 'exterior' | null. Decide la asignación automática: el
+     * interior primero y el exterior completo (Mesas 8–11) como bloque para
+     * los grupos grandes. Barras, Caja y Llevar no tienen zona.
+     */
+    public $zona = null;
     public $capacidad = 4;
     public $pos_x = 0;
     public $pos_y = 0;
@@ -24,7 +30,7 @@ class Mesa extends ActiveRecord {
     public static function reservables(): array
     {
         return self::consultarSQL(
-            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+            "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
              FROM mesas
              WHERE activo = 1
                AND reservable = 1
@@ -43,7 +49,7 @@ class Mesa extends ActiveRecord {
         }
 
         return self::consultarSQL(
-            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+            "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
              FROM mesas
              WHERE id IN (" . implode(',', $mesaIds) . ")
                AND activo = 1
@@ -66,7 +72,7 @@ class Mesa extends ActiveRecord {
         }
 
         return self::consultarSQL(
-            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+            "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
              FROM mesas
              WHERE activo = 1
                AND reservable = 1
@@ -97,7 +103,7 @@ class Mesa extends ActiveRecord {
     public static function buscarTodasParaMapa(): array
     {
         return self::consultarSQL(
-            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+            "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
              FROM mesas
              ORDER BY numero ASC, id ASC"
         );

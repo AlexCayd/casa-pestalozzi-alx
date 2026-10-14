@@ -20,8 +20,8 @@ use Controllers\AdminRecetasController;
 use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
+use Controllers\AdminReservacionEstrategiaController;
 use Controllers\ReservacionMantenimientoController;
-use Controllers\ReservacionOperacionController;
 use Controllers\AdminCataController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
@@ -33,6 +33,7 @@ use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
 use Controllers\PuntoVentaController;
+use Controllers\PosReservacionController;
 use Controllers\AreaController;
 
 $router = new Router();
@@ -86,6 +87,7 @@ $router->get('/admin/configuracion/horarios', [AdminConfigurationController::cla
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
 $router->get('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'reservations']);
 $router->post('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'guardarReservaciones']);
+$router->post('/admin/configuracion/reservaciones/limites', [AdminConfigurationController::class, 'guardarLimitesReservaciones']);
 $router->post('/admin/configuracion/horarios/excepciones/guardar', [AdminConfigurationController::class, 'guardarExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'cambiarEstadoExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);
@@ -109,6 +111,7 @@ $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::cla
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
+$router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -141,7 +144,8 @@ $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollback
 $router->get('/admin/reservaciones', [AdminReservacionController::class, 'index']);
 $router->get('/admin/reservaciones/crear', [AdminReservacionController::class, 'create']);
 $router->post('/admin/reservaciones/crear', [AdminReservacionController::class, 'store']);
-$router->get('/admin/reservaciones/operacion', [ReservacionOperacionController::class, 'operation']);
+// Operación de reservaciones se retiró: su dirección lleva al POS (ver Auth).
+$router->get('/admin/reservaciones/operacion', [PuntoVentaController::class, 'redirigirDesdeOperacion']);
 $router->get('/admin/reservaciones/detalle', [AdminReservacionController::class, 'show']);
 $router->get('/admin/api/reservaciones/disponibilidad', [AdminReservacionController::class, 'disponibilidad']);
 $router->post('/admin/reservaciones/actualizar', [AdminReservacionController::class, 'update']);
@@ -149,14 +153,12 @@ $router->post('/admin/reservaciones/estado', [AdminReservacionController::class,
 $router->post('/admin/reservaciones/reasignar', [AdminReservacionController::class, 'reasignarAutomaticamente']);
 $router->get('/admin/reservaciones/herramientas-desarrollo', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservaciones/herramientas-desarrollo/procesar-vencidas', [ReservacionMantenimientoController::class, 'procesarPendientes']);
-$router->get('/admin/api/reservaciones/operacion', [ReservacionOperacionController::class, 'operationData']);
-$router->post('/admin/api/reservaciones/operacion/crear', [ReservacionOperacionController::class, 'createFromOperation']);
-$router->get('/admin/api/reservaciones/operacion/disponibilidad', [ReservacionOperacionController::class, 'availability']);
-$router->post('/admin/api/reservaciones/operacion/asignar-mesas', [ReservacionOperacionController::class, 'apiAssignTables']);
-$router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOperacionController::class, 'apiClearTables']);
-$router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
-$router->post('/admin/api/reservaciones/operacion/comentario', [ReservacionOperacionController::class, 'apiUpdateComment']);
-$router->post('/admin/api/reservaciones/operacion/estado', [ReservacionOperacionController::class, 'apiStatus']);
+$router->post('/admin/api/reservaciones/estado', [AdminReservacionController::class, 'apiEstado']);
+// Panel estratégico: planear lo que viene sin el plano delante. Quedan
+// protegidas por el prefijo /admin/, igual que las de arriba.
+$router->get('/admin/reservaciones/grupos-grandes', [AdminReservacionEstrategiaController::class, 'gruposGrandes']);
+$router->get('/admin/reservaciones/casos', [AdminReservacionEstrategiaController::class, 'casos']);
+$router->post('/admin/api/reservaciones/reubicaciones/revisar', [AdminReservacionEstrategiaController::class, 'revisarReubicacion']);
 // Catas: la agenda que publica la landing. No hay detalle ni inscritos — el
 // módulo son fechas y un interruptor de disponibilidad.
 $router->get('/admin/catas', [AdminCataController::class, 'index']);
@@ -245,7 +247,7 @@ $router->get('/admin/productos/subrecetas/edit',   $redir301('/admin/recetas/sub
  */
 $router->get('/admin/reservations',                  $redir301('/admin/reservaciones'));
 $router->get('/admin/reservations/create',           $redir301('/admin/reservaciones/crear'));
-$router->get('/admin/reservations/operation',        $redir301('/admin/reservaciones/operacion'));
+$router->get('/admin/reservations/operation',        [PuntoVentaController::class, 'redirigirDesdeOperacion']);
 $router->get('/admin/reservations/show',             $redir301('/admin/reservaciones/detalle'));
 $router->get('/admin/reservations/development-tools', $redir301('/admin/reservaciones/herramientas-desarrollo'));
 
@@ -287,6 +289,13 @@ $router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 
 $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
+// Reservaciones operadas desde el POS; cada ruta está también en Auth::APIS_POS.
+$router->get('/api/punto-de-venta/reservaciones/disponibilidad', [PosReservacionController::class, 'disponibilidad']);
+$router->post('/api/punto-de-venta/reservaciones/crear', [PosReservacionController::class, 'crear']);
+$router->post('/api/punto-de-venta/reservaciones/asignar-mesas', [PosReservacionController::class, 'asignarMesas']);
+$router->post('/api/punto-de-venta/reservaciones/reasignar', [PosReservacionController::class, 'reasignar']);
+$router->post('/api/punto-de-venta/reservaciones/comentario', [PosReservacionController::class, 'comentario']);
+$router->post('/api/punto-de-venta/reservaciones/reubicaciones/revisar', [PosReservacionController::class, 'revisarReubicacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
 $router->post('/api/impresion/alertas/atender', [PuntoVentaController::class, 'atenderAlertasImpresion']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);

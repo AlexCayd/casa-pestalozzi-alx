@@ -446,7 +446,9 @@ function initReservationAccess() {
     var valueLabel = editor.querySelector("[data-editor-guests-value]");
     var minus = editor.querySelector("[data-editor-guests-minus]");
     var plus = editor.querySelector("[data-editor-guests-plus]");
-    var maxGuests = parseInt(peopleInput.getAttribute("max"), 10) || 12;
+    var maxGuests = parseInt(peopleInput.getAttribute("max"), 10)
+      || (window.ReservationFormState && window.ReservationFormState.MAX_GUESTS_FALLBACK)
+      || 12;
 
     function setGuests(value) {
       value = Math.max(1, Math.min(maxGuests, parseInt(value, 10) || 2));

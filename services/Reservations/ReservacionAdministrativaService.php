@@ -26,6 +26,11 @@ final class ReservacionAdministrativaService
     public const SIN_CONTACTO = 'SIN_CONTACTO';
     public const REQUIERE_CONFIRMACION_SIN_CONTACTO = 'REQUIERE_CONFIRMACION_SIN_CONTACTO';
     public const SIN_ASIGNACION = 'SIN_ASIGNACION';
+    /**
+     * Toda reservación confirmada tiene mesas. Ya no hay «asignar más tarde»:
+     * si no hay mesas, no se guarda (ver garantizarMesas()).
+     */
+    public const MESAS_REQUERIDAS = 'MESAS_REQUERIDAS';
     public const ASIGNACION_MANUAL_REQUERIDA = 'ASIGNACION_MANUAL_REQUERIDA';
     public const CAPACIDAD_INSUFICIENTE = 'CAPACIDAD_INSUFICIENTE';
     public const CAPACIDAD_OPERATIVA_EXCEDIDA = 'CAPACIDAD_OPERATIVA_EXCEDIDA';
@@ -134,6 +139,11 @@ final class ReservacionAdministrativaService
                 'nivel_advertencia' => (string)($evaluacion['nivel_advertencia'] ?? 'ninguno'),
                 'warnings' => array_values((array)($evaluacion['warnings'] ?? [])),
                 'depende_liberacion_proyectada' => (bool)($evaluacion['depende_liberacion_proyectada'] ?? false),
+                // Vista previa del alta en el POS: a quién movería dar el
+                // exterior a este grupo, sin persistir nada.
+                'reubicaciones_previstas' => array_values((array)($evaluacion['reubicaciones_previstas'] ?? [])),
+                // Grupo mayor al máximo: mesas que se proponen en el mapa.
+                'mesa_ids_sugeridas' => array_values(array_map('intval', (array)($evaluacion['mesa_ids_sugeridas'] ?? []))),
             ];
             $base['horarios'][] = ['hora' => $horaCorta, 'disponible' => $slot['disponible']];
             $base['detalle_horarios'][$horaCorta] = $slot;
@@ -200,7 +210,7 @@ final class ReservacionAdministrativaService
             'capacidad_asignada' => 0,
             'mesa_ids' => [],
             'asignacion_automatica_solicitada' => false,
-            'asignacion_automatica_habilitada' => $personas <= ReservacionConfig::MAX_COMENSALES_PUBLICO,
+            'asignacion_automatica_habilitada' => $personas <= ReservacionConfig::maxComensalesPublico(),
             'asignacion_automatica_posible' => false,
             'requiere_asignacion_manual' => true,
             'nivel_advertencia' => 'ninguno',
@@ -228,22 +238,22 @@ final class ReservacionAdministrativaService
         $resultado['fecha'] = (string)$horario['fecha'];
         $resultado['hora'] = (string)$horario['hora_corta'];
         $resultado['horario_valido'] = true;
-        $ocupacion = $contextoFecha !== null
-            ? OcupacionMesasService::evaluarHorarioConContexto(
-                $contextoFecha,
-                (string)$horario['hora'],
-                $excluirReservacionId
-            )
-            : OcupacionMesasService::evaluarHorario(
-                (string)$horario['fecha'],
-                (string)$horario['hora'],
-                $excluirReservacionId,
-                $bloquear
-            );
+        // Con contexto del día siempre: el planificador lo necesita para ver
+        // todas las reservas del bloque exterior y simular su reubicación.
+        $contextoFecha = $contextoFecha ?? OcupacionMesasService::prepararContextoFecha(
+            (string)$horario['fecha'],
+            $bloquear,
+            null,
+            null,
+            $excluirReservacionId
+        );
+        $ocupacion = OcupacionMesasService::evaluarHorarioConContexto(
+            $contextoFecha,
+            (string)$horario['hora'],
+            $excluirReservacionId
+        );
         $resultado['ocupacion'] = $ocupacion;
-        $mesas = $contextoFecha !== null
-            ? (array)($contextoFecha['mesas_reservables'] ?? [])
-            : \Model\Mesa::reservables();
+        $mesas = (array)($contextoFecha['mesas_reservables'] ?? []);
         $capacidad = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
         $resultado['capacidad_total'] = (int)$capacidad['capacidad_total'];
         $resultado['capacidad_realmente_libre'] = (int)$capacidad['capacidad_realmente_libre'];
@@ -257,23 +267,31 @@ final class ReservacionAdministrativaService
         $resultado['capacidad_estimada'] = (int)$capacidad['capacidad_real_disponible'];
         $resultado['capacidad_estimada_suficiente'] = $resultado['capacidad_real_disponible'] >= $personas;
         $resultado['capacidad_resultante'] = $resultado['capacidad_real_disponible'] - $personas;
-        $disponibles = array_values(array_filter(
-            $mesas,
-            static fn($mesa): bool => !empty($ocupacion['mesas'][(int)$mesa->id]['disponible'])
-        ));
-        usort($disponibles, static fn($a, $b): int => ((int)$a->numero <=> (int)$b->numero) ?: ((int)$a->id <=> (int)$b->id));
-
-        if ($personas <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-            $seleccion = [];
-            if ($resultado['capacidad_estimada_suficiente']) {
-            $seleccion = AsignacionMesasService::seleccionarMesasGeneral(
-                $disponibles,
-                $personas,
-                (array)($ocupacion['mesa_ids_proyectadas'] ?? [])
+        $resultado['reubicaciones_previstas'] = [];
+        $resultado['mesa_ids_sugeridas'] = [];
+        if ($personas > ReservacionConfig::maxComensalesPublico()) {
+            // Sin asignación automática, pero sí una propuesta para empezar a
+            // elegir en el mapa: el personal la ajusta y es quien decide.
+            $resultado['mesa_ids_sugeridas'] = AsignacionPlanificadorService::sugerirGrupoGrande(
+                $mesas,
+                $ocupacion,
+                $personas
             );
-            }
+        } else {
+            $plan = $resultado['capacidad_estimada_suficiente']
+                ? AsignacionPlanificadorService::planificarConContexto(
+                    $contextoFecha,
+                    $ocupacion,
+                    $personas,
+                    (string)$horario['hora'],
+                    [$excluirReservacionId]
+                )
+                : ['ok' => false, 'mesas' => [], 'mesa_ids' => [], 'reubicaciones' => [], 'motivo' => 'capacidad_insuficiente'];
+            $seleccion = $plan['ok'] ? $plan['mesas'] : [];
             $resultado['asignacion_automatica_posible'] = $resultado['capacidad_estimada_suficiente'] && $seleccion !== [];
-            $resultado['mesa_ids'] = array_map(static fn($mesa): int => (int)$mesa->id, $seleccion);
+            $resultado['motivo_asignacion'] = $plan['ok'] ? null : $plan['motivo'];
+            $resultado['mesa_ids'] = $plan['ok'] ? $plan['mesa_ids'] : [];
+            $resultado['reubicaciones_previstas'] = $plan['ok'] ? $plan['reubicaciones'] : [];
             $resultado['capacidad_asignada'] = AsignacionMesasService::capacidadTotal($seleccion);
             $resultado['depende_liberacion_proyectada'] = array_intersect(
                 $resultado['mesa_ids'],
@@ -319,11 +337,10 @@ final class ReservacionAdministrativaService
             return self::errorDatos('REQUEST_TOKEN_INVALIDO', 'request_token');
         }
 
-        $solicitaAsignacion = filter_var(
-            $post['asignar_automaticamente'] ?? false,
-            FILTER_VALIDATE_BOOLEAN
-        );
-        $datos['asignacion_automatica_solicitada'] = $solicitaAsignacion;
+        // Siempre se asigna: una reservación sin mesas no existe. El campo
+        // `asignar_automaticamente` se ignora a propósito.
+        $solicitaAsignacion = true;
+        $datos['asignacion_automatica_solicitada'] = true;
         $confirmaciones = self::confirmaciones($post);
         $db = ActiveRecord::getDB();
         $lockHorario = false;
@@ -352,13 +369,27 @@ final class ReservacionAdministrativaService
             if (!($revalidacion['horario_valido'] ?? false)) {
                 return self::rollback($db, self::errorHorario($revalidacion));
             }
-            $warningCodes = self::warningCodes($datos, $revalidacion, $solicitaAsignacion, false);
-            // La decisión explícita de sobrecapacidad también autoriza dejar
-            // la reservación sin mesas: la asignación manual se resuelve
-            // después, sin exigir un segundo clic de "sin mesas".
-            if (in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $confirmaciones, true)) {
-                $warningCodes = array_values(array_diff($warningCodes, [self::SIN_ASIGNACION]));
+            // Mesas elegidas a mano en el alta (el POS o «Nuevo grupo» del
+            // panel): es la vía para un grupo mayor al máximo, que no entra en
+            // la asignación automática. Con ellas, «sin asignación» y
+            // «asignación manual requerida» dejan de aplicar.
+            $mesaIdsElegidas = array_values(array_unique(array_filter(
+                array_map('intval', (array)($post['mesa_ids'] ?? [])),
+                static fn(int $mesaId): bool => $mesaId > 0
+            )));
+            // Sin mesas elegidas, o la asignación automática encuentra lugar o
+            // no se crea nada. Un grupo mayor al máximo no tiene automática: sus
+            // mesas se eligen en el mapa del POS antes de guardar.
+            $asignable = $mesaIdsElegidas !== []
+                || ((int)$datos['comensales'] <= ReservacionConfig::maxComensalesPublico()
+                    && (bool)($revalidacion['asignacion_automatica_posible'] ?? false));
+            if (!$asignable) {
+                return self::rollback($db, self::errorMesasRequeridas($datos));
             }
+            $warningCodes = array_values(array_diff(
+                self::warningCodes($datos, $revalidacion, $solicitaAsignacion, $mesaIdsElegidas !== []),
+                [self::SIN_ASIGNACION, self::ASIGNACION_MANUAL_REQUERIDA]
+            ));
             $faltantes = array_values(array_diff($warningCodes, $confirmaciones));
             if ($faltantes !== []) {
                 return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
@@ -380,21 +411,29 @@ final class ReservacionAdministrativaService
             }
             $id = (int)$guardado['id'];
             $asignacion = ['ok' => false, 'mesa_ids' => [], 'codigo' => AsignacionMesasService::SIN_CAPACIDAD];
-            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-                $asignacion = AsignacionMesasService::asignarAutomaticamente($id, false);
+            // Las mesas elegidas se validan con la asignación manual de siempre
+            // y en ESTA transacción: si no sirven, no queda una reservación
+            // confirmada sin ellas.
+            if ($mesaIdsElegidas !== []) {
+                $asignacion = AsignacionMesasService::asignarManual(
+                    $id,
+                    $mesaIdsElegidas,
+                    in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $confirmaciones, true),
+                    false
+                );
                 if (!($asignacion['ok'] ?? false)) {
-                    $faltantes = array_values(array_unique(array_merge($warningCodes, [self::SIN_ASIGNACION])));
-                    // Una sobrecapacidad confirmada explícitamente habilita la
-                    // libertad administrativa: la reservación puede quedar
-                    // confirmada sin mesas para resolverse manualmente.
-                    if (in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $confirmaciones, true)) {
-                        $faltantes = array_values(array_diff($faltantes, [self::SIN_ASIGNACION]));
-                    }
-                    $faltantes = array_values(array_diff($faltantes, $confirmaciones));
-                    if ($faltantes !== []) {
-                        return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
-                    }
+                    return self::rollback($db, [
+                        'ok' => false,
+                        'codigo' => (string)($asignacion['codigo'] ?? AsignacionMesasService::MESAS_INVALIDAS),
+                        'mesa_ids' => $mesaIdsElegidas,
+                        'conflictos_ticket' => $asignacion['conflictos_ticket'] ?? [],
+                    ]);
                 }
+            } else {
+                $asignacion = AsignacionMesasService::asignarAutomaticamente($id, false);
+            }
+            if (!self::garantizarMesas($id)) {
+                return self::rollback($db, self::errorMesasRequeridas($datos));
             }
 
             $db->commit();
@@ -449,7 +488,7 @@ final class ReservacionAdministrativaService
             $transaccion = true;
             $fila = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$fila) {
-                return self::rollback($db, self::RESERVACION_NO_EXISTE);
+                return self::rollback($db, ReservacionService::RESERVACION_NO_EXISTE);
             }
             if ((string)$fila['estado'] !== 'confirmada') {
                 return self::rollback($db, ReservacionService::ESTADO_NO_EDITABLE);
@@ -478,29 +517,37 @@ final class ReservacionAdministrativaService
                     && !AsignacionMesasService::hayConflictoHorario($ocupacion, $actuales)
                     && AsignacionMesasService::validarCapacidad($mesasActuales, $actuales, $datos['comensales']);
             }
-            $warningCodes = self::warningCodes($datos, $revalidacion, $solicitaAsignacion, $preservar);
+            // Si las mesas de siempre ya no sirven (otra hora, más personas) se
+            // reasignan solas; si no hay lugar, el cambio no se guarda. Nunca
+            // queda una reservación confirmada sin mesas.
+            $debeAsignar = $solicitaAsignacion || !$preservar;
+            if ($debeAsignar && !(
+                (int)$datos['comensales'] <= ReservacionConfig::maxComensalesPublico()
+                && (bool)($revalidacion['asignacion_automatica_posible'] ?? false)
+            )) {
+                return self::rollback($db, self::errorMesasRequeridas($datos));
+            }
+            $warningCodes = array_values(array_diff(
+                self::warningCodes($datos, $revalidacion, $solicitaAsignacion, $preservar),
+                [self::SIN_ASIGNACION, self::ASIGNACION_MANUAL_REQUERIDA]
+            ));
             $confirmaciones = self::confirmaciones($post);
             $faltantes = array_values(array_diff($warningCodes, $confirmaciones));
             if ($faltantes !== []) {
                 return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
             }
 
-            if ($actuales !== [] && (!$preservar || $solicitaAsignacion)) {
+            if ($actuales !== [] && $debeAsignar) {
                 ReservacionMesa::eliminarAsignacion($id);
             }
             self::actualizarFila($id, $datos);
 
             $asignacion = ['ok' => false, 'mesa_ids' => [], 'codigo' => AsignacionMesasService::SIN_CAPACIDAD];
-            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            if ($debeAsignar) {
                 $asignacion = AsignacionMesasService::asignarAutomaticamente($id, false);
-                if (!($asignacion['ok'] ?? false)) {
-                    $warning = self::SIN_ASIGNACION;
-                    if (!in_array($warning, $confirmaciones, true)
-                        && !in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $confirmaciones, true)
-                    ) {
-                        return self::rollback($db, self::respuestaAdvertencias([$warning], $revalidacion, $datos));
-                    }
-                }
+            }
+            if (!self::garantizarMesas($id)) {
+                return self::rollback($db, self::errorMesasRequeridas($datos));
             }
             $db->commit();
             $transaccion = false;
@@ -716,6 +763,29 @@ final class ReservacionAdministrativaService
         ];
     }
 
+    /**
+     * La guarda del invariante, justo antes de cada commit: lo que se vaya a
+     * confirmar tiene mesas en reservacion_mesas, dentro de esta transacción.
+     */
+    private static function garantizarMesas(int $id): bool
+    {
+        return ReservacionMesa::obtenerIdsPorReservacion($id) !== [];
+    }
+
+    /** @return array<string, mixed> */
+    private static function errorMesasRequeridas(array $datos): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::MESAS_REQUERIDAS,
+            'requiere_seleccion_mesas' => (int)$datos['comensales'] > ReservacionConfig::maxComensalesPublico(),
+            'contexto' => [
+                'comensales' => (int)$datos['comensales'],
+                'comensales_solicitados' => (int)$datos['comensales'],
+            ],
+        ];
+    }
+
     /** @return string[] */
     private static function warningCodes(array $datos, array $evaluacion, bool $solicitaAsignacion, bool $preservar): array
     {
@@ -725,7 +795,7 @@ final class ReservacionAdministrativaService
         }
         $capacidadSuficiente = (bool)($evaluacion['capacidad_estimada_suficiente'] ?? false);
         $asignada = $preservar || ($solicitaAsignacion && ($evaluacion['asignacion_automatica_posible'] ?? false));
-        if ((int)$datos['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO && !$asignada) {
+        if ((int)$datos['comensales'] > ReservacionConfig::maxComensalesPublico() && !$asignada) {
             // Para más de 12 personas la asignación automática no aplica y no
             // debe presentarse como un fallo del algoritmo.
             $warnings[] = self::ASIGNACION_MANUAL_REQUERIDA;

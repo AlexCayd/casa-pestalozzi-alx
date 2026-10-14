@@ -52,6 +52,20 @@
   justify-self: end;
 }
 
+// Barra con contenido en el centro ($operationalHeaderCenterHtml). Sólo la
+// llena el POS, con su contexto: el centro deja de ser una columna `auto`
+// entre dos mitades iguales y se queda con TODO lo que sobra entre la marca y
+// las herramientas. Sin slot, la barra es la de siempre —el tablero de área y
+// el selector de estación no la usan—.
+.operational-header--con-centro {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+
+  .operational-header__region--center {
+    display: flex;
+    justify-self: stretch;
+  }
+}
+
 .operational-header__brand {
   display: inline-flex;
   min-width: 0;
@@ -178,22 +192,6 @@
 .operational-header__last-update {
   display: inline-flex;
   min-width: 0;
-}
-
-// Sustituto del "Actualizado HH:MM" en el POS: solo el latido. Si el punto
-// late, el mapa está vivo; es todo lo que el mesero necesita saber de un
-// vistazo, y libera el ancho para el mapa.
-.operational-header__pulse {
-  width: 9px;
-  height: 9px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--c-lima);
-  animation: operational-live-pulse 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .operational-header__pulse { animation: none; }
 }
 
 .operational-header__back {
@@ -407,6 +405,107 @@
   }
 }
 
+// ── Menú del avatar (POS) ─────────────────────────────────────────
+// El avatar abre las herramientas de consulta —ajustes de la vista, cómo leer
+// el mapa y, para un admin, el panel—. En la barra sólo va la inicial con su
+// chevron: el nombre y el rol encabezan el panel, que es donde se leen cuando
+// importan (¿con qué cuenta estoy?). Salir no entra aquí: es su propio botón.
+// Con el ancestro: los pliegues de ≤900 y ≤760 cuadran el chip informativo a
+// 44 px y esconden el chevron, y aquí el chevron es lo único que dice que el
+// avatar abre algo.
+.operational-header .operational-header__user--menu {
+  width: auto;
+  gap: 4px;
+  padding: 5px 8px 5px 5px;
+
+  .operational-header__user-chevron {
+    display: block;
+    color: var(--admin-muted);
+  }
+}
+
+.operational-user-menu__panel--herramientas {
+  width: min(264px, calc(100vw - 24px));
+  gap: 2px;
+  padding: 6px;
+  transform-origin: top right;
+  transition:
+    opacity var(--admin-t-fast) var(--admin-ease-out),
+    transform var(--admin-t-fast) var(--admin-ease-out);
+
+  // Sólo la entrada: la salida es [hidden] y en seco, que es lo que pide un
+  // menú que se cierra porque ya se eligió algo.
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+.operational-user-menu__quien {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.operational-user-menu__nombre {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Rótulo en mono y versalitas: la pareja mono/sans del sistema.
+.operational-user-menu__rol {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+// Con el ancestro: `.admin-body button` (0,1,1) reescribe fuente y fondo de un
+// botón, y a una clase suelta le gana.
+.operational-header .operational-user-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-medium);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: var(--admin-muted);
+    stroke-width: 1.9;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--admin-surface-soft);
+
+    svg { color: var(--admin-text); }
+  }
+}
+
 .operational-update {
   display: inline-flex;
   min-width: 0;
@@ -453,19 +552,10 @@
   background: var(--admin-danger);
 }
 
-.operational-update.mapa-live-badge--active .operational-update__dot {
-  animation: operational-live-pulse 1.6s ease-in-out infinite;
-}
-
 .operational-header a:focus-visible,
 .operational-header button:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
-}
-
-@keyframes operational-live-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
 }
 
 @media (max-width: 1080px) {
@@ -572,9 +662,41 @@
   }
 }
 
+// ── Barra con centro (POS): qué cede para que quepa el contexto ──────
+// El POS ya no pinta wordmark ni el nombre de la cuenta en la barra (ver
+// pos-workspace.php), así que el contexto tiene el ancho que antes había que
+// arrancarle a la marca y al chip por tramos. Queda un solo pliegue de barra:
+// - ≤900 px (tablets en vertical): la barra gana una segunda fila. El modo
+//   se queda en la primera, entre el cajón y el avatar, y los datos bajan
+//   debajo de él. En vertical el suelo del plano está limitado por el ancho y
+//   le sobra alto: no pierde nada. El porqué, en _proyeccion.scss.
+// - ≤639 px: el contexto entero baja a la segunda fila, a todo lo ancho.
+@media (max-width: 900px) {
+  .operational-header--con-centro {
+    height: auto;
+    grid-template-rows: calc(var(--operational-header-height) - 2px) auto;
+    row-gap: 0;
+    padding-bottom: 10px;
+
+    .operational-header__region--left { grid-area: 1 / 1; }
+    .operational-header__region--right { grid-area: 1 / 3; }
+    // El centro ocupa su columna en las DOS filas: el modo va en la primera,
+    // en el hueco que hay entre el cajón y los iconos, y sólo los datos bajan.
+    .operational-header__region--center { grid-area: 1 / 2 / 3 / 3; }
+  }
+}
+
+// En teléfono la columna central ya no da ni para el modo: el contexto baja
+// entero a la segunda fila, a todo lo ancho.
+@media (max-width: 639px) {
+  .operational-header--con-centro .operational-header__region--center {
+    grid-area: 2 / 1 / 3 / -1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .operational-header__user-chevron,
-  .operational-update.mapa-live-badge--active .operational-update__dot {
+  .operational-user-menu__panel--herramientas {
     transition: none;
     animation: none;
   }

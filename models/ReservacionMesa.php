@@ -27,7 +27,7 @@ class ReservacionMesa extends ActiveRecord
         }
 
         return Mesa::consultarSQL(
-            "SELECT m.id, m.numero, m.nombre, m.tipo, m.capacidad, m.pos_x, m.pos_y, m.activo, m.reservable
+            "SELECT m.id, m.numero, m.nombre, m.tipo, m.zona, m.capacidad, m.pos_x, m.pos_y, m.activo, m.reservable
              FROM reservacion_mesas rm
              INNER JOIN mesas m ON m.id = rm.mesa_id
              WHERE rm.reservacion_id = {$reservacionId}
@@ -86,6 +86,32 @@ class ReservacionMesa extends ActiveRecord
             "INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
              VALUES " . implode(', ', $valores)
         );
+    }
+
+    /**
+     * Avanza la versión de la asignación de una reservación.
+     *
+     * La versión administrativa incluye updated_at y la asignación actual. La
+     * tabla pivote no tiene timestamp propio, así que cada cambio de mesas debe
+     * mover updated_at explícitamente: un snapshot concurrente queda obsoleto
+     * aunque las dos escrituras caigan en el mismo segundo.
+     */
+    public static function avanzarVersion(int $reservacionId): void
+    {
+        if ($reservacionId < 1) {
+            return;
+        }
+
+        if (!self::$db->query(
+            "UPDATE reservaciones
+             SET updated_at = CASE
+                 WHEN updated_at IS NULL THEN CURRENT_TIMESTAMP
+                 ELSE GREATEST(CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND)
+             END
+             WHERE id = {$reservacionId}"
+        )) {
+            throw new \RuntimeException('No fue posible actualizar la version de asignacion.');
+        }
     }
 
     public static function eliminarAsignacion(int $reservacionId): void

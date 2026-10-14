@@ -145,7 +145,7 @@ final class DisponibilidadReservacionService
             $fecha,
             $hora,
             $personas,
-            $asignacionPublica ? ReservacionConfig::MAX_COMENSALES_PUBLICO : ReservacionConfig::MAX_COMENSALES_ADMIN,
+            $asignacionPublica ? ReservacionConfig::maxComensalesPublico() : ReservacionConfig::MAX_COMENSALES_ADMIN,
             $excluirReservacionId,
             $asignacionPublica,
             null,
@@ -200,7 +200,7 @@ final class DisponibilidadReservacionService
         return self::consultarSlots(
             $fecha,
             $personas,
-            ReservacionConfig::MAX_COMENSALES_PUBLICO,
+            ReservacionConfig::maxComensalesPublico(),
             max(0, $excluirReservacionId),
             true,
             null,
@@ -244,7 +244,7 @@ final class DisponibilidadReservacionService
                 'disponible' => false,
                 'motivo' => $publico
                     && $personasValidas !== false
-                    && $personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                    && $personasValidas > ReservacionConfig::maxComensalesPublico()
                     ? 'requiere_contactar_restaurante'
                     : 'comensales_invalidos',
                 'fecha' => trim($fecha),
@@ -450,7 +450,7 @@ final class DisponibilidadReservacionService
             $base['motivo'] = 'comensales_invalidos';
             return $base;
         }
-        if ($personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO && $asignacionPublica) {
+        if ($personasValidas > ReservacionConfig::maxComensalesPublico() && $asignacionPublica) {
             $base['motivo'] = 'requiere_contactar_restaurante';
             $base['requiere_asignacion_manual'] = true;
             return $base;
@@ -461,24 +461,24 @@ final class DisponibilidadReservacionService
             return $base + ['codigo_horario' => $horaValidada['codigo'] ?? null];
         }
 
-        $ocupacion = $contextoFecha !== null
-            ? OcupacionMesasService::evaluarHorarioConContexto(
-                $contextoFecha,
-                (string)$horaValidada['hora'],
-                $excluirReservacionId,
-                $ahora
-            )
-            : OcupacionMesasService::evaluarHorario(
-                $fecha,
-                (string)$horaValidada['hora'],
-                $excluirReservacionId,
-                $bloquear,
-                null,
-                $ahora
-            );
-        $mesas = $contextoFecha !== null
-            ? (array)($contextoFecha['mesas_reservables'] ?? [])
-            : Mesa::reservables();
+        // Siempre con un contexto del día: el planificador lo necesita para ver
+        // TODAS las reservas que tocan el bloque exterior y para evaluar el
+        // intervalo de cada una que haya que reubicar. Sin contexto previo se
+        // carga con los mismos parámetros con que lo haría evaluarHorario().
+        $contextoFecha = $contextoFecha ?? OcupacionMesasService::prepararContextoFecha(
+            $fecha,
+            $bloquear,
+            null,
+            $ahora,
+            $excluirReservacionId
+        );
+        $ocupacion = OcupacionMesasService::evaluarHorarioConContexto(
+            $contextoFecha,
+            (string)$horaValidada['hora'],
+            $excluirReservacionId,
+            $ahora
+        );
+        $mesas = (array)($contextoFecha['mesas_reservables'] ?? []);
         $capacidadResumen = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
         $base = array_merge($base, [
             'capacidad_fisica_total' => (int)($capacidadResumen['capacidad_fisica_total'] ?? 0),
@@ -502,17 +502,21 @@ final class DisponibilidadReservacionService
             );
             return $base;
         }
-        $disponibles = array_values(array_filter(
-            $mesas,
-            static fn($mesa): bool => !empty($ocupacion['mesas'][(int)$mesa->id]['disponible'])
-        ));
-        usort($disponibles, static fn($a, $b): int => ((int)$a->numero <=> (int)$b->numero) ?: ((int)$a->id <=> (int)$b->id));
-
-        $seleccion = $asignacionPublica
-            ? AsignacionMesasService::seleccionarMesasPublicas($disponibles, (int)$personasValidas, (array)($ocupacion['mesa_ids_proyectadas'] ?? []))
-            : AsignacionMesasService::seleccionarMesasGeneral($disponibles, (int)$personasValidas, (array)($ocupacion['mesa_ids_proyectadas'] ?? []));
-        if ($seleccion === []) {
+        $plan = AsignacionPlanificadorService::planificarConContexto(
+            $contextoFecha,
+            $ocupacion,
+            (int)$personasValidas,
+            (string)$horaValidada['hora'],
+            is_array($excluirReservacionId) ? $excluirReservacionId : [$excluirReservacionId],
+            ReservacionConfig::maxComensalesPublico(),
+            $ahora
+        );
+        if (!$plan['ok']) {
+            // Para el cliente es lo mismo «no hay mesa» que «el bloque no se
+            // puede despejar»: ese horario no se ofrece. El motivo fino queda
+            // para el panel y el registro.
             $base['motivo'] = 'sin_combinacion_fisica';
+            $base['motivo_asignacion'] = $plan['motivo'];
             $base['ocupacion'] = $ocupacion;
             CapacidadReservacionesService::registrarEvaluacion(
                 $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
@@ -524,15 +528,15 @@ final class DisponibilidadReservacionService
             return $base;
         }
 
-        $mesaIds = array_map(static fn($mesa): int => (int)$mesa->id, $seleccion);
-        $capacidad = array_sum(array_map(static fn($mesa): int => (int)$mesa->capacidad, $seleccion));
+        $mesaIds = $plan['mesa_ids'];
         $base['disponible'] = true;
         $base['motivo'] = 'disponible';
         $base['mesa_ids'] = $mesaIds;
-        $base['capacidad_total'] = $capacidad;
-        $base['tipo_combinacion'] = count($mesaIds) === 1
-            ? 'mesa_individual'
-            : (count($mesaIds) === 2 ? 'par_predefinido' : 'trio_predefinido');
+        $base['capacidad_total'] = (int)$plan['capacidad_total'];
+        $base['tipo_combinacion'] = $plan['tipo'];
+        // Vista previa: quien persista la reserva aplica estas reubicaciones en
+        // su transacción (ReservacionReubicacionService::aplicar).
+        $base['reubicaciones'] = $plan['reubicaciones'];
         $base['asignacion_automatica'] = true;
         $base['ocupacion'] = $ocupacion;
         $base['depende_liberacion_proyectada'] = array_intersect($mesaIds, (array)($ocupacion['mesa_ids_proyectadas'] ?? [])) !== [];
@@ -590,6 +594,9 @@ final class DisponibilidadReservacionService
                 'asignacion_automatica_disponible' => (bool)($evaluacion['asignacion_automatica'] ?? false),
                 'depende_liberacion_proyectada' => $capacidad['depende_liberacion_proyectada'],
                 'tipo_combinacion' => $evaluacion['tipo_combinacion'] ?? null,
+                // Lo que se movería si se reserva aquí. El personal lo ve antes
+                // de confirmar; la landing nunca lo recibe.
+                'reubicaciones_previstas' => $evaluacion['reubicaciones'] ?? [],
             ];
         }
         $base['detalle_horarios'] = $detalles;

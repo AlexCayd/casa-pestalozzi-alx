@@ -7,6 +7,11 @@
 @use '../operation/map-shell';
 @use '../operation/toolbar';
 @use '../operation/reservation-list';
+// Reservaciones dentro del POS: barra de contexto, proyección, cajón y ficha.
+// Después de map-shell: la trama de proyección sustituye al suelo de ahí.
+@use 'proyeccion';
+@use 'cajon';
+@use 'ficha';
 // El select de mesero reutiliza el componente del panel admin en vez de
 // duplicar 250 líneas de teclado, ARIA y portal.
 @use '../admin/shared/components/select';
@@ -27,8 +32,7 @@
 .pdv-page button,
 .pdv-page input[type="range"],
 .pdv-page .mesa-pin[data-reservable="1"],
-.pdv-page .mesa-pin[data-ticketable="1"],
-.pdv-page .reserva-card {
+.pdv-page .mesa-pin[data-ticketable="1"] {
   cursor: pointer;
 }
 
@@ -323,102 +327,6 @@
 .pdv-empty-icon {
   font-size: 1.5rem;
   opacity: .4;
-}
-
-// ── Tarjeta de reservación ────────────────────────────────────
-.reserva-card {
-  display: flex;
-  align-items: flex-start;
-  gap: .75rem;
-  padding: .75rem 1.25rem;
-  border-bottom: 1px solid var(--line-soft);
-  transition: background .2s;
-  position: relative;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 2px;
-    background: transparent;
-    transition: background .2s;
-  }
-
-  &:hover {
-    background: color-mix(in srgb, var(--txt) 3%, transparent);
-  }
-
-  &--selected {
-    background: color-mix(in srgb, var(--accent) 7%, transparent);
-
-    &::before { background: var(--gold); }
-  }
-
-  &--activa   { &::before { background: var(--gold); } }
-  &--proxima  { &::before { background: var(--feedback-warn-bg); } }
-  &--pasada   { opacity: .4; }
-}
-
-// Las horas se leen en columna, una por tarjeta: mono y tabular para que los
-// dos puntos caigan en la misma vertical (misma regla que el reloj).
-.reserva-card__hora {
-  font-family: var(--admin-font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: .95rem;
-  color: var(--accent-text);
-  min-width: 40px;
-  line-height: 1.2;
-  padding-top: .05rem;
-}
-
-.reserva-card__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: .2rem;
-  min-width: 0;
-}
-
-.reserva-card__nombre {
-  font-size: .85rem;
-  font-weight: 600;
-  color: var(--txt);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reserva-card__meta {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  flex-wrap: wrap;
-}
-
-.reserva-card__comensales,
-.reserva-card__mesa {
-  font-size: .7rem;
-  color: var(--txt-mute);
-}
-
-.reserva-card__mesa {
-  color: var(--gold-soft);
-  font-weight: 500;
-}
-
-.reserva-card__estado {
-  font-size: .6rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  font-weight: 700;
-  padding: .15rem .45rem;
-  border-radius: 4px;
-  flex-shrink: 0;
-  align-self: flex-start;
-
-  &--pendiente_verificacion   { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-text); }
-  &--confirmada  { background: color-mix(in srgb, var(--feedback-ok) 20%, transparent);   color: var(--feedback-ok); }
-  &--cancelada   { background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);  color: var(--feedback-danger); }
 }
 
 // ── Canvas wrap ───────────────────────────────────────────────
@@ -725,11 +633,6 @@
   // Sidebar head más compacto
   .pdv-sidebar-head { padding: .6rem 1rem .5rem; }
 
-  // Tarjetas más compactas
-  .reserva-card { padding: .6rem 1rem; }
-  .reserva-card__hora { font-size: .9rem; min-width: 36px; }
-  .reserva-card__nombre { font-size: .8rem; }
-
   // Time controller
   .pdv-time-ctrl {
     padding: .6rem .75rem;
@@ -744,9 +647,19 @@
 // ── Modal de mesa (POS) ───────────────────────────────────────
 @keyframes mm-fade  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes mm-slide { from { transform: translateY(100%); } to { transform: translateY(0); } }
+// El `round()` va también aquí: la animación termina con `forwards`, así que
+// su último fotograma es el que queda pintado, no la regla del panel.
 @keyframes mm-scale {
-  from { opacity: 0; transform: translate(-50%, -52%); }
-  to   { opacity: 1; transform: translate(-50%, -50%); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -52%);
+    transform: translate(round(-50%, 1px), round(-52%, 1px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transform: translate(round(-50%, 1px), round(-50%, 1px));
+  }
 }
 
 /*
@@ -855,11 +768,19 @@
   overflow-y: auto;
 
   @media (min-width: 640px) {
+    /* Centrado sobre píxel entero. Con `50%` a secas la esquina del panel caía
+       donde dijera la mitad de su altura —fraccionaria: depende del contenido
+       y de la ventana—, y el texto, que se pinta en píxel entero, quedaba
+       medio píxel arriba o abajo de su caja según la altura de la pantalla.
+       Las primeras declaraciones son el respaldo sin `round()`. */
     top: 50%;
     left: 50%;
+    top: round(50%, 1px);
+    left: round(50%, 1px);
     right: auto;
     bottom: auto;
     transform: translate(-50%, -50%);
+    transform: translate(round(-50%, 1px), round(-50%, 1px));
     width: min(400px, 90vw);
     border-radius: 16px;
     border: 1px solid var(--glass-border);
@@ -1090,9 +1011,12 @@
   .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
     top: 50%;
     left: 50%;
+    top: round(50%, 1px);
+    left: round(50%, 1px);
     right: auto;
     bottom: auto;
     transform: translate(-50%, -50%);
+    transform: translate(round(-50%, 1px), round(-50%, 1px));
     width: min(46rem, calc(100vw - 3rem));
     max-height: min(85dvh, 48rem);
     padding: 1.5rem;
@@ -1422,9 +1346,23 @@
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
+  // Geist ya centra sus mayúsculas en el área de contenido (ascent 1005 y
+  // descent 295 frente a 710 de mayúsculas), pero Chrome pinta la línea base en
+  // píxel entero y en esta caja cae en el 17 de 28, cuando el centro de la tinta
+  // pide 17,5: medio píxel ALTA, medido. Lo corrige el `translateY` de
+  // `__texto`, que no se redondea a píxel CSS (un padding sí: saltaba uno
+  // entero). Sólo vale porque el panel ya cae en píxel entero (ver su regla);
+  // con la esquina en una fracción, el desvío cambiaba con la ventana. Si
+  // cambian la altura del chip o el cuerpo, hay que volver a medirlo.
+  line-height: 1;
   padding: 0 .7rem;
   border-radius: 999px;
   margin: 0;
+
+  &__texto {
+    display: block;
+    transform: translateY(.5px);
+  }
 
   &--bloqueada, &--ocupada {
     background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
@@ -1678,8 +1616,9 @@
   gap: .55rem;
   margin: .15rem 0 .8rem;
   padding: .75rem .8rem;
+  // Sin filete lateral: un borde de 3px doblado por el radio era el gesto
+  // genérico que se retiró de los avisos, del cajón y de la ficha.
   border: 1px solid var(--map-table-reservation-overdue-border);
-  border-left-width: 3px;
   border-radius: 8px;
   background: var(--surface-2);
   color: var(--txt);
@@ -1798,6 +1737,15 @@
   font-size: .68rem;
   line-height: 1.45;
   color: var(--txt-faint);
+
+  // La nota que explica un botón apagado no es letra pequeña: es la única
+  // respuesta a «¿por qué no puedo?». Se lee a un brazo de la tablet, así que
+  // sube de tamaño y de tinta.
+  &--bloqueo {
+    margin-top: .6rem;
+    font-size: .8125rem;
+    color: var(--txt-mute);
+  }
 }
 
 // ── Input nombre editable en ticket abierto ───────────────────
@@ -1838,6 +1786,14 @@
   border-radius: 999px;
   padding: .18rem .6rem;
   white-space: nowrap;
+
+  // Barra en su tope: el mismo rojo del pin que la abrió. La cifra («4 de 4»)
+  // sigue diciendo lo mismo sin el color.
+  &--lleno {
+    color: var(--admin-danger-text);
+    background: var(--admin-danger-bg);
+    border-color: var(--admin-danger-border);
+  }
 }
 
 .mmodal-llevar-list {
@@ -1956,7 +1912,9 @@
   flex-shrink: 0;
   align-items: center;
   gap: .4rem;
-  min-height: 40px;
+  // 44 y no 40: es la fila que el mesero toca de pie para saltar entre
+  // tickets de la misma barra, con el modal sobre el mapa.
+  min-height: 44px;
   padding: 0 .8rem;
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2013,6 +1971,18 @@
 .mmodal-llevar-chip--nuevo {
   border-style: dashed;
   color: var(--txt);
+
+  // Barra llena: el alta sigue a la vista para que se sepa que existe, pero
+  // apagada. Va con aria-disabled (no `disabled`) para que el toque llegue y
+  // el JS explique el motivo; el `:disabled` queda por si algún día se emite.
+  &:disabled,
+  &[aria-disabled="true"] {
+    color: var(--txt-faint);
+    border-color: var(--line-soft);
+    cursor: not-allowed;
+
+    &:hover { color: var(--txt-faint); border-color: var(--line-soft); }
+  }
 }
 
 .mmodal-stepper-wrap {
@@ -2574,23 +2544,6 @@
 // Sistema de comandas — estilos nuevos
 // ═══════════════════════════════════════════════════════════════
 
-// ── Badge temporal en tarjetas del sidebar ────────────────────
-.reserva-card__temporal {
-  display: inline-block;
-  font-size: .57rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: .1rem .42rem;
-  border-radius: 3px;
-  margin-top: .2rem;
-
-  &--en-curso  { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent-text); }
-  &--proxima   { background: color-mix(in srgb, var(--feedback-warn) 13%, transparent); color: var(--feedback-warn); }
-  &--vencida   { background: color-mix(in srgb, var(--txt-faint) 10%, transparent); color: var(--txt-faint); }
-  &--cancelada { background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);  color: var(--feedback-danger); }
-}
-
 // ── Tabs principales del modal (Agregar / Resumen) ────────────
 .mmodal-tabs {
   display: flex;
@@ -3108,8 +3061,8 @@
 }
 
 // ── Panel de ajustes del mesero ───────────────────────────────
-// Los presets de layout y el disparador ya no viven en el modal: están en el
-// engranaje del header (.pos-header__prefs → #pos-prefs-overlay). Este bloque
+// Los presets de layout y el disparador ya no viven en el modal: se abren
+// desde el menú del avatar (#pos-prefs-toggle → #pos-prefs-overlay). Este bloque
 // estiliza el cuerpo del panel, que ahora se inyecta en #pos-prefs-panel.
 .mmodal-prefs {
   display: grid;
@@ -3756,47 +3709,6 @@
 
 
 
-// ── Ajustes del mesero: disparador en el header ────────────────
-// Solo el engranaje: la palabra "Ajustes" duplicaba lo que ya dice el icono
-// y competía por el ancho con el menú de usuario.
-.mapa-page .pos-header__prefs {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border: 1px solid var(--admin-border);
-  border-radius: 50%;
-  background: var(--admin-surface-soft);
-  color: var(--admin-muted);
-  cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
-
-  svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  &:hover,
-  &.is-active {
-    color: var(--admin-text);
-    border-color: var(--admin-gold);
-    background: var(--admin-surface);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--admin-gold);
-    outline-offset: 2px;
-  }
-
-}
-
 // ── Alertas de impresión: disparador en el header ──────────────
 // Es el único elemento del header del POS con relleno sólido, y por eso se
 // ve desde lejos: sólo existe mientras hay algo que no se imprimió. Ámbar y
@@ -4082,12 +3994,14 @@
   }
 }
 
-// ── El mapa: único contenedor, llena el alto disponible ────────
+// ── El área de trabajo: barra de contexto, plano y ficha ───────
+// Rejilla de tres áreas (ver _proyeccion.scss). Sin ficha el plano ocupa todo
+// el ancho; con ficha, en horizontal, la ficha es una columna a la derecha y el
+// plano se reacomoda — nunca le flota encima.
 .mapa-page .pos-map {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  display: flex;
 }
 
 .mapa-page .pos-map .mesas-map {
@@ -4223,7 +4137,7 @@
 
 .mapa-page .pos-drawer-date .operational-context-date {
   // `flex` y `min-width` vienen de `.operational-page .operational-context-date`
-  // (180-220px, pensado para la barra de la operación de reservaciones). Sin
+  // (180-220px, pensado para la barra de la antigua Operación). Sin
   // anularlos los tres, el campo nunca llega al ancho del cajón.
   flex: 1 1 auto;
   width: 100%;

@@ -123,6 +123,32 @@
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
   --confirmation-on-danger: var(--admin-paper);
+
+  /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
+     en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
+     mensaje en Geist— y el estado sacado de los ROLES de estado, no de los
+     hex de la paleta: el POS los redeclara (`.mapa-page.operational-page`:
+     éxito en lima, advertencia en naranja) y el aviso tiene que hablar el
+     mismo idioma que el mapa sobre el que cae, con chip y rótulo del mismo
+     tono.
+
+     Los `-text` se empujan un 15% hacia la tinta. Los del sistema están
+     calculados contra el fondo y la superficie base; el aviso se apoya en
+     --admin-surface-strong, un paso más claro en oscuro, y ahí el rojo del
+     POS se quedaba en 4.35:1 para un rótulo de 11 px. Mezclar con
+     --admin-text sube el contraste en los dos temas (en claro oscurece, en
+     oscuro aclara). */
+  --app-notice-font: var(--admin-font-sans);
+  --app-notice-label-font: var(--admin-font-mono);
+  --app-notice-edge: var(--admin-edge);
+  --app-notice-danger: var(--admin-danger);
+  --app-notice-warn: var(--admin-warning);
+  --app-notice-ok: var(--admin-success);
+  --app-notice-info: var(--admin-info);
+  --app-notice-danger-text: color-mix(in srgb, var(--admin-danger-text) 85%, var(--admin-text));
+  --app-notice-warn-text: color-mix(in srgb, var(--admin-warning-text) 85%, var(--admin-text));
+  --app-notice-ok-text: color-mix(in srgb, var(--admin-success-text) 85%, var(--admin-text));
+  --app-notice-info-text: color-mix(in srgb, var(--admin-info-text) 85%, var(--admin-text));
 }
 
 /* ── Puente hacia los nombres públicos ─────────────────────────

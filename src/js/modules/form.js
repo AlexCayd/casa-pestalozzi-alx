@@ -477,7 +477,11 @@ function initForm() {
   var formStateHelpers = window.ReservationFormState || {};
   var csrfNode = document.querySelector("[data-reservation-csrf]");
   var csrfToken = csrfNode ? csrfNode.getAttribute("data-reservation-csrf") || "" : "";
-  var maxGuests = parseInt(form.getAttribute("data-max-guests"), 10) || 12;
+  // El máximo lo fija Configuración y llega del servidor; el respaldo sólo
+  // cubre un marcado sin el atributo.
+  var maxGuests = parseInt(form.getAttribute("data-max-guests"), 10)
+    || formStateHelpers.MAX_GUESTS_FALLBACK
+    || 12;
   var reservationState = {
     currentStep: 1,
     maxCompletedStep: 0,
@@ -519,6 +523,18 @@ function initForm() {
   var selectionSecondary = summary.querySelector("[data-selection-secondary]");
   var selectionDetails = summary.querySelector("[data-selection-details]");
   var largePartyInfo = summary.querySelector("[data-large-party-info]");
+  var largePartyWhatsapp = summary.querySelector("[data-large-party-whatsapp]");
+  // El enlace de grupo grande llega con la conversación empezada, como el de
+  // la agenda de catas: el tamaño del grupo es lo primero que el restaurante
+  // va a preguntar. La fecha no va porque el modo grupo grande la vacía.
+  if (largePartyWhatsapp) {
+    var largePartyWhatsappBase = String(largePartyWhatsapp.getAttribute("href") || "").split("?")[0];
+    if (largePartyWhatsappBase) {
+      largePartyWhatsapp.setAttribute("href", largePartyWhatsappBase + "?text=" + encodeURIComponent(
+        "Hola, quiero reservar para un grupo de más de " + maxGuests + " personas."
+      ));
+    }
+  }
   var review = form.querySelector("[data-reservation-review]");
   var reviewDate = review.querySelector("[data-review-date]");
   var reviewGuests = review.querySelector("[data-review-guests]");
@@ -949,21 +965,21 @@ function initForm() {
     // arriba, y el paso 4 ya es exactamente eso: una pantalla de revisión.
     //
     // La única razón por la que este bloque sigue apareciendo aquí es el aviso
-    // de grupo grande: con más de 12 comensales la reserva en línea no aplica y
+    // de grupo grande: por encima del máximo la reserva en línea no aplica y
     // esto es la salida —el teléfono y el WhatsApp del restaurante—. Eso no es
     // un resumen, es lo que impide que alguien se quede sin saber qué hacer.
     //
     // El estado viaja como data-attribute: el SCSS le pone icono y color sin
     // que el JS tenga que saber de presentación.
     if (reservationState.largeParty) {
-      if (selectionStatus) selectionStatus.textContent = "Más de 12 personas";
+      if (selectionStatus) selectionStatus.textContent = "Más de " + maxGuests + " personas";
       if (selectionDetails) selectionDetails.hidden = true;
       if (largePartyInfo) largePartyInfo.hidden = false;
       summary.dataset.state = "large-party";
       summary.hidden = false;
     } else {
       // Los campos se siguen rellenando aunque el bloque esté oculto: si el
-      // conteo sube de 12 en caliente, el aviso aparece ya con sus datos.
+      // conteo pasa del máximo en caliente, el aviso aparece ya con sus datos.
       if (selectionDetails) selectionDetails.hidden = false;
       if (largePartyInfo) largePartyInfo.hidden = true;
       if (reservationState.date) {
@@ -1314,7 +1330,7 @@ function initForm() {
     });
 
     document.getElementById("guestsVal").textContent = largePartyMode
-      ? "Más de 12"
+      ? "Más de " + maxGuests
       : Math.max(7, guestCount);
     document.getElementById("guestsNum").value = Math.max(7, guestCount);
     guestsExtra.hidden = guests <= 6 && !largePartyMode;

@@ -40,7 +40,8 @@ auditAssert($decision['commit'] === false, 'SIN_ASIGNACION no confirma');
 
 $pos = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $form = file_get_contents($root . '/src/js/admin/reservations/form.js');
-$operation = file_get_contents($root . '/src/js/admin/reservations/operation.js');
+// Las piezas de reservaciones del POS heredaron lo que hacía Operación.
+$operation = file_get_contents($root . '/src/js/operation/pos-ficha.js') . file_get_contents($root . '/src/js/operation/pos-alta.js');
 foreach ([
     'warningsLocalesParaTicket',
     'bloqueo.motivo',
@@ -52,8 +53,8 @@ foreach (['labels[code] || code', 'warningCodesForSubmit', 'confirmaciones_reque
 }
 
 $adminController = file_get_contents($root . '/controllers/AdminReservacionController.php');
-$operationController = file_get_contents($root . '/controllers/ReservacionOperacionController.php');
+$operationController = file_get_contents($root . '/controllers/PosReservacionController.php');
 auditAssert(strpos($adminController, 'decisionesResultado') !== false, 'admin enriquece decisiones desde catalogo');
-auditAssert(strpos($operationController, 'decisionesResultado') !== false, 'operacion enriquece decisiones desde catalogo');
+auditAssert(strpos($operationController, 'decisionesResultado') !== false, 'el POS enriquece decisiones desde catalogo');
 
 fwrite(STDOUT, "Reservaciones: auditoria contractual OK\n");

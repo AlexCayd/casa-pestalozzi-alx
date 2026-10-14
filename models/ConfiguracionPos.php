@@ -9,11 +9,16 @@ namespace Model;
 class ConfiguracionPos extends ActiveRecord
 {
     private const ID_UNICO = 1;
+    /** Tickets abiertos a la vez por barra: valor histórico y rango admitido. */
+    public const MAX_TICKETS_BARRA_PREDETERMINADO = 4;
+    public const MAX_TICKETS_BARRA_MINIMO = 1;
+    public const MAX_TICKETS_BARRA_TOPE = 12;
     protected static $tabla = 'configuracion_pos';
     protected static $columnasDB = [
         'id',
         'mesero_editable',
         'impresion_activa',
+        'max_tickets_barra',
         'updated_by',
         'updated_at',
     ];
@@ -21,6 +26,7 @@ class ConfiguracionPos extends ActiveRecord
     public $id = self::ID_UNICO;
     public $mesero_editable = 1;
     public $impresion_activa = 1;
+    public $max_tickets_barra = self::MAX_TICKETS_BARRA_PREDETERMINADO;
     public $updated_by = null;
     public $updated_at = null;
 
@@ -35,6 +41,55 @@ class ConfiguracionPos extends ActiveRecord
         $this->id = self::ID_UNICO;
         $this->mesero_editable = (int) (bool) $this->mesero_editable;
         $this->impresion_activa = (int) (bool) $this->impresion_activa;
+        $this->max_tickets_barra = (int) $this->max_tickets_barra;
+    }
+
+    /**
+     * Lectura tolerante, con la misma cautela que meseroEditable(): sin la
+     * columna —o sin la tabla— responde con el tope histórico y el POS sigue
+     * operando. Se lee una vez por petición: el mapa lo consulta por barra.
+     */
+    public static function maxTicketsBarra(): int
+    {
+        static $valor = null;
+        if ($valor !== null) {
+            return $valor;
+        }
+        try {
+            $configuracion = static::getDB() ? static::obtener() : null;
+            $leido = $configuracion !== null ? (int) $configuracion->max_tickets_barra : 0;
+        } catch (\Throwable $e) {
+            error_log('ConfiguracionPos::maxTicketsBarra - ' . $e->getMessage());
+            $leido = 0;
+        }
+
+        return $valor = $leido > 0
+            ? max(self::MAX_TICKETS_BARRA_MINIMO, min(self::MAX_TICKETS_BARRA_TOPE, $leido))
+            : self::MAX_TICKETS_BARRA_PREDETERMINADO;
+    }
+
+    /** Guarda SÓLO el tope de tickets por barra (ver guardarImpresionActiva()). */
+    public function guardarMaxTicketsBarra(): bool
+    {
+        $stmt = self::getDB()->prepare(
+            'INSERT INTO ' . static::$tabla . ' (id, max_tickets_barra, updated_by)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                max_tickets_barra = VALUES(max_tickets_barra),
+                updated_by = VALUES(updated_by)'
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el guardado del tope de tickets por barra.');
+        }
+
+        $id = self::ID_UNICO;
+        $tope = (int) $this->max_tickets_barra;
+        $updatedBy = $this->updated_by !== null ? (int) $this->updated_by : null;
+        $stmt->bind_param('iii', $id, $tope, $updatedBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return $ok;
     }
 
     public static function obtener(): ?self
@@ -180,6 +235,7 @@ class ConfiguracionPos extends ActiveRecord
         return [
             'mesero_editable' => (int) $this->mesero_editable === 1,
             'impresion_activa' => (int) $this->impresion_activa === 1,
+            'max_tickets_barra' => (int) $this->max_tickets_barra,
             'updated_at' => (string) ($this->updated_at ?? ''),
         ];
     }

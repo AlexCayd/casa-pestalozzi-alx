@@ -24,6 +24,7 @@
  * es donde vive el panel de ajustes del mesero (fuera del modal, que se
  * reescribe entero en cada apertura de mesa).
  */
+require_once __DIR__ . '/../../admin/partials/_icons.php';
 $h = $h ?? static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $mapFecha = $mapFecha ?? date('Y-m-d');
 $datePickerHtml = $datePickerHtml ?? '';
@@ -31,7 +32,6 @@ $usuarioNombre = $usuarioNombre ?? '';
 $usuarioRol = $usuarioRol ?? 'Usuario';
 
 $esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
-$puedeMapaReservaciones = in_array((string)($_SESSION['rol'] ?? ''), ['admin', 'waiter'], true);
 
 /*
  * Fecha del cajón en cristiano.
@@ -66,26 +66,38 @@ $posFechaLegible = static function (string $iso) use ($posDiasCortos, $posMeses)
 
 $operationalView = 'map';
 $operationalModule = 'tables';
-// Sin título ni reloj ni flecha: el POS ya es la pantalla en la que está el
-// mesero y cada rótulo de más le quita sitio al mapa.
+/*
+ * La barra del POS tiene cinco piezas, y cada una contesta una pregunta del
+ * turno: ☰ las reservas, el MODO (qué momento mira el mapa), la pastilla (qué
+ * cabe y qué hay que resolver), el avatar (quién soy y las herramientas) y
+ * salir.
+ *
+ * Se va el wordmark, por la misma razón que en el tablero de área: quien mira
+ * el POS ya sabe en qué restaurante está, y su sitio —el más legible de la
+ * barra— lo toma el modo, que sí cambia lo que el mesero hace.
+ *
+ * Ajustes de la vista, la ayuda del mapa y el panel (sólo admin) se pliegan en
+ * el avatar ($operationalHeaderMenuHtml, más abajo): se consultan de vez en
+ * cuando, y sueltos eran tres círculos iguales que había que descifrar uno por
+ * uno al lado de lo que se mira todo el turno.
+ */
 $operationalModuleTitle = '';
+$operationalHeaderBrand = false;
 $operationalShowLastUpdate = false;
-// Chip informativo + icono de salida: el mesero ve con qué cuenta trabaja y
-// cierra sesión de un toque, sin desplegable intermedio.
+// Sin desplegable de usuario «de los de antes»: salir sigue siendo su propio
+// botón, a un toque —el modal de confirmación ya frena el toque accidental—.
+// El avatar sólo abre herramientas de consulta.
 $operationalUserMenu = false;
-// Solo para administradores: el destino está bajo /admin y a un mesero la
-// guardia de rol lo rebotaría.
-$operationalHeaderBack = $esAdmin;
+// La rejilla al panel vive ahora en el menú del avatar (sólo admin).
+$operationalHeaderBack = false;
 $operationalDate = $mapFecha;
 $operationalHour = '';
 $operationalBrandHref = '/punto-de-venta';
-$operationalHeaderBackUrl = '/admin/punto-de-venta';
 $operationalDrawerId = 'map-reservations-drawer';
 $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
-// Ambos destinos viven bajo /admin: a un mesero la guardia lo rebotaría, así
-// que solo se ofrecen si quien mira es administrador.
-$operationalReservationsHref = $puedeMapaReservaciones ? '/admin/reservaciones/operacion' : '';
+// Vive bajo /admin: a un mesero la guardia lo rebotaría, así que sólo se
+// ofrece si quien mira es administrador.
 $operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;
@@ -99,8 +111,8 @@ ob_start();
 <?php /*
   Alertas de impresión. Nace oculto: sólo aparece cuando hay una comanda o una
   cuenta que no llegó a su impresora con el servicio encendido, y desaparece
-  cuando alguien las atiende. Va ANTES del engranaje porque es lo único del
-  header que pide acción.
+  cuando alguien las atiende. Es lo único que se queda suelto junto al avatar
+  porque es lo único de esa esquina que pide acción.
 */ ?>
 <button type="button" class="pos-header__print-alerts" id="pos-print-alerts-toggle" hidden
         aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-print-alerts"
@@ -112,16 +124,35 @@ ob_start();
   </svg>
   <span class="pos-header__print-alerts-count" id="pos-print-alerts-count">0</span>
 </button>
-<button type="button" class="pos-header__prefs" id="pos-prefs-toggle"
-        aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay"
-        aria-label="Ajustes de la vista" title="Ajustes de la vista">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"/>
-  </svg>
-</button>
 <?php
 $operationalHeaderActionsHtml = (string)ob_get_clean();
+
+/*
+ * Menú del avatar. Los ids y atributos son contrato: #pos-prefs-toggle lo
+ * engancha punto-de-venta.js y [data-map-help-open][aria-controls] lo resuelve
+ * map-help.js por delegación. Al elegir una opción, shell.js cierra el menú y
+ * devuelve el foco al avatar ANTES de que se abra el diálogo, así que al
+ * cerrarlo el foco vuelve a un botón visible.
+ */
+$operationalHeaderMenuHtml = '<button type="button" class="operational-user-menu__item" id="pos-prefs-toggle" role="menuitem"'
+  . ' aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay">'
+  . admin_icon('configuration', 18) . '<span>Ajustes de la vista</span></button>'
+  . '<button type="button" class="operational-user-menu__item" role="menuitem" data-map-help-open'
+  . ' aria-haspopup="dialog" aria-controls="map-help-dialog-mapa-mesas">'
+  . admin_icon('ayuda', 18) . '<span>Cómo leer el mapa</span></button>'
+  . ($esAdmin
+    ? '<a class="operational-user-menu__item" role="menuitem" href="/admin/punto-de-venta">'
+      . admin_icon('panel', 18) . '<span>Panel de administración</span></a>'
+    : '');
+
+/*
+ * El contexto del mapa (Ahora / la hora proyectada, libres, próxima llegada y
+ * reservas sin mesa) vive en el CENTRO de la barra. Como fila propia entre la
+ * barra y el plano le quitaba al salón el alto de una fila entera.
+ */
+ob_start();
+include __DIR__ . '/pos-contexto.php';
+$operationalHeaderCenterHtml = (string)ob_get_clean();
 
 ob_start();
 ?>
@@ -136,12 +167,20 @@ ob_start();
       Selecciona una o m&aacute;s mesas para abrir el ticket.
     </p>
     <div class="pos-ticket-selection-bar__actions">
-      <button type="button" class="operational-map-action operational-map-action--cancel" id="pos-ticket-selection-cancel">
+      <?php /* Neutro, no rojo: salir de un modo de selección no destruye nada. */ ?>
+      <button type="button" class="operational-map-action" id="pos-ticket-selection-cancel">
         Cancelar
       </button>
       <button type="button" class="operational-map-action operational-map-action--primary" id="pos-ticket-selection-toggle">
         Confirmar apertura
       </button>
+    </div>
+    <?php /* «Cambiar mesas»: al tocar una mesa libre cuando la reserva ya
+             tiene lugar suficiente, se pregunta aquí mismo si la sustituye o
+             se suma. Contrato con punto-de-venta.js: [data-asignacion-eleccion]. */ ?>
+    <div class="pos-ticket-selection-bar__actions pos-ticket-selection-bar__pregunta" id="pos-asignacion-pregunta" hidden>
+      <button type="button" class="operational-map-action" data-asignacion-eleccion="anadir">Añadir</button>
+      <button type="button" class="operational-map-action operational-map-action--primary" data-asignacion-eleccion="cambiar">Cambiar</button>
     </div>
   </div>
   <?php
@@ -159,12 +198,16 @@ ob_start();
     'canvasId' => 'mapa-canvas',
     'canvasMode' => 'map',
     'loadingMode' => 'overlay',
-    'helpPosition' => 'overlay',
+    // La ayuda vive en el menú del avatar: flotando sobre el plano se
+    // montaba encima de la Mesa 8 en cuanto la ficha estrechaba el mapa.
+    'helpPosition' => 'externo',
     // Sin leyenda: el color de cada mesa ya dice su estado y la lista de
     // abreviaturas ocupaba más que el propio mapa.
     'legendPosition' => 'none',
   ];
   include __DIR__ . '/../../operation/partials/map.php';
+  include __DIR__ . '/pos-ficha.php';
+  include __DIR__ . '/pos-alta.php';
   ?>
 </div>
 
@@ -172,12 +215,42 @@ ob_start();
 $operationalDrawerTitleId = 'map-reservations-title';
 $operationalDrawerClass = 'mapa-sidebar';
 $operationalDrawerAttributes = [];
-// El ISO viaja en data-iso: shell.js lo reescribe al cambiar de fecha y el
-// resto del contrato (los enlaces con ?fecha=) sigue leyendo ese valor.
-$operationalDrawerDateHtml = '<span data-operational-map-date data-iso="' . $h($mapFecha) . '">'
-  . $h($posFechaLegible((string) $mapFecha)) . '</span>';
+// «Reservaciones» a secas: la fecha la dice la fila de abajo, y con «del día»
+// el título partía en dos líneas a 340 px.
+$operationalDrawerTitle = 'Reservaciones';
+// Sin navegación de módulos: sólo quedaría «Mesas», que es esta página.
+$operationalDrawerModules = false;
+$operationalDrawerDateHtml = '';
 $operationalDrawerCountHtml = '<span class="mapa-reserva-count" id="mapa-reserva-count">—</span>';
-$operationalDrawerSlotHtml = '<div class="pos-drawer-date">' . $datePickerHtml . '</div>';
+/*
+ * Fecha plegada: «‹ Hoy · Vie 9 de octubre ›». El calendario sigue en flujo
+ * (CLAUDE.md) pero ya no está abierto siempre: abierto se comía ~370 px y a
+ * 1024×768 dejaba lista para una tarjeta y media. El ISO viaja en data-iso,
+ * que es lo que lee y reescribe shell.js.
+ */
+$posHoyIso = \Services\Reservations\ReservacionConfig::fechaActual();
+$posRelativo = static function (string $iso) use ($posHoyIso): string {
+  $hoy = \DateTimeImmutable::createFromFormat('!Y-m-d', $posHoyIso);
+  $dia = \DateTimeImmutable::createFromFormat('!Y-m-d', $iso);
+  if (!$hoy || !$dia) {
+    return '';
+  }
+  $diferencia = (int) $hoy->diff($dia)->format('%r%a');
+  return [-1 => 'Ayer · ', 0 => 'Hoy · ', 1 => 'Mañana · '][$diferencia] ?? '';
+};
+$operationalDrawerSlotHtml = '<div class="pos-cajon-fecha" data-cajon-fecha>'
+  . '<button type="button" class="pos-btn-redondo pos-btn-redondo--icono" data-cajon-dia="-1" aria-label="Día anterior">'
+  . admin_icon('chevron-izquierda', 18) . '</button>'
+  . '<button type="button" class="pos-cajon-fecha__dia" data-cajon-calendario aria-expanded="false" aria-controls="pos-cajon-calendario">'
+  . '<span class="pos-cajon-fecha__rel" data-cajon-relativo>' . $h($posRelativo((string) $mapFecha)) . '</span>'
+  . '<span data-operational-map-date data-iso="' . $h($mapFecha) . '">' . $h($posFechaLegible((string) $mapFecha)) . '</span>'
+  . '</button>'
+  . '<button type="button" class="pos-btn-redondo pos-btn-redondo--icono" data-cajon-dia="1" aria-label="Día siguiente">'
+  . admin_icon('chevron-derecha', 18) . '</button>'
+  . '</div>'
+  . '<div class="pos-drawer-date" id="pos-cajon-calendario" hidden>' . $datePickerHtml . '</div>';
+$operationalDrawerFooterHtml = '<button type="button" class="mmodal-btn mmodal-btn--primary pos-cajon__nueva" data-alta-abrir data-cierra-cajon>'
+  . admin_icon('mas', 18) . '<span>Nueva reservación</span></button>';
 $operationalDrawerListId = 'mapa-reservas-list';
 $operationalDrawerListClass = 'mapa-reservas-list';
 $operationalDrawerListAttributes = [];

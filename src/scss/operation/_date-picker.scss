@@ -1,8 +1,9 @@
 @use '../components/reservation-picker' as reservationPicker;
 
 /*
- * Adaptacion unica del selector de fecha para las dos herramientas operativas.
- * El mapa y la operacion comparten markup, icono, estados y calendario.
+ * Adaptacion unica del selector de fecha para las pantallas de piso. Desde que
+ * se retiro la pantalla de Operacion solo lo usa el POS, que comparte markup,
+ * icono, estados y calendario con el del panel.
  */
 .operational-page {
   --reservation-picker-disabled-opacity: 0.72;
@@ -102,8 +103,7 @@
   }
 }
 
-.operational-page .operational-context-date,
-.operational-page .operational-context-bar .date-picker-wrap {
+.operational-page .operational-context-date {
   box-sizing: border-box;
   width: var(--operational-date-control-width);
   min-width: 180px;
@@ -130,8 +130,7 @@
 }
 
 @media (max-width: 640px) {
-  .operational-page .operational-context-date,
-  .operational-page .operational-context-bar .date-picker-wrap {
+  .operational-page .operational-context-date {
     width: 100%;
     min-width: 0;
     max-width: none;

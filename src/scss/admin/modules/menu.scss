@@ -61,6 +61,48 @@
     justify-content: flex-end;
   }
 
+  // Selector de carta (Ambas / Comida / Maridaje), encima de las categorías.
+  // Es el primer nivel de un filtro de dos: lo que se elige aquí cambia QUÉ
+  // categorías hay debajo, así que se lee antes y lleva su propio rótulo para
+  // no confundirse con la fila de categorías, que usa el mismo componente.
+  &__cartas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-bottom: 12px;
+  }
+
+  // Ancho natural: .admin-tabs reparte la fila a partes iguales (`flex: 1 1 0`)
+  // y con tres opciones cortas eso estiraba el control a todo el módulo. Los
+  // tres reajustes del span son los mismos de .admin-menu__cats, por lo mismo:
+  // la base los pone a 100 % y recorta con puntos suspensivos.
+  &__cartas-tabs {
+    display: inline-flex;
+
+    .admin-tabs__tab {
+      flex: 0 0 auto;
+    }
+
+    .admin-tabs__tab a span {
+      width: auto;
+      overflow: visible;
+      text-overflow: clip;
+    }
+  }
+
+  // Con el dedo, las dos filas del filtro pasan de ~37 px a 44 px de alto. Van
+  // juntas a propósito: si sólo creciera una, el nivel más alto parecería el
+  // más importante, y la jerarquía la ponen el rótulo y el ancho, no el tamaño.
+  // El «+» se iguala para no quedarse corto al final de su fila.
+  @media (pointer: coarse) {
+    &__cartas-tabs .admin-tabs__tab a span,
+    &__cats .admin-tabs__tab a span,
+    &__cats .admin-tabs__tab--add label span {
+      padding-block: 12px;
+    }
+  }
+
   &__panel {
     margin-bottom: 24px;
     padding: 20px;

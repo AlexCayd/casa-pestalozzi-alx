@@ -41,7 +41,82 @@ class PuntoVentaController {
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         );
 
+        $enlaceInicial = self::enlaceInicial($_GET);
+
         include_once __DIR__ . '/../views/punto-de-venta/index.php';
+    }
+
+    /**
+     * GET /admin/reservaciones/operacion (y su alias en inglés). La pantalla de
+     * Operación se retiró: todo lo que hacía vive en el POS. La redirección
+     * conserva lo que el enlace pedía —fecha, hora, reservación y si era para
+     * asignar mesas— para que el buzón viejo o un favorito sigan llevando al
+     * mismo sitio. 302 y no 301: un navegador no debe recordar esto para siempre
+     * si algún día la dirección vuelve a significar algo.
+     */
+    public static function redirigirDesdeOperacion(Router $router): void {
+        $enlace = self::enlaceInicial($_GET);
+        $consulta = ['fecha' => $enlace['fecha']];
+        if ($enlace['reservacion_id'] > 0) {
+            $consulta['reservation_id'] = $enlace['reservacion_id'];
+            if ($enlace['modo'] === 'asignar') {
+                $consulta['mode'] = 'assign';
+            }
+        } elseif ($enlace['hora'] !== '') {
+            $consulta['hora'] = $enlace['hora'];
+        }
+        header('Location: /punto-de-venta?' . http_build_query($consulta), true, 302);
+        exit;
+    }
+
+    /**
+     * Lo que un enlace puede pedirle al POS al abrir: fecha, hora, una
+     * reservación enfocada y si se entra a elegirle mesas. Lo usan el buzón, el
+     * panel de reservaciones y los favoritos viejos de Operación.
+     *
+     * Se valida aquí y no en el JS porque lo que llega por query string es
+     * ajeno: una fecha mal escrita no debe acabar en el contrato con la API, y
+     * una reservación sin fecha se resuelve a la SUYA —abrir la de mañana sobre
+     * el mapa de hoy daría una ficha que no está en la lista—.
+     *
+     * @return array{fecha:string,hora:string,reservacion_id:int,modo:string}
+     */
+    public static function enlaceInicial(array $consulta): array {
+        $hoy = \Services\Reservations\ReservacionConfig::fechaActual();
+        $fecha = trim((string)($consulta['fecha'] ?? ''));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) !== 1 || !checkdate((int)substr($fecha, 5, 2), (int)substr($fecha, 8, 2), (int)substr($fecha, 0, 4))) {
+            $fecha = '';
+        }
+        $hora = substr(trim((string)($consulta['hora'] ?? '')), 0, 5);
+        if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) !== 1) {
+            $hora = '';
+        }
+        $reservacionId = filter_var(
+            $consulta['reservation_id'] ?? ($consulta['reservacion_id'] ?? 0),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        ) ?: 0;
+        $modo = '';
+
+        if ($reservacionId > 0) {
+            $reservacion = Reservacion::find($reservacionId);
+            if (!$reservacion) {
+                $reservacionId = 0;
+            } else {
+                // La reservación manda sobre la fecha del enlace: es su día.
+                $fecha = (string)$reservacion->fecha;
+                $modo = in_array((string)($consulta['mode'] ?? ''), ['assign', 'asignar'], true) ? 'asignar' : '';
+                // La hora la pone la propia reserva al abrirse su ficha.
+                $hora = '';
+            }
+        }
+
+        return [
+            'fecha' => $fecha !== '' ? $fecha : $hoy,
+            'hora' => $hora,
+            'reservacion_id' => $reservacionId,
+            'modo' => $modo,
+        ];
     }
 
     // GET /admin/api/map?fecha=YYYY-MM-DD
@@ -50,14 +125,33 @@ class PuntoVentaController {
         header('Pragma: no-cache');
         header('Content-Type: application/json');
         \Classes\Auth::liberarSesion();
+        // Antes de leer: la reserva cuyo cliente no llegó al vencer la
+        // tolerancia se registra como ausencia y su mesa sale libre en este
+        // mismo sondeo.
+        \Services\Reservations\ReservacionAusenciaAutomaticaService::procesarEnLectura();
+        // Y la reserva por llegar cuya mesa sigue ocupada se mueve a otra
+        // libre: el mapa no tiene un estado «ocupada, con reservación».
+        \Services\Reservations\ReservacionReubicacionPorTicketService::procesarEnLectura();
 
         $fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ''));
+        // Hora de proyección: vacía es AHORA. Sólo HH:MM o HH:MM:SS; cualquier
+        // otra cosa se descarta en vez de proyectar a una hora inventada.
+        $hora = HorarioReservacionService::normalizarHoraSql((string)($_GET['hora'] ?? ''));
+        $reservacionId = max(0, (int)($_GET['reservacion_id'] ?? 0));
+        $intencion = (string)($_GET['intencion'] ?? '') === 'asignar' ? 'asignar' : '';
 
         try {
-            $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
+            $lectura = PosReservacionQueryService::paraFecha($fecha, $hora, [
                 'incluir_inactivas' => false,
                 'calcular_conflictos' => true,
                 'superficie' => Auth::esAdmin() ? 'admin' : 'waiter',
+                'contexto_pos' => true,
+                'reservacion_enfocada_id' => $reservacionId,
+                'intencion' => $intencion,
+                // Al reasignar, la reserva no compite consigo misma: sus mesas
+                // actuales se ven como suyas y no como un conflicto.
+                'reservacion_en_edicion_id' => $intencion === 'asignar' ? $reservacionId : 0,
+                'excluir_reservacion_id' => $intencion === 'asignar' ? $reservacionId : 0,
             ]);
             if (!($lectura['ok'] ?? false)) {
                 self::errorJson((string)($lectura['codigo'] ?? 'MAPA_CARGA_FALLIDA'));
@@ -93,6 +187,18 @@ class PuntoVentaController {
                 static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
             )),
             'reservaciones_operativas' => $lectura['reservaciones_operativas'],
+            // El cajón cuenta el día entero: las que están en mesa, las
+            // apartadas por un hold y las resueltas (canceladas, no llegaron,
+            // atendidas). Va aparte de `reservaciones` porque la lógica de
+            // mesas del POS da por hecho que ésa sólo trae confirmadas.
+            'reservaciones_dia' => array_values(array_filter(
+                (array)$lectura['reservaciones'],
+                static fn(array $reservacion): bool => in_array(
+                    (string)($reservacion['estado'] ?? ''),
+                    ['confirmada', 'en_curso', 'pendiente_verificacion', 'cancelada', 'no_show', 'completada'],
+                    true
+                )
+            )),
             // PosReservacionQueryService already reads the canonical open
             // projection. Keep the response contract defensive at the HTTP
             // boundary so a stale/legacy adapter cannot resurrect a closed
@@ -103,6 +209,18 @@ class PuntoVentaController {
                     && ($ticket['closed_at'] ?? null) === null
             )),
             'meseros'       => $meserosArr,
+            'contexto'      => $lectura['contexto'] ?? null,
+            'horario'       => $lectura['horario'] ?? null,
+            'capacidad_horario' => $lectura['capacidad_horario'] ?? null,
+            // Lo que la pantalla puede ofrecer según quién mira. El servidor
+            // revalida cada acción; esto sólo evita enseñar botones muertos.
+            'permisos'      => [
+                'es_admin' => Auth::esAdmin(),
+                'comentar_reservacion' => Auth::esAdmin(),
+                'ver_contacto' => Auth::esAdmin(),
+                'crear_reservacion' => true,
+                'cambiar_mesas' => true,
+            ],
             // Vacío con el servicio de impresión apagado: sin papel esperado
             // no hay nada que avisar.
             'alertas_impresion' => ImpresionAlertaService::pendientes(),
@@ -115,7 +233,15 @@ class PuntoVentaController {
             // declarar 'config' dos veces en este array, PHP se queda con la
             // última y el bloque de 'pos' desaparecía sin ningún error.
             'config'        => ($lectura['config'] ?? []) + [
-                'pos' => ['mesero_editable' => ConfiguracionPos::meseroEditable()],
+                'pos' => [
+                    'mesero_editable' => ConfiguracionPos::meseroEditable(),
+                    'max_tickets_barra' => ConfiguracionPos::maxTicketsBarra(),
+                ],
+                'reservaciones' => [
+                    'max_comensales_publico' => ReservacionConfig::maxComensalesPublico(),
+                    'umbral_grupo_grande' => ReservacionConfig::umbralGrupoGrande(),
+                    'min_comensales_bloque_exterior' => ReservacionConfig::MIN_COMENSALES_BLOQUE_EXTERIOR,
+                ],
             ],
             'actualizado_en' => $lectura['actualizado_en'],
         ]);

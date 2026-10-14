@@ -114,6 +114,11 @@
             var availabilityTimer = null;
             var availabilityDetails = {};
             var autoAssignmentHardDisabled = false;
+            // Hasta dónde asigna solo el sistema: es el máximo de la reserva en
+            // línea y lo fija Configuración; viaja en el propio checkbox.
+            var autoAssignmentMax = automaticAssignment
+                ? (parseInt(automaticAssignment.getAttribute('data-auto-max') || '0', 10) || 12)
+                : 12;
             contactValues[activeContactType] = formValue(form, 'contacto');
 
             function renderCapacitySummary() {
@@ -591,7 +596,7 @@
                 editableControls.forEach(function (control) {
                     control.disabled = !isEditing
                         || (control === automaticAssignment
-                            && (autoAssignmentHardDisabled || (parseInt(formValue(form, 'comensales') || '0', 10) || 0) > 12));
+                            && (autoAssignmentHardDisabled || (parseInt(formValue(form, 'comensales') || '0', 10) || 0) > autoAssignmentMax));
                     control.setAttribute('aria-disabled', isEditing ? 'false' : 'true');
                 });
 
@@ -726,13 +731,10 @@
                 guestsInput.addEventListener('input', function () {
                     window.clearTimeout(availabilityTimer);
                     var guestsNow = parseInt(guestsInput.value || '0', 10) || 0;
-                    if (automaticAssignment) {
-                        var overPublicLimit = guestsNow > 12;
-                        automaticAssignment.disabled = overPublicLimit || autoAssignmentHardDisabled;
-                        if (overPublicLimit) automaticAssignment.checked = false;
-                        var help = form.querySelector('[data-assignment-help]');
-                        if (help && overPublicLimit) help.textContent = 'Para más de 12 personas se requiere asignación manual.';
-                    }
+                    // La asignación ya no es opcional: el campo es oculto y
+                    // siempre vale 1, así que aquí no hay nada que encender
+                    // ni apagar. El aviso de grupos grandes es fijo en la vista.
+                    void guestsNow;
                     setFieldError('comensales', '');
                     if (!isEditing || !dateInput || !dateInput.value) {
                         updateSaveState();

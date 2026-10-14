@@ -1,0 +1,556 @@
+/*
+ * Panel estratégico de reservaciones: Grupos grandes y Casos.
+ *
+ * Las dos pantallas miran hacia delante y ninguna tiene mapa. Comparten el
+ * cromo del panel (cabecera, selector de periodo, tarjetas KPI, badges,
+ * botones); lo de aquí es lo único que no existía: la franja del bloque
+ * exterior por día y la tarjeta de un caso.
+ *
+ * Todo selector de texto va prefijado con .reservations-estrategia. No es
+ * ceremonia: `.admin-body h2` y `.admin-body p` pesan (0,1,1) y le ganan a una
+ * clase suelta, así que un `.estrategia-dia h2` a secas salía con el tamaño de
+ * titular de página.
+ */
+@use "../shared/abstracts/variables" as vars;
+@use "../shared/abstracts/mixins" as mixins;
+@use "reservations/subnav";
+
+.reservations-estrategia {
+  // ── Aviso de recorte del periodo ───────────────────────────────────
+  .estrategia-aviso {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    color: var(--admin-muted);
+    font-size: 13px;
+
+    svg {
+      flex: none;
+      stroke-width: 1.8;
+    }
+  }
+
+  // ── Nota de lectura (Grupos grandes) ───────────────────────────────
+  //
+  // Neutra y no en la familia azul de info: es la explicación permanente de
+  // cómo se lee la pantalla, no un aviso de que algo pasa. En azul competía
+  // con los badges «Grupo grande», que son lo que sí hay que mirar.
+  .estrategia-nota {
+    display: flex;
+    gap: 12px;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface-soft);
+
+    p {
+      max-width: 76ch;
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 13.5px;
+      line-height: 1.55;
+
+      + p {
+        margin-top: 6px;
+        color: var(--admin-muted);
+      }
+    }
+
+    strong {
+      color: var(--admin-text);
+    }
+  }
+
+  .estrategia-nota__icono {
+    flex: none;
+    margin-top: 1px;
+    color: var(--admin-muted);
+    stroke-width: 1.8;
+  }
+
+  .estrategia-nota__titulo {
+    margin: 0 0 4px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  // ── Leyenda ────────────────────────────────────────────────────────
+  .estrategia-leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin: 0 0 12px;
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+
+  .estrategia-leyenda__titulo {
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .estrategia-leyenda__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--admin-text);
+
+    .estrategia-franja__marca {
+      width: 22px;
+      height: 14px;
+    }
+  }
+
+  // ── Días ───────────────────────────────────────────────────────────
+  .estrategia-dias {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .estrategia-dia > article {
+    display: grid;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+  }
+
+  // Un día sin grupos se queda con la franja —que es justo lo que se mira
+  // para colocar uno— pero baja un escalón: sin él, treinta tarjetas iguales
+  // escondían las tres que tienen algo.
+  .estrategia-dia--sin-grupos > article {
+    gap: 10px;
+    padding-block: 12px;
+    background: var(--admin-surface-soft);
+  }
+
+  .estrategia-dia--cerrado > article {
+    border-style: dashed;
+    background: transparent;
+  }
+
+  .estrategia-dia__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+  }
+
+  .estrategia-dia__titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: -0.012em;
+    }
+  }
+
+  .estrategia-dia__horario {
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+
+  .estrategia-dia__resumen {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .estrategia-dia__vacio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+
+    .estrategia-franja__marca {
+      width: 22px;
+      height: 14px;
+    }
+  }
+
+  // Bloque libre toda la jornada: una línea en vez de la rejilla, y la
+  // tarjeta baja el mismo escalón que un día sin grupos.
+  .estrategia-dia--libre > article {
+    gap: 10px;
+    padding-block: 12px;
+    background: var(--admin-surface-soft);
+  }
+
+  // ── Franja del bloque exterior ─────────────────────────────────────
+  //
+  // Una celda por franja de 30 minutos; el estado se lee por la FORMA de la
+  // marca antes que por su color: vacía (libre), rayada (parcial) y maciza
+  // (tomada). Con daltonismo el verde y el ámbar se confunden; el rayado no.
+  .estrategia-franja {
+    display: grid;
+    // Tantas columnas como franjas tiene el EJE COMÚN del periodo (--franjas
+    // lo pone la vista): así la columna de las 20:00 es la misma en todos los
+    // días y se puede bajar la vista por ella. En pantalla estrecha no caben
+    // y se vuelve a la rejilla que envuelve.
+    grid-template-columns: repeat(var(--franjas, 24), minmax(0, 1fr));
+    gap: 6px 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .estrategia-franja__slot {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  // Sólo se rotulan las horas en punto: con un rótulo por media hora la
+  // rejilla era la mitad números. El de :00 desborda sobre su vecina de :30,
+  // que tiene el suyo oculto (sigue en el texto del lector y en el title).
+  .estrategia-franja__hora {
+    overflow: visible;
+    color: var(--admin-muted);
+    font-size: 10.5px;
+    line-height: 1;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .estrategia-franja__slot--media .estrategia-franja__hora {
+    visibility: hidden;
+  }
+
+  // Fuera del horario de ese día: hueco sin marca, sólo para alinear.
+  .estrategia-franja__slot--fuera {
+    min-height: 1px;
+  }
+
+  @include mixins.down(vars.$breakpoint-tablet) {
+    .estrategia-franja {
+      grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+    }
+
+    .estrategia-franja__slot--fuera {
+      display: none;
+    }
+  }
+
+  .estrategia-franja__marca {
+    display: grid;
+    height: 22px;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1;
+
+    // Libre: VACÍA de verdad, sólo contorno. Estuvo en tinte de éxito y
+    // contorno verde, y ninguno llegaba a 3:1 contra la superficie (1.5 en
+    // claro): en los días sin grupos la celda desaparecía. --admin-border-strong
+    // sí cumple en los dos temas, y el color queda para lo que se sale de lo
+    // normal. Sin cifra: «0/4» en cada celda era ruido donde se busca vacío.
+    &--libre {
+      border-color: var(--admin-border-strong);
+      background: transparent;
+    }
+
+    // Parcial: rayado. El ámbar es el de advertencia porque «parcial» no es
+    // «libre»: el grupo entra sólo si el motor puede mover a quien está.
+    &--parcial {
+      border-color: var(--admin-warning-border);
+      // Las rayas tienen que VERSE: al 18 % medían 1.03:1 entre sí y la celda
+      // se leía como ámbar liso, que con daltonismo vuelve a ser sólo hue.
+      background: repeating-linear-gradient(
+        135deg,
+        var(--admin-warning-bg) 0 3px,
+        color-mix(in srgb, var(--admin-c-ambar) 60%, var(--admin-surface)) 3px 6px
+      );
+      color: var(--admin-warning-text);
+
+      // La cifra sobre placa lisa, para que no se pelee con las rayas.
+      .admin-num {
+        padding: 1px 3px;
+        border-radius: 2px;
+        background: var(--admin-warning-bg);
+      }
+    }
+
+    // Tomada: maciza en la tinta del panel y no en rojo. Un bloque lleno no
+    // es una alerta que atender; es un «aquí no», y el rojo queda para lo
+    // que sí pide acción (los casos).
+    &--tomada {
+      border-color: var(--admin-accent);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+    }
+  }
+
+  // ── Grupos del día ─────────────────────────────────────────────────
+  .estrategia-grupos {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--admin-border-soft);
+  }
+
+  .estrategia-grupo {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 12px 0;
+
+    + .estrategia-grupo {
+      border-top: 1px solid var(--admin-border-soft);
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    @include mixins.down(vars.$breakpoint-tablet) {
+      grid-template-columns: 52px minmax(0, 1fr);
+
+      .estrategia-grupo__marcas,
+      .estrategia-acciones {
+        grid-column: 2;
+      }
+    }
+  }
+
+  .estrategia-grupo__hora {
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .estrategia-grupo__quien {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      overflow: hidden;
+      color: var(--admin-text);
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    > span {
+      color: var(--admin-muted);
+      font-size: 12.5px;
+    }
+  }
+
+  .estrategia-grupo__marcas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .estrategia-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+
+    // `.admin-body button` declara `font: inherit` con (0,1,1) y le gana a
+    // .admin-btn y .admin-btn--small, que son una clase: «Registrar que no
+    // llegó» salía al cuerpo de la página junto a enlaces-botón de 12 px.
+    button.admin-btn--small {
+      font-size: 12px;
+      font-weight: 800;
+    }
+  }
+
+  // ── Casos ──────────────────────────────────────────────────────────
+  .estrategia-filtro {
+    width: fit-content;
+    max-width: 100%;
+    margin-bottom: 14px;
+
+    .admin-tabs__tab {
+      flex: 0 0 auto;
+    }
+
+    // Un tipo sin casos sigue en el filtro —saber que no hay nada también es
+    // información— y baja de PESO, no de opacidad: la opacidad apilada dejaba
+    // la etiqueta y su cifra por debajo de AA.
+    a.is-empty:not(.is-active) span {
+      font-weight: 500;
+    }
+
+    // Seis opciones en flex dejaban tres renglones desiguales y «Sin
+    // contacto» sola y estirada. En dos columnas son tres filas parejas.
+    @include mixins.down(vars.$breakpoint-mobile) {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      a span {
+        padding-block: 13px;
+      }
+    }
+  }
+
+  .estrategia-filtro__cuenta {
+    margin-left: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
+  .estrategia-resultados {
+    &[aria-busy="true"] {
+      opacity: 0.6;
+      transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+    }
+  }
+
+  .estrategia-resultados__conteo {
+    margin: 0 0 12px;
+    font-size: 13px;
+
+    strong {
+      color: var(--admin-text);
+    }
+  }
+
+  .estrategia-casos {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  // El filete izquierdo es el caso MÁS urgente de la tarjeta, el mismo
+  // recurso que usa el listado del histórico para el estado. Las familias son
+  // las de .admin-badge para que filete y etiqueta digan lo mismo.
+  .estrategia-caso {
+    --caso-tono: var(--admin-border-strong);
+
+    &--danger { --caso-tono: var(--admin-c-rojo); }
+    &--warning { --caso-tono: var(--admin-c-ambar); }
+    &--info { --caso-tono: var(--admin-c-azul); }
+
+    > article {
+      display: grid;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--admin-border-soft);
+      border-left: 3px solid var(--caso-tono);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface);
+    }
+  }
+
+  .estrategia-caso__cabecera {
+    display: grid;
+    gap: 2px;
+  }
+
+  .estrategia-caso__cuando {
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+
+  .estrategia-caso__nombre {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+
+  .estrategia-caso__datos {
+    font-size: 13px;
+  }
+
+  .estrategia-caso__grupo {
+    color: var(--admin-text);
+    font-weight: 600;
+  }
+
+  .estrategia-caso__motivos {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 10px;
+    }
+
+    .admin-badge {
+      flex: none;
+    }
+  }
+
+  .estrategia-caso__porque {
+    min-width: 0;
+    flex: 1 1 260px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .estrategia-vacio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 32px 20px;
+    text-align: center;
+  }
+
+  .estrategia-vacio__icono {
+    color: var(--admin-success-text);
+    stroke-width: 2;
+  }
+
+  .admin-pagination {
+    margin-top: 16px;
+  }
+
+  @include mixins.down(vars.$breakpoint-mobile) {
+    .estrategia-dia > article,
+    .estrategia-caso > article {
+      padding-inline: 14px;
+    }
+
+    // En el teléfono se toca con el dedo: los 34 px de --small no llegan.
+    .estrategia-acciones .admin-btn {
+      min-height: 44px;
+    }
+  }
+}
+
+@include mixins.reduced-motion {
+  .reservations-estrategia .estrategia-resultados[aria-busy="true"] {
+    transition: none;
+  }
+}

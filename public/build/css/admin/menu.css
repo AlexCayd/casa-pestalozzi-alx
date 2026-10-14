@@ -55,6 +55,29 @@
 .admin-menu__row-actions {
   justify-content: flex-end;
 }
+.admin-menu__cartas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+.admin-menu__cartas-tabs {
+  display: inline-flex;
+}
+.admin-menu__cartas-tabs .admin-tabs__tab {
+  flex: 0 0 auto;
+}
+.admin-menu__cartas-tabs .admin-tabs__tab a span {
+  width: auto;
+  overflow: visible;
+  text-overflow: clip;
+}
+@media (pointer: coarse) {
+  .admin-menu__cartas-tabs .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab--add label span {
+    padding-block: 12px;
+  }
+}
 .admin-menu__panel {
   margin-bottom: 24px;
   padding: 20px;

@@ -246,10 +246,12 @@
     }
 
     function assignmentLink(item) {
-      var params = new URLSearchParams({ reservation_id: String(item.reservacion_id), fecha: String(item.fecha || ''), hora: String(item.hora || ''), mode: 'assign', return_url: '/admin/reservaciones' });
+      // Las mesas se eligen en el mapa del POS: abre la reserva ya en modo
+      // asignación. El servidor deduce la fecha de la propia reservación.
+      var params = new URLSearchParams({ reservation_id: String(item.reservacion_id), mode: 'assign' });
       var link = document.createElement('a');
       link.className = 'admin-btn admin-btn--primary';
-      link.href = '/admin/reservaciones/operacion?' + params.toString();
+      link.href = '/punto-de-venta?' + params.toString();
       link.textContent = 'Asignar mesas';
       return link;
     }
@@ -396,7 +398,7 @@
         secondaryAction = openAction(absence);
       } else if (schedule) {
         primary = schedule;
-        var isLargeGroup = Number(item.comensales) > 12;
+        var isLargeGroup = item.grupo_grande === true;
         var attempts = Number(schedule.notification_attempts || 0);
         if (schedule.tiene_contacto === false && !isLargeGroup) {
           primaryAction = { kind: 'button', action: 'contact', label: 'Agregar contacto', variant: 'primary', attrs: notificationAttrs(schedule) };
@@ -539,7 +541,7 @@
         form.set('reservation_id', String(item.reservacion_id));
         form.set('estado', 'no_show');
         form.set('motivo', 'buzon_ausencia_pendiente');
-        return request('/admin/api/reservaciones/operacion/estado', { method: 'POST', body: form }).then(function () { setView('list'); return refreshAfterAction('Se registró que no llegó.'); });
+        return request('/admin/api/reservaciones/estado', { method: 'POST', body: form }).then(function () { setView('list'); return refreshAfterAction('Se registró que no llegó.'); });
       };
       window.ConfirmationModal.get().open({
         variant: 'warning', eyebrow: 'Buzón administrativo', title: 'Registrar que no llegó',

@@ -34,7 +34,8 @@ $fuentes = [
     'services/Pos/PosMesaProjectionPresenter.php',
     'services/Pos/PosReservacionSerializer.php',
     'src/js/modules/punto-de-venta.js',
-    'src/js/admin/reservations/operation.js',
+    'src/js/operation/pos-reserva-vista.js',
+    'src/js/operation/pos-ficha.js',
 ];
 foreach ($fuentes as $fuente) {
     $contenido = file_get_contents(dirname(__DIR__, 2) . '/' . $fuente);

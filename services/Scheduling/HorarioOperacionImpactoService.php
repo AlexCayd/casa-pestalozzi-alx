@@ -404,7 +404,7 @@ final class HorarioOperacionImpactoService
             if ((string)$fila['impacto_estado'] !== self::ESTADO_IMPACTO_PENDIENTE
                 || (string)$fila['reservacion_estado'] !== 'confirmada'
                 || !self::filaTieneContacto($fila)
-                || (int)$fila['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                || (int)$fila['comensales'] > ReservacionConfig::umbralGrupoGrande()
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
@@ -589,7 +589,7 @@ final class HorarioOperacionImpactoService
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
             if (!self::filaTieneContacto($fila)
-                || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                || (int)($fila['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande()
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
@@ -746,7 +746,7 @@ final class HorarioOperacionImpactoService
                 );
                 continue;
             }
-            $prioridad = $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            $prioridad = $comensales > ReservacionConfig::umbralGrupoGrande()
                 ? BuzonNotificacionesService::PRIORIDAD_ALTA
                 : BuzonNotificacionesService::PRIORIDAD_NORMAL;
             ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
@@ -779,7 +779,7 @@ final class HorarioOperacionImpactoService
                AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''
              ORDER BY ir.id ASC"
         );
-        $maximo = ReservacionConfig::MAX_COMENSALES_PUBLICO;
+        $maximo = ReservacionConfig::umbralGrupoGrande();
         $stmt->bind_param('ii', $impactoId, $maximo);
         $stmt->execute();
         $resultado = $stmt->get_result();
@@ -1098,7 +1098,7 @@ final class HorarioOperacionImpactoService
 
     private static function filaRequiereAccion(array $fila): bool
     {
-        if (!$fila['tiene_contacto'] || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+        if (!$fila['tiene_contacto'] || (int)($fila['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande()) {
             return true;
         }
         if ((string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO) {
@@ -1114,7 +1114,7 @@ final class HorarioOperacionImpactoService
     private static function puedeMandarAviso(array $fila): bool
     {
         if (!$fila['tiene_contacto']
-            || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            || (int)($fila['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande()
             || (string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO
             || !$fila['access_expires_at']
             || (string)$fila['access_expires_at'] > ReservacionConfig::ahora()->format('Y-m-d H:i:s')

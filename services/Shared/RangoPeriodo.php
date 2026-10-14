@@ -72,6 +72,82 @@ class RangoPeriodo
     }
 
     /**
+     * Rango que mira HACIA DELANTE: por defecto [hoy, hoy + N - 1].
+     *
+     * `resolver()` es retrospectivo porque sus consumidores (analíticas,
+     * finanzas, inventario) miden lo que ya pasó. Las pantallas de planeación
+     * de reservaciones miran lo que viene, y con el rango por defecto de
+     * `resolver()` abrirían sobre el último mes —vacío de todo lo que hay que
+     * planear—. Es un método aparte y no un parámetro de `resolver()` para no
+     * tocar a ninguno de los tres consumidores que ya lo usan.
+     *
+     * Sin comparativo: «el periodo anterior» de algo que aún no ocurre no es
+     * una cifra con la que comparar. Sin presets: el selector se usa con
+     * $rangeShowPresets = false, porque los presets dicen «Últimos N días».
+     *
+     * `$hoy` llega del llamador (normalmente ReservacionConfig::fechaActual())
+     * porque «hoy» depende de la zona horaria del negocio, que este servicio
+     * compartido no conoce. `$maxDias` recorta el fin cuando el consumidor no
+     * puede con más: así la etiqueta del selector dice el rango que de verdad
+     * se pinta y no el que se pidió.
+     *
+     * @param array<string, mixed> $query Normalmente $_GET.
+     * @return array{
+     *     start: string, end: string, preset: int, label: string, dias: int,
+     *     comparar: bool, porDefecto: bool, recortado: bool
+     * }
+     */
+    public static function resolverProspectivo(
+        array $query,
+        string $hoy,
+        int $diasPorDefecto = 30,
+        ?int $maxDias = null
+    ): array {
+        if (!preg_match(self::FORMATO, $hoy)) {
+            $hoy = date('Y-m-d');
+        }
+        $diasPorDefecto = max(1, $diasPorDefecto);
+        $desde = trim((string) ($query['desde'] ?? ''));
+        $hasta = trim((string) ($query['hasta'] ?? ''));
+        $porDefecto = !(self::fechaReal($desde) && self::fechaReal($hasta) && $desde <= $hasta);
+
+        if ($porDefecto) {
+            $desde = $hoy;
+            $hasta = date('Y-m-d', strtotime($hoy . ' +' . ($diasPorDefecto - 1) . ' days'));
+        }
+
+        $recortado = false;
+        if ($maxDias !== null && $maxDias > 0 && self::dias($desde, $hasta) > $maxDias) {
+            $hasta = date('Y-m-d', strtotime($desde . ' +' . ($maxDias - 1) . ' days'));
+            $recortado = true;
+        }
+
+        return [
+            'start' => $desde,
+            'end' => $hasta,
+            'preset' => 0,
+            'label' => $porDefecto && !$recortado
+                ? 'Próximos ' . $diasPorDefecto . ' días'
+                : 'Del ' . date('d/m/Y', strtotime($desde)) . ' al ' . date('d/m/Y', strtotime($hasta)),
+            'dias' => self::dias($desde, $hasta),
+            'comparar' => false,
+            'porDefecto' => $porDefecto,
+            'recortado' => $recortado,
+        ];
+    }
+
+    /** Formato Y-m-d y además una fecha que existe (no 2026-02-31). */
+    private static function fechaReal(string $fecha): bool
+    {
+        if (!preg_match(self::FORMATO, $fecha)) {
+            return false;
+        }
+        [$anio, $mes, $dia] = array_map('intval', explode('-', $fecha));
+
+        return checkdate($mes, $dia, $anio);
+    }
+
+    /**
      * Periodo anterior de la misma duración, pegado al inicio del actual. Es la
      * comparación que evita confundir "vendimos más" con "el periodo era más
      * largo".

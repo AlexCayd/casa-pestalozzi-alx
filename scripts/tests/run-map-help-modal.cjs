@@ -7,7 +7,6 @@ const root = path.resolve(__dirname, '..', '..');
 const view = fs.readFileSync(path.join(root, 'views/operation/partials/map.php'), 'utf8');
 const controller = fs.readFileSync(path.join(root, 'src/js/operation/map-help.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
-const reservations = fs.readFileSync(path.join(root, 'views/operation/reservations/index.php'), 'utf8');
 const pos = fs.readFileSync(path.join(root, 'views/punto-de-venta/partials/pos-workspace.php'), 'utf8');
 
 function check(condition, message) {
@@ -22,13 +21,26 @@ check(view.includes('aria-labelledby="'), 'el diálogo asocia su título');
 check(view.includes('tabindex="-1" data-map-help-initial-focus autofocus') && !/data-map-help-close[^>]*autofocus/.test(view), 'el encabezado recibe el foco inicial sin enfocar el cierre automáticamente');
 check(view.includes('title="Ayuda sobre los estados del mapa"'), 'tooltip y nombre accesible usan el copy acordado');
 check(view.includes('Cómo interpretar el mapa de mesas'), 'el modal usa el título acordado');
-check((view.match(/<li class="map-help-dialog__state">/g) || []).length === 7, 'el modal conserva las siete muestras reales');
+// Siete muestras literales de Reservaciones y una plantilla que el POS repite
+// por cada uno de sus estados.
+check((view.match(/<li class="map-help-dialog__state">/g) || []).length === 8, 'el modal conserva las siete muestras de Reservaciones y la plantilla del POS');
 check(view.includes('Estado de las mesas') && view.includes('Señales adicionales'), 'el modal separa estados y señales adicionales');
-const helpGroups = Array.from(view.matchAll(/<section class="map-help-dialog__group"[\s\S]*?<ul class="map-help-dialog__states">([\s\S]*?)<\/ul>[\s\S]*?<\/section>/g));
-check(helpGroups.length === 2, 'el modal organiza los ejemplos en dos grupos');
-check(helpGroups.map((group) => (group[1].match(/<li class="map-help-dialog__state">/g) || []).length).join(',') === '4,3', 'los grupos contienen cuatro estados y tres señales');
-check((view.match(/class="mesa-pin__label">Mesa</g) || []).length === 7 && !/mesa-pin__label">Mesa \d+/.test(view), 'las siete muestras usan la etiqueta uniforme Mesa');
-check(view.includes('Seleccionada</strong><span>El contorno amarillo indica selección y no reemplaza el estado real.'), 'la selección se explica como capa secundaria');
+// La lista del POS lleva el modificador --pos (muestras a tamaño de pin real).
+const helpGroups = Array.from(view.matchAll(/<section class="map-help-dialog__group"[\s\S]*?<ul class="map-help-dialog__states(?: map-help-dialog__states--pos)?">([\s\S]*?)<\/ul>[\s\S]*?<\/section>/g));
+check(helpGroups.length === 3, 'el POS tiene un grupo y Reservaciones dos');
+check(helpGroups.map((group) => (group[1].match(/<li class="map-help-dialog__state">/g) || []).length).join(',') === '1,4,3', 'POS itera sus estados; Reservaciones conserva cuatro estados y tres señales');
+check((view.match(/class="mesa-pin__label">Mesa</g) || []).length === 8 && !/mesa-pin__label">Mesa \d+/.test(view), 'todas las muestras usan la etiqueta uniforme Mesa');
+// POS: tres estados más «sin llegar», cada uno con su icono y su palabra, y
+// sobre el mismo pin con línea de estado que pinta el mapa.
+const posHelp = view.slice(view.indexOf("<?php if ($mapHelpContext === 'pos'): ?>"), view.indexOf('<?php else: ?>'));
+check(posHelp.includes('mesa-pin mesa-pin--con-estado') && posHelp.includes('mesa-pin__estado'), 'las muestras del POS usan el pin con línea de estado');
+['estado-libre', 'estado-ocupada', 'estado-reservada'].forEach((icono) => {
+  check(posHelp.includes("'icono' => '" + icono + "'"), 'la ayuda del POS muestra el icono ' + icono);
+});
+check(!posHelp.includes('mesa-pin--mod-sin_llegar') && posHelp.includes("'titulo' => 'No disponible'"), 'la ayuda del POS nombra los tres estados y ya no explica «sin llegar»');
+check(posHelp.includes('la ausencia se registra sola'), 'la ayuda dice que la ausencia se registra sola');
+check(!posHelp.includes('No utilizable') && !posHelp.includes('Área operativa'), 'el POS ya no explica estados que no emite');
+check(view.includes('Seleccionada</strong><span>El contorno claro, separado del borde, indica selección y no reemplaza el estado real.'), 'la selección se explica como capa secundaria');
 check(view.includes('mesa-pin--mod-reservacion_advertencia'), 'la muestra de advertencia reutiliza clases reales');
 check(view.includes("$mapHelpWarningStateClass = 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia';"), 'ambos contextos muestran la alerta sobre fondo disponible');
 check(view.includes('mesa-pin--mod-accion_pendiente'), 'la muestra de ausencia incluye su indicador');
@@ -51,8 +63,8 @@ check(view.includes(": 'Mesa disponible en el contexto mostrado.'") && view.incl
 check(view.includes(": 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.'"), 'POS conserva su explicación de advertencia');
 check(view.includes('data-map-query-status role="status" aria-live="polite"') && view.includes('data-map-validation-status role="status" aria-live="polite"'), 'el mapa ofrece regiones accesibles para fallos de consulta y estados no verificados');
 check(!view.includes('map-help-dialog__contexts') && !view.includes('Muestra principalmente la operación actual'), 'el modal elimina los bloques de explicación extensa');
-check(reservations.includes("'helpContext' => 'reservations'") && reservations.includes("'legendPosition' => 'none'"), 'Reservaciones contextualiza la ayuda y oculta su leyenda');
-check(reservations.includes("'helpPosition' => 'overlay'") && pos.includes("'helpPosition' => 'overlay'"), 'POS y Reservaciones usan el mismo patrón de botón sobre el mapa');
+check(pos.includes("'helpPosition' => 'externo'") && view.includes("'externo'"), 'el POS lleva la ayuda en su barra de contexto y el parcial sólo emite el diálogo');
+check(controller.includes("getAttribute('aria-controls')"), 'la ayuda abre el diálogo por aria-controls aunque el botón esté fuera del mapa');
 check(pos.includes("'helpContext' => 'pos'") && pos.includes("'legendPosition' => 'none'"), 'POS mantiene ayuda contextual y no renderiza leyenda');
 check(styles.includes('width: min(860px, calc(100vw - 48px))') && styles.includes('max-height: calc(100dvh - 48px)'), 'el modal usa el ancho y altura máxima acordados');
 check(styles.includes('font-size: var(--operational-text-base)'), 'el texto descriptivo conserva cuerpo legible');

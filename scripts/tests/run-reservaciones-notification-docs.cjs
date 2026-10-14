@@ -91,7 +91,7 @@ assert.ok(reservations.includes('| Elemento decorativo activo | No | No | No | N
 for (const rule of ['capacidades_pos', 'Caja activa', 'Llevar activo', 'Mesa desactivada', 'ReservacionConfig', 'map-contract.js', 'table-state-adapter.js', 'map-visual.js']) {
   assert.ok(reservations.includes(rule), `responsabilidades documenta ${rule}`);
 }
-for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Tolerancia', 'Ausencia pendiente', 'Ticket abierto', 'No utilizable', 'Seleccionada', 'fuera_horario_operacion', 'en_proyeccion_mapa']) {
+for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Tolerancia', 'Ausencia pendiente', 'Ticket abierto', 'No utilizable', 'Seleccionada', 'fuera_horario_operacion', 'Barras con varios tickets', 'Migración de bases existentes', 'REUBICAR_RESERVACIONES']) {
   assert.ok(reservations.includes(rule), `reservaciones cubre ${rule}`);
 }
 assert.match(reservations, /no garantiza disponibilidad/);

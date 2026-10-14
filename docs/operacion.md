@@ -56,6 +56,25 @@ al cliente.
 El detalle técnico de red se reserva a administración. Un fallo al registrar la
 alerta queda en el log y no interrumpe el envío de la comanda o el cobro.
 
+## Barras, Llevar y Caja
+
+Llevar y las barras son **ventanillas**: admiten varios tickets abiertos a la
+vez sobre la misma fila de `mesas`, cada uno con su folio (el id del ticket).
+Tocar el pin abre el tablero de pedidos; desde ahí se abre uno nuevo o se salta
+a otro. Las barras tienen un tope configurable (`configuracion_pos.max_tickets_barra`,
+por defecto 4): al alcanzarlo el pin sale rojo con `4/4` y el servidor rechaza
+el siguiente con `BARRA_LLENA` (409). Llevar no tiene tope y nunca se pinta
+ocupado. Ninguno de los tres se une a otras mesas; Caja abre el corte del día.
+
+Lo decide el servidor (`PuntoVentaReservacionService::abrirWalkIn`), que cuenta
+los tickets abiertos con `FOR UPDATE`; el cliente sólo enseña el tablero. Los
+comensales de barra no cuentan en la capacidad del salón ni en la
+disponibilidad de reservaciones; sí en ventas. Cobertura en
+`npm run test:pos-llevar`.
+
+Las reservaciones también se operan aquí, en el cajón y la ficha del mapa: ver
+[Reservaciones](reservaciones/reservaciones.md#la-operacion-en-el-pos).
+
 ## Verificación
 
 La cobertura automatizada de fallos de impresión está en

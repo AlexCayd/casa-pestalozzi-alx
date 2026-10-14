@@ -460,13 +460,18 @@ $hoyIso = date('Y-m-d');
                         Suma de lo consumido en los tickets <strong>abiertos</strong> en esa hora y
                         en ese día de la semana, contando solo tickets cerrados y renglones no
                         cancelados. Todos los viernes del periodo se suman en la misma columna.
+                        <strong>Solo cuenta lo vendido en mesas del salón</strong>: barras y para
+                        llevar no ocupan asientos del comedor.
                     </dd>
                 </div>
                 <div class="admin-n1-guide__item">
                     <dt>Asientos</dt>
                     <dd>
-                        La capacidad del comedor: <strong>44 lugares</strong> (las 11 mesas de sala).
-                        Es un número fijo, así que todas las celdas se comparan contra la misma base.
+                        La capacidad de las mesas del salón que están activas y se pueden reservar
+                        —la misma cifra que el mapa del punto de venta—; las barras no entran.
+                        Todas las celdas se comparan contra esa base. Si se desactiva una mesa, la
+                        base baja también para los periodos anteriores: no se guarda un historial
+                        de capacidad.
                     </dd>
                 </div>
                 <div class="admin-n1-guide__item">

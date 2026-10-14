@@ -13,8 +13,9 @@
     $categoriasMap = $categoriasMap ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
     $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
-    $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'categoria' => '', 'visible' => ''];
+    $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'carta' => '', 'categoria' => '', 'visible' => ''];
     $categoriaActiva = (int) ($categoriaActiva ?? 0);
+    $cartaActiva = (string) ($cartaActiva ?? '');
     $filtrosActivos = (bool) ($filtrosActivos ?? false);
     $partialOnly = (bool) ($partialOnly ?? false);
     $totalMenu = (int) ($totalMenu ?? count($platillos));
@@ -38,6 +39,25 @@
         return '/admin/menu?' . http_build_query($params);
     };
 
+    // Cambiar de carta suelta la categoría y la página —las pestañas de abajo
+    // son otras— y conserva la búsqueda por nombre. Sin $carta vuelve a las dos.
+    $buildCartaUrl = static function (string $carta) use ($filtros): string {
+        $params = [];
+
+        foreach ($filtros as $key => $value) {
+            if ($key !== 'carta' && $key !== 'categoria' && (string) $value !== '') {
+                $params[$key] = $value;
+            }
+        }
+
+        if ($carta !== '') {
+            $params['carta'] = $carta;
+        }
+
+        return '/admin/menu' . (empty($params) ? '' : '?' . http_build_query($params));
+    };
+
+    // Las pestañas de categoría conservan la carta: sólo reemplazan `categoria`.
     $buildTabUrl = static function (int $categoriaId) use ($filtros): string {
         $params = [];
 
@@ -65,10 +85,6 @@
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="/admin/menu/categorias">Categorías</a>
-            <?php /* Dos PDF y dos botones: son las dos piezas impresas de la casa,
-                     y cual sale de cada una lo decide la carta de su categoría. */ ?>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf" target="_blank" rel="noopener">PDF de la carta</a>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf/maridaje" target="_blank" rel="noopener">PDF de maridaje</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create" title="Nuevo platillo">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
@@ -86,11 +102,47 @@
         <?php endforeach; ?>
     <?php endforeach; ?>
 
+    <?php /* Primer nivel del filtro: la carta, o sea la pieza impresa. Sustituyó
+             a los dos botones de PDF —«PDF de la carta» y «PDF de maridaje»—: lo
+             que se quería de ellos era ver qué entra en cada pieza, y eso se
+             responde mejor con la lista misma que con un archivo.
+
+             Son enlaces que navegan y no un intercambio parcial, a propósito: al
+             cambiar de carta cambia también la fila de categorías de abajo, que
+             vive FUERA del bloque que se reemplaza. */ ?>
+    <?php /* «Ambas» y no «Todas»: la fila de categorías, justo debajo, abre con
+             su propio «Todas», y con los dos activos en la primera carga se
+             apilaban dos pastillas macizas idénticas con la misma palabra — no
+             había forma de saber cuál de los dos niveles decía qué. Si algún día
+             hay una tercera carta, vuelve a «Todas» sola. */ ?>
+    <?php $rotuloSinCarta = count($cartas) === 2 ? 'Ambas' : 'Todas'; ?>
+    <nav class="admin-menu__cartas" aria-label="Carta del menú">
+        <span class="admin-eyebrow admin-menu__cartas-label" aria-hidden="true">Carta</span>
+        <div class="admin-tabs admin-tabs--links admin-menu__cartas-tabs">
+            <span class="admin-tabs__tab">
+                <a href="<?php echo htmlspecialchars($buildCartaUrl(''), ENT_QUOTES, 'UTF-8'); ?>"
+                   class="<?php echo $cartaActiva === '' ? 'is-active' : ''; ?>"
+                   <?php echo $cartaActiva === '' ? 'aria-current="page"' : ''; ?>><span><?php echo $rotuloSinCarta; ?></span></a>
+            </span>
+            <?php foreach ($cartas as $valor => $carta) : ?>
+                <span class="admin-tabs__tab">
+                    <a href="<?php echo htmlspecialchars($buildCartaUrl((string) $valor), ENT_QUOTES, 'UTF-8'); ?>"
+                       class="<?php echo $cartaActiva === (string) $valor ? 'is-active' : ''; ?>"
+                       <?php echo $cartaActiva === (string) $valor ? 'aria-current="page"' : ''; ?>><span><?php echo htmlspecialchars((string) ($carta['corto'] ?? $valor)); ?></span></a>
+                </span>
+            <?php endforeach; ?>
+        </div>
+    </nav>
+
     <?php /* Pestañas de categoría + tab "+" para crear una nueva en línea.
              El checkbox va aquí, hermano del formulario, para que el selector
              `#cat-nueva-toggle:checked ~ .admin-cat-inline` pueda alcanzarlo. */ ?>
-    <input type="checkbox" id="cat-nueva-toggle" class="admin-sr-only">
-    <div class="admin-tabs admin-tabs--links admin-menu__cats" role="tablist" aria-label="Categorías del menú">
+    <input type="checkbox" id="cat-nueva-toggle" class="admin-sr-only" aria-label="Nueva categoría">
+    <?php /* <nav> y no role="tablist": son enlaces que filtran, no pestañas de un
+             panel, y un tablist sin ningún role="tab" dentro se anunciaba como
+             «lista de pestañas» vacía. Ahora el lector oye dos navegaciones
+             hermanas —carta y categoría—, que es la estructura real. */ ?>
+    <nav class="admin-tabs admin-tabs--links admin-menu__cats" aria-label="Categorías del menú">
         <span class="admin-tabs__tab">
             <a href="<?php echo htmlspecialchars($buildTabUrl(0), ENT_QUOTES, 'UTF-8'); ?>"
                class="<?php echo $categoriaActiva === 0 ? 'is-active' : ''; ?>"
@@ -106,7 +158,7 @@
         <span class="admin-tabs__tab admin-tabs__tab--add">
             <label for="cat-nueva-toggle" title="Nueva categoría"><span>+</span></label>
         </span>
-    </div>
+    </nav>
 
     <form class="admin-cat-inline" method="POST" action="/admin/menu/categorias/create">
         <div class="admin-cat-inline__field">
@@ -120,14 +172,18 @@
                  de barra aparecía en la landing hasta que alguien lo notara.
 
                  Sin las explicaciones de la pantalla de edición: en una fila de alta
-                 rápida dos renglones por opción pesan más que la decisión. */ ?>
+                 rápida dos renglones por opción pesan más que la decisión.
+
+                 Parte de la carta que se está viendo: quien filtra por maridaje y
+                 pulsa «+» quiere una categoría de barra, no tener que corregirla. */ ?>
+        <?php $cartaPorDefecto = isset($cartas[$cartaActiva]) ? $cartaActiva : \Model\CategoriasMenu::CARTA_COMIDA; ?>
         <fieldset class="admin-cat-inline__field admin-pills">
             <legend class="admin-cat-inline__label">Carta</legend>
             <div class="admin-pills__group">
                 <?php foreach ($cartas as $valor => $carta) : ?>
                     <label class="admin-pill">
                         <input type="radio" name="carta" value="<?php echo htmlspecialchars((string) $valor, ENT_QUOTES); ?>"
-                               <?php echo $valor === \Model\CategoriasMenu::CARTA_COMIDA ? 'checked' : ''; ?> required>
+                               <?php echo (string) $valor === $cartaPorDefecto ? 'checked' : ''; ?> required>
                         <span class="admin-pill__body">
                             <span class="admin-pill__title"><?php echo htmlspecialchars((string) ($carta['corto'] ?? $valor)); ?></span>
                         </span>
@@ -175,6 +231,10 @@
             >
             <input type="hidden" name="categoria" data-reactive-control data-reactive-default=""
                    value="<?php echo htmlspecialchars((string) ($filtros['categoria'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+            <?php /* Sin este campo, buscar por nombre devolvía el listado a las dos
+                     cartas: el formulario arma la URL sólo con lo que lleva dentro. */ ?>
+            <input type="hidden" name="carta" data-reactive-control data-reactive-default=""
+                   value="<?php echo htmlspecialchars((string) ($filtros['carta'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         </div>
         <div class="admin-filters__actions">
             <button type="submit" class="admin-btn admin-btn--primary" data-reactive-submit>Buscar</button>

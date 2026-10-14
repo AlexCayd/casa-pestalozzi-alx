@@ -1,80 +1,258 @@
 // Avisos transitorios (window.AppNotice). Sustituyen a alert().
 //
-// El mismo archivo se compila en app.css, admin.css y operation/reservations.css:
-// por eso cada color se pide primero al token público y cae al token admin, que
-// es el único disponible bajo .admin-body.
+// El mismo archivo se compila en app.css (landing), admin.css (panel) y
+// operation.css (POS, áreas, login). Es un componente de los DOS sistemas, así
+// que no pide ni un nombre público ni un --admin-*: consume sus roles propios
+// —los --confirmation-* que comparte con el diálogo y los --app-notice-*—, y
+// cada sistema los declara con su paleta (`roles-aviso` en _reset.scss,
+// `alias-admin-heredados` en _globals.scss). Un token nuevo aquí se declara en
+// los dos, o el otro lado se rompe sin ruido.
+//
+// La idea: el aviso es una pieza del cromo, no una alarma pegada encima. La
+// lámina es neutra y de la familia del header del piso; el estado vive en UN
+// solo sitio —el chip y el rótulo—, y el tiempo que le queda se ve. Antes el
+// color era el contorno entero más un filete de 4 px que se curvaba con el
+// radio: la caja de alerta de cualquier plantilla, y en el POS, roja a todo
+// alrededor, gritaba más que la mesa a la que se refería.
 
+// Bajo la barra de la pantalla, no encima. Arriba del todo tapaba justo los
+// controles de esa esquina los ocho segundos que dura un error: el menú de
+// usuario y «Salir» en el piso; reportar, notificaciones y salir en el panel.
+// toast.js mide el canto inferior de `.operational-header` / `.admin-topbar`
+// y lo publica en --app-notice-top, porque esa altura no es fija: en una tablet
+// vertical el header del POS parte en dos filas y casi la duplica. Sin barra
+// (landing, login) el aviso se queda arriba.
 .app-notice-stack {
   position: fixed;
   z-index: 12000;
-  top: max(16px, env(safe-area-inset-top));
+  top: var(--app-notice-top, max(16px, env(safe-area-inset-top)));
   right: max(16px, env(safe-area-inset-right));
   display: flex;
-  width: min(380px, calc(100vw - 32px));
+  width: min(400px, calc(100vw - 32px));
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
 
-.app-notice {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
+// En el piso, además, alineado con el canto derecho del header.
+.operational-page > .app-notice-stack {
+  right: max(var(--operational-shell-pad), env(safe-area-inset-right));
+}
 
+.app-notice {
+  // Entra frenando y sale acelerando; toast.js lee --app-notice-out para no
+  // retirar el nodo antes de que termine la salida.
+  --app-notice-in: 240ms;
+  --app-notice-out: 160ms;
+  --app-notice-tono: var(--app-notice-info);
+  --app-notice-tono-texto: var(--app-notice-info-text);
+  --app-notice-linea: color-mix(in srgb, var(--confirmation-text) 12%, transparent);
+
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
-  padding: 14px 14px 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
-  border-left-width: 4px;
-  border-radius: 12px;
-  background: var(--confirmation-surface, var(--admin-surface));
-  color: var(--confirmation-text, var(--admin-text));
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--sombra) 42%, transparent);
+  min-height: 60px;
+  grid-template-areas: "icono cuerpo cerrar";
+  grid-template-columns: auto minmax(0, 1fr) 52px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
+  border-radius: 14px;
+  background: var(--confirmation-surface);
+  box-shadow:
+    inset 0 1px 0 var(--app-notice-edge, transparent),
+    0 2px 6px color-mix(in srgb, var(--confirmation-shadow) 16%, transparent),
+    0 18px 44px color-mix(in srgb, var(--confirmation-shadow) 32%, transparent);
+  color: var(--confirmation-text);
+  font-family: var(--app-notice-font, inherit);
   opacity: 0;
   pointer-events: auto;
-  transform: translateY(-8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(-6px);
+  transition:
+    opacity var(--app-notice-out) cubic-bezier(0.4, 0, 1, 1),
+    transform var(--app-notice-out) cubic-bezier(0.4, 0, 1, 1);
 
   &.is-open {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
+    transition-duration: var(--app-notice-in);
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  &--error   { --app-notice-accent: var(--c-rojo, var(--admin-c-rojo)); }
-  &--warning { --app-notice-accent: var(--c-ambar, var(--admin-c-ambar)); }
-  &--success { --app-notice-accent: var(--c-verde, var(--admin-c-verde)); }
-  &--info    { --app-notice-accent: var(--c-azul, var(--admin-c-azul)); }
-
-  &__text {
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.4;
+  &--error {
+    --app-notice-tono: var(--app-notice-danger);
+    --app-notice-tono-texto: var(--app-notice-danger-text);
   }
 
-  &__close {
+  &--warning {
+    --app-notice-tono: var(--app-notice-warn);
+    --app-notice-tono-texto: var(--app-notice-warn-text);
+  }
+
+  &--success {
+    --app-notice-tono: var(--app-notice-ok);
+    --app-notice-tono-texto: var(--app-notice-ok-text);
+  }
+
+  // El chip es el único sitio con color pleno de estado. Es un tinte sobre la
+  // lámina, no un relleno: un círculo rojo macizo competiría con los pines de
+  // mesa ocupada, que usan ese mismo rojo para otra cosa.
+  &__icon {
     display: grid;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
+    flex: none;
     place-items: center;
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 1;
-    opacity: 0.65;
-    transition: opacity 0.15s ease, background 0.15s ease;
+    align-self: start;
+    grid-area: icono;
+    margin: 14px 0 0 14px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--app-notice-tono) 16%, transparent);
+    color: var(--app-notice-tono-texto);
 
-    &:hover { opacity: 1; }
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+    }
 
-    &:focus-visible {
-      outline: 2px solid var(--app-notice-accent);
-      outline-offset: 2px;
-      opacity: 1;
+    // Sin catálogo no queda un cuadro de color vacío.
+    &:empty {
+      display: none;
     }
   }
+
+  &__body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    grid-area: cuerpo;
+    padding: 13px 14px 14px 12px;
+  }
+
+  // Rótulo en versalitas con el tracking abierto: la voz de rótulo de cada
+  // sistema (mono en el panel y el piso, Montserrat en la landing).
+  &__label {
+    display: block;
+    margin: 0;
+    color: var(--app-notice-tono-texto);
+    font-family: var(--app-notice-label-font, inherit);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  &__text {
+    display: block;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  // La columna de cierre va a toda altura con su propio filete: el aspa deja
+  // de flotar en la esquina y el área de toque es la columna entera (52 px de
+  // ancho, ≥ 60 px de alto), no un cuadro de 28.
+  &__close {
+    position: relative;
+    display: grid;
+    min-height: 44px;
+    place-items: center;
+    grid-area: cerrar;
+    padding: 0;
+    border: 0;
+    border-radius: 0 13px 13px 0;
+    background: transparent;
+    color: var(--confirmation-faint, currentColor);
+    cursor: pointer;
+    font: inherit;
+    transition: background 150ms ease, color 150ms ease;
+
+    // El filete va en un pseudo y no en border-left: así no se curva cuando
+    // el foco redondea las cuatro esquinas del botón.
+    &::before {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 1px;
+      background: var(--app-notice-linea);
+      content: "";
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+    }
+
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in srgb, var(--confirmation-text) 7%, transparent);
+        color: var(--confirmation-text);
+      }
+    }
+
+    &:active {
+      background: color-mix(in srgb, var(--confirmation-text) 11%, transparent);
+    }
+
+    // Hacia DENTRO, y sin el anillo de `.admin-body :focus-visible`: ése es
+    // exterior, la lámina recorta (overflow: hidden) y sólo asomaba como una
+    // raya del lado del texto. `outline` y no `box-shadow` porque sobrevive al
+    // modo de alto contraste. El `.app-notice` delante es para ganarle a esa
+    // regla global, que tiene la misma especificidad y carga después.
+    .app-notice &:focus-visible {
+      outline: 2px solid var(--confirmation-text);
+      outline-offset: -6px;
+      // Radio en las cuatro esquinas sólo con foco: con el 0 13 13 0 de reposo
+      // el anillo salía cuadrado de un lado y curvo del otro.
+      border-radius: 14px;
+      box-shadow: none;
+      color: var(--confirmation-text);
+    }
+  }
+
+  // Respaldo sin catálogo de iconos: la palabra, nunca un glifo.
+  &__close--texto {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  // Lo que le queda. Neutra a propósito: habla de tiempo, no de estado, y el
+  // color ya tiene su sitio en el chip. Se congela con el temporizador
+  // (.is-paused) mientras el puntero o el foco están encima.
+  &__timer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: color-mix(in srgb, var(--confirmation-text) 30%, transparent);
+    pointer-events: none;
+    transform-origin: left center;
+    animation: app-notice-tiempo var(--app-notice-espera, 6s) linear forwards;
+  }
+
+  &.is-paused &__timer {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes app-notice-tiempo {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+// Con movimiento reducido el reloj sigue diciendo que el aviso se va, pero
+// apagándose en su sitio en vez de encogerse.
+@keyframes app-notice-tiempo-fundido {
+  from { opacity: 1; }
+  to { opacity: 0.12; }
 }
 
 @media (max-width: 520px) {
@@ -85,9 +263,21 @@
   }
 }
 
+// Reducido no es inmóvil: sin desplazamiento, pero con fundido, para que siga
+// habiendo una señal de que algo llegó o se fue.
 @media (prefers-reduced-motion: reduce) {
   .app-notice {
-    transition: none;
     transform: none;
+    transition: opacity 120ms linear;
+
+    &.is-open {
+      transform: none;
+      transition-duration: 120ms;
+      transition-timing-function: linear;
+    }
+  }
+
+  .app-notice__timer {
+    animation-name: app-notice-tiempo-fundido;
   }
 }

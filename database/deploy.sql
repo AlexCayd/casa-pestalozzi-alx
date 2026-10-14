@@ -21,27 +21,31 @@ INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre)
 -- Mesas — pos_x / pos_y = % del centro del pin sobre el canvas
 -- -------------------------------------------------------
 
-INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VALUES
+INSERT INTO mesas (numero, nombre, tipo, zona, capacidad, pos_x, pos_y, reservable) VALUES
 -- Al quitar la botonera del mapa, el salón recuperó ~200px de ancho. Solo se
 -- mueve pos_x: la estructura por filas es la misma. Caja y Llevar pasan de 17
 -- a 24 puntos de separación porque a 768px (la tablet del mesero) los dos pines
 -- "especial" quedaban a 15px y se leían como uno solo.
-(1,  'Mesa 1',       'mesa',     4, 30.0, 88.0, 1),
-(2,  'Mesa 2',       'mesa',     4,  7.0, 70.0, 1),
-(3,  'Mesa 3',       'mesa',     4, 30.0, 51.0, 1),
-(4,  'Mesa 4',       'mesa',     4,  7.0, 51.0, 1),
-(5,  'Mesa 5',       'mesa',     4,  7.0, 29.0, 1),
-(6,  'Mesa 6',       'mesa',     4, 44.0, 29.0, 1),
-(7,  'Mesa 7',       'mesa',     4, 88.0, 29.0, 1),
-(8,  'Mesa 8',       'mesa',     4, 88.0,  8.0, 1),
-(9,  'Mesa 9',       'mesa',     4, 56.0,  8.0, 1),
-(10, 'Mesa 10',      'mesa',     4, 30.0,  8.0, 1),
-(11, 'Mesa 11',      'mesa',     4,  7.0,  8.0, 1),
-(12, 'Barra Blanca', 'barra',    8, 62.0, 51.0, 0),
-(13, 'Caja',         'especial', 0, 33.0, 70.0, 0),
-(14, 'Llevar',       'especial', 0, 57.0, 70.0, 0),
-(15, 'Barra Roja',   'barra',    6, 88.0, 70.0, 0),
-(16, 'Barra Roja 2', 'barra',    6, 88.0, 88.0, 0);
+--
+-- Zona: la fila de arriba (8 a 11) es el exterior y se reserva entera para los
+-- grupos de 9 en adelante; el resto de las mesas es el interior, que la
+-- asignación automática llena primero.
+(1,  'Mesa 1',       'mesa',     'interior', 4, 30.0, 88.0, 1),
+(2,  'Mesa 2',       'mesa',     'interior', 4,  7.0, 70.0, 1),
+(3,  'Mesa 3',       'mesa',     'interior', 4, 30.0, 51.0, 1),
+(4,  'Mesa 4',       'mesa',     'interior', 4,  7.0, 51.0, 1),
+(5,  'Mesa 5',       'mesa',     'interior', 4,  7.0, 29.0, 1),
+(6,  'Mesa 6',       'mesa',     'interior', 4, 44.0, 29.0, 1),
+(7,  'Mesa 7',       'mesa',     'interior', 4, 88.0, 29.0, 1),
+(8,  'Mesa 8',       'mesa',     'exterior', 4, 88.0,  8.0, 1),
+(9,  'Mesa 9',       'mesa',     'exterior', 4, 56.0,  8.0, 1),
+(10, 'Mesa 10',      'mesa',     'exterior', 4, 30.0,  8.0, 1),
+(11, 'Mesa 11',      'mesa',     'exterior', 4,  7.0,  8.0, 1),
+(12, 'Barra Blanca', 'barra',    NULL,       8, 62.0, 51.0, 0),
+(13, 'Caja',         'especial', NULL,       0, 33.0, 70.0, 0),
+(14, 'Llevar',       'especial', NULL,       0, 57.0, 70.0, 0),
+(15, 'Barra Roja',   'barra',    NULL,       6, 88.0, 70.0, 0),
+(16, 'Barra Roja 2', 'barra',    NULL,       6, 88.0, 88.0, 0);
 
 -- -------------------------------------------------------
 -- Áreas de producción

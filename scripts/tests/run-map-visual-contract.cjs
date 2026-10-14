@@ -64,6 +64,13 @@ class FakeElement {
     this._html = '';
     return child;
   }
+  insertBefore(child, reference) {
+    if (!reference) return this.appendChild(child);
+    if (child.parentNode) child.parentNode.removeChild(child);
+    child.parentNode = this;
+    this.children.splice(this.children.indexOf(reference), 0, child);
+    return child;
+  }
   removeChild(child) {
     const index = this.children.indexOf(child);
     if (index >= 0) this.children.splice(index, 1);
@@ -149,8 +156,6 @@ const reservationRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\)
 const unavailableRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--no-utilizable,[\s\S]*?\{([^{}]+)\}/, 'estado no utilizable');
 const availableWarningRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'disponible con reserva cercana');
 const occupiedWarningRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'ocupada con reserva cercana');
-const posAbsenceRule = styleRule(/\.pos-map \.mesas-map \.mesa-pin--reservacion-proxima\.mesa-pin--mod-ausencia_pendiente\s*\{([^{}]+)\}/, 'ausencia pendiente en POS');
-const absenceOverlayRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--mod-ausencia_pendiente::after,[\s\S]*?\{([^{}]+)\}/, 'indicador visual de ausencia');
 const helpSampleRule = styleRule(/\.map-help-dialog__sample \.mesa-pin\s*\{([^{}]+)\}/, 'geometría de las muestras del modal');
 
 assert.ok(!mapStyles.includes('.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled)'), 'hover no sustituye el borde base de una mesa seleccionada');
@@ -196,12 +201,9 @@ assertVisualProperties(occupiedWarningRule, {
 }, 'ocupada con advertencia');
 assert.equal(styleProperty(occupiedWarningRule, 'box-shadow'), null, 'ocupada con advertencia conserva su ring rojo base');
 
-assertVisualProperties(posAbsenceRule, {
-  'border-color': 'var(--map-table-reservation-overdue-border)',
-  background: 'var(--map-table-reservation-overdue-bg)',
-  color: 'var(--map-table-reservation-overdue-text)'
-}, 'ausencia pendiente en POS');
-assertVisualProperties(absenceOverlayRule, { border: '2px solid var(--map-table-reservation-overdue-border)' }, 'ausencia pendiente en Reservaciones');
+// La ausencia se registra sola al vencer la tolerancia y la mesa se libera:
+// el plano ya no tiene un estado «sin llegar» que pintar.
+assert.ok(!/mesa-pin--mod-ausencia_pendiente/.test(mapStyles), 'el mapa no conserva estilos de ausencia pendiente');
 assert.equal(styleProperty(helpSampleRule, 'background'), null, 'el modal no redefine fondos semánticos');
 assert.equal(styleProperty(helpSampleRule, 'border-color'), null, 'el modal no redefine bordes semánticos');
 assert.equal(styleProperty(helpSampleRule, 'border-style'), null, 'el modal no redefine el estilo del borde');
@@ -288,7 +290,7 @@ assert.equal(upcomingSelection.seleccionada, true, 'seleccionar una mesa próxim
 const upcomingWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'próxima con advertencia y selección');
 assert.equal(styleProperty(upcomingWarningSelectionRule, 'background'), null, 'la advertencia no reemplaza el fondo azul de una reservación próxima');
 assert.equal(styleProperty(upcomingWarningSelectionRule, 'color'), null, 'la advertencia no reemplaza el texto semántico de una reservación próxima');
-assert.equal(styleProperty(upcomingWarningSelectionRule, 'box-shadow'), null, 'la regla de advertencia no borra el ring amarillo de selección');
+assert.equal(styleProperty(upcomingWarningSelectionRule, 'box-shadow'), null, 'la regla de advertencia no borra el ring de selección');
 assert.match(styleProperty(upcomingWarningSelectionRule, 'border-color'), /--map-reservation-warning-border/, 'la advertencia conserva su borde de alerta');
 
 const warningSelection = adapt({
@@ -316,9 +318,9 @@ const upcomingWarningSelectedRule = styleRule(/:is\(\.mesas-map, \.map-help-dial
 const occupiedWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--ocupada\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'ocupada con advertencia y selección');
 assert.equal(styleProperty(selectedRule, 'background'), null, 'la selección compartida no redefine el fondo base');
 assert.equal(styleProperty(selectedRule, 'border-color'), null, 'la selección compartida no redefine el borde base');
-assert.match(styleProperty(selectedRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la selección compartida usa el ring amarillo contrastante');
+assert.match(styleProperty(selectedRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la selección compartida usa el ring de selección contrastante');
 assert.match(styleProperty(selectedRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'la selección compartida deja separación del pin');
-assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la muestra del modal usa el ring amarillo contrastante de la mesa real');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'la muestra del modal usa el ring de selección contrastante de la mesa real');
 assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'el ring se separa del borde semántico');
 
 assertVisualProperties(freeSelectionRule, {
@@ -326,21 +328,21 @@ assertVisualProperties(freeSelectionRule, {
   background: 'var(--map-table-available-bg)',
   color: 'var(--map-table-available-text)'
 }, 'libre seleccionada');
-assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'libre seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'libre seleccionada añade ring de selección contrastante');
 assert.match(styleProperty(freeSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'libre seleccionada conserva la separación alrededor del ring');
 assertVisualProperties(occupiedSelectionRule, {
   'border-color': 'var(--map-table-occupied-border)',
   background: 'var(--map-table-occupied-bg)',
   color: 'var(--map-table-occupied-text)'
 }, 'ocupada seleccionada');
-assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada seleccionada añade ring de selección contrastante');
 assert.match(styleProperty(occupiedSelectionRule, 'box-shadow'), /0 0 0 8px[\s\S]*var\(--map-table-occupied-border\)/, 'ocupada seleccionada conserva ring rojo exterior');
 assertVisualProperties(reservationSelectionRule, {
   'border-color': 'var(--map-table-reservation-border)',
   background: 'var(--map-table-reservation-bg)',
   color: 'var(--map-table-reservation-text)'
 }, 'reservación próxima seleccionada');
-assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'reservación seleccionada añade ring amarillo contrastante');
+assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'reservación seleccionada añade ring de selección contrastante');
 assert.match(styleProperty(reservationSelectionRule, 'box-shadow'), /0 0 0 6px[\s\S]*var\(--admin-surface\)/, 'reservación seleccionada conserva separación del borde semántico');
 assertVisualProperties(upcomingWarningSelectedRule, {
   'border-color': 'var(--map-reservation-warning-border)',
@@ -353,7 +355,7 @@ assertVisualProperties(occupiedWarningSelectionRule, {
   background: 'var(--map-table-occupied-bg)',
   color: 'var(--map-table-occupied-text)'
 }, 'ocupada con advertencia y selección');
-assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada con advertencia añade ring amarillo contrastante');
+assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 4px[\s\S]*var\(--map-table-selected-border\)/, 'ocupada con advertencia añade ring de selección contrastante');
 assert.match(styleProperty(occupiedWarningSelectionRule, 'box-shadow'), /0 0 0 8px[\s\S]*var\(--map-reservation-warning-border\)/, 'ocupada con advertencia conserva el borde azul exterior');
 
 const absenceSelection = adapt({
@@ -484,4 +486,44 @@ assert.equal(card.getAttribute('data-map-stale'), '1', 'el mapa identifica que l
 renderer.setConsultaEstado('', false);
 assert.equal(validPin.disabled, false, 'una consulta recuperada vuelve a permitir operaciones válidas');
 
+// ── POS: línea de estado (icono + palabra) y fichas ─────────────────
+// El color nunca va solo: cada pin del POS lleva la forma del estado y la
+// palabra o el dato que decide. Caja y Llevar son fichas, sin línea.
+const iconosPedidos = [];
+context.window.AdminIcons = { get: (nombre) => { iconosPedidos.push(nombre); return nombre ? '<svg data-icono="' + nombre + '"></svg>' : ''; } };
+const posCanvas = new FakeElement('div');
+const posRenderer = context.window.MapaVisual.crear({ canvas: posCanvas, mostrarEstado: true });
+posRenderer.render({ mesas: [
+  adapt({ id: 1, nombre: 'Mesa 1', reservable: true, estado_visual_pos: 'libre', modificadores_visual_pos: [] }, { etiquetaEstado: 'Libre', interactivo: true }),
+  adapt({ id: 2, nombre: 'Mesa 2', reservable: true, estado_visual_pos: 'reservacion-proxima', modificadores_visual_pos: ['ventana_advertencia'] }, { etiquetaEstado: 'Reservada', subtitulo: 'en 45 min', interactivo: true }),
+  adapt({ id: 3, nombre: 'Mesa 3', reservable: true, estado_visual_pos: 'reservacion-proxima', modificadores_visual_pos: ['sin_llegar'] }, { etiquetaEstado: 'Reservada', subtitulo: 'Sin llegar', modificadores: ['sin_llegar'], interactivo: true }),
+  adapt({ id: 12, nombre: 'Barra Blanca', tipo: 'barra', reservable: false, estado_visual_pos: 'ocupada', modificadores_visual_pos: ['ticket_abierto'] }, { etiquetaEstado: 'Llena', subtitulo: '4/4', interactivo: true }),
+  adapt({ id: 14, nombre: 'Llevar', tipo: 'especial', reservable: false, estado_visual_pos: 'libre', modificadores_visual_pos: [] }, { ficha: true, icono: 'bolsa', subtitulo: '2 pedidos', interactivo: true }),
+], elementos: [] });
+const posPin = (id) => posCanvas.querySelector('[data-mapa-mesa="' + id + '"]');
+const lineaEstado = (id) => posPin(id).querySelector('.mesa-pin__estado');
+assert.ok(posPin(1).classList.contains('mesa-pin--con-estado'), 'el POS marca sus pines con línea de estado');
+assert.match(lineaEstado(1).getAttribute('data-key'), /^estado-libre|/, 'libre lleva su icono');
+assert.equal(lineaEstado(1).textContent, '', 'el estado no se escribe: lo dicen el color y la forma del icono');
+assert.ok(lineaEstado(1).classList.contains('is-solo-icono'), 'sin dato, la línea es sólo el icono');
+assert.equal(lineaEstado(1).getAttribute('aria-hidden'), 'true', 'la línea no se repite al lector: ya está en el aria-label');
+assert.match(lineaEstado(2).getAttribute('data-key'), /^estado-reservada|/, 'reservada lleva las manecillas');
+assert.equal(lineaEstado(2).textContent, 'en 45 min', 'el dato que decide gana a la palabra');
+assert.ok(lineaEstado(3).getAttribute('data-key').indexOf('estado-reservada') === 0, 'la tolerancia vencida se pinta como cualquier reserva: se registra sola');
+assert.match(lineaEstado(12).getAttribute('data-key'), /^estado-ocupada|/, 'la barra llena se pinta no disponible');
+assert.equal(lineaEstado(12).textContent, '4/4', 'la barra cuenta tickets contra su tope');
+assert.ok(!posPin(12).textContent.includes('Área operativa'), 'la barra ya no dice «Área operativa»');
+assert.equal(posPin(14).querySelector('.mesa-pin__estado'), null, 'una ficha no lleva línea de estado');
+assert.ok(posPin(14).classList.contains('mesa-pin--ficha'), 'Llevar se marca como ficha');
+assert.ok(iconosPedidos.includes('bolsa') && posPin(14).querySelector('.mesa-pin__label').textContent === 'Llevar', 'la ficha lleva su icono delante del nombre');
+assert.equal(posPin(14).querySelector('.mesa-pin__type-label').textContent, '2 pedidos', 'la ficha de Llevar cuenta sus pedidos');
+posRenderer.actualizarEstado(12, { estadoVisual: 'libre', etiquetaEstado: 'Libre', subtitulo: '3/4', modificadores: ['ticket_abierto'] });
+assert.match(lineaEstado(12).getAttribute('data-key'), /^estado-libre|/, 'al liberarse un lugar la barra vuelve a libre');
+assert.equal(lineaEstado(12).textContent, '3/4', 'la línea sigue al conteo nuevo');
+const sinEstadoCanvas = new FakeElement('div');
+const sinEstado = context.window.MapaVisual.crear({ canvas: sinEstadoCanvas });
+sinEstado.render({ mesas: [adapt({ id: 12, nombre: 'Barra Blanca', tipo: 'barra', reservable: false, estado_visual_pos: 'libre', modificadores_visual_pos: [] }, { interactivo: true })], elementos: [] });
+const pinSinEstado = sinEstadoCanvas.querySelector('[data-mapa-mesa="12"]');
+assert.equal(pinSinEstado.querySelector('.mesa-pin__estado'), null, 'sin mostrarEstado el pin conserva su forma de siempre');
+assert.equal(pinSinEstado.querySelector('.mesa-pin__type-label'), null, 'sin subrótulo no se inventa «Área operativa»');
 console.log('Mapa: contratos, estado no verificado, recuperación y contexto temporal OK');
