@@ -43,50 +43,20 @@ $pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
 $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
 
 /**
- * Unico sitio del archivo con hex.
+ * La paleta llega resuelta de Services\Configuration\PaletaLanding::paraPdf().
  *
  * Dompdf no entiende custom properties ni color-mix, asi que los roles de la
- * capa 3 vienen ya resueltos contra el fondo de su ambito: cada valor es lo que
- * computa el navegador en la landing, no un color elegido a ojo. Si cambia la
- * capa 1 de _reset.scss, se rehacen estas cuentas y no se toca nada mas.
+ * capa 3 vienen ya mezclados contra el fondo de su ambito: cada valor es lo que
+ * computa el navegador en la landing, no un color elegido a ojo. Antes era una
+ * tabla de hex escrita aqui a mano; salio al servicio cuando la paleta se hizo
+ * editable desde Configuracion, para que la carta impresa siga a la landing.
  *
- * Las lineas y los textos tenues van aplanados (sin alpha) porque el soporte de
- * rgba() en Dompdf es irregular segun la propiedad; el color plano sobre el
- * fondo del ambito da el mismo resultado impreso.
+ * Claves: verde, cafe, beige, crema (capa 1); bg, txt, txt_strong, txt_mute,
+ * txt_faint, accent, line_soft, line_strong (papel crema, :root); v_bg, v_txt,
+ * v_txt_mute, v_accent (la banda verde, [data-tono="verde"]).
  */
-$paleta = [
-    // Capa 1 · MARCA
-    'verde'          => '#225036',   // --brand-verde
-    'cafe'           => '#4a2f21',   // --brand-cafe
-    'beige'          => '#e3d5bb',   // --brand-beige
-    'crema'          => '#f5f1e8',   // --brand-crema
+$paleta = \Services\Configuration\PaletaLanding::paraPdf();
 
-    // Capa 3 · ROLES sobre papel crema (:root)
-    'bg'             => '#f5f1e8',   // --bg
-    'txt'            => '#183a27',   // --txt        (verde-deep)  11.18:1
-    'txt_strong'     => '#372318',   // --txt-strong (cafe-deep)   13.19:1
-    'txt_mute'       => '#455e4e',   // --txt-mute                  6.27:1
-    'txt_faint'      => '#5d7263',   // --txt-faint                 4.58:1 (AA justo)
-    'accent'         => '#4a2f21',   // --accent / --accent-text   10.83:1
-    'line_soft'      => '#c2b7ac',   // --line-soft  (cafe 30%)
-    'line_strong'    => '#705a4d',   // --line-strong(cafe 78%)
-
-    // Capa 3 · ROLES sobre la banda verde ([data-tono="verde"])
-    'v_bg'           => '#225036',   // --bg
-    'v_txt'          => '#f5f1e8',   // --txt         (crema)       8.21:1
-    'v_txt_mute'     => '#c7cec1',   // --txt-mute                  5.72:1
-    'v_accent'       => '#e3d5bb',   // --accent      (beige)       6.39:1
-];
-
-/**
- * Icono de Instagram del pie: el MISMO trazo que la landing
- * (views/home/_redes.php), incrustado como data URI en vez de como archivo
- * suelto para que tome el color de $paleta y no lleve un hex cocido dentro de
- * un asset.
- *
- * Se arma con width/height y viewBox coincidentes por lo mismo que $logoEscalado
- * de arriba: en Dompdf la unidad del viewBox es el pixel que se pinta.
- */
 /**
  * Logotipo de la casa para el pie, reescalado y tintado desde el logo.svg
  * original — una sola fuente de verdad: si cambia la marca, cambia el PDF.
@@ -139,11 +109,73 @@ $logoEscalado = function (string $ruta, float $altoPx, string $color): string {
 // contra el oval y queda una mancha.
 $logoCasa = $logoEscalado($logoRuta ?? '', 22, $paleta['accent']);
 
-$iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
-    . '<path fill="' . $paleta['txt_mute'] . '" fill-rule="evenodd" clip-rule="evenodd" d="M3 8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8Zm5-3a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H8Zm7.597 2.214a1 1 0 0 1 1-1h.01a1 1 0 1 1 0 2h-.01a1 1 0 0 1-1-1ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-5 3a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/>'
-    . '</svg>'
-);
+/**
+ * Icono de Instagram del pie: la MISMA geometria que la landing
+ * (views/home/_redes.php) —marco redondeado, lente y punto sobre una reticula
+ * de 24—, incrustada como data URI para que tome el color de $paleta y no lleve
+ * un hex cocido dentro de un asset.
+ *
+ * No es el trazo de la landing copiado, y no puede serlo: aquel dibuja las
+ * esquinas y los circulos con arcos relativos (a), y php-svg-lib los resuelve
+ * mal — el marco salia cizallado, con las esquinas de un lado afiladas y las
+ * del otro hinchadas, y la lente torcida dentro. Aqui todo se escribe con M, L,
+ * C y Z absolutos, que es el repertorio con el que el sello de arriba ya se
+ * pinta bien: cada cuarto de curva es una cubica de Bezier (constante 0.5523),
+ * y un circulo es un rectangulo redondeado cuyo radio es medio lado.
+ *
+ * Y por lo mismo que $logoEscalado, la reticula se escala en las coordenadas y
+ * no con un viewBox de 24: en Dompdf la unidad cruda del viewBox es el pixel que
+ * se pinta, asi que un icono de 24 unidades en una caja de 9px se desbordaba.
+ *
+ * La caja se recorta al marco (3 a 21 de la reticula): con el aire de la
+ * reticula dentro, el icono quedaba un pixel por encima de la linea base del
+ * texto y no se alineaba con la caja alta que lo acompana.
+ *
+ * El anillo y la lente salen de fill-rule evenodd: cada contorno anidado
+ * invierte el relleno, sin depender de stroke —cuyo grosor php-svg-lib tampoco
+ * escala—.
+ */
+$iconoEscalado = function (float $px, string $color): string {
+    $k = $px / 18;
+    $n = static fn (float $v): string => rtrim(rtrim(number_format(($v - 3) * $k, 3, '.', ''), '0'), '.');
+
+    $redondeado = static function (float $x, float $y, float $lado, float $r) use ($n): string {
+        $o = $r * (1 - 0.5523);   // distancia de la esquina al punto de control
+        $x2 = $x + $lado;
+        $y2 = $y + $lado;
+
+        return 'M' . $n($x + $r) . ' ' . $n($y)
+            . 'L' . $n($x2 - $r) . ' ' . $n($y)
+            . 'C' . $n($x2 - $o) . ' ' . $n($y) . ' ' . $n($x2) . ' ' . $n($y + $o) . ' ' . $n($x2) . ' ' . $n($y + $r)
+            . 'L' . $n($x2) . ' ' . $n($y2 - $r)
+            . 'C' . $n($x2) . ' ' . $n($y2 - $o) . ' ' . $n($x2 - $o) . ' ' . $n($y2) . ' ' . $n($x2 - $r) . ' ' . $n($y2)
+            . 'L' . $n($x + $r) . ' ' . $n($y2)
+            . 'C' . $n($x + $o) . ' ' . $n($y2) . ' ' . $n($x) . ' ' . $n($y2 - $o) . ' ' . $n($x) . ' ' . $n($y2 - $r)
+            . 'L' . $n($x) . ' ' . $n($y + $r)
+            . 'C' . $n($x) . ' ' . $n($y + $o) . ' ' . $n($x + $o) . ' ' . $n($y) . ' ' . $n($x + $r) . ' ' . $n($y)
+            . 'Z';
+    };
+    $circulo = static fn (float $cx, float $cy, float $r): string => $redondeado($cx - $r, $cy - $r, 2 * $r, $r);
+
+    $d = $redondeado(3, 3, 18, 5)      // marco, canto exterior
+        . $redondeado(5, 5, 14, 3)     // marco, canto interior
+        . $circulo(12, 12, 5)          // lente, canto exterior
+        . $circulo(12, 12, 3)          // lente, canto interior
+        . $circulo(16.6, 7.2, 1.1);    // punto del flash
+
+    $lado = $n(21);
+
+    return 'data:image/svg+xml;base64,' . base64_encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' . $lado . '" height="' . $lado . '"'
+        . ' viewBox="0 0 ' . $lado . ' ' . $lado . '">'
+        . '<path fill="' . $color . '" fill-rule="evenodd" d="' . $d . '"/></svg>'
+    );
+};
+
+// Mismo lado que .foot-marca .ig. 6.5px es la caja alta de Montserrat a 8.5px
+// (~6px) mas medio pixel: un icono a la altura exacta de las letras se lee mas
+// chico que ellas.
+$iconoInstagram = $iconoEscalado(6.5, $paleta['txt_mute']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -430,14 +462,18 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             margin: 0 1px;
         }
         .foot-marca .ig {
-            width: 8px;
-            height: 8px;
+            /* Igual que el lado con que se arma $iconoInstagram: si no
+               coinciden, Dompdf reserva una caja y pinta el trazo en otra. */
+            width: 6.5px;
+            height: 6.5px;
             /* baseline y no middle: con el sello de 22px mandando en la linea,
                middle centraba el icono en una caja mucho mas alta que el texto y
                quedaba flotando. Dompdf ignora vertical-align en longitudes, asi
                que la unica palanca es la palabra clave. */
             vertical-align: baseline;
-            margin-right: 2px;
+            /* El letter-spacing del renglon no alcanza a una imagen: sin este
+               aire el icono quedaba pegado a la arroba. */
+            margin-right: 4px;
         }
         /* Linea 2 · avisos. Es letra chica de verdad: va en --txt-faint, el
            texto mas tenue que la casa admite sin bajar de AA. */

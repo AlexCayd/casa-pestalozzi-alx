@@ -1593,10 +1593,234 @@
         }, true);
     }
 
+    // ── Paleta de la landing ──────────────────────────────────
+    //
+    // Las mezclas y las parejas que se miden NO se escriben aquí: llegan del
+    // servidor (PaletaLanding::COMPROBACIONES) en data-palette-checks, para que
+    // la vista previa y la validación del guardado midan exactamente lo mismo.
+    // Una expresión es una clave de la paleta, 'negro', 'blanco' o
+    // [a, porcentaje, b], que es `color-mix(in srgb, a N%, b)`.
+
+    function initPalette() {
+        const form = document.querySelector('[data-palette-form]');
+        if (!form) {
+            return;
+        }
+
+        let marca;
+        let comprobaciones;
+        try {
+            marca = JSON.parse(form.getAttribute('data-palette-marca') || '{}');
+            comprobaciones = JSON.parse(form.getAttribute('data-palette-checks') || '[]');
+        } catch (error) {
+            return;
+        }
+        const minimo = parseFloat(form.getAttribute('data-palette-min')) || 4.5;
+        const preview = document.querySelector('[data-palette-preview]');
+        const resumen = form.querySelector('[data-palette-summary]');
+        const confirmacion = form.querySelector('[data-palette-confirm]');
+        const campos = Array.from(form.querySelectorAll('[data-palette-field]'));
+        let temporizadorResumen = null;
+
+        // Mismas reglas que PaletaLanding::normalizar(): admite forma corta y
+        // valor sin almohadilla, que es como se pega desde un manual.
+        function normalizar(valor) {
+            let hex = String(valor || '').trim().toLowerCase().replace(/^#/, '');
+            if (/^[0-9a-f]{3}$/.test(hex)) {
+                hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+            }
+            return /^[0-9a-f]{6}$/.test(hex) ? '#' + hex : null;
+        }
+
+        function resolver(expresion, paleta) {
+            if (Array.isArray(expresion)) {
+                const p = Number(expresion[1]) / 100;
+                const a = resolver(expresion[0], paleta);
+                const b = resolver(expresion[2], paleta);
+                return [0, 1, 2].map(function (i) { return a[i] * p + b[i] * (1 - p); });
+            }
+            if (expresion === 'negro') return [0, 0, 0];
+            if (expresion === 'blanco') return [255, 255, 255];
+            const hex = paleta[expresion] || marca[expresion];
+            return [1, 3, 5].map(function (i) { return parseInt(hex.slice(i, i + 2), 16); });
+        }
+
+        function luminancia(rgb) {
+            const c = rgb.map(function (v) {
+                v /= 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        }
+
+        function ratio(a, b) {
+            const la = luminancia(a);
+            const lb = luminancia(b);
+            return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+        }
+
+        function partes(campo) {
+            return {
+                clave: campo.getAttribute('data-palette-field'),
+                hex: campo.querySelector('[data-palette-hex]'),
+                picker: campo.querySelector('[data-palette-picker]'),
+                swatch: campo.querySelector('.admin-palette-field__swatch'),
+                reset: campo.querySelector('[data-palette-reset]'),
+                error: campo.querySelector('[data-palette-error]'),
+            };
+        }
+
+        function anunciar(texto) {
+            if (!resumen) return;
+            // Con espera: el selector nativo dispara `input` en cada paso del
+            // arrastre y un lector de pantalla leería cada cifra intermedia.
+            window.clearTimeout(temporizadorResumen);
+            // La vista ya trae escrito el resumen de la paleta inicial: si no
+            // cambia, no se toca la región viva y no se anuncia nada al cargar.
+            if (resumen.textContent === texto) return;
+            temporizadorResumen = window.setTimeout(function () {
+                resumen.textContent = texto;
+            }, 450);
+        }
+
+        function pintarComprobaciones(paleta) {
+            let bajos = 0;
+            comprobaciones.forEach(function (comprobacion) {
+                const fila = form.querySelector('[data-palette-check="' + comprobacion.id + '"]');
+                if (!fila) return;
+                const valor = ratio(resolver(comprobacion.texto, paleta), resolver(comprobacion.fondo, paleta));
+                const ok = valor >= minimo;
+                if (!ok) bajos++;
+                fila.classList.toggle('is-low', !ok);
+                const cifra = fila.querySelector('[data-palette-ratio]');
+                const estado = fila.querySelector('[data-palette-state]');
+                const icono = fila.querySelector('.admin-palette-check__icon');
+                if (cifra) cifra.textContent = valor.toFixed(2) + ':1';
+                if (estado) estado.textContent = ok ? 'Cumple' : 'Insuficiente';
+                if (icono && window.AdminIcons) icono.innerHTML = window.AdminIcons.get(ok ? 'check' : 'alerta', 14);
+            });
+            return bajos;
+        }
+
+        function actualizar() {
+            const paleta = {};
+            campos.forEach(function (campo) {
+                const p = partes(campo);
+                const hex = normalizar(p.hex.value);
+                const deMarca = marca[p.clave];
+                const vigente = hex || deMarca;
+                paleta[p.clave] = vigente;
+
+                const invalido = p.hex.value.trim() !== '' && hex === null;
+                p.hex.setAttribute('aria-invalid', invalido ? 'true' : 'false');
+                campo.classList.toggle('has-error', invalido);
+                if (p.error && !invalido) p.error.textContent = '';
+
+                if (hex) {
+                    if (p.picker && p.picker.value !== hex) p.picker.value = hex;
+                    if (p.swatch) p.swatch.style.setProperty('--swatch', hex);
+                    if (preview) preview.style.setProperty('--pv-' + p.clave, hex);
+                }
+                const esDeMarca = hex === deMarca;
+                campo.classList.toggle('is-custom', !esDeMarca);
+                if (p.reset) p.reset.hidden = esDeMarca;
+            });
+
+            const bajos = pintarComprobaciones(paleta);
+            anunciar(bajos === 0
+                ? 'Todas las secciones se leen con esta paleta.'
+                // Mismo texto que $resumenContraste en palette.php: si
+                // divergen, la primera pasada se anunciaría al cargar.
+                : (bajos === 1 ? 'Una comprobación queda' : bajos + ' comprobaciones quedan') + ' por debajo de ' + minimo.toFixed(2) + ':1. Se puede guardar, pero el sistema pedirá confirmarlo.');
+        }
+
+        // El aviso del servidor habla de la paleta que se envió. En cuanto se
+        // toca un color deja de describir lo que hay en pantalla, y su botón
+        // confirmaría algo que nadie ha medido: se retira y el siguiente
+        // guardado vuelve a comprobar.
+        function retirarConfirmacion() {
+            if (confirmacion && !confirmacion.hidden) confirmacion.hidden = true;
+        }
+
+        campos.forEach(function (campo) {
+            const p = partes(campo);
+
+            if (p.picker) {
+                p.picker.addEventListener('input', function () {
+                    p.hex.value = p.picker.value;
+                    retirarConfirmacion();
+                    actualizar();
+                });
+            }
+
+            p.hex.addEventListener('input', function () {
+                retirarConfirmacion();
+                actualizar();
+            });
+
+            // Al salir del campo se reescribe en su forma canónica —seis cifras,
+            // minúsculas y con almohadilla—, que es lo que el servidor guardará.
+            p.hex.addEventListener('blur', function () {
+                const hex = normalizar(p.hex.value);
+                if (hex) {
+                    p.hex.value = hex;
+                } else if (p.error) {
+                    p.error.textContent = 'Escribe el color en hexadecimal, por ejemplo ' + marca[p.clave] + '.';
+                }
+                actualizar();
+            });
+
+            if (p.reset) {
+                p.reset.addEventListener('click', function () {
+                    p.hex.value = marca[p.clave];
+                    retirarConfirmacion();
+                    actualizar();
+                    // El botón se oculta al restablecer: el foco no puede
+                    // quedarse en un elemento que acaba de desaparecer.
+                    p.hex.focus();
+                });
+            }
+        });
+
+        const resetTodo = form.querySelector('[data-palette-reset-all]');
+        if (resetTodo) {
+            resetTodo.addEventListener('click', function () {
+                campos.forEach(function (campo) {
+                    const p = partes(campo);
+                    p.hex.value = marca[p.clave];
+                });
+                retirarConfirmacion();
+                actualizar();
+                anunciar('Se cargaron los colores de marca. Guarda la paleta para publicarlos.');
+            });
+        }
+
+        form.addEventListener('submit', function (event) {
+            let primero = null;
+            campos.forEach(function (campo) {
+                const p = partes(campo);
+                if (normalizar(p.hex.value) === null) {
+                    campo.classList.add('has-error');
+                    p.hex.setAttribute('aria-invalid', 'true');
+                    if (p.error) p.error.textContent = 'Escribe el color en hexadecimal, por ejemplo ' + marca[p.clave] + '.';
+                    if (!primero) primero = p.hex;
+                }
+            });
+            if (primero) {
+                event.preventDefault();
+                primero.focus();
+            }
+        });
+
+        actualizar();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!document.querySelector('[data-configuration-page]')) {
             return;
         }
+
+        initPalette();
 
         initSchedule();
         initExceptionForm();

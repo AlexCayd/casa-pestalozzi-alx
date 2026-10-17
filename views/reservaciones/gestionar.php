@@ -23,6 +23,7 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
     <title><?php echo $h($pageTitle); ?> · Casa Pestalozzi</title>
     <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
     <link rel="stylesheet" href="/build/css/app.css?v=reservation-management-v1">
+    <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
 <body class="schedule-change-page reserva">
     <header class="schedule-change-header">

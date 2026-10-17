@@ -1181,6 +1181,354 @@
   display: none;
 }
 
+/*
+ * Paleta de la landing.
+ *
+ * Una fila por color: la muestra (que ES el selector nativo, transparente
+ * encima), el nombre con su token y para qué sirve, y el valor en hex con el
+ * de marca al lado. El color sólo aparece en las muestras y en la vista
+ * previa: es el dato que se edita, no cromo del panel.
+ */
+.admin-palette-form {
+  display: grid;
+  gap: 22px;
+}
+.admin-palette-form .admin-config-form-actions {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.admin-palette-fields {
+  display: grid;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.admin-palette-field {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+.admin-palette-field__swatch {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--admin-radius-md);
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent), 0 0 0 1px var(--admin-border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-palette-field__swatch:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent), 0 0 0 1px var(--admin-border-strong);
+}
+.admin-palette-field__swatch:has(input:focus-visible) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent), 0 0 0 1px var(--admin-border-strong), var(--admin-focus-ring);
+}
+@supports not selector(:has(*)) {
+  .admin-palette-field__swatch:focus-within {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent), 0 0 0 1px var(--admin-border-strong), var(--admin-focus-ring);
+  }
+}
+.admin-palette-field__swatch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  cursor: pointer;
+}
+.admin-palette-field__swatch-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-palette-field__body {
+  min-width: 0;
+}
+.admin-palette-field__name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.admin-palette-field__token {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+}
+.admin-palette-field__use {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-palette-field__value {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.admin-palette-field__hex {
+  width: 112px !important;
+  font-family: var(--admin-font-mono) !important;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-transform: lowercase;
+}
+.admin-palette-field__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--admin-faint);
+  font-size: 12px;
+}
+.admin-palette-field__reset {
+  position: relative;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--admin-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.admin-palette-field__reset::before {
+  content: "";
+  position: absolute;
+  inset: -6px -6px -14px;
+}
+.admin-palette-field__reset[hidden] {
+  display: none;
+}
+.admin-palette-field__reset:focus-visible {
+  border-radius: var(--admin-radius-sm);
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-palette-field__error {
+  max-width: 220px;
+  color: var(--admin-danger-text);
+  font-size: 12px;
+  text-align: right;
+}
+.admin-palette-field__error:empty {
+  display: none;
+}
+.admin-palette-field.has-error .admin-palette-field__hex {
+  border-color: var(--admin-danger) !important;
+}
+
+.admin-palette-checks {
+  display: grid;
+  gap: 10px;
+}
+.admin-palette-checks__intro {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-palette-checks__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-palette-checks__summary {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-palette-checks__summary:empty {
+  display: none;
+}
+
+.admin-palette-check {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto minmax(5.5em, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--admin-radius-sm);
+  font-size: 13px;
+}
+.admin-palette-check:nth-child(odd) {
+  background: var(--admin-surface-soft);
+}
+.admin-palette-check__icon {
+  display: inline-flex;
+  color: var(--admin-success-text);
+}
+.admin-palette-check__label {
+  color: var(--admin-text);
+}
+.admin-palette-check__ratio {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.admin-palette-check__state {
+  color: var(--admin-muted);
+  text-align: right;
+}
+.admin-palette-check.is-low .admin-palette-check__icon, .admin-palette-check.is-low .admin-palette-check__state {
+  color: var(--admin-danger-text);
+}
+.admin-palette-check.is-low .admin-palette-check__state {
+  font-weight: 600;
+}
+
+.admin-palette-confirm {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.admin-palette-confirm[hidden] {
+  display: none;
+}
+.admin-palette-confirm ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/*
+ * Vista previa: las cuatro bandas de la landing en miniatura.
+ *
+ * Reproduce las mezclas de _reset.scss sobre los cuatro --pv-* que pone la
+ * vista (y el JS al editar), con los mismos porcentajes, para que lo que se ve
+ * aquí sea lo que computa la portada. No usa app.css: el panel no lo carga, y
+ * traerlo para cuatro franjas metería la landing entera en el módulo.
+ */
+.admin-palette-preview {
+  --pv-verde-deep: color-mix(in srgb, var(--pv-verde) 72%, black);
+  --pv-cafe-deep: color-mix(in srgb, var(--pv-cafe) 74%, black);
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--admin-radius-md);
+  box-shadow: 0 0 0 1px var(--admin-border);
+}
+.admin-palette-preview__band {
+  display: grid;
+  gap: 4px;
+  padding: 18px 18px 20px;
+  background: var(--pv-bg);
+  color: var(--pv-txt);
+}
+.admin-palette-preview__band--crema {
+  --pv-bg: var(--pv-crema);
+  --pv-txt: var(--pv-verde-deep);
+  --pv-strong: var(--pv-cafe-deep);
+  --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 69%, var(--pv-bg));
+  --pv-line: color-mix(in srgb, var(--pv-cafe) 54%, transparent);
+  --pv-accent: var(--pv-cafe);
+  --pv-on-accent: var(--pv-crema);
+}
+.admin-palette-preview__band--beige {
+  --pv-bg: var(--pv-beige);
+  --pv-txt: var(--pv-verde-deep);
+  --pv-strong: var(--pv-cafe-deep);
+  --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 74%, var(--pv-bg));
+  --pv-line: color-mix(in srgb, var(--pv-cafe) 58%, transparent);
+  --pv-accent: var(--pv-cafe);
+  --pv-on-accent: var(--pv-crema);
+}
+.admin-palette-preview__band--verde {
+  --pv-bg: var(--pv-verde);
+  --pv-txt: var(--pv-crema);
+  --pv-strong: white;
+  --pv-faint: color-mix(in srgb, var(--pv-crema) 65%, var(--pv-bg));
+  --pv-line: color-mix(in srgb, var(--pv-beige) 54%, transparent);
+  --pv-accent: var(--pv-beige);
+  --pv-on-accent: var(--pv-verde-deep);
+}
+.admin-palette-preview__band--cafe {
+  --pv-bg: var(--pv-cafe-deep);
+  --pv-txt: var(--pv-crema);
+  --pv-strong: white;
+  --pv-faint: color-mix(in srgb, var(--pv-crema) 52%, var(--pv-bg));
+  --pv-line: color-mix(in srgb, var(--pv-beige) 42%, transparent);
+  --pv-accent: var(--pv-beige);
+  --pv-on-accent: var(--pv-cafe-deep);
+}
+.admin-palette-preview__eyebrow {
+  color: var(--pv-accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.admin-palette-preview__title {
+  color: var(--pv-strong);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.admin-palette-preview__text {
+  font-size: 13px;
+}
+.admin-palette-preview__faint {
+  color: var(--pv-faint);
+  font-size: 12px;
+}
+.admin-palette-preview__rule {
+  height: 1px;
+  margin: 8px 0 6px;
+  background: var(--pv-line);
+}
+.admin-palette-preview__cta {
+  justify-self: start;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--pv-accent);
+  color: var(--pv-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-palette-field__swatch {
+    transition: none;
+  }
+}
+@media (max-width: 576px) {
+  .admin-palette-field {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .admin-palette-field__swatch {
+    width: 48px;
+    height: 48px;
+  }
+  .admin-palette-field__value {
+    grid-column: 1/-1;
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    align-items: center;
+  }
+  .admin-palette-field__error {
+    grid-column: 1/-1;
+    max-width: none;
+    text-align: left;
+  }
+}
 @media (max-width: 768px) {
   .admin-config-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

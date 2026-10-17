@@ -1025,6 +1025,446 @@
   }
 }
 
+/*
+ * Paleta de la landing.
+ *
+ * Una fila por color: la muestra (que ES el selector nativo, transparente
+ * encima), el nombre con su token y para qué sirve, y el valor en hex con el
+ * de marca al lado. El color sólo aparece en las muestras y en la vista
+ * previa: es el dato que se edita, no cromo del panel.
+ */
+.admin-palette-form {
+  display: grid;
+  gap: 22px;
+
+  .admin-config-form-actions {
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+}
+
+.admin-palette-fields {
+  display: grid;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.admin-palette-field {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+
+  &__swatch {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--admin-radius-md);
+    background: var(--swatch);
+    // Doble filete: la tinta del panel por fuera y el papel por dentro, para
+    // que la muestra no se funda con el fondo ni cuando el color ES el fondo
+    // (crema sobre el tema claro, casi negro sobre el oscuro).
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent),
+      0 0 0 1px var(--admin-border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow var(--admin-t-fast) var(--admin-ease-out);
+
+    &:hover {
+      box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent),
+        0 0 0 1px var(--admin-border-strong);
+    }
+
+    &:has(input:focus-visible) {
+      box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent),
+        0 0 0 1px var(--admin-border-strong),
+        var(--admin-focus-ring);
+    }
+
+    // Sin :has() el input transparente se llevaría el anillo consigo y el foco
+    // quedaría invisible. :focus-within lo enseña también al clic, que es un
+    // precio menor que perderlo con teclado.
+    @supports not selector(:has(*)) {
+      &:focus-within {
+        box-shadow:
+          inset 0 0 0 1px color-mix(in srgb, var(--admin-surface) 60%, transparent),
+          0 0 0 1px var(--admin-border-strong),
+          var(--admin-focus-ring);
+      }
+    }
+
+    // El input nativo ocupa la muestra entera y es el que recibe el clic y el
+    // foco; transparente, porque su propio pintado cambia por navegador. La
+    // regla global de campos de _forms.scss también lo alcanza (type=color no
+    // está en su lista de exclusiones) y suma (0,6,1): de ahí los !important.
+    input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      opacity: 0;
+      cursor: pointer;
+    }
+  }
+
+  &__swatch-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &__body {
+    min-width: 0;
+  }
+
+  &__name {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    color: var(--admin-text);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  &__token {
+    color: var(--admin-faint);
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  &__use {
+    margin-top: 3px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  &__value {
+    display: grid;
+    justify-items: end;
+    gap: 6px;
+  }
+
+  // Siete caracteres en mono: el campo no necesita más ancho que el valor.
+  // La regla global de campos (_forms.scss, (0,6,1)) impone `width: 100%` y
+  // `font: inherit`, así que sin el !important acotado el campo salía en sans y
+  // estirado al ancho de la columna — ni el ancho ni la mono de `.admin-num`
+  // llegaban. Lo mismo el borde de error: sin él, nunca se pintaba.
+  &__hex {
+    width: 112px !important;
+    font-family: var(--admin-font-mono) !important;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    text-transform: lowercase;
+  }
+
+  &__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
+    color: var(--admin-faint);
+    font-size: 12px;
+  }
+
+  // Enlace de texto de 12 px: visible pequeño, pero el área de toque no. El
+  // ::before la lleva a 44 de alto sin mover la fila; crece sobre todo hacia
+  // abajo (hacia el padding de la fila) y sólo 6 px hacia arriba, que es el
+  // hueco que lo separa del campo: así no le roba clics al hex.
+  &__reset {
+    position: relative;
+    min-height: 24px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--admin-text);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -6px -6px -14px;
+    }
+
+    &[hidden] {
+      display: none;
+    }
+
+    &:focus-visible {
+      border-radius: var(--admin-radius-sm);
+      outline: none;
+      box-shadow: var(--admin-focus-ring);
+    }
+  }
+
+  &__error {
+    max-width: 220px;
+    color: var(--admin-danger-text);
+    font-size: 12px;
+    text-align: right;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  // Rojo también con el foco puesto, que es justo cuando se corrige.
+  &.has-error &__hex {
+    border-color: var(--admin-danger) !important;
+  }
+}
+
+// «Legibilidad» es un <h3> —una subsección del formulario, navegable por
+// encabezados— que se VE como rótulo. La tipografía no se declara aquí: la pone
+// `.admin-eyebrow` en el marcado. Una clase suelta (0,1,0) pierde contra
+// `.admin-body h3` (0,1,1) de _typography.scss, que es lo que lo pintaba a
+// 24.8 px; `.admin-body .admin-eyebrow` es (0,2,0) y gana sin depender del
+// orden de carga de las hojas.
+.admin-palette-checks {
+  display: grid;
+  gap: 10px;
+
+  &__intro {
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  &__list {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__summary {
+    color: var(--admin-muted);
+    font-size: 13px;
+
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+// El estado se dice en palabras y en icono, no sólo en color: el rojo de
+// «Insuficiente» es refuerzo, no el mensaje.
+.admin-palette-check {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto minmax(5.5em, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--admin-radius-sm);
+  font-size: 13px;
+
+  &:nth-child(odd) {
+    background: var(--admin-surface-soft);
+  }
+
+  &__icon {
+    display: inline-flex;
+    color: var(--admin-success-text);
+  }
+
+  &__label {
+    color: var(--admin-text);
+  }
+
+  &__ratio {
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__state {
+    color: var(--admin-muted);
+    text-align: right;
+  }
+
+  &.is-low &__icon,
+  &.is-low &__state {
+    color: var(--admin-danger-text);
+  }
+
+  &.is-low &__state {
+    font-weight: 600;
+  }
+}
+
+.admin-palette-confirm {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+
+  &[hidden] {
+    display: none;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+}
+
+/*
+ * Vista previa: las cuatro bandas de la landing en miniatura.
+ *
+ * Reproduce las mezclas de _reset.scss sobre los cuatro --pv-* que pone la
+ * vista (y el JS al editar), con los mismos porcentajes, para que lo que se ve
+ * aquí sea lo que computa la portada. No usa app.css: el panel no lo carga, y
+ * traerlo para cuatro franjas metería la landing entera en el módulo.
+ */
+.admin-palette-preview {
+  --pv-verde-deep: color-mix(in srgb, var(--pv-verde) 72%, black);
+  --pv-cafe-deep: color-mix(in srgb, var(--pv-cafe) 74%, black);
+
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--admin-radius-md);
+  box-shadow: 0 0 0 1px var(--admin-border);
+
+  &__band {
+    display: grid;
+    gap: 4px;
+    padding: 18px 18px 20px;
+    background: var(--pv-bg);
+    color: var(--pv-txt);
+
+    // Los dos claros: tinta verde, titular café, acento café.
+    &--crema {
+      --pv-bg: var(--pv-crema);
+      --pv-txt: var(--pv-verde-deep);
+      --pv-strong: var(--pv-cafe-deep);
+      --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 69%, var(--pv-bg));
+      --pv-line: color-mix(in srgb, var(--pv-cafe) 54%, transparent);
+      --pv-accent: var(--pv-cafe);
+      --pv-on-accent: var(--pv-crema);
+    }
+
+    &--beige {
+      --pv-bg: var(--pv-beige);
+      --pv-txt: var(--pv-verde-deep);
+      --pv-strong: var(--pv-cafe-deep);
+      --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 74%, var(--pv-bg));
+      --pv-line: color-mix(in srgb, var(--pv-cafe) 58%, transparent);
+      --pv-accent: var(--pv-cafe);
+      --pv-on-accent: var(--pv-crema);
+    }
+
+    // Los dos oscuros: tinta crema, titular blanco, acento beige.
+    &--verde {
+      --pv-bg: var(--pv-verde);
+      --pv-txt: var(--pv-crema);
+      --pv-strong: white;
+      --pv-faint: color-mix(in srgb, var(--pv-crema) 65%, var(--pv-bg));
+      --pv-line: color-mix(in srgb, var(--pv-beige) 54%, transparent);
+      --pv-accent: var(--pv-beige);
+      --pv-on-accent: var(--pv-verde-deep);
+    }
+
+    &--cafe {
+      --pv-bg: var(--pv-cafe-deep);
+      --pv-txt: var(--pv-crema);
+      --pv-strong: white;
+      --pv-faint: color-mix(in srgb, var(--pv-crema) 52%, var(--pv-bg));
+      --pv-line: color-mix(in srgb, var(--pv-beige) 42%, transparent);
+      --pv-accent: var(--pv-beige);
+      --pv-on-accent: var(--pv-cafe-deep);
+    }
+  }
+
+  &__eyebrow {
+    color: var(--pv-accent);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  &__title {
+    color: var(--pv-strong);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  &__text {
+    font-size: 13px;
+  }
+
+  &__faint {
+    color: var(--pv-faint);
+    font-size: 12px;
+  }
+
+  &__rule {
+    height: 1px;
+    margin: 8px 0 6px;
+    background: var(--pv-line);
+  }
+
+  &__cta {
+    justify-self: start;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--pv-accent);
+    color: var(--pv-on-accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+@include mixins.reduced-motion {
+  .admin-palette-field__swatch {
+    transition: none;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .admin-palette-field {
+    grid-template-columns: 48px minmax(0, 1fr);
+
+    &__swatch {
+      width: 48px;
+      height: 48px;
+    }
+
+    &__value {
+      grid-column: 1 / -1;
+      grid-template-columns: auto 1fr;
+      justify-items: start;
+      align-items: center;
+    }
+
+    &__error {
+      grid-column: 1 / -1;
+      max-width: none;
+      text-align: left;
+    }
+  }
+}
+
 @include mixins.down(vars.$breakpoint-tablet) {
   .admin-config-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

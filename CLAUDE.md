@@ -84,7 +84,7 @@ Tres bundles administrativos y no uno: `admin.css` (panel), `operation.css`
 
 **Dos archivos para instalar, en este orden:**
 
-1. `database/schema.sql` — estructura, DROP+CREATE completo de las 16 tablas.
+1. `database/schema.sql` — estructura, DROP+CREATE completo de las 17 tablas.
 2. `database/seed.sql` — datos mínimos: horario, mesas, categorías, carta, un
    administrador de desarrollo (`admin` / `CasaPestalozzi-2026`, documentado en
    el README) y un registro de ejemplo por módulo, con fechas relativas a
@@ -92,7 +92,8 @@ Tres bundles administrativos y no uno: `admin.css` (panel), `operation.css`
 
 Una base del sistema anterior se lleva a este esquema con
 `database/migrations/001_simplificar_esquema.sql` (re-ejecutable; respaldar
-antes: el DDL de MySQL no es transaccional).
+antes: el DDL de MySQL no es transaccional) y después
+`002_paleta_landing.sql`, que sólo crea `configuracion_paleta`.
 
 `schema.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
 agregar una tabla, añade su `DROP` al bloque correspondiente.
@@ -371,6 +372,20 @@ que gana porque «la utilidad es negativa» importa más que «esto es la utilid
 **Ningún archivo fuera de esos dos contiene un hex ni un `rgba()` literal.** Ni
 el SCSS, ni el JS, ni las vistas. Cambiar la marca es editar la capa 1 y nada
 más; si hace falta escribir un color en otro sitio, es que falta un rol.
+
+La capa 1 además se puede **sobrescribir desde el panel** (Configuración →
+Paleta de la landing, `Services\Configuration\PaletaLanding`): lo guardado se
+emite como `:root{--brand-*}` DESPUÉS de `app.css` en cada página de marca
+(la landing, el 404 y la gestión de reservación). Tres consecuencias: toda
+página nueva que cargue `app.css` tiene que llevar
+`PaletaLanding::estiloEnLinea()` detrás de ese `<link>`; las dos cartas en PDF
+toman sus roles ya mezclados de `PaletaLanding::paraPdf()`, no de una tabla
+escrita en la plantilla; y `PaletaLanding::MARCA` es el único espejo en PHP de
+los cuatro hex — `run-paleta-landing.php` falla si se separa de `_reset.scss`,
+igual que si cambian los porcentajes de texto tenue que mide
+(`COMPROBACIONES`). Toda mezcla nueva de un rol de texto en los tonos de la
+landing es candidata a entrar en esa lista.
+
 Comprobación: `grep -rE '#[0-9a-fA-F]{3,8}|rgba\([0-9]' src/scss src/js` sólo
 debe encontrar `_reset.scss` y `_globals.scss`.
 

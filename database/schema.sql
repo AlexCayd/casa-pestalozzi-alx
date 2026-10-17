@@ -1,12 +1,14 @@
 -- Casa Pestalozzi — Esquema completo (instalación desde cero)
 -- Estructura de la base de datos: DROP + CREATE TABLE.
 -- Los datos mínimos de arranque viven en seed.sql, que se ejecuta después.
--- Para llevar una base anterior a este esquema: migrations/001_simplificar_esquema.sql.
+-- Para llevar una base anterior a este esquema: migrations/001_simplificar_esquema.sql
+-- y, después, migrations/002_paleta_landing.sql.
 -- Ejecutar contra la BD configurada en includes/.env (DB_NAME).
 
 -- -------------------------------------------------------
 -- RESET (orden inverso de dependencias)
 -- -------------------------------------------------------
+DROP TABLE IF EXISTS configuracion_paleta;
 DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS buzon_notificaciones;
 DROP TABLE IF EXISTS horario_impacto_reservaciones;
@@ -429,6 +431,32 @@ CREATE TABLE IF NOT EXISTS configuracion_anuncio (
   PRIMARY KEY (id),
 
   CONSTRAINT fk_configuracion_anuncio_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL
+);
+
+-- Paleta de la landing. Fila única (id = 1), como configuracion_anuncio.
+-- Cada columna sobrescribe UNO de los cuatro colores de la capa 1 de
+-- src/scss/layout/_reset.scss (--brand-verde, --brand-cafe, --brand-beige,
+-- --brand-crema); escalas y roles se derivan solos con color-mix.
+-- NULL = el valor del manual de marca, que es el del SCSS. Se guarda NULL y no
+-- el hex de marca para que un color que nadie tocó siga al manual si algún día
+-- cambia la capa 1. Sin fila, o sin tabla, la landing se pinta como siempre.
+CREATE TABLE IF NOT EXISTS configuracion_paleta (
+  id          TINYINT UNSIGNED NOT NULL,
+  verde       CHAR(7) NULL,
+  cafe        CHAR(7) NULL,
+  beige       CHAR(7) NULL,
+  crema       CHAR(7) NULL,
+  updated_by  INT NULL,
+  updated_at  TIMESTAMP NOT NULL
+                DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_configuracion_paleta_usuario
     FOREIGN KEY (updated_by)
     REFERENCES usuarios(id)
     ON DELETE SET NULL

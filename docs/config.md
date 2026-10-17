@@ -45,6 +45,18 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
 - `/admin/configuracion/reservaciones`: activación y hora de preparación del
   recordatorio del día anterior.
 - Horario efectivo y excepciones: sección de configuración de horarios.
+- `/admin/configuracion/paleta`: los **cuatro colores de marca de la landing**
+  (verde, café, beige y crema; tabla `configuracion_paleta`, fila única). Son
+  la capa 1 de `src/scss/layout/_reset.scss`: lo guardado se emite como
+  `<style id="paleta-landing">` en `:root` justo después de `app.css`
+  (`PaletaLanding::estiloEnLinea()`), así que escalas, roles y tonos de sección
+  se derivan solos. Lo aplican la landing, el 404, la gestión de reservación y
+  las dos cartas en PDF (`PaletaLanding::paraPdf()`); el panel no cambia, y el
+  oro no es editable porque la landing no lo usa. Un color igual al de marca se
+  guarda como `NULL`, para que siga al manual si la capa 1 cambia. Si alguna
+  comprobación de contraste (el texto más tenue de cada sección a 4.5:1) queda
+  por debajo, el guardado pide confirmación explícita. Para una base existente:
+  `database/migrations/002_paleta_landing.sql`.
 
 Consulta las reglas de [operación POS e impresión](operacion.md),
 [reservaciones](reservaciones/reservaciones.md) y

@@ -95,6 +95,8 @@ $router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
 $router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
+$router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
+$router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 // Gestión de menú: los platillos viven en `productos` desde la fusión con
 // "Productos y recetas". La lista entra directo (ya no hay página de hub).
 $router->get('/admin/menu',                     [AdminMenuController::class, 'index']);

@@ -34,6 +34,7 @@
   <link rel="preload" href="/build/fonts/bodoni-moda-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/bodoni-moda-latin-standard-italic.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado('/build/css/app.css'), ENT_QUOTES, 'UTF-8'); ?>">
+  <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
 <?php /* Tono crema: el de :root y el que eligió el otro documento suelto de
          marca. Sobre crema --accent es el café, que es el par de CTA de la
