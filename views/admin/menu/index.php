@@ -1,4 +1,5 @@
 <?php
+    require_once __DIR__ . '/../partials/_icons.php';
     /**
      * Listado de platillos con pestañas de categoría.
      *
@@ -11,6 +12,7 @@
     $platillos = isset($platillos) && is_iterable($platillos) ? $platillos : [];
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $categoriasMap = $categoriasMap ?? [];
+    $categoriasFoto = is_array($categoriasFoto ?? null) ? $categoriasFoto : [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
     $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
     $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'carta' => '', 'categoria' => '', 'visible' => ''];
@@ -101,6 +103,12 @@
             </div>
         <?php endforeach; ?>
     <?php endforeach; ?>
+
+    <?php /* Consultas rápidas: preguntar sin salir del módulo. Va DESPUÉS del
+             aviso de la última acción («Platillo guardado»), como en Inventario:
+             el aviso responde a lo que se acaba de hacer y tiene que quedar
+             pegado a la cabecera, no debajo de una barra que nadie ha tocado. */ ?>
+    <?php $crAmbito = 'productos'; include __DIR__ . '/../partials/_consulta-rapida.php'; ?>
 
     <?php /* Primer nivel del filtro: la carta, o sea la pieza impresa. Sustituyó
              a los dos botones de PDF —«PDF de la carta» y «PDF de maridaje»—: lo
@@ -248,7 +256,10 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Platillos</h3>
-                <p><?php echo $totalMenu; ?> registros. Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?> de <?php echo $totalMenu; ?> platillos.</p>
+                <?php /* La leyenda de la miniatura: el gris es la única pista visual
+                         de «sin foto propia», y sin la frase había que pasar el ratón
+                         por encima para saber qué quería decir. */ ?>
+                <p><?php echo $totalMenu; ?> registros. Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?> de <?php echo $totalMenu; ?> platillos. Miniatura en gris: sin foto propia, la carta usa la de su categoría.</p>
             </div>
         </div>
 
@@ -277,9 +288,44 @@
                     </thead>
                     <tbody>
                         <?php foreach ($platillos as $platillo) : ?>
+                            <?php $opcionesVariante = (int) (($variantesPorProducto ?? [])[(int) $platillo->id] ?? 0); ?>
                             <tr data-row-href="/admin/menu/edit?id=<?php echo (int) $platillo->id; ?>">
-                                <td>
-                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($platillo->nombre); ?></span>
+                                <?php
+                                    // Lo que la carta enseñará: la foto propia o, si no hay,
+                                    // la de la categoría (Carta::publica entrega las dos).
+                                    $miniPropia = \Services\Menu\FotoPlatillo::url($platillo->img ?? null);
+                                    $miniCategoria = $categoriasFoto[(int) $platillo->categoria_id] ?? null;
+                                    if ($miniPropia !== null) {
+                                        $miniTipo = 'propia';
+                                        $miniSrc = $miniPropia;
+                                        $miniTexto = 'Con foto propia';
+                                    } elseif ($miniCategoria !== null) {
+                                        $miniTipo = 'categoria';
+                                        $miniSrc = $miniCategoria;
+                                        $miniTexto = 'Sin foto propia: usa la de la categoría';
+                                    } else {
+                                        $miniTipo = 'vacia';
+                                        $miniSrc = null;
+                                        $miniTexto = 'Sin foto';
+                                    }
+                                ?>
+                                <td data-sort-value="<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>">
+                                    <div class="admin-menu__platillo">
+                                        <div class="admin-menu__platillo-texto">
+                                            <span class="admin-table__cell-main"><?php echo htmlspecialchars($platillo->nombre); ?></span>
+                                            <?php if ($opcionesVariante > 0) : ?>
+                                                <span class="admin-table__cell-sub admin-menu__variantes-sub"><?php echo admin_icon('variantes', 13); ?><?php echo $opcionesVariante; ?> <?php echo $opcionesVariante === 1 ? 'opción' : 'opciones'; ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span class="admin-menu__foto admin-menu__foto--<?php echo $miniTipo; ?>" title="<?php echo htmlspecialchars($miniTexto, ENT_QUOTES); ?>">
+                                            <?php if ($miniSrc !== null) : ?>
+                                                <img src="<?php echo htmlspecialchars($miniSrc, ENT_QUOTES); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
+                                            <?php else : ?>
+                                                <?php echo admin_icon('foto', 18); ?>
+                                            <?php endif; ?>
+                                            <span class="admin-sr-only"><?php echo htmlspecialchars($miniTexto); ?></span>
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="admin-menu__description">
                                     <?php if (trim((string) $platillo->descripcion) !== '') : ?>
@@ -320,6 +366,16 @@
                                 </td>
                                 <td>
                                     <div class="admin-table-actions">
+                                        <?php /* Las variantes tienen editor propio: ajustan la receta
+                                                 y el precio, y necesitan la vista previa del POS. */ ?>
+                                        <a
+                                            class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
+                                            href="/admin/menu/variantes?id=<?php echo (int) $platillo->id; ?>"
+                                            title="<?php echo $opcionesVariante > 0 ? 'Variantes' : 'Agregar variantes'; ?>"
+                                            aria-label="<?php echo $opcionesVariante > 0 ? 'Variantes de ' : 'Agregar variantes a '; ?><?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>"
+                                        >
+                                            <?php echo admin_icon('variantes', 18); ?>
+                                        </a>
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
                                             href="/admin/menu/edit?id=<?php echo (int) $platillo->id; ?>"

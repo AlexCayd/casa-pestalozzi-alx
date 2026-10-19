@@ -16,6 +16,11 @@
 -- 'fx-analytics-res-%', y el fixture de RevPASH sobre los 300-499 y
 -- 'fx-revpash-res-%'. Sus DELETE de arranque respetan ese reparto.
 --
+-- Al final va un cuarto bloque, «Variantes por platillo» (ingredientes 35-71,
+-- recetas de barra, opciones de variante y tickets 900-999 de los últimos
+-- siete días). Ése sí es reidempotente y se puede correr suelto sobre una base
+-- que ya tenga los otros tres.
+--
 -- SE CARGA UNA VEZ, sobre una base recién creada. Los bloques 2 y 3 sí son
 -- reidempotentes por su cuenta —borran su rango antes de sembrarlo—, pero el
 -- bloque 1 no lo fue nunca: usa ids explícitos sin ON DUPLICATE KEY y una
@@ -3169,3 +3174,859 @@ SELECT @SEM_INI AS desde,
 
 -- Fin de REVPash-pruebas.sql
 
+
+-- ═════════════════════════════════════════════════════════════════════
+-- BLOQUE 4 · VARIANTES POR PLATILLO
+-- ═════════════════════════════════════════════════════════════════════
+-- Grupos de opción con ajustes de receta (producto_variantes +
+-- variante_ajustes) para unos treinta platillos de la carta, y lo que hacía
+-- falta para que tengan algo que ajustar: ingredientes 35-71 (leches
+-- vegetales, jarabes, licores de barra…) y receta para los platillos que no
+-- la tenían —Latte, té, jugos, smoothie y la coctelería—, que hasta ahora se
+-- vendían sin descontar nada.
+--
+-- Es REIDEMPOTENTE, a diferencia del bloque 1: los ingredientes van con
+-- ON DUPLICATE KEY UPDATE (sin pisar el stock de una base en uso) y recetas
+-- y variantes se borran por platillo antes de sembrarse. Se puede correr
+-- suelto sobre una base existente que ya tenga los bloques 1-3.
+--
+-- Regla de las variantes: un grupo con opción predeterminada es la receta
+-- base (el POS la trae marcada y la comanda no la imprime); un grupo SIN
+-- predeterminada —«Término», «Variedad» del té, «Sabor» del gin— obliga al
+-- mesero a elegir.
+-- ---------------------------------------------------------------------
+
+INSERT INTO ingredientes (id, nombre, unidad, stock, stock_minimo, costo, activo) VALUES
+(35, 'Leche deslactosada', 'ml', 6000, 2000, 0.0300, 1),
+(36, 'Leche de almendra', 'ml', 4000, 1500, 0.0700, 1),
+(37, 'Leche de avena', 'ml', 3500, 1500, 0.0600, 1),
+(38, 'Jarabe de vainilla', 'ml', 1500, 300, 0.1200, 1),
+(39, 'Jarabe de caramelo', 'ml', 1200, 300, 0.1200, 1),
+(40, 'Stevia', 'g', 400, 100, 0.4000, 1),
+(41, 'Agua mineral', 'ml', 24000, 6000, 0.0120, 1),
+(42, 'Naranja', 'g', 18000, 4000, 0.0250, 1),
+(43, 'Limón', 'g', 9000, 2000, 0.0300, 1),
+(44, 'Fresa', 'g', 5000, 1200, 0.0900, 1),
+(45, 'Yogurt natural', 'ml', 4000, 1000, 0.0450, 1),
+(46, 'Té en hojas', 'g', 600, 150, 0.6000, 1),
+(47, 'Masa sin gluten', 'pza', 40, 10, 22.0000, 1),
+(48, 'Salsa roja', 'ml', 7000, 1500, 0.0500, 1),
+(49, 'Huevo', 'pza', 360, 90, 3.2000, 1),
+(50, 'Arrachera', 'g', 9000, 2000, 0.4200, 1),
+(51, 'Tocino', 'g', 3000, 800, 0.2400, 1),
+(52, 'Chorizo', 'g', 3000, 800, 0.1800, 1),
+(53, 'Pan de masa madre', 'pza', 80, 20, 9.0000, 1),
+(54, 'Espárragos', 'g', 3000, 800, 0.1600, 1),
+(55, 'Ginebra', 'ml', 7000, 1500, 0.4500, 1),
+(56, 'Ginebra premium', 'ml', 2100, 750, 0.9500, 1),
+(57, 'Agua tónica', 'ml', 12000, 3000, 0.0350, 1),
+(58, 'Campari', 'ml', 2200, 700, 0.4000, 1),
+(59, 'Vermut rojo', 'ml', 2600, 700, 0.3000, 1),
+(60, 'Aperol', 'ml', 1800, 700, 0.3800, 1),
+(61, 'Vino espumoso', 'ml', 6000, 1500, 0.2200, 1),
+(62, 'Tequila blanco', 'ml', 9000, 2000, 0.4200, 1),
+(63, 'Mezcal', 'ml', 5000, 1500, 0.6000, 1),
+(64, 'Licor de naranja', 'ml', 2500, 700, 0.3500, 1),
+(65, 'Licor 43', 'ml', 1400, 700, 0.5200, 1),
+(66, 'Licor de café', 'ml', 900, 1000, 0.4000, 1),
+(67, 'Vodka', 'ml', 6000, 1500, 0.3500, 1),
+(68, 'Mango', 'g', 4000, 1000, 0.0600, 1),
+(69, 'Pepino', 'g', 3000, 800, 0.0300, 1),
+(70, 'Lychee', 'g', 1500, 400, 0.1800, 1),
+(71, 'Albahaca', 'g', 500, 150, 0.3000, 1)
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), unidad = VALUES(unidad), costo = VALUES(costo);
+
+-- Recetas: la base de los platillos con variantes (mismos valores que el
+-- bloque 1) y las que faltaban. Se borran antes por si el bloque se repite.
+DELETE pc FROM producto_componentes pc JOIN productos p ON p.id = pc.producto_id
+ WHERE p.nombre IN ('Café Americano', 'Cappuccino', 'Café de Olla', 'Chocolate Caliente', 'Agua Fresca', 'Chilaquiles', 'Enmoladas', 'Enchiladas Suizas', 'Molletes', 'Toast de Salmón Ahumado', 'Hamburguesa de la Casa', 'Spaguetti a la Boloñesa', 'Milano', 'Margarita', 'Burrata', 'Rib Eye (450 grs.)', 'Salmón al Horno', 'Filete de Res en su Jugo', 'Latte', 'Té / Infusión', 'Jugo de Naranja', 'Limonada Natural', 'Smoothie de Fresa', 'Gin Tonic', 'Gin Cocktails', 'Aperol Spritz', 'Margaritas', 'Mezcalitas', 'Pestalozzi Negroni', 'Espresso Martini');
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'ingrediente', 2, 90 FROM productos p WHERE p.nombre = 'Café Americano';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'ingrediente', 3, 120 FROM productos p WHERE p.nombre = 'Cappuccino';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 1, 15 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 2, 200 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 7, 25 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 6, 2 FROM productos p WHERE p.nombre = 'Café de Olla';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 4, 30 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 3, 200 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 5, 10 FROM productos p WHERE p.nombre = 'Chocolate Caliente';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 5, 20 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 10, 10 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'ingrediente', 11, 50 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'ingrediente', 14, 80 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'ingrediente', 13, 40 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'ingrediente', 12, 40 FROM productos p WHERE p.nombre = 'Chilaquiles';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 10, 6 FROM productos p WHERE p.nombre = 'Enmoladas'
+UNION ALL SELECT p.id, 'ingrediente', 11, 70 FROM productos p WHERE p.nombre = 'Enmoladas'
+UNION ALL SELECT p.id, 'ingrediente', 26, 120 FROM productos p WHERE p.nombre = 'Enmoladas'
+UNION ALL SELECT p.id, 'ingrediente', 13, 30 FROM productos p WHERE p.nombre = 'Enmoladas'
+UNION ALL SELECT p.id, 'ingrediente', 12, 25 FROM productos p WHERE p.nombre = 'Enmoladas';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 10, 6 FROM productos p WHERE p.nombre = 'Enchiladas Suizas'
+UNION ALL SELECT p.id, 'ingrediente', 11, 70 FROM productos p WHERE p.nombre = 'Enchiladas Suizas'
+UNION ALL SELECT p.id, 'ingrediente', 14, 100 FROM productos p WHERE p.nombre = 'Enchiladas Suizas'
+UNION ALL SELECT p.id, 'ingrediente', 12, 60 FROM productos p WHERE p.nombre = 'Enchiladas Suizas'
+UNION ALL SELECT p.id, 'ingrediente', 13, 40 FROM productos p WHERE p.nombre = 'Enchiladas Suizas';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 27, 100 FROM productos p WHERE p.nombre = 'Molletes'
+UNION ALL SELECT p.id, 'ingrediente', 12, 60 FROM productos p WHERE p.nombre = 'Molletes';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 21, 1 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado'
+UNION ALL SELECT p.id, 'ingrediente', 20, 70 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado'
+UNION ALL SELECT p.id, 'ingrediente', 22, 40 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado'
+UNION ALL SELECT p.id, 'ingrediente', 13, 20 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 16, 180 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'ingrediente', 17, 1 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'ingrediente', 12, 30 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'ingrediente', 18, 120 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 28, 150 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT p.id, 'ingrediente', 29, 200 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT p.id, 'ingrediente', 19, 30 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 23, 1 FROM productos p WHERE p.nombre = 'Milano'
+UNION ALL SELECT p.id, 'ingrediente', 24, 80 FROM productos p WHERE p.nombre = 'Milano'
+UNION ALL SELECT p.id, 'ingrediente', 25, 120 FROM productos p WHERE p.nombre = 'Milano';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 23, 1 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'ingrediente', 24, 80 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'ingrediente', 25, 100 FROM productos p WHERE p.nombre = 'Margarita';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 23, 1 FROM productos p WHERE p.nombre = 'Burrata'
+UNION ALL SELECT p.id, 'ingrediente', 24, 70 FROM productos p WHERE p.nombre = 'Burrata'
+UNION ALL SELECT p.id, 'ingrediente', 25, 130 FROM productos p WHERE p.nombre = 'Burrata';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 15, 450 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'ingrediente', 18, 150 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 32, 200 FROM productos p WHERE p.nombre = 'Salmón al Horno'
+UNION ALL SELECT p.id, 'ingrediente', 22, 40 FROM productos p WHERE p.nombre = 'Salmón al Horno';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 34, 250 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'ingrediente', 18, 100 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'ingrediente', 3, 200 FROM productos p WHERE p.nombre = 'Latte';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 46, 3 FROM productos p WHERE p.nombre = 'Té / Infusión'
+UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Té / Infusión';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 42, 450 FROM productos p WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT p.id, 'ingrediente', 9, 60 FROM productos p WHERE p.nombre = 'Jugo de Naranja';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 43, 80 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'ingrediente', 2, 300 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'ingrediente', 5, 25 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Limonada Natural';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 44, 150 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'ingrediente', 3, 150 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'ingrediente', 45, 80 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'ingrediente', 5, 15 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'ingrediente', 9, 80 FROM productos p WHERE p.nombre = 'Smoothie de Fresa';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 55, 60 FROM productos p WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT p.id, 'ingrediente', 57, 200 FROM productos p WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT p.id, 'ingrediente', 43, 10 FROM productos p WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT p.id, 'ingrediente', 9, 150 FROM productos p WHERE p.nombre = 'Gin Tonic';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 55, 60 FROM productos p WHERE p.nombre = 'Gin Cocktails'
+UNION ALL SELECT p.id, 'ingrediente', 57, 120 FROM productos p WHERE p.nombre = 'Gin Cocktails'
+UNION ALL SELECT p.id, 'ingrediente', 9, 150 FROM productos p WHERE p.nombre = 'Gin Cocktails';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 60, 90 FROM productos p WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT p.id, 'ingrediente', 61, 90 FROM productos p WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT p.id, 'ingrediente', 41, 30 FROM productos p WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT p.id, 'ingrediente', 42, 20 FROM productos p WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT p.id, 'ingrediente', 9, 120 FROM productos p WHERE p.nombre = 'Aperol Spritz';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 62, 60 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'ingrediente', 64, 30 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'ingrediente', 43, 40 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'ingrediente', 9, 120 FROM productos p WHERE p.nombre = 'Margaritas';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 63, 60 FROM productos p WHERE p.nombre = 'Mezcalitas'
+UNION ALL SELECT p.id, 'ingrediente', 64, 20 FROM productos p WHERE p.nombre = 'Mezcalitas'
+UNION ALL SELECT p.id, 'ingrediente', 43, 40 FROM productos p WHERE p.nombre = 'Mezcalitas'
+UNION ALL SELECT p.id, 'ingrediente', 9, 120 FROM productos p WHERE p.nombre = 'Mezcalitas';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 55, 30 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni'
+UNION ALL SELECT p.id, 'ingrediente', 58, 30 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni'
+UNION ALL SELECT p.id, 'ingrediente', 59, 30 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni'
+UNION ALL SELECT p.id, 'ingrediente', 42, 15 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 67, 45 FROM productos p WHERE p.nombre = 'Espresso Martini'
+UNION ALL SELECT p.id, 'ingrediente', 66, 30 FROM productos p WHERE p.nombre = 'Espresso Martini'
+UNION ALL SELECT p.id, 'subreceta', 1, 30 FROM productos p WHERE p.nombre = 'Espresso Martini'
+UNION ALL SELECT p.id, 'ingrediente', 5, 5 FROM productos p WHERE p.nombre = 'Espresso Martini'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Espresso Martini';
+
+-- Variantes. Borrar el producto_variantes arrastra sus ajustes (ON DELETE CASCADE).
+DELETE pv FROM producto_variantes pv JOIN productos p ON p.id = pv.producto_id
+ WHERE p.nombre IN ('Cappuccino', 'Latte', 'Café Americano', 'Chocolate Caliente', 'Café de Olla', 'Té / Infusión', 'Agua Fresca', 'Jugo de Naranja', 'Limonada Natural', 'Smoothie de Fresa', 'Margarita', 'Burrata', 'Milano', 'Spaguetti a la Boloñesa', 'Hamburguesa de la Casa', 'Rib Eye (450 grs.)', 'Filete de Res en su Jugo', 'Chilaquiles', 'Enchiladas Suizas', 'Enmoladas', 'Molletes', 'Toast de Salmón Ahumado', 'Salmón al Horno', 'Gin Tonic', 'Gin Cocktails', 'Margaritas', 'Mezcalitas', 'Espresso Martini', 'Pestalozzi Negroni');
+
+-- Cappuccino
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Leche', 'Entera', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Leche', 'Deslactosada', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Leche', 'Almendra', 15.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Leche', 'Avena', 15.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Tamaño', 'Regular', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Tamaño', 'Grande', 15.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Jarabe', 'Sin jarabe', 0.00, 1, 2, 0 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Jarabe', 'Vainilla', 12.00, 0, 2, 1 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'Jarabe', 'Caramelo', 12.00, 0, 2, 2 FROM productos p WHERE p.nombre = 'Cappuccino';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 3, 120, 'ingrediente', 35, 120 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Leche' AND v.nombre = 'Deslactosada'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 120, 'ingrediente', 36, 120 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Leche' AND v.nombre = 'Almendra'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 120, 'ingrediente', 37, 120 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Leche' AND v.nombre = 'Avena'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 3, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'subreceta', 1, 30, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 38, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Jarabe' AND v.nombre = 'Vainilla'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 39, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Cappuccino' AND v.grupo = 'Jarabe' AND v.nombre = 'Caramelo';
+
+-- Latte
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Leche', 'Entera', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Leche', 'Deslactosada', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Leche', 'Almendra', 15.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Leche', 'Avena', 15.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Tamaño', 'Regular', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Tamaño', 'Grande', 15.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Jarabe', 'Sin jarabe', 0.00, 1, 2, 0 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Jarabe', 'Vainilla', 12.00, 0, 2, 1 FROM productos p WHERE p.nombre = 'Latte'
+UNION ALL SELECT p.id, 'Jarabe', 'Caramelo', 12.00, 0, 2, 2 FROM productos p WHERE p.nombre = 'Latte';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 35, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Leche' AND v.nombre = 'Deslactosada'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 36, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Leche' AND v.nombre = 'Almendra'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 37, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Leche' AND v.nombre = 'Avena'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 3, 100, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'subreceta', 1, 30, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 38, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Jarabe' AND v.nombre = 'Vainilla'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 39, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Latte' AND v.grupo = 'Jarabe' AND v.nombre = 'Caramelo';
+
+-- Café Americano
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Tamaño', 'Regular', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'Tamaño', 'Grande', 12.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'Estilo', 'Solo', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'Estilo', 'Con leche', 5.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Café Americano';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'subreceta', 1, 30, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Café Americano' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 2, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Café Americano' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 3, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Café Americano' AND v.grupo = 'Estilo' AND v.nombre = 'Con leche';
+
+-- Chocolate Caliente
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Leche', 'Entera', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'Leche', 'Deslactosada', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'Leche', 'Almendra', 15.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'Leche', 'Avena', 15.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'Intensidad', 'Clásico', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'Intensidad', 'Amargo', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Chocolate Caliente';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 35, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chocolate Caliente' AND v.grupo = 'Leche' AND v.nombre = 'Deslactosada'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 36, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chocolate Caliente' AND v.grupo = 'Leche' AND v.nombre = 'Almendra'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 200, 'ingrediente', 37, 200 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chocolate Caliente' AND v.grupo = 'Leche' AND v.nombre = 'Avena'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 4, 10, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chocolate Caliente' AND v.grupo = 'Intensidad' AND v.nombre = 'Amargo'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 5, 10, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chocolate Caliente' AND v.grupo = 'Intensidad' AND v.nombre = 'Amargo';
+
+-- Café de Olla
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Endulzante', 'Piloncillo', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'Endulzante', 'Sin endulzar', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'Endulzante', 'Stevia', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Café de Olla';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'quitar', 'ingrediente', 7, 25, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Café de Olla' AND v.grupo = 'Endulzante' AND v.nombre = 'Sin endulzar'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 7, 25, 'ingrediente', 40, 2 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Café de Olla' AND v.grupo = 'Endulzante' AND v.nombre = 'Stevia';
+
+-- Té / Infusión
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Variedad', 'Manzanilla', 0.00, 0, 0, 0 FROM productos p WHERE p.nombre = 'Té / Infusión'
+UNION ALL SELECT p.id, 'Variedad', 'Verde', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Té / Infusión'
+UNION ALL SELECT p.id, 'Variedad', 'Negro', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Té / Infusión'
+UNION ALL SELECT p.id, 'Variedad', 'Frutos rojos', 0.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Té / Infusión';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 30, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Té / Infusión' AND v.grupo = 'Variedad' AND v.nombre = 'Frutos rojos';
+
+-- Agua Fresca
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Sabor', 'De temporada', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'Sabor', 'Jamaica', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'Sabor', 'Horchata', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Agua Fresca';
+
+-- Jugo de Naranja
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Tamaño', 'Chico · 350 ml', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT p.id, 'Tamaño', 'Grande · 500 ml', 25.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT p.id, 'Hielo', 'Con hielo', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT p.id, 'Hielo', 'Sin hielo', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Jugo de Naranja';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 42, 200, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Jugo de Naranja' AND v.grupo = 'Tamaño' AND v.nombre = 'Grande · 500 ml'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 9, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Jugo de Naranja' AND v.grupo = 'Hielo' AND v.nombre = 'Sin hielo';
+
+-- Limonada Natural
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Agua', 'Natural', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'Agua', 'Mineral', 10.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'Endulzante', 'Azúcar', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'Endulzante', 'Sin azúcar', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT p.id, 'Endulzante', 'Stevia', 0.00, 0, 1, 2 FROM productos p WHERE p.nombre = 'Limonada Natural';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 2, 300, 'ingrediente', 41, 300 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Limonada Natural' AND v.grupo = 'Agua' AND v.nombre = 'Mineral'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 5, 25, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Limonada Natural' AND v.grupo = 'Endulzante' AND v.nombre = 'Sin azúcar'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 5, 25, 'ingrediente', 40, 2 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Limonada Natural' AND v.grupo = 'Endulzante' AND v.nombre = 'Stevia';
+
+-- Smoothie de Fresa
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Base', 'Leche entera', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'Base', 'Leche de almendra', 15.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'Base', 'Leche de avena', 15.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'Endulzante', 'Con azúcar', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Smoothie de Fresa'
+UNION ALL SELECT p.id, 'Endulzante', 'Sin azúcar', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Smoothie de Fresa';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 3, 150, 'ingrediente', 36, 150 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Smoothie de Fresa' AND v.grupo = 'Base' AND v.nombre = 'Leche de almendra'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 3, 150, 'ingrediente', 37, 150 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Smoothie de Fresa' AND v.grupo = 'Base' AND v.nombre = 'Leche de avena'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 5, 15, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Smoothie de Fresa' AND v.grupo = 'Endulzante' AND v.nombre = 'Sin azúcar';
+
+-- Margarita
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Masa', 'Tradicional', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'Masa', 'Sin gluten', 45.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'Extra', 'Sin extra', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'Extra', 'Doble mozzarella', 35.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Margarita'
+UNION ALL SELECT p.id, 'Extra', 'Albahaca fresca', 15.00, 0, 1, 2 FROM productos p WHERE p.nombre = 'Margarita';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 23, 1, 'ingrediente', 47, 1 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Margarita' AND v.grupo = 'Masa' AND v.nombre = 'Sin gluten'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 25, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Margarita' AND v.grupo = 'Extra' AND v.nombre = 'Doble mozzarella'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 71, 5, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Margarita' AND v.grupo = 'Extra' AND v.nombre = 'Albahaca fresca';
+
+-- Burrata
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Masa', 'Tradicional', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Burrata'
+UNION ALL SELECT p.id, 'Masa', 'Sin gluten', 45.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Burrata'
+UNION ALL SELECT p.id, 'Extra', 'Sin extra', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Burrata'
+UNION ALL SELECT p.id, 'Extra', 'Doble mozzarella', 35.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Burrata';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 23, 1, 'ingrediente', 47, 1 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Burrata' AND v.grupo = 'Masa' AND v.nombre = 'Sin gluten'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 25, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Burrata' AND v.grupo = 'Extra' AND v.nombre = 'Doble mozzarella';
+
+-- Milano
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Masa', 'Tradicional', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Milano'
+UNION ALL SELECT p.id, 'Masa', 'Sin gluten', 45.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Milano'
+UNION ALL SELECT p.id, 'Extra', 'Sin extra', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Milano'
+UNION ALL SELECT p.id, 'Extra', 'Doble mozzarella', 35.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Milano';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 23, 1, 'ingrediente', 47, 1 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Milano' AND v.grupo = 'Masa' AND v.nombre = 'Sin gluten'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 25, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Milano' AND v.grupo = 'Extra' AND v.nombre = 'Doble mozzarella';
+
+-- Spaguetti a la Boloñesa
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Porción', 'Regular', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT p.id, 'Porción', 'Grande', 60.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT p.id, 'Parmesano', 'Con parmesano', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT p.id, 'Parmesano', 'Sin parmesano', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Spaguetti a la Boloñesa';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 28, 70, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Spaguetti a la Boloñesa' AND v.grupo = 'Porción' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 29, 80, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Spaguetti a la Boloñesa' AND v.grupo = 'Porción' AND v.nombre = 'Grande'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 19, 30, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Spaguetti a la Boloñesa' AND v.grupo = 'Parmesano' AND v.nombre = 'Sin parmesano';
+
+-- Hamburguesa de la Casa
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Término', 'Medio', 0.00, 0, 0, 0 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Término', 'Tres cuartos', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Término', 'Bien cocido', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Guarnición', 'Papas', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Guarnición', 'Ensalada', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Extra', 'Sin extra', 0.00, 1, 2, 0 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Extra', 'Tocino', 25.00, 0, 2, 1 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Extra', 'Aguacate', 20.00, 0, 2, 2 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Queso', 'Gouda', 0.00, 1, 3, 0 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT p.id, 'Queso', 'Sin queso', 0.00, 0, 3, 1 FROM productos p WHERE p.nombre = 'Hamburguesa de la Casa';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 18, 120, 'ingrediente', 31, 80 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Hamburguesa de la Casa' AND v.grupo = 'Guarnición' AND v.nombre = 'Ensalada'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 51, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Hamburguesa de la Casa' AND v.grupo = 'Extra' AND v.nombre = 'Tocino'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 22, 50, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Hamburguesa de la Casa' AND v.grupo = 'Extra' AND v.nombre = 'Aguacate'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 12, 30, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Hamburguesa de la Casa' AND v.grupo = 'Queso' AND v.nombre = 'Sin queso';
+
+-- Rib Eye (450 grs.)
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Término', 'Rojo', 0.00, 0, 0, 0 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'Término', 'Medio', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'Término', 'Tres cuartos', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'Término', 'Bien cocido', 0.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'Guarnición', 'Papa', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)'
+UNION ALL SELECT p.id, 'Guarnición', 'Espárragos', 30.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Rib Eye (450 grs.)';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 18, 150, 'ingrediente', 54, 120 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Rib Eye (450 grs.)' AND v.grupo = 'Guarnición' AND v.nombre = 'Espárragos';
+
+-- Filete de Res en su Jugo
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Término', 'Rojo', 0.00, 0, 0, 0 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'Término', 'Medio', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'Término', 'Tres cuartos', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'Término', 'Bien cocido', 0.00, 0, 0, 3 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'Guarnición', 'Papa', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo'
+UNION ALL SELECT p.id, 'Guarnición', 'Espárragos', 30.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Filete de Res en su Jugo';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 18, 100, 'ingrediente', 54, 100 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Filete de Res en su Jugo' AND v.grupo = 'Guarnición' AND v.nombre = 'Espárragos';
+
+-- Chilaquiles
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Salsa', 'Verde', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Salsa', 'Roja', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Salsa', 'Divorciados', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Proteína', 'Pollo', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Proteína', 'Huevo estrellado', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Proteína', 'Arrachera', 45.00, 0, 1, 2 FROM productos p WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT p.id, 'Proteína', 'Sin proteína', -15.00, 0, 1, 3 FROM productos p WHERE p.nombre = 'Chilaquiles';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 14, 80, 'ingrediente', 48, 80 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chilaquiles' AND v.grupo = 'Salsa' AND v.nombre = 'Roja'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 14, 40, 'ingrediente', 48, 40 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chilaquiles' AND v.grupo = 'Salsa' AND v.nombre = 'Divorciados'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 11, 50, 'ingrediente', 49, 2 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chilaquiles' AND v.grupo = 'Proteína' AND v.nombre = 'Huevo estrellado'
+UNION ALL SELECT v.id, 'sustituir', 'ingrediente', 11, 50, 'ingrediente', 50, 100 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chilaquiles' AND v.grupo = 'Proteína' AND v.nombre = 'Arrachera'
+UNION ALL SELECT v.id, 'quitar', 'ingrediente', 11, 50, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Chilaquiles' AND v.grupo = 'Proteína' AND v.nombre = 'Sin proteína';
+
+-- Enchiladas Suizas
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Relleno', 'Pollo', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Enchiladas Suizas'
+UNION ALL SELECT p.id, 'Relleno', 'Queso', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Enchiladas Suizas';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 11, 70, 'ingrediente', 12, 50 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Enchiladas Suizas' AND v.grupo = 'Relleno' AND v.nombre = 'Queso';
+
+-- Enmoladas
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Relleno', 'Pollo', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Enmoladas'
+UNION ALL SELECT p.id, 'Relleno', 'Huevo', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Enmoladas';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 11, 70, 'ingrediente', 49, 2 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Enmoladas' AND v.grupo = 'Relleno' AND v.nombre = 'Huevo';
+
+-- Molletes
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Extra', 'Sin extra', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Molletes'
+UNION ALL SELECT p.id, 'Extra', 'Chorizo', 25.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Molletes'
+UNION ALL SELECT p.id, 'Extra', 'Huevo', 18.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Molletes';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 52, 50, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Molletes' AND v.grupo = 'Extra' AND v.nombre = 'Chorizo'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 49, 1, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Molletes' AND v.grupo = 'Extra' AND v.nombre = 'Huevo';
+
+-- Toast de Salmón Ahumado
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Pan', 'Brioche', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado'
+UNION ALL SELECT p.id, 'Pan', 'Masa madre', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Toast de Salmón Ahumado';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 21, 1, 'ingrediente', 53, 1 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Toast de Salmón Ahumado' AND v.grupo = 'Pan' AND v.nombre = 'Masa madre';
+
+-- Salmón al Horno
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Guarnición', 'Aguacate', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Salmón al Horno'
+UNION ALL SELECT p.id, 'Guarnición', 'Espárragos', 25.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Salmón al Horno';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 22, 40, 'ingrediente', 54, 120 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Salmón al Horno' AND v.grupo = 'Guarnición' AND v.nombre = 'Espárragos';
+
+-- Gin Tonic
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Ginebra', 'De la casa', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT p.id, 'Ginebra', 'Premium', 60.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Gin Tonic';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 55, 60, 'ingrediente', 56, 60 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Gin Tonic' AND v.grupo = 'Ginebra' AND v.nombre = 'Premium';
+
+-- Gin Cocktails
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Sabor', 'Frutos rojos', 0.00, 0, 0, 0 FROM productos p WHERE p.nombre = 'Gin Cocktails'
+UNION ALL SELECT p.id, 'Sabor', 'Lychee', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Gin Cocktails'
+UNION ALL SELECT p.id, 'Sabor', 'Pepino', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Gin Cocktails';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 30, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Gin Cocktails' AND v.grupo = 'Sabor' AND v.nombre = 'Frutos rojos'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 70, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Gin Cocktails' AND v.grupo = 'Sabor' AND v.nombre = 'Lychee'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 69, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Gin Cocktails' AND v.grupo = 'Sabor' AND v.nombre = 'Pepino';
+
+-- Margaritas
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Sabor', 'Clásica', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'Sabor', 'Frutos rojos', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'Sabor', 'Mango', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'Escarchado', 'Sal', 0.00, 1, 1, 0 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'Escarchado', 'Chile', 0.00, 0, 1, 1 FROM productos p WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT p.id, 'Escarchado', 'Sin escarchar', 0.00, 0, 1, 2 FROM productos p WHERE p.nombre = 'Margaritas';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 30, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Margaritas' AND v.grupo = 'Sabor' AND v.nombre = 'Frutos rojos'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 68, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Margaritas' AND v.grupo = 'Sabor' AND v.nombre = 'Mango';
+
+-- Mezcalitas
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Sabor', 'Clásica', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Mezcalitas'
+UNION ALL SELECT p.id, 'Sabor', 'Mango', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Mezcalitas'
+UNION ALL SELECT p.id, 'Sabor', 'Pepino', 0.00, 0, 0, 2 FROM productos p WHERE p.nombre = 'Mezcalitas';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'agregar', 'ingrediente', 68, 60, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Mezcalitas' AND v.grupo = 'Sabor' AND v.nombre = 'Mango'
+UNION ALL SELECT v.id, 'agregar', 'ingrediente', 69, 40, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Mezcalitas' AND v.grupo = 'Sabor' AND v.nombre = 'Pepino';
+
+-- Espresso Martini
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Dulzor', 'Clásico', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Espresso Martini'
+UNION ALL SELECT p.id, 'Dulzor', 'Sin azúcar', 0.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Espresso Martini';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'quitar', 'ingrediente', 5, 5, NULL, NULL, NULL FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Espresso Martini' AND v.grupo = 'Dulzor' AND v.nombre = 'Sin azúcar';
+
+-- Pestalozzi Negroni
+INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, orden_grupo, orden)
+SELECT p.id, 'Ginebra', 'De la casa', 0.00, 1, 0, 0 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni'
+UNION ALL SELECT p.id, 'Ginebra', 'Premium', 45.00, 0, 0, 1 FROM productos p WHERE p.nombre = 'Pestalozzi Negroni';
+INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
+SELECT v.id, 'sustituir', 'ingrediente', 55, 30, 'ingrediente', 56, 30 FROM producto_variantes v JOIN productos p ON p.id = v.producto_id WHERE p.nombre = 'Pestalozzi Negroni' AND v.grupo = 'Ginebra' AND v.nombre = 'Premium';
+
+-- Historial con variantes, para que el desglose por opción de las consultas
+-- rápidas y del asistente no salga vacío en QA: una de cada cinco ventas de
+-- Cappuccino fue con almendra y otra con deslactosada, y las hamburguesas
+-- llevan su término. Sólo rótulo e ids; el inventario de esas ventas ya se
+-- descontó cuando se sembraron.
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Leche' AND v.nombre = 'Almendra'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Cappuccino'
+   SET ti.variante = 'Almendra', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Cappuccino' AND ti.variante IS NULL AND MOD(ti.id, 5) = 1;
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Leche' AND v.nombre = 'Deslactosada'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Cappuccino'
+   SET ti.variante = 'Deslactosada', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Cappuccino' AND ti.variante IS NULL AND MOD(ti.id, 5) = 2;
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Leche' AND v.nombre = 'Avena'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Latte'
+   SET ti.variante = 'Avena', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Latte' AND ti.variante IS NULL AND MOD(ti.id, 4) = 1;
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Término' AND v.nombre = 'Medio'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Hamburguesa de la Casa'
+   SET ti.variante = 'Medio', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Hamburguesa de la Casa' AND ti.variante IS NULL AND MOD(ti.id, 3) = 0;
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Término' AND v.nombre = 'Tres cuartos'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Hamburguesa de la Casa'
+   SET ti.variante = 'Tres cuartos', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Hamburguesa de la Casa' AND ti.variante IS NULL AND MOD(ti.id, 3) = 1;
+UPDATE ticket_items ti
+  JOIN producto_variantes v ON v.grupo = 'Término' AND v.nombre = 'Bien cocido'
+  JOIN productos p ON p.id = v.producto_id AND p.nombre = 'Hamburguesa de la Casa'
+   SET ti.variante = 'Bien cocido', ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.nombre = 'Hamburguesa de la Casa' AND ti.variante IS NULL AND MOD(ti.id, 3) = 2;
+
+-- Ventas recientes con variantes: tickets 900-999, anclados a CURDATE()
+-- como el resto del dump. Existen para que «¿cuántos capuchinos se
+-- vendieron ayer?» —consultas rápidas y asistente— tenga respuesta en una
+-- base de desarrollo sin el bloque de analíticas cargado. No descuentan
+-- inventario: son historia, no ventas en curso.
+DELETE FROM ticket_items WHERE ticket_id BETWEEN 900 AND 999;
+DELETE FROM tickets WHERE id BETWEEN 900 AND 999;
+INSERT INTO tickets (id, comensales, hora_apertura, closed_at, hora_cierre, estado, metodo_pago, propina) VALUES
+(900, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '08:48:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00'), 'cerrado', 'tarjeta', 0),
+(901, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '10:48:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '10:48:00'), 'cerrado', 'tarjeta', 0),
+(902, 3, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '11:20:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:20:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:20:00'), 'cerrado', 'tarjeta', 0),
+(903, 4, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:28:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '13:28:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '13:28:00'), 'cerrado', 'tarjeta', 0),
+(904, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '14:41:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:41:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:41:00'), 'cerrado', 'tarjeta', 0),
+(905, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:05:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '16:05:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '16:05:00'), 'cerrado', 'tarjeta', 0),
+(906, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '17:20:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:20:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:20:00'), 'cerrado', 'tarjeta', 0),
+(907, 2, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:05:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '19:05:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '19:05:00'), 'cerrado', 'tarjeta', 0),
+(908, 4, TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '20:28:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '21:28:00'), TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '21:28:00'), 'cerrado', 'tarjeta', 0),
+(909, 1, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '08:55:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:55:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:55:00'), 'cerrado', 'tarjeta', 0),
+(910, 2, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:05:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '10:05:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '10:05:00'), 'cerrado', 'tarjeta', 0),
+(911, 3, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '11:20:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '12:20:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '12:20:00'), 'cerrado', 'tarjeta', 0),
+(912, 2, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '12:41:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '13:41:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '13:41:00'), 'cerrado', 'tarjeta', 0),
+(913, 1, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '14:28:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '15:28:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '15:28:00'), 'cerrado', 'tarjeta', 0),
+(914, 3, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '15:12:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '16:12:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '16:12:00'), 'cerrado', 'tarjeta', 0),
+(915, 1, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '17:48:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '18:48:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '18:48:00'), 'cerrado', 'tarjeta', 0),
+(916, 2, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '18:12:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '19:12:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '19:12:00'), 'cerrado', 'tarjeta', 0),
+(917, 1, TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '20:35:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '21:35:00'), TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '21:35:00'), 'cerrado', 'tarjeta', 0),
+(918, 1, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '08:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '09:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '09:48:00'), 'cerrado', 'tarjeta', 0),
+(919, 2, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '09:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '10:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '10:28:00'), 'cerrado', 'tarjeta', 0),
+(920, 2, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '11:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:28:00'), 'cerrado', 'tarjeta', 0),
+(921, 2, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:20:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '13:20:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '13:20:00'), 'cerrado', 'tarjeta', 0),
+(922, 3, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '14:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00'), 'cerrado', 'tarjeta', 0),
+(923, 4, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '16:48:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '16:48:00'), 'cerrado', 'tarjeta', 0),
+(924, 3, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '17:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '18:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '18:28:00'), 'cerrado', 'tarjeta', 0),
+(925, 2, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '18:12:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '19:12:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '19:12:00'), 'cerrado', 'tarjeta', 0),
+(926, 2, TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '20:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '21:28:00'), TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '21:28:00'), 'cerrado', 'tarjeta', 0),
+(927, 2, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '08:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:05:00'), 'cerrado', 'tarjeta', 0),
+(928, 3, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:35:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '10:35:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '10:35:00'), 'cerrado', 'tarjeta', 0),
+(929, 2, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '11:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:05:00'), 'cerrado', 'tarjeta', 0),
+(930, 4, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:12:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '13:12:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '13:12:00'), 'cerrado', 'tarjeta', 0),
+(931, 4, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '14:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '15:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '15:05:00'), 'cerrado', 'tarjeta', 0),
+(932, 4, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '15:41:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '16:41:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '16:41:00'), 'cerrado', 'tarjeta', 0),
+(933, 1, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '17:55:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:55:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:55:00'), 'cerrado', 'tarjeta', 0),
+(934, 2, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '19:05:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '19:05:00'), 'cerrado', 'tarjeta', 0),
+(935, 4, TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '20:28:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '21:28:00'), TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '21:28:00'), 'cerrado', 'tarjeta', 0),
+(936, 3, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '08:28:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '09:28:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '09:28:00'), 'cerrado', 'tarjeta', 0),
+(937, 3, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '09:48:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '10:48:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '10:48:00'), 'cerrado', 'tarjeta', 0),
+(938, 2, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '11:41:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '12:41:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '12:41:00'), 'cerrado', 'tarjeta', 0),
+(939, 4, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '12:55:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '13:55:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '13:55:00'), 'cerrado', 'tarjeta', 0),
+(940, 1, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '14:48:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:48:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:48:00'), 'cerrado', 'tarjeta', 0),
+(941, 2, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:41:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '16:41:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '16:41:00'), 'cerrado', 'tarjeta', 0),
+(942, 2, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '17:55:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:55:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:55:00'), 'cerrado', 'tarjeta', 0),
+(943, 2, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:28:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '19:28:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '19:28:00'), 'cerrado', 'tarjeta', 0),
+(944, 1, TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '20:05:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '21:05:00'), TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '21:05:00'), 'cerrado', 'tarjeta', 0),
+(945, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:20:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:20:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:20:00'), 'cerrado', 'tarjeta', 0),
+(946, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:48:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:48:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:48:00'), 'cerrado', 'tarjeta', 0),
+(947, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:41:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00'), 'cerrado', 'tarjeta', 0),
+(948, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:41:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:41:00'), 'cerrado', 'tarjeta', 0),
+(949, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:05:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:05:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:05:00'), 'cerrado', 'tarjeta', 0),
+(950, 1, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:35:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '13:35:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '13:35:00'), 'cerrado', 'tarjeta', 0),
+(951, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '13:55:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '14:55:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '14:55:00'), 'cerrado', 'tarjeta', 0),
+(952, 1, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '14:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00'), 'cerrado', 'tarjeta', 0),
+(953, 4, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00'), 'cerrado', 'tarjeta', 0),
+(954, 3, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:20:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:20:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:20:00'), 'cerrado', 'tarjeta', 0),
+(955, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '17:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '17:28:00'), 'cerrado', 'tarjeta', 0),
+(956, 4, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '17:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '18:28:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '18:28:00'), 'cerrado', 'tarjeta', 0),
+(957, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '18:12:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:12:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:12:00'), 'cerrado', 'tarjeta', 0),
+(958, 1, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:05:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:05:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:05:00'), 'cerrado', 'tarjeta', 0),
+(959, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:55:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '21:55:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '21:55:00'), 'cerrado', 'tarjeta', 0),
+(960, 2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '21:35:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '22:35:00'), TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '22:35:00'), 'cerrado', 'tarjeta', 0),
+(961, 3, TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '08:12:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '09:12:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '09:12:00'), 'cerrado', 'tarjeta', 0),
+(962, 2, TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '10:28:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '11:28:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '11:28:00'), 'cerrado', 'tarjeta', 0),
+(963, 4, TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '12:41:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '13:41:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '13:41:00'), 'cerrado', 'tarjeta', 0),
+(964, 4, TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '15:05:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '16:05:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '16:05:00'), 'cerrado', 'tarjeta', 0),
+(965, 1, TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '17:28:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '18:28:00'), TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '18:28:00'), 'cerrado', 'tarjeta', 0);
+INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, variante, estado, created_at)
+SELECT 900, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 900, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 900, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 901, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 901, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 901, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 901, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 902, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 902, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Mineral', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mineral' WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 902, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 902, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 903, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 903, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 903, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '12:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 904, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '14:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 904, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '14:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 904, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '14:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 905, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 905, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 905, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Amargo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Amargo' WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 906, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Mango', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '17:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mango' WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 906, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '17:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 906, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Doble mozzarella', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '17:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Doble mozzarella' WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 907, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 907, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 907, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 908, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Mineral', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mineral' WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 908, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 908, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 6 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 909, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '08:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 909, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Doble mozzarella', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '08:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Doble mozzarella' WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 909, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Mango', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '08:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mango' WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 910, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 910, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 910, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 910, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '09:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 911, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 911, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 911, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Mango', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '11:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mango' WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 912, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '12:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 912, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '12:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 913, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande · 500 ml', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '14:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande · 500 ml' WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 913, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '14:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 914, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '15:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 914, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '15:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 915, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '17:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 915, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '17:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 915, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '17:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 915, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '17:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 916, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 916, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 917, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Amargo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '20:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Amargo' WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 917, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '20:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 917, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande · 500 ml', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 5 DAY, '20:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande · 500 ml' WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 918, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 918, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 918, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 918, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 919, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '09:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 919, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Amargo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '09:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Amargo' WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 920, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '11:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 920, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '11:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 921, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 921, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Amargo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Amargo' WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 921, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '12:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 922, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 922, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 922, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 923, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 923, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 923, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '15:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 924, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 924, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 925, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 925, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 926, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 926, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 926, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 4 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 927, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '08:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 927, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '08:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 927, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '08:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 928, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 928, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 928, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 928, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Premium', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '09:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Premium' WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 929, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 929, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 929, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 930, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 930, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 930, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 930, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '12:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 931, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '14:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 931, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '14:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 932, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '15:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 932, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '15:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 933, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 933, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 933, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Medio', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Medio' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 934, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 934, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 934, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 934, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Amargo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '18:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Amargo' WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 935, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Tres cuartos', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Tres cuartos' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 935, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 935, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande · 500 ml', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande · 500 ml' WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 935, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 3 DAY, '20:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 936, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '08:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 936, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '08:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 936, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '08:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 937, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 937, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '09:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 938, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '11:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 938, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '11:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 938, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '11:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 939, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Chorizo', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '12:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Chorizo' WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 939, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '12:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 940, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 940, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 940, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '14:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 941, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 941, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 941, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '15:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 942, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 942, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Bien cocido', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Bien cocido' WHERE p.nombre = 'Hamburguesa de la Casa'
+UNION ALL SELECT 942, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 942, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '17:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Molletes'
+UNION ALL SELECT 943, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 943, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Grande · 500 ml', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande · 500 ml' WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 943, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 943, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '18:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 944, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '20:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 944, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 2 DAY, '20:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 945, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Premium', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Premium' WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 945, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 946, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 946, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '08:48:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 947, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 947, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 947, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande · 500 ml', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '09:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande · 500 ml' WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 948, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 948, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Doble mozzarella', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Doble mozzarella' WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 948, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Mango', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '10:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mango' WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 949, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 949, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT 949, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 949, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '11:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 950, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 950, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 950, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '12:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 951, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '13:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 951, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Premium', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '13:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Premium' WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 952, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '14:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 952, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '14:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 953, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 953, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 953, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 954, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 954, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '15:20:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 955, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margarita'
+UNION ALL SELECT 955, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 955, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 955, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Mango', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '16:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Mango' WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 956, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 956, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 957, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 957, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '18:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 958, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Margaritas'
+UNION ALL SELECT 958, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Deslactosada', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Deslactosada' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 958, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 959, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 959, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 959, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 959, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Grande', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '20:55:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Grande' WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT 960, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '21:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Latte'
+UNION ALL SELECT 960, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '21:35:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 961, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Roja', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '08:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Roja' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 961, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '08:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 961, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Premium', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '08:12:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Premium' WHERE p.nombre = 'Gin Tonic'
+UNION ALL SELECT 962, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '10:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 962, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '10:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 962, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Avena', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '10:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Avena' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 963, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Arrachera', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '12:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Arrachera' WHERE p.nombre = 'Chilaquiles'
+UNION ALL SELECT 963, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '12:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Jugo de Naranja'
+UNION ALL SELECT 963, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '12:41:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte'
+UNION ALL SELECT 964, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Limonada Natural'
+UNION ALL SELECT 964, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 2, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT 964, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '15:05:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Aperol Spritz'
+UNION ALL SELECT 965, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, NULL, 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = NULL WHERE p.nombre = 'Spaguetti a la Boloñesa'
+UNION ALL SELECT 965, p.nombre, p.precio + COALESCE(v.precio_delta, 0), c.nombre, p.area_id, 1, 'Almendra', 'entregado', TIMESTAMP(CURDATE() - INTERVAL 0 DAY, '17:28:00') FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = 'Almendra' WHERE p.nombre = 'Latte';
+-- Los ids de opción salen del rótulo: en este fixture cada venta lleva a lo
+-- sumo UNA opción fuera de la predeterminada.
+UPDATE ticket_items ti
+  JOIN productos p ON p.nombre = ti.nombre
+  JOIN producto_variantes v ON v.producto_id = p.id AND v.nombre = ti.variante
+   SET ti.variante_ids = CAST(v.id AS CHAR)
+ WHERE ti.ticket_id BETWEEN 900 AND 999 AND ti.variante IS NOT NULL;
+
+-- Fin del bloque 4

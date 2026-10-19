@@ -13,6 +13,7 @@ use Classes\TicketPrinter;
 use Classes\Auth;
 use MVC\Router;
 use Services\Menu\Carta;
+use Services\Menu\Variantes;
 use Services\Reservations\HorarioReservacionService;
 use Services\Inventory\Inventario;
 use Services\Reservations\ReservacionService;
@@ -582,12 +583,13 @@ class PuntoVentaController {
                 $ticketRow = array_shift($trow);
 
                 $itemsRows = TicketItem::consultarSQL(
-                    "SELECT nombre, precio, cantidad, comensal FROM ticket_items
+                    "SELECT nombre, variante, precio, cantidad, comensal FROM ticket_items
                      WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
                 );
                 $items = array_map(function ($r) {
                     return [
                         'nombre'   => $r->nombre,
+                        'variante' => $r->variante ?? null,
                         'precio'   => (float)$r->precio,
                         'cantidad' => (int)$r->cantidad,
                         'comensal' => $r->comensal !== null ? (int)$r->comensal : null,
@@ -648,13 +650,46 @@ class PuntoVentaController {
                 return;
             }
 
+            // Primera pasada: resolver las VARIANTES de toda la tanda antes de
+            // insertar nada. Una opción inválida (la tablet tiene el catálogo de
+            // antes de un cambio en el panel, o falta elegir el término) rechaza
+            // la comanda entera: insertar la mitad dejaría en cocina un pedido
+            // que el mesero cree no haber enviado.
+            $variantesPorItem = [];
+            foreach ($items as $i => $item) {
+                $nombreRaw = trim((string)($item['nombre'] ?? ''));
+                if ($nombreRaw === '') {
+                    continue;
+                }
+                $pedidas = isset($item['variantes']) && is_array($item['variantes']) ? $item['variantes'] : [];
+                $producto = Producto::consultarSQL(
+                    "SELECT id, precio FROM productos WHERE nombre = '" . Producto::escaparString($nombreRaw) . "' LIMIT 1"
+                );
+                $producto = $producto ? array_shift($producto) : null;
+                if (!$producto) {
+                    continue;
+                }
+                $resuelta = Variantes::resolver((int) $producto->id, $pedidas);
+                if (!$resuelta['ok']) {
+                    self::errorJson('VARIANTE_INVALIDA', 409, [
+                        'contexto' => ['nombre' => $nombreRaw, 'motivo' => $resuelta['error']],
+                    ]);
+                    return;
+                }
+                if ($resuelta['ids'] !== []) {
+                    // El precio de una opción lo decide el servidor, nunca la
+                    // tablet: base del catálogo + lo que sumen las opciones.
+                    $variantesPorItem[$i] = $resuelta + ['precio' => round((float) $producto->precio + $resuelta['delta'], 2)];
+                }
+            }
+
             $count = 0;
             // Acumulamos SOLO los items insertados en esta tanda, para imprimir
             // únicamente la comanda nueva (no reimprimir las de envíos anteriores
             // en un re-envío del mismo ticket). Guardamos los valores SIN escapar:
             // el escape es sólo para SQL, no para el papel.
             $itemsComanda = [];
-            foreach ($items as $item) {
+            foreach ($items as $i => $item) {
                 $nombreRaw = trim($item['nombre'] ?? '');
                 $nombre    = TicketItem::escaparString($nombreRaw);
                 $categoria = TicketItem::escaparString($item['categoria'] ?? '');
@@ -667,25 +702,35 @@ class PuntoVentaController {
                              ? trim($item['nota']) : null;
                 $nota      = $notaRaw !== null ? TicketItem::escaparString($notaRaw) : null;
 
+                $variante = $variantesPorItem[$i] ?? null;
+                if ($variante !== null) {
+                    $precio = $variante['precio'];
+                }
+
                 if (!$nombre || $precio <= 0) continue;
 
                 $comensalSql = $comensal !== null ? $comensal : 'NULL';
                 $notaSql     = $nota !== null ? "'" . $nota . "'" : 'NULL';
+                $varIdsSql   = $variante !== null ? "'" . implode(',', $variante['ids']) . "'" : 'NULL';
+                $varEtiqueta = $variante['etiqueta'] ?? null;
+                $varSql      = $varEtiqueta !== null ? "'" . TicketItem::escaparString($varEtiqueta) . "'" : 'NULL';
                 TicketItem::ejecutarSQL(
                     "INSERT INTO ticket_items
-                     (ticket_id, nombre, precio, categoria, area_id, comensal, cantidad, nota, estado)
+                     (ticket_id, nombre, precio, categoria, area_id, comensal, cantidad, nota, variante_ids, variante, estado)
                      VALUES ({$ticketId}, '{$nombre}', {$precio}, '{$categoria}',
-                             {$areaId}, {$comensalSql}, {$cantidad}, {$notaSql}, 'enviado')"
+                             {$areaId}, {$comensalSql}, {$cantidad}, {$notaSql}, {$varIdsSql}, {$varSql}, 'enviado')"
                 );
                 $count++;
 
-                // Descuenta el inventario según la receta del producto (por nombre).
-                // Nunca bloquea el pedido: si no hay receta o falla, se ignora.
+                // Descuenta el inventario según la receta del producto (por nombre)
+                // más los ajustes de las opciones elegidas. Nunca bloquea el
+                // pedido: si no hay receta o falla, se ignora.
                 $itemId = (int) TicketItem::getDB()->insert_id;
-                Inventario::aplicarVenta($nombreRaw, $cantidad, $itemId ?: null);
+                Inventario::aplicarVenta($nombreRaw, $cantidad, $itemId ?: null, $variante['ids'] ?? []);
 
                 $itemsComanda[] = [
                     'nombre'   => $nombreRaw,
+                    'variante' => $varEtiqueta,
                     'cantidad' => $cantidad,
                     'comensal' => $comensal,
                     'nota'     => $notaRaw,
@@ -888,6 +933,7 @@ class PuntoVentaController {
                     'comensal'    => $r->comensal !== null ? (int)$r->comensal : null,
                     'cantidad'    => (int)$r->cantidad,
                     'nota'        => $r->nota ?? null,
+                    'variante'    => $r->variante ?? null,
                     'estado'      => $r->estado,
                     'created_at'  => $r->created_at,
                 ];

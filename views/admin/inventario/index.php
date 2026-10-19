@@ -35,6 +35,9 @@
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
+    <?php /* Consultas rápidas: preguntar sin salir del módulo. */ ?>
+    <?php $crAmbito = 'productos'; include __DIR__ . '/../partials/_consulta-rapida.php'; ?>
+
     <div class="admin-toolbar admin-inventario__toolbar">
         <a class="admin-btn admin-btn--secondary" href="/admin/recetas">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>

@@ -15,22 +15,17 @@
 }
 
 @media (max-width: 760px) {
-  :root { --pad: 1.3rem; }
+  // El botón de menú baja de tamaño por token: lo leen el botón, el origen del
+  // overlay y la barra del hero (_nav.scss).
+  :root {
+    --pad: 1.3rem;
+    --nav-toggle-size: 52px;
+  }
 
   .section { padding: clamp(4.5rem, 11vh, 7.5rem) var(--pad); }
   // Por token: el componente lee el cuerpo de --hcp-header-size, no del
   // font-size del contenedor.
   .brand-mark { --hcp-header-size: 1.1rem; }
-  .nav-toggle { width: 52px; height: 52px; }
-
-  .hero {
-    padding-top: 5.5rem;
-    padding-bottom: 4rem;
-    align-items: center;
-  }
-  .hero__meta { gap: 1.2rem 2rem; }
-  .hero__meta .mi { flex: 1 1 40%; }
-  .scroll-cue { display: none; }
 
   // Los overrides de .about__media salieron: eran de la versión de tres fotos
   // —dos filas fijas y una primera pieza a doble ancho— y ya sólo sobrevivía a
@@ -67,7 +62,6 @@
 }
 
 @media (max-width: 420px) {
-  .hero__title { font-size: clamp(2.3rem, 14vw, 3.6rem); }
   .dish__thumb { width: 54px; height: 54px; }
 }
 

@@ -1,0 +1,971 @@
+@charset "UTF-8";
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+/*
+ * Mixins compartidos del SCSS administrativo.
+ * Encapsula media queries y preferencias de movimiento del módulo admin.
+ */
+/*
+ * Editor de variantes de platillo (Menú → Variantes).
+ *
+ * Panel en blanco y negro como el resto: el único color es el de estado
+ * (margen negativo, ajustes que restan) y nada de cromo teñido. Dos columnas:
+ * a la izquierda se edita, a la derecha se comprueba —cómo lo verá el mesero y
+ * qué descuenta del almacén—, pegada al scroll para que el efecto de cada
+ * cambio esté siempre a la vista.
+ *
+ * La regla global de campos de _forms.scss (0,6,1) impone padding, borde,
+ * min-height y `font: inherit; font-size: 14px` a todo <input>: aquí NO se
+ * pelea con ella en la caja —los campos se dimensionan por la celda de la
+ * rejilla—, pero sí en la letra de tres de ellos (el nombre del grupo, que es
+ * el titular de la tarjeta, y las dos cifras: precio y cantidad, en mono). Ahí
+ * va `!important` acotado, que es la salida que CLAUDE.md admite: igualar
+ * (0,6,1) pediría siete clases.
+ */
+.admin-body .admin-variantes {
+  display: grid;
+  gap: 20px;
+  padding-bottom: 96px;
+}
+.admin-body .admin-variantes__ficha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-variantes__ficha strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.admin-body .admin-variantes__noscript, .admin-body .admin-variantes__errores {
+  padding: 14px 16px;
+  border: 1px solid var(--admin-danger-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-body .admin-variantes__noscript[hidden], .admin-body .admin-variantes__errores[hidden] {
+  display: none;
+}
+.admin-body .admin-variantes__noscript ul, .admin-body .admin-variantes__errores ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.admin-body .admin-variantes__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  align-items: start;
+  gap: 20px;
+}
+.admin-body .admin-variantes__main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.admin-body .admin-variantes__grupos {
+  display: grid;
+  gap: 16px;
+}
+.admin-body .admin-variantes__aside {
+  position: sticky;
+  top: 84px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 3px;
+  margin: -3px;
+}
+.admin-body .admin-variantes__aside::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-body .admin-variantes__aside::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-body .admin-variantes__aside::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-text) 22%, transparent);
+}
+.admin-body .admin-variantes__preview, .admin-body .admin-variantes__receta {
+  padding: 18px;
+}
+.admin-body .admin-variantes__preview-titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.admin-body .admin-variantes__preview-ayuda {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-body .admin-variantes__vacio {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 28px;
+  border-style: dashed;
+}
+.admin-body .admin-variantes__vacio-icono {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--admin-faint);
+}
+.admin-body .admin-variantes__vacio-titulo {
+  color: var(--admin-text);
+  font-size: 17px;
+  font-weight: 600;
+}
+.admin-body .admin-variantes__vacio-texto {
+  max-width: 56ch;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.admin-body .admin-variantes__nuevo {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0 0;
+}
+.admin-body .admin-variantes__nuevo-titulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.admin-body .admin-variantes__nuevo-texto {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-variantes__plantillas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+}
+.admin-body .admin-variantes__plantilla {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 44px;
+  max-width: 240px;
+  padding: 8px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-variantes__plantilla:hover:not(:disabled) {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-variantes__plantilla:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-variantes__plantilla:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.admin-body .admin-variantes__plantilla-nombre {
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-body .admin-variantes__plantilla-ops {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-body .admin-variantes__limite {
+  align-self: center;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-body .admin-variantes__barra {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 12px 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+  box-shadow: var(--admin-shadow-md);
+  backdrop-filter: blur(10px);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-body .admin-variantes.has-changes .admin-variantes__barra {
+  border-color: var(--admin-border-strong);
+}
+.admin-body .admin-variantes__estado {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-variantes.has-changes .admin-variantes__estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.admin-body .admin-variantes.has-changes .admin-variantes__estado::before {
+  content: "";
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--admin-c-ambar);
+}
+.admin-body .admin-variantes__barra-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-body .admin-variantes__kbd {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 6px;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  opacity: 0.8;
+}
+@media (pointer: coarse) {
+  .admin-body .admin-variantes__kbd {
+    display: none;
+  }
+}
+.admin-body {
+  /* ── Grupo ────────────────────────────────────────────────────── */
+}
+.admin-body .admin-vgrupo {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  overflow: visible;
+}
+.admin-body .admin-vgrupo__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.admin-body .admin-vgrupo__num {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.admin-body .admin-vgrupo__nombre input {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+.admin-body .admin-vgrupo__acciones {
+  display: flex;
+  gap: 6px;
+}
+.admin-body .admin-vgrupo__regla {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 10px 12px;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vgrupo__regla-texto {
+  flex: 1 1 260px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.admin-body .admin-vgrupo__regla-texto strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.admin-body .admin-vgrupo__cabecera {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+  gap: 10px;
+  padding: 0 2px;
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-vgrupo__opciones {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-body .admin-vgrupo__agregar {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-body .admin-vgrupo__agregar:hover:not(:disabled) {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vgrupo__agregar:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vgrupo__agregar:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.admin-body {
+  /* ── Opción ───────────────────────────────────────────────────── */
+}
+.admin-body .admin-vopcion {
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-vopcion.is-open {
+  border-color: var(--admin-border-strong);
+}
+.admin-body .admin-vopcion.is-off .admin-vopcion__nombre, .admin-body .admin-vopcion.is-off .admin-vopcion__precio {
+  opacity: 0.55;
+}
+.admin-body .admin-vopcion__fila {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+}
+.admin-body .admin-vopcion__base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+.admin-body .admin-vopcion__base input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--admin-accent);
+  cursor: pointer;
+}
+.admin-body .admin-vopcion__precio {
+  position: relative;
+  display: block;
+}
+.admin-body .admin-vopcion__precio input {
+  padding-left: 26px !important;
+  font-family: var(--admin-font-mono) !important;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vopcion__signo {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 13px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.admin-body .admin-vopcion__receta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-body .admin-vopcion__receta svg {
+  flex: 0 0 auto;
+  color: var(--admin-faint);
+}
+.admin-body .admin-vopcion__receta:hover, .admin-body .admin-vopcion__receta[aria-expanded=true] {
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+.admin-body .admin-vopcion__receta:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vopcion__resumen {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-body .admin-vopcion__borrar {
+  justify-self: center;
+}
+.admin-body .admin-vopcion__panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 14px 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-body .admin-vopcion__panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-body .admin-vopcion__panel-titulo {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-body .admin-vopcion__vacio, .admin-body .admin-vopcion__nota {
+  max-width: 68ch;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-body .admin-vopcion__atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-body .admin-vopcion__atajos .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-body {
+  /* ── Ajuste de receta ─────────────────────────────────────────── */
+}
+.admin-body .admin-vajustes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-body .admin-vajuste {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-areas: "accion borrar" "cuerpo cuerpo";
+  align-items: center;
+  gap: 8px 10px;
+  padding: 8px 8px 10px 10px;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vajuste__accion {
+  grid-area: accion;
+  justify-self: start;
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface);
+}
+.admin-body .admin-vajuste__pill {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-body .admin-vajuste__pill.is-on {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+.admin-body .admin-vajuste__pill:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vajuste__cuerpo {
+  grid-area: cuerpo;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.admin-body .admin-vajuste__comp {
+  display: inline-flex;
+  flex: 1 1 180px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  max-width: 280px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-body .admin-vajuste__comp span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-body .admin-vajuste__comp svg {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vajuste__comp.is-empty {
+  border-style: dashed;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vajuste__comp:hover {
+  border-color: var(--admin-border-strong);
+}
+.admin-body .admin-vajuste__comp:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vajuste__cant {
+  display: inline-grid;
+  grid-template-columns: 96px auto;
+  align-items: center;
+  gap: 6px;
+}
+.admin-body .admin-vajuste__cant input {
+  font-family: var(--admin-font-mono) !important;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vajuste__unidad {
+  min-width: 2ch;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+.admin-body .admin-vajuste__por {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+.admin-body .admin-vajuste__borrar {
+  grid-area: borrar;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+}
+.admin-body .admin-vajuste__borrar:hover {
+  background: var(--admin-surface);
+  color: var(--admin-danger-text);
+}
+.admin-body .admin-vajuste__borrar:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body {
+  /* ── Selector de componentes (portado al <body>) ──────────────── */
+}
+.admin-body .admin-vpicker {
+  position: fixed;
+  z-index: 300;
+  display: grid;
+  max-height: min(380px, 60vh);
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+}
+.admin-body .admin-vpicker[hidden] {
+  display: none;
+}
+.admin-body .admin-vpicker__buscar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  color: var(--admin-muted);
+}
+.admin-body .admin-vpicker__buscar input {
+  min-height: 46px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.admin-body .admin-vpicker__lista {
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  list-style: none;
+}
+.admin-body .admin-vpicker__grupo {
+  padding: 10px 10px 4px;
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-vpicker__opcion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-body .admin-vpicker__opcion.is-active, .admin-body .admin-vpicker__opcion:hover {
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vpicker__opcion.is-active {
+  box-shadow: inset 0 0 0 1px var(--admin-border);
+}
+.admin-body .admin-vpicker__meta {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+}
+.admin-body .admin-vpicker__vacio {
+  padding: 14px 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body {
+  /* ── Vista previa: el selector del POS en miniatura ──────────── */
+}
+.admin-body .admin-vpos {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vpos__cabeza {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-body .admin-vpos__nombre {
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.admin-body .admin-vpos__precio {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vpos__grupo {
+  display: grid;
+  gap: 6px;
+}
+.admin-body .admin-vpos__grupo-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-vpos__falta {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  font-family: var(--admin-font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.admin-body .admin-vpos__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-body .admin-vpos__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-body .admin-vpos__pill.is-on {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+.admin-body .admin-vpos__pill:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vpos__delta {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.admin-body .admin-vpos__sin {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-body .admin-vpos__linea {
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--admin-border);
+}
+.admin-body .admin-vpos__linea-label {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-vpos__linea-texto {
+  display: grid;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+.admin-body .admin-vpos__linea-texto strong {
+  font-weight: 600;
+}
+.admin-body .admin-vpos__agregar {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.admin-body {
+  /* ── Receta resultante ────────────────────────────────────────── */
+}
+.admin-body .admin-vreceta {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-body .admin-vreceta__fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.admin-body .admin-vreceta__fila.is-new, .admin-body .admin-vreceta__fila.is-diff {
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vreceta__fila.is-out {
+  color: var(--admin-faint);
+}
+.admin-body .admin-vreceta__fila.is-out .admin-vreceta__nombre,
+.admin-body .admin-vreceta__fila.is-out .admin-vreceta__cant {
+  text-decoration: line-through;
+}
+.admin-body .admin-vreceta__nombre {
+  color: inherit;
+}
+.admin-body .admin-vreceta__marca {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+}
+.admin-body .admin-vreceta__fila.is-new .admin-vreceta__marca {
+  color: var(--admin-success-text);
+}
+.admin-body .admin-vreceta__cant {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.admin-body .admin-vreceta__totales {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-body .admin-vreceta__totales div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.admin-body .admin-vreceta__totales dt {
+  color: var(--admin-muted);
+}
+.admin-body .admin-vreceta__totales dd {
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vreceta__margen {
+  font-weight: 600;
+}
+.admin-body .admin-vreceta__margen dd span {
+  margin-left: 6px;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vreceta__margen.is-neg dd {
+  color: var(--admin-danger-text);
+}
+.admin-body .admin-vreceta__vacia {
+  margin-top: 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-body .admin-vreceta__vacia a {
+  color: var(--admin-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-vopcion,
+  .admin-body .admin-variantes__barra,
+  .admin-body .admin-variantes__plantilla {
+    transition: none;
+  }
+}
+@media (max-width: 1200px) {
+  .admin-body .admin-variantes__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-body .admin-variantes__aside {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+}
+@media (max-width: 768px) {
+  .admin-body .admin-variantes__aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-body .admin-vgrupo__cabecera {
+    display: none;
+  }
+  .admin-body .admin-vopcion__fila {
+    grid-template-columns: 44px minmax(0, 1fr) 96px 44px;
+    grid-template-areas: "base nombre precio borrar" "receta receta receta receta";
+  }
+  .admin-body .admin-vopcion__base {
+    grid-area: base;
+  }
+  .admin-body .admin-vopcion__nombre {
+    grid-area: nombre;
+  }
+  .admin-body .admin-vopcion__precio {
+    grid-area: precio;
+  }
+  .admin-body .admin-vopcion__receta {
+    grid-area: receta;
+  }
+  .admin-body .admin-vopcion__borrar {
+    grid-area: borrar;
+  }
+}

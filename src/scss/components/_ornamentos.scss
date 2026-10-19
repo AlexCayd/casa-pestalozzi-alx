@@ -1,0 +1,293 @@
+// ── Adornos vectoriales de sección ────────────────────────────
+//
+// El catálogo está en views/components/ornamento.php. Son la familia de dibujo
+// de la mesa del hero, en pequeño: trazo de 1.6 que se dibuja al entrar y un
+// relleno de oro que llega después, con un bucle corto mientras se ven.
+//
+// Color por ROL, no por tono: el trazo es --accent-text (verde sobre papel y
+// sobre oro, oro claro sobre verde) y el relleno es --accent (oro en las bandas
+// claras y en las verdes; verde en la de oro). Así el mismo adorno se resuelve
+// solo en cualquier sección, igual que el resto de la capa 3.
+//
+// Son adorno y nada más: pointer-events fuera, y nunca transmiten algo que el
+// texto de al lado no diga. Por eso pueden ir por debajo del 3:1 de un
+// elemento no textual sin romper nada.
+
+.orn {
+  --orn-relleno: var(--accent);
+  --orn-relleno-suave: color-mix(in srgb, var(--accent) 34%, transparent);
+  --orn-curva: cubic-bezier(0.65, 0, 0.25, 1);
+
+  display: block;
+  width: var(--orn-ancho, clamp(4.5rem, 8vw, 7rem));
+  height: auto;
+  overflow: visible;
+  color: var(--accent-text);
+  pointer-events: none;
+
+  .r { fill: var(--orn-relleno-suave); }
+  .r--fuerte { fill: var(--orn-relleno); }
+  .r--halo { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: none; }
+  .r:not(.t) { stroke: none; }
+
+  // La ruta de «cómo llegar» es punteada; su dibujo lo hace la marcha de los
+  // puntos, no el trazo continuo de los demás.
+  .t--ruta {
+    stroke-dasharray: 0.012 0.03;
+  }
+
+  // Los puntos guía de la carta dibujada: punteados y quietos (sin la marcha
+  // de la ruta, que en una carta parecería un error de imprenta).
+  .t--puntos {
+    stroke-dasharray: 0.02 0.12;
+  }
+
+  // Los bucles giran sobre su propio origen: el que declara el marcado en
+  // `transform-origin`, en coordenadas del viewBox; sin él, el 0 0 local, que
+  // es el punto donde el <g> padre trasladó la pieza (su tallo). Mismo patrón
+  // que .hero-ramita.
+  .v {
+    transform-box: view-box;
+    transform-origin: 0 0;
+  }
+}
+
+// ── Entrada: el trazo se dibuja ──────────────────────────────
+//
+// `orn--espera` la pone ornamentos.js antes de observar, y `orn--dibujando`
+// cuando el adorno entra en pantalla. Sin JS ninguna de las dos llega y el
+// adorno sale dibujado: nunca hay un hueco esperando a una librería.
+.orn--espera {
+  .t { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .t--puntos { stroke-dasharray: 0.02 0.12; stroke-dashoffset: 0; opacity: 0; }
+  .t--ruta { stroke-dasharray: 0.012 0.03; stroke-dashoffset: 0; opacity: 0; }
+  .r { fill-opacity: 0; }
+}
+
+.orn--dibujando {
+  .t {
+    stroke-dasharray: 1 1;
+    animation: orn-dibujo 1.6s var(--orn-curva) both;
+  }
+
+  // Escalonado por orden en el documento: la rama primero, las hojas después.
+  // Se fija con el contador del elemento, no con un nth-child por adorno.
+  .t:nth-of-type(2n) { animation-delay: 0.12s; }
+  .t:nth-of-type(3n) { animation-delay: 0.24s; }
+
+  .t--ruta {
+    stroke-dasharray: 0.012 0.03;
+    animation: orn-aparece 0.6s ease both, orn-marcha 2.4s linear 0.6s infinite;
+  }
+
+  .t--puntos {
+    stroke-dasharray: 0.02 0.12;
+    animation: orn-aparece 0.8s ease 0.9s both;
+  }
+
+  .r { animation: orn-relleno 1.8s ease both; }
+}
+
+// ── Bucles ───────────────────────────────────────────────────
+//
+// Sólo corren con `orn--viva`, que ornamentos.js pone mientras el adorno está
+// en pantalla: un transform sobre un <g> de SVG no va al compositor, y veinte
+// bucles fuera de la vista se seguirían pagando en cada fotograma (la misma
+// lección que .hero--quieta).
+.orn--viva {
+  .v[data-vida="mecer"] { animation: orn-mecer 7s ease-in-out infinite alternate; }
+  .v[data-vida="hoja"] { animation: orn-hoja 5.4s ease-in-out infinite alternate; }
+  .v[data-vida="zarcillo"] { animation: orn-hoja 4.2s ease-in-out infinite alternate; }
+  .v[data-vida="racimo"] { animation: orn-racimo 6s ease-in-out infinite alternate; }
+  .v[data-vida="vino"] { animation: orn-vino 4.8s ease-in-out infinite; }
+  .v[data-vida="brillo"] { animation: orn-brillo 3.2s ease-in-out infinite; }
+  .v[data-vida="llama"] { animation: orn-llama 1.9s ease-in-out infinite alternate; }
+  .v[data-vida="halo"] { animation: orn-halo 2.6s ease-in-out infinite alternate; }
+  .v[data-vida="alfiler"] { animation: orn-alfiler 2.8s ease-in-out infinite; }
+  .v[data-vida="corona"] { animation: orn-corona 38s linear infinite; }
+  .v[data-vida="banderin"] {
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: orn-banderin 3.4s ease-in-out infinite alternate;
+  }
+}
+
+// Los brillos giran sobre su centro, que es el origen de su <g> trasladado.
+.orn .v[data-vida="brillo"] { transform-box: fill-box; transform-origin: center; }
+
+@keyframes orn-dibujo {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes orn-relleno {
+  0%, 45% { fill-opacity: 0; }
+  100% { fill-opacity: 1; }
+}
+
+@keyframes orn-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes orn-marcha {
+  to { stroke-dashoffset: -0.084; }
+}
+
+@keyframes orn-mecer {
+  from { transform: rotate(-2.4deg); }
+  to { transform: rotate(2.8deg); }
+}
+
+@keyframes orn-hoja {
+  from { transform: rotate(-6deg); }
+  to { transform: rotate(5deg); }
+}
+
+@keyframes orn-racimo {
+  from { transform: rotate(-2deg); }
+  to { transform: rotate(2.5deg); }
+}
+
+@keyframes orn-vino {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  30% { transform: rotate(-5deg) translateY(1px); }
+  70% { transform: rotate(4deg) translateY(-1px); }
+}
+
+@keyframes orn-brillo {
+  0%, 100% { transform: scale(0.72) rotate(0deg); opacity: 0.55; }
+  50% { transform: scale(1.08) rotate(45deg); opacity: 1; }
+}
+
+@keyframes orn-llama {
+  0% { transform: scale(1, 1) skewX(0deg); }
+  40% { transform: scale(0.94, 1.06) skewX(-3deg); }
+  100% { transform: scale(1.04, 0.95) skewX(2.5deg); }
+}
+
+@keyframes orn-halo {
+  from { transform: scale(0.86); opacity: 0.6; }
+  to { transform: scale(1.12); opacity: 1; }
+}
+
+@keyframes orn-alfiler {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes orn-corona {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orn-banderin {
+  from { transform: rotate(-7deg); }
+  to { transform: rotate(6deg); }
+}
+
+// Movimiento reducido o «Animaciones» apagado en tweaks: dibujado y quieto.
+@media (prefers-reduced-motion: reduce) {
+  .orn .t,
+  .orn .r,
+  .orn .v,
+  .orn .t--ruta {
+    animation: none !important;
+  }
+}
+
+.no-anim .orn {
+  .t, .r, .v, .t--ruta { animation: none !important; }
+  .t { stroke-dashoffset: 0; }
+  .r { fill-opacity: 1; }
+}
+
+// ── El sello ─────────────────────────────────────────────────
+//
+// El formato de los adornos de sección (ornamento($n, $c, true)): disco del
+// color de la banda, corona punteada que gira, aro que se traza, tres destellos
+// y el dibujo grande dentro. El disco es OPACO —mezcla sobre --bg, no sobre
+// transparente— porque medio sello cae sobre la banda anterior.
+.orn--sello {
+  --orn-ancho: clamp(7rem, 10.5vw, 10rem);
+
+  .orn-disco {
+    fill: color-mix(in srgb, var(--accent) 16%, var(--bg));
+    stroke: color-mix(in srgb, var(--accent) 55%, transparent);
+    stroke-width: 1.2;
+  }
+
+  .orn-corona {
+    stroke: var(--accent);
+    stroke-width: 2.4;
+    stroke-dasharray: 0.0035 0.0165;
+  }
+
+  .orn-aro {
+    stroke: color-mix(in srgb, var(--accent-text) 45%, transparent);
+    stroke-width: 1;
+  }
+
+  // Dentro del disco teñido el relleno suave del dibujo se perdía: sube.
+  .r { fill: color-mix(in srgb, var(--accent) 58%, transparent); }
+  .r--fuerte { fill: var(--accent); }
+
+  filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--sombra) 18%, transparent));
+}
+
+// La corona aparece con el dibujo; no se traza, porque es punteada.
+.orn--espera .orn-corona { opacity: 0; }
+.orn--dibujando .orn-corona { animation: orn-aparece 1s ease 0.4s both; }
+
+// ── Colocación ───────────────────────────────────────────────
+//
+// A la derecha, corrido a la izquierda del botón de menú (a ras del borde
+// quedaba debajo del disco fijo cada vez que una sección llegaba arriba, que
+// es justo lo que hace navegar desde el menú), y MONTADO SOBRE EL CORTE con la
+// banda anterior: medio sello en cada una, como un sello lacrado sobre la
+// unión de dos hojas. Encima de la banda de arriba porque la sección es
+// posterior en el documento; las secciones que recortaban (Chef, Especiales)
+// pasaron a `overflow-x: clip`, que deja salir en vertical.
+.orn--seccion {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  right: calc(var(--borde-medida) + var(--nav-toggle-size) + clamp(16px, 2vw, 28px));
+  transform: translateY(-50%);
+}
+
+// Cuando la banda de arriba es una insegna (sus lemas son letras de cartel en
+// movimiento), medio sello encima tapaba palabras: ahí el sello entra entero
+// en su sección, en el aire de arriba a la derecha.
+.orn--dentro {
+  transform: translateY(14%);
+}
+
+// El de Nosotros, el primero después del hero: a la derecha caía sobre el
+// panel de la mesa, que llega hasta abajo. Va en el hueco entre las dos
+// columnas del hero —la misma cuenta que su rejilla: 1.4fr / 1fr con el hueco
+// de clamp(40px, 5vw, 72px)—, donde no hay nada encima ni debajo. Con el hero
+// apilado (≤980) la mesa ocupa el ancho y el sello entra entero en su sección.
+.orn--tras-hero {
+  --hero-hueco: clamp(40px, 5vw, 72px);
+  right: auto;
+  left: calc(var(--borde-medida) + (100% - 2 * var(--borde-medida) - var(--hero-hueco)) * 1.4 / 2.4 + var(--hero-hueco) / 2);
+  transform: translate(-50%, -50%);
+
+  @media (max-width: 980px) {
+    left: auto;
+    right: calc(var(--borde-medida) + var(--nav-toggle-size) + 16px);
+    transform: translateY(14%);
+  }
+}
+
+// Junto al rótulo, en línea: para las cabeceras que no tienen aire arriba.
+.orn--rotulo {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.9rem;
+  --orn-ancho: clamp(2.6rem, 4vw, 3.4rem);
+}
+
+@media (max-width: 720px) {
+  .orn--sello { --orn-ancho: 5.6rem; }
+}

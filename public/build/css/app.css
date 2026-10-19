@@ -308,101 +308,83 @@ template {
   font-display: block;
 }
 @font-face {
-  font-family: "Bodoni Moda";
-  src: url("../fonts/bodoni-moda-latin-standard-normal.woff2") format("woff2-variations");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Bodoni Moda";
-  src: url("../fonts/bodoni-moda-latin-standard-italic.woff2") format("woff2-variations");
-  font-weight: 400 900;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Playfair Display";
-  src: url("../fonts/PlayfairDisplay-Regular.ttf") format("truetype");
-  font-weight: 400 900;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Crimson Text";
-  src: url("../fonts/crimson-text-latin-400-normal.woff2") format("woff2"), url("../fonts/CrimsonText-Regular.ttf") format("truetype");
+  font-family: "The Seasons";
+  src: local("The Seasons Regular"), local("TheSeasons-Regular"), url("../fonts/marca/the-seasons-regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Crimson Text";
-  src: url("../fonts/crimson-text-latin-400-italic.woff2") format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("../fonts/Montserrat-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("../fonts/Montserrat-Light.ttf") format("truetype");
-  font-weight: 300;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("../fonts/Montserrat-Bold.ttf") format("truetype");
+  font-family: "The Seasons";
+  src: local("The Seasons Bold"), local("TheSeasons-Bold"), url("../fonts/marca/the-seasons-bold.woff2") format("woff2");
   font-weight: 700;
+  font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Montserrat";
-  src: url("../fonts/Montserrat-Italic.ttf") format("truetype");
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Light"), local("TTWellingtons-Light"), url("../fonts/marca/tt-wellingtons-light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Regular"), local("TTWellingtons-Regular"), url("../fonts/marca/tt-wellingtons-regular.woff2") format("woff2");
   font-weight: 400;
-  font-style: italic;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Bold"), local("TTWellingtons-Bold"), url("../fonts/marca/tt-wellingtons-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
   font-display: swap;
 }
 :root {
   /* ═══ Capa 1 · MARCA ══════════════════════════════════════════
-     Tres colores: verde, café y beige. El dorado salió de la landing —era el
-     acento de todo y sobre crema no contrasta con nada, así que las secciones
-     claras se leían planas. Ahora el acento es el café, que sí separa del
-     fondo, y el beige hace de acento sobre los fondos oscuros. */
-  --brand-verde: #225036;
-  --brand-cafe: #4a2f21;
+     Los colores del manual de identidad: verde musgo y oro como principales
+     (50 % y 40 % de la superficie en el manual), off-white de fondo, y el
+     beige de la casa como segundo papel. El café salió de la marca: era un
+     marrón que el manual no tiene y la landing lo usaba de acento y de fondo
+     oscuro.
+
+     El oro NO se usa como tinta sobre papel —sobre crema da 1.9:1—: es
+     relleno (botones, la banda de oro), filete y adorno. La tinta de las
+     secciones claras es el verde, en sus dos profundidades. Ver la capa 3. */
+  --brand-verde: #214f36;
+  --brand-oro: #d1ab66;
   --brand-beige: #e3d5bb;
   --brand-crema: #f5f1e8;
-  /* El oro de marca sigue existiendo, pero SÓLO lo consumen las pantallas de
-     piso ([data-modo="oscuro"]): sobre verde profundo sí contrasta y es el
-     color con el que meseros y cocina llevan meses trabajando. La landing no
-     lo toca. */
-  --brand-oro: #d2ab67;
   /* ═══ Capa 2 · ESCALAS ════════════════════════════════════════ */
   --verde-deep: color-mix(in srgb, var(--brand-verde) 72%, black);
+  /* La tinta de titulares: un paso más hondo que el texto corrido, para que
+     el titular se separe del párrafo sin cambiar de familia de color. Ocupa
+     el sitio que tenía el café profundo. */
+  --verde-ink: color-mix(in srgb, var(--brand-verde) 58%, black);
   --verde-shade: color-mix(in srgb, var(--brand-verde) 44%, black);
   --verde-soft: color-mix(in srgb, var(--brand-verde) 55%, var(--brand-crema));
-  --cafe-deep: color-mix(in srgb, var(--brand-cafe) 74%, black);
-  --cafe-shade: color-mix(in srgb, var(--brand-cafe) 52%, black);
-  --cafe-soft: color-mix(in srgb, var(--brand-cafe) 60%, var(--brand-beige));
-  /* El beige tiene dos direcciones: hacia el café para dibujar líneas sobre
-     fondo claro, y hacia el blanco para levantar tarjetas del fondo. */
-  --beige-deep: color-mix(in srgb, var(--brand-beige) 82%, var(--brand-cafe));
+  /* El beige se hunde hacia el oro —no hacia un marrón— para las líneas y el
+     segundo fondo del lino, y sube hacia el blanco para levantar tarjetas. */
+  --beige-deep: color-mix(in srgb, var(--brand-beige) 78%, var(--brand-oro));
   --beige-lift: color-mix(in srgb, var(--brand-beige) 42%, white);
-  --crema-deep: color-mix(in srgb, var(--brand-crema) 88%, var(--brand-cafe));
+  --crema-deep: color-mix(in srgb, var(--brand-crema) 72%, var(--brand-beige));
   --crema-lift: color-mix(in srgb, var(--brand-crema) 50%, white);
-  --oro-deep: color-mix(in srgb, var(--brand-oro) 52%, var(--brand-cafe));
+  /* Tres oros. --oro-claro es el oro que SÍ se lee como texto sobre verde
+     (5.35:1; el oro pleno da 4.35 y no llega a AA). --oro-soft es un plano de
+     oro claro para tarjetas sobre la banda de oro. --oro-deep, el bronce de
+     los rellenos hundidos (hover del botón de oro). */
+  --oro-claro: color-mix(in srgb, var(--brand-oro) 70%, var(--brand-crema));
   --oro-soft: color-mix(in srgb, var(--brand-oro) 55%, var(--brand-crema));
+  --oro-deep: color-mix(in srgb, var(--brand-oro) 82%, var(--verde-deep));
   /* ═══ Capa 3 · ROLES (landing en claro) ═══════════════════════ */
   --bg: var(--brand-crema);
   --bg-alt: var(--brand-beige);
   --surface: var(--crema-lift);
   --surface-2: var(--crema-deep);
   --txt: var(--verde-deep);
-  --txt-strong: var(--cafe-deep);
+  --txt-strong: var(--verde-ink);
   /* Las escalas de texto secundario subieron (66→80, 40→58): mezcladas contra
      el fondo se volvían gris papel y los párrafos de las secciones claras
      desaparecían.
@@ -420,25 +402,30 @@ template {
        · --line-soft   separador decorativo; no tiene que llegar al 3:1, pero
                        sí verse.
        · --line-strong jerarquía y estados activos. */
-  --line: color-mix(in srgb, var(--brand-cafe) 54%, transparent);
-  --line-soft: color-mix(in srgb, var(--brand-cafe) 30%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
-  /* --accent es el café de marca: relleno, borde y adorno. --accent-text es la
-     versión legible como texto sobre el fondo del modo activo y --on-accent la
-     tinta que va ENCIMA de un relleno de acento. Al pasar de oro a café el
-     relleno se volvió oscuro, así que la tinta encima es crema, no verde. */
-  --accent: var(--brand-cafe);
-  --accent-soft: var(--cafe-shade);
-  --accent-deep: var(--cafe-deep);
-  --accent-text: var(--brand-cafe);
-  --on-accent: var(--brand-crema);
+  /* --line y --line-strong son tinta verde: el borde de componente tiene que
+     llegar al 3:1 (al 54% da 3.04 sobre crema) y el oro no puede —opaco se
+     queda en 1.9—. --line-soft, que es decorativo y no tiene que llegar, es el
+     filete de oro del manual. */
+  --line: color-mix(in srgb, var(--verde-deep) 54%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-oro) 72%, transparent);
+  --line-strong: color-mix(in srgb, var(--verde-deep) 78%, transparent);
+  /* --accent es el oro de marca: relleno, borde y adorno. Sobre papel no es
+     tinta, así que --accent-text (el acento legible como texto) y
+     --accent-soft —que casi todos sus consumidores usan como color de texto—
+     son el verde. --on-accent es la tinta que va ENCIMA de un relleno de oro:
+     el verde más hondo, 6.77:1. */
+  --accent: var(--brand-oro);
+  --accent-soft: var(--brand-verde);
+  --accent-deep: var(--verde-deep);
+  --accent-text: var(--brand-verde);
+  --on-accent: var(--verde-ink);
   /* El anillo de foco. Va como rol y no como color suelto porque tiene que
      seguir viéndose en los seis ámbitos: sobre crema es la tinta de texto,
-     sobre verde o café lo redeclara el tono. Antes no existía y el foco de
+     sobre verde u oro lo redeclara el tono. Antes no existía y el foco de
      teclado quedaba en el contorno por defecto del navegador, que sobre los
      fondos oscuros de la landing es prácticamente invisible. */
   --focus: var(--txt);
-  --vineta: color-mix(in srgb, var(--brand-cafe) 7%, transparent);
+  --vineta: color-mix(in srgb, var(--verde-deep) 7%, transparent);
   /* El velo que va encima de una foto para que el texto se lea. NO es --bg:
      sobre una imagen el texto siempre es claro, así que el velo es oscuro en
      todos los modos y tonos. Quien escriba sobre él usa [data-tono="foto"]. */
@@ -451,6 +438,13 @@ template {
   --glass-blur: 18px;
   --glass-blur-sm: 10px;
   --glass-sat: 1.4;
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -490,7 +484,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -522,7 +516,7 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
   /* Paleta funcional: estados, series de datos y categorías. NO adopta la
      paleta de marca a propósito — verde y vino son indistinguibles bajo
@@ -557,10 +551,9 @@ template {
   --estado-listo: var(--c-verde);
   --estado-entregado: var(--c-azul);
   --estado-cancelado: var(--txt-faint);
-  --serif: "Bodoni Moda", "Playfair Display", Georgia, serif;
-  --crimson: "Crimson Text", Georgia, serif;
-  --sans: "Montserrat", "Helvetica Neue", Arial, sans-serif;
-  --logo: "KudosKaps", "Bodoni Moda", serif;
+  --serif: "The Seasons", Didot, "Bodoni 72", Georgia, serif;
+  --sans: "TT Wellingtons", "Helvetica Neue", Arial, sans-serif;
+  --logo: "KudosKaps", "The Seasons", serif;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --pad: clamp(1.5rem, 5vw, 7rem);
@@ -591,6 +584,9 @@ template {
   --accent-deep: var(--oro-deep);
   --accent-text: var(--brand-oro);
   --on-accent: var(--verde-deep);
+  /* Sin alias-heredados, el foco se declara a mano: heredado de :root sería
+     verde hondo sobre este mismo verde hondo. */
+  --focus: var(--txt);
   --vineta: color-mix(in srgb, black 50%, transparent);
   --sombra: black;
   /* Este bloque NO incluye alias-heredados, así que los roles del diálogo van
@@ -637,6 +633,13 @@ template {
   --bg-alt: var(--brand-beige);
   --surface: var(--crema-lift);
   --surface-2: var(--crema-deep);
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -676,7 +679,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -708,7 +711,7 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
 }
 
@@ -723,10 +726,17 @@ template {
      mezcle contra él necesita más tinta que sobre crema para llegar al mismo
      ratio: 74% en el texto tenue y 58% en la línea. */
   --txt-faint: color-mix(in srgb, var(--verde-deep) 74%, var(--bg));
-  --line: color-mix(in srgb, var(--brand-cafe) 58%, transparent);
-  --line-soft: color-mix(in srgb, var(--brand-cafe) 32%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-cafe) 80%, transparent);
-  --vineta: color-mix(in srgb, var(--brand-cafe) 9%, transparent);
+  --line: color-mix(in srgb, var(--verde-deep) 58%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-oro) 86%, transparent);
+  --line-strong: color-mix(in srgb, var(--verde-deep) 80%, transparent);
+  --vineta: color-mix(in srgb, var(--verde-deep) 9%, transparent);
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -766,7 +776,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -798,127 +808,39 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
 }
 
-[data-tono=cafe] {
-  --bg: var(--cafe-deep);
-  --bg-alt: color-mix(in srgb, var(--brand-cafe) 86%, black);
-  --surface: color-mix(in srgb, var(--brand-cafe) 80%, black);
-  --surface-2: var(--brand-cafe);
-  --txt: var(--brand-crema);
-  --txt-strong: white;
-  --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
-  --txt-faint: color-mix(in srgb, var(--brand-crema) 52%, var(--bg));
-  --txt-inverse: var(--cafe-deep);
-  /* Sobre café profundo la crema al 52% ya cumplía AA (4.64:1): el texto tenue
-     se queda como estaba y sólo suben las líneas. */
-  --line: color-mix(in srgb, var(--brand-beige) 42%, transparent);
-  --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-beige) 65%, transparent);
-  --accent: var(--brand-beige);
-  --accent-soft: var(--brand-beige);
-  --accent-deep: var(--beige-deep);
-  --accent-text: var(--brand-beige);
-  --on-accent: var(--cafe-deep);
-  --vineta: color-mix(in srgb, black 34%, transparent);
-  --gold: var(--accent);
-  --gold-soft: var(--accent-soft);
-  --gold-deep: var(--accent-deep);
-  --beige: var(--txt-strong);
-  --white: var(--txt-strong);
-  --ink: var(--on-accent);
-  --ink-2: var(--bg-alt);
-  /* Superficie del diálogo de confirmación y del aviso transitorio.
-     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
-     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
-     con la propiedad indefinida es una declaración inválida, así que el
-     diálogo se pintaba transparente y el texto de la página se leía a través
-     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
-     siempre: una custom property se resuelve donde se DECLARA, y el modal se
-     monta en el <body> del POS, que es [data-modo="oscuro"]. */
-  --confirmation-surface: var(--surface);
-  --confirmation-text: var(--txt);
-  /* El resto del vocabulario del diálogo, por la MISMA razón y con una vuelta
-     de tuerca. Los dos de arriba faltaban en todas partes; éstos existen aquí
-     —son roles del sitio público— pero NO en `.admin-body`, que es donde el
-     panel monta el mismo componente. Ahí `--scrim`, `--accent` o `--on-accent`
-     no están declarados, así que `background: color-mix(… var(--scrim) …)` era
-     una declaración inválida y el velo salía TRANSPARENTE: se borraba un gasto
-     fijo con el módulo entero a brillo pleno detrás.
-
-     Se resuelve dando al diálogo roles propios en vez de puentear los nombres
-     públicos hacia el panel: meter `--accent` o `--on-accent` en `.admin-body`
-     reviviría justo la confusión que CLAUDE.md prohíbe, y haría que empezaran
-     a aplicarse en silencio declaraciones inválidas de otros componentes. */
-  --confirmation-scrim: var(--scrim);
-  --confirmation-accent: var(--accent);
-  --confirmation-accent-soft: var(--accent-soft);
-  --confirmation-accent-text: var(--accent-text);
-  --confirmation-on-accent: var(--on-accent);
-  --confirmation-strong: var(--txt-strong);
-  --confirmation-faint: var(--txt-faint);
-  --confirmation-field-bg: var(--surface);
-  --confirmation-shadow: var(--sombra);
-  /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
-     redeclara a su sans, que es su única voz. */
-  --confirmation-heading-font: var(--serif, Georgia, serif);
-  /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
-     declarados en el árbol público y dentro de `puente-tokens-publicos`, pero
-     NO en `.admin-body`, así que en el panel el botón destructivo se quedaba
-     literalmente sin relleno rojo y el icono sin color.
-
-     --confirmation-danger es el rojo PLENO del relleno; --confirmation-danger-text
-     el rojo legible como TEXTO sobre el fondo del modo activo. No son el mismo
-     valor, y usar el segundo como relleno es lo que deja un botón apagado. */
-  --confirmation-ok: var(--feedback-ok);
-  --confirmation-danger: var(--c-rojo);
-  --confirmation-danger-text: var(--feedback-danger);
-  /* El rojo de la paleta funcional no admite texto oscuro encima. */
-  --confirmation-on-danger: var(--brand-crema);
-  --app-notice-font: var(--sans);
-  --app-notice-label-font: var(--sans);
-  --app-notice-edge: var(--glass-edge);
-  --app-notice-danger: var(--c-rojo);
-  --app-notice-warn: var(--c-ambar);
-  --app-notice-ok: var(--c-verde);
-  --app-notice-info: var(--c-azul);
-  --app-notice-danger-text: color-mix(in srgb, var(--c-rojo) 72%, var(--txt-strong));
-  --app-notice-warn-text: color-mix(in srgb, var(--c-ambar) 38%, var(--txt-strong));
-  --app-notice-ok-text: color-mix(in srgb, var(--c-verde) 52%, var(--txt-strong));
-  --app-notice-info-text: color-mix(in srgb, var(--c-azul) 56%, var(--txt-strong));
-  --glass-bg: color-mix(in srgb, var(--bg) 72%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--surface) 88%, transparent);
-  --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
-  --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
-  /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
-  --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
-}
-
+[data-tono=oro],
+[data-tono=cafe],
 [data-tono=vino] {
-  --bg: var(--cafe-deep);
-  --bg-alt: color-mix(in srgb, var(--brand-cafe) 86%, black);
-  --surface: color-mix(in srgb, var(--brand-cafe) 80%, black);
-  --surface-2: var(--brand-cafe);
-  --txt: var(--brand-crema);
-  --txt-strong: white;
-  --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
-  --txt-faint: color-mix(in srgb, var(--brand-crema) 52%, var(--bg));
-  --txt-inverse: var(--cafe-deep);
-  /* Sobre café profundo la crema al 52% ya cumplía AA (4.64:1): el texto tenue
-     se queda como estaba y sólo suben las líneas. */
-  --line: color-mix(in srgb, var(--brand-beige) 42%, transparent);
-  --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-beige) 65%, transparent);
-  --accent: var(--brand-beige);
-  --accent-soft: var(--brand-beige);
-  --accent-deep: var(--beige-deep);
-  --accent-text: var(--brand-beige);
-  --on-accent: var(--cafe-deep);
-  --vineta: color-mix(in srgb, black 34%, transparent);
+  --bg: var(--brand-oro);
+  --bg-alt: color-mix(in srgb, var(--brand-oro) 86%, var(--verde-deep));
+  --surface: var(--oro-soft);
+  --surface-2: var(--oro-claro);
+  --txt: var(--verde-ink);
+  --txt-strong: var(--verde-ink);
+  --txt-mute: color-mix(in srgb, var(--verde-ink) 90%, var(--bg));
+  --txt-faint: color-mix(in srgb, var(--verde-ink) 79%, var(--bg));
+  --txt-inverse: var(--brand-crema);
+  --line: color-mix(in srgb, var(--verde-ink) 62%, transparent);
+  --line-soft: color-mix(in srgb, var(--verde-ink) 26%, transparent);
+  --line-strong: color-mix(in srgb, var(--verde-ink) 82%, transparent);
+  --accent: var(--brand-verde);
+  --accent-soft: var(--verde-ink);
+  --accent-deep: var(--verde-ink);
+  --accent-text: var(--verde-ink);
+  --on-accent: var(--brand-crema);
+  --focus: var(--verde-ink);
+  --vineta: color-mix(in srgb, var(--verde-deep) 10%, transparent);
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -958,7 +880,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -990,7 +912,7 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
 }
 
@@ -1002,15 +924,23 @@ template {
   --txt-inverse: var(--verde-deep);
   --surface: color-mix(in srgb, var(--scrim) 82%, transparent);
   --surface-2: var(--scrim);
-  --line: color-mix(in srgb, var(--brand-beige) 56%, transparent);
+  --line: color-mix(in srgb, var(--brand-oro) 70%, transparent);
   --line-soft: color-mix(in srgb, var(--brand-crema) 32%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-beige) 80%, transparent);
-  --accent: var(--brand-beige);
-  --accent-soft: var(--brand-beige);
-  --accent-deep: var(--beige-deep);
-  --accent-text: var(--brand-beige);
-  --on-accent: var(--verde-deep);
+  --line-strong: color-mix(in srgb, var(--brand-oro) 90%, transparent);
+  /* Sobre el velo oscuro de la foto el oro sí es tinta (6.4:1). */
+  --accent: var(--brand-oro);
+  --accent-soft: var(--oro-claro);
+  --accent-deep: var(--oro-deep);
+  --accent-text: var(--oro-claro);
+  --on-accent: var(--verde-ink);
   --sombra: black;
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -1050,7 +980,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -1082,7 +1012,7 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
 }
 
@@ -1094,19 +1024,31 @@ template {
   --txt: var(--brand-crema);
   --txt-strong: white;
   --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
-  /* El verde de marca es más claro que el café profundo, así que el mismo 52%
-     que allí cumplía aquí daba 3.49:1. Sube a 65%. */
+  /* El verde de marca es un fondo relativamente claro para ser oscuro: el 52%
+     de crema que cumplía sobre el café profundo aquí daba 3.49:1. Sube a 65%
+     (4.55:1). */
   --txt-faint: color-mix(in srgb, var(--brand-crema) 65%, var(--bg));
   --txt-inverse: var(--verde-deep);
-  --line: color-mix(in srgb, var(--brand-beige) 54%, transparent);
+  /* El filete de oro del manual sobre el verde. Al 76% llega al 3:1. */
+  --line: color-mix(in srgb, var(--brand-oro) 76%, transparent);
   --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
-  --line-strong: color-mix(in srgb, var(--brand-beige) 78%, transparent);
-  --accent: var(--brand-beige);
-  --accent-soft: var(--brand-beige);
-  --accent-deep: var(--beige-deep);
-  --accent-text: var(--brand-beige);
-  --on-accent: var(--verde-deep);
+  --line-strong: color-mix(in srgb, var(--brand-oro) 92%, transparent);
+  /* Relleno de oro con tinta verde encima (6.77:1). Como TEXTO, el oro pleno
+     se queda en 4.35:1 sobre este verde; por eso --accent-text y
+     --accent-soft van en --oro-claro (5.35:1). */
+  --accent: var(--brand-oro);
+  --accent-soft: var(--oro-claro);
+  --accent-deep: var(--oro-deep);
+  --accent-text: var(--oro-claro);
+  --on-accent: var(--verde-ink);
   --vineta: color-mix(in srgb, black 34%, transparent);
+  /* El anillo de foco, por la misma razón que todo lo de este mixin. Sólo se
+     declaraba en :root, así que valía el --txt de la crema —verde hondo— ya
+     resuelto, y así llegaba a las bandas verdes: verde sobre verde, 1.36:1.
+     El foco de teclado no se veía en la carta, en catering, en ubicación, en
+     el pie ni en el menú de navegación. Resuelto aquí, cada ámbito lo pinta
+     con su propia tinta: crema sobre verde (8.3:1), verde sobre papel y oro. */
+  --focus: var(--txt);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --gold-deep: var(--accent-deep);
@@ -1146,7 +1088,7 @@ template {
   --confirmation-field-bg: var(--surface);
   --confirmation-shadow: var(--sombra);
   /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
-     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     componente aparece sobre páginas compuestas en The Seasons. El panel lo
      redeclara a su sans, que es su única voz. */
   --confirmation-heading-font: var(--serif, Georgia, serif);
   /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
@@ -1178,7 +1120,7 @@ template {
   --glass-bg-soft: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-border: color-mix(in srgb, var(--txt-strong) 12%, transparent);
   /* El canto de luz. Sobre los tonos claros de la landing es un blanco muy
-     tenue; sobre verde o café tiene que subir o la lámina no se despega. */
+     tenue; sobre verde tiene que subir o la lámina no se despega. */
   --glass-edge: color-mix(in srgb, var(--txt-inverse) 42%, transparent);
 }
 
@@ -1199,7 +1141,8 @@ body {
   background: var(--bg);
   color: var(--txt);
   font-family: var(--sans);
-  font-weight: 300;
+  font-weight: 400;
+  font-synthesis: none;
   line-height: 1.7;
   /* El recorte horizontal va aquí y NO en <html>, aunque parezca equivalente.
      Mientras el overflow del <html> siga en `visible`, el navegador PROPAGA al
@@ -1230,38 +1173,72 @@ body {
  * y el aviso de privacidad bloquean el fondo con `overflow: hidden`, y sin el
  * carril reservado la página entera saltaba un canal al abrirlos.
  */
-html,
-body {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
-}
-
 html {
   scrollbar-gutter: stable;
 }
 
+/* La barra es de la casa: pastilla de oro sobre un carril de papel crema con
+ * su filete, verde al apuntarla. Era un gris de --line-strong sobre
+ * transparente, la barra genérica del sistema.
+ *
+ * Blink y WebKit van por los pseudoelementos, que son los que dejan dar forma
+ * (pastilla con aire alrededor, carril con filete). Las propiedades estándar
+ * `scrollbar-color` / `scrollbar-width` van SÓLO donde no existen esos
+ * pseudoelementos (Firefox): Chrome 121+ entiende las dos vías, y en cuanto
+ * ve las estándar ignora los pseudoelementos y pinta una barra plana.
+ * La capa 1 y no un rol: la barra es del documento, no de una banda, y no
+ * cambia de color al cruzar de sección.
+ *
+ * La pastilla no es el oro PLENO: contra el carril crema daba 1.92:1, y una
+ * barra que el autor ha restilizado es un componente de interfaz que tiene que
+ * llegar al 3:1 (WCAG 1.4.11) — quien ve poco la usa para saber dónde está.
+ * Oro con un 30 % de verde hondo llega a 3.08:1 y se sigue leyendo como oro,
+ * más viejo. */
+:root {
+  --barra-pastilla: color-mix(in srgb, var(--brand-oro) 70%, var(--verde-deep));
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  html,
+  body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--barra-pastilla) var(--brand-crema);
+  }
+}
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--brand-crema);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--brand-oro) 45%, transparent);
 }
 
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
+  min-height: 56px;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
-  background-color: var(--line-strong);
+  background-color: var(--barra-pastilla);
 }
 
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent);
+  background-color: var(--brand-verde);
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+  background-color: var(--verde-deep);
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+  background: var(--brand-crema);
 }
 
 /*
@@ -1321,7 +1298,7 @@ button {
 }
 
 /* Foco de teclado. El contorno por defecto del navegador es azul y fino: sobre
-   el verde y el café de la landing desaparece, y esta página se recorre entera
+   el verde y el oro de la landing desaparece, y esta página se recorre entera
    con tabulador en el flujo de reservación. Va con :focus-visible para no
    dibujar el anillo a quien navega con puntero.
    El desplazamiento se hace con dos sombras en vez de outline-offset porque el
@@ -1338,9 +1315,9 @@ button {
 }
 
 /* Viñeta cinematográfica. Su intensidad la fija --vineta, que cada modo y cada
-   tono ajustan: sobre crema y lino basta un velo café casi imperceptible
-   —multiply sobre un fondo claro se come el contraste del texto que cae cerca
-   del borde—, sobre café o verde profundo se necesita el negro para cerrar. */
+   tono ajustan: sobre crema, lino y oro basta un velo verde casi
+   imperceptible —multiply sobre un fondo claro se come el contraste del texto
+   que cae cerca del borde—, sobre verde profundo se necesita el negro. */
 body::after {
   content: "";
   position: fixed;
@@ -1386,8 +1363,7 @@ body::after {
 }
 
 .eyebrow__it {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-weight: 400;
   font-size: 1.35em;
   letter-spacing: 0.02em;
@@ -1400,57 +1376,102 @@ body::after {
   color: var(--accent-text);
 }
 
-/* El tracking se abrió al pasar de Playfair a Bodoni. Un didone tiene astas
-   finísimas y remates rectos: apretado se empasta y las palabras se cierran.
-   `font-optical-sizing: auto` deja que el eje opsz de la variable engorde los
-   remates a cuerpo pequeño y los afine en los titulares. */
 h1,
 h2,
 h3,
 h4 {
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 400;
   line-height: 0.92;
   letter-spacing: 0;
-  font-optical-sizing: auto;
+  text-wrap: balance;
 }
 
 .display {
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 400;
   font-size: clamp(2.8rem, 7vw, 6.5rem);
   line-height: 0.92;
   letter-spacing: -0.005em;
-  font-optical-sizing: auto;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+em,
+i,
+cite {
+  font-style: normal;
+}
+
+p em,
+li em {
+  font-weight: 700;
 }
 
 h1 em,
 h2 em,
 h3 em,
 h4 em,
-h1 .accent-italic,
-h2 .accent-italic,
-h3 .accent-italic,
-h4 .accent-italic,
 .display em,
-.display .accent-italic {
+.accent-italic {
   font-family: var(--serif);
-  font-style: italic;
+  font-style: normal;
   font-weight: 400;
   color: var(--accent-text);
-  font-optical-sizing: auto;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: 0 92%;
+  background-size: 100% 0.075em;
+  padding-bottom: 0.04em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.accent-italic {
-  font-family: var(--crimson);
-  font-style: italic;
-  color: var(--accent-soft);
-  font-weight: 400;
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    h1 em,
+    h2 em,
+    h3 em,
+    h4 em,
+    .display em,
+    .accent-italic {
+      animation: acento-trazo linear both;
+      animation-timeline: view();
+      animation-range: entry 30% cover 38%;
+    }
+  }
+}
+@keyframes acento-trazo {
+  from {
+    background-size: 0% 0.075em;
+  }
+  to {
+    background-size: 100% 0.075em;
+  }
+}
+.no-anim h1 em,
+.no-anim h2 em,
+.no-anim h3 em,
+.no-anim h4 em,
+.no-anim .display em,
+.no-anim .accent-italic {
+  animation: none;
 }
 
 .linea {
   display: block;
   overflow: hidden;
+  overflow: clip;
   padding-block: 0.12em;
   margin-block: -0.12em;
 }
@@ -1472,14 +1493,15 @@ h4 .accent-italic,
 }
 
 .lead {
-  font-family: var(--crimson);
-  font-size: clamp(1.3rem, 2.1vw, 1.85rem);
+  font-family: var(--sans);
+  font-size: clamp(1.2rem, 1.9vw, 1.6rem);
   line-height: 1.5;
   color: var(--beige);
-  font-weight: 400;
+  font-weight: 300;
 }
 
 p.body {
+  text-wrap: pretty;
   font-size: clamp(0.95rem, 1.1vw, 1.05rem);
   color: var(--txt-mute);
   line-height: 1.85;
@@ -1531,7 +1553,7 @@ p.body {
 
 .hcp-header__nombre {
   margin: 0;
-  font-family: var(--logo, var(--admin-logo, "KudosKaps", "Bodoni Moda", serif));
+  font-family: var(--logo, var(--admin-logo, "KudosKaps", serif));
   font-weight: 400;
   font-size: var(--hcp-header-size, clamp(1.2rem, 1.5vw, 1.5rem));
   letter-spacing: normal;
@@ -1561,7 +1583,7 @@ p.body {
 
 .hcp-header__subtitulo {
   margin-top: 0.35rem;
-  font-family: var(--sans, var(--admin-font, "Montserrat", sans-serif));
+  font-family: var(--sans, var(--admin-font, sans-serif));
   font-weight: 400;
   font-size: 0.5rem;
   letter-spacing: 0.9em;
@@ -1572,6 +1594,8 @@ p.body {
 
 :root {
   --borde-medida: max(var(--pad), calc((100% - var(--maxw)) / 2));
+  --nav-toggle-top: clamp(1.1rem, 3vw, 2rem);
+  --nav-toggle-size: 60px;
 }
 
 .brand-mark {
@@ -1579,8 +1603,8 @@ p.body {
   top: clamp(1.4rem, 3vw, 2.4rem);
   left: var(--borde-medida);
   z-index: 200;
-  color: var(--brand-crema);
-  transition: color 0.5s var(--ease);
+  color: var(--verde-ink);
+  transition: color 0.5s var(--ease), opacity 0.4s var(--ease), visibility 0.4s;
 }
 .brand-mark .hcp-header__enlace:hover,
 .brand-mark .hcp-header__enlace:focus-visible {
@@ -1588,54 +1612,54 @@ p.body {
 }
 
 [data-tono-actual=crema] .brand-mark,
-[data-tono-actual=beige] .brand-mark {
-  color: var(--brand-cafe);
+[data-tono-actual=beige] .brand-mark,
+[data-tono-actual=oro] .brand-mark,
+[data-tono-actual=cafe] .brand-mark,
+[data-tono-actual=vino] .brand-mark {
+  color: var(--verde-ink);
 }
 [data-tono-actual=crema] .nav-toggle .bar,
-[data-tono-actual=beige] .nav-toggle .bar {
-  background: var(--brand-cafe);
+[data-tono-actual=beige] .nav-toggle .bar,
+[data-tono-actual=oro] .nav-toggle .bar,
+[data-tono-actual=cafe] .nav-toggle .bar,
+[data-tono-actual=vino] .nav-toggle .bar {
+  background: var(--verde-ink);
 }
 [data-tono-actual=crema] .nav-toggle,
-[data-tono-actual=beige] .nav-toggle {
-  --nav-hilo: color-mix(in srgb, var(--brand-cafe) 14%, transparent);
+[data-tono-actual=beige] .nav-toggle,
+[data-tono-actual=oro] .nav-toggle,
+[data-tono-actual=cafe] .nav-toggle,
+[data-tono-actual=vino] .nav-toggle {
+  --nav-hilo: color-mix(in srgb, var(--verde-ink) 14%, transparent);
+  background: color-mix(in srgb, var(--brand-crema) 72%, transparent);
 }
 
 [data-tono-actual=foto] .brand-mark,
-[data-tono-actual=cafe] .brand-mark,
-[data-tono-actual=vino] .brand-mark,
 [data-tono-actual=verde] .brand-mark {
   color: var(--brand-crema);
 }
 [data-tono-actual=foto] .nav-toggle .bar,
-[data-tono-actual=cafe] .nav-toggle .bar,
-[data-tono-actual=vino] .nav-toggle .bar,
 [data-tono-actual=verde] .nav-toggle .bar {
   background: var(--brand-crema);
 }
 [data-tono-actual=foto] .nav-toggle,
-[data-tono-actual=cafe] .nav-toggle,
-[data-tono-actual=vino] .nav-toggle,
 [data-tono-actual=verde] .nav-toggle {
   --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent);
+  background: color-mix(in srgb, var(--scrim) 34%, transparent);
 }
 
-.brand-mark--overlay {
-  position: static;
-  display: flex;
-  margin-bottom: 1.4rem;
-}
-
-body.nav-open .brand-mark {
-  color: var(--brand-crema);
+.marca-en-hero .brand-mark {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .nav-toggle {
   position: fixed;
-  top: clamp(1.1rem, 3vw, 2rem);
+  top: var(--nav-toggle-top);
   right: var(--borde-medida);
   z-index: 300;
-  width: 60px;
-  height: 60px;
+  width: var(--nav-toggle-size);
+  height: var(--nav-toggle-size);
   border-radius: 50%;
   overflow: hidden;
   isolation: isolate;
@@ -1644,11 +1668,11 @@ body.nav-open .brand-mark {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: color-mix(in srgb, var(--scrim) 34%, transparent);
+  background: color-mix(in srgb, var(--brand-crema) 72%, transparent);
   border: 1px solid var(--line);
   backdrop-filter: blur(8px);
   transition: background 0.4s, transform 0.4s var(--ease);
-  --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent);
+  --nav-hilo: color-mix(in srgb, var(--verde-ink) 14%, transparent);
 }
 .nav-toggle::before {
   content: "";
@@ -1676,7 +1700,7 @@ body.nav-open .brand-mark {
   width: 22px;
   height: 2px;
   border-radius: 2px;
-  background: var(--brand-crema);
+  background: var(--verde-ink);
   transition: transform 0.4s var(--ease), opacity 0.3s, background 0.3s;
 }
 
@@ -1702,111 +1726,209 @@ body.nav-open .nav-toggle .bar {
   z-index: 250;
   background: var(--bg);
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  --nav-origin-x: calc(100% - var(--pad) - 30px);
-  --nav-origin-y: calc(clamp(1.1rem, 3vw, 2rem) + 30px);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  --nav-origin-x: calc(100% - var(--borde-medida) - var(--nav-toggle-size) / 2);
+  --nav-origin-y: calc(var(--nav-toggle-top) + var(--nav-toggle-size) / 2);
   clip-path: circle(0% at var(--nav-origin-x) var(--nav-origin-y));
-  transition: clip-path 0.8s var(--ease);
+  visibility: hidden;
+  transition: clip-path 0.8s var(--ease), visibility 0s linear 0.8s;
   pointer-events: none;
 }
 
 body.nav-open .nav-overlay {
   clip-path: circle(150% at var(--nav-origin-x) var(--nav-origin-y));
   pointer-events: all;
+  visibility: visible;
+  transition: clip-path 0.8s var(--ease), visibility 0s linear 0s;
 }
 
-.nav-overlay__links {
+.nav-overlay__principal {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(0.05rem, 0.8vh, 0.45rem);
-  padding: var(--pad);
-}
-.nav-overlay__links a {
-  font-family: var(--serif);
-  font-size: clamp(1.5rem, 5.5vh, 3.5rem);
-  line-height: 1.08;
-  color: var(--txt);
-  position: relative;
-  width: max-content;
-  display: flex;
-  align-items: baseline;
-  gap: 1.2rem;
-  transition: color 0.4s, padding-left 0.5s var(--ease);
-  opacity: 0;
-  transform: translateY(40px);
-}
-.nav-overlay__links a .num {
-  font-family: var(--sans);
-  font-size: 0.8rem;
-  letter-spacing: 0.2em;
-  color: var(--accent-text);
-  font-weight: 400;
-  opacity: 0;
-  transition: opacity 0.4s;
-}
-.nav-overlay__links a:hover {
-  color: var(--accent-soft);
-  padding-left: 1.5rem;
-}
-.nav-overlay__links a:hover .num {
-  opacity: 1;
+  align-items: center;
+  gap: clamp(1rem, 3vh, 2rem);
+  padding: calc(var(--nav-toggle-top) + var(--nav-toggle-size)) var(--pad) var(--pad) var(--borde-medida);
 }
 
-body.nav-open .nav-overlay__links a {
+.nav-overlay__links {
+  display: grid;
+  gap: clamp(0.15rem, 1vh, 0.6rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 881px) and (max-width: 1100px) {
+  .nav-overlay__links {
+    padding-right: 10rem;
+  }
+}
+.nav-overlay__links li {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.nav-overlay__links a {
+  display: inline-flex;
+  padding: 0.2rem 0;
+  color: var(--txt-strong);
+  text-decoration: none;
+}
+
+.nav-overlay__texto {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+}
+
+.nav-overlay__nombre {
+  position: relative;
+  font-family: var(--serif);
+  font-size: clamp(1.6rem, 4.6vh, 2.9rem);
+  line-height: 1.08;
+}
+.nav-overlay__nombre::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.06em;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.45s var(--ease);
+}
+
+.nav-overlay__pista {
+  position: absolute;
+  left: 100%;
+  bottom: 0.45em;
+  margin-left: 1.1rem;
+  color: var(--txt-mute);
+  font-size: clamp(0.8rem, 1.6vh, 0.92rem);
+  font-weight: 400;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.3s var(--ease), transform 0.4s var(--ease);
+}
+
+.nav-overlay__links a:hover .nav-overlay__nombre::after,
+.nav-overlay__links a:focus-visible .nav-overlay__nombre::after {
+  transform: scaleX(1);
+}
+.nav-overlay__links a:hover .nav-overlay__pista,
+.nav-overlay__links a:focus-visible .nav-overlay__pista {
   opacity: 1;
-  transform: translateY(0);
-  transition: color 0.4s, padding-left 0.5s var(--ease), opacity 0.6s var(--ease), transform 0.6s var(--ease);
+  transform: none;
+}
+
+@media (hover: none) {
+  .nav-overlay__pista {
+    display: none;
+  }
+}
+body.nav-open .nav-overlay__links li {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+  transition-delay: calc(0.18s + var(--i, 0) * 0.045s);
 }
 
 .nav-overlay__aside {
   position: relative;
-  border-left: 1px solid var(--line);
-  overflow: hidden;
-  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
-  background: var(--cafe-deep);
-}
-.nav-overlay__aside img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.55;
-  filter: grayscale(0.2);
-  transform: scale(1.05);
-}
-.nav-overlay__aside::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, color-mix(in srgb, var(--scrim) 60%, transparent), transparent 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(1.4rem, 3.4vh, 2.4rem);
+  text-align: center;
+  padding: calc(var(--nav-toggle-top) + var(--nav-toggle-size)) var(--borde-medida) var(--pad) clamp(1.5rem, 4vw, 3.5rem);
+  background: var(--bg);
+  color: var(--txt);
 }
 
-.nav-overlay__contact {
-  position: absolute;
-  bottom: var(--pad);
-  left: var(--pad);
-  z-index: 2;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
-  color: var(--txt-mute);
-  line-height: 2;
+.nav-overlay .orn--nav {
+  --orn-ancho: min(100%, 24rem);
+  align-self: center;
+  max-height: clamp(9rem, 36vh, 23rem);
+  width: auto;
 }
-.nav-overlay__contact strong {
-  color: var(--accent-text);
-  font-weight: 400;
-  display: block;
-  font-size: 0.66rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  margin-bottom: 0.4rem;
+.nav-overlay .orn--nav .t {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 0;
+}
+.nav-overlay .orn--nav .t--ruta {
+  stroke-dasharray: 0.012 0.03;
+  stroke-dashoffset: 0;
+}
+
+body.nav-open .orn--nav .t {
+  animation: orn-dibujo 1.9s var(--orn-curva) 0.3s both;
+}
+body.nav-open .orn--nav .t--ruta {
+  animation: orn-aparece 0.6s ease 1.4s both;
+}
+body.nav-open .orn--nav .r {
+  animation: orn-relleno 2.2s ease 0.3s both;
+}
+
+.nav-overlay__ficha {
+  display: grid;
+  justify-items: center;
+  gap: 1.4rem;
+}
+
+.nav-overlay__datos {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--txt);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.nav-overlay__datos a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.25s;
+}
+.nav-overlay__datos a:hover {
+  text-decoration-color: var(--accent);
 }
 
 @media (max-width: 880px) {
   .nav-overlay {
     grid-template-columns: 1fr;
   }
+  .nav-overlay__principal {
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: var(--pad);
+  }
   .nav-overlay__aside {
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: var(--pad);
+    text-align: left;
+  }
+  .nav-overlay__ficha {
+    justify-items: start;
+  }
+  .nav-overlay .orn--nav {
     display: none;
+  }
+}
+@media (max-width: 600px) {
+  .nav-overlay__nombre {
+    font-size: clamp(1.6rem, 7.4vw, 2.2rem);
   }
 }
 .rail {
@@ -1820,9 +1942,10 @@ body.nav-open .nav-overlay__links a {
   gap: 1.1rem;
   align-items: flex-end;
   pointer-events: none;
-  --rail-ink: var(--brand-crema);
-  --rail-mute: color-mix(in srgb, var(--brand-crema) 82%, transparent);
+  --rail-ink: var(--verde-ink);
+  --rail-mute: color-mix(in srgb, var(--verde-ink) 84%, transparent);
   --rail-halo: none;
+  transition: opacity 0.4s var(--ease), visibility 0.4s;
 }
 .rail a {
   pointer-events: auto;
@@ -1856,13 +1979,14 @@ body.nav-open .nav-overlay__links a {
 }
 
 [data-tono-rail=crema] .rail,
-[data-tono-rail=beige] .rail {
-  --rail-ink: var(--brand-cafe);
-  --rail-mute: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+[data-tono-rail=beige] .rail,
+[data-tono-rail=oro] .rail,
+[data-tono-rail=cafe] .rail,
+[data-tono-rail=vino] .rail {
+  --rail-ink: var(--verde-ink);
+  --rail-mute: color-mix(in srgb, var(--verde-ink) 84%, transparent);
 }
 
-[data-tono-rail=cafe] .rail,
-[data-tono-rail=vino] .rail,
 [data-tono-rail=verde] .rail {
   --rail-ink: var(--brand-crema);
   --rail-mute: color-mix(in srgb, var(--brand-crema) 76%, transparent);
@@ -1879,6 +2003,43 @@ body.nav-open .nav-overlay__links a {
 @media (max-width: 1100px) {
   .rail {
     display: none;
+  }
+}
+@media (min-width: 1101px) and (max-width: 1759px) {
+  .rail {
+    --rail-chapa: color-mix(in srgb, var(--brand-crema) 92%, transparent);
+    gap: 0.5rem;
+  }
+  .rail a {
+    position: relative;
+    min-height: 24px;
+    padding-left: 10px;
+  }
+  .rail .rlabel {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 0.1rem);
+    padding: 0.32rem 0.7rem;
+    border-radius: 999px;
+    background: var(--rail-chapa);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(6px, -50%);
+    transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), visibility 0s linear 0.2s, color 0.3s;
+  }
+  .rail:hover .rlabel, .rail:focus-within .rlabel {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(0, -50%);
+    transition-delay: 0s;
+  }
+  [data-tono-rail=verde] .rail {
+    --rail-chapa: color-mix(in srgb, var(--verde-deep) 92%, transparent);
+  }
+  [data-tono-rail=foto] .rail {
+    --rail-chapa: color-mix(in srgb, var(--scrim) 88%, transparent);
+    --rail-halo: none;
   }
 }
 .reserve-fab {
@@ -1939,6 +2100,11 @@ body.nav-open .nav-overlay__links a {
     transform: translateX(-50%);
   }
 }
+.marca-en-hero .rail {
+  opacity: 0;
+  visibility: hidden;
+}
+
 @media (max-width: 980px) {
   .dish {
     grid-template-columns: auto 1fr auto;
@@ -1964,30 +2130,13 @@ body.nav-open .nav-overlay__links a {
 @media (max-width: 760px) {
   :root {
     --pad: 1.3rem;
+    --nav-toggle-size: 52px;
   }
   .section {
     padding: clamp(4.5rem, 11vh, 7.5rem) var(--pad);
   }
   .brand-mark {
     --hcp-header-size: 1.1rem;
-  }
-  .nav-toggle {
-    width: 52px;
-    height: 52px;
-  }
-  .hero {
-    padding-top: 5.5rem;
-    padding-bottom: 4rem;
-    align-items: center;
-  }
-  .hero__meta {
-    gap: 1.2rem 2rem;
-  }
-  .hero__meta .mi {
-    flex: 1 1 40%;
-  }
-  .scroll-cue {
-    display: none;
   }
   .menu__tabs {
     flex-wrap: nowrap;
@@ -2029,9 +2178,6 @@ body.nav-open .nav-overlay__links a {
   }
 }
 @media (max-width: 420px) {
-  .hero__title {
-    font-size: clamp(2.3rem, 14vw, 3.6rem);
-  }
   .dish__thumb {
     width: 54px;
     height: 54px;
@@ -2147,6 +2293,11 @@ body.nav-open .nav-overlay__links a {
 .btn-line:hover .arrow {
   transform: translate(4px, -4px);
 }
+.btn-line .btn-line__icono {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
 .btn-line--secondary {
   border-color: var(--line);
   color: var(--txt-mute);
@@ -2214,7 +2365,7 @@ body.nav-open .nav-overlay__links a {
   --announcement-gold: var(--accent);
   --announcement-gold-soft: var(--accent-soft);
   --announcement-cream: var(--beige);
-  --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --announcement-font: "TT Wellingtons", "Helvetica Neue", Arial, sans-serif;
   --announcement-accent: var(--feedback-info-bg);
   --announcement-border: color-mix(in srgb, var(--feedback-info) 52%, transparent);
   --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
@@ -2247,7 +2398,7 @@ body.nav-open .nav-overlay__links a {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px, transparent 1px 6px);
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px, transparent 1px 6px);
 }
 .hero-announcement[hidden] {
   display: none !important;
@@ -2560,8 +2711,7 @@ body.nav-open .nav-overlay__links a {
 }
 
 .insegna__es {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-size: clamp(0.85rem, 1.4vw, 1.15rem);
   color: var(--txt-mute);
   white-space: nowrap;
@@ -2599,24 +2749,24 @@ body.nav-open .nav-overlay__links a {
 }
 
 .section,
-.foot {
+.foot,
+.hero {
   position: relative;
   isolation: isolate;
 }
 
 .section::before,
-.foot::before {
+.foot::before,
+.hero::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-cafe) 2%, transparent) 0 1px, transparent 1px 6px);
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--verde-deep) 2%, transparent) 0 1px, transparent 1px 6px);
 }
 
-.section[data-tono=cafe]::before,
 .section[data-tono=verde]::before,
-.foot[data-tono=cafe]::before,
 .foot[data-tono=verde]::before {
   background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-crema) 5%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-crema) 4%, transparent) 0 1px, transparent 1px 6px);
 }
@@ -2658,318 +2808,1101 @@ body.nav-open .nav-overlay__links a {
   }
 }
 .hero {
+  --hero-verde: var(--brand-verde);
+  --hero-tinta: var(--verde-deep);
+  --hero-oro: var(--brand-oro);
+  --hero-beige: var(--brand-beige);
+  --hero-crema: var(--brand-crema);
+  --hero-oro-claro: var(--oro-claro);
+  --hero-oro-papel: color-mix(in srgb, var(--brand-oro) 28%, var(--brand-crema));
+  --hero-lino: color-mix(in srgb, var(--brand-crema) 50%, var(--brand-beige));
+  --hero-fs-0: 0.75rem;
+  --hero-fs-1: 1rem;
+  --hero-fs-2: 1.333rem;
+  --hero-fs-3: 1.777rem;
+  --hero-fs-4: 2.369rem;
+  --hero-tr-versal: 0.2em;
+  --hero-curva: cubic-bezier(0.2, 0.7, 0.2, 1);
   position: relative;
-  height: 100vh;
-  min-height: 620px;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: clamp(1.6rem, 4vh, 3.2rem);
-  align-content: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   overflow: hidden;
-  padding: clamp(6.5rem, 13vh, 8.5rem) var(--pad) clamp(1.6rem, 4vh, 2.8rem);
-  isolation: isolate;
-  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
+  background: var(--bg);
+  color: var(--hero-verde);
+  font-family: var(--sans);
+  font-size: var(--hero-fs-1);
 }
 
 @supports (height: 100svh) {
-  @media (pointer: coarse) {
-    .hero {
-      height: 100svh;
-    }
+  .hero {
+    min-height: 100svh;
   }
 }
-.hero__bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-}
-.hero__bg img {
-  width: 100%;
-  height: 118%;
-  object-fit: cover;
-  transform: translateY(0);
-  will-change: transform;
-}
-
-.hero__canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 1.2s var(--ease);
-  pointer-events: none;
-}
-.hero__canvas canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.hero.is-webgl .hero__canvas {
-  opacity: 1;
-}
-
-.hero.is-webgl .hero__bg img {
-  opacity: 0;
-}
-
-.hero__velo {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--scrim) 78%, transparent) 0%, color-mix(in srgb, var(--scrim) 46%, transparent) 26%, color-mix(in srgb, var(--scrim) 62%, transparent) 62%, color-mix(in srgb, var(--scrim) 96%, transparent) 100%), linear-gradient(100deg, color-mix(in srgb, var(--scrim) 82%, transparent) 0%, color-mix(in srgb, var(--scrim) 40%, transparent) 52%, transparent 80%);
-}
-
-.hero__grano {
-  position: absolute;
-  inset: -50%;
-  z-index: 3;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: repeating-conic-gradient(var(--brand-crema) 0% 25%, transparent 0% 50%);
-  background-size: 3px 3px;
-  mix-blend-mode: overlay;
-  animation: heroGrano 0.9s steps(3) infinite;
-}
-
-@keyframes heroGrano {
-  0% {
-    transform: translate(0, 0);
-  }
-  33% {
-    transform: translate(-1.5%, 1%);
-  }
-  66% {
-    transform: translate(1%, -1.5%);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
-}
-.no-anim .hero__grano {
-  animation: none;
-}
-
-.hero__banda {
-  position: relative;
-  z-index: 5;
-  width: 100%;
-  max-width: var(--maxw);
-  margin: 0 auto;
-}
-
-.hero__centro {
+.hero__barra {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: clamp(0.5rem, 1.6vh, 1.1rem);
-  min-height: 0;
-}
-.hero__centro > * {
-  margin: 0;
-}
-
-.hero__title {
-  font-family: var(--logo);
-  font-weight: 400;
-  color: var(--txt-strong);
-  font-size: clamp(2.6rem, min(9vw, 14vh), 7.5rem);
-  line-height: 0.92;
-  letter-spacing: 0.012em;
-  text-shadow: 0 2px 4px color-mix(in srgb, black 45%, transparent), 0 18px 60px color-mix(in srgb, black 60%, transparent);
-}
-.hero__title .word {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  padding-block: 0.04em;
-  margin-block: -0.06em;
-}
-.hero__title .char {
-  display: inline-block;
-  will-change: transform;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  width: 100%;
+  min-height: calc(var(--nav-toggle-top) + var(--nav-toggle-size));
+  padding: var(--nav-toggle-top) calc(var(--borde-medida) + var(--nav-toggle-size) + clamp(16px, 2vw, 28px)) 0 var(--borde-medida);
 }
 
-.hero__firma {
+.hero__rotulo {
   display: flex;
   align-items: center;
-  gap: clamp(0.8rem, 2vw, 1.4rem);
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: clamp(1.05rem, 2.1vw, 1.75rem);
-  color: var(--accent-text);
-  text-shadow: 0 2px 14px color-mix(in srgb, black 55%, transparent);
+  min-height: 44px;
+  margin: 0;
+  color: var(--hero-verde);
+  font-size: var(--hero-fs-0);
+  font-weight: 600;
+  letter-spacing: var(--hero-tr-versal);
+  text-transform: uppercase;
 }
-.hero__firma::before {
+
+.hero__nav-lista {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__nav-enlace {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--hero-verde);
+  font-size: 0.94rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: color 0.3s var(--hero-curva);
+}
+.hero__nav-enlace::after {
   content: "";
-  flex: 0 0 clamp(1.6rem, 5vw, 4.5rem);
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 9px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--hero-oro);
+  transform: scaleX(0);
+  transition: transform 0.4s var(--hero-curva);
+}
+.hero__nav-enlace:hover, .hero__nav-enlace:focus-visible {
+  color: var(--hero-tinta);
+}
+.hero__nav-enlace:hover::after, .hero__nav-enlace:focus-visible::after {
+  transform: scaleX(1);
+}
+.hero__nav-enlace--reservar {
+  isolation: isolate;
+  overflow: hidden;
+  margin-left: 6px;
+  padding: 0 20px;
+  border: 1px solid var(--hero-verde);
+  border-radius: 999px;
+  color: var(--hero-tinta);
+  font-weight: 700;
+}
+.hero__nav-enlace--reservar::after {
+  inset: 0;
+  z-index: -1;
+  height: auto;
+  border-radius: 0;
+  background: var(--hero-verde);
+  transform: translateY(101%);
+}
+.hero__nav-enlace--reservar:hover, .hero__nav-enlace--reservar:focus-visible {
+  color: var(--hero-crema);
+}
+.hero__nav-enlace--reservar:hover::after, .hero__nav-enlace--reservar:focus-visible::after {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__nav-enlace,
+  .hero__nav-enlace::after {
+    transition: none;
+  }
+}
+.hero__rejilla {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(40px, 5vw, 72px);
+  width: 100%;
+  padding: clamp(24px, 3vw, 36px) var(--borde-medida) clamp(28px, 3.4vw, 44px);
+}
+
+.hero__texto {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hero .hero__isologo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  color: var(--hero-verde);
+  font-family: var(--logo);
+  font-size: clamp(2.6rem, 12.6cqi, 7.5rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1.02;
+}
+
+.hero__isologo-casa,
+.hero__isologo-nombre {
+  display: block;
+  margin-right: -0.03em;
+}
+
+.hero__isologo-casa {
+  text-align: center;
+}
+
+.hero .hero__isologo {
+  position: relative;
+}
+
+.hero__rama {
+  position: absolute;
+  top: 0.2em;
+  width: 1.45em;
+  height: auto;
+  overflow: visible;
+  pointer-events: none;
+}
+.hero__rama--izq {
+  left: 0.55em;
+}
+.hero__rama--der {
+  right: 0.55em;
+  transform: scaleX(-1);
+}
+
+.hero__rama-mecer {
+  transform-box: view-box;
+  transform-origin: 136px 30px;
+  animation: hero-ramita 7s ease-in-out 2.4s infinite alternate;
+}
+
+.hero__rama--der .hero__rama-mecer {
+  animation-delay: 3.4s;
+}
+
+.hero__isologo-casa,
+.hero__isologo-nombre {
+  animation: hero-revela 1.2s var(--hero-curva) both;
+}
+
+.hero__isologo-casa {
+  animation-delay: 0.15s;
+}
+
+.hero__isologo-nombre {
+  animation-delay: 0.32s;
+}
+
+.hero__isologo-filete {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.16em;
+  margin-top: 0.2em;
+}
+
+.hero__filete {
+  flex: 1;
   height: 1px;
-  background: var(--accent);
+  background: var(--hero-oro);
+  transform-origin: right center;
+  animation: hero-filete 1.1s var(--hero-curva) 0.5s both;
+}
+.hero__filete--der {
+  transform-origin: left center;
+}
+
+.hero__medallon {
+  display: block;
+  width: 0.5em;
+  height: 0.625em;
+  animation: hero-sello 1.3s var(--hero-curva) 0.75s both;
+}
+
+.hero__medallon-puntos {
+  animation: hero-puntos 16s linear 2s infinite;
+}
+
+.hero__chispa {
+  position: absolute;
+  width: 0.16em;
+  height: 0.16em;
+  fill: var(--hero-oro);
+  animation: hero-chispa 3.4s ease-in-out 2s infinite both;
+}
+.hero__chispa--a {
+  left: calc(50% - 0.5em);
+  top: -0.18em;
+}
+.hero__chispa--b {
+  left: calc(50% + 0.36em);
+  top: 0.5em;
+  width: 0.11em;
+  height: 0.11em;
+  animation-delay: 3.6s;
+}
+
+.hero__lema {
+  max-width: 15em;
+  margin: 28px auto 0;
+  color: var(--hero-tinta);
+  font-family: var(--serif);
+  font-size: clamp(var(--hero-fs-3), 1rem + 1.5vw, var(--hero-fs-4));
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.14;
+  text-wrap: balance;
+}
+.hero__lema em {
+  color: var(--hero-verde);
+}
+
+.hero__bajada {
+  max-width: 30em;
+  margin: 18px auto 0;
+  color: var(--hero-verde);
+  font-size: var(--hero-fs-1);
+  font-weight: 400;
+  line-height: 1.7;
+  text-wrap: pretty;
 }
 
 .hero__cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem 1.5rem;
   align-items: center;
-  margin-top: clamp(1.4rem, 4vh, 3rem);
+  justify-content: center;
+  gap: 12px 28px;
+  margin-top: 32px;
 }
 
-.hero__pie {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: clamp(1rem, 3vw, 3rem);
-  padding-top: clamp(1rem, 2.4vh, 1.6rem);
-  border-top: 1px solid var(--line);
-}
-
-.hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(1.2rem, 4vw, 3.4rem);
-  align-items: flex-start;
-}
-.hero__meta .mi {
-  font-size: 0.62rem;
+.hero__boton,
+.hero__enlace {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
   letter-spacing: 0.16em;
+  text-decoration: none;
   text-transform: uppercase;
-  color: var(--txt-mute);
-  text-shadow: 0 1px 10px color-mix(in srgb, black 60%, transparent);
-}
-.hero__meta .mi i {
-  display: block;
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: 1.15rem;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  color: var(--accent-text);
-  line-height: 1.2;
-}
-.hero__meta .mi b {
-  display: block;
-  font-family: var(--serif);
-  font-size: clamp(0.98rem, 1.3vw, 1.2rem);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--txt-strong);
-  font-weight: 400;
-  margin: 0.1rem 0 0.15rem;
-}
-.hero__meta .mi span {
-  display: block;
 }
 
-.scroll-cue {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.7rem;
-  color: var(--txt-mute);
-  flex: 0 0 auto;
+.hero__boton {
+  gap: 14px;
+  min-height: 54px;
+  padding: 0 28px;
+  transition: background-color 0.2s ease;
 }
-.scroll-cue .line {
-  width: 1px;
-  height: clamp(28px, 5vh, 46px);
-  background: linear-gradient(var(--accent), transparent);
+
+.hero__enlace {
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--hero-oro);
+  color: var(--hero-tinta);
+}
+.hero__enlace:hover {
+  border-bottom-color: var(--hero-tinta);
+  color: var(--hero-tinta);
+}
+
+.hero__flecha {
+  transition: transform 0.22s var(--hero-curva);
+}
+
+.hero__boton:hover .hero__flecha,
+.hero__enlace:hover .hero__flecha {
+  transform: translateX(4px);
+}
+
+.hero__panel {
   position: relative;
   overflow: hidden;
-}
-.scroll-cue .line::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 40%;
-  background: var(--txt-strong);
-  animation: scrolldrop 2.2s var(--ease) infinite;
-}
-.scroll-cue span {
-  font-size: 0.55rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  border-radius: 48px;
+  background: var(--hero-beige);
 }
 
-@keyframes scrolldrop {
+.hero__ilustracion {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.hero__ilustracion,
+.hero-vivo {
+  transition: transform 0.9s var(--hero-curva);
+}
+
+.hero__ilustracion {
+  transform: translate(calc(var(--hero-px, 0) * -4px), calc(var(--hero-py, 0) * -4px));
+}
+
+.hero-vivo {
+  transform-box: view-box;
+  transform: translate(calc(var(--hero-px, 0) * 14px), calc(var(--hero-py, 0) * 14px));
+}
+
+.hero-sube {
+  animation: hero-sube 1.1s var(--hero-curva) both;
+}
+
+.hero__isologo.hero-sube {
+  animation-delay: 0.1s;
+}
+
+.hero__lema.hero-sube {
+  animation-delay: 0.45s;
+}
+
+.hero__bajada.hero-sube {
+  animation-delay: 0.55s;
+}
+
+.hero__cta.hero-sube {
+  animation-delay: 0.65s;
+}
+
+.hero-dibujo {
+  stroke-dasharray: 1 1;
+  animation: hero-dibujo 1.9s cubic-bezier(0.65, 0, 0.25, 1) both;
+}
+
+.hero-fundido {
+  animation: hero-fundido 1.4s ease both;
+}
+
+.hero-vapor {
+  opacity: 0;
+  transform-box: view-box;
+  animation: hero-vapor 5.2s ease-in-out infinite;
+}
+
+.hero-giro {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-giro 9s ease-in-out 2s infinite alternate both;
+}
+
+.hero-vino {
+  transform-box: view-box;
+  animation: hero-vino 6s linear 1.8s infinite;
+}
+
+.hero-ramita {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-ramita 8s ease-in-out infinite alternate;
+}
+
+.hero-hoja {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-hoja 5.6s ease-in-out infinite alternate;
+}
+
+.hero-orbita {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-orbita 60s linear infinite;
+}
+.hero-orbita--contra {
+  animation-direction: reverse;
+  animation-duration: 75s;
+}
+
+.hero-deriva {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-deriva 20s linear infinite;
+}
+
+.hero-harina {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-harina 4.4s ease-out 2.4s infinite;
+}
+
+.hero-destello {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-destello 3.6s ease-in-out 2s infinite both;
+}
+
+@keyframes hero-sube {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes hero-filete {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hero-dibujo {
   0% {
-    transform: translateY(-100%);
+    stroke-dashoffset: 1;
+    fill-opacity: 0;
   }
-  60%, 100% {
-    transform: translateY(260%);
+  55% {
+    fill-opacity: 0;
   }
-}
-@media (max-height: 860px) and (min-width: 901px) {
-  .hero {
-    padding-top: clamp(6rem, 12vh, 7.5rem);
-  }
-  .hero__centro {
-    gap: 0.45rem;
-  }
-  .hero__cta {
-    margin-top: 1.2rem;
-  }
-  .hero__meta .mi i {
-    font-size: 1rem;
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
   }
 }
-@media (max-width: 900px) {
-  .hero {
-    gap: clamp(0.8rem, 2vh, 1.4rem);
+@keyframes hero-fundido {
+  from {
+    opacity: 0;
   }
-  .hero__pie {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1.2rem;
+  to {
+    opacity: 1;
   }
-  .scroll-cue {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.8rem;
+}
+@keyframes hero-vapor {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  .scroll-cue .line {
-    width: 34px;
-    height: 1px;
-    background: linear-gradient(90deg, var(--accent), transparent);
+  35% {
+    opacity: 0.7;
   }
-  .scroll-cue .line::after {
-    width: 40%;
-    height: 100%;
+  100% {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+@keyframes hero-giro {
+  from {
+    transform: rotate(-12deg);
+  }
+  to {
+    transform: rotate(20deg);
+  }
+}
+@keyframes hero-vino {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(2.6px, 1.6px);
+  }
+  50% {
+    transform: translate(0, 3.2px);
+  }
+  75% {
+    transform: translate(-2.6px, 1.4px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes hero-ramita {
+  from {
+    transform: rotate(-1.4deg);
+  }
+  to {
+    transform: rotate(1.8deg);
+  }
+}
+@keyframes hero-hoja {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+@keyframes hero-revela {
+  from {
+    clip-path: inset(100% -0.1em -0.25em -0.1em);
+    transform: translateY(0.35em);
+  }
+  to {
+    clip-path: inset(-0.25em -0.1em -0.25em -0.1em);
+    transform: translateY(0);
+  }
+}
+@keyframes hero-sello {
+  from {
+    opacity: 0;
+    transform: rotate(-120deg) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+@keyframes hero-puntos {
+  to {
+    stroke-dashoffset: -44;
+  }
+}
+@keyframes hero-chispa {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(0.6) rotate(90deg);
+  }
+}
+@keyframes hero-orbita {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes hero-deriva {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  8% {
+    opacity: 0.85;
+  }
+  88% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-300px, 560px) rotate(240deg);
+  }
+}
+@keyframes hero-harina {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-64px) scale(1.1);
+  }
+}
+@keyframes hero-destello {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.55) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(45deg);
+  }
+}
+@keyframes hero-vapor-quieto {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-dibujo,
+  .hero-giro,
+  .hero-vino,
+  .hero-ramita,
+  .hero-hoja,
+  .hero__filete,
+  .hero-sube,
+  .hero__isologo-casa,
+  .hero__isologo-nombre,
+  .hero__medallon,
+  .hero__medallon-puntos,
+  .hero__rama-mecer,
+  .hero-orbita,
+  .hero-destello {
     animation: none;
   }
-}
-@media (max-width: 620px) {
-  .hero__meta .mi:nth-child(n+3) {
+  .hero-deriva,
+  .hero-harina,
+  .hero__chispa {
     display: none;
   }
-  .hero__firma::before {
-    display: none;
+  .hero__ilustracion,
+  .hero-vivo {
+    transition: none;
+    transform: none;
+  }
+  .hero-dibujo {
+    stroke-dasharray: none;
+  }
+  .hero-fundido {
+    animation-duration: 0.6s;
+  }
+  .hero-vapor {
+    animation: hero-vapor-quieto 6s ease-in-out infinite;
+    transform: none;
+  }
+  .hero__boton,
+  .hero__flecha {
+    transition: none;
   }
 }
-body[data-hero=minimal] .hero .hero__centro {
-  align-items: center;
-  text-align: center;
+.no-anim .hero-dibujo,
+.no-anim .hero-fundido,
+.no-anim .hero-giro,
+.no-anim .hero-vino,
+.no-anim .hero-ramita,
+.no-anim .hero-hoja,
+.no-anim .hero__filete,
+.no-anim .hero-sube,
+.no-anim .hero__isologo-casa,
+.no-anim .hero__isologo-nombre,
+.no-anim .hero__medallon,
+.no-anim .hero__medallon-puntos,
+.no-anim .hero__rama-mecer,
+.no-anim .hero-orbita,
+.no-anim .hero-destello {
+  animation: none;
 }
-body[data-hero=minimal] .hero .hero__firma::before {
+.no-anim .hero-deriva,
+.no-anim .hero-harina,
+.no-anim .hero__chispa {
   display: none;
 }
-body[data-hero=minimal] .hero .hero__pie {
-  justify-content: center;
+.no-anim .hero-dibujo {
+  stroke-dasharray: none;
 }
-body[data-hero=minimal] .hero .hero__meta {
-  justify-content: center;
-}
-
-body[data-hero=editorial] .hero .hero__title {
-  font-size: clamp(2.4rem, 8vw, 7.5rem);
-}
-body[data-hero=editorial] .hero .hero__velo {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--scrim) 90%, transparent), color-mix(in srgb, var(--scrim) 96%, transparent));
+.no-anim .hero-vapor {
+  animation: none;
+  opacity: 0.4;
 }
 
+.hero--quieta .hero-vapor,
+.hero--quieta .hero-giro,
+.hero--quieta .hero-vino,
+.hero--quieta .hero-ramita,
+.hero--quieta .hero-hoja,
+.hero--quieta .hero__medallon-puntos,
+.hero--quieta .hero__chispa,
+.hero--quieta .hero__rama-mecer,
+.hero--quieta .hero-orbita,
+.hero--quieta .hero-deriva,
+.hero--quieta .hero-harina,
+.hero--quieta .hero-destello {
+  animation-play-state: paused;
+}
+
+@media (min-width: 981px) and (max-height: 760px) {
+  .hero__rejilla {
+    padding-top: 8px;
+    padding-bottom: 24px;
+  }
+  .hero .hero__isologo {
+    font-size: clamp(2.6rem, min(12.6cqi, 12svh), 7.5rem);
+  }
+  .hero__lema {
+    margin-top: 18px;
+  }
+  .hero__bajada {
+    margin-top: 12px;
+  }
+  .hero__cta {
+    margin-top: 22px;
+  }
+}
+@media (max-width: 980px) {
+  .hero__rejilla {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding-top: 24px;
+  }
+  .hero__mesa {
+    width: 100%;
+    max-width: 560px;
+    justify-self: center;
+  }
+  .hero__nav {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .hero__barra {
+    display: none;
+  }
+  .hero__rejilla {
+    padding-top: calc(var(--nav-toggle-top) + var(--nav-toggle-size) + 12px);
+  }
+  .hero__cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero__boton,
+  .hero__enlace {
+    justify-content: center;
+  }
+  .hero__enlace {
+    align-self: center;
+  }
+  .hero__panel {
+    border-radius: 32px;
+  }
+}
+.orn {
+  --orn-relleno: var(--accent);
+  --orn-relleno-suave: color-mix(in srgb, var(--accent) 34%, transparent);
+  --orn-curva: cubic-bezier(0.65, 0, 0.25, 1);
+  display: block;
+  width: var(--orn-ancho, clamp(4.5rem, 8vw, 7rem));
+  height: auto;
+  overflow: visible;
+  color: var(--accent-text);
+  pointer-events: none;
+}
+.orn .r {
+  fill: var(--orn-relleno-suave);
+}
+.orn .r--fuerte {
+  fill: var(--orn-relleno);
+}
+.orn .r--halo {
+  fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke: none;
+}
+.orn .r:not(.t) {
+  stroke: none;
+}
+.orn .t--ruta {
+  stroke-dasharray: 0.012 0.03;
+}
+.orn .t--puntos {
+  stroke-dasharray: 0.02 0.12;
+}
+.orn .v {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+.orn--espera .t {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+}
+.orn--espera .t--puntos {
+  stroke-dasharray: 0.02 0.12;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+.orn--espera .t--ruta {
+  stroke-dasharray: 0.012 0.03;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+.orn--espera .r {
+  fill-opacity: 0;
+}
+
+.orn--dibujando .t {
+  stroke-dasharray: 1 1;
+  animation: orn-dibujo 1.6s var(--orn-curva) both;
+}
+.orn--dibujando .t:nth-of-type(2n) {
+  animation-delay: 0.12s;
+}
+.orn--dibujando .t:nth-of-type(3n) {
+  animation-delay: 0.24s;
+}
+.orn--dibujando .t--ruta {
+  stroke-dasharray: 0.012 0.03;
+  animation: orn-aparece 0.6s ease both, orn-marcha 2.4s linear 0.6s infinite;
+}
+.orn--dibujando .t--puntos {
+  stroke-dasharray: 0.02 0.12;
+  animation: orn-aparece 0.8s ease 0.9s both;
+}
+.orn--dibujando .r {
+  animation: orn-relleno 1.8s ease both;
+}
+
+.orn--viva .v[data-vida=mecer] {
+  animation: orn-mecer 7s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=hoja] {
+  animation: orn-hoja 5.4s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=zarcillo] {
+  animation: orn-hoja 4.2s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=racimo] {
+  animation: orn-racimo 6s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=vino] {
+  animation: orn-vino 4.8s ease-in-out infinite;
+}
+.orn--viva .v[data-vida=brillo] {
+  animation: orn-brillo 3.2s ease-in-out infinite;
+}
+.orn--viva .v[data-vida=llama] {
+  animation: orn-llama 1.9s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=halo] {
+  animation: orn-halo 2.6s ease-in-out infinite alternate;
+}
+.orn--viva .v[data-vida=alfiler] {
+  animation: orn-alfiler 2.8s ease-in-out infinite;
+}
+.orn--viva .v[data-vida=corona] {
+  animation: orn-corona 38s linear infinite;
+}
+.orn--viva .v[data-vida=banderin] {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: orn-banderin 3.4s ease-in-out infinite alternate;
+}
+
+.orn .v[data-vida=brillo] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes orn-dibujo {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes orn-relleno {
+  0%, 45% {
+    fill-opacity: 0;
+  }
+  100% {
+    fill-opacity: 1;
+  }
+}
+@keyframes orn-aparece {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes orn-marcha {
+  to {
+    stroke-dashoffset: -0.084;
+  }
+}
+@keyframes orn-mecer {
+  from {
+    transform: rotate(-2.4deg);
+  }
+  to {
+    transform: rotate(2.8deg);
+  }
+}
+@keyframes orn-hoja {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+@keyframes orn-racimo {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: rotate(2.5deg);
+  }
+}
+@keyframes orn-vino {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  30% {
+    transform: rotate(-5deg) translateY(1px);
+  }
+  70% {
+    transform: rotate(4deg) translateY(-1px);
+  }
+}
+@keyframes orn-brillo {
+  0%, 100% {
+    transform: scale(0.72) rotate(0deg);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.08) rotate(45deg);
+    opacity: 1;
+  }
+}
+@keyframes orn-llama {
+  0% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  40% {
+    transform: scale(0.94, 1.06) skewX(-3deg);
+  }
+  100% {
+    transform: scale(1.04, 0.95) skewX(2.5deg);
+  }
+}
+@keyframes orn-halo {
+  from {
+    transform: scale(0.86);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+@keyframes orn-alfiler {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes orn-corona {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes orn-banderin {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orn .t,
+  .orn .r,
+  .orn .v,
+  .orn .t--ruta {
+    animation: none !important;
+  }
+}
+.no-anim .orn .t, .no-anim .orn .r, .no-anim .orn .v, .no-anim .orn .t--ruta {
+  animation: none !important;
+}
+.no-anim .orn .t {
+  stroke-dashoffset: 0;
+}
+.no-anim .orn .r {
+  fill-opacity: 1;
+}
+
+.orn--sello {
+  --orn-ancho: clamp(7rem, 10.5vw, 10rem);
+}
+.orn--sello .orn-disco {
+  fill: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  stroke: color-mix(in srgb, var(--accent) 55%, transparent);
+  stroke-width: 1.2;
+}
+.orn--sello .orn-corona {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-dasharray: 0.0035 0.0165;
+}
+.orn--sello .orn-aro {
+  stroke: color-mix(in srgb, var(--accent-text) 45%, transparent);
+  stroke-width: 1;
+}
+.orn--sello .r {
+  fill: color-mix(in srgb, var(--accent) 58%, transparent);
+}
+.orn--sello .r--fuerte {
+  fill: var(--accent);
+}
+.orn--sello {
+  filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--sombra) 18%, transparent));
+}
+
+.orn--espera .orn-corona {
+  opacity: 0;
+}
+
+.orn--dibujando .orn-corona {
+  animation: orn-aparece 1s ease 0.4s both;
+}
+
+.orn--seccion {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  right: calc(var(--borde-medida) + var(--nav-toggle-size) + clamp(16px, 2vw, 28px));
+  transform: translateY(-50%);
+}
+
+.orn--dentro {
+  transform: translateY(14%);
+}
+
+.orn--tras-hero {
+  --hero-hueco: clamp(40px, 5vw, 72px);
+  right: auto;
+  left: calc(var(--borde-medida) + (100% - 2 * var(--borde-medida) - var(--hero-hueco)) * 1.4 / 2.4 + var(--hero-hueco) / 2);
+  transform: translate(-50%, -50%);
+}
+@media (max-width: 980px) {
+  .orn--tras-hero {
+    left: auto;
+    right: calc(var(--borde-medida) + var(--nav-toggle-size) + 16px);
+    transform: translateY(14%);
+  }
+}
+
+.orn--rotulo {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.9rem;
+  --orn-ancho: clamp(2.6rem, 4vw, 3.4rem);
+}
+
+@media (max-width: 720px) {
+  .orn--sello {
+    --orn-ancho: 5.6rem;
+  }
+}
 .about__grid {
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
@@ -3096,29 +4029,56 @@ body[data-hero=editorial] .hero .hero__velo {
   font-size: clamp(2.6rem, 6vw, 5.5rem);
 }
 
+.menu__filete {
+  --orn-ancho: clamp(9rem, 16vw, 13rem);
+  margin-top: 1.1rem;
+}
+
+.menu__intro {
+  max-width: 40ch;
+}
+
+.menu__estado {
+  padding: 2rem 0;
+  color: var(--txt-mute);
+}
+
 .menu__tabs {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-bottom: clamp(2rem, 5vh, 3rem);
+  padding: 0.9rem 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  padding: 1rem 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.menu__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .menu__tab {
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--txt-mute);
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  transition: color 0.3s, background 0.3s;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--txt-mute);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   white-space: nowrap;
+  transition: color 0.3s, background 0.3s, border-color 0.3s;
 }
 .menu__tab:hover {
-  color: var(--beige);
+  color: var(--txt-strong);
+  border-color: var(--line);
 }
 .menu__tab.active {
   color: var(--on-accent);
@@ -3126,14 +4086,14 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 .menu__tab .count {
   font-family: var(--serif);
-  font-size: 0.7rem;
-  opacity: 0.6;
-  margin-left: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .menu__layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
 }
@@ -3149,108 +4109,116 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 
 .dish {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1.2rem;
-  align-items: baseline;
-  padding: 1.5rem 0;
+  position: relative;
+  padding: 1.05rem 0.4rem;
   border-bottom: 1px solid var(--line-soft);
   cursor: none;
-  position: relative;
-  transition: padding-left 0.4s var(--ease);
+  transition: background 0.3s;
+}
+.dish:hover, .dish.active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%);
 }
 .dish::before {
   content: "";
   position: absolute;
   left: -1rem;
-  top: 0;
-  bottom: 0;
+  top: 0.8rem;
+  bottom: 0.8rem;
   width: 2px;
   background: var(--accent);
   transform: scaleY(0);
   transform-origin: top;
   transition: transform 0.4s var(--ease);
 }
-.dish:hover, .dish.active {
-  padding-left: 1.2rem;
-}
 .dish:hover::before, .dish.active::before {
   transform: scaleY(1);
 }
 
-.dish__idx {
-  font-family: var(--serif);
-  font-size: 0.8rem;
-  color: var(--txt-faint);
-  transition: color 0.3s;
+.dish__linea {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
 }
 
-.dish:hover .dish__idx,
-.dish.active .dish__idx {
-  color: var(--accent-text);
-}
-
-.dish__main h4 {
-  font-family: var(--serif);
-  font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+.dish__nombre {
+  min-width: 0;
   color: var(--txt-strong);
-  font-weight: 500;
+  font-family: var(--serif);
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+  font-weight: 400;
+  line-height: 1.2;
   transition: color 0.3s;
 }
-.dish__main p {
-  font-size: 0.82rem;
-  color: var(--txt-mute);
-  margin-top: 0.35rem;
-  line-height: 1.6;
-  max-width: 44ch;
+
+.dish__foto {
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
 }
 
-.dish:hover .dish__main h4,
-.dish.active .dish__main h4 {
+.dish__puntos {
+  flex: 1;
+  min-width: 1.2rem;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-0.28em);
+}
+
+.dish__precio {
   color: var(--accent-text);
-}
-
-.dish__price {
   font-family: var(--serif);
   font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dish__price small {
-  color: var(--txt-faint);
-  font-family: var(--sans);
-  font-size: 0.6rem;
+
+.dish__desc {
+  max-width: 48ch;
+  margin-top: 0.3rem;
+  color: var(--txt-mute);
+  font-size: 0.86rem;
+  font-weight: 400;
+  line-height: 1.55;
 }
 
-.dish__thumb {
-  display: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  flex: 0 0 auto;
-  position: relative;
-}
-.dish__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.dish__thumb::after {
-  content: "⤢";
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  font-size: 0.7rem;
-  color: var(--beige);
-  text-shadow: 0 1px 4px color-mix(in srgb, var(--sombra) 80%, transparent);
-  opacity: 0.85;
+.dish:hover .dish__nombre,
+.dish.active .dish__nombre {
+  color: var(--accent-text);
 }
 
 .menu__preview {
   position: sticky;
   top: 12vh;
+}
+
+@media (max-width: 980px) {
+  .menu__preview {
+    position: static;
+    order: -1;
+  }
+  .menu__preview-frame {
+    aspect-ratio: 16/10;
+  }
+  .menu__preview-note {
+    display: none;
+  }
+  .menu__preview-orn {
+    --orn-ancho: 5rem;
+    top: -1.6rem;
+    right: -0.6rem;
+  }
+}
+.menu__preview-orn {
+  --orn-ancho: clamp(6rem, 9vw, 8.5rem);
+  position: absolute;
+  top: -2.2rem;
+  right: -1.6rem;
+  z-index: 3;
+  transform: rotate(-14deg);
 }
 
 .menu__preview-frame {
@@ -3268,7 +4236,7 @@ body[data-hero=editorial] .hero .hero__velo {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-oro) 70%, transparent);
   background: var(--surface-2);
 }
 .menu__preview-hueco img {
@@ -3298,7 +4266,7 @@ body[data-hero=editorial] .hero .hero__velo {
   position: absolute;
   inset: calc(var(--menu-marco) / 2.6);
   pointer-events: none;
-  --menu-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --menu-escuadra: color-mix(in srgb, var(--brand-oro) 92%, transparent);
   --menu-brazo: 18%;
   background-image: linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra)), linear-gradient(var(--menu-escuadra), var(--menu-escuadra));
   background-repeat: no-repeat;
@@ -3315,6 +4283,7 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 .menu__preview-cap .pc-cat {
   font-size: 0.6rem;
+  font-weight: 700;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--accent-text);
@@ -3324,6 +4293,12 @@ body[data-hero=editorial] .hero .hero__velo {
   font-size: clamp(1.3rem, 2vw, 1.8rem);
   color: var(--beige);
   margin-top: 0.3rem;
+}
+.menu__preview-cap .pc-precio {
+  margin-top: 0.2rem;
+  color: var(--accent-text);
+  font-family: var(--serif);
+  font-size: 1.05rem;
 }
 
 .menu__preview-note {
@@ -3336,36 +4311,23 @@ body[data-hero=editorial] .hero .hero__velo {
   color: var(--txt-mute);
 }
 
-@media (max-width: 980px) {
-  .menu__preview {
-    display: none;
+.menu__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.2rem 2rem;
+  margin-top: 3rem;
+}
+
+.menu__reservar {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .menu__reservar {
+    margin-left: 0;
   }
 }
-.menu__foot {
-  margin-top: 3rem;
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-}
-.menu__foot .note {
-  font-size: 0.74rem;
-  color: var(--txt-faint);
-  font-style: italic;
-  font-family: var(--crimson);
-}
-
-.menu__docs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  align-items: stretch;
-}
-.menu__docs .btn-line {
-  justify-content: space-between;
-}
-
 .catas {
   position: relative;
 }
@@ -3442,6 +4404,139 @@ body[data-hero=editorial] .hero .hero__velo {
   grid-area: 2/2/span 1/span 2;
 }
 
+.maridaje__carta {
+  margin-top: clamp(2.5rem, 6vh, 4rem);
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--brand-crema) 55%, transparent);
+}
+
+.maridaje__cabeza {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem clamp(1rem, 2.4vw, 2rem);
+}
+
+.maridaje__copa {
+  --orn-ancho: clamp(5.4rem, 8vw, 7.4rem);
+  margin: -0.4rem 0;
+}
+
+.maridaje__titulo {
+  font-size: clamp(1.6rem, 2.8vw, 2.3rem);
+  line-height: 1.1;
+}
+
+.maridaje__bajada {
+  margin-top: 0.35rem;
+  color: var(--txt-mute);
+  font-size: 0.9rem;
+}
+
+.maridaje__pestanas {
+  display: flex;
+  gap: 0.4rem;
+  margin: clamp(1.4rem, 3vh, 2rem) 0 0.4rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.maridaje__pestanas::-webkit-scrollbar {
+  display: none;
+}
+
+.maridaje__pestana {
+  flex: none;
+  min-height: 40px;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--txt);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.maridaje__pestana:hover {
+  border-color: var(--line-strong);
+}
+.maridaje__pestana[aria-selected=true] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.maridaje__panel-titulo {
+  margin: 1.4rem 0 0.4rem;
+  font-size: 1.15rem;
+}
+
+.is-pestanas .maridaje__panel-titulo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.maridaje__lista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(1.5rem, 4vw, 3.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.maridaje__lista li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.maridaje__nombre {
+  min-width: 0;
+  color: var(--txt-strong);
+  font-family: var(--serif);
+  font-size: 1.08rem;
+}
+
+.maridaje__puntos {
+  flex: 1;
+  min-width: 1rem;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-0.25em);
+}
+
+.maridaje__precio {
+  color: var(--txt-strong);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .maridaje__cabeza {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .btn-line--maridaje {
+    grid-column: 1/-1;
+    justify-self: stretch;
+    justify-content: center;
+    padding-inline: 1.4rem;
+  }
+  .maridaje__lista {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 760px) {
   .maridaje__galeria {
     grid-template-columns: repeat(2, 1fr);
@@ -3544,23 +4639,32 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 
 .cata__sello {
-  display: inline-block;
-  margin-left: 0.75rem;
-  padding: 0.3em 0.7em;
-  transform: translateY(-0.22em);
+  position: relative;
+  top: 0.12rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9em;
+  padding: 0.08em 0.67em 0 0.85em;
+  line-height: 1;
   border: 1px solid color-mix(in srgb, var(--c-ambar) 52%, transparent);
   border-radius: 999px;
   background: var(--feedback-warn-bg);
-  color: var(--feedback-warn);
+  color: color-mix(in srgb, var(--c-ambar) 34%, var(--verde-ink));
   font-family: var(--sans);
   font-size: 0.58rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  vertical-align: middle;
   white-space: nowrap;
 }
 
+@supports (text-box: trim-both cap alphabetic) {
+  .cata__sello {
+    min-height: 0;
+    padding: 0.55em 0.67em 0.55em 0.85em;
+    text-box: trim-both cap alphabetic;
+  }
+}
 .cata__fecha {
   display: flex;
   flex-direction: column;
@@ -3588,6 +4692,10 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 
 .cata__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.8rem;
   font-size: clamp(1.4rem, 2.6vw, 2.1rem);
   margin: 0;
   transition: color 0.4s var(--ease);
@@ -3652,8 +4760,8 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 .catas__vacio p {
   margin: 0;
-  font-family: var(--crimson);
-  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  font-weight: 300;
+  font-size: clamp(1.05rem, 1.8vw, 1.3rem);
   color: var(--txt-mute);
 }
 
@@ -3681,7 +4789,7 @@ body[data-hero=editorial] .hero .hero__velo {
   flex-direction: column;
   justify-content: center;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: clip;
   padding-left: 0;
   padding-right: 0;
   padding-block: clamp(3rem, 7vh, 6rem);
@@ -3759,7 +4867,7 @@ body[data-hero=editorial] .hero .hero__velo {
   inset: calc(var(--gcard-marco) / 2.6);
   z-index: 2;
   pointer-events: none;
-  --gcard-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --gcard-escuadra: color-mix(in srgb, var(--brand-oro) 92%, transparent);
   --gcard-brazo: 16%;
   background-image: linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)), linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra));
   background-repeat: no-repeat;
@@ -3772,7 +4880,7 @@ body[data-hero=editorial] .hero .hero__velo {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-oro) 70%, transparent);
 }
 .gcard__hueco img {
   width: 100%;
@@ -3834,7 +4942,7 @@ body[data-hero=editorial] .hero .hero__velo {
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--brand-crema);
-  background: color-mix(in srgb, var(--cafe-deep) 72%, transparent);
+  background: color-mix(in srgb, var(--verde-ink) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--brand-crema) 28%, transparent);
   backdrop-filter: blur(4px);
   padding: 0.4rem 0.85rem;
@@ -3856,13 +4964,14 @@ body[data-hero=editorial] .hero .hero__velo {
   }
 }
 .chef {
+  padding-block: clamp(4.5rem, 11vh, 8.5rem);
   background: var(--bg);
-  overflow: hidden;
+  overflow-x: clip;
 }
 
 .chef__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
   gap: clamp(2rem, 6vw, 6rem);
   align-items: center;
 }
@@ -3874,7 +4983,8 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 .chef__portrait {
   position: relative;
-  aspect-ratio: 4/5;
+  aspect-ratio: 1/1.05;
+  max-height: min(72vh, 600px);
   overflow: hidden;
   border: 1px solid var(--line);
 }
@@ -3885,40 +4995,78 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 
 .chef__title {
-  font-size: clamp(2.2rem, 4.5vw, 4rem);
-  margin: 1.2rem 0 1.5rem;
+  font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+  margin: 1rem 0 1.6rem;
 }
 
-.chef__cols {
+.chef .lead {
+  font-size: clamp(1.1rem, 1.6vw, 1.38rem);
+}
+
+.chef__claves {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem 2.5rem;
-  margin-top: 2.5rem;
+  gap: 0.8rem;
+  margin: 1.6rem 0 0;
 }
-.chef__cols h5 {
-  font-size: 0.66rem;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: var(--accent-text);
-  margin-bottom: 0.6rem;
+.chef__claves div {
+  display: grid;
+  grid-template-columns: 0.5rem minmax(0, 1fr);
+  column-gap: 0.9rem;
+  align-items: baseline;
 }
-.chef__cols p {
-  font-size: 0.85rem;
-  color: var(--txt-mute);
-  line-height: 1.75;
+.chef__claves div::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--accent);
+  transform: translateY(-0.1em) rotate(45deg);
+}
+.chef__claves dt {
+  color: var(--txt-strong);
+  font-size: clamp(1rem, 1.2vw, 1.08rem);
+  font-weight: 700;
+}
+.chef__claves dd {
+  grid-column: 2;
+  margin: 0.15rem 0 0;
+  color: var(--txt);
+  font-size: 0.95rem;
+  line-height: 1.55;
 }
 
-@media (max-width: 520px) {
-  .chef__cols {
-    grid-template-columns: 1fr;
-  }
+.chef__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-top: 1.7rem;
 }
+
 .chef__sig {
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: 1.6rem;
+  margin: 0;
   color: var(--accent-soft);
-  margin-top: 1.5rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+}
+
+.chef__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  color: var(--txt-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--accent);
+}
+.chef__enlace svg {
+  transition: transform 0.25s var(--ease);
+}
+.chef__enlace:hover svg {
+  transform: translateX(4px);
 }
 
 .ph {
@@ -4009,7 +5157,7 @@ body[data-hero=editorial] .hero .hero__velo {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-crema) 5%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-crema) 3%, transparent) 0 1px, transparent 1px 6px);
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--verde-deep) 5%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px, transparent 1px 6px);
 }
 .pan__text .body {
   max-width: none;
@@ -4075,8 +5223,8 @@ body[data-hero=editorial] .hero .hero__velo {
 }
 
 .catering__cta-nota {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--sans);
+  font-weight: 400;
   font-size: 0.95rem;
   color: var(--txt-mute);
 }
@@ -4148,7 +5296,7 @@ body[data-hero=editorial] .hero .hero__velo {
   padding: 0.7rem 0;
   font-family: var(--serif);
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--txt-strong);
   border-bottom: 1px solid var(--line-soft);
   transition: color 0.3s, padding-left 0.4s var(--ease);
@@ -4173,8 +5321,7 @@ body[data-hero=editorial] .hero .hero__velo {
 .eventos__mensaje {
   margin: 1.6rem 0 0;
   min-height: 2.4rem;
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-size: clamp(1rem, 1.6vw, 1.25rem);
   color: var(--txt-faint);
   transition: color 0.3s;
@@ -4659,8 +5806,6 @@ body[data-hero=editorial] .hero .hero__velo {
 .form__msg {
   font-size: 0.78rem;
   color: var(--accent-text);
-  font-family: var(--crimson);
-  font-style: italic;
   opacity: 0;
   transition: opacity 0.4s;
 }
@@ -4674,8 +5819,6 @@ body[data-hero=editorial] .hero .hero__velo {
   margin-top: 0.35rem;
   font-size: 0.74rem;
   color: var(--accent-text);
-  font-family: var(--crimson);
-  font-style: italic;
   opacity: 0;
   transition: opacity 0.25s;
 }
@@ -5087,7 +6230,7 @@ body[data-hero=editorial] .hero .hero__velo {
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
-.reserva .cpc-day:hover:not(.disabled):not(.empty) {
+.reserva .cpc-day:hover:not(.disabled):not(.empty):not(.selected) {
   border-color: var(--reservation-picker-day-hover-border, transparent);
   background: var(--reservation-picker-hover-bg, var(--surface-2));
   color: var(--reservation-picker-hover-color, var(--beige));
@@ -5356,11 +6499,19 @@ body[data-hero=editorial] .hero .hero__velo {
 
 .reserva__intro {
   grid-area: intro;
+  position: relative;
   max-width: 32rem;
 }
 .reserva__intro .body {
   max-width: 30rem;
   color: var(--reservation-text-secondary);
+}
+
+.reserva__vela {
+  --orn-ancho: clamp(2.4rem, 3.4vw, 3.2rem);
+  position: absolute;
+  top: -0.4rem;
+  right: 0;
 }
 
 .reserva__form-wrap {
@@ -5663,7 +6814,7 @@ body[data-hero=editorial] .hero .hero__velo {
   max-width: 35rem;
   margin-bottom: 0.8rem;
   color: var(--beige);
-  font-family: var(--crimson);
+  font-family: var(--serif);
   font-size: clamp(1.15rem, 2vw, 1.4rem);
   font-weight: 400;
   line-height: 1.35;
@@ -6256,7 +7407,7 @@ body[data-hero=editorial] .hero .hero__velo {
   background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
 }
 .reserva__hours .row.is-exception.is-exception--closed {
-  --reserva-exception-color: var(--cafe-deep);
+  --reserva-exception-color: var(--verde-ink);
 }
 .reserva__hours-exception {
   color: var(--reserva-exception-color, var(--brand-verde));
@@ -7530,8 +8681,7 @@ body[data-hero=editorial] .hero .hero__velo {
   max-width: 48ch;
   margin-top: 0.9rem;
   color: var(--txt-mute);
-  font-family: var(--crimson);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   line-height: 1.5;
 }
 
@@ -7961,8 +9111,7 @@ body[data-hero=editorial] .hero .hero__velo {
   max-width: 48ch;
   margin-top: 0.5rem;
   color: var(--txt);
-  font-family: var(--crimson);
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.45;
 }
 .schedule-change-success .btn-line {
@@ -9045,7 +10194,7 @@ body.is-management-modal-open {
   overflow: hidden;
   isolation: isolate;
   background: var(--bg);
-  box-shadow: inset 0 0 60px color-mix(in srgb, var(--brand-cafe) 10%, transparent), 0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent);
+  box-shadow: inset 0 0 60px color-mix(in srgb, var(--verde-deep) 10%, transparent), 0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent);
 }
 .loc__map::before {
   content: "";
@@ -9053,13 +10202,13 @@ body.is-management-modal-open {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px, transparent 1px 6px);
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px, transparent 1px 6px);
 }
 
 .map2__grid {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px);
+  background-image: linear-gradient(color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px);
   background-size: 34px 34px;
 }
 
@@ -9092,7 +10241,7 @@ body.is-management-modal-open {
 .map2__block {
   position: absolute;
   background: color-mix(in srgb, var(--brand-beige) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-cafe) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verde-deep) 34%, transparent);
   border-radius: 2px;
 }
 .map2__block.b1 {
@@ -9117,7 +10266,7 @@ body.is-management-modal-open {
 .map2__road {
   position: absolute;
   background: var(--surface);
-  border-block: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9128,7 +10277,7 @@ body.is-management-modal-open {
   font-size: 0.66rem;
   font-variant-caps: small-caps;
   letter-spacing: 0.2em;
-  color: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+  color: color-mix(in srgb, var(--verde-deep) 78%, transparent);
   white-space: nowrap;
 }
 .map2__road.road--pilares {
@@ -9144,7 +10293,7 @@ body.is-management-modal-open {
   width: 34px;
   height: 112%;
   border-block: none;
-  border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
+  border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
 }
 .map2__road.road--uni span {
   writing-mode: vertical-rl;
@@ -9155,7 +10304,7 @@ body.is-management-modal-open {
   width: 24px;
   height: 112%;
   border-block: none;
-  border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 20%, transparent);
+  border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 20%, transparent);
 }
 .map2__road.road--frias span {
   writing-mode: vertical-rl;
@@ -9273,8 +10422,7 @@ footer.foot {
   color: var(--accent-text);
 }
 .foot__brand p {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-size: 1.05rem;
   color: var(--txt-mute);
   margin-top: 0.9rem;
@@ -9644,20 +10792,26 @@ footer.foot {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: color-mix(in srgb, var(--cafe-deep) 97%, transparent);
+  background: color-mix(in srgb, var(--verde-ink) 97%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s;
+  visibility: hidden;
+  transition: opacity 0.4s, visibility 0s linear 0.4s;
   padding: clamp(1rem, 4vw, 3rem);
   isolation: isolate;
 }
 .lightbox.open {
   opacity: 1;
   pointer-events: all;
+  visibility: visible;
+  transition: opacity 0.4s, visibility 0s;
+}
+.lightbox.lightbox--en-vista {
+  transition: none;
 }
 .lightbox::before {
   content: "";
@@ -9715,7 +10869,6 @@ footer.foot {
   align-items: center;
   justify-content: center;
   gap: 0;
-  font-size: 1.3rem;
   color: var(--txt-strong);
   transition: background 0.3s, color 0.3s, transform 0.3s;
   line-height: 1;
@@ -9756,11 +10909,8 @@ footer.foot {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--serif);
-  font-size: 2rem;
   color: var(--txt-strong);
   transition: background 0.3s, color 0.3s;
-  padding-bottom: 6px;
 }
 .lightbox__nav:hover {
   background: var(--accent);
@@ -9809,8 +10959,16 @@ footer.foot {
 }
 
 ::view-transition-group(zoom-origen) {
-  animation-duration: 0.52s;
+  animation-duration: 0.58s;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(zoom-origen),
+::view-transition-new(zoom-origen) {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  overflow: clip;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -10040,8 +11198,7 @@ footer.foot {
   text-align: center;
 }
 .fb-header__sub {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-size: 1.05rem;
   color: var(--txt-mute);
 }
@@ -10085,11 +11242,10 @@ footer.foot {
 .fb-step__label {
   margin: 0.5rem 0 clamp(1.5rem, 4vw, 2.25rem);
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 400;
   font-size: clamp(1.45rem, 4vw, 2.1rem);
   line-height: 1.15;
   letter-spacing: 0;
-  font-optical-sizing: auto;
   color: var(--txt-strong);
   text-wrap: balance;
 }
@@ -10262,8 +11418,7 @@ footer.foot {
   color: var(--txt-faint);
 }
 .fb-resumen-comment__text {
-  font-family: var(--crimson);
-  font-size: 1.02rem;
+  font-size: 0.98rem;
   line-height: 1.6;
   color: var(--txt);
   overflow-wrap: anywhere;
@@ -10330,24 +11485,21 @@ footer.foot {
 
 .fb-done-title {
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 400;
   font-size: clamp(1.9rem, 5.5vw, 2.8rem);
   line-height: 1.1;
   letter-spacing: 0;
-  font-optical-sizing: auto;
   color: var(--txt-strong);
 }
 .fb-done-title em {
   font-family: var(--serif);
   font-weight: 400;
-  font-style: italic;
 }
 
 .fb-done-sub {
   max-width: 42ch;
   margin: 0.9rem auto 1.75rem;
-  font-family: var(--crimson);
-  font-size: 1.08rem;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--txt-mute);
 }

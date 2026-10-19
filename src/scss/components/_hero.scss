@@ -1,371 +1,795 @@
-// ── Hero ──────────────────────────────────────────────────────
+// ── Hero · «Isologo editorial» ───────────────────────────────
 //
-// Alto exacto de una pantalla: el hero es un cartel, no una sección con
-// scroll propio. Por eso la caja es una rejilla de dos bandas (título / pie) y
-// no un bloque centrado — con `align-items:center` el pie se despegaba del
-// borde inferior en pantallas altas y se comía la señal de "aquí sigue
-// habiendo página".
+// La propuesta 1C del lienzo de heroes. Sustituye al hero de fotografía (velo,
+// grano, lienzo WebGL y los tres estilos del panel de tweaks): el cliente
+// pidió fondos claros y que la marca tuviera el protagonismo.
+//
+// Dos columnas: a la izquierda el isologo como <h1> y el texto, a la derecha
+// la mesa puesta en un panel de lino con dos cuartos de círculo de oro —el
+// recurso de esquina del manual—. En ≤980 px se apilan.
+//
+// Color: sólo tokens. El SVG de la mesa pide --hero-*, que aquí se derivan de
+// la capa 1 de _reset.scss; así el hero obedece a la paleta editable de
+// Configuración igual que el resto de la landing. El oro no es tinta: en este
+// hero es filete, relleno del botón y la ilustración.
+//
+// Tipografía: las tres voces del manual, cada una con su papel (ver _hero.php)
+// y una escala de razón 1.333 en --hero-fs-*. The Seasons para la frase, con
+// tracking 0; las versalitas de TT Wellingtons, abiertas; KudosKaps con su
+// espaciado de marca y SIEMPRE a 400.
+//
+// El isologo es lo más grande de la portada y se mide contra SU columna
+// (container query), no contra la ventana: llena el ancho de la columna de
+// texto en cualquier pantalla, que es lo que le da el peso de un cartel.
+
 .hero {
+  --hero-verde: var(--brand-verde);
+  --hero-tinta: var(--verde-deep);
+  --hero-oro: var(--brand-oro);
+  --hero-beige: var(--brand-beige);
+  --hero-crema: var(--brand-crema);
+  --hero-oro-claro: var(--oro-claro);
+  --hero-oro-papel: color-mix(in srgb, var(--brand-oro) 28%, var(--brand-crema));
+  --hero-lino: color-mix(in srgb, var(--brand-crema) 50%, var(--brand-beige));
+
+  --hero-fs-0: 0.75rem;
+  --hero-fs-1: 1rem;
+  --hero-fs-2: 1.333rem;
+  --hero-fs-3: 1.777rem;
+  --hero-fs-4: 2.369rem;
+  --hero-tr-versal: 0.2em;
+  --hero-curva: cubic-bezier(0.2, 0.7, 0.2, 1);
+
   position: relative;
-  height: 100vh;
-  // Ventanas muy bajas (portátiles de 13" con la barra de marcadores abierta):
-  // por debajo de esto el título y el pie se pisan, así que se deja crecer.
-  min-height: 620px;
-  display: grid;
-  // Dos filas desde que salió la banda del rótulo. Con tres, la primera se
-  // quedaba en altura cero pero el `gap` seguía contando y el bloque del
-  // nombre bajaba un renglón entero.
-  grid-template-rows: 1fr auto;
-  // El aire entre las bandas. Estaba en 2rem de tope y las dos llamadas
-  // quedaban a un dedo del filete del pie: se leían como parte de la ficha de
-  // la casa en vez de como el remate del bloque del nombre.
-  gap: clamp(1.6rem, 4vh, 3.2rem);
-  align-content: stretch;
-  overflow: hidden;
-  // El aire de arriba tiene que dejar pasar la marca fija, que termina hacia
-  // los 72px. Sin el rótulo debajo ya no hay dos piezas que separar, así que
-  // basta con librar la marca y dar respiro: el tope baja de 11rem a 8.5rem.
-  padding: clamp(6.5rem, 13vh, 8.5rem) var(--pad) clamp(1.6rem, 4vh, 2.8rem);
-  isolation: isolate;
-
-  // El velo de la portada tiraba a verde porque --scrim se mezcla sobre
-  // --verde-deep, y la máscara del shader remataba con otro viraje verde
-  // encima. Aquí el velo se re-tiñe a café: es el color con el que la casa
-  // cierra sus fondos oscuros y el que deja respirar el beige del texto.
-  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
-}
-
-// En móvil la barra de direcciones entra y sale: con 100vh el pie del hero
-// queda debajo del pliegue hasta que el usuario hace scroll.
-@supports (height: 100svh) {
-  @media (pointer: coarse) {
-    .hero { height: 100svh; }
-  }
-}
-
-// ── Fondo: foto, lienzo WebGL y velo ─────────────────────────
-//
-// La foto es la base y el respaldo: si Three.js no arranca (sin WebGL, con
-// movimiento reducido o en un móvil modesto) la portada sigue siendo la misma
-// imagen, sólo que quieta. El lienzo se pinta encima y sólo se revela cuando
-// el shader ya tiene la textura cargada — así no hay parpadeo a negro.
-.hero__bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-
-  img {
-    width: 100%;
-    height: 118%;
-    object-fit: cover;
-    transform: translateY(0);
-    will-change: transform;
-  }
-}
-
-.hero__canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 1.2s var(--ease);
-  pointer-events: none;
-
-  canvas { display: block; width: 100%; height: 100%; }
-}
-.hero.is-webgl .hero__canvas { opacity: 1; }
-// Con el lienzo activo la foto sólo sirve de fondo bajo el shader: dejarla
-// visible duplicaba la imagen y ensuciaba el desplazamiento.
-.hero.is-webgl .hero__bg img { opacity: 0; }
-
-// El velo. Es lo que hace legible el título: la foto original es un contraluz
-// con una copa dorada justo donde cae la primera línea, y sin esta capa las
-// letras se perdían dentro del vino de la copa.
-.hero__velo {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--scrim) 78%, transparent) 0%,
-      color-mix(in srgb, var(--scrim) 46%, transparent) 26%,
-      color-mix(in srgb, var(--scrim) 62%, transparent) 62%,
-      color-mix(in srgb, var(--scrim) 96%, transparent) 100%
-    ),
-    linear-gradient(
-      100deg,
-      color-mix(in srgb, var(--scrim) 82%, transparent) 0%,
-      color-mix(in srgb, var(--scrim) 40%, transparent) 52%,
-      transparent 80%
-    );
-}
-
-// Grano de película. Es lo que le quita el aspecto de "foto de stock con texto
-// encima" y lo acerca a un cartel impreso.
-.hero__grano {
-  position: absolute;
-  inset: -50%;
-  z-index: 3;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: repeating-conic-gradient(
-    var(--brand-crema) 0% 25%,
-    transparent 0% 50%
-  );
-  background-size: 3px 3px;
-  mix-blend-mode: overlay;
-  animation: heroGrano 0.9s steps(3) infinite;
-}
-@keyframes heroGrano {
-  0%   { transform: translate(0, 0); }
-  33%  { transform: translate(-1.5%, 1%); }
-  66%  { transform: translate(1%, -1.5%); }
-  100% { transform: translate(0, 0); }
-}
-.no-anim .hero__grano { animation: none; }
-
-// ── Bandas ────────────────────────────────────────────────────
-.hero__banda {
-  position: relative;
-  z-index: 5;
-  width: 100%;
-  max-width: var(--maxw);
-  margin: 0 auto;
-}
-
-// .hero__insignia y .hero__eyebrow salieron con la banda del rótulo. El
-// `.eyebrow` global de _reset.scss sigue en pie: lo consumen el resto de las
-// secciones de la landing y el panel.
-
-// ── Título ────────────────────────────────────────────────────
-//
-// El espaciado va por `gap` y no por márgenes encadenados en cada hijo: la
-// banda vive en una fila `1fr` y con márgenes sueltos no había forma de saber
-// cuánto medía el bloque, así que en ventanas bajas se desbordaba por abajo y
-// el subtítulo se comía la ficha del pie.
-.hero__centro {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: clamp(0.5rem, 1.6vh, 1.1rem);
-  min-height: 0;
-
-  // El `gap` manda, pero sólo si nadie más pone espacio: el <h1> y el <p> traen
-  // los márgenes de fábrica del navegador, que en em crecen con el cuerpo del
-  // título. En una ventana de 800px eso sumaba más de 100px y empujaba el
-  // bloque fuera de su fila, así que las llamadas terminaban pisando el filete
-  // del pie por debajo — justo el desbordamiento que el comentario de arriba
-  // dice haber resuelto pasando el espaciado a `gap`.
-  > * { margin: 0; }
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--hero-verde);
+  font-family: var(--sans);
+  font-size: var(--hero-fs-1);
 }
 
-.hero__title {
-  font-family: var(--logo);
-  // KudosKaps tiene UNA sola cara, de peso 400. Sin esta línea el título
-  // heredaba el `font-weight: 600` del selector `h1` —que gana por
-  // incomparecencia, porque la clase no declaraba peso— y el navegador
-  // fabricaba una negrita falsa dilatando los trazos: sobre una display de
-  // alto contraste eso empasta los remates y el wordmark deja de reconocerse.
-  // El PDF del menú documenta el mismo tropiezo en views/admin/menu/items-pdf.php.
-  font-weight: 400;
-  // Crema, no acento: sobre una fotografía el máximo contraste lo da el claro
-  // puro, y el beige de la capa 3 es lo que sostiene la cursiva de abajo.
-  color: var(--txt-strong);
-  // El tope por ancho no basta: en una ventana panorámica y baja (1900×850, un
-  // portátil normal) 9.5vw daban un título de casi 500px de alto que no cabía
-  // en su fila. El `min()` lo acota TAMBIÉN por alto de ventana.
-  font-size: clamp(2.6rem, min(9vw, 14vh), 7.5rem);
-  line-height: 0.92;
-  letter-spacing: 0.012em;
-  text-shadow:
-    0 2px 4px color-mix(in srgb, black 45%, transparent),
-    0 18px 60px color-mix(in srgb, black 60%, transparent);
-
-  .word {
-    display: block;
-    overflow: hidden;
-    white-space: nowrap;
-    padding-block: 0.04em;
-    margin-block: -0.06em;
-  }
-  .char { display: inline-block; will-change: transform; }
+@supports (height: 100svh) {
+  .hero { min-height: 100svh; }
 }
 
-// La firma italiana bajo el nombre. Va en beige y en cursiva: es la voz de la
-// cocina, y separarla tipográficamente del título evita tener que explicarla.
-.hero__firma {
+// ── Barra superior ───────────────────────────────────────────
+//
+// A la izquierda vive la marca fija de la landing, que se esconde mientras el
+// isologo está a la vista; a la derecha, el botón de menú, fijo y por encima.
+// Por eso la barra deja libre su ancho a la derecha.
+//
+// El ancho lo da --borde-medida (_nav.scss), no un max-width propio: es la
+// misma columna que siguen la marca fija, el botón de menú y las secciones,
+// así que el hero comparte eje con todo lo de abajo.
+//
+// Y el alto lo da el botón de menú: la fila mide lo que él y arranca donde él,
+// así que rótulo, enlaces y «Reservar» quedan centrados con el disco. Con un
+// padding propio la pastilla de «Reservar» y el disco iban alineados por
+// arriba y descuadrados 10 px por el centro, uno junto al otro.
+.hero__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  width: 100%;
+  min-height: calc(var(--nav-toggle-top) + var(--nav-toggle-size));
+  padding:
+    var(--nav-toggle-top)
+    calc(var(--borde-medida) + var(--nav-toggle-size) + clamp(16px, 2vw, 28px))
+    0
+    var(--borde-medida);
+}
+
+.hero__rotulo {
   display: flex;
   align-items: center;
-  gap: clamp(0.8rem, 2vw, 1.4rem);
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: clamp(1.05rem, 2.1vw, 1.75rem);
-  color: var(--accent-text);
-  text-shadow: 0 2px 14px color-mix(in srgb, black 55%, transparent);
+  min-height: 44px;
+  margin: 0;
+  color: var(--hero-verde);
+  font-size: var(--hero-fs-0);
+  font-weight: 600;
+  letter-spacing: var(--hero-tr-versal);
+  text-transform: uppercase;
+}
 
-  &::before {
+.hero__nav-lista {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Hover: un filete de oro que crece desde el centro bajo la palabra y la tinta
+// que se oscurece; el subrayado del navegador salía pegado al texto y de golpe.
+// «Reservar mesa» se rellena de verde desde abajo, como los .btn-line de la
+// landing. Teclado: lo mismo con :focus-visible.
+.hero__nav-enlace {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--hero-verde);
+  font-size: 0.94rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: color 0.3s var(--hero-curva);
+
+  &::after {
     content: "";
-    flex: 0 0 clamp(1.6rem, 5vw, 4.5rem);
-    height: 1px;
-    background: var(--accent);
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 9px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--hero-oro);
+    transform: scaleX(0);
+    transition: transform 0.4s var(--hero-curva);
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--hero-tinta);
+
+    &::after { transform: scaleX(1); }
+  }
+
+  &--reservar {
+    isolation: isolate;
+    overflow: hidden;
+    margin-left: 6px;
+    padding: 0 20px;
+    border: 1px solid var(--hero-verde);
+    border-radius: 999px;
+    color: var(--hero-tinta);
+    font-weight: 700;
+
+    // El relleno sube desde abajo; el filete de los demás enlaces no aplica.
+    &::after {
+      inset: 0;
+      z-index: -1;
+      height: auto;
+      border-radius: 0;
+      background: var(--hero-verde);
+      transform: translateY(101%);
+    }
+
+    &:hover,
+    &:focus-visible {
+      color: var(--hero-crema);
+
+      &::after { transform: translateY(0); }
+    }
   }
 }
 
-// .hero__sub salió del marcado: la portada decía tres veces lo mismo —el
-// wordmark, la firma italiana y una lista de argumentos que la página entera
-// desarrolla después—. Queda nombre, firma y las dos llamadas.
+@media (prefers-reduced-motion: reduce) {
+  .hero__nav-enlace,
+  .hero__nav-enlace::after {
+    transition: none;
+  }
+}
+
+// ── Rejilla ──────────────────────────────────────────────────
+.hero__rejilla {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(40px, 5vw, 72px);
+  width: 100%;
+  padding: clamp(24px, 3vw, 36px) var(--borde-medida) clamp(28px, 3.4vw, 44px);
+}
+
+// La columna entera va centrada bajo el isologo, que es simétrico: con la
+// marca al centro y la frase, la bajada y los botones a la izquierda, la
+// composición se descolgaba hacia un lado.
+.hero__texto {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+// El isologo del manual: CASA centrado sobre PESTALOZZI y el filete de oro
+// partido por el medallón. Es un <h1> de verdad —texto, no imagen— para que
+// lo lean buscadores y lectores de pantalla.
+//
+// `.hero .hero__isologo` y no la clase sola: `h1..h4` en _reset.scss declara
+// la serif, y con la clase sola el titular saldría en The Seasons y no en la
+// cara del logotipo (CLAUDE.md, «KudosKaps tiene UNA sola cara»).
+//
+// El cuerpo sale del ancho de la columna: PESTALOZZI mide 7.86 em con su
+// tracking (medido sobre el .otf), así que 12.6cqi lo deja a ras de la
+// columna. El tope de 7.5rem es para monitores muy anchos, donde un isologo
+// mayor ya se lee como un rótulo de fachada y no como una portada.
+.hero .hero__isologo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  color: var(--hero-verde);
+  font-family: var(--logo);
+  font-size: clamp(2.6rem, 12.6cqi, 7.5rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1.02;
+}
+
+// El tracking de marca deja un hueco a la derecha de cada línea: se devuelve
+// para que CASA quede centrada de verdad sobre PESTALOZZI.
+.hero__isologo-casa,
+.hero__isologo-nombre {
+  display: block;
+  margin-right: -0.03em;
+}
+
+.hero__isologo-casa {
+  text-align: center;
+}
+
+// Las ramas viven en el hueco que CASA deja a cada lado sobre PESTALOZZI:
+// CASA mide 3.48 em y PESTALOZZI 7.86 em (medidos sobre el .otf), así que
+// hay 2.19 em por lado. Van a media altura de la línea de CASA, apuntando
+// hacia fuera.
+.hero .hero__isologo { position: relative; }
+
+.hero__rama {
+  position: absolute;
+  top: 0.2em;
+  width: 1.45em;
+  height: auto;
+  overflow: visible;
+  pointer-events: none;
+
+  &--izq { left: 0.55em; }
+  &--der { right: 0.55em; transform: scaleX(-1); }
+}
+
+.hero__rama-mecer {
+  transform-box: view-box;
+  transform-origin: 136px 30px;
+  animation: hero-ramita 7s ease-in-out 2.4s infinite alternate;
+}
+
+.hero__rama--der .hero__rama-mecer { animation-delay: 3.4s; }
+
+// Cada línea del isologo sube desde detrás de un corte, como una letra de
+// imprenta que se asienta: CASA primero, PESTALOZZI después.
+.hero__isologo-casa,
+.hero__isologo-nombre {
+  animation: hero-revela 1.2s var(--hero-curva) both;
+}
+
+.hero__isologo-casa { animation-delay: 0.15s; }
+.hero__isologo-nombre { animation-delay: 0.32s; }
+
+.hero__isologo-filete {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.16em;
+  margin-top: 0.2em;
+}
+
+.hero__filete {
+  flex: 1;
+  height: 1px;
+  background: var(--hero-oro);
+  transform-origin: right center;
+  animation: hero-filete 1.1s var(--hero-curva) 0.5s both;
+
+  &--der {
+    transform-origin: left center;
+  }
+}
+
+.hero__medallon {
+  display: block;
+  width: 0.5em;
+  height: 0.625em;
+  animation: hero-sello 1.3s var(--hero-curva) 0.75s both;
+}
+
+// La corona punteada del medallón da la vuelta despacio: es lo único del
+// isologo que se mueve después de la entrada, y se mueve como un sello que
+// gira, no como un adorno que llama la atención.
+.hero__medallon-puntos {
+  animation: hero-puntos 16s linear 2s infinite;
+}
+
+.hero__chispa {
+  position: absolute;
+  width: 0.16em;
+  height: 0.16em;
+  fill: var(--hero-oro);
+  animation: hero-chispa 3.4s ease-in-out 2s infinite both;
+
+  &--a { left: calc(50% - 0.5em); top: -0.18em; }
+  &--b { left: calc(50% + 0.36em); top: 0.5em; width: 0.11em; height: 0.11em; animation-delay: 3.6s; }
+}
+
+// La frase baja un escalón respecto de la marca: es subtítulo, no titular.
+.hero__lema {
+  max-width: 15em;
+  margin: 28px auto 0;
+  color: var(--hero-tinta);
+  font-family: var(--serif);
+  font-size: clamp(var(--hero-fs-3), 1rem + 1.5vw, var(--hero-fs-4));
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.14;
+  text-wrap: balance;
+
+  // El acento de la frase: color y el subrayado de oro de la casa (ver «El
+  // acento» en _reset.scss), sin cursiva.
+  em {
+    color: var(--hero-verde);
+  }
+}
+
+.hero__bajada {
+  max-width: 30em;
+  margin: 18px auto 0;
+  color: var(--hero-verde);
+  font-size: var(--hero-fs-1);
+  font-weight: 400;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
 
 .hero__cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem 1.5rem;
   align-items: center;
-  // Separación propia de la firma, por encima del `gap` de la banda: las dos
-  // llamadas son el final del bloque central y necesitan despegarse tanto de
-  // la cursiva de arriba como del filete del pie.
-  margin-top: clamp(1.4rem, 4vh, 3rem);
+  justify-content: center;
+  gap: 12px 28px;
+  margin-top: 32px;
 }
 
-// ── Pie ───────────────────────────────────────────────────────
-.hero__pie {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: clamp(1rem, 3vw, 3rem);
-  padding-top: clamp(1rem, 2.4vh, 1.6rem);
-  border-top: 1px solid var(--line);
-}
-
-.hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(1.2rem, 4vw, 3.4rem);
-  align-items: flex-start;
-
-  .mi {
-    font-size: 0.62rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--txt-mute);
-    text-shadow: 0 1px 10px color-mix(in srgb, black 60%, transparent);
-
-    // El rótulo italiano va arriba y pequeño; debajo, en serif, lo que
-    // realmente es. Leerlo en ese orden es el chiste de la sección.
-    i {
-      display: block;
-      font-family: var(--crimson);
-      font-style: italic;
-      font-size: 1.15rem;
-      letter-spacing: 0.01em;
-      text-transform: none;
-      color: var(--accent-text);
-      line-height: 1.2;
-    }
-
-    b {
-      display: block;
-      font-family: var(--serif);
-      font-size: clamp(0.98rem, 1.3vw, 1.2rem);
-      letter-spacing: 0;
-      text-transform: none;
-      color: var(--txt-strong);
-      font-weight: 400;
-      margin: 0.1rem 0 0.15rem;
-    }
-
-    span { display: block; }
-  }
-}
-
-.scroll-cue {
-  display: flex;
-  flex-direction: column;
+// El botón principal es el ÚNICO relleno de oro del hero. Es un
+// `.btn-line--solid` —el vocabulario de CTA de la landing, CLAUDE.md— y de él
+// toma el relleno, la tinta (--on-accent, 6.77:1 sobre oro) y el hover; aquí
+// sólo se le da la medida de la propuesta, un punto mayor que el de las
+// secciones porque es el principal de la portada. Tenía relleno, tinta y
+// hover propios: el primer botón de la página no se parecía a los demás.
+// La flecha avanza al apuntar.
+.hero__boton,
+.hero__enlace {
+  display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
-  color: var(--txt-mute);
-  flex: 0 0 auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 
-  .line {
-    width: 1px;
-    height: clamp(28px, 5vh, 46px);
-    background: linear-gradient(var(--accent), transparent);
-    position: relative;
-    overflow: hidden;
+.hero__boton {
+  gap: 14px;
+  min-height: 54px;
+  padding: 0 28px;
+  transition: background-color 0.2s ease;
+}
 
-    &::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 40%;
-      background: var(--txt-strong);
-      animation: scrolldrop 2.2s var(--ease) infinite;
-    }
-  }
+.hero__enlace {
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--hero-oro);
+  color: var(--hero-tinta);
 
-  span {
-    font-size: 0.55rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
+  &:hover {
+    border-bottom-color: var(--hero-tinta);
+    color: var(--hero-tinta);
   }
 }
 
-@keyframes scrolldrop {
-  0%        { transform: translateY(-100%); }
-  60%, 100% { transform: translateY(260%); }
+.hero__flecha {
+  transition: transform 0.22s var(--hero-curva);
 }
 
-// ── Responsive ────────────────────────────────────────────────
+.hero__boton:hover .hero__flecha,
+.hero__enlace:hover .hero__flecha {
+  transform: translateX(4px);
+}
+
+// ── La mesa ──────────────────────────────────────────────────
+.hero__panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 48px;
+  background: var(--hero-beige);
+}
+
+.hero__ilustracion {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+// Profundidad con el puntero: --hero-px y --hero-py van de -1 a 1 y los pone
+// initMesaPuntero() (hero.js). La capa viva se desplaza más que la mesa, que
+// apenas se mueve en sentido contrario: dos planos. Sin JS valen 0.
+.hero__ilustracion,
+.hero-vivo {
+  transition: transform 0.9s var(--hero-curva);
+}
+
+.hero__ilustracion {
+  transform: translate(calc(var(--hero-px, 0) * -4px), calc(var(--hero-py, 0) * -4px));
+}
+
+.hero-vivo {
+  transform-box: view-box;
+  transform: translate(calc(var(--hero-px, 0) * 14px), calc(var(--hero-py, 0) * 14px));
+}
+
+// ── Movimiento ───────────────────────────────────────────────
 //
-// Ventanas panorámicas y bajas: el aire se aprieta antes de que el bloque
-// central desborde su fila.
-@media (max-height: 860px) and (min-width: 901px) {
-  // Sigue habiendo que librar la marca fija, así que el recorte es moderado.
-  .hero { padding-top: clamp(6rem, 12vh, 7.5rem); }
-  .hero__centro { gap: 0.45rem; }
-  // Se aprieta, pero no hasta devolver los botones al filete: en portátil este
-  // override era justo el que anulaba el aire nuevo del bloque de arriba.
-  .hero__cta { margin-top: 1.2rem; }
-  .hero__meta .mi i { font-size: 1rem; }
+// La entrada la hace CSS y no GSAP: el hero se ve completo aunque las libs de
+// movimiento no lleguen. Después, la mesa sigue viva: vapor, tenedor, vino y
+// olivo, todo con transform/opacity.
+.hero-sube {
+  animation: hero-sube 1.1s var(--hero-curva) both;
 }
 
-// Por debajo de la tablet los rótulos italianos del pie se retiran antes de
-// que empiecen a pisarse entre ellos.
-@media (max-width: 900px) {
-  .hero { gap: clamp(0.8rem, 2vh, 1.4rem); }
-  .hero__pie { flex-direction: column; align-items: flex-start; gap: 1.2rem; }
-  .scroll-cue { flex-direction: row; align-items: center; gap: 0.8rem;
-    .line { width: 34px; height: 1px; background: linear-gradient(90deg, var(--accent), transparent);
-      &::after { width: 40%; height: 100%; animation: none; } }
+.hero__isologo.hero-sube { animation-delay: 0.1s; }
+.hero__lema.hero-sube { animation-delay: 0.45s; }
+.hero__bajada.hero-sube { animation-delay: 0.55s; }
+.hero__cta.hero-sube { animation-delay: 0.65s; }
+
+// El trazo se dibuja y el relleno llega después (pathLength="1" en el SVG).
+.hero-dibujo {
+  stroke-dasharray: 1 1;
+  animation: hero-dibujo 1.9s cubic-bezier(0.65, 0, 0.25, 1) both;
+}
+
+.hero-fundido {
+  animation: hero-fundido 1.4s ease both;
+}
+
+.hero-vapor {
+  opacity: 0;
+  transform-box: view-box;
+  animation: hero-vapor 5.2s ease-in-out infinite;
+}
+
+.hero-giro {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-giro 9s ease-in-out 2s infinite alternate both;
+}
+
+.hero-vino {
+  transform-box: view-box;
+  animation: hero-vino 6s linear 1.8s infinite;
+}
+
+.hero-ramita {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-ramita 8s ease-in-out infinite alternate;
+}
+
+.hero-hoja {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-hoja 5.6s ease-in-out infinite alternate;
+}
+
+// La capa viva (ver _hero.php). Las órbitas giran sobre la esquina de oro, que
+// es el origen de su <g>; las hojas cruzan el panel en diagonal, cada una con
+// su duración y su retraso negativo para que nunca vayan sincronizadas.
+.hero-orbita {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-orbita 60s linear infinite;
+
+  &--contra { animation-direction: reverse; animation-duration: 75s; }
+}
+
+.hero-deriva {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: hero-deriva 20s linear infinite;
+}
+
+.hero-harina {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-harina 4.4s ease-out 2.4s infinite;
+}
+
+.hero-destello {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-destello 3.6s ease-in-out 2s infinite both;
+}
+
+@keyframes hero-sube {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-filete {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes hero-dibujo {
+  0% { stroke-dashoffset: 1; fill-opacity: 0; }
+  55% { fill-opacity: 0; }
+  100% { stroke-dashoffset: 0; fill-opacity: 1; }
+}
+
+@keyframes hero-fundido {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hero-vapor {
+  0% { opacity: 0; transform: translateY(10px); }
+  35% { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+
+@keyframes hero-giro {
+  from { transform: rotate(-12deg); }
+  to { transform: rotate(20deg); }
+}
+
+@keyframes hero-vino {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(2.6px, 1.6px); }
+  50% { transform: translate(0, 3.2px); }
+  75% { transform: translate(-2.6px, 1.4px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes hero-ramita {
+  from { transform: rotate(-1.4deg); }
+  to { transform: rotate(1.8deg); }
+}
+
+@keyframes hero-hoja {
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(4deg); }
+}
+
+@keyframes hero-revela {
+  from { clip-path: inset(100% -0.1em -0.25em -0.1em); transform: translateY(0.35em); }
+  to { clip-path: inset(-0.25em -0.1em -0.25em -0.1em); transform: translateY(0); }
+}
+
+@keyframes hero-sello {
+  from { opacity: 0; transform: rotate(-120deg) scale(0.4); }
+  to { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+
+@keyframes hero-puntos {
+  to { stroke-dashoffset: -44; }
+}
+
+@keyframes hero-chispa {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  45% { opacity: 1; transform: scale(1) rotate(45deg); }
+  70% { opacity: 0; transform: scale(0.6) rotate(90deg); }
+}
+
+@keyframes hero-orbita {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hero-deriva {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  8% { opacity: 0.85; }
+  88% { opacity: 0.85; }
+  100% { opacity: 0; transform: translate(-300px, 560px) rotate(240deg); }
+}
+
+@keyframes hero-harina {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  25% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(-64px) scale(1.1); }
+}
+
+@keyframes hero-destello {
+  0%, 100% { opacity: 0.25; transform: scale(0.55) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.1) rotate(45deg); }
+}
+
+@keyframes hero-vapor-quieto {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.55; }
+}
+
+// Movimiento reducido o «Animaciones de entrada» apagado en tweaks: la mesa
+// queda dibujada y quieta; el vapor sólo respira en opacidad.
+@media (prefers-reduced-motion: reduce) {
+  .hero-dibujo,
+  .hero-giro,
+  .hero-vino,
+  .hero-ramita,
+  .hero-hoja,
+  .hero__filete,
+  .hero-sube,
+  .hero__isologo-casa,
+  .hero__isologo-nombre,
+  .hero__medallon,
+  .hero__medallon-puntos,
+  .hero__rama-mecer,
+  .hero-orbita,
+  .hero-destello {
+    animation: none;
+  }
+
+  // Lo que sólo existe en movimiento se retira: una hoja parada a medio
+  // vuelo o una mota de harina suspendida se leen como manchas.
+  .hero-deriva,
+  .hero-harina,
+  .hero__chispa {
+    display: none;
+  }
+
+  .hero__ilustracion,
+  .hero-vivo {
+    transition: none;
+    transform: none;
+  }
+
+  .hero-dibujo { stroke-dasharray: none; }
+  .hero-fundido { animation-duration: 0.6s; }
+
+  .hero-vapor {
+    animation: hero-vapor-quieto 6s ease-in-out infinite;
+    transform: none;
+  }
+
+  .hero__boton,
+  .hero__flecha {
+    transition: none;
   }
 }
 
-@media (max-width: 620px) {
-  .hero__meta .mi:nth-child(n + 3) { display: none; }
-  .hero__firma::before { display: none; }
+.no-anim {
+  .hero-dibujo,
+  .hero-fundido,
+  .hero-giro,
+  .hero-vino,
+  .hero-ramita,
+  .hero-hoja,
+  .hero__filete,
+  .hero-sube,
+  .hero__isologo-casa,
+  .hero__isologo-nombre,
+  .hero__medallon,
+  .hero__medallon-puntos,
+  .hero__rama-mecer,
+  .hero-orbita,
+  .hero-destello {
+    animation: none;
+  }
+
+  .hero-deriva,
+  .hero-harina,
+  .hero__chispa {
+    display: none;
+  }
+
+  .hero-dibujo { stroke-dasharray: none; }
+  .hero-vapor { animation: none; opacity: 0.4; }
 }
 
-// ── Variantes del panel de tweaks ─────────────────────────────
-//
-// El panel escribe el atributo en <body>, no en el <header>. Las reglas
-// antiguas colgaban de `.hero[data-hero]` y el marcado trae "cinema" fijo, así
-// que ninguna de las otras dos llegaba a aplicarse nunca. Se cuelgan del body,
-// que es quien realmente cambia.
-body[data-hero="minimal"] .hero {
-  .hero__centro { align-items: center; text-align: center; }
-  .hero__firma::before { display: none; }
-  .hero__pie { justify-content: center; }
-  .hero__meta { justify-content: center; }
+// Fuera de pantalla los bucles se detienen (initMesaViva, hero.js). Animar
+// `transform` sobre un <g> de SVG no va al compositor: cada fotograma recalcula
+// estilo y geometría del dibujo, y el hero lo seguía pagando con la visita ya
+// en el formulario de reservación, donde lo que cuenta es la respuesta al
+// toque. Sin JS la clase no llega y los bucles corren como siempre.
+.hero--quieta {
+  .hero-vapor,
+  .hero-giro,
+  .hero-vino,
+  .hero-ramita,
+  .hero-hoja,
+  .hero__medallon-puntos,
+  .hero__chispa,
+  .hero__rama-mecer,
+  .hero-orbita,
+  .hero-deriva,
+  .hero-harina,
+  .hero-destello {
+    animation-play-state: paused;
+  }
 }
 
-body[data-hero="editorial"] .hero {
-  .hero__title { font-size: clamp(2.4rem, 8vw, 7.5rem); }
-  .hero__velo { background: linear-gradient(180deg, color-mix(in srgb, var(--scrim) 90%, transparent), color-mix(in srgb, var(--scrim) 96%, transparent)); }
+// ── Responsive ───────────────────────────────────────────────
+
+// Portátiles de 1366×768: con la barra del navegador quedan unos 650 px útiles
+// y la columna de texto mide más. Los CTA caían en el pliegue, justo lo que el
+// hero tiene que dejar a la vista. Se aprieta el ritmo vertical y el isologo
+// se mide también por el alto; en pantallas altas no cambia nada.
+@media (min-width: 981px) and (max-height: 760px) {
+  .hero__rejilla {
+    padding-top: 8px;
+    padding-bottom: 24px;
+  }
+
+  .hero .hero__isologo {
+    font-size: clamp(2.6rem, min(12.6cqi, 12svh), 7.5rem);
+  }
+
+  .hero__lema { margin-top: 18px; }
+  .hero__bajada { margin-top: 12px; }
+  .hero__cta { margin-top: 22px; }
 }
 
-// El anuncio ya no vive en el hero: es un diálogo al entrar al sitio, y su
-// posicionamiento está en _announcement.scss junto al resto del componente.
+@media (max-width: 980px) {
+  .hero__rejilla {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding-top: 24px;
+  }
+
+  // Al apilar, la mesa va al MISMO eje que el texto, y desde que la columna
+  // de texto está centrada bajo el isologo ese eje es el centro. Estuvo
+  // alineada a la izquierda —cuando el texto también lo estaba— y con el texto
+  // centrado quedaban dos ejes en una sola columna: el panel descolgado 100 px
+  // a la izquierda del isologo en una tablet de 768.
+  .hero__mesa {
+    width: 100%;
+    max-width: 560px;
+    justify-self: center;
+  }
+
+  // En tablet la navegación completa ya está en el botón de menú.
+  .hero__nav {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  // Sin rótulo y sin accesos rápidos la barra no tiene nada que mostrar, y
+  // como mide lo que el botón de menú, empujaría el hero 70 px hacia abajo.
+  // Se retira, y es el rótulo de entrada el que se centra con el disco.
+  .hero__barra {
+    display: none;
+  }
+
+  // Sin barra, el isologo arranca bajo el disco del menú: a ras de él, en un
+  // teléfono, PESTALOZZI pasaba por debajo del botón.
+  .hero__rejilla {
+    padding-top: calc(var(--nav-toggle-top) + var(--nav-toggle-size) + 12px);
+  }
+
+  .hero__cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero__boton,
+  .hero__enlace {
+    justify-content: center;
+  }
+
+  // El enlace secundario conserva su ancho: estirado, su subrayado se leía
+  // como un divisor.
+  .hero__enlace {
+    align-self: center;
+  }
+
+  .hero__panel {
+    border-radius: 32px;
+  }
+}

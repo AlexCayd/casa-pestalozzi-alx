@@ -53,7 +53,7 @@ class AreaController {
 
         try {
             $rows = TicketItem::consultarSQL(
-                "SELECT ti.id, ti.nombre, ti.cantidad, ti.comensal, ti.nota, ti.estado, ti.created_at,
+                "SELECT ti.id, ti.nombre, ti.variante, ti.cantidad, ti.comensal, ti.nota, ti.estado, ti.created_at,
                         t.id AS ticket_id, t.nombre AS ticket_nombre,
                         m.nombre AS mesa_nombre, m.numero AS mesa_numero
                  FROM ticket_items ti
@@ -69,6 +69,7 @@ class AreaController {
             $items = array_map(fn($r) => [
                 'id'            => (int)$r->id,
                 'nombre'        => $r->nombre,
+                'variante'      => $r->variante ?? null,
                 'cantidad'      => (int)$r->cantidad,
                 'comensal'      => $r->comensal !== null ? (int)$r->comensal : null,
                 'nota'          => $r->nota ?? null,

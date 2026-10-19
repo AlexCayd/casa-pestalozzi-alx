@@ -22,6 +22,16 @@ use Services\Reservations\ReservacionConfig;
 
 class SitioConfig
 {
+    /**
+     * URL pública del sitio, sin barra final. La usan el canonical, Open Graph,
+     * los datos estructurados, robots.txt y el sitemap: un solo sitio donde
+     * cambiar el dominio.
+     */
+    public static function url(): string
+    {
+        return rtrim(self::env('SITIO_URL', 'https://casapestalozzi.com'), '/');
+    }
+
     public static function direccion(): string
     {
         return self::env('SITIO_DIRECCION', 'José Enrique Pestalozzi 1250, Del Valle, CDMX');
@@ -87,11 +97,13 @@ class SitioConfig
         'Cumpleaños'                 => 'Hola! Quiero cotizar un cumpleaños',
         'Bautizo o primera comunión' => 'Hola! Quiero cotizar un bautizo o primera comunión',
         'Baby shower'                => 'Hola! Quiero cotizar un baby shower',
+        'Reunión familiar'           => 'Hola! Quiero cotizar una reunión familiar',
         // Bodas y ceremonias
         'Boda'                       => 'Hola! Quiero cotizar una boda',
         'Aniversario'                => 'Hola! Quiero cotizar un aniversario',
         'Pedida de mano'             => 'Hola! Quiero cotizar una pedida de mano',
         'Despedida de soltera'       => 'Hola! Quiero cotizar una despedida de soltera',
+        'Cena de ensayo'             => 'Hola! Quiero cotizar una cena de ensayo',
         // Institucional y cultural
         'Inauguración'               => 'Hola! Quiero cotizar una inauguración',
         'Presentación de producto'   => 'Hola! Quiero cotizar una presentación de producto',

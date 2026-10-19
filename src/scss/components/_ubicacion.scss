@@ -72,7 +72,7 @@
 // Ahora es una lámina de papel crema apoyada sobre la mesa verde, con la
 // materia del resto de la página. La inversión completa la hace el
 // data-tono="crema" del marcado: dentro de la lámina --txt vuelve a ser verde
-// profundo, --accent vuelve a ser café y --line vuelve a cumplir el 3:1 contra
+// profundo, --accent vuelve a ser el oro y --line vuelve a cumplir el 3:1 contra
 // crema, así que cada pieza toma su tinta sin una regla de color propia.
 .loc__map {
   position: relative;
@@ -83,7 +83,7 @@
   isolation: isolate;
   background: var(--bg);
   box-shadow:
-    inset 0 0 60px color-mix(in srgb, var(--brand-cafe) 10%, transparent),
+    inset 0 0 60px color-mix(in srgb, var(--verde-deep) 10%, transparent),
     0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent);
 
   // La misma fibra de mantel de las secciones: es lo que separa "papel" de
@@ -97,12 +97,12 @@
     background-image:
       repeating-linear-gradient(
         45deg,
-        color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px,
         transparent 1px 4px
       ),
       repeating-linear-gradient(
         -45deg,
-        color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px,
         transparent 1px 6px
       );
   }
@@ -114,8 +114,8 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px);
   background-size: 34px 34px;
 }
 
@@ -147,11 +147,11 @@
   line-height: 1.15;
 }
 
-// Manzanas: beige con filete café, como las islas rellenas de un plano impreso.
+// Manzanas: beige con filete verde, como las islas rellenas de un plano impreso.
 .map2__block {
   position: absolute;
   background: color-mix(in srgb, var(--brand-beige) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-cafe) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verde-deep) 34%, transparent);
   border-radius: 2px;
 
   &.b1 { top: 7%;   right: 6%;  width: 24%; height: 30%; }
@@ -166,7 +166,7 @@
   // --surface dentro de la lámina es --crema-lift: el papel un punto más claro.
   // Es el rol que toca, y así la calle sigue al tono en vez de a un blanco fijo.
   background: var(--surface);
-  border-block: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,7 +177,7 @@
     font-size: 0.66rem;
     font-variant-caps: small-caps;
     letter-spacing: 0.2em;
-    color: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+    color: color-mix(in srgb, var(--verde-deep) 78%, transparent);
     white-space: nowrap;
   }
 
@@ -185,18 +185,18 @@
   &.road--uni {
     top: -6%; left: 80%; width: 34px; height: 112%;
     border-block: none;
-    border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
+    border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
   }
   &.road--uni span { writing-mode: vertical-rl; }
   &.road--frias {
     top: -6%; left: 1%; width: 24px; height: 112%;
     border-block: none;
-    border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 20%, transparent);
+    border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 20%, transparent);
   }
   &.road--frias span { writing-mode: vertical-rl; font-size: 0.58rem; }
 }
 
-// Metro. Va en café con tinta crema: es el único rótulo del plano que
+// Metro. Va en el acento —oro, con la tinta verde encima—: es el único rótulo del plano que
 // representa un servicio y no una calle, así que se lee como una chapa.
 .map2__metro {
   position: absolute;

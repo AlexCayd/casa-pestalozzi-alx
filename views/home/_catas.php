@@ -17,13 +17,18 @@
  * dice bastante más que no ver nada, y deja la conversación abierta. Lo único
  * que sale de la portada es lo que ya pasó.
  *
- * Va en tono café: queda encajada entre Panadería (crema) y Catering (verde)
- * para que las tres se distingan de golpe.
+ * Va en la banda de oro: queda encajada entre la insegna verde que la anuncia
+ * y Catering (verde), y es la banda clara que separa los dos verdes.
  */
 
 use Services\Reservations\ReservacionConfig;
 
 $catasProximas = is_array($catasProximas ?? null) ? $catasProximas : [];
+$cartaMaridaje = is_array($cartaMaridaje ?? null) ? $cartaMaridaje : [];
+$precioMaridaje = static function ($p): string {
+  $n = (float)$p;
+  return '$' . number_format($n, floor($n) == $n ? 0 : 2);
+};
 
 $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 
@@ -32,7 +37,7 @@ $mesesLargos = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
                 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 ?>
-<section class="section catas" id="catas" data-tono="cafe" data-screen-label="Catas">
+<section class="section catas" id="catas" data-tono="oro" data-screen-label="Catas">
   <div class="wrap">
 
     <?php /*
@@ -68,7 +73,7 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
       es donde vive la galería de coctelería y vinos. Su texto subió a la
       cabecera; aquí queda la galería.
     */ ?>
-    <div class="maridaje">
+    <div class="maridaje" id="maridaje">
 
       <?php /*
         Mosaico escalonado, no una tira: la agenda de abajo ya es una lista de
@@ -95,6 +100,67 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
         <div class="mg" data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="La barra">
           <img src="/build/images/drink-4.webp" alt="La barra de Casa Pestalozzi durante el servicio" loading="lazy" />
         </div>
+      </div>
+
+      <?php /*
+        La carta de maridaje, aquí y no en la sección de Menú: es lo que se busca
+        al ver las copas. Compacta a propósito —una pestaña por sección de la
+        barra y, dentro, TODAS sus bebidas con su precio, sin recortar— para que
+        la sección siga siendo de catas.
+
+        Sin JS se ven todas las secciones una debajo de otra, cada una con su
+        título. maridaje.js convierte los títulos en pestañas (con flechas,
+        Inicio y Fin) y deja visible sólo una lista.
+
+        El botón del PDF lleva la copa y va en el relleno de esta banda, que es
+        verde: la carta de comida, en Menú, lleva cubiertos y va en oro. Antes
+        eran dos píldoras gemelas, una debajo de la otra.
+      */ ?>
+      <div class="maridaje__carta" data-maridaje data-reveal>
+        <div class="maridaje__cabeza">
+          <?php /* El sello de Catas vive aquí, en la carta de maridaje, y no sobre
+                   el corte de arriba como en las demás secciones: arriba está la
+                   insegna (sus letras de cartel quedaban tapadas) y a la derecha
+                   de la cabecera, la entradilla. */ ?>
+          <?php echo ornamento('copa', 'maridaje__copa', true); ?>
+          <div>
+            <h3 class="maridaje__titulo">La carta de <em class="accent-italic">maridaje</em></h3>
+            <p class="maridaje__bajada">Vinos, coctelería y barra, todos los días.</p>
+          </div>
+          <a class="btn-line btn-line--solid btn-line--maridaje" href="/maridaje/pdf" target="_blank" rel="noopener" data-magnetic>
+            <svg class="btn-line__icono" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h10c0 5-1.5 9-5 9s-5-4-5-9ZM12 12v8M8 21h8M7.4 7h9.2"/></svg>
+            <span>Carta de maridaje en PDF</span>
+          </a>
+        </div>
+
+        <?php if (!empty($cartaMaridaje)) : ?>
+          <div class="maridaje__pestanas" role="tablist" aria-label="Secciones de la carta de maridaje" hidden>
+            <?php foreach ($cartaMaridaje as $mi => $mcat) : ?>
+              <button type="button" class="maridaje__pestana" role="tab"
+                      id="mrd-tab-<?php echo (int)$mi; ?>" aria-controls="mrd-panel-<?php echo (int)$mi; ?>"
+                      aria-selected="<?php echo $mi === 0 ? 'true' : 'false'; ?>"
+                      tabindex="<?php echo $mi === 0 ? '0' : '-1'; ?>">
+                <?php echo $h($mcat['label']); ?>
+              </button>
+            <?php endforeach; ?>
+          </div>
+
+          <?php foreach ($cartaMaridaje as $mi => $mcat) : ?>
+            <?php $mPlatos = is_array($mcat['dishes'] ?? null) ? $mcat['dishes'] : []; ?>
+            <div class="maridaje__panel" id="mrd-panel-<?php echo (int)$mi; ?>" role="tabpanel" aria-labelledby="mrd-tab-<?php echo (int)$mi; ?>">
+              <h4 class="maridaje__panel-titulo"><?php echo $h($mcat['label']); ?></h4>
+              <ul class="maridaje__lista">
+                <?php foreach ($mPlatos as $mplato) : ?>
+                  <li>
+                    <span class="maridaje__nombre"><?php echo $h($mplato['n']); ?></span>
+                    <span class="maridaje__puntos" aria-hidden="true"></span>
+                    <span class="maridaje__precio"><?php echo $h($precioMaridaje($mplato['p'])); ?></span>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -202,4 +268,4 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
 // Los parciales de la home se incluyen una sola vez, pero se limpian las
 // variables locales por la misma razón que views/components: si mañana esta
 // sección se reutiliza, no debe heredar el estado del include anterior.
-unset($catasProximas, $h, $mesesCata, $mesesLargos, $diasCata, $cata, $inicio, $cuando, $mensajeCata, $hayCupo);
+unset($catasProximas, $cartaMaridaje, $precioMaridaje, $mi, $mcat, $mPlatos, $mplato, $h, $mesesCata, $mesesLargos, $diasCata, $cata, $inicio, $cuando, $mensajeCata, $hayCupo);

@@ -24,17 +24,12 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
   <link rel="apple-touch-icon" href="/build/images/logo.svg">
-  <?php /* Las caras que se ven de entrada. Ojo, la cursiva de acento DENTRO de
-           un heading va en Bodoni y no en Crimson (h1..h4 .accent-italic,
-           layout/_reset.scss), así que aquí se precarga esa y no la que
-           precarga feedback.
-           Y con ella la REDONDA: el titular es lo único grande de la página y
-           su mayor parte va en Bodoni 600 normal. Sin precargarla, esa cara
-           llega por `font-display: swap` y el titular se pinta primero en
-           Georgia y salta después — justo el gesto donde la casa habla. */ ?>
+  <?php /* Las caras que se ven de entrada: el wordmark y el titular, que va en
+           The Seasons. Sin
+           precargarlas el titular se pinta primero en el respaldo y salta
+           después — justo el gesto donde la casa habla. */ ?>
   <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
-  <link rel="preload" href="/build/fonts/bodoni-moda-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/build/fonts/bodoni-moda-latin-standard-italic.woff2" as="font" type="font/woff2" crossorigin>
+  <?php echo precargaFuente('/build/fonts/marca/the-seasons-regular.woff2'); ?>
   <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado('/build/css/app.css'), ENT_QUOTES, 'UTF-8'); ?>">
   <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>

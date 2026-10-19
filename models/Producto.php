@@ -20,13 +20,17 @@ namespace Model;
 class Producto extends ActiveRecord {
     protected static $tabla = 'productos';
     protected static $columnasDB = [
-        'id', 'nombre', 'descripcion', 'categoria_id', 'precio',
+        'id', 'nombre', 'descripcion', 'img', 'categoria_id', 'precio',
         'area_id', 'activo'
     ];
 
     public $id;
     public $nombre;
     public $descripcion;
+    // Ruta relativa de ImagenUploader o null. Null quiere decir «la carta usa
+    // la foto de la categoría»; la escribe Services\Menu\FotoPlatillo, nunca
+    // sincronizar($_POST) (ver AdminMenuController::sincronizarPlatillo).
+    public $img;
     public $categoria_id;
     public $precio;
     public $area_id;
@@ -38,6 +42,65 @@ class Producto extends ActiveRecord {
     public $categoria_nombre;
     public $categoria_img;
     public $area_slug;
+
+    /**
+     * Alta y edición con sentencia preparada en lugar de las de ActiveRecord.
+     *
+     * ActiveRecord entrecomilla cada valor, así que un platillo sin foto se
+     * guardaría con `img = ''` y no con NULL (y en PHP 8.1+ escape_string(null)
+     * además avisa). Aquí NULL no es un vacío cualquiera: significa «usa la
+     * foto de la categoría», y quien consulte `img IS NULL` tiene que poder
+     * fiarse. Las columnas siguen saliendo de $columnasDB; sólo cambia cómo
+     * viajan los valores. Mismo contrato de retorno que el padre.
+     */
+    public function crear()
+    {
+        $atributos = $this->atributos();
+        $columnas = implode(', ', array_keys($atributos));
+        $marcas = implode(', ', array_fill(0, count($atributos), '?'));
+
+        $ok = self::ejecutarPreparada(
+            "INSERT INTO " . static::$tabla . " ({$columnas}) VALUES ({$marcas})",
+            array_values($atributos)
+        );
+
+        return ['resultado' => $ok, 'id' => $ok ? (int) self::$db->insert_id : 0];
+    }
+
+    public function actualizar()
+    {
+        $atributos = $this->atributos();
+        $asignaciones = implode(', ', array_map(
+            static fn(string $columna): string => "{$columna} = ?",
+            array_keys($atributos)
+        ));
+        $valores = array_values($atributos);
+        $valores[] = (int) $this->id;
+
+        return self::ejecutarPreparada(
+            "UPDATE " . static::$tabla . " SET {$asignaciones} WHERE id = ? LIMIT 1",
+            $valores
+        );
+    }
+
+    /**
+     * execute($valores) liga todo como cadena —MySQL convierte precio, ids y
+     * activo igual que con el SQL concatenado de antes— y un null de PHP llega
+     * como NULL, que es justo lo que hacía falta.
+     */
+    private static function ejecutarPreparada(string $sql, array $valores): bool
+    {
+        $stmt = self::$db->prepare($sql);
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $ok = $stmt->execute($valores);
+        $stmt->close();
+
+        return $ok;
+    }
 
     public static function todos(): array
     {

@@ -312,7 +312,11 @@
                 html += '<div class="admin-area-card-kds__item' +
                     (entregado ? ' admin-area-card-kds__item--entregado' : '') + '">';
                 html += '<span class="admin-area-card-kds__qty">x' + escHtml(item.cantidad) + '</span>';
-                html += '<span class="admin-area-card-kds__name">' + escHtml(item.nombre) + '</span>';
+                // Igual que en el tablero de piso: la variante es parte del
+                // nombre, no una nota.
+                html += '<span class="admin-area-card-kds__name">' + escHtml(item.nombre) +
+                    (item.variante ? '<span class="admin-area-card-kds__variante">' + escHtml(item.variante) + '</span>' : '') +
+                    '</span>';
                 html += comensalHtml;
 
                 if (entregado) {

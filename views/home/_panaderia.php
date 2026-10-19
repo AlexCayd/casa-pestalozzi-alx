@@ -15,11 +15,12 @@
   ocho fotos alrededor de un texto no cabe en 390px.
 
   data-tono-franja: la sección es crema, así que la marca fija pasa por encima
-  en café — y lo que hay debajo de ella no es el fondo crema sino este mosaico
+  en verde — y lo que hay debajo de ella no es el fondo crema sino este mosaico
   de fotografías oscuras. El atributo le dice al negativo de scroll-art.js que
   mientras cruza esta franja se comporte como si fuera una portada.
 */ ?>
 <section class="section pan" id="panaderia" data-tono="crema" data-screen-label="Panadería">
+  <?php echo ornamento('trigo', 'orn--seccion', true); ?>
   <div class="wrap pan__lienzo">
 
     <div class="pan__mosaic" data-reveal data-tono-franja="foto">
@@ -44,7 +45,7 @@
         sitio en vez de tener que flotar sobre él.
 
         Va en NEGATIVO respecto de la sección: la banda es crema y la tarjeta
-        café. El color no se escribe en el SCSS — `data-tono="cafe"` redeclara
+        de oro. El color no se escribe en el SCSS — `data-tono="oro"` redeclara
         la capa 3 entera dentro de la tarjeta (fondo, tintas, acento, las tres
         líneas) y el rótulo, el título, el párrafo y el botón se readaptan
         solos. Es un tono anidado de los que contempla CLAUDE.md: no es el
@@ -54,7 +55,7 @@
       <?php /* Sin data-reveal propio: la tarjeta entra dentro del bloque del
                mosaico, y dos reveals anidados encadenan dos opacidades sobre
                el mismo texto. */ ?>
-      <div class="pan__text" data-tono="cafe">
+      <div class="pan__text" data-tono="oro">
         <span class="eyebrow">05 — Il panificio</span>
         <h2 class="pan__title" data-lineas>Del horno <em class="accent-italic">a tu mesa</em></h2>
         <p class="body">Aquí el tiempo no corre: fermenta, reposa y se hornea con paciencia. Focaccia, ciabatta, pan de masa madre y la repostería del día. Una experiencia que se siente y se comparte.</p>

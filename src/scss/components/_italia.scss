@@ -60,11 +60,10 @@
   white-space: nowrap;
 }
 
-// La traducción va pequeña y en cursiva detrás de cada rótulo: el visitante
-// que no lee italiano no se queda fuera del chiste.
+// La traducción va pequeña y en un tono más tenue detrás de cada rótulo: el
+// visitante que no lee italiano no se queda fuera del chiste.
 .insegna__es {
-  font-family: var(--crimson);
-  font-style: italic;
+  font-family: var(--serif);
   font-size: clamp(0.85rem, 1.4vw, 1.15rem);
   color: var(--txt-mute);
   white-space: nowrap;
@@ -141,14 +140,21 @@
 // `isolation: isolate` no es opcional. El pseudoelemento va a z-index -1 para
 // quedar bajo el contenido, y sin contexto de apilamiento propio se hundiría
 // también por detrás del fondo de la sección, que es donde deja de existir.
+//
+// El hero entra en la lista: es un <header> y no un .section, y al pasar de
+// fotografía a papel crema se quedó como la única banda lisa de la página
+// —justo lo que esta regla existe para evitar—. Bajo la mesa no se ve: el
+// panel de lino tiene fondo propio.
 .section,
-.foot {
+.foot,
+.hero {
   position: relative;
   isolation: isolate;
 }
 
 .section::before,
-.foot::before {
+.foot::before,
+.hero::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -157,21 +163,19 @@
   background-image:
     repeating-linear-gradient(
       45deg,
-      color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+      color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px,
       transparent 1px 4px
     ),
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--brand-cafe) 2%, transparent) 0 1px,
+      color-mix(in srgb, var(--verde-deep) 2%, transparent) 0 1px,
       transparent 1px 6px
     );
 }
 
-// Sobre los fondos oscuros el hilo tiene que ser claro: la misma fibra en café
-// sobre café no existe.
-.section[data-tono="cafe"]::before,
+// Sobre el verde el hilo tiene que ser claro: la misma fibra en verde sobre
+// verde no existe. La banda de oro es clara y se queda con la fibra verde.
 .section[data-tono="verde"]::before,
-.foot[data-tono="cafe"]::before,
 .foot[data-tono="verde"]::before {
   background-image:
     repeating-linear-gradient(

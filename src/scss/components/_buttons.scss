@@ -33,6 +33,15 @@
   .arrow { transition: transform 0.4s var(--ease); }
   &:hover .arrow { transform: translate(4px, -4px); }
 
+  // Icono delante de la etiqueta: cubiertos en la carta, copa en el maridaje.
+  // Es lo que separa las dos cartas impresas de un vistazo, sin leer.
+  .btn-line__icono {
+    position: relative;
+    z-index: 2;
+    flex: none;
+  }
+
+
   &--secondary {
     border-color: var(--line);
     color: var(--txt-mute);
@@ -57,11 +66,10 @@
   // puesto de entrada, así que el barrido de ::before invertiría el botón: se
   // desactiva y el hover se resuelve oscureciendo el propio acento.
   //
-  // El peso y el tracking NO son los del botón base. La tinta ya cumplía de
-  // sobra (verde profundo sobre beige, en el hero), pero a 0.74rem con 0.24em
-  // de tracking la Montserrat de 300 que hereda del body deja un trazo tan fino
-  // que el texto se lee gris sobre el relleno claro: el problema era de masa,
-  // no de contraste de color. Se compensa con cuerpo y con las letras algo más
+  // El peso y el tracking NO son los del botón base. A 0.74rem con 0.24em de
+  // tracking un trazo fino se lee gris sobre el relleno claro: el problema era
+  // de masa, no de contraste de color. Va en la negrita de TT Wellingtons, que
+  // es la que el manual da para enfatizar. Se compensa con cuerpo y con las letras algo más
   // juntas, que es lo que devuelve la palabra a bloque legible.
   &--solid {
     background: var(--accent);

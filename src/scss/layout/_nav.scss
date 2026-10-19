@@ -9,7 +9,7 @@
 //
 // Ahora se resuelve por NEGATIVO y sin sombra ninguna: scroll-art.js publica en
 // body[data-tono-actual] el tono de la banda que pasa bajo la marca, y aquí se
-// elige tinta clara sobre fondo oscuro y café sobre fondo claro. Mismo criterio
+// elige tinta clara sobre fondo oscuro y verde sobre fondo claro. Mismo criterio
 // para el botón de menú y para el cursor.
 // El borde de la columna de contenido, no el del viewport.
 //
@@ -20,6 +20,12 @@
 // debajo de 1320px, se resuelve al --pad de siempre.
 :root {
   --borde-medida: max(var(--pad), calc((100% - var(--maxw)) / 2));
+
+  // La geometría del botón de menú, como token y no repetida a mano: la
+  // consumen el propio botón, el origen del círculo del overlay y la barra del
+  // hero, que se centra con él. El tamaño baja a 52 px en _responsive.scss.
+  --nav-toggle-top: clamp(1.1rem, 3vw, 2rem);
+  --nav-toggle-size: 60px;
 }
 
 // ═══ COMPONENTE REUTILIZABLE → shared/_header-casa-pestalozzi (+ su parcial PHP)
@@ -31,8 +37,11 @@
   top: clamp(1.4rem, 3vw, 2.4rem);
   left: var(--borde-medida);
   z-index: 200;
-  color: var(--brand-crema);
-  transition: color 0.5s var(--ease);
+  // Tinta del primer pintado, antes de que scroll-art.js publique el tono (y la
+  // de siempre sin JS): la landing abre sobre el hero crema. Era la crema, de
+  // cuando la portada era una foto oscura.
+  color: var(--verde-ink);
+  transition: color 0.5s var(--ease), opacity 0.4s var(--ease), visibility 0.4s;
 
   // El componente tiñe el enlace de --accent-text en hover. Aquí el color lo
   // decide el negativo por [data-tono-actual], así que se anula.
@@ -49,55 +58,52 @@
 // subirían a (0,3,1) y le ganarían al `.nav-toggle:hover .bar` de más abajo,
 // que se queda en (0,3,0). Sin él empatan y decide el orden del archivo, que es
 // lo que se quiere: primero el tono, encima el hover y encima el menú abierto.
+// La banda de oro es CLARA (luminancia 0.43): va con la tinta verde, no con la
+// crema. `cafe` y `vino` son alias de oro en _reset.scss y viajan con ella.
 [data-tono-actual="crema"],
-[data-tono-actual="beige"] {
-  .brand-mark { color: var(--brand-cafe); }
-  .nav-toggle .bar { background: var(--brand-cafe); }
-  // Sobre papel el hilo va en café; en crema no existiría.
-  .nav-toggle { --nav-hilo: color-mix(in srgb, var(--brand-cafe) 14%, transparent); }
+[data-tono-actual="beige"],
+[data-tono-actual="oro"],
+[data-tono-actual="cafe"],
+[data-tono-actual="vino"] {
+  .brand-mark { color: var(--verde-ink); }
+  .nav-toggle .bar { background: var(--verde-ink); }
+  // Sobre papel la chapa es papel: el velo oscuro al 34% —pensado para la foto
+  // del hero anterior— se leía sobre crema como un disco gris apagado, el
+  // objeto más sucio de la portada y con aire de botón deshabilitado. El
+  // hilo va en verde; en crema no existiría.
+  .nav-toggle {
+    --nav-hilo: color-mix(in srgb, var(--verde-ink) 14%, transparent);
+    background: color-mix(in srgb, var(--brand-crema) 72%, transparent);
+  }
 }
 
 [data-tono-actual="foto"],
-[data-tono-actual="cafe"],
-[data-tono-actual="vino"],
 [data-tono-actual="verde"] {
   .brand-mark { color: var(--brand-crema); }
   .nav-toggle .bar { background: var(--brand-crema); }
-  .nav-toggle { --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent); }
+  .nav-toggle {
+    --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent);
+    background: color-mix(in srgb, var(--scrim) 34%, transparent);
+  }
 }
 
-// La copia que vive DENTRO del overlay, encabezando la ficha de contacto. La
-// marca de arriba es fija en z-index 200 y el panel va en 250 con fondo opaco:
-// con el menú abierto quedaba tapada, y `body.nav-open .brand-mark` era código
-// muerto. Subirla por encima del panel no vale —la pondría también sobre el
-// aviso de privacidad, que está en 210—, así que se duplica dentro.
-//
-// En FLUJO y no anclada arriba a la izquierda: ahí sólo repetía la posición que
-// ya ocupa con el menú cerrado. Sobre "Encuéntranos" firma el pie de la columna
-// y el panel deja de tener una esquina hablando por su cuenta.
-.brand-mark--overlay {
-  position: static;
-  // `flex` y no `block`: el componente apila nombre y subtítulo con flex, y en
-  // `block` el subtítulo volvería al renglón del nombre. Block-level porque
-  // `inline-flex` heredaría el line-height 2 del contacto como interlineado.
-  display: flex;
-  margin-bottom: 1.4rem;
-}
-
-// Con el overlay abierto la marca queda sobre el verde a pantalla completa,
-// gane lo que gane el tono de debajo. Vale para las dos: (0,2,1) le gana a los
-// negativos por tono, que se quedan en (0,2,0).
-body.nav-open .brand-mark {
-  color: var(--brand-crema);
+// Mientras el hero pasa bajo ella, la marca fija se retira: con el isologo a
+// la vista el nombre de la casa saldría dos veces, y después se montaría
+// sobre la frase y el botón de oro. La clase viene del marcado (index.php) y
+// la corrige initMarcaHero() (hero.js). `visibility` además de la opacidad
+// para que el enlace tampoco quede en el recorrido de teclado.
+.marca-en-hero .brand-mark {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .nav-toggle {
   position: fixed;
-  top: clamp(1.1rem, 3vw, 2rem);
+  top: var(--nav-toggle-top);
   right: var(--borde-medida);
   z-index: 300;
-  width: 60px;
-  height: 60px;
+  width: var(--nav-toggle-size);
+  height: var(--nav-toggle-size);
   border-radius: 50%;
   overflow: hidden; // recorta la textura del ::before al círculo
   isolation: isolate;
@@ -106,7 +112,10 @@ body.nav-open .brand-mark {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: color-mix(in srgb, var(--scrim) 34%, transparent);
+  // Los valores de base son los de una banda CLARA, que es sobre la que abre
+  // la landing: así el primer pintado —y la página sin JS— ya sale bien. Los
+  // negativos por tono de arriba los redeclaran.
+  background: color-mix(in srgb, var(--brand-crema) 72%, transparent);
   border: 1px solid var(--line);
   backdrop-filter: blur(8px);
   transition: background 0.4s, transform 0.4s var(--ease);
@@ -116,7 +125,7 @@ body.nav-open .brand-mark {
   // --nav-hilo para poder teñirlo por tono unas líneas más abajo — en crema
   // fijo era invisible sobre las bandas claras y el botón volvía a ser un
   // disco liso.
-  --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent);
+  --nav-hilo: color-mix(in srgb, var(--verde-ink) 14%, transparent);
 
   &::before {
     content: "";
@@ -149,7 +158,7 @@ body.nav-open .brand-mark {
     width: 22px;
     height: 2px;
     border-radius: 2px;
-    background: var(--brand-crema);
+    background: var(--verde-ink);
     transition: transform 0.4s var(--ease), opacity 0.3s, background 0.3s;
   }
 }
@@ -165,128 +174,245 @@ body.nav-open {
   .nav-toggle .bar { background: var(--on-accent); }
 }
 
-// Overlay fullscreen
+// ── Menú a pantalla completa ─────────────────────────────────
+//
+// Papel crema a la izquierda con los destinos, y a la derecha una ficha de
+// lino con la casa dibujada y lo esencial para venir: reservar, el horario de
+// hoy, la dirección, el teléfono y las dos cartas. Sustituye al panel verde con
+// la fotografía del comedor: abrir el menú apagaba la portada, que es clara, y
+// la foto no decía nada que ayudara a elegir.
 .nav-overlay {
   position: fixed;
   inset: 0;
   z-index: 250;
   background: var(--bg);
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  // Origen del círculo alineado al centro del .nav-toggle
-  // (right: var(--pad); top: clamp(1.1rem,3vw,2rem); 60px de lado → +30px).
-  --nav-origin-x: calc(100% - var(--pad) - 30px);
-  --nav-origin-y: calc(clamp(1.1rem, 3vw, 2rem) + 30px);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  // Origen del círculo en el centro del .nav-toggle, leído de sus tokens. Iba
+  // a `var(--pad)` y 30 px fijos: por encima de 1320 px el botón se ancla a
+  // --borde-medida y en móvil mide 52, así que el círculo nacía fuera de él.
+  --nav-origin-x: calc(100% - var(--borde-medida) - var(--nav-toggle-size) / 2);
+  --nav-origin-y: calc(var(--nav-toggle-top) + var(--nav-toggle-size) / 2);
   clip-path: circle(0% at var(--nav-origin-x) var(--nav-origin-y));
-  transition: clip-path 0.8s var(--ease);
+  // Cerrado, el overlay no se ve pero sus enlaces seguían en el recorrido de
+  // teclado: paradas invisibles entre el botón de menú y el primer enlace del
+  // hero, y el lector de pantalla los leía como navegación activa.
+  // `visibility` lo saca de los dos; al cerrar espera a que el círculo
+  // termine de recogerse, y al abrir cambia en el acto.
+  visibility: hidden;
+  transition: clip-path 0.8s var(--ease), visibility 0s linear 0.8s;
   pointer-events: none;
 }
 body.nav-open .nav-overlay {
   clip-path: circle(150% at var(--nav-origin-x) var(--nav-origin-y));
   pointer-events: all;
+  visibility: visible;
+  transition: clip-path 0.8s var(--ease), visibility 0s linear 0s;
 }
 
-.nav-overlay__links {
+// Dos bloques centrados, uno por mitad: la lista en el centro de la suya y la
+// ficha centrada bajo la casa dibujada. Con la lista pegada al borde izquierdo
+// y la ficha abajo a la izquierda, media pantalla quedaba vacía a cada lado y
+// el panel pesaba hacia las esquinas.
+.nav-overlay__principal {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(0.05rem, 0.8vh, 0.45rem);
-  padding: var(--pad);
+  align-items: center;
+  gap: clamp(1rem, 3vh, 2rem);
+  padding: calc(var(--nav-toggle-top) + var(--nav-toggle-size)) var(--pad) var(--pad) var(--borde-medida);
+}
+
+.nav-overlay__links {
+  display: grid;
+  gap: clamp(0.15rem, 1vh, 0.6rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  // La pista es absoluta y no cuenta para el centrado. Entre 881 y 1100 px la
+  // media columna es estrecha y la del destino más largo («Reservar mesa ·
+  // Elige día, hora y personas») cruzaba la costura con la ficha —25 px a
+  // 920—. Ahí la lista se centra contando el hueco de la pista.
+  @media (min-width: 881px) and (max-width: 1100px) {
+    padding-right: 10rem;
+  }
+
+  li {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  }
 
   a {
-    font-family: var(--serif);
-    font-size: clamp(1.5rem, 5.5vh, 3.5rem);
-    line-height: 1.08;
-    color: var(--txt);
-    position: relative;
-    width: max-content;
-    display: flex;
-    align-items: baseline;
-    gap: 1.2rem;
-    transition: color 0.4s, padding-left 0.5s var(--ease);
-    opacity: 0;
-    transform: translateY(40px);
-
-    .num {
-      font-family: var(--sans);
-      font-size: 0.8rem;
-      letter-spacing: 0.2em;
-      color: var(--accent-text);
-      font-weight: 400;
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-
-    &:hover { color: var(--accent-soft); padding-left: 1.5rem; }
-    &:hover .num { opacity: 1; }
+    display: inline-flex;
+    padding: 0.2rem 0;
+    color: var(--txt-strong);
+    text-decoration: none;
   }
 }
 
-body.nav-open .nav-overlay__links a {
-  opacity: 1;
-  transform: translateY(0);
-  transition: color 0.4s, padding-left 0.5s var(--ease), opacity 0.6s var(--ease), transform 0.6s var(--ease);
-}
-
-.nav-overlay__aside {
+// La pista va FUERA del flujo, a la derecha del nombre: si ocupara sitio, el
+// bloque de la lista se mediría con ella y se descentraría hacia la izquierda.
+.nav-overlay__texto {
   position: relative;
-  border-left: 1px solid var(--line);
-  overflow: hidden;
+  display: flex;
+  align-items: baseline;
+}
 
-  // El velo de la foto va en CAFÉ, no en verde. --scrim sólo se declara en
-  // :root, como mezcla de --verde-deep, así que el overlay lo heredaba ya
-  // resuelto: verde sobre verde, y la fotografía desaparecía dentro de la
-  // columna de enlaces. Se re-tiñe localmente con el mismo recurso que usa el
-  // hero, que tenía exactamente el mismo problema con su portada.
-  // La columna de enlaces conserva su [data-tono="verde"]: aquí sólo cambia
-  // el velo.
-  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
+.nav-overlay__nombre {
+  position: relative;
+  font-family: var(--serif);
+  font-size: clamp(1.6rem, 4.6vh, 2.9rem);
+  line-height: 1.08;
 
-  // Y el fondo de la columna, por el mismo motivo: la foto va al 55% de
-  // opacidad, así que lo que hay DEBAJO la tiñe tanto como el degradado de
-  // encima. Sin esta línea el verde del overlay se colaba por la imagen y la
-  // máscara seguía leyéndose verde aunque el ::after ya fuera café.
-  background: var(--cafe-deep);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.55;
-    filter: grayscale(0.2);
-    transform: scale(1.05);
-  }
-
+  // El filete de oro crece desde la izquierda al apuntar: una señal de «aquí»
+  // que no mueve el texto, a diferencia del sangrado de antes.
   &::after {
     content: "";
     position: absolute;
-    inset: 0;
-    background: linear-gradient(120deg, color-mix(in srgb, var(--scrim) 60%, transparent), transparent 60%);
+    left: 0;
+    right: 0;
+    bottom: -0.06em;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.45s var(--ease);
   }
 }
 
-.nav-overlay__contact {
+// La pista sólo aparece al apuntar o tabular: entra desde la izquierda junto
+// al filete del nombre. Siempre a la vista, nueve renglones de nombre y pista
+// convertían el menú en una tabla. Sigue en el DOM (y en el nombre accesible
+// del enlace), sólo se oculta a la vista.
+.nav-overlay__pista {
   position: absolute;
-  bottom: var(--pad);
-  left: var(--pad);
-  z-index: 2;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  left: 100%;
+  bottom: 0.45em;
+  margin-left: 1.1rem;
   color: var(--txt-mute);
-  line-height: 2;
+  font-size: clamp(0.8rem, 1.6vh, 0.92rem);
+  font-weight: 400;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.3s var(--ease), transform 0.4s var(--ease);
+}
 
-  strong {
-    color: var(--accent-text);
-    font-weight: 400;
-    display: block;
-    font-size: 0.66rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    margin-bottom: 0.4rem;
+.nav-overlay__links a:hover,
+.nav-overlay__links a:focus-visible {
+  .nav-overlay__nombre::after { transform: scaleX(1); }
+  .nav-overlay__pista { opacity: 1; transform: none; }
+}
+
+// Sin puntero (teléfono, tablet) no hay «apuntar»: la pista no aparece nunca y
+// no se le reserva sitio.
+@media (hover: none) {
+  .nav-overlay__pista { display: none; }
+}
+
+// Entran escalonados detrás del círculo; `--i` lo pone el marcado.
+body.nav-open .nav-overlay__links li {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+  transition-delay: calc(0.18s + var(--i, 0) * 0.045s);
+}
+
+// ── La ficha ─────────────────────────────────────────────────
+.nav-overlay__aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(1.4rem, 3.4vh, 2.4rem);
+  text-align: center;
+  padding: calc(var(--nav-toggle-top) + var(--nav-toggle-size)) var(--borde-medida) var(--pad) clamp(1.5rem, 4vw, 3.5rem);
+  background: var(--bg);
+  color: var(--txt);
+}
+
+// La casa dibujada. Comparte las clases de los adornos de sección (.t, .r, .v)
+// pero no su observador: se dibuja cuando se abre el menú.
+//
+// `.nav-overlay .orn--nav` y no la clase sola: `.orn` (_ornamentos.scss) llega
+// DESPUÉS en app.css con la misma especificidad y su `display: block` le ganaba
+// al `display: none` de móvil — el dibujo salía al pie del menú en el teléfono.
+//
+// El estado de reposo es el dibujo TERMINADO, y la entrada se hace con el
+// `both` de la animación, que aplica el primer fotograma durante el retardo.
+// Con el reposo en «sin dibujar», al cerrar el menú se quitaba la animación y
+// la casa se borraba de golpe mientras el círculo aún se recogía.
+.nav-overlay .orn--nav {
+  --orn-ancho: min(100%, 24rem);
+  align-self: center;
+  // Por alto y no sólo por ancho: en un portátil de 700 px útiles el dibujo
+  // empujaba la ficha —lo que de verdad se usa— por debajo del pliegue.
+  max-height: clamp(9rem, 36vh, 23rem);
+  width: auto;
+
+  .t { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+  .t--ruta { stroke-dasharray: 0.012 0.03; stroke-dashoffset: 0; }
+}
+
+body.nav-open .orn--nav {
+  .t { animation: orn-dibujo 1.9s var(--orn-curva) 0.3s both; }
+  .t--ruta { animation: orn-aparece 0.6s ease 1.4s both; }
+  .r { animation: orn-relleno 2.2s ease 0.3s both; }
+}
+
+.nav-overlay__ficha {
+  display: grid;
+  justify-items: center;
+  gap: 1.4rem;
+}
+
+// Tres líneas sin rótulo: el horario de hoy, la dirección y el teléfono.
+.nav-overlay__datos {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--txt);
+  font-size: 0.95rem;
+  line-height: 1.5;
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 4px;
+    transition: text-decoration-color 0.25s;
+
+    &:hover { text-decoration-color: var(--accent); }
   }
 }
 
+// En una columna la lista va primero y la ficha debajo, sin el dibujo: en un
+// teléfono lo útil es reservar y llamar, y el dibujo empujaba eso fuera.
 @media (max-width: 880px) {
   .nav-overlay { grid-template-columns: 1fr; }
-  .nav-overlay__aside { display: none; }
+  .nav-overlay__principal {
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: var(--pad);
+  }
+  .nav-overlay__aside {
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: var(--pad);
+    text-align: left;
+  }
+  .nav-overlay__ficha { justify-items: start; }
+  .nav-overlay .orn--nav { display: none; }
+}
+
+@media (max-width: 600px) {
+  .nav-overlay__nombre { font-size: clamp(1.6rem, 7.4vw, 2.2rem); }
 }

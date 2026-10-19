@@ -415,8 +415,6 @@
 .form__msg {
   font-size: 0.78rem;
   color: var(--accent-text);
-  font-family: var(--crimson);
-  font-style: italic;
   opacity: 0;
   transition: opacity 0.4s;
 
@@ -429,8 +427,6 @@
   margin-top: 0.35rem;
   font-size: 0.74rem;
   color: var(--accent-text);
-  font-family: var(--crimson);
-  font-style: italic;
   opacity: 0;
   transition: opacity 0.25s;
 
@@ -774,12 +770,23 @@
 
 .reserva__intro {
   grid-area: intro;
+  position: relative;
   max-width: 32rem;
 
   .body {
     max-width: 30rem;
     color: var(--reservation-text-secondary);
   }
+}
+
+// La vela del titular (ver _reserva.php). Arriba a la derecha de la columna del
+// intro, a la altura del rótulo: el titular ocupa dos líneas cortas y deja ese
+// rincón libre, y el formulario de al lado ya no la tiene encima.
+.reserva__vela {
+  --orn-ancho: clamp(2.4rem, 3.4vw, 3.2rem);
+  position: absolute;
+  top: -0.4rem;
+  right: 0;
 }
 
 .reserva__form-wrap {
@@ -1089,7 +1096,7 @@
   max-width: 35rem;
   margin-bottom: 0.8rem;
   color: var(--beige);
-  font-family: var(--crimson);
+  font-family: var(--serif);
   font-size: clamp(1.15rem, 2vw, 1.4rem);
   font-weight: 400;
   line-height: 1.35;
@@ -1697,8 +1704,8 @@
     white-space: nowrap;
   }
 
-  // La raya del rango, en la SANS. Bodoni es un didone: su guion es un pelo
-  // finísimo y a este cuerpo se perdía —"16:00 23:00" parecía dos horas
+  // La raya del rango, en la SANS. La serif de titular es de alto contraste: su
+  // guion es un pelo finísimo y a este cuerpo se perdía —"16:00 23:00" parecía dos horas
   // sueltas—. Va algo más pequeño y con aire a los lados, que es como se
   // compone un rango.
   &-sep {
@@ -1720,10 +1727,11 @@
   // no es un fallo, es información, y el naranja y el rojo que había antes eran
   // los dos únicos colores de la landing fuera del manual.
   //
-  // Pero tampoco puede ser el acento de la sección: en café, que es el acento
-  // de todo el lino, la fila excepcional se confundía con las otras seis. Va en
-  // VERDE de marca —el único color de la casa que sobre lino no compite con el
-  // café— y el cierre en café profundo, que lee como "apagado" frente a él.
+  // Pero tampoco puede ser el acento de la sección: el oro es el filete de
+  // «hoy» en esta misma tabla, y sobre lino apenas despega (1.5:1). Va en VERDE
+  // de marca, y el cierre en el verde más hondo. Entre esos dos verdes la
+  // diferencia es de profundidad, no de familia: lo que distingue un cierre de
+  // un horario especial es la chapa con la palabra, no el color.
   .row.is-exception {
     --reserva-exception-color: var(--brand-verde);
 
@@ -1760,7 +1768,7 @@
       background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
     }
 
-    &.is-exception--closed { --reserva-exception-color: var(--cafe-deep); }
+    &.is-exception--closed { --reserva-exception-color: var(--verde-ink); }
   }
 
   &-exception {

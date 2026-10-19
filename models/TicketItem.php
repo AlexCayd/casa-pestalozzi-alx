@@ -7,7 +7,7 @@ class TicketItem extends ActiveRecord {
 
     protected static $columnasDB = [
         'id', 'ticket_id', 'nombre', 'precio', 'categoria',
-        'area_id', 'comensal', 'cantidad', 'nota', 'estado'
+        'area_id', 'comensal', 'cantidad', 'nota', 'variante_ids', 'variante', 'estado'
     ];
 
     public $id;
@@ -19,6 +19,9 @@ class TicketItem extends ActiveRecord {
     public $comensal   = null;
     public $cantidad   = 1;
     public $nota       = null;
+    // Opciones elegidas en el POS (ver producto_variantes): ids y rótulo congelado.
+    public $variante_ids = null;
+    public $variante     = null;
     public $estado     = 'enviado';
     public $created_at = null;
 

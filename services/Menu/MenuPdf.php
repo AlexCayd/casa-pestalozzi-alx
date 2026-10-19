@@ -32,7 +32,7 @@ class MenuPdf
     private const PIEZAS = [
         CategoriasMenu::CARTA_COMIDA => [
             'rotulo'   => 'MENÚ',
-            'bajada'   => 'Cocina Mediterránea con corazón mexicano',
+            'bajada'   => 'Una mesa italiana con alma mexicana',
             'archivo'  => 'menu-casa-pestalozzi.pdf',
             'vacio'    => 'No hay platillos registrados en el menú.',
         ],

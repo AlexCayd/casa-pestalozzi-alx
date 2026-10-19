@@ -1,4 +1,9 @@
 // ── Menú (La Carta) ───────────────────────────────────────────
+//
+// Una carta de trattoria y no una tabla: cada platillo con su foto en
+// miniatura, el nombre en The Seasons, puntos guía hasta el precio —como en una
+// carta impresa— y la descripción en el cuerpo. A la derecha, la foto grande en
+// su marco de cartón, que sigue al platillo que se señala.
 .menu { background: var(--bg); }
 
 .menu__head {
@@ -12,41 +17,69 @@
 
 .menu__title { font-size: clamp(2.6rem, 6vw, 5.5rem); }
 
+.menu__filete {
+  --orn-ancho: clamp(9rem, 16vw, 13rem);
+  margin-top: 1.1rem;
+}
+
+.menu__intro { max-width: 40ch; }
+
+.menu__estado {
+  padding: 2rem 0;
+  color: var(--txt-mute);
+}
+
+// Pestañas. En una fila que se desplaza en horizontal cuando no caben: en un
+// teléfono, envueltas en tres renglones, empujaban la carta fuera de pantalla.
 .menu__tabs {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-bottom: clamp(2rem, 5vh, 3rem);
+  padding: 0.9rem 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  padding: 1rem 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
 }
 
 .menu__tab {
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--txt-mute);
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  transition: color 0.3s, background 0.3s;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--txt-mute);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   white-space: nowrap;
+  transition: color 0.3s, background 0.3s, border-color 0.3s;
 
-  &:hover { color: var(--beige); }
+  &:hover { color: var(--txt-strong); border-color: var(--line); }
   &.active { color: var(--on-accent); background: var(--accent); }
 
+  // Sin opacidad: al 70 % el contador bajaba a 3.7:1 sobre la pestaña
+  // inactiva y sobre la activa, por debajo del AA para un texto de 0.78rem. Lo
+  // separa de la etiqueta la serif sin versalitas, no un gris.
   .count {
     font-family: var(--serif);
-    font-size: 0.7rem;
-    opacity: 0.6;
-    margin-left: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0;
   }
 }
 
 .menu__layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
 }
@@ -57,24 +90,30 @@
   flex-direction: column;
 }
 
-// Plato individual
+// ── Un platillo ──────────────────────────────────────────────
+// Sin miniatura: la foto del platillo es la grande de la sección (menu.js).
+// La fila entera responde —al pasar cambia la foto, al pulsar la abre— y por
+// eso lleva su propio fondo de estado y no sólo el filete.
 .dish {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1.2rem;
-  align-items: baseline;
-  padding: 1.5rem 0;
+  position: relative;
+  padding: 1.05rem 0.4rem;
   border-bottom: 1px solid var(--line-soft);
   cursor: none;
-  position: relative;
-  transition: padding-left 0.4s var(--ease);
+  transition: background 0.3s;
 
+  &:hover,
+  &.active {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%);
+  }
+
+  // El filete de oro a la izquierda marca el platillo que la vista grande
+  // está enseñando.
   &::before {
     content: "";
     position: absolute;
     left: -1rem;
-    top: 0;
-    bottom: 0;
+    top: 0.8rem;
+    bottom: 0.8rem;
     width: 2px;
     background: var(--accent);
     transform: scaleY(0);
@@ -82,79 +121,102 @@
     transition: transform 0.4s var(--ease);
   }
 
-  &:hover, &.active { padding-left: 1.2rem; }
-  &:hover::before, &.active::before { transform: scaleY(1); }
+  &:hover::before,
+  &.active::before { transform: scaleY(1); }
 }
 
-.dish__idx {
+.dish__linea {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.dish__nombre {
+  // El nombre del platillo es lo que se lee primero de la carta: va al texto
+  // más fuerte del tono, que sobre el verde de la sección es claro.
+  min-width: 0;
+  color: var(--txt-strong);
   font-family: var(--serif);
-  font-size: 0.8rem;
-  color: var(--txt-faint);
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+  font-weight: 400;
+  line-height: 1.2;
   transition: color 0.3s;
 }
-.dish:hover .dish__idx,
-.dish.active .dish__idx { color: var(--accent-text); }
 
-.dish__main {
-  // El nombre del platillo es lo que se lee primero de la carta: va al texto
-  // más fuerte del tono, que sobre el verde de la sección es claro. Antes salía
-  // en café oscuro sobre verde y era la línea menos legible de la página.
-  h4 {
-    font-family: var(--serif);
-    font-size: clamp(1.15rem, 1.8vw, 1.5rem);
-    color: var(--txt-strong);
-    font-weight: 500;
-    transition: color 0.3s;
-  }
-  p {
-    font-size: 0.82rem;
-    color: var(--txt-mute);
-    margin-top: 0.35rem;
-    line-height: 1.6;
-    max-width: 44ch;
-  }
+// El nombre de un platillo con foto propia es un botón (menu.js): tiene que
+// leerse igual que el texto de los demás. `font: inherit` porque el botón trae
+// el cuerpo del navegador, no el del <h4>.
+.dish__foto {
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
 }
-.dish:hover .dish__main h4,
-.dish.active .dish__main h4 { color: var(--accent-text); }
 
+// Los puntos guía de una carta impresa: llevan el ojo del nombre al precio.
+.dish__puntos {
+  flex: 1;
+  min-width: 1.2rem;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-0.28em);
+}
 
-.dish__price {
+.dish__precio {
+  color: var(--accent-text);
   font-family: var(--serif);
   font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-
-  small { color: var(--txt-faint); font-family: var(--sans); font-size: 0.6rem; }
 }
 
-.dish__thumb {
-  display: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  flex: 0 0 auto;
-  position: relative;
-
-  img { width: 100%; height: 100%; object-fit: cover; }
-
-  &::after {
-    content: "⤢";
-    position: absolute;
-    right: 4px;
-    bottom: 2px;
-    font-size: 0.7rem;
-    color: var(--beige);
-    text-shadow: 0 1px 4px color-mix(in srgb, var(--sombra) 80%, transparent);
-    opacity: 0.85;
-  }
+.dish__desc {
+  max-width: 48ch;
+  margin-top: 0.3rem;
+  color: var(--txt-mute);
+  font-size: 0.86rem;
+  // Regular y no light: el manual guarda la light de TT Wellingtons para UN
+  // párrafo destacado, y a 0.86rem en tinta atenuada sobre verde la light se
+  // deshilacha.
+  font-weight: 400;
+  line-height: 1.55;
 }
+
+.dish:hover .dish__nombre,
+.dish.active .dish__nombre { color: var(--accent-text); }
 
 // Preview sticky (lateral)
 .menu__preview {
   position: sticky;
   top: 12vh;
+}
+
+// En una columna la foto grande sube ENCIMA de la lista (antes se ocultaba y
+// en un teléfono no había forma de ver ninguna foto). Apaisada, para no
+// empujar la carta fuera de la pantalla.
+@media (max-width: 980px) {
+  .menu__preview {
+    position: static;
+    order: -1;
+  }
+
+  .menu__preview-frame { aspect-ratio: 16 / 10; }
+  .menu__preview-note { display: none; }
+  .menu__preview-orn { --orn-ancho: 5rem; top: -1.6rem; right: -0.6rem; }
+}
+
+// La rama de olivo se apoya en la esquina del marco, por fuera: es el adorno
+// de la foto, no un sello encima de ella.
+.menu__preview-orn {
+  --orn-ancho: clamp(6rem, 9vw, 8.5rem);
+  position: absolute;
+  top: -2.2rem;
+  right: -1.6rem;
+  z-index: 3;
+  transform: rotate(-14deg);
 }
 
 // Marco de fotografía, no borde de caja: el filete de --line sobre el verde de
@@ -201,7 +263,7 @@
   overflow: hidden;
   // El filete interior es lo que convierte el relleno en cartón montado: sin él
   // el hueco no tiene borde y el marco se lee como un margen.
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-oro) 70%, transparent);
   background: var(--surface-2);
 
   img {
@@ -240,7 +302,8 @@
 // Cada degradado se posiciona en su esquina y mide lo que mide; no hay
 // aritmética que se pueda desajustar.
 //
-// El trazo va en CAFÉ sobre el cartón crema: en crema sobre crema no habría
+// El trazo va en ORO sobre el cartón crema: es adorno, no borde de componente,
+// así que puede quedarse por debajo del 3:1 — en crema sobre crema no habría
 // adorno que ver.
 .menu__preview-frame::before {
   content: "";
@@ -248,7 +311,7 @@
   inset: calc(var(--menu-marco) / 2.6);
   pointer-events: none;
 
-  --menu-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --menu-escuadra: color-mix(in srgb, var(--brand-oro) 92%, transparent);
   --menu-brazo: 18%;
 
   background-image:
@@ -284,6 +347,7 @@
 
   .pc-cat {
     font-size: 0.6rem;
+    font-weight: 700;
     letter-spacing: 0.3em;
     text-transform: uppercase;
     color: var(--accent-text);
@@ -294,6 +358,13 @@
     font-size: clamp(1.3rem, 2vw, 1.8rem);
     color: var(--beige);
     margin-top: 0.3rem;
+  }
+
+  .pc-precio {
+    margin-top: 0.2rem;
+    color: var(--accent-text);
+    font-family: var(--serif);
+    font-size: 1.05rem;
   }
 }
 
@@ -307,38 +378,23 @@
   color: var(--txt-mute);
 }
 
-@media (max-width: 980px) { .menu__preview { display: none; } }
 
+// ── El pie de la carta ───────────────────────────────────────
+//
+// Una acción principal (la carta completa, en oro con sus cubiertos) y la
+// reserva como secundario. El maridaje no se enlaza aquí: tiene su propio botón
+// en Catas. Antes eran dos píldoras gemelas, «Menú en PDF» y «Maridaje en PDF»,
+// que sólo se distinguían leyendo.
 .menu__foot {
-  margin-top: 3rem;
   display: flex;
-  gap: 1.5rem;
-  align-items: center;
   flex-wrap: wrap;
-  justify-content: space-between;
-
-  .note {
-    font-size: 0.74rem;
-    color: var(--txt-faint);
-    font-style: italic;
-    font-family: var(--crimson);
-  }
+  align-items: center;
+  gap: 1.2rem 2rem;
+  margin-top: 3rem;
 }
 
-// Las dos cartas descargables, una sobre otra.
-//
-// Apiladas y no en la fila porque son la misma acción —llevarse la carta—
-// sobre dos piezas distintas: en fila, el pie ofrecía tres destinos del
-// mismo peso y el CTA de reserva dejaba de leerse como el único principal.
-.menu__docs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  // Las dos píldoras al mismo ancho: las etiquetas no miden igual y dos
-  // cantos sin aplomo, uno debajo del otro, se leen como un descuido.
-  align-items: stretch;
+.menu__reservar { margin-left: auto; }
 
-  // Estirada, la píldora deja de ceñirse al texto: sin esto la flecha
-  // quedaba pegada a la palabra y el aire sobrante, todo a la derecha.
-  .btn-line { justify-content: space-between; }
+@media (max-width: 720px) {
+  .menu__reservar { margin-left: 0; }
 }

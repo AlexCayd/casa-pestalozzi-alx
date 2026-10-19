@@ -96,11 +96,11 @@ $pasos = [
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
   <link rel="apple-touch-icon" href="/build/images/logo.svg">
-  <?php /* Las mismas caras que precarga la portada: el wordmark y la cursiva de
-           acento son lo primero que se ve, y un salto de cara en el wordmark se
+  <?php /* Las mismas caras que precarga la portada: el wordmark y el titular
+           (The Seasons) son lo primero que se ve, y un salto de cara en el wordmark se
            nota más que la espera. */ ?>
   <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
-  <link rel="preload" href="/build/fonts/crimson-text-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
+  <?php echo precargaFuente('/build/fonts/marca/the-seasons-regular.woff2'); ?>
   <link rel="stylesheet" href="/build/css/app.css?v=feedback-marca-v1">
   <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>

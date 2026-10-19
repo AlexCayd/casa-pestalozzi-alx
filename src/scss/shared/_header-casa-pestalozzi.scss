@@ -18,7 +18,7 @@
 
 .hcp-header__nombre {
   margin: 0;
-  font-family: var(--logo, var(--admin-logo, "KudosKaps", "Bodoni Moda", serif));
+  font-family: var(--logo, var(--admin-logo, "KudosKaps", serif));
   // KudosKaps tiene UNA sola cara, de peso 400. Sin esta línea los headings
   // heredan su negrita, el navegador la fabrica dilatando el trazo y el
   // wordmark se empasta.
@@ -60,7 +60,7 @@
 
 .hcp-header__subtitulo {
   margin-top: 0.35rem;
-  font-family: var(--sans, var(--admin-font, "Montserrat", sans-serif));
+  font-family: var(--sans, var(--admin-font, sans-serif));
   font-weight: 400;
   font-size: 0.5rem;
   letter-spacing: 0.9em;

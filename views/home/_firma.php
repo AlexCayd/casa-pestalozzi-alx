@@ -1,5 +1,6 @@
 <?php /* Lo mejor de la casa — galería draggable (renderizada via JS) */ ?>
 <section class="section signature" id="firma" data-tono="beige" data-screen-label="Lo mejor de la casa">
+  <?php echo ornamento('destellos', 'orn--seccion', true); ?>
   <div class="signature__head wrap" style="max-width:none">
     <div>
       <span class="eyebrow" data-reveal>03 — Le specialità</span>

@@ -76,6 +76,14 @@ class Comanda extends Documento {
 
             $printer->setEmphasis(true);
             $printer->text($this->ajustar($linea));
+            // La variante va pegada al platillo y en negrita, antes del
+            // comensal y de la nota: «con almendra» o «término medio» es parte
+            // de lo que hay que preparar, no un comentario. Sangría de 4 como
+            // las demás líneas de detalle.
+            $variante = trim((string)($item['variante'] ?? ''));
+            if ($variante !== '') {
+                $printer->text($this->ajustar('* ' . $variante, 4));
+            }
             $printer->setEmphasis(false);
 
             $comensal = $item['comensal'] ?? null;

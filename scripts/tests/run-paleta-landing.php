@@ -40,22 +40,28 @@ foreach ([
     'color-mix(in srgb, var(--verde-deep) 69%, var(--bg))',
     'color-mix(in srgb, var(--verde-deep) 74%, var(--bg))',
     'color-mix(in srgb, var(--brand-crema) 65%, var(--bg))',
-    'color-mix(in srgb, var(--brand-crema) 52%, var(--bg))',
+    'color-mix(in srgb, var(--verde-ink) 79%, var(--bg))',
     'color-mix(in srgb, var(--brand-verde) 72%, black)',
-    'color-mix(in srgb, var(--brand-cafe) 74%, black)',
+    'color-mix(in srgb, var(--brand-verde) 58%, black)',
+    'color-mix(in srgb, var(--brand-oro) 70%, var(--brand-crema))',
 ] as $mezcla) {
     $assert(str_contains($reset, $mezcla), "_reset.scss sigue usando {$mezcla}.");
 }
 
-// 3 · Las mezclas en PHP reproducen la tabla que el PDF tenía escrita a mano
-//     (medida en el navegador sobre la paleta de marca).
+// 3 · Las mezclas en PHP siguen dando la tabla del PDF. La fórmula se validó
+//     contra el navegador con la paleta anterior (la tabla escrita a mano que
+//     tenía items-pdf.php salía idéntica); esto la fija con la del manual.
 $esperadoPdf = [
-    'verde' => '#225036', 'cafe' => '#4a2f21', 'beige' => '#e3d5bb', 'crema' => '#f5f1e8',
-    'bg' => '#f5f1e8', 'txt' => '#183a27', 'txt_strong' => '#372318', 'txt_mute' => '#455e4e',
-    'txt_faint' => '#5d7263', 'accent' => '#4a2f21', 'line_soft' => '#c2b7ac', 'line_strong' => '#705a4d',
-    'v_bg' => '#225036', 'v_txt' => '#f5f1e8', 'v_txt_mute' => '#c7cec1', 'v_accent' => '#e3d5bb',
+    'verde' => '#214f36', 'oro' => '#d1ab66', 'beige' => '#e3d5bb', 'crema' => '#f5f1e8',
+    'bg' => '#f5f1e8', 'txt' => '#183927', 'txt_strong' => '#132e1f', 'txt_mute' => '#445e4e',
+    'txt_faint' => '#5c7263', 'accent' => '#214f36', 'line_soft' => '#dbbf8a', 'line_strong' => '#486151',
+    'v_bg' => '#214f36', 'v_txt' => '#f5f1e8', 'v_txt_mute' => '#c6cdc1', 'v_accent' => '#dcc08d',
 ];
-$assert(PaletaLanding::paraPdf(PaletaLanding::MARCA) === $esperadoPdf, 'paraPdf() con la marca da la tabla histórica del PDF.');
+$assert(PaletaLanding::paraPdf(PaletaLanding::MARCA) === $esperadoPdf, 'paraPdf() con la marca da la tabla del PDF.');
+$assert(
+    PaletaLanding::paraPdf(['verde' => '#225036', 'oro' => '#d1ab66', 'beige' => '#e3d5bb', 'crema' => '#f5f1e8'])['txt'] === '#183a27',
+    'La mezcla del texto reproduce el valor medido en el navegador (verde-deep de la paleta anterior).'
+);
 
 // 4 · La marca pasa todas sus comprobaciones; una paleta pálida no.
 foreach (PaletaLanding::contraste(PaletaLanding::MARCA) as $c) {
@@ -73,11 +79,11 @@ $assert(PaletaLanding::normalizar('red') === null, 'Un nombre de color no se adm
 $assert(PaletaLanding::normalizar('#000000;}</style><script>') === null, 'Nada que no sea un hex llega al <style>.');
 $assert(PaletaLanding::normalizar(['#225036']) === null, 'Un array no es un color.');
 
-$v = PaletaLanding::validar(['verde' => '#225036', 'cafe' => '#5A3A2A', 'beige' => 'e3d5bb', 'crema' => 'nope']);
+$v = PaletaLanding::validar(['verde' => '#214F36', 'oro' => '#C9A15A', 'beige' => 'e3d5bb', 'crema' => 'nope']);
 $assert(count($v['errores']) === 1, 'Un error por el color inválido.');
 $assert($v['guardar']['verde'] === null, 'Un color igual al de marca se guarda como NULL.');
 $assert($v['guardar']['beige'] === null, 'El de marca sin almohadilla también es NULL.');
-$assert($v['guardar']['cafe'] === '#5a3a2a', 'Un color propio se guarda normalizado.');
+$assert($v['guardar']['oro'] === '#c9a15a', 'Un color propio se guarda normalizado.');
 $assert($v['paleta']['crema'] === 'nope', 'El valor inválido vuelve al formulario tal cual para corregirlo.');
 
 // 6 · Sin base de datos —o sin tabla— la landing se pinta con su CSS.

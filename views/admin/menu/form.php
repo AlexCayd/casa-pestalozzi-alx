@@ -12,6 +12,62 @@
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $areas = isset($areas) && is_iterable($areas) ? $areas : [];
     $esNuevo = empty($platillo->id);
+
+    require_once __DIR__ . '/../partials/_icons.php';
+
+    // Estado de la foto (Services\Menu\FotoPlatillo::vista()). La «propia» es
+    // la que el formulario sostiene ahora: la pendiente de un POST fallido
+    // gana a la guardada, porque es la que se guardará si nadie la quita.
+    $foto = is_array($foto ?? null) ? $foto : [];
+    $fotoActual = $foto['actual'] ?? null;
+    $fotoPendiente = is_array($foto['pendiente'] ?? null) ? $foto['pendiente'] : null;
+    $fotoQuitar = !empty($foto['quitar']);
+    $fotoErrores = is_array($foto['errores'] ?? null) ? $foto['errores'] : [];
+    $fotoPropia = $fotoPendiente['url'] ?? $fotoActual;
+
+    // La foto por defecto es la de la categoría elegida: es lo que la carta
+    // enseña cuando el platillo no tiene la suya.
+    $categoriaFoto = null;
+    $categoriaNombre = '';
+    foreach ($categorias as $cat) {
+        if ((int) $cat->id === (int) ($platillo->categoria_id ?? 0)) {
+            $categoriaFoto = \Services\Menu\FotoPlatillo::url($cat->img ?? null);
+            $categoriaNombre = (string) $cat->nombre;
+            break;
+        }
+    }
+
+    $usaPropia = $fotoPropia !== null && !$fotoQuitar;
+    if ($usaPropia) {
+        $fotoEstado = $fotoPendiente !== null ? 'pendiente' : 'propia';
+        $fotoSrc = $fotoPropia;
+    } else {
+        $fotoEstado = $categoriaFoto !== null ? 'categoria' : 'vacia';
+        $fotoSrc = $categoriaFoto;
+    }
+
+    // El texto de estado lo reescribe el JS al cambiar de archivo o de
+    // categoría; éste es el del primer render, y el único sin JS.
+    $categoriaCita = $categoriaNombre !== '' ? '«' . $categoriaNombre . '»' : '';
+    if ($fotoEstado === 'pendiente') {
+        $fotoTexto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
+    } elseif ($fotoEstado === 'propia') {
+        $fotoTexto = 'La carta muestra esta foto.';
+    } elseif ($fotoQuitar) {
+        if ($categoriaFoto !== null) {
+            $fotoTexto = 'Se quitará al guardar. La carta volverá a la de ' . $categoriaCita . '.';
+        } elseif ($categoriaCita !== '') {
+            $fotoTexto = 'Se quitará al guardar, y ' . $categoriaCita . ' tampoco tiene foto.';
+        } else {
+            $fotoTexto = 'Se quitará al guardar.';
+        }
+    } elseif ($categoriaFoto !== null) {
+        $fotoTexto = 'Sin foto propia: la carta muestra la de ' . $categoriaCita . '.';
+    } elseif ($categoriaCita !== '') {
+        $fotoTexto = 'Ni el platillo ni ' . $categoriaCita . ' tienen foto.';
+    } else {
+        $fotoTexto = 'Sin foto propia: la carta usará la de su categoría.';
+    }
 ?>
 <section class="admin-menu admin-menu--form admin-page">
     <header class="admin-page__header">
@@ -26,7 +82,7 @@
         </a>
     </header>
 
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         <section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
@@ -49,12 +105,91 @@
                     <div class="admin-tabs" role="radiogroup" aria-label="Categoría">
                         <?php foreach ($categorias as $cat) : $cid = (int) $cat->id; ?>
                             <label class="admin-tabs__tab">
+                                <?php /* data-foto: la foto por defecto que tomaría el platillo
+                                         con esta categoría; la lee el campo de foto de abajo. */ ?>
                                 <input type="radio" name="categoria_id" value="<?php echo $cid; ?>"
+                                       data-foto="<?php echo htmlspecialchars((string) \Services\Menu\FotoPlatillo::url($cat->img ?? null), ENT_QUOTES, 'UTF-8'); ?>"
+                                       data-nombre="<?php echo htmlspecialchars((string) $cat->nombre, ENT_QUOTES, 'UTF-8'); ?>"
                                        <?php echo (int) ($platillo->categoria_id ?? 0) === $cid ? 'checked' : ''; ?> required>
                                 <span><?php echo htmlspecialchars($cat->nombre); ?></span>
                             </label>
                         <?php endforeach; ?>
                     </div>
+                </div>
+
+                <?php /* Va justo debajo de Categoría porque depende de ella: sin foto
+                         propia, la carta enseña la de la categoría, y la vista previa
+                         cambia en cuanto se elige otra.
+
+                         Sin JS funciona igual: el <input type="file"> y la casilla de
+                         «Quitar foto» se ven nativos y el servidor resuelve. Con JS
+                         (src/js/admin/core/foto-platillo.js) se recortan y los
+                         sustituyen los botones, con vista previa al instante. Quién
+                         decide cuál de los dos se ve es menu.scss, por el
+                         [data-admin-theme] que el layout pone antes de pintar. */ ?>
+                <div class="admin-field admin-form-grid__full admin-foto<?php echo !empty($fotoErrores) ? ' has-error' : ''; ?>"
+                     data-foto-platillo
+                     data-estado="<?php echo $fotoEstado; ?>"
+                     data-actual="<?php echo htmlspecialchars((string) $fotoActual, ENT_QUOTES, 'UTF-8'); ?>"
+                     data-pendiente="<?php echo htmlspecialchars((string) ($fotoPendiente['url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <span class="admin-field__label" id="foto-rotulo">Foto del platillo <span class="admin-foto__opcional">Opcional</span></span>
+
+                    <div class="admin-foto__cuerpo" data-foto-zona>
+                        <?php /* Etiqueta del input: un clic en la vista previa abre el
+                                 selector. aria-hidden porque lo que dice ya lo dice el texto
+                                 de estado, y para el teclado está el botón. */ ?>
+                        <label class="admin-foto__vista" for="imagen" aria-hidden="true">
+                            <?php /* Sin src cuando no hay foto, y no src="": un src vacío
+                                     dispara el evento de error y en algunos motores pide la
+                                     propia página como imagen. */ ?>
+                            <img class="admin-foto__img" data-foto-img alt=""
+                                 <?php echo $fotoSrc !== null ? 'src="' . htmlspecialchars($fotoSrc, ENT_QUOTES, 'UTF-8') . '"' : 'hidden'; ?>>
+                            <span class="admin-foto__vacia" data-foto-vacia <?php echo $fotoSrc !== null ? 'hidden' : ''; ?>>
+                                <?php echo admin_icon('foto', 28); ?>
+                                <span>Sin foto</span>
+                            </span>
+                            <?php /* Uno u otro según data-estado (menu.scss). */ ?>
+                            <span class="admin-foto__sello admin-foto__sello--categoria">De la categoría</span>
+                            <span class="admin-foto__sello admin-foto__sello--nueva">Sin guardar</span>
+                        </label>
+
+                        <div class="admin-foto__panel">
+                            <p class="admin-foto__estado" data-foto-estado aria-live="polite"><?php echo htmlspecialchars($fotoTexto); ?></p>
+
+                            <div class="admin-foto__acciones">
+                                <input type="file" id="imagen" name="imagen" class="admin-foto__input" data-foto-input
+                                       accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                                       aria-labelledby="foto-rotulo foto-elegir-texto"
+                                       aria-describedby="foto-ayuda foto-error">
+                                <label class="admin-btn admin-btn--secondary admin-foto__boton" for="imagen" data-foto-elegir>
+                                    <?php echo admin_icon('foto', 16, 'admin-btn__icon'); ?>
+                                    <span id="foto-elegir-texto" data-foto-elegir-texto><?php echo $usaPropia ? 'Cambiar foto' : 'Subir foto'; ?></span>
+                                </label>
+
+                                <?php if ($fotoPropia !== null) : ?>
+                                    <label class="admin-btn admin-btn--ghost admin-foto__boton admin-foto__quitar" data-foto-quitar-boton>
+                                        <input type="checkbox" name="<?php echo \Services\Menu\FotoPlatillo::CAMPO_QUITAR; ?>" value="1"
+                                               data-foto-quitar <?php echo $fotoQuitar ? 'checked' : ''; ?>>
+                                        <?php echo admin_icon('basura', 16, 'admin-btn__icon'); ?>
+                                        <span>Quitar foto</span>
+                                    </label>
+                                <?php endif; ?>
+
+                                <button type="button" class="admin-btn admin-btn--ghost admin-foto__boton" data-foto-deshacer hidden>Deshacer</button>
+                            </div>
+
+                            <?php /* El arrastre lo pone el JS: sin él, soltar sobre la vista
+                                     previa abriría la imagen en la pestaña, así que la frase
+                                     sólo se ve con JS (menu.scss). */ ?>
+                            <p class="admin-field__hint admin-foto__ayuda" id="foto-ayuda">JPG, PNG, WebP, GIF o AVIF, hasta 5 MB. Se guarda en WebP, a 1200 px por el lado mayor.<span data-foto-arrastre> También puedes arrastrarla sobre la vista previa.</span></p>
+                            <span class="admin-field__error" id="foto-error" data-foto-error role="alert"><?php echo htmlspecialchars(implode(' ', $fotoErrores)); ?></span>
+                        </div>
+                    </div>
+
+                    <?php if ($fotoPendiente !== null) : ?>
+                        <input type="hidden" name="<?php echo \Services\Menu\FotoPlatillo::CAMPO_PENDIENTE; ?>"
+                               value="<?php echo htmlspecialchars((string) $fotoPendiente['ficha'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php endif; ?>
                 </div>
 
                 <div class="admin-field admin-form-grid__full">

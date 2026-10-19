@@ -22,9 +22,14 @@ class Carta
     /**
      * Carta pública agrupada por categoría.
      *
-     * Forma idéntica a la que ya consumían src/js/modules/menu.js y
-     * views/home/_menu.php, para que no tengan que cambiar:
-     *   [{ id, label, img, dishes: [{ n, d, p }] }]
+     * Forma que consumen src/js/modules/menu.js y views/home/_menu.php:
+     *   [{ id, label, img, dishes: [{ n, d, p, img }] }]
+     *
+     * Hay dos `img` y no se funden aquí a propósito: la de la categoría es la
+     * foto por defecto de la sección y la del platillo (`productos.img`) es su
+     * foto propia, `null` si no tiene. Qué se enseña cuando falta la propia lo
+     * decide la landing; resolverlo en el servidor borraría la diferencia entre
+     * «este platillo tiene foto» y «está tomando prestada la de su sección».
      *
      * $carta acota a una de las dos piezas impresas (`categorias.carta`) y
      * por defecto trae la de comida, que es lo que ya pintaban la landing y
@@ -47,7 +52,7 @@ class Carta
 
         $res = $db->query(
             "SELECT c.id AS cat_id, c.nombre AS cat_nombre, c.img AS cat_img,
-                    p.id, p.nombre, p.descripcion, p.precio
+                    p.id, p.nombre, p.descripcion, p.precio, p.img
                FROM productos p
                JOIN categorias c ON c.id = p.categoria_id
               WHERE p.activo = 1 AND c.activo = 1" . $filtroCarta . "
@@ -76,6 +81,7 @@ class Carta
                 // (float) para que json_encode emita 240 y no "240.00":
                 // menu.js concatena '$' + d.p directamente.
                 'p'    => (float) $row['precio'],
+                'img'  => $row['img'] ? '/' . ltrim($row['img'], '/') : null,
             ];
         }
 
@@ -89,7 +95,10 @@ class Carta
      *
      * Se omiten descripción e imagen (el POS no las pinta) y el área viaja como
      * slug, que es lo que addToComanda resuelve contra window.CP_AREAS:
-     *   [{ id, label, dishes: [{ n, p, area }] }]
+     *   [{ id, label, dishes: [{ id, n, p, area, g? }] }]
+     *
+     * `g` sólo aparece en los platillos con variantes (Variantes::paraPos()):
+     * [{ n: grupo, req: bool, o: [{ id, n, d: delta de precio, def }] }].
      *
      * No filtra por `categorias.carta` a propósito: la división en dos cartas
      * es de papel, no de operación — el mesero cobra la copa y el plato en el
@@ -101,7 +110,7 @@ class Carta
         $db = Producto::getDB();
         $res = $db->query(
             "SELECT c.id AS cat_id, c.nombre AS cat_nombre,
-                    p.nombre, p.precio, ap.slug AS area_slug
+                    p.id, p.nombre, p.precio, ap.slug AS area_slug
                FROM productos p
                JOIN categorias c        ON c.id  = p.categoria_id
                JOIN areas_produccion ap ON ap.id = p.area_id
@@ -113,6 +122,14 @@ class Carta
             return [];
         }
 
+        // Tolerante: una base sin las tablas de variantes sigue abriendo el POS.
+        try {
+            $variantes = Variantes::paraPos();
+        } catch (\Throwable $e) {
+            error_log('Carta::paraPos - variantes no disponibles: ' . $e->getMessage());
+            $variantes = [];
+        }
+
         while ($row = $res->fetch_assoc()) {
             $cid = (int) $row['cat_id'];
 
@@ -120,11 +137,17 @@ class Carta
                 $out[$cid] = ['id' => $cid, 'label' => $row['cat_nombre'], 'dishes' => []];
             }
 
-            $out[$cid]['dishes'][] = [
+            $pid = (int) $row['id'];
+            $dish = [
+                'id'   => $pid,
                 'n'    => $row['nombre'],
                 'p'    => (float) $row['precio'],
                 'area' => $row['area_slug'],
             ];
+            if (!empty($variantes[$pid])) {
+                $dish['g'] = $variantes[$pid];
+            }
+            $out[$cid]['dishes'][] = $dish;
         }
 
         $res->free();

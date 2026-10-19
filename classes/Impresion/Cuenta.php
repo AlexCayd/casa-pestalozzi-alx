@@ -102,7 +102,11 @@ class Cuenta extends Documento {
             $importe   = $precio * $cantidad;
             $subtotal += $importe;
 
-            $printer->text($this->ajustar($cantidad . ' x ' . ($item['nombre'] ?? '')));
+            // La variante explica el precio unitario: un Cappuccino con almendra
+            // no cuesta lo mismo que el de la carta.
+            $variante = trim((string)($item['variante'] ?? ''));
+            $nombre = ($item['nombre'] ?? '') . ($variante !== '' ? ' (' . $variante . ')' : '');
+            $printer->text($this->ajustar($cantidad . ' x ' . $nombre));
             // Precio unitario a la izquierda, importe de la línea a la derecha.
             $printer->text($this->dosColumnas(
                 '    ' . $this->dinero($precio) . ' c/u',

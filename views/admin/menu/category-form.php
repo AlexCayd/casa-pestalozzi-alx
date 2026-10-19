@@ -76,9 +76,12 @@
                     <span>Imagen actual. Sube una nueva para reemplazarla.</span>
                 </div>
             <?php endif; ?>
-            <input type="file" id="imagen" name="imagen" accept="image/*"
+            <input type="file" id="imagen" name="imagen" accept="image/*" aria-describedby="imagen-ayuda"
                    <?php echo empty($categoria->img) ? 'required' : ''; ?>>
-            <p class="admin-menu__help">Formatos: JPG, PNG, WebP, GIF o AVIF. La imagen se convierte a WebP desde el uploader actual.</p>
+            <?php /* Lo primero que dice la ayuda es el alcance, no el formato: cambiar
+                     esta imagen cambia también la de cada platillo de la categoría que
+                     no tenga foto propia, y eso no se adivina desde aquí. */ ?>
+            <p class="admin-menu__help" id="imagen-ayuda">Es también la foto por defecto de los platillos de esta categoría que no tienen foto propia: la carta la muestra en su lugar. JPG, PNG, WebP, GIF o AVIF, hasta 5 MB; se guarda en WebP.</p>
 
             <div class="admin-menu__check">
                 <input type="checkbox" id="activo" name="activo" value="1"

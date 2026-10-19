@@ -1,4 +1,7 @@
 <?php
+use Services\Configuration\SitioConfig;
+use Services\Configuration\PaletaLanding;
+
 $schemaDias = [
   0 => 'Sunday',
   1 => 'Monday',
@@ -26,13 +29,41 @@ if (!empty($horariosOperacionDisponibles) && is_array($horariosOperacion ?? null
   }
 }
 
+/*
+ * SEO. Todo lo que lleva la URL sale de SitioConfig::url() (SITIO_URL), igual
+ * que robots.txt y el sitemap: cambiar de dominio es tocar una variable.
+ *
+ * El título va a ~60 caracteres y dice QUÉ es y DÓNDE, que es lo que se
+ * busca («restaurante italiano Del Valle»); la frase de marca vive en la
+ * página. La descripción, a ~155, cuenta lo que hay y termina en la acción.
+ */
+$sitioUrl = SitioConfig::url();
+$seoTitulo = 'Casa Pestalozzi | Restaurante italiano en la Del Valle, CDMX';
+$seoDescripcion = 'Restaurante italiano con alma mexicana en la Del Valle, CDMX: pasta fresca, pizza de horno de leña, pan de masa madre, catas y catering. Reserva en línea.';
+$seoImagen = $sitioUrl . '/build/images/banner.webp';
+$seoImagenAlt = 'Mesa servida en el comedor de Casa Pestalozzi';
+// El color de la barra del navegador en el móvil: el papel crema de la
+// portada, leído de la paleta vigente (la de Configuración, si la hay) para
+// no escribir un hex en la vista.
+$seoColorTema = PaletaLanding::vigente()['crema'] ?? null;
+
+/*
+ * Datos estructurados: el restaurante y el sitio, enlazados por @id. Además de
+ * lo de siempre (dirección, horario, cocina), dicen que se reserva en línea
+ * —con la acción de reservar apuntando al formulario de la portada—, dónde
+ * está la carta y el mapa. Sólo datos que existen en la configuración: nada
+ * de coordenadas ni código postal inventados.
+ */
 $restaurantSchema = [
-  '@context' => 'https://schema.org',
   '@type' => 'Restaurant',
+  '@id' => $sitioUrl . '/#restaurante',
   'name' => 'Casa Pestalozzi',
-  'description' => 'Cocina italiana con corazón mexicano en Del Valle, CDMX.',
-  'url' => 'https://casapestalozzi.com',
-  'telephone' => '+525614818297',
+  'description' => 'Cocina italiana con alma mexicana en la colonia Del Valle, Ciudad de México: pasta fresca, pizza de horno de leña, panadería de masa madre, catas de vino y catering para eventos.',
+  'url' => $sitioUrl . '/',
+  'logo' => $sitioUrl . '/build/images/logo.svg',
+  'image' => [$seoImagen],
+  'telephone' => SitioConfig::telefonoTel(),
+  'email' => SitioConfig::correo(),
   'address' => [
     '@type' => 'PostalAddress',
     'streetAddress' => 'José Enrique Pestalozzi 1250',
@@ -40,69 +71,99 @@ $restaurantSchema = [
     'addressRegion' => 'Ciudad de México',
     'addressCountry' => 'MX',
   ],
-  'servesCuisine' => ['Italian', 'Mediterranean', 'Mexican'],
+  'hasMap' => SitioConfig::mapsUrl(),
+  'servesCuisine' => ['Italiana', 'Mediterránea', 'Mexicana'],
   'priceRange' => '$$',
-  'image' => 'https://casapestalozzi.com/build/images/banner.webp',
-  'sameAs' => ['https://www.instagram.com/casapestalozzi'],
+  'menu' => $sitioUrl . '/menu/pdf',
+  'hasMenu' => $sitioUrl . '/menu/pdf',
+  'acceptsReservations' => true,
+  'potentialAction' => [
+    '@type' => 'ReserveAction',
+    'target' => [
+      '@type' => 'EntryPoint',
+      'urlTemplate' => $sitioUrl . '/#reserva',
+      'inLanguage' => 'es-MX',
+      'actionPlatform' => [
+        'http://schema.org/DesktopWebPlatform',
+        'http://schema.org/MobileWebPlatform',
+      ],
+    ],
+    'result' => ['@type' => 'FoodEstablishmentReservation', 'name' => 'Reservar mesa'],
+  ],
+  'sameAs' => [SitioConfig::instagramUrl()],
 ];
 
 if ($schemaHorarios !== []) {
   $restaurantSchema['openingHoursSpecification'] = $schemaHorarios;
 }
+
+$siteSchema = [
+  '@context' => 'https://schema.org',
+  '@graph' => [
+    $restaurantSchema,
+    [
+      '@type' => 'WebSite',
+      '@id' => $sitioUrl . '/#sitio',
+      'url' => $sitioUrl . '/',
+      'name' => 'Casa Pestalozzi',
+      'inLanguage' => 'es-MX',
+      'publisher' => ['@id' => $sitioUrl . '/#restaurante'],
+    ],
+  ],
+];
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-MX">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Casa Pestalozzi · Cucina italiana con alma mexicana</title>
+  <title><?php echo s($seoTitulo); ?></title>
+  <meta name="description" content="<?php echo s($seoDescripcion); ?>" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="<?php echo s($sitioUrl); ?>/" />
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
   <link rel="apple-touch-icon" href="/build/images/logo.svg" />
-  <meta name="description" content="Casa Pestalozzi — cocina italiana con corazón mexicano en la Del Valle, CDMX. Pasta fresca, horno de leña, panadería artesanal y catering para eventos." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://casapestalozzi.com/" />
+  <?php if ($seoColorTema) : ?>
+    <meta name="theme-color" content="<?php echo s($seoColorTema); ?>" />
+  <?php endif; ?>
+  <meta name="geo.region" content="MX-CMX" />
+  <meta name="geo.placename" content="Del Valle, Ciudad de México" />
 
   <!-- Open Graph -->
-  <meta property="og:type"        content="restaurant" />
-  <meta property="og:title"       content="Casa Pestalozzi · Cucina italiana con alma mexicana" />
-  <meta property="og:description" content="Restaurante italiano con corazón mexicano en Del Valle, CDMX. Pasta fresca, pizza de horno de leña, panadería artesanal y catering." />
-  <meta property="og:image"       content="https://casapestalozzi.com/build/images/banner.webp" />
-  <meta property="og:url"         content="https://casapestalozzi.com/" />
-  <meta property="og:locale"      content="es_MX" />
-  <meta property="og:site_name"   content="Casa Pestalozzi" />
+  <meta property="og:type"         content="restaurant.restaurant" />
+  <meta property="og:site_name"    content="Casa Pestalozzi" />
+  <meta property="og:locale"       content="es_MX" />
+  <meta property="og:url"          content="<?php echo s($sitioUrl); ?>/" />
+  <meta property="og:title"        content="Casa Pestalozzi · Restaurante italiano con alma mexicana" />
+  <meta property="og:description"  content="<?php echo s($seoDescripcion); ?>" />
+  <meta property="og:image"        content="<?php echo s($seoImagen); ?>" />
+  <meta property="og:image:width"  content="2560" />
+  <meta property="og:image:height" content="1920" />
+  <meta property="og:image:alt"    content="<?php echo s($seoImagenAlt); ?>" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card"        content="summary_large_image" />
   <meta name="twitter:title"       content="Casa Pestalozzi · Del Valle, CDMX" />
-  <meta name="twitter:description" content="Cucina italiana con corazón mexicano en la Del Valle, CDMX." />
-  <meta name="twitter:image"       content="https://casapestalozzi.com/build/images/banner.webp" />
+  <meta name="twitter:description" content="<?php echo s($seoDescripcion); ?>" />
+  <meta name="twitter:image"       content="<?php echo s($seoImagen); ?>" />
+  <meta name="twitter:image:alt"   content="<?php echo s($seoImagenAlt); ?>" />
 
-  <!-- JSON-LD: Restaurant schema -->
+  <!-- Datos estructurados: Restaurant + WebSite -->
   <script type="application/ld+json">
-  <?php echo json_encode($restaurantSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
+  <?php echo json_encode($siteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG); ?>
   </script>
-
-  <?php /* Sólo queda three.js en cdnjs; GSAP, ScrollTrigger y Lenis se sirven
-           desde /build/js/vendor y jsdelivr ya no se toca. */ ?>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
 
   <?php /* Las caras de la portada se piden por adelantado: sin preload el
            navegador no las descubre hasta haber parseado app.css entero.
 
-           La primera es KudosKaps, y va primero porque es la que dibuja el h1:
-           el hero usa --logo, no --serif. Antes se precargaba aquí la Bodoni
-           normal "porque dibuja el h1", que era falso — y el efecto era el
-           contrario del buscado: Bodoni es el respaldo de --logo, así que
-           estaba lista al instante y el primer fotograma del título salía en
-           didone hasta que llegaba la KudosKaps de verdad.
-
-           La segunda es la itálica de Crimson, que sí dibuja la firma bajo el
-           nombre. La Bodoni de titular entra ya en la segunda sección: no
-           necesita adelantarse. */ ?>
+           KudosKaps va primero porque dibuja el h1 (el isologo usa --logo).
+           Luego The Seasons, que escribe la frase bajo la marca, y la regular de TT Wellingtons, que es el cuerpo de todo el
+           primer encuadre. precargaFuente() no emite nada mientras el archivo
+           de una cara del manual no esté en public/build/fonts/marca/. */ ?>
   <link rel="preload" as="font" type="font/otf" crossorigin
         href="/build/fonts/KudosKapsOneNF.otf" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-        href="/build/fonts/crimson-text-latin-400-italic.woff2" />
+  <?php echo precargaFuente('/build/fonts/marca/the-seasons-regular.woff2'); ?>
+  <?php echo precargaFuente('/build/fonts/marca/tt-wellingtons-regular.woff2'); ?>
 
   <link rel="stylesheet" href="/build/css/app.css?v=diseno-v3" />
   <?php /* La paleta que se edita en Configuración → Paleta de la landing.
@@ -111,8 +172,15 @@ if ($schemaHorarios !== []) {
            guardados no emite nada. */ ?>
   <?php echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
-<body class="reveal-ready" data-hero="cinema" data-page="home">
+<?php /* `marca-en-hero` sale ya en el marcado: la marca fija y el índice lateral
+         nacen retirados porque la página abre con el isologo a la vista.
+         Ponerla desde JS dejaba un parpadeo en cada carga —la marca pintada
+         encima del rótulo del hero hasta que llegaba el bundle— y, sin JS, las
+         dos piezas montadas sobre el rótulo y sobre la mesa. initMarcaHero()
+         (hero.js) la quita cuando el hero termina de pasar bajo la marca. */ ?>
+<body class="reveal-ready marca-en-hero" data-hero="cinema" data-page="home">
 
+  <?php include_once __DIR__ . '/../components/ornamento.php'; ?>
   <?php include_once __DIR__ . '/_cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
 
@@ -121,8 +189,16 @@ if ($schemaHorarios !== []) {
     tono, contando también las insegnas: son secciones a todos los efectos y
     con la misma tinta a los lados el corte desaparece. El ritmo actual es
 
-      foto · crema · [cafe] · verde · beige · cafe · crema · [verde] ·
-      cafe · verde · beige · verde · cafe(pie)
+      crema(hero) · beige · [oro] · verde · beige · oro · crema · [verde] ·
+      oro · verde · beige · verde · verde(pie)
+
+    El hero dejó de ser fotografía y es papel crema, así que Nosotros pasó de
+    crema a lino: con las dos en crema el corte bajo la portada desaparecía.
+
+    El pie es la única excepción declarada: Ubicación y él son verdes, pero el
+    pie pinta su --bg-alt (el verde hondo) y abre con el filete de oro, así que
+    el corte se ve. Con el café fuera de la marca no queda otro fondo oscuro, y
+    un pie de oro dejaba su texto tenue en 3.6:1 sobre ese mismo --bg-alt.
 
     Al reordenar hay que sincronizar tres sitios: el número del eyebrow de cada
     parcial, .nav-overlay__links y .rail (los dos últimos en _nav.php).
@@ -189,13 +265,8 @@ if ($schemaHorarios !== []) {
   <script defer src="/build/js/vendor/gsap.min.js"></script>
   <script defer src="/build/js/vendor/ScrollTrigger.min.js"></script>
   <script defer src="/build/js/vendor/lenis.min.js"></script>
-  <?php /*
-    Three.js para el lienzo del hero. Se pide la compilación UMD (la que expone
-    window.THREE): el bundle de la landing es un concat de ES5, no un módulo,
-    así que un `import` no tendría dónde ir. Va con defer y el hero funciona
-    igual si no llega —el <img> es el respaldo—, por eso no bloquea el render.
-  */ ?>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <?php /* Three.js salió con el hero de fotografía: el hero de ahora es SVG y
+           CSS, y la landing ya no pide nada a un CDN. */ ?>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
   <script defer src="/build/js/bundle.min.js?v=diseno-v3"></script>

@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
 use Controllers\ErrorController;
+use Controllers\SeoController;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
@@ -24,6 +25,7 @@ use Controllers\AdminReservacionEstrategiaController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\AdminCataController;
 use Controllers\AdminUsersController;
+use Controllers\AdminIaController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\ScheduleChangeAccessController;
@@ -35,6 +37,7 @@ use Controllers\FeedbackController;
 use Controllers\PuntoVentaController;
 use Controllers\PosReservacionController;
 use Controllers\AreaController;
+use Controllers\AdminConsultasController;
 
 $router = new Router();
 
@@ -82,6 +85,8 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
+// Sólo la vista: el navegador habla directo con n8n (IA_N8N_WEBHOOK_URL).
+$router->get('/admin/ia', [AdminIaController::class, 'index']);
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
@@ -129,6 +134,9 @@ $router->get('/admin/menu/edit',                [AdminMenuController::class, 'ed
 $router->post('/admin/menu/edit',               [AdminMenuController::class, 'edit']);
 $router->post('/admin/menu/delete',             [AdminMenuController::class, 'delete']);
 $router->post('/admin/menu/toggle',             [AdminMenuController::class, 'toggle']);
+$router->get('/admin/menu/variantes',           [AdminMenuController::class, 'variantes']);
+$router->post('/admin/api/menu/variantes',      [AdminMenuController::class, 'guardarVariantes']);
+$router->get('/admin/api/consultas',            [AdminConsultasController::class, 'consultar']);
 $router->get('/admin/menu/categorias',          [AdminMenuController::class, 'categories']);
 $router->post('/admin/menu/categorias/create',  [AdminMenuController::class, 'categoryCreate']);
 $router->get('/admin/menu/categorias/edit',     [AdminMenuController::class, 'categoryEdit']);
@@ -339,6 +347,11 @@ $router->post('/logout', [AuthController::class, 'logout']);
 $router->get('/menu',         [MenuController::class, 'index']);
 $router->get('/menu/pdf',     [MenuController::class, 'pdf']);
 $router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
+
+// Para los buscadores. Rutas y no archivos porque llevan la URL del sitio
+// (SitioConfig::url()); ver SeoController.
+$router->get('/robots.txt',  [SeoController::class, 'robots']);
+$router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
 
 // Cualquier ruta que no esté en los tres mapas de arriba. Cubre GET, POST y

@@ -53,6 +53,15 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
   data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
   <div class="wrap reserva__grid">
     <div class="reserva__intro">
+      <?php /* La vela acompaña al titular y no va en la esquina de la sección
+               (.orn--seccion) como los demás adornos: a la derecha el formulario
+               arranca a esa misma altura y la vela se montaba sobre el selector
+               «Reservar / Gestionar».
+               Y va DENTRO de la sección, no en su etiqueta de apertura: estuvo
+               escrita dentro del valor de data-reservation-csrf, el token viajaba
+               con el SVG pegado y toda reservación de la landing fallaba la
+               validación CSRF. */ ?>
+      <?php echo ornamento('vela', 'reserva__vela'); ?>
       <span class="eyebrow" data-reveal>08 — Il tavolo</span>
       <h2 class="reserva__title" id="reservation-section-title" data-reveal>Reserva <em class="accent-italic">tu mesa</em></h2>
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>

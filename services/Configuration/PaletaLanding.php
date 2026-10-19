@@ -8,7 +8,8 @@
  * se deriva de ellos con color-mix en el navegador, así que basta con
  * redeclarar esas cuatro propiedades en :root, DESPUÉS de app.css, para que la
  * landing entera, el feedback y las páginas sueltas de marca cambien a la vez.
- * El oro no está: sólo lo consumen las pantallas de piso, que ya no son marca.
+ * Desde el manual de identidad la capa 1 es verde musgo, oro, beige y crema;
+ * el café salió de la marca y con él su hueco aquí.
  *
  * MARCA repite a mano los hex de la capa 1 —es el único sitio fuera de los dos
  * archivos de tokens que lo hace— porque el formulario necesita enseñar el
@@ -25,8 +26,8 @@ final class PaletaLanding
 {
     /** Espejo de la capa 1 de _reset.scss. */
     public const MARCA = [
-        'verde' => '#225036',
-        'cafe' => '#4a2f21',
+        'verde' => '#214f36',
+        'oro' => '#d1ab66',
         'beige' => '#e3d5bb',
         'crema' => '#f5f1e8',
     ];
@@ -34,19 +35,19 @@ final class PaletaLanding
     /** Lo que el panel cuenta de cada color: dónde se ve, en palabras. */
     public const COLORES = [
         'verde' => [
-            'etiqueta' => 'Verde',
+            'etiqueta' => 'Verde musgo',
             'token' => '--brand-verde',
-            'uso' => 'Texto de las secciones claras y fondo de las secciones verdes.',
+            'uso' => 'Tinta de textos y titulares, líneas y fondo de las secciones verdes.',
         ],
-        'cafe' => [
-            'etiqueta' => 'Café',
-            'token' => '--brand-cafe',
-            'uso' => 'Botones, líneas y titulares sobre crema; fondo de las secciones café.',
+        'oro' => [
+            'etiqueta' => 'Oro',
+            'token' => '--brand-oro',
+            'uso' => 'Botones, filetes y adornos; fondo de la banda de oro (Chef, Panadería, Catas).',
         ],
         'beige' => [
             'etiqueta' => 'Beige',
             'token' => '--brand-beige',
-            'uso' => 'Fondo de las secciones de lino y acento sobre verde y café.',
+            'uso' => 'Fondo de las secciones de lino.',
         ],
         'crema' => [
             'etiqueta' => 'Crema',
@@ -65,7 +66,7 @@ final class PaletaLanding
      * por JSON, para que la vista previa y el servidor midan lo mismo.
      */
     private const VERDE_PROFUNDO = ['verde', 72, 'negro'];
-    private const CAFE_PROFUNDO = ['cafe', 74, 'negro'];
+    private const VERDE_TINTA = ['verde', 58, 'negro'];
 
     /**
      * Las parejas que deciden si la landing se puede leer. Cada una es el rol
@@ -87,6 +88,12 @@ final class PaletaLanding
             'fondo' => 'beige',
         ],
         [
+            'id' => 'oro-texto',
+            'rotulo' => 'Texto secundario sobre la banda de oro',
+            'texto' => [self::VERDE_TINTA, 79, 'oro'],
+            'fondo' => 'oro',
+        ],
+        [
             'id' => 'verde-texto',
             'rotulo' => 'Texto secundario sobre verde',
             'texto' => ['crema', 65, 'verde'],
@@ -94,27 +101,21 @@ final class PaletaLanding
         ],
         [
             'id' => 'verde-acento',
-            'rotulo' => 'Acento beige sobre verde',
-            'texto' => 'beige',
+            'rotulo' => 'Acento de oro (texto) sobre verde',
+            'texto' => ['oro', 70, 'crema'],
             'fondo' => 'verde',
         ],
         [
-            'id' => 'cafe-texto',
-            'rotulo' => 'Texto secundario sobre café',
-            'texto' => ['crema', 52, self::CAFE_PROFUNDO],
-            'fondo' => self::CAFE_PROFUNDO,
-        ],
-        [
-            'id' => 'cafe-acento',
-            'rotulo' => 'Acento beige sobre café',
-            'texto' => 'beige',
-            'fondo' => self::CAFE_PROFUNDO,
-        ],
-        [
             'id' => 'boton',
-            'rotulo' => 'Botón principal: crema sobre café',
+            'rotulo' => 'Botón principal: verde sobre oro',
+            'texto' => self::VERDE_TINTA,
+            'fondo' => 'oro',
+        ],
+        [
+            'id' => 'boton-oro',
+            'rotulo' => 'Botón en la banda de oro: crema sobre verde',
             'texto' => 'crema',
-            'fondo' => 'cafe',
+            'fondo' => 'verde',
         ],
     ];
 
@@ -299,25 +300,27 @@ final class PaletaLanding
         $paleta = $paleta ?? self::vigente();
         $roles = [
             'verde' => 'verde',
-            'cafe' => 'cafe',
+            'oro' => 'oro',
             'beige' => 'beige',
             'crema' => 'crema',
 
             // :root, papel crema
             'bg' => 'crema',
             'txt' => self::VERDE_PROFUNDO,
-            'txt_strong' => self::CAFE_PROFUNDO,
+            'txt_strong' => self::VERDE_TINTA,
             'txt_mute' => [self::VERDE_PROFUNDO, 80, 'crema'],
             'txt_faint' => [self::VERDE_PROFUNDO, 69, 'crema'],
-            'accent' => 'cafe',
-            'line_soft' => ['cafe', 30, 'crema'],
-            'line_strong' => ['cafe', 78, 'crema'],
+            // El acento que el PDF usa como TEXTO es verde: el oro sobre papel
+            // no se lee. El oro queda para filetes y el sello del pie.
+            'accent' => 'verde',
+            'line_soft' => ['oro', 72, 'crema'],
+            'line_strong' => [self::VERDE_PROFUNDO, 78, 'crema'],
 
             // [data-tono="verde"], la banda de cabecera
             'v_bg' => 'verde',
             'v_txt' => 'crema',
             'v_txt_mute' => ['crema', 78, 'verde'],
-            'v_accent' => 'beige',
+            'v_accent' => ['oro', 70, 'crema'],
         ];
 
         $resueltos = [];

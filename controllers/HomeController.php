@@ -2,7 +2,9 @@
 
 namespace Controllers;
 
+use Model\CategoriasMenu;
 use Model\ConfiguracionAnuncio;
+use Services\Menu\Carta;
 use Services\Menu\CataService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Security\ReservationClientSession;
@@ -21,6 +23,7 @@ class HomeController
         $horariosOperacionDisponibles = false;
         $anuncioPublico = null;
         $catasProximas = [];
+        $cartaMaridaje = [];
         $reservationRequestToken = ReservacionService::generarRequestToken();
 
         // La agenda de catas se imprime en el servidor: la sección tiene que
@@ -30,6 +33,16 @@ class HomeController
             $catasProximas = CataService::agendaPublica();
         } catch (\Throwable $e) {
             error_log('HomeController::index catas - ' . $e->getMessage());
+        }
+
+        // La carta de maridaje vive en la sección de Catas, impresa en el
+        // servidor como la agenda: es lo que se busca al ver las copas, y tiene
+        // que leerse aunque el bundle no llegue. Si falla, el bloque no sale y
+        // queda el enlace al PDF.
+        try {
+            $cartaMaridaje = Carta::publica(CategoriasMenu::CARTA_MARIDAJE);
+        } catch (\Throwable $e) {
+            error_log('HomeController::index carta de maridaje - ' . $e->getMessage());
         }
 
         try {

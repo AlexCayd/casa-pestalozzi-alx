@@ -6,6 +6,10 @@
  * (ticket_items.nombre = productos.nombre). Si el platillo no tiene producto o
  * receta, no se descuenta nada: el pedido nunca se bloquea por inventario y el
  * stock puede quedar negativo.
+ *
+ * Las VARIANTES (producto_variantes / variante_ajustes) no cambian ese enlace:
+ * el ticket_item conserva el nombre del platillo y trae aparte los ids de las
+ * opciones elegidas, que se aplican sobre la receta base al explotarla.
  */
 
 namespace Services\Inventory;
@@ -35,8 +39,13 @@ class Inventario
     /**
      * Descuenta el inventario por la venta de $cantidad unidades del platillo
      * $nombre. Registra un movimiento por cada ingrediente afectado.
+     *
+     * $varianteIds son las opciones elegidas en el POS: sus ajustes se suman a
+     * la receta base antes de descontar (leche → almendra, shot extra…).
+     *
+     * @param int[] $varianteIds
      */
-    public static function aplicarVenta(string $nombre, int $cantidad, ?int $ticketItemId = null): void
+    public static function aplicarVenta(string $nombre, int $cantidad, ?int $ticketItemId = null, array $varianteIds = []): void
     {
         if ($cantidad <= 0) {
             return;
@@ -55,9 +64,9 @@ class Inventario
             }
 
             $productoId = (int) $prod['id'];
-            $totales = self::explotarReceta($productoId, $db);
+            $totales = self::explotarReceta($productoId, $db, $varianteIds);
             if (empty($totales)) {
-                return; // Producto sin receta: nada que descontar.
+                return; // Producto sin receta (ni ajustes de variante): nada que descontar.
             }
 
             $tidSql = $ticketItemId ? (int) $ticketItemId : 'NULL';
@@ -209,15 +218,18 @@ class Inventario
     /**
      * Costo de insumos de una unidad del producto: explota su receta y suma
      * (cantidad × costo unitario) de cada ingrediente. 0 si no tiene receta.
+     * Con $varianteIds, el costo de esa combinación de opciones.
+     *
+     * @param int[] $varianteIds
      */
-    public static function costoDeProducto(int $productoId): float
+    public static function costoDeProducto(int $productoId, array $varianteIds = []): float
     {
         try {
             $db = Ingrediente::getDB();
             if (!$db) {
                 return 0.0;
             }
-            $totales = self::explotarReceta($productoId, $db);
+            $totales = self::explotarReceta($productoId, $db, $varianteIds);
             if (empty($totales)) {
                 return 0.0;
             }
@@ -244,51 +256,150 @@ class Inventario
      * Explota la receta de un producto hasta ingredientes: devuelve
      * [ingrediente_id => cantidad_por_unidad_de_producto]. Las subrecetas se
      * escalan por (cantidad_usada / rendimiento).
+     *
+     * Con $varianteIds aplica encima los ajustes de esas opciones, en dos
+     * pasadas:
+     *   1. agregar / quitar, tal cual.
+     *   2. sustituir, que es PROPORCIONAL: reemplaza la fracción
+     *      cantidad ÷ (lo que la receta base lleva de ese componente) de lo
+     *      que el platillo lleve en ese momento. Así «Almendra» (120 de 120 ml)
+     *      cambia TODA la leche aunque «Grande» le haya sumado 60 ml más, y
+     *      «Divorciados» (40 de 80 ml de salsa verde) cambia la mitad. Lo que
+     *      entra es lo que sale × (nueva_cantidad ÷ cantidad): 25 g de
+     *      piloncillo → 2 g de stevia. Si el componente no está en la receta
+     *      base, la sustitución es literal.
+     *
+     * Ninguna cantidad baja de cero: «sin parmesano» en un platillo que no lo
+     * lleva no debe REPONER parmesano, y una opción mal capturada en el panel no
+     * puede convertir una venta en una entrada de almacén.
+     *
+     * services/Menu/Variantes y el editor del panel (variantes.js) aplican la
+     * misma regla para la vista previa; si cambia aquí, cambia allí.
+     *
+     * @param int[] $varianteIds
      */
-    private static function explotarReceta(int $productoId, $db): array
+    private static function explotarReceta(int $productoId, $db, array $varianteIds = []): array
     {
         $totales = [];
+        // Cantidades a nivel de COMPONENTE ('ingrediente:3', 'subreceta:1'): la
+        // receta base y la vigente tras agregar/quitar. Las necesita la
+        // sustitución proporcional.
+        $base = [];
+        $actual = [];
 
         $comps = $db->query(
             "SELECT tipo, ref_id, cantidad FROM producto_componentes WHERE producto_id = {$productoId}"
         );
-        if (!$comps) {
-            return $totales;
+        if ($comps) {
+            while ($comp = $comps->fetch_assoc()) {
+                $clave = $comp['tipo'] . ':' . (int) $comp['ref_id'];
+                $cantidad = (float) $comp['cantidad'];
+                $base[$clave] = ($base[$clave] ?? 0.0) + $cantidad;
+                $actual[$clave] = ($actual[$clave] ?? 0.0) + $cantidad;
+                self::explotarComponente($totales, (string) $comp['tipo'], (int) $comp['ref_id'], $cantidad, $db);
+            }
         }
 
-        while ($comp = $comps->fetch_assoc()) {
-            $cantidad = (float) $comp['cantidad'];
-            $refId = (int) $comp['ref_id'];
-
-            if ($comp['tipo'] === 'ingrediente') {
-                $totales[$refId] = ($totales[$refId] ?? 0.0) + $cantidad;
-                continue;
-            }
-
-            // Subreceta: escalar sus ingredientes por cantidad / rendimiento.
-            $resSub = $db->query("SELECT rendimiento FROM subrecetas WHERE id = {$refId} LIMIT 1");
-            if (!$resSub || !($sub = $resSub->fetch_assoc())) {
-                continue;
-            }
-            $rendimiento = (float) $sub['rendimiento'];
-            if ($rendimiento <= 0) {
-                $rendimiento = 1.0;
-            }
-            $factor = $cantidad / $rendimiento;
-
-            $resIng = $db->query(
-                "SELECT ingrediente_id, cantidad FROM subreceta_ingredientes WHERE subreceta_id = {$refId}"
+        $ids = array_values(array_filter(array_map('intval', $varianteIds), static fn (int $id): bool => $id > 0));
+        if ($ids !== []) {
+            // Sólo opciones del MISMO producto: un id de otro platillo que
+            // llegara por error no puede mover la receta de éste.
+            $lista = implode(',', $ids);
+            $res = $db->query(
+                "SELECT va.accion, va.tipo, va.ref_id, va.cantidad, va.nuevo_tipo, va.nuevo_ref_id, va.nueva_cantidad
+                   FROM variante_ajustes va
+                   JOIN producto_variantes pv ON pv.id = va.variante_id
+                  WHERE va.variante_id IN ({$lista}) AND pv.producto_id = {$productoId}
+                  ORDER BY va.id ASC"
             );
-            if (!$resIng) {
-                continue;
+            $sustituciones = [];
+            if ($res) {
+                while ($aj = $res->fetch_assoc()) {
+                    if ($aj['accion'] === 'sustituir') {
+                        $sustituciones[] = $aj;
+                        continue;
+                    }
+                    $signo = $aj['accion'] === 'quitar' ? -1.0 : 1.0;
+                    $cantidad = $signo * (float) $aj['cantidad'];
+                    $clave = $aj['tipo'] . ':' . (int) $aj['ref_id'];
+                    $actual[$clave] = max(0.0, ($actual[$clave] ?? 0.0) + $cantidad);
+                    self::explotarComponente($totales, (string) $aj['tipo'], (int) $aj['ref_id'], $cantidad, $db);
+                }
             }
-            while ($si = $resIng->fetch_assoc()) {
-                $ingId = (int) $si['ingrediente_id'];
-                $totales[$ingId] = ($totales[$ingId] ?? 0.0) + ((float) $si['cantidad'] * $factor);
+
+            foreach ($sustituciones as $aj) {
+                if ($aj['nuevo_tipo'] === null || (int) $aj['nuevo_ref_id'] <= 0) {
+                    continue;
+                }
+                $cantidad = (float) $aj['cantidad'];
+                $nueva = (float) ($aj['nueva_cantidad'] ?? $cantidad);
+                if ($cantidad <= 0) {
+                    continue;
+                }
+                $clave = $aj['tipo'] . ':' . (int) $aj['ref_id'];
+                $enBase = $base[$clave] ?? 0.0;
+                $sale = $enBase > 0
+                    ? ($actual[$clave] ?? 0.0) * min(1.0, $cantidad / $enBase)
+                    : $cantidad;
+                if ($sale <= 0) {
+                    continue;
+                }
+                $entra = $sale * ($nueva / $cantidad);
+                $actual[$clave] = max(0.0, ($actual[$clave] ?? 0.0) - $sale);
+                $claveNueva = $aj['nuevo_tipo'] . ':' . (int) $aj['nuevo_ref_id'];
+                $actual[$claveNueva] = ($actual[$claveNueva] ?? 0.0) + $entra;
+                self::explotarComponente($totales, (string) $aj['tipo'], (int) $aj['ref_id'], -$sale, $db);
+                self::explotarComponente($totales, (string) $aj['nuevo_tipo'], (int) $aj['nuevo_ref_id'], $entra, $db);
+            }
+        }
+
+        foreach ($totales as $ingId => $cant) {
+            if ($cant <= 0.0005) {
+                unset($totales[$ingId]);
             }
         }
 
         return $totales;
+    }
+
+    /**
+     * Suma (o resta, con cantidad negativa) un componente a $totales: un
+     * ingrediente tal cual, una subreceta escalada por cantidad / rendimiento.
+     */
+    private static function explotarComponente(array &$totales, string $tipo, int $refId, float $cantidad, $db): void
+    {
+        if ($refId <= 0 || $cantidad == 0.0) {
+            return;
+        }
+
+        if ($tipo === 'ingrediente') {
+            $totales[$refId] = ($totales[$refId] ?? 0.0) + $cantidad;
+            return;
+        }
+        if ($tipo !== 'subreceta') {
+            return;
+        }
+
+        $resSub = $db->query("SELECT rendimiento FROM subrecetas WHERE id = {$refId} LIMIT 1");
+        if (!$resSub || !($sub = $resSub->fetch_assoc())) {
+            return;
+        }
+        $rendimiento = (float) $sub['rendimiento'];
+        if ($rendimiento <= 0) {
+            $rendimiento = 1.0;
+        }
+        $factor = $cantidad / $rendimiento;
+
+        $resIng = $db->query(
+            "SELECT ingrediente_id, cantidad FROM subreceta_ingredientes WHERE subreceta_id = {$refId}"
+        );
+        if (!$resIng) {
+            return;
+        }
+        while ($si = $resIng->fetch_assoc()) {
+            $ingId = (int) $si['ingrediente_id'];
+            $totales[$ingId] = ($totales[$ingId] ?? 0.0) + ((float) $si['cantidad'] * $factor);
+        }
     }
 
     /**

@@ -42,6 +42,28 @@
         // triángulo—, no sólo por el rojo y el ámbar.
         error: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/>',
 
+        // Asistente IA. `ia` es la marca del asistente (pareja de _icons.php,
+        // que la usa en el sidebar); `basura` es el mismo trazo que allí. Los
+        // otros dos sólo los pinta el JS de la conversación: `reintentar` es
+        // el espejo de `ahora` sin las manecillas, para que las dos flechas
+        // circulares del catálogo sean de la misma familia.
+        ia: '<path d="M11 6Q12 12 18 13Q12 14 11 20Q10 14 4 13Q10 12 11 6Z"/><path d="M19 3v4"/><path d="M17 5h4"/>',
+        copiar: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2"/>',
+        reintentar: '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4.5V10H15"/>',
+        basura: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>',
+
+        // Variantes de platillo (editor del Menú) y consultas rápidas. Pareja
+        // de _icons.php: `variantes` son tres deslizadores, el gesto de
+        // «ajustar» que el mesero reconoce del selector del POS.
+        variantes: '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/>',
+        mas: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+        buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+        editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+        // Rubros de las consultas rápidas: almacén y ventas. Mismo trazo que
+        // las entradas del sidebar en _icons.php.
+        inventario: '<path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
+        tickets: '<path d="M6 3h12v18l-2-1-2 1-2-1-2 1-2-1-2 1V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+
         // Estados de mesa del POS: el mismo círculo y una marca distinta
         // dentro. La forma, no el color, es lo que separa verde de rojo con
         // daltonismo. Pareja de _icons.php.

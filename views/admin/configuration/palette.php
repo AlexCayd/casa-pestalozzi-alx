@@ -183,9 +183,9 @@ if ($bajosContraste === 0) {
                 <?php
                 $bandas = [
                     'crema' => ['eyebrow' => '01 — La nostra storia', 'titulo' => 'Casa Pestalozzi', 'cta' => 'Reservar'],
-                    'beige' => ['eyebrow' => '02 — Il menù', 'titulo' => 'La carta', 'cta' => 'Ver menú'],
-                    'verde' => ['eyebrow' => '03 — Le degustazioni', 'titulo' => 'Catas', 'cta' => 'Escribir'],
-                    'cafe' => ['eyebrow' => '04 — Gli eventi', 'titulo' => 'Eventos', 'cta' => 'Cotizar'],
+                    'verde' => ['eyebrow' => '02 — Il menù', 'titulo' => 'La carta', 'cta' => 'Ver menú'],
+                    'oro' => ['eyebrow' => '06 — La cantina', 'titulo' => 'Catas', 'cta' => 'Escribir'],
+                    'beige' => ['eyebrow' => '08 — Il tavolo', 'titulo' => 'Reservaciones', 'cta' => 'Reservar'],
                 ];
                 ?>
                 <?php foreach ($bandas as $tono => $banda) : ?>

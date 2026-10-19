@@ -55,13 +55,13 @@
   .pm:nth-child(9) { grid-area: 3 / 4; }
 }
 
-// La tarjeta va en negativo: el marcado le pone `data-tono="cafe"`, así que el
+// La tarjeta va en negativo: el marcado le pone `data-tono="oro"`, así que el
 // fondo y todas las tintas las declara ya el tono. Aquí NO se escribe ningún
 // color de fondo ni de texto — pisarlos con un color-mix contra `--bg` era lo
 // que antes la ataba al crema de la sección.
 //
 // Se conserva el velo, pero mezclado contra el `--bg` del PROPIO tono: un 92%
-// de café sobre las fotos, no un 92% de crema.
+// de oro sobre las fotos, no un 92% de crema.
 .pan__text {
   grid-area: 2 / 2 / span 1 / span 2;
   position: relative;
@@ -76,9 +76,9 @@
   // y la sombra encima le añadía un halo sucio en el borde.
   box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 30%, transparent);
 
-  // La misma fibra de mantel de las secciones. El hilo va en CREMA, no en café:
-  // sobre un fondo café el café al 3% no existe y la tarjeta volvía a leerse
-  // como un rectángulo de color liso pegado sobre las fotos.
+  // La misma fibra de mantel de las secciones, en verde: la tarjeta es de oro,
+  // un fondo claro, y sin hilo volvía a leerse como un rectángulo de color liso
+  // pegado sobre las fotos.
   &::before {
     content: "";
     position: absolute;
@@ -88,12 +88,12 @@
     background-image:
       repeating-linear-gradient(
         45deg,
-        color-mix(in srgb, var(--brand-crema) 5%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 5%, transparent) 0 1px,
         transparent 1px 4px
       ),
       repeating-linear-gradient(
         -45deg,
-        color-mix(in srgb, var(--brand-crema) 3%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px,
         transparent 1px 6px
       );
   }

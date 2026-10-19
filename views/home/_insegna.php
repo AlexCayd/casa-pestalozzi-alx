@@ -7,14 +7,15 @@
  * parciales incluidos más de una vez conservan lo que dejó el include
  * anterior (CLAUDE.md, "Componentes").
  *
- *   $insegnaTono   tono de la banda ('cafe' | 'verde'). Por defecto 'cafe'.
+ *   $insegnaTono   tono de la banda ('oro' | 'verde'). Por defecto 'oro'.
+ *                  ('cafe' sigue valiendo: es alias de 'oro' en _reset.scss.)
  *   $insegnaLemas  lista de [italiano, traducción].
  *
  * El grupo se imprime dos veces: la animación desplaza la pista media anchura
  * exacta, y con una sola copia el bucle mostraría el hueco al reiniciar.
  */
 
-$insegnaTono = $insegnaTono ?? 'cafe';
+$insegnaTono = $insegnaTono ?? 'oro';
 $insegnaLemas = $insegnaLemas ?? [
   ['Cucina Italiana', 'cocina italiana'],
   ['Forno a Legna', 'horno de leña'],

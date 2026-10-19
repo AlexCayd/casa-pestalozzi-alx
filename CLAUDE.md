@@ -115,6 +115,14 @@ su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
    confirmada del dump tiene mesas y ninguna mesa se reserva dos veces en un
    mismo intervalo de 90 minutos; al añadir fixtures hay que mantenerlo.
 
+Al final hay un **bloque 4, «Variantes por platillo»**: ingredientes 35-71
+(leches vegetales, jarabes, licores de barra…), receta para los platillos que
+no la tenían (Latte, té, jugos, smoothie, coctelería), la receta base de los
+platillos con variantes (mismos valores que el bloque 1), ~30 platillos con
+grupos y ajustes, y tickets **900-999** de los últimos siete días con
+variantes, para que las consultas rápidas tengan qué responder. Es
+reidempotente y se puede correr suelto sobre una base existente.
+
 Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
 pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
 pasada choca contra `tickets.PRIMARY`. Para rehacer el entorno, recrear la base.
@@ -168,6 +176,32 @@ Cosas que cargan peso y no son obvias:
   ahí también o apagar una categoría la devuelve a su valor por defecto.
 - `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
+- **Variantes por platillo** (`producto_variantes` + `variante_ajustes`,
+  servicio `Services\Menu\Variantes`): grupos de opción de elección única
+  («Leche», «Tamaño», «Término») que mueven el precio y ajustan la receta. Un
+  grupo con opción `predeterminada` es la receta base —el POS la trae marcada
+  y la comanda no la imprime—; un grupo SIN predeterminada es de elección
+  obligatoria. El ticket_item conserva `nombre` sin tocar (todas las uniones por
+  nombre siguen valiendo) y la variante viaja aparte: `variante_ids` (todas las
+  opciones elegidas, ordenadas, para descontar y desglosar) y `variante` (el
+  rótulo congelado, sin las predeterminadas, para comanda, KDS, cuenta y
+  consultas). Tres reglas que no se deducen del código:
+  - **El precio de una opción lo decide el servidor** (`Variantes::resolver`
+    en `enviarComanda`), nunca la tablet; y una opción inválida o un grupo
+    obligatorio sin elegir rechaza la comanda ENTERA antes de insertar nada
+    (`VARIANTE_INVALIDA`).
+  - **«Sustituir» es proporcional** (`Inventario::explotarReceta`): reemplaza la
+    fracción `cantidad ÷ lo que la receta base lleva de ese componente` de lo
+    que el platillo lleve en ese momento, también lo que sume otra opción. Así
+    «Almendra» (120 de 120 ml) cambia toda la leche de un «Grande», y
+    «Divorciados» (40 de 80 ml de salsa) cambia la mitad. El editor del panel
+    (`src/js/admin/menu/variantes.js`) repite la misma explosión para su vista
+    previa: si cambia en un sitio, cambia en el otro.
+  - **El guardado conserva los ids** (`Variantes::guardar` actualiza en vez de
+    borrar y recrear): una tablet que cargó `CP_MENU` antes lleva esos ids en
+    su carrito.
+  Se editan en Menú → icono de deslizadores de cada platillo
+  (`/admin/menu/variantes?id=`). El COGS de Finanzas agrupa por variante.
 - `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.
 - `catas` es una tabla de **anuncio**, no de reservas. `catas.disponible`
   significa **una sola cosa: si quedan lugares**. No decide la visibilidad —eso
@@ -233,21 +267,38 @@ algo del panel, o al revés, es un error de lectura, no una idea.
 
 ### Paleta de la landing
 
-**La base es el manual de marca: verde, café, beige y crema.** Son los cuatro
-únicos hex de marca del proyecto y viven en la *capa 1* de `_reset.scss`:
+**La base es el manual de identidad** (`Manual de Identidad Casa Pestalozzi
+Draft.pdf`, en la raíz): **verde musgo y oro** como principales —50 % y 40 % de
+la superficie en el manual—, off-white de papel y el beige de la casa. Son los
+cuatro únicos hex de marca del proyecto y viven en la *capa 1* de `_reset.scss`:
 
 | Token | Hex |
 |---|---|
-| `--brand-verde` | `#225036` |
-| `--brand-cafe` | `#4a2f21` |
+| `--brand-verde` | `#214F36` |
+| `--brand-oro` | `#D1AB66` |
 | `--brand-beige` | `#e3d5bb` |
 | `--brand-crema` | `#F5F1E8` |
 
-El dorado (`--brand-oro`, `#D2AB67`) sigue existiendo pero **sólo lo consumen
-las pantallas de piso** (`[data-modo="oscuro"]`: POS, áreas, login, feedback).
-Salió de la landing porque sobre crema no contrasta con nada y dejaba planas
-todas las secciones claras; ahí el acento es el café. `--brand-vino` ya no
-existe: `[data-tono="vino"]` se conserva como alias que resuelve a café.
+**El café (`#4a2f21`) salió de la marca**: era un marrón que el manual no tiene
+y la landing lo usaba de acento y de fondo oscuro. Sus bandas son ahora la
+**banda de oro** (`[data-tono="oro"]`: Chef, la tarjeta de Panadería, Catas) y
+el pie y el lightbox pasaron a verde. `cafe` y `vino` se conservan como alias
+de `oro` por si queda marcado viejo. Ni `--brand-cafe` ni `--cafe-*` existen:
+un consumidor nuevo que los nombre se queda con una declaración inválida.
+
+**El oro NO es tinta sobre papel**: sobre crema da 1.9:1. Es relleno (el botón
+principal, la banda de oro), filete (`--line-soft` en los tonos claros, las
+líneas sobre verde) y adorno. Por eso en los tonos claros `--accent` es oro
+pero `--accent-text` y `--accent-soft` —que casi todos sus consumidores usan
+como color de TEXTO— son verde, y `--on-accent` es `--verde-ink` (6.77:1
+sobre oro). Sobre verde el oro pleno se queda en 4.35:1: el texto de acento ahí
+es `--oro-claro` (oro 70 % con crema, 5.35:1). La banda de oro es un fondo
+CLARO (luminancia 0.43): tinta verde, y su acento se invierte a verde con crema
+encima, igual que hacían café y beige.
+
+Tipografía del manual: **The Seasons** (títulos en verde, subtítulos en oro) y
+**TT Wellingtons** (cuerpo). La landing ya sólo habla con ellas y KudosKaps; los
+archivos con licencia web todavía no están en el repo (ver «Tipografía»).
 
 ### Paleta del panel
 
@@ -426,7 +477,8 @@ el SCSS, ni el JS, ni las vistas. Cambiar la marca es editar la capa 1 y nada
 más; si hace falta escribir un color en otro sitio, es que falta un rol.
 
 La capa 1 además se puede **sobrescribir desde el panel** (Configuración →
-Paleta de la landing, `Services\Configuration\PaletaLanding`): lo guardado se
+Paleta de la landing, `Services\Configuration\PaletaLanding`, columnas
+`verde`, `oro`, `beige` y `crema` de `configuracion_paleta`): lo guardado se
 emite como `:root{--brand-*}` DESPUÉS de `app.css` en cada página de marca.
 Dos consecuencias: toda página nueva que cargue `app.css` tiene que llevar
 `PaletaLanding::estiloEnLinea()` detrás de ese `<link>`, y `PaletaLanding::MARCA`
@@ -441,7 +493,8 @@ debe encontrar `_reset.scss` y `_globals.scss`.
 
 1. **MARCA** — los cuatro colores de arriba.
 2. **ESCALAS** — variantes derivadas con `color-mix` (`--verde-deep`,
-   `--oro-soft`, `--crema-lift`…). Nunca un hex nuevo.
+   `--verde-ink` —la tinta de titulares—, `--oro-claro`, `--oro-soft`,
+   `--crema-lift`…). Nunca un hex nuevo.
 3. **ROLES** — lo que el CSS consume: `--bg`, `--bg-alt`, `--surface`,
    `--surface-2`, `--txt`, `--txt-strong`, `--txt-mute`, `--txt-faint`,
    `--txt-inverse`, `--line`, `--line-soft`, `--line-strong`, `--accent`,
@@ -450,9 +503,10 @@ debe encontrar `_reset.scss` y `_globals.scss`.
 
 Distinciones que importan:
 
-- `--accent` es el acento de marca para **rellenos, bordes y adornos** (café en
-  la landing, oro en las pantallas de piso); `--accent-text` es su versión
-  **legible como texto** sobre el fondo del modo activo. `--on-accent` es la
+- `--accent` es el acento de marca para **rellenos, bordes y adornos** (oro en
+  los tonos claros y sobre verde; verde en la banda de oro); `--accent-text` es
+  su versión **legible como texto** sobre el fondo del modo activo (verde en
+  los claros, `--oro-claro` sobre verde). `--on-accent` es la
   tinta que va **encima** de un relleno de acento.
 - Las tres líneas son una escala, no sinónimos, y sus valores están calculados
   contra el `--bg` de cada tono, no elegidos a ojo:
@@ -477,7 +531,7 @@ como alias de la capa 3 para no reescribir cientos de reglas. Se declaran con
 el mixin `alias-heredados` de `_reset.scss`, **incluido dentro de cada ámbito**
 (`:root` y los seis `[data-tono]`), y eso no es opcional: una custom property
 que referencia a otra se resuelve en el elemento donde se DECLARA, así que un
-`--beige: var(--txt-strong)` sólo en `:root` computa allí a café profundo y
+`--beige: var(--txt-strong)` sólo en `:root` computa allí al verde de tinta y
 hereda ese valor ya resuelto — redeclarar `--txt-strong` en una sección no lo
 cambia. Al añadir un tono nuevo hay que incluir el mixin o todo lo que consuma
 alias dentro saldrá con la tinta de `:root`.
@@ -486,19 +540,21 @@ alias dentro saldrá con la tinta de `:root`.
 
 La capa 3 se redeclara por ámbito; nunca se duplican reglas por tema:
 
-- **Landing en claro** (por defecto): crema de fondo, verde de texto, vino como
-  acento profundo, dorado en los CTA.
+- **Landing en claro** (por defecto): crema de fondo, verde de texto, oro en
+  rellenos y filetes, verde como acento de texto.
 - `[data-modo="oscuro"]` — ya **no lo usa ninguna pantalla**. POS, áreas y login
   se fueron al sistema administrativo (`operation.css`, oscuro forzado con
   `[data-admin-theme="dark"]` y sin conmutador: son turnos completos en tablet).
   El feedback se fue al otro lado: es la ÚNICA pantalla de tablet que pertenece
   a la marca, porque la abre un comensal al terminar de comer, así que va en
-  `[data-tono="crema"]` con Bodoni y el café de acento como la landing. El
+  `[data-tono="crema"]` con The Seasons y los acentos de la landing. El
   bloque se conserva por si vuelve a hacer falta un modo oscuro público.
-- `[data-tono="crema|vino|verde|foto"]` — ritmo de secciones de la landing.
+- `[data-tono="crema|beige|oro|verde|foto"]` — ritmo de secciones de la landing
+  (`cafe` y `vino` son alias de `oro`).
   Cada `<section>` lo declara y **todo lo que vive dentro se readapta solo**.
-  `foto` es para el contenido que descansa sobre una imagen con velo (el hero):
-  no cambia el fondo, sólo fuerza el texto en claro.
+  `foto` es para el contenido que descansa sobre una imagen con velo: no
+  cambia el fondo, sólo fuerza el texto en claro. Hoy no lo usa ninguna
+  sección (el hero dejó de ser una fotografía); se conserva por si vuelve.
 - `[data-admin-theme="light|dark"]` en el panel, sin cambios de estructura.
 
 #### Las dos transiciones del panel
@@ -532,6 +588,163 @@ el compositor.
 Al añadir una sección a la landing hay que darle un `data-tono` distinto al de
 su vecina, y sincronizar el número del `eyebrow` con `.nav-overlay__links` y
 `.rail` (`views/home/_nav.php`).
+
+#### El hero: «Isologo editorial»
+
+`views/home/_hero.php` + `components/_hero.scss` + `modules/hero.js`. Es la
+propuesta 1C del lienzo de heroes: fondo crema, el **isologo del manual como
+`<h1>`** (CASA sobre PESTALOZZI en KudosKaps, filete de oro partido por el
+medallón CP), la frase en The Seasons («Una mesa italiana *con alma
+una bajada de una línea y, a la derecha, la mesa
+puesta cenital en SVG. **La columna de texto va centrada** bajo el isologo, que
+es simétrico: con el resto alineado a la izquierda la composición se
+descolgaba. A los lados de CASA, dos ramas de olivo finas (`.hero__rama`) en el
+hueco que la palabra deja sobre PESTALOZZI (2.19 em por lado). Sin rótulo encima del isologo ni pie de voces debajo:
+los dos salieron para que el logo sea lo primero y casi lo único que se lee.
+
+- **El isologo se mide contra SU columna** (`container-type: inline-size` en
+  `.hero__texto`, `font-size: clamp(2.6rem, 12.6cqi, 7.5rem)`). Lleva dentro
+  una frase `.sr-only` («restaurante italiano en la Del Valle…») para que el
+  `<h1>` diga qué es la casa a buscadores y lectores de pantalla. PESTALOZZI mide
+  7.86 em con su tracking —medido sobre el `.otf`—, así que llena la columna en
+  cualquier ancho. La rejilla va 1.4fr/1fr por lo mismo. En pantallas bajas se
+  acota también por `svh`.
+- **Ningún color en el SVG**: cada relleno pide `--hero-*` (verde, tinta, oro,
+  beige, crema, oro claro, oro papel, lino), que `_hero.scss` deriva de la
+  capa 1. Así el hero sigue a la paleta editable de Configuración. Al tocar la
+  ilustración, nada de hex: un `style="fill:var(--hero-…)"`.
+- **La entrada la hace CSS**, no GSAP (líneas del isologo que suben tras un
+  `clip-path`, medallón que entra girando, trazos que se dibujan con
+  `pathLength="1"`, vapor, tenedor, vino, olivo): el hero se ve completo sin
+  las libs de movimiento. Después quedan vivos la corona punteada del medallón
+  y **la capa viva** (`.hero-vivo`, al final del SVG): órbitas punteadas sobre
+  las esquinas de oro, hojas de albahaca que cruzan el panel, harina que sube
+  del pan y destellos. `initMesaPuntero()` publica `--hero-px`/`--hero-py`
+  (-1 a 1, sólo con puntero fino) y el CSS desplaza la capa viva más que la
+  mesa: dos planos. Movimiento reducido y `.no-anim` dejan todo quieto (y
+  retiran lo que sólo existe en movimiento: hojas, harina, chispas), y
+  `initMesaViva()` pone `.hero--quieta` —bucles en pausa— mientras el hero no
+  está en pantalla: transform sobre SVG no va al compositor.
+- **La marca fija y el índice lateral se retiran mientras el HERO pasa bajo
+  ellos** (`body.marca-en-hero`): el nombre saldría dos veces y el índice se
+  montaba sobre el panel de la mesa. La clase **ya sale del marcado** en el
+  `<body>` de `index.php`; `initMarcaHero()`, fuera de la rama de GSAP, sólo la
+  corrige y la quita si no hay `IntersectionObserver`.
+- El CTA principal es `.btn-line.btn-line--solid` con la medida propia de
+  `.hero__boton`. En ≤600 px la barra desaparece y la rejilla arranca bajo el
+  disco del menú (si no, PESTALOZZI pasaba por debajo del botón).
+- El botón de menú se mide con `--nav-toggle-top` y `--nav-toggle-size`
+  (`:root` de `_nav.scss`), que leen también el origen del círculo del menú, la
+  barra del hero y la colocación de los adornos de sección: si se mueve el
+  botón, se mueven todos.
+
+#### El menú de la landing
+
+`views/home/_nav.php` + `layout/_nav.scss` + `modules/nav.js`. Papel crema (no
+verde: abrir el menú apagaba una portada clara) con dos columnas: los destinos
+y una ficha de lino con la casa **dibujada** (arco, lámpara, olivo, mesa para
+dos) donde antes había una foto del comedor.
+
+- **UX writing, y una cosa por renglón**: los destinos dicen en español qué
+  hay —«La carta», «Catas y vinos», «Cómo llegar»— sin número delante. La pista
+  («Platillos y precios») sólo aparece al apuntar o tabular, y no existe en
+  pantallas táctiles: con número, nombre y pista siempre a la vista el panel
+  era una tabla. La voz italiana se queda en los rótulos de las secciones.
+  Nueve destinos; al reordenar se sincronizan `$navDestinos`, el orden de las
+  secciones y el `.rail`.
+- **Dos bloques centrados**, uno por mitad: la lista en el centro de la suya y
+  la ficha centrada bajo la casa dibujada (en ≤880 px vuelven a la izquierda,
+  apilados). La pista va en `position: absolute` a la derecha del nombre: si
+  ocupara sitio, el bloque de la lista se mediría con ella y se descentraría.
+- **La ficha**, mínima: «Reservar mesa» y tres líneas sin rótulo —el horario
+  de HOY (mismo servicio de excepciones que la tabla y el pie, así que nunca
+  los contradice), la dirección con enlace al mapa y el teléfono—. Las cartas
+  en PDF, el correo y la copia de la marca salieron: están en sus secciones y
+  en el pie. Los datos salen de `SitioConfig`, no escritos a mano.
+- **Los accesos rápidos del hero** llevan un filete de oro que crece bajo la
+  palabra al apuntar o tabular, y «Reservar mesa» se rellena de verde desde
+  abajo, como los `.btn-line`.
+- **Accesibilidad**: `aria-expanded` y la etiqueta del botón cambian con el
+  estado, el foco entra al primer destino (con anillo sólo si se abrió con
+  teclado: `e.detail === 0`) y Esc cierra y lo devuelve al botón. El menú
+  cerrado lleva `visibility: hidden` con la transición diferida para que se
+  vea cerrarse.
+- La ilustración comparte las clases de los adornos (`.t`, `.r`, `.v`) pero
+  NO su observador (`data-orn-listo`): el panel es fijo y cubre la pantalla,
+  así que el observador la daría por visible con el menú cerrado. Se dibuja
+  con `body.nav-open` y su bucle lo enciende `nav.js`.
+
+#### Los adornos vectoriales
+
+`views/components/ornamento.php` expone `ornamento($nombre, $clase)` (olivo,
+trigo, uvas, copa, albahaca, destellos, cubiertos, vela, ruta, guirnalda,
+filete); `components/_ornamentos.scss` los anima y `modules/ornamentos.js` los
+dispara. Son la familia de dibujo de la mesa del hero en pequeño: trazo de 1.6
+que se dibuja al entrar, relleno de oro que llega después y un bucle corto
+**sólo mientras están a la vista** (`orn--viva`). Sin JS salen dibujados y
+quietos.
+
+- **Color por rol**: trazo `--accent-text`, relleno `--accent`. El mismo adorno
+  se resuelve solo en crema, en verde y en la banda de oro.
+- **Uno por sección, como SELLO** (`ornamento($n, 'orn--seccion', true)`): un
+  disco opaco del color de la banda, una corona punteada que gira, un aro que se
+  traza, tres destellos y el dibujo grande dentro (`<svg>` anidado, con el trazo
+  compensado por la escala). Como iconos sueltos de 5 rem se perdían. Va
+  **montado sobre el corte** con la banda anterior —medio sello en cada una—,
+  a la derecha y corrido a la izquierda del botón de menú (a ras del borde
+  quedaba debajo del disco fijo cada vez que una sección llegaba arriba). Por
+  eso Chef y Especiales pasaron de `overflow: hidden` a `overflow-x: clip`.
+  Excepciones: el de Nosotros va en el hueco entre las dos columnas del hero
+  (`.orn--tras-hero`; a la derecha pisaba el panel de la mesa); donde la banda
+  de arriba es una insegna (sus letras de cartel quedaban tapadas), Menú entra
+  entero en su sección (`.orn--dentro`) —y su dibujo es una CARTA, no una
+  planta: una tarjeta con su cinta, el medallón y cuatro platillos con puntos
+  guía (`.t--puntos`, punteados y quietos)— y Catas
+  lleva su sello —la copa— en la cabecera de la carta de maridaje; Reservar lo
+  lleva junto al titular (`.reserva__vela`) porque el formulario arranca a la
+  altura del corte.
+- ⚠️ **Nunca insertar marcado en una etiqueta de apertura con un regex que
+  corte en el primer `>`**: la de Reservar lleva `<?php ... ?>` dentro de un
+  atributo, el adorno acabó dentro del valor de `data-reservation-csrf` y toda
+  reservación de la landing fallaba la validación CSRF.
+- Los `<g>` con bucle giran sobre su `transform-origin` en coordenadas del
+  viewBox (o sobre el 0 0 local, el punto donde el padre trasladó la pieza):
+  mismo patrón que `.hero-ramita`. Un `clipPath` dentro de un adorno lleva id
+  único por llamada (contador estático en la función).
+
+#### SEO
+
+- `SitioConfig::url()` (`SITIO_URL`, por defecto `https://casapestalozzi.com`)
+  es la ÚNICA fuente de la URL pública: canonical, Open Graph, datos
+  estructurados, robots.txt y sitemap. Ojo: el correo es `@casapestalozzi.mx`;
+  confirmar el dominio real antes de publicar.
+- `/robots.txt` y `/sitemap.xml` son **rutas** (`SeoController`), no archivos
+  en `public/`, porque llevan esa URL. robots cierra panel, APIs, POS, áreas,
+  login, feedback, las páginas con token de reservación y el JSON `/menu$`; el
+  sitemap lista la portada y las dos cartas en PDF, **sin `lastmod`** (no hay
+  una fecha honesta que poner).
+- La portada lleva título de ~60 caracteres con qué y dónde, descripción de
+  ~155 que termina en la acción, `theme-color` leído de la paleta vigente (no
+  un hex en la vista), Open Graph con medidas y `alt`, y un JSON-LD `@graph`
+  con `Restaurant` (horario, carta, mapa, `acceptsReservations` y
+  `ReserveAction` hacia `#reserva`) y `WebSite`. Sólo datos que existen en la
+  configuración: nada de coordenadas ni código postal inventados.
+- Las páginas con token (`views/reservaciones/gestionar.php`), login, feedback
+  y 404 llevan `noindex`.
+
+#### Detalles que ya costaron una vuelta
+
+- **El selector de fecha** (`components/_reservation-picker.scss`, mixin que
+  comparten la landing y el POS): el hover del día lleva
+  `:not(.selected)`. Sin él la regla suma (0,4,0), le gana a `.selected`
+  (0,2,0) y el día elegido perdía su marca bajo el cursor.
+- **«Sin cupo»** de las catas: el título es flex y el sello se centra contra
+  la media entre la altura de x y la de mayúsculas (`top: 0.12rem`), no contra
+  la caja; dentro, `text-box: trim-both cap alphabetic` centra las versalitas
+  donde hay soporte y un relleno asimétrico donde no.
+- **La Cucina** es más baja que una banda normal (aire vertical reducido,
+  retrato 1:1.05 acotado a `min(72vh, 600px)`): con el retrato a 4:5 en media
+  columna pasaba de una pantalla para tres claves y una firma.
 
 #### La tabla de horarios está DUPLICADA a mano
 
@@ -586,7 +799,8 @@ Excepción deliberada: `areas_produccion.color` guarda un hex por área en BD
 así salen de la paleta funcional.
 
 `Services\Configuration\AnuncioConfig::TIPOS[*]['acento']` era la otra excepción y dejó de
-serlo: los cuatro tipos van en el café de marca. Cada uno llevaba un color de la
+serlo: los cuatro tipos van en el verde de marca (el acento se lee como texto
+y enlace sobre papel, donde el oro no llega a AA). Cada uno llevaba un color de la
 paleta funcional y sobre la portada el rótulo cantaba — un anuncio no es una
 alerta, y lo que distingue a un tipo de otro es su icono y su etiqueta. En el
 mismo archivo, los cuatro tipos son ya `PRESENTACION_DISCRETA`: **ningún aviso
@@ -607,8 +821,8 @@ landing: el panel es otro producto. Locales igual que las de la landing
 
 **La jerarquía la hace el par mono/sans, no un cambio de familia**: el rótulo va
 en mono, versalitas y `letter-spacing: .14em`, y el titular debajo en sans con el
-tracking cerrado (`-0.03em`). Es lo contrario de lo que pide Bodoni en la
-landing —un didone se empasta al apretarlo— y por eso las dos escalas no se
+tracking cerrado (`-0.03em`). Es lo contrario de lo que pide la serif de alto
+contraste de la landing —apretada se empasta— y por eso las dos escalas no se
 pueden copiar la una de la otra.
 
 Toda cifra que se compare en vertical va en mono con `tabular-nums`: columnas
@@ -627,56 +841,94 @@ con un fallback `"Fraunces", serif` que era lo que de verdad se pintaba.
 
 ### Tipografía
 
-Todas las caras son **locales** (`src/scss/layout/_fonts.scss` → `assets/fonts/`,
-que `copyFonts` propaga a `public/build/fonts/`). Cero Google Fonts en la
-landing. Se consumen sólo por token, nunca nombrando la familia:
+**La landing habla sólo con las tres caras del manual de identidad**, y se
+consumen sólo por token, nunca nombrando la familia:
 
 | Token | Familia | Para qué |
 |---|---|---|
-| `--serif` | **Bodoni Moda** (variable, `wght` + `opsz`) | `h1`-`h4`, `.display`, **y sus cursivas de acento** |
-| `--crimson` | Crimson Text | cursivas de acento **fuera de headings**: `.lead`, `.hero__firma`, `.insegna__es`, notas al pie de sección |
-| `--sans` | Montserrat | cuerpo, versalitas, botones, **rótulos de sección** |
-| `--logo` | KudosKaps | `.brand-mark`, `.hero__title` y `.foot__brand .bm` |
+| `--serif` | **The Seasons** (400, 700) | `h1`-`h4`, `.display`, subtítulos, firmas y los acentos de los títulos |
+| `--sans` | **TT Wellingtons** (300, 400, 700) | cuerpo (400), énfasis (700), párrafo destacado `.lead` (300), versalitas, botones, rótulos |
+| `--logo` | KudosKaps | `.brand-mark`, `.hero__isologo` y `.foot__brand .bm` |
+
+Bodoni Moda, Crimson Text, Montserrat y Playfair **salieron de la landing**.
+`--crimson` ya no existe en `_reset.scss`: lo que era subtítulo, firma o
+acento pasó a The Seasons, y lo que era texto corrido
+(`.lead`, mensajes de formulario, notas) pasó al cuerpo — el manual reserva The
+Seasons para títulos y subtítulos. El panel conserva su alias
+`--crimson: var(--admin-font-sans)` para el login.
+
+⚠️ **Son tipografías COMERCIALES y no están en el repo.** Las declara
+`src/scss/layout/_caras-de-marca.scss` (mixins que incluyen `_fonts.scss` con
+`../fonts` y la vista previa de Configuración con `../../fonts`) y esperan seis
+archivos con licencia **web** en `assets/fonts/marca/`, que `copyFonts` publica
+en `public/build/fonts/marca/`:
+
+```
+the-seasons-regular.woff2     the-seasons-bold.woff2
+tt-wellingtons-light.woff2    tt-wellingtons-regular.woff2    tt-wellingtons-bold.woff2
+```
+
+Mientras falten, cada `@font-face` da 404 y el texto cae al respaldo de
+SISTEMA del token (Didot / Bodoni 72 / Georgia y Helvetica / Arial): nunca a
+otra webfont, que se descargaría además. `local()` va primero, así que una
+máquina con la familia instalada ya la ve. Las precargas de la portada, el 404
+y el feedback salen por `precargaFuente()` (`includes/funciones.php`), que no
+emite nada si el archivo no existe. Tres avisos: las copias incrustadas en el
+PDF del manual son subconjuntos con licencia de documento y **no sirven**; el
+manual se compuso con la versión de PRUEBA de TT Wellingtons («Trl»), que
+tampoco se publica; y si el repositorio es público, los `.woff2` con licencia
+no deberían versionarse ahí. El PDF de la carta (`items-pdf.php`, Dompdf) sigue
+en Playfair/Montserrat `.ttf` hasta que haya `.ttf` de escritorio de las dos.
+
+**El PDF de la carta** (`views/admin/menu/items-pdf.php`, Dompdf) va en
+Playfair/Montserrat `.ttf` mientras no haya `.ttf` de escritorio de las caras
+del manual, pero el isologo NO se escribe con la fuente: Dompdf no aplica el
+kerning de KudosKaps y el nombre salía desarmado. Va como trazos en
+`views/admin/menu/_isologo.svg`, generado desde el `.otf` por
+`scripts/isologo-pdf.py` (necesita fontTools; regenerarlo si cambia la cara o
+el tracking del hero) y teñido con la paleta por `$logoEscalado`. Cabecera
+verde centrada (rótulo, isologo, filete de oro partido por el sello, frase),
+secciones centradas con filete y rombo, puntos guía hasta el precio y precios
+sin centavos cuando no los hay — el mismo vocabulario que la carta de la web.
+
+`font-synthesis: none` en el `body` de la landing: la casa no admite caras
+sintéticas, y un estilo que una familia no trae (cursiva de TT Wellingtons,
+negrita de KudosKaps) sale en la cara real más cercana en vez de inventado.
+Pesos que no existen se resuelven solos sin sintetizar: 500 cae a la regular y
+600 a la negrita.
 
 ⚠️ **KudosKaps tiene UNA sola cara, de peso 400.** Cualquier elemento que la
-consuma tiene que declarar `font-weight: 400` explícitamente. Si no, hereda el
-`600` de `h1..h4` —que gana por incomparecencia cuando la clase no declara
-peso— y el navegador fabrica una negrita falsa dilatando los trazos: sobre una
-display de alto contraste eso empasta los remates y el wordmark deja de
-reconocerse. Le pasó al `h1` del hero y le pasa al PDF del menú
-(`views/admin/menu/items-pdf.php`). Va con `font-display: block` y precargada
-desde `views/home/index.php`: en un wordmark el salto de cara se ve más que la
-espera, y el respaldo de `--logo` es precisamente Bodoni.
+consuma declara `font-weight: 400` explícitamente aunque `font-synthesis` ya
+impida la negrita falsa. Le pasó al `h1` del hero (por eso `.hero
+.hero__isologo` lleva el bloque delante: con la clase sola, `h1..h4` le ganaba
+la familia) y le pasa al PDF del menú (`views/admin/menu/items-pdf.php`). Va con
+`font-display: block` y precargada desde `views/home/index.php`: en un wordmark
+el salto de cara se ve más que la espera.
 
-**Un heading es una sola voz.** Cuando un `h2` mezcla redonda y cursiva
-("Catering que *marca la diferencia*") las dos van en Bodoni y se separan por
-PESO, no por familia: 600 la redonda y 400 itálica la cursiva (`h1..h4 em`,
-`h1..h4 .accent-italic`, `.display em`). Antes la segunda saltaba a Crimson y el
-título se leía como dos títulos pegados. `.accent-italic` fuera de un heading sí
-sigue en Crimson. Los títulos de sección van en **una sola línea**: ya no llevan
-`<br>` y rompen por ancho de caja — `partirEnLineas()` lo contempla y anima el
-título en bloque en vez de escalonado.
+**La landing no usa cursivas.** El cliente las retiró: el acento de un título
+(«Reserva *tu mesa*», «Catering para *tu evento*») es **color** (`--accent-text`)
+más un **subrayado de oro** que se traza con el scroll (`animation-timeline:
+view()`, ya dibujado donde no hay soporte o con movimiento reducido). Va en
+`h1..h4 em`, `.display em` y `.accent-italic` —el nombre de la clase se quedó
+por las vistas que la usan; ya no es itálica—, como fondo y no como
+`text-decoration` para poder animarlo y repetirlo por renglón
+(`box-decoration-break: clone`). `em`, `i` y `cite` van en redonda en toda la
+landing, y un `em` dentro de un párrafo es la negrita de TT Wellingtons —el
+recurso que el manual da para enfatizar—: si un `<p>` necesita el acento de
+título (la frase del hero), lleva `.accent-italic`. La itálica de The Seasons
+ya no se declara; con `font-synthesis: none`, una cursiva que alguien pida
+sale en redonda en vez de inventada.
+
+**Un heading es una sola voz.** Los títulos van en The Seasons **regular**, que
+es como el manual compone los suyos; la negrita queda para rótulos cortos («la
+negrita de The Seasons» en `.eventos__item`, como «Misión» en el manual). Los
+títulos de sección van en **una sola línea**: ya no llevan `<br>` y rompen por
+ancho de caja — `partirEnLineas()` lo contempla y anima el título en bloque en
+vez de escalonado.
 
 **Los rótulos de sección son italianos.** El `.eyebrow` numerado dice sólo la
 voz italiana ("01 — La nostra storia"), en las versalitas sans de `.eyebrow`. La
-coletilla `.eyebrow__it` en Crimson cursiva salió de la landing; la regla se
-conserva porque la consume el marcado del panel.
-
-Bodoni es la voz italiana de la casa: el didone de Parma. Sustituyó a Playfair
-Display, que queda detrás como respaldo. Dos cosas que no son opcionales:
-
-- **Ninguna cara sintética.** Bodoni trae itálica real y Crimson también; las
-  dos las siembra `gulp copyVendorFonts` desde `node_modules` (paquetes
-  `@fontsource*`, versión fijada en `package.json`). Antes se pedía
-  `font-style: italic` a una Crimson que sólo tenía redonda, y el navegador la
-  inclinaba por su cuenta — justo en el gesto donde la página dice "italiano".
-  Si hace falta un peso o un estilo nuevo, se añade el `.woff2`, no se deja que
-  el navegador lo invente. Los pesos de heading (400–900) sí son reales: el
-  fichero de Bodoni es variable y declara `font-weight: 400 900`.
-- **El tracking de Bodoni no es el de Playfair.** Un didone tiene astas
-  finísimas: apretado se empasta. De ahí que `h1..h4` vayan a `letter-spacing: 0`
-  y con `font-optical-sizing: auto`, que es lo que ajusta el grosor de los
-  remates entre cuerpo de texto y cuerpo de cartel.
+navegación, en cambio, habla en español (ver «El menú de la landing»).
 
 ### Componentes
 
@@ -889,6 +1141,22 @@ vacía `☆` de Feedback salía como un rectángulo en algunas caras. Al cambiar
 glifo por SVG hay que dar `display: inline-flex` + `gap` a su contenedor: el
 espacio que lo separaba del texto era el del carácter y deja de existir.
 
+**Las consultas rápidas** (`views/admin/partials/_consulta-rapida.php` +
+`core/consultas-rapidas.js`, en `admin.js` + `_consulta-rapida.scss` +
+`GET /admin/api/consultas` → `Services\Analytics\ConsultasRapidas`) son la
+barra de pregunta de Tickets, Análisis, Menú e Inventario. NO es un modelo de
+lenguaje: es un intérprete de reglas que reconoce periodo (hoy, ayer, antier,
+semana, mes, últimos N días), intención (ventas, almacén, lo más vendido,
+bajo stock, total) y la cosa —platillo, categoría o ingrediente— con
+coincidencia aproximada (acentos, plurales, sinónimos de piso como
+«capuchino», errores de dedo). Las palabras que sobran se buscan entre las
+opciones del platillo: «capuchinos con almendra» filtra por esa variante. Las
+ventas se cuentan como en el resto del panel (tickets cerrados, sin
+cancelados, por `COALESCE(hora_cierre, hora_apertura)`). `$crAmbito`
+(`ventas` | `productos`) sólo decide ejemplos y desempates. La conversación
+abierta, con IA de verdad, es el módulo **Asistente IA** (`/admin/ia`, vista
+lista para n8n; contrato en `docs/config.md`).
+
 Dos piezas compartidas que conviene conocer antes de escribirlas otra vez:
 
 - **Ordenar una tabla** — `src/js/admin/core/table-sort.js`, que viaja en
@@ -910,10 +1178,33 @@ Dos piezas compartidas que conviene conocer antes de escribirlas otra vez:
   total. Es lo que le pasaba a Tickets.
 
 En la landing, `.btn-line` es el único vocabulario de CTA: `--solid` para el
-principal de una sección (relleno de acento con `--on-accent` encima),
-`--secondary` para el secundario y `--pdf` para el fantasma que acompaña a un
-principal sin competir con él. El texto del botón base va en `--txt-strong`,
-nunca en un alias: es lo que lo mantiene legible al cruzar de tono.
+principal de una sección (relleno de acento con `--on-accent` encima) y
+`--secondary` para el secundario. Lleva `.btn-line__icono` (un SVG delante de la
+etiqueta); el formato va en la etiqueta («Carta completa en PDF»), no en una
+chapa aparte. El texto del botón base va en
+`--txt-strong`, nunca en un alias: es lo que lo mantiene legible al cruzar de
+tono.
+
+**Las dos cartas en PDF no son botones gemelos.** «Carta completa» vive en Menú
+(`--solid`, oro sobre verde, cubiertos) y «Carta de maridaje» en Catas
+(`--solid`, verde sobre la banda de oro, copa): las distinguen el color, el
+icono, la etiqueta y el sitio. Menú NO enlaza al maridaje: cada carta vive en
+su sección.
+
+**La carta** (`_menu.php` + `menu.js` + `_menu.scss`) pinta desde `/menu`
+(`Carta::publica`): pestañas ARIA con flechas, nombre en The Seasons, puntos
+guía hasta el precio y la descripción en el cuerpo. **La foto NO va junto al
+nombre** (hubo miniaturas por fila y se retiraron: la carta parecía un
+catálogo): es UNA, la grande de la sección, y muestra la del platillo que se
+señala —`productos.img`, o si no tiene la de su categoría, `categorias.img`,
+las dos se suben en el panel—. Pulsar un platillo la abre en el visor. En una
+columna la foto grande sube encima de la lista, apaisada. Los textos del panel
+entran por `innerHTML`, así que pasan por `escCarta()`.
+
+**La carta de maridaje de Catas** (`_catas.php` + `maridaje.js`) se imprime en
+el servidor (`$cartaMaridaje` desde `HomeController`): una pestaña por sección
+de la barra con TODAS sus bebidas, sin recortar. Sin JS se ven todas las
+secciones con su título; `maridaje.js` las convierte en pestañas.
 
 ### El modal de mesa del POS
 
@@ -986,6 +1277,19 @@ Y tres cosas de su caja que no se deducen del archivo:
   exige siete clases, así que se resuelve con `!important` acotado (el filtro de
   búsqueda del cajón de reservaciones ya lo hacía) o, mejor, moviendo borde y
   fondo al CONTENEDOR y dejando el input desnudo dentro de un flex con `gap`.
+- ⚠ **Y su prima, que afecta a botones, párrafos y encabezados.**
+  `.admin-body button { font: inherit }`, `.admin-body p { color }` y
+  `.admin-body h1…h3` (en `_globals.scss` / `_typography.scss`) suman
+  **(0,1,1)** y le ganan a cualquier clase sola (0,1,0): un `<button
+  class="mi-pildora">` sale a 16 px/400 aunque su regla pida 12 px/600, y un
+  `<h2 class="mi-rotulo">` sale como titular de página. Vale para el panel Y
+  para el piso, que también es `.admin-body` (pasó en la hoja de opciones del
+  POS). La salida de la casa es escribir el componente bajo `.admin-body` o con
+  `& &__elemento` dentro del bloque —(0,2,0)—, como hacen `variantes.scss`,
+  `_consulta-rapida.scss` y `punto-de-venta/_variantes.scss`. Pendiente
+  conocido: `<button class="admin-btn">` sale a 16 px mientras `<a
+  class="admin-btn">` sale a 13 px; arreglarlo en `_globals.scss` toca todos
+  los módulos.
 
 Vocabulario de `.mmodal-btn`: `--primary` (relleno de acento), `--danger` (rojo:
 sólo lo que termina algo), `--release` (naranja: liberar una mesa por ausencia
@@ -1073,6 +1377,14 @@ API de **View Transitions**. `document.startViewTransition` no existe en todos
 los navegadores, así que **siempre** va detrás de `conTransicion()` /
 `conMorfo()`, que ejecutan el cambio en seco cuando falta la API o cuando hay
 movimiento reducido: llamarla a pelo dejaría el visor sin abrirse en el resto.
+⚠️ Mientras corre el morfo, `.lightbox--en-vista` **congela el fundido CSS**
+del visor: la instantánea «nueva» se toma al principio, con el visor todavía a
+opacidad 0, y el morfo volaba hacia un fondo que no existía (por eso «no se
+veía»). Es la misma trampa que el cambio de tema del panel. Las capturas de
+`zoom-origen` van con `object-fit: cover` para no deformarse entre una
+miniatura en arco y una foto apaisada. Las fotos ampliables reciben
+`tabindex`, `role="button"` y etiqueta (salvo dentro de un `aria-hidden`), y el
+foco vuelve a ellas al cerrar.
 El `view-transition-name` del morfo se pone justo antes y se retira al terminar
 —dos elementos no pueden compartirlo a la vez— y mientras corre no se lanza el
 tween de GSAP, que produciría dos aperturas superpuestas.
@@ -1101,7 +1413,13 @@ Trampas conocidas:
   con Lenis y anula cualquier `position: sticky` de dentro. Si hace falta
   recortar en horizontal, `overflow-x: clip` en `html`.
 - La **barra de scroll del documento** de la landing (`_reset.scss`, tras el
-  bloque `body`) se declara en `html` **y** en `body`, y no por duplicar: como
+  bloque `body`) es de la casa —pastilla de oro sobre carril crema con filete,
+  verde al apuntarla— y va por los pseudoelementos `::-webkit-scrollbar`. Las
+  propiedades estándar (`scrollbar-color`/`-width`) sólo donde no existen esos
+  pseudoelementos (`@supports not selector(::-webkit-scrollbar)`): Chrome 121+
+  entiende las dos vías y, en cuanto ve las estándar, ignora los
+  pseudoelementos y pinta una barra plana. Se declara en `html` **y** en
+  `body`, y no por duplicar: como
   el `overflow-x` lo declara el body mientras el html sigue en `visible`, el
   viewport hereda su overflow del body y los motores no coinciden en de cuál de
   los dos toman los estilos de la barra resultante. Lleva
@@ -1234,6 +1552,8 @@ hay que tocar la definición del corte, ése es el momento de sacar un
 - Escribe en español: comentarios, mensajes de UI, mensajes de commit.
 - Los comentarios explican **por qué**, no qué hace la línea.
 - `.claude/` está en `.gitignore`; `docs/` sí se versiona.
+- Pruebas de variantes contra la base de desarrollo, en una transacción que se
+  revierte: `php scripts/tests/run-variantes-db.php` (necesita el bloque 4).
 - Pruebas: `npm run test:php`, `npm run test:js` y, contra una base aislada
   que se crea y se borra sola, `php scripts/tests/run-notifications-isolated.php
   [suite]` (sin argumento corre su lista). `run-privacidad-contract.php` lee los

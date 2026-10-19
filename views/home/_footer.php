@@ -22,7 +22,7 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
   : [];
 ?>
 
-<footer class="foot" data-tono="cafe">
+<footer class="foot" data-tono="verde">
   <div class="wrap">
     <div class="foot__top">
       <div class="foot__brand">
@@ -46,11 +46,14 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
       <div class="foot__cols">
         <div class="foot__col">
           <h6>Explora</h6>
-          <a href="#menu">La Carta</a>
-          <a href="#firma">Lo de la Casa</a>
+          <?php /* Las mismas palabras que el menú (_nav.php): un destino con dos
+                   nombres —«Lo de la Casa» aquí, «De temporada» allí; «Catering»
+                   y «Eventos»— obliga a comprobar que son el mismo sitio. */ ?>
+          <a href="#menu">La carta</a>
+          <a href="#firma">De temporada</a>
           <a href="#panaderia">Panadería</a>
-          <a href="#catas">Catas</a>
-          <a href="#catering">Catering</a>
+          <a href="#catas">Catas y vinos</a>
+          <a href="#catering">Eventos</a>
         </div>
         <div class="foot__col">
           <h6>Visita</h6>
@@ -130,15 +133,17 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
 </footer>
 <?php unset($hoyFooter, $hoyDiaFooter, $excepcionesFooter, $diaFooter, $esHoyFooter, $excepcionFooter, $especialFooter, $claseFooter, $horario); ?>
 
-<?php /* Lightbox. Lleva data-tono="cafe" como cualquier banda oscura de la
+<?php /* Lightbox. Lleva data-tono="verde" como la banda oscura de la
          landing: es lo que hace que sus textos, líneas y acento se resuelvan
          solos. Sin el tono heredaba la capa 3 de :root —pensada para fondo
-         crema— y pintaba café sobre café. */ ?>
-<div class="lightbox" id="lightbox" data-tono="cafe" aria-hidden="true">
+         crema— y pintaba tinta verde sobre el fondo hondo del visor. */ ?>
+<div class="lightbox" id="lightbox" data-tono="verde" role="dialog" aria-modal="true" aria-label="Foto ampliada" aria-hidden="true">
   <div class="lightbox__counter"><b id="lbCur">1</b> / <span id="lbTotal">1</span></div>
-  <button class="lightbox__close" id="lbClose" aria-label="Cerrar">✕</button>
-  <button class="lightbox__nav prev" id="lbPrev" aria-label="Anterior">‹</button>
-  <button class="lightbox__nav next" id="lbNext" aria-label="Siguiente">›</button>
+  <?php /* Iconos dibujados y no los glifos ✕ ‹ ›: los pinta la fuente del
+           sistema, no heredan el color y cambian de forma entre plataformas. */ ?>
+  <button type="button" class="lightbox__close" id="lbClose" aria-label="Cerrar"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 4l12 12M16 4L4 16"/></svg></button>
+  <button type="button" class="lightbox__nav prev" id="lbPrev" aria-label="Foto anterior"><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.5 4 6.5 10l6 6"/></svg></button>
+  <button type="button" class="lightbox__nav next" id="lbNext" aria-label="Foto siguiente"><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.5 4l6 6-6 6"/></svg></button>
   <div>
     <div class="lightbox__img"><img id="lbImg" alt="" /></div>
     <div class="lightbox__hint">Usa ← → para navegar · Esc para cerrar</div>
@@ -149,14 +154,9 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
 <!-- Panel de Tweaks -->
 <aside id="tweaks" aria-label="Tweaks">
   <div class="tw-head"><h3>Tweaks</h3><button class="tw-close" id="twClose">✕</button></div>
-  <div class="tw-group">
-    <label>Estilo del hero</label>
-    <div class="tw-opts" data-tw="hero">
-      <button class="tw-opt" data-val="cinema">Cinemático</button>
-      <button class="tw-opt" data-val="editorial">Editorial</button>
-      <button class="tw-opt" data-val="minimal">Minimal</button>
-    </div>
-  </div>
+  <?php /* «Estilo del hero» salió del panel con el hero de fotografía: sus
+           tres variantes (cinemático, editorial, minimal) eran tratamientos de
+           la foto, y el hero actual es una sola composición. */ ?>
   <?php /* El selector de acento salió del panel: la paleta la fija el manual
            de marca en los tokens y ya no se conmuta desde el navegador. */ ?>
   <div class="tw-group">

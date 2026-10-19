@@ -398,6 +398,22 @@
   line-height: 1.25;
 }
 
+// La variante, igual que en el tablero de piso: su propia línea dentro del
+// nombre, y con ella el nombre deja de recortarse — con el tope en tres
+// líneas, un nombre largo se comía la última línea de la variante.
+.admin-area-card-kds__name:has(.admin-area-card-kds__variante) {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+}
+
+.admin-area-card-kds__variante {
+  display: block;
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .admin-area-card-kds__com {
   flex: 0 0 auto;
   padding: 3px 6px;

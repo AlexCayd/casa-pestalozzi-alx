@@ -320,7 +320,11 @@ function initArea() {
        */
       h += '<div class="area-card__item' + (entregado ? ' area-card__item--entregado' : '') + '">';
       h += '<span class="area-card__qty">×' + it.cantidad + '</span>';
-      h += '<span class="area-card__name">' + escHtml(it.nombre) + '</span>';
+      // La variante va DENTRO del nombre y en su mismo peso: «con almendra»
+      // es parte de lo que se prepara, no una nota al margen.
+      h += '<span class="area-card__name">' + escHtml(it.nombre) +
+           (it.variante ? '<span class="area-card__variante">' + escHtml(it.variante) + '</span>' : '') +
+           '</span>';
       h += comHtml;
 
       if (entregado) {

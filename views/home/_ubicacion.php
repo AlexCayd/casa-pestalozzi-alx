@@ -12,6 +12,7 @@
 use Services\Configuration\SitioConfig;
 ?>
 <section class="section location" id="ubicacion" data-tono="verde" data-screen-label="Ubicación">
+  <?php echo ornamento('ruta', 'orn--seccion', true); ?>
   <div class="wrap loc__grid">
     <div class="loc__info">
       <span class="eyebrow" data-reveal>Venite a trovarci</span>

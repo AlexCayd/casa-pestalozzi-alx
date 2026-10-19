@@ -1,65 +1,115 @@
-/* Hero — split-text + intro + parallax */
-function splitTitle() {
-  var el = $("[data-split]");
-  if (!el) return [];
-  var lines = [[]];
-  el.childNodes.forEach(function(node) {
-    if (node.nodeName === "BR") lines.push([]);
-    else (node.textContent || "").split("").forEach(function(ch) { lines[lines.length - 1].push(ch); });
-  });
-  el.innerHTML = "";
-  var chars = [];
-  lines.forEach(function(ln) {
-    if (!ln.length) return;
-    var word = document.createElement("span");
-    word.className = "word";
-    ln.forEach(function(ch) {
-      var s = document.createElement("span");
-      s.className = "char";
-      s.textContent = ch;
-      word.appendChild(s);
-      chars.push(s);
-    });
-    el.appendChild(word);
-  });
-  return chars;
-}
+/* Hero — «Isologo editorial»
+ *
+ * La entrada (isologo, frase, mesa que se dibuja) la hace CSS en _hero.scss:
+ * así el hero se ve completo aunque GSAP no llegue. Aquí sólo quedan dos
+ * cosas que CSS no puede hacer solo.
+ */
 
-function heroIntro() {
-  var chars = splitTitle();
-  // Sin GSAP no se puede usar GSAP para dejar el título visible: la rama que
-  // atiende ese caso llamaba a gsap.set() y habría reventado con un
-  // ReferenceError. Hoy no se llega porque boot() protege la llamada desde
-  // fuera, pero la guarda tiene que sostenerse sola.
-  if (reduce || !window.gsap) {
-    chars.forEach(function(s) { s.style.transform = "none"; s.style.opacity = 1; });
+/*
+ * La marca fija de la esquina (y el índice lateral) se retiran mientras el
+ * hero está bajo ellas: con el isologo a la vista, el nombre de la casa salía
+ * dos veces en el mismo encuadre. Vuelven cuando el hero termina de pasar por
+ * la franja de la marca, es decir, en el corte con Nosotros.
+ *
+ * Se observa el HERO y no el isologo, que es lo que se hacía: el isologo sale
+ * de pantalla mucho antes que el resto de su columna, y la marca reaparecía
+ * pintada encima de la frase, de la bajada y del botón de oro mientras éstos
+ * seguían subiendo. Con el hero entero la entrega es limpia: la marca vuelve
+ * sobre el margen superior de la sección siguiente, en el mismo instante en
+ * que tonoBajoLaMarca() cambia de banda. Los 96 px son el pie de la marca
+ * fija con margen.
+ *
+ * Va fuera de la rama de GSAP (lo llama boot() siempre), como tonoBajoLaMarca:
+ * es identidad, no adorno de movimiento.
+ *
+ * `body.marca-en-hero` ya viene puesta desde el marcado (index.php) para que
+ * el primer pintado salga sin la marca encima del rótulo; aquí sólo se
+ * corrige. Si no hay con qué observar, se quita: mejor la marca de siempre
+ * que una página que la pierde para el resto de la visita.
+ */
+function initMarcaHero() {
+  var isologo = $("[data-hero-isologo]");
+  var hero = isologo ? isologo.closest(".hero") : null;
+  if (!hero || !("IntersectionObserver" in window)) {
+    body.classList.remove("marca-en-hero");
     return;
   }
+  var io = new IntersectionObserver(function(entradas) {
+    entradas.forEach(function(e) {
+      body.classList.toggle("marca-en-hero", e.isIntersecting);
+    });
+  }, { threshold: 0, rootMargin: "-96px 0px 0px 0px" });
+  io.observe(hero);
+}
 
-  // El hero dejó de tener un .hero__inner: ahora son dos bandas hermanas
-  // (centro / pie), así que la intro busca dentro de #hero.
-  var entra = $$("#hero [data-reveal]");
+/*
+ * Los bucles de la mesa (vapor, tenedor, vino, olivo) se detienen mientras el
+ * hero no está en pantalla: son transform sobre SVG, que no va al compositor
+ * y cuesta hilo principal en cada fotograma aunque nadie lo esté viendo. Las
+ * entradas no se tocan; sólo lo que se repite. La regla es .hero--quieta en
+ * _hero.scss.
+ */
+function initMesaViva() {
+  var hero = $("#hero");
+  if (!hero || !("IntersectionObserver" in window)) return;
+  new IntersectionObserver(function(entradas) {
+    entradas.forEach(function(e) {
+      hero.classList.toggle("hero--quieta", !e.isIntersecting);
+    });
+  }).observe(hero);
+}
 
-  var tl = gsap.timeline({ delay: 0.25 });
-  gsap.set(chars, { yPercent: 115, opacity: 0 });
-  tl.to(chars, { yPercent: 0, opacity: 1, duration: 1.1, stagger: 0.045, ease: "power4.out" });
-  tl.to(entra, { opacity: 1, y: 0, duration: 0.9, stagger: 0.12, ease: "power3.out" }, "-=0.7");
-
-  // El velo arranca cerrado y se abre con el título: es lo que convierte la
-  // entrada en un fundido de cartel en vez de una foto que ya estaba ahí.
-  tl.from(".hero__velo", { opacity: 1.6, duration: 1.6, ease: "power2.out" }, 0);
-
-  var bg = $("[data-parallax-bg] img");
-  if (bg) gsap.to(bg, { yPercent: -10, ease: "none", scrollTrigger: { trigger: "#hero", start: "top top", end: "bottom top", scrub: true } });
-
-  // Salida del hero: las bandas se van hacia arriba y se desvanecen mientras
-  // la portada se queda. Sin esto el texto blanco cruzaba el borde de la
-  // siguiente sección clara y durante medio segundo no se leía nada.
-  gsap.to(".hero__banda", {
-    yPercent: -22,
-    opacity: 0,
+/*
+ * Salida del hero con el scroll: la mesa sube un poco más despacio que el
+ * texto, lo justo para que la página tenga profundidad sin que el plato se
+ * despegue de su panel.
+ */
+function heroIntro() {
+  if (reduce || !window.gsap || !window.ScrollTrigger) return;
+  var mesa = $("[data-hero-mesa]");
+  if (!mesa) return;
+  gsap.to(mesa, {
+    yPercent: -6,
     ease: "none",
-    stagger: 0.04,
-    scrollTrigger: { trigger: "#hero", start: "40% top", end: "bottom top", scrub: true },
+    scrollTrigger: { trigger: "#hero", start: "top top", end: "bottom top", scrub: true },
+  });
+}
+
+/*
+ * Profundidad con el puntero. La capa viva de la mesa (hojas, harina, órbitas,
+ * destellos) se desplaza unos píxeles hacia donde apunta el ratón y la mesa,
+ * menos, hacia el lado contrario: dos planos. Sólo publica --hero-px y
+ * --hero-py (-1 a 1); el movimiento lo hace el CSS con una transición, así que
+ * aquí no hay bucle de animación.
+ *
+ * Sin puntero fino (tablet, teléfono) o con movimiento reducido no se engancha:
+ * en una pantalla táctil no hay «apuntar», y el giroscopio no se pide.
+ */
+function initMesaPuntero() {
+  var hero = $("#hero");
+  var mesa = $("[data-hero-mesa]");
+  if (!hero || !mesa || reduce) return;
+  if (!window.matchMedia || !window.matchMedia("(pointer: fine)").matches) return;
+
+  var pendiente = null;
+  function aplicar() {
+    var p = pendiente;
+    pendiente = null;
+    if (!p) return;
+    var r = mesa.getBoundingClientRect();
+    var x = ((p.x - (r.left + r.width / 2)) / (r.width / 2));
+    var y = ((p.y - (r.top + r.height / 2)) / (r.height / 2));
+    mesa.style.setProperty("--hero-px", Math.max(-1, Math.min(1, x)).toFixed(3));
+    mesa.style.setProperty("--hero-py", Math.max(-1, Math.min(1, y)).toFixed(3));
+  }
+
+  hero.addEventListener("pointermove", function(e) {
+    if (!pendiente) requestAnimationFrame(aplicar);
+    pendiente = { x: e.clientX, y: e.clientY };
+  });
+  hero.addEventListener("pointerleave", function() {
+    pendiente = null;
+    mesa.style.setProperty("--hero-px", "0");
+    mesa.style.setProperty("--hero-py", "0");
   });
 }

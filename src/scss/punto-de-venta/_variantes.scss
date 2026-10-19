@@ -1,0 +1,340 @@
+// ── Variantes en el POS ───────────────────────────────────────
+//
+// Tres piezas: el aviso en la fila del platillo («Opciones» / «Elegir»), la
+// hoja de opciones que se abre encima del modal de mesa, y el rótulo de la
+// variante en el pedido y en el ticket.
+//
+// Escrito, como el resto del POS, contra los nombres públicos que traduce
+// `puente-tokens-publicos` (--txt, --accent, --line…). La hoja va en
+// #mesa-modal —position: fixed, inset 0—, así que su `inset: 0` cubre la
+// pantalla y no depende del scroll del panel.
+//
+// ⚠ El POS es `.admin-body`, así que le alcanzan las reglas de elemento del
+// panel: `.admin-body button { font: inherit }` y `.admin-body h3` / `p`, las
+// tres con (0,1,1). Le ganan a una clase sola, y por eso las piezas que son
+// <button>, <h3> o <p> van con el bloque delante (`& &__x`, 0,2,0): sin él las
+// pastillas salían en 400 en vez de 600 —en una tablet a un brazo de
+// distancia, el peso es lo que las hace legibles— y el titular a 25 px.
+
+// La fila avisa ANTES del toque. Mono para nada: es una palabra, no una cifra.
+.mmodal-dish-opts {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .1rem .45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--txt-mute);
+  // .6rem eran 9.6 px: ilegible a un brazo de distancia, y es justo el aviso
+  // que tiene que leerse ANTES del toque.
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.mmodal-dish-row.is-active .mmodal-dish-opts {
+  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
+  color: var(--on-accent);
+}
+
+// ── La hoja ───────────────────────────────────────────────────
+
+.mmodal-opts {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+
+  &__bd {
+    position: absolute;
+    inset: 0;
+    background: var(--veil);
+    backdrop-filter: blur(var(--glass-blur-sm));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+
+  &.is-open &__bd { opacity: 1; }
+
+  &__card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 520px;
+    max-height: min(640px, calc(100vh - 2.5rem));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 24px 64px color-mix(in srgb, var(--sombra) 45%, transparent);
+    opacity: 0;
+    transform: translateY(12px) scale(.98);
+    transition: opacity .2s ease, transform .24s cubic-bezier(.22, .61, .36, 1);
+  }
+
+  &.is-open &__card {
+    opacity: 1;
+    transform: none;
+  }
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.1rem .6rem 1.25rem;
+  }
+
+  & &__eyebrow {
+    margin: 0 0 .2rem;
+    color: var(--txt-faint);
+    font-family: var(--operational-font-ui);
+    font-size: .62rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  & &__titulo {
+    margin: 0;
+    color: var(--txt);
+    font-family: var(--operational-font-ui);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+  }
+
+  // 48 px, como las pastillas: es el otro objetivo que se toca con el pulgar.
+  & &__cerrar {
+    display: inline-flex;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--line-soft);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--txt-mute);
+    cursor: pointer;
+
+    svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    &:hover { color: var(--txt); }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--txt));
+      outline-offset: 2px;
+    }
+  }
+
+  &__cuerpo {
+    display: grid;
+    gap: 1rem;
+    padding: .4rem 1.25rem 1rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  &__grupo {
+    display: grid;
+    gap: .5rem;
+  }
+
+  & &__grupo-nombre {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: 0;
+    color: var(--txt-mute);
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  // Lo obligatorio que falta es lo único con color de estado en la hoja: es lo
+  // que impide agregar, y tiene que verse sin leer.
+  &__req {
+    padding: .1rem .45rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--txt) 8%, transparent);
+    color: var(--txt-mute);
+    font-size: .64rem;
+    letter-spacing: .02em;
+    text-transform: none;
+  }
+
+  &__grupo.is-falta &__req {
+    background: var(--feedback-warn-bg);
+    color: var(--feedback-warn);
+  }
+
+  &__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+  }
+
+  // 48px: la hoja se usa con el pulgar, con la tablet en la otra mano.
+  & &__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    min-height: 48px;
+    padding: 0 1rem;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--txt);
+    font-family: var(--operational-font-ui);
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .14s, border-color .14s, color .14s;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover { border-color: var(--line-strong); }
+    &:active { transform: scale(.98); }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--txt));
+      outline-offset: 2px;
+    }
+
+    &.is-on {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+  }
+
+  &__pill-delta {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: .72rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    opacity: .8;
+  }
+
+  &__pie {
+    display: grid;
+    gap: .6rem;
+    padding: .9rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  & &__resumen {
+    margin: 0;
+    color: var(--txt-mute);
+    font-size: .78rem;
+  }
+
+  &__acciones {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: .6rem;
+
+    .mmodal-btn {
+      width: 100%;
+      min-height: 48px;
+    }
+  }
+}
+
+// En móvil la hoja sube desde abajo, como el propio modal de mesa.
+@media (max-width: 639px) {
+  .mmodal-opts {
+    align-items: flex-end;
+    padding: 0;
+
+    &__card {
+      max-width: none;
+      max-height: 88vh;
+      border-radius: 20px 20px 0 0;
+      transform: translateY(24px);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mmodal-opts__bd,
+  .mmodal-opts__card {
+    transition: none;
+  }
+}
+
+// ── Rótulo de la variante en el pedido y en el ticket ─────────
+
+.mmodal-cart-variante,
+.mmodal-resumen-variante {
+  display: block;
+  margin-top: .15rem;
+  color: var(--txt);
+  font-size: .7rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+// Visualmente es una pastilla de 32 px —la fila del pedido es densa y no
+// puede crecer por cada platillo con opciones—, pero el área táctil llega a
+// 44 con el ::after. Va con la fila delante por la misma razón que la hoja:
+// `.admin-body button` le quitaba el cuerpo y el peso.
+.mmodal-cart-row .mmodal-cart-cambiar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: 32px;
+  margin-top: .25rem;
+  padding: 0 .55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--txt-mute);
+  font-family: inherit;
+  font-size: .66rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -6px -2px;
+  }
+
+  &:hover {
+    border-color: var(--line-strong);
+    color: var(--txt);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--txt));
+    outline-offset: 2px;
+  }
+}

@@ -790,3 +790,296 @@
 .admin-printers__paused .admin-btn {
   flex: 0 0 auto;
 }
+
+/* ── Variantes en el listado ──────────────────────────────────────
+ *
+ * El contador bajo el nombre y la acción de la fila. Vivían en variantes.scss,
+ * que sólo carga el editor: en el listado no llegaban nunca, así que el icono
+ * se pegaba a la cifra («⚌7 opciones») y la acción de un platillo con
+ * variantes era idéntica a la de uno sin ellas.
+ *
+ * `.admin-table__cell-sub` es `display: block` en _tables.scss con la misma
+ * especificidad; el contador va con la tabla como ancestro para no depender
+ * del orden de carga entre admin.css y esta hoja. */
+.admin-table .admin-menu__variantes-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.admin-table .admin-menu__variantes-sub svg {
+  flex: 0 0 auto;
+}
+
+/* Con variantes, la acción lleva el contorno en tinta plena. No se rellena: en
+ * la misma fila van el ámbar de editar y el rojo de borrar, y un cuadro negro
+ * sería lo más ruidoso de la tabla para un dato que ya dice el rótulo bajo el
+ * nombre. El contorno basta para distinguirlo al recorrer la columna. */
+.admin-body .admin-icon-button--variantes.is-set {
+  border-color: var(--admin-text);
+  background-color: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px var(--admin-text);
+}
+
+/* ── Foto del platillo (formulario) ───────────────────────────────
+ *
+ * La vista previa enseña lo que la CARTA va a mostrar, no sólo lo que se
+ * subió: la foto propia, la nueva todavía sin guardar, o la de la categoría
+ * cuando el platillo no tiene la suya. Esa última va en gris, con contorno
+ * discontinuo y su sello: es prestada, y ésa es la diferencia que el panel
+ * tiene que dejar ver sin leer el texto de al lado.
+ *
+ * Todo cuelga de `.admin-body .admin-foto` (0,2,0) y no de la clase sola:
+ * `.admin-body p` y `.admin-body button` suman (0,1,1) y le ganarían el color
+ * al texto de estado y el tamaño al botón «Deshacer» (ver CLAUDE.md). */
+.admin-body .admin-foto .admin-foto__opcional {
+  margin-left: 6px;
+  color: var(--admin-faint);
+  font-weight: 600;
+}
+.admin-body .admin-foto .admin-foto__cuerpo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 20px;
+  padding: 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-foto .admin-foto__cuerpo.is-arrastrando {
+  border-style: dashed;
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+}
+.admin-body .admin-foto.has-error .admin-foto__cuerpo {
+  border-color: var(--admin-danger-border);
+}
+.admin-body .admin-foto .admin-foto__vista {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  width: min(192px, 100%);
+  aspect-ratio: 4/3;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-foto .admin-foto__vista:hover {
+  border-color: var(--admin-border-strong);
+}
+.admin-body .admin-foto .admin-foto__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out), filter var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-body .admin-foto.is-cargando .admin-foto__img {
+  opacity: 0;
+}
+.admin-body .admin-foto .admin-foto__vacia {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-body .admin-foto .admin-foto__vacia svg {
+  stroke-width: 1.6;
+}
+.admin-body .admin-foto .admin-foto__img[hidden],
+.admin-body .admin-foto .admin-foto__vacia[hidden] {
+  display: none;
+}
+.admin-body .admin-foto .admin-foto__sello {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: none;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.admin-body .admin-foto[data-estado=categoria] .admin-foto__sello--categoria, .admin-body .admin-foto[data-estado=nueva] .admin-foto__sello--nueva, .admin-body .admin-foto[data-estado=pendiente] .admin-foto__sello--nueva {
+  display: inline-flex;
+}
+.admin-body .admin-foto[data-estado=categoria] .admin-foto__vista, .admin-body .admin-foto[data-estado=vacia] .admin-foto__vista {
+  border-style: dashed;
+}
+.admin-body .admin-foto[data-estado=categoria] .admin-foto__img {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.admin-body .admin-foto .admin-foto__panel {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin-body .admin-foto .admin-foto__estado {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.admin-body .admin-foto .admin-foto__acciones {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.admin-body .admin-foto .admin-foto__boton {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+.admin-body .admin-foto .admin-foto__boton[hidden] {
+  display: none;
+}
+.admin-body .admin-foto {
+  /* Sin JS los controles son los NATIVOS: el <input type="file"> enseña el
+     nombre del archivo elegido —la única confirmación posible sin script— y la
+     casilla de «Quitar foto» se ve marcada. La etiqueta-botón «Subir foto»
+     sobraría junto al selector nativo, así que sólo existe con JS.
+
+     La señal es `[data-admin-theme]` en <html>: lo pone el script en línea de
+     views/admin/layout.php ANTES del primer pintado, así que no hay un parpadeo
+     de controles nativos mientras llega admin.js (que va con `defer`). */
+}
+html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-arrastre] {
+  display: none;
+}
+.admin-body .admin-foto {
+  /* Con JS: el input y la casilla reales, recortados pero presentes —con
+     display:none saldrían del recorrido de teclado—. `!important` acotado
+     porque la regla global de campos de _forms.scss suma (0,6,1) e impone
+     ancho, alto y relleno a cualquier input que no sea casilla o radio. */
+}
+[data-admin-theme] .admin-body .admin-foto .admin-foto__input, [data-admin-theme] .admin-body .admin-foto .admin-foto__quitar input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-body .admin-foto .admin-foto__input:focus-visible + .admin-foto__boton,
+.admin-body .admin-foto .admin-foto__quitar:has(input:focus-visible) {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+.admin-body .admin-foto .admin-foto__quitar:has(input:checked) {
+  border-color: var(--admin-danger-border);
+  color: var(--admin-danger-text);
+}
+.admin-body .admin-foto .admin-foto__ayuda {
+  margin-top: 0;
+}
+.admin-body .admin-foto {
+  /* Vacío se recorta, no se apaga: es un role="alert", y con display:none
+     sale del árbol de accesibilidad; una región que aparece y se llena en el
+     mismo instante no todos los lectores la anuncian. Así sigue presente y sin
+     ocupar sitio (el panel es position: relative). */
+}
+.admin-body .admin-foto .admin-field__error:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-foto .admin-foto__cuerpo,
+  .admin-body .admin-foto .admin-foto__vista,
+  .admin-body .admin-foto .admin-foto__img {
+    transition: none;
+  }
+}
+
+@supports not selector(:has(*)) {
+  [data-admin-theme] .admin-body .admin-foto .admin-foto__quitar input {
+    position: static !important;
+    width: 16px !important;
+    height: 16px !important;
+    clip-path: none;
+    accent-color: var(--admin-accent);
+  }
+}
+@media (max-width: 576px) {
+  .admin-body .admin-foto .admin-foto__vista {
+    width: 100%;
+  }
+}
+/* ── Miniatura del platillo en el listado ─────────────────────────
+ *
+ * Responde de un vistazo «¿qué platillos no tienen foto?». A color la propia;
+ * en gris y con contorno discontinuo la de la categoría, que es la que la
+ * carta enseñará en su lugar; vacía si tampoco la categoría tiene. Va dentro
+ * de la celda del nombre y no en columna propia: la tabla ya pide 980 px.
+ *
+ * En el DOM va DESPUÉS del nombre —el lector anuncia primero el platillo y
+ * luego su foto— y `order` la pone a la izquierda. */
+.admin-table .admin-menu__platillo {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-table .admin-menu__platillo-texto {
+  min-width: 0;
+}
+
+.admin-table .admin-menu__foto {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  order: -1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-faint);
+}
+.admin-table .admin-menu__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.admin-table .admin-menu__foto svg {
+  stroke-width: 1.8;
+}
+.admin-table .admin-menu__foto--categoria, .admin-table .admin-menu__foto--vacia {
+  border-style: dashed;
+  border-color: var(--admin-border);
+}
+.admin-table .admin-menu__foto--categoria img {
+  filter: grayscale(1);
+  opacity: 0.55;
+}

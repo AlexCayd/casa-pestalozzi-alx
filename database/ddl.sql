@@ -23,6 +23,8 @@ DROP TABLE IF EXISTS ingrediente_proveedores;
 DROP TABLE IF EXISTS proveedores;
 DROP TABLE IF EXISTS gastos_fijos;
 DROP TABLE IF EXISTS movimientos_inventario;
+DROP TABLE IF EXISTS variante_ajustes;
+DROP TABLE IF EXISTS producto_variantes;
 DROP TABLE IF EXISTS producto_componentes;
 DROP TABLE IF EXISTS subreceta_ingredientes;
 DROP TABLE IF EXISTS subrecetas;
@@ -389,6 +391,13 @@ CREATE TABLE IF NOT EXISTS productos (
   -- La validación de Producto la exige en altas nuevas; permanece nullable
   -- para aceptar catálogos históricos durante la transición.
   descripcion  TEXT NULL,
+  -- Foto propia del platillo, mismo formato que categorias.img: ruta relativa
+  -- que devuelve ImagenUploader ("build/images/<hash>.webp"). NULL no es un
+  -- hueco sino una decision: la carta usa entonces la foto de su categoria.
+  -- Por eso Producto la escribe con sentencia preparada y no como '' (ver
+  -- Producto::crear). El fallback NO se resuelve en SQL: Carta::publica()
+  -- entrega las dos y la landing elige.
+  img          VARCHAR(255) NULL DEFAULT NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
@@ -428,6 +437,14 @@ CREATE TABLE IF NOT EXISTS ticket_items (
   comensal   TINYINT UNSIGNED NULL,
   cantidad   TINYINT UNSIGNED NOT NULL DEFAULT 1,
   nota       VARCHAR(280) NULL DEFAULT NULL,
+  -- Variante elegida en el POS (producto_variantes). `nombre` sigue siendo el
+  -- del platillo a secas —el COGS, las analíticas y el descuento unen por
+  -- nombre—, así que la variante viaja aparte: los ids, ordenados y separados
+  -- por coma, para descontar inventario y desglosar ventas; y el rótulo
+  -- congelado ("Almendra · Grande") para la comanda, el KDS y la cuenta, que
+  -- no debe cambiar aunque mañana se renombre la opción.
+  variante_ids VARCHAR(120) NULL DEFAULT NULL,
+  variante     VARCHAR(160) NULL DEFAULT NULL,
   estado     ENUM('enviado','en_preparacion','listo','entregado','cancelado') NOT NULL DEFAULT 'enviado',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
@@ -505,6 +522,52 @@ CREATE TABLE IF NOT EXISTS producto_componentes (
   cantidad    DECIMAL(12,3) NOT NULL DEFAULT 0,
   FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
   INDEX idx_pc_producto (producto_id)
+);
+
+-- Variantes por platillo: grupos de opción de elección única ("Leche",
+-- "Tamaño", "Término"…). Cada opción puede mover el precio y ajustar la receta.
+--
+-- `predeterminada` = la receta base tal cual: el POS la trae marcada y la
+-- comanda no la imprime. Un GRUPO sin opción predeterminada es de elección
+-- obligatoria (el término de un corte): el POS no deja agregar el platillo sin
+-- elegir. Sólo puede haber una predeterminada por grupo; lo valida
+-- Services\Menu\Variantes al guardar.
+CREATE TABLE IF NOT EXISTS producto_variantes (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  producto_id    INT UNSIGNED NOT NULL,
+  grupo          VARCHAR(40) NOT NULL,
+  nombre         VARCHAR(60) NOT NULL,
+  precio_delta   DECIMAL(8,2) NOT NULL DEFAULT 0,
+  predeterminada TINYINT(1) NOT NULL DEFAULT 0,
+  orden_grupo    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  orden          SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  activo         TINYINT(1) NOT NULL DEFAULT 1,
+  FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_variante (producto_id, grupo, nombre),
+  INDEX idx_pv_producto (producto_id, activo, orden_grupo, orden)
+);
+
+-- Lo que una opción le hace a la receta base, por UNA unidad vendida.
+--   agregar   suma `cantidad` del componente (más leche, un shot extra).
+--   quitar    resta `cantidad` del componente (sin parmesano).
+--   sustituir resta `cantidad` del componente y suma `nueva_cantidad` del
+--             `nuevo_*` (leche → leche de almendra). Se guarda como UNA fila y
+--             no como quitar + agregar para que el panel la pueda volver a
+--             enseñar como lo que es.
+-- Igual que producto_componentes, `ref_id` / `nuevo_ref_id` apuntan a
+-- ingredientes.id o subrecetas.id según su tipo y no llevan FK.
+CREATE TABLE IF NOT EXISTS variante_ajustes (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  variante_id    INT UNSIGNED NOT NULL,
+  accion         ENUM('agregar','quitar','sustituir') NOT NULL,
+  tipo           ENUM('ingrediente','subreceta') NOT NULL,
+  ref_id         INT UNSIGNED NOT NULL,
+  cantidad       DECIMAL(12,3) NOT NULL DEFAULT 0,
+  nuevo_tipo     ENUM('ingrediente','subreceta') NULL,
+  nuevo_ref_id   INT UNSIGNED NULL,
+  nueva_cantidad DECIMAL(12,3) NULL,
+  FOREIGN KEY (variante_id) REFERENCES producto_variantes(id) ON DELETE CASCADE,
+  INDEX idx_va_variante (variante_id)
 );
 
 -- Bitácora de movimientos de inventario (trazabilidad del descuento por venta).
@@ -949,7 +1012,7 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
 
 -- Paleta de la landing. Fila única (id = 1), como configuracion_pos.
 -- Cada columna sobrescribe UNO de los cuatro colores de la capa 1 de
--- src/scss/layout/_reset.scss (--brand-verde, --brand-cafe, --brand-beige,
+-- src/scss/layout/_reset.scss (--brand-verde, --brand-oro, --brand-beige,
 -- --brand-crema); escalas y roles se derivan solos con color-mix.
 -- NULL = el valor del manual de marca, que es el del SCSS. Se guarda NULL y no
 -- el hex de marca para que un color que nadie tocó siga al manual si algún día
@@ -957,7 +1020,7 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
 CREATE TABLE IF NOT EXISTS configuracion_paleta (
   id          TINYINT UNSIGNED NOT NULL,
   verde       CHAR(7) NULL,
-  cafe        CHAR(7) NULL,
+  oro         CHAR(7) NULL,
   beige       CHAR(7) NULL,
   crema       CHAR(7) NULL,
   updated_by  INT NULL,

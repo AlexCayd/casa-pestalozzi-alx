@@ -1,5 +1,7 @@
-<?php /* Nosotros */ ?>
-<section class="section" id="nosotros" data-tono="crema" data-screen-label="Nosotros">
+<?php /* Nosotros. En lino y no en crema desde que el hero es papel crema: dos
+         vecinas con el mismo tono pierden el corte (ver el ritmo en index.php). */ ?>
+<section class="section" id="nosotros" data-tono="beige" data-screen-label="Nosotros">
+  <?php echo ornamento('olivo', 'orn--seccion orn--tras-hero', true); ?>
   <div class="wrap about__grid">
     <div class="about__text">
       <div class="about__head" data-reveal>

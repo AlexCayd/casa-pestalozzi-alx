@@ -17,7 +17,7 @@
  * También salió el bloque de testimonios con la foto de equipo: era el tercer
  * CTA de la misma sección.
  *
- * Va en tono verde: entre el café de Catas y el lino de Reservaciones.
+ * Va en tono verde: entre el oro de Catas y el lino de Reservaciones.
  */
 
 use Services\Configuration\SitioConfig;
@@ -27,17 +27,21 @@ $ocasiones = SitioConfig::OCASIONES_EVENTO;
 $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 ?>
 <section class="section catering" id="catering" data-tono="verde" data-screen-label="Catering">
+  <?php echo ornamento('guirnalda', 'orn--seccion', true); ?>
   <div class="wrap">
 
     <div class="catering__head">
       <div>
         <span class="eyebrow" data-reveal>07 — Su misura</span>
-        <h2 class="catering__title" data-lineas>Catering que <em class="accent-italic">marca la diferencia</em></h2>
+        <h2 class="catering__title" data-lineas>Catering para <em class="accent-italic">tu evento</em></h2>
       </div>
       <div class="catering__intro" data-reveal>
+        <?php /* Dice qué hacemos y cuál es el siguiente paso. Antes eran dos líneas de
+                 adjetivos («elegancia», «máxima expresión») que no respondían
+                 a nada de lo que pregunta quien organiza un evento. */ ?>
         <p class="body">
-          Creamos experiencias gastronómicas donde la elegancia, el sabor y la atención al
-          detalle llevan cada celebración a su máxima expresión.
+          Del coffee break a la boda: elige tu ocasión y te mandamos la cotización
+          por WhatsApp.
         </p>
         <a class="btn-line btn-line--solid catering__cta"
            href="<?php echo $h(SitioConfig::whatsappEventosUrl(SitioConfig::MENSAJE_EVENTO_GENERICO)); ?>"

@@ -27,9 +27,14 @@
  * con el acento en beige, que es justo lo que hace [data-tono="verde"] — el
  * tono de la seccion que enlaza este PDF.
  *
- * Titulos con serifas: la landing usa Bodoni Moda, pero solo la sembramos en
- * .woff2 y Dompdf no lo lee, asi que aqui va Playfair Display, que es
- * precisamente el respaldo declarado de --serif.
+ * Titulos con serifas: la landing usa The Seasons y TT Wellingtons, pero no
+ * hay .ttf de escritorio de las dos en el repo y Dompdf no lee .woff2, asi
+ * que aqui siguen Playfair Display y Montserrat hasta que lleguen.
+ *
+ * El isologo NO se escribe con la fuente: Dompdf no aplica el kerning de
+ * KudosKaps y el wordmark salia desarmado («CA SA PEST A L O Z Z I»). Va como
+ * trazos (_isologo.svg, generado por scripts/isologo-pdf.py desde el .otf),
+ * tenido con la paleta como el sello del pie.
  *
  * Margenes uniformes en los 4 lados via .page.
  */
@@ -38,7 +43,7 @@
 // entrega. Se declaran igual para que un include suelto imprima la carta de
 // comida en vez de una banda sin rotulo.
 $pdfRotulo = $pdfRotulo ?? 'MENÚ';
-$pdfBajada = $pdfBajada ?? 'Cocina Mediterránea con corazón mexicano';
+$pdfBajada = $pdfBajada ?? 'Una mesa italiana con alma mexicana';
 $pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
 $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
 
@@ -51,7 +56,7 @@ $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
  * tabla de hex escrita aqui a mano; salio al servicio cuando la paleta se hizo
  * editable desde Configuracion, para que la carta impresa siga a la landing.
  *
- * Claves: verde, cafe, beige, crema (capa 1); bg, txt, txt_strong, txt_mute,
+ * Claves: verde, oro, beige, crema (capa 1); bg, txt, txt_strong, txt_mute,
  * txt_faint, accent, line_soft, line_strong (papel crema, :root); v_bg, v_txt,
  * v_txt_mute, v_accent (la banda verde, [data-tono="verde"]).
  */
@@ -83,7 +88,7 @@ $paleta = \Services\Configuration\PaletaLanding::paraPdf();
  * un angulo que NO deben multiplicarse; si el logo cambia y aparece uno, esto
  * hay que rehacerlo.
  */
-$logoEscalado = function (string $ruta, float $altoPx, string $color): string {
+$logoEscalado = function (string $ruta, float $altoPx, string $color, string $regla = 'evenodd'): string {
     if (!is_readable($ruta)) {
         return '';
     }
@@ -110,13 +115,35 @@ $logoEscalado = function (string $ruta, float $altoPx, string $color): string {
     return 'data:image/svg+xml;base64,' . base64_encode(
         '<svg xmlns="http://www.w3.org/2000/svg" width="' . $anchoPx . '" height="' . $altoPx . '"'
         . ' viewBox="0 0 ' . $anchoPx . ' ' . $altoPx . '"'
-        . ' fill="' . $color . '" fill-rule="evenodd">' . $d . '</svg>'
+        . ' fill="' . $color . '" fill-rule="' . $regla . '">' . $d . '</svg>'
     );
+};
+
+// El isologo de la portada: CASA sobre PESTALOZZI, en la tinta clara de la
+// banda verde. 74 px de alto dan unos 280 de ancho, el que tiene en el hero a
+// escala de hoja.
+$isologo = $logoEscalado(__DIR__ . '/_isologo.svg', 74, $paleta['v_txt'], 'nonzero');
+// El sello entre los dos filetes de oro, como el medallon del isologo del hero.
+$selloFilete = $logoEscalado($logoRuta ?? '', 26, $paleta['v_accent']);
+
+// El rombo del filete de cada seccion, dibujado: como caracter (U+25C6) salia
+// diminuto y por debajo de la linea, porque Montserrat no lo trae y Dompdf lo
+// tomaba de otra cara con otra linea base.
+$rombo = 'data:image/svg+xml;base64,' . base64_encode(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8">'
+    . '<path fill="' . $paleta['oro'] . '" d="M4 0 L8 4 L4 8 L0 4 Z"/></svg>'
+);
+
+// $240 y no $240.00: los centavos sólo cuando los hay. Es lo que hace la carta
+// de la landing (menu.js) y lo que se lee en una carta impresa.
+$precio = static function ($valor): string {
+    $n = (float) $valor;
+    return '$' . number_format($n, floor($n) == $n ? 0 : 2);
 };
 
 // 22px es donde el sello todavia se lee: por debajo, el monograma se empasta
 // contra el oval y queda una mancha.
-$logoCasa = $logoEscalado($logoRuta ?? '', 22, $paleta['accent']);
+$logoCasa = $logoEscalado($logoRuta ?? '', 22, $paleta['oro']);
 
 $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
@@ -226,58 +253,45 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
            la banda se lee como portada y no como una tira de color. */
         .pdf-header {
             background: <?php echo $paleta['v_bg']; ?>;
-            padding: 58px 56px 52px;
+            padding: 46px 56px 40px;
             margin-bottom: -46px;
             border-bottom: 3px solid <?php echo $paleta['v_accent']; ?>;
+            text-align: center;
         }
-        /* Rotulo de la pieza, encima del wordmark. Antes iba dentro del <h1>
-           ("MENU - CASA PESTALOZZI"), y el nombre de la casa no admite
-           companyia dentro de su propia caja: el componente imprime el
-           wordmark y nada mas. De paso el acento vuelve —"MENU" ya no lo
-           dibuja KudosKaps, que no define la U acentuada, sino Montserrat. */
+        /* Composicion centrada, como el isologo del hero: el rotulo de la
+           pieza arriba, el nombre de la casa, el filete de oro partido por el
+           sello y la frase. Antes iba todo a la izquierda y el wordmark, en la
+           fuente, salia desarmado. */
         .pdf-header__rotulo {
             font-family: "Montserrat", sans-serif;
             font-weight: bold;
             color: <?php echo $paleta['v_accent']; ?>;
-            font-size: 10px;
-            letter-spacing: 4px;
-            margin-bottom: 9px;
+            font-size: 9px;
+            letter-spacing: 5px;
+            margin-bottom: 16px;
         }
-
-        /* Wordmark: views/templates/header-casa-pestalozzi.php.
-           El componente pone el marcado y las clases; el estilo se rehace aqui
-           porque Dompdf no lee custom properties ni carga app.css, asi que su
-           SCSS compartido no llega al papel. Lo que SI viaja con el componente
-           —y es lo que importa— es el nombre escrito en caja alta real. */
-        .pdf-header .hcp-header { display: block; }
-        .pdf-header .hcp-header__nombre {
-            font-family: "KudosKaps", "Playfair Display", serif;
-            /* KudosKaps solo existe en peso normal; sin esto el <h1> pide bold
-               por defecto y Dompdf sustituye por una serif (Times-Bold). */
-            font-weight: normal;
+        .pdf-header__isologo { height: 74px; }
+        /* Respaldo si el SVG no se pudiera leer: el nombre en la serif. */
+        .pdf-header__nombre {
+            font-family: "Playfair Display", serif;
             color: <?php echo $paleta['v_txt']; ?>;
-            /* 30px y no 34: con el rotulo escrito en caja alta real, KudosKaps
-               deja de dibujar las minusculas como versalitas estrechas y la
-               linea crece lo bastante como para partirse en dos. */
             font-size: 30px;
-            letter-spacing: 1px;
+            letter-spacing: 3px;
         }
-        /* La cara mete un espacio enorme entre palabras: sin apretarlo,
-           "CASA PESTALOZZI" se lee como dos logos sueltos. Es el mismo ajuste
-           que hace .brand-mark en la landing, pero NO con word-spacing: el
-           componente emite cada palabra en su <span>, asi que el espacio queda
-           entre dos elementos y ahi Dompdf no lo aplica (probado: el rotulo
-           sale identico con y sin la propiedad). Sobre el margen negativo del
-           segundo <span> si tiene efecto. */
-        .pdf-header .hcp-header__palabra + .hcp-header__palabra { margin-left: -12px; }
+        .pdf-filete {
+            width: 300px;
+            margin: 10px auto 0;
+            border-collapse: collapse;
+        }
+        .pdf-filete td { padding: 0; vertical-align: middle; }
+        .pdf-filete .linea { border-top: 1px solid <?php echo $paleta['v_accent']; ?>; }
+        .pdf-filete .sello { width: 40px; text-align: center; }
+        .pdf-filete .sello img { height: 26px; }
         .pdf-header .sub {
-            font-family: "Montserrat", sans-serif;
-            font-weight: 300;
-            color: <?php echo $paleta['v_txt_mute']; ?>;
-            font-size: 10px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-top: 5px;
+            font-family: "Playfair Display", serif;
+            color: <?php echo $paleta['v_txt']; ?>;
+            font-size: 14px;
+            margin-top: 12px;
         }
 
         /* Tabla de 2 columnas (sin borde) para alinear el menu */
@@ -304,52 +318,84 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
            la segunda, "PLATOS FUERTES" cerraba la hoja 3 y "JUGOS & SMOOTHIES"
            la 5, cada uno anunciando algo que no estaba a la vista. */
         .cat-row { page-break-inside: avoid; page-break-after: avoid; }
+        /* Encabezado de seccion centrado, como los titulos de la landing: el
+           nombre en versalitas y debajo el filete con el rombo de oro (el del
+           adorno «filete» de la carta en la web). */
         .cat-name {
             border: none;
+            text-align: center;
+            padding: 22px 14px 10px;
+        }
+        .cat-row.first .cat-name { padding-top: 8px; }
+        .cat-name__texto {
             font-family: "Montserrat", sans-serif;
             font-weight: bold;
-            color: <?php echo $paleta['accent']; ?>;
-            font-size: 13px;
-            letter-spacing: 2px;
+            color: <?php echo $paleta['txt_strong']; ?>;
+            font-size: 12px;
+            letter-spacing: 3px;
             text-transform: uppercase;
-            padding: 18px 14px 6px;
-            border-bottom: 1px solid <?php echo $paleta['line_strong']; ?>;
         }
-        /* La primera categoria no necesita tanto aire arriba (va pegada al titulo) */
-        .cat-row.first .cat-name { padding-top: 6px; }
-
-        /* Separador entre platillos: decorativo, --line-soft. */
-        .cell-inner {
-            border-bottom: 1px solid <?php echo $paleta['line_soft']; ?>;
-            padding-bottom: 10px;
+        .cat-filete {
+            width: 150px;
+            margin: 7px auto 0;
+            border-collapse: collapse;
         }
+        .cat-filete td { padding: 0; vertical-align: middle; }
+        .cat-filete .linea { border-top: 1px solid <?php echo $paleta['oro']; ?>; }
+        .cat-filete .rombo {
+            width: 18px;
+            text-align: center;
+            line-height: 0;
+        }
+        .cat-filete .rombo img { width: 8px; height: 8px; vertical-align: middle; }
 
-        /* Tabla interna sin borde: nombre a la izquierda, precio a la derecha */
+        /* Un platillo: nombre, puntos guia y precio en un renglon; la
+           descripcion debajo. Sin filete entre platillos: los puntos guia ya
+           ordenan la columna, como en una carta impresa. */
+        .cell-inner { padding-bottom: 4px; }
         .dish-line {
             width: 100%;
             border-collapse: collapse;
             border: none;
         }
-        .dish-line td { border: none; vertical-align: baseline; }
+        .dish-line td { border: none; padding: 0; }
         .dish-name {
-            font-family: "Playfair Display", serif;   /* respaldo de --serif */
-            font-size: 15px;
+            font-family: "Playfair Display", serif;
+            font-size: 14px;
+            line-height: 1.25;
             color: <?php echo $paleta['txt_strong']; ?>;
+            vertical-align: bottom;
         }
+        /* Nombre corto: se ciñe a su texto y los puntos arrancan justo detras.
+           Uno largo puede partir en dos renglones, y entonces los puntos tienen
+           un ancho fijo y caen a la altura del ultimo. */
+        .dish-name--corto { white-space: nowrap; width: 1%; }
+        .dish-puntos {
+            vertical-align: bottom;
+            padding: 0 6px 4px !important;
+        }
+        .dish-puntos div { border-bottom: 1px dotted <?php echo $paleta['line_strong']; ?>; height: 1px; }
+        .dish-puntos--fijo { width: 36px; }
         .dish-price {
             font-family: "Playfair Display", serif;
             font-size: 14px;
             color: <?php echo $paleta['accent']; ?>;
             text-align: right;
             white-space: nowrap;
+            width: 1%;
+            vertical-align: bottom;
         }
+        /* Regular y no Light: impresa a 10px la Light se deshilacha, y mas con
+           la luz de un comedor de noche. El manual guarda la light para UN
+           parrafo destacado, no para el cuerpo de la carta. */
         .dish-desc {
             font-family: "Montserrat", sans-serif;
-            font-weight: 300;
+            font-weight: normal;
             color: <?php echo $paleta['txt_mute']; ?>;
-            font-size: 10.5px;
+            font-size: 10px;
             line-height: 1.45;
-            margin-top: 4px;
+            margin-top: 3px;
+            padding-right: 40px;
         }
         /* Pie de pagina repetido en TODAS las hojas.
 
@@ -387,9 +433,11 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             text-align: center;
             padding: 18px 56px 0;
         }
+        /* Regular por la misma razon que .dish-desc: a 7-8.5px la Light no
+           aguanta la impresion. */
         .pdf-footer p {
             font-family: "Montserrat", sans-serif;
-            font-weight: 300;
+            font-weight: normal;
             color: <?php echo $paleta['txt_mute']; ?>;
         }
         /* Linea 1 · dominio, marca y red */
@@ -447,7 +495,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             padding: 76px 30px 30px;
             text-align: center;
             color: <?php echo $paleta['txt_faint']; ?>;
-            font-style: italic;
+            font-style: normal;
         }
     </style>
 </head>
@@ -457,18 +505,20 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
              platillos — una hoja con la marca y un aviso, no un aviso suelto. */ ?>
     <div class="pdf-header">
         <p class="pdf-header__rotulo"><?php echo htmlspecialchars($pdfRotulo); ?></p>
-        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
-                 El nombre de la casa lo pone el componente compartido, que lo
-                 escribe en caja alta real en el marcado y no con
-                 text-transform. En papel eso pesa mas que en pantalla: la caja
-                 alta es lo que KudosKaps sabe dibujar, y ademas es el texto que
-                 se copia del PDF. Sin enlace: aqui no hay donde ir. */ ?>
-        <?php
-        $hcpNivel = 'h1';
-        $hcpEtiqueta = 'div';
-        $hcpHref = '';
-        include __DIR__ . '/../../templates/header-casa-pestalozzi.php';
-        ?>
+        <?php if ($isologo !== '') : ?>
+            <img class="pdf-header__isologo" src="<?php echo $isologo; ?>" alt="Casa Pestalozzi">
+        <?php else : ?>
+            <h1 class="pdf-header__nombre">CASA PESTALOZZI</h1>
+        <?php endif; ?>
+        <table class="pdf-filete">
+            <tr>
+                <td class="linea"></td>
+                <?php if ($selloFilete !== '') : ?>
+                    <td class="sello"><img src="<?php echo $selloFilete; ?>" alt=""></td>
+                    <td class="linea"></td>
+                <?php endif; ?>
+            </tr>
+        </table>
         <p class="sub"><?php echo htmlspecialchars($pdfBajada); ?></p>
     </div>
     <div class="page">
@@ -482,18 +532,28 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
                     <?php foreach ($categorias as $i => $categoria) : ?>
                         <!-- Nombre de la categoria (2 columnas, cafe de acento) -->
                         <tr class="cat-row<?php echo $i === 0 ? ' first' : ''; ?>">
-                            <td class="cat-name" colspan="2"><?php echo htmlspecialchars($categoria['nombre'] ?? ''); ?></td>
+                            <td class="cat-name" colspan="2">
+                                <span class="cat-name__texto"><?php echo htmlspecialchars($categoria['nombre'] ?? ''); ?></span>
+                                <table class="cat-filete"><tr><td class="linea"></td><td class="rombo"><img src="<?php echo $rombo; ?>" alt=""></td><td class="linea"></td></tr></table>
+                            </td>
                         </tr>
                         <?php foreach (array_chunk($categoria['platillos'], 2) as $fila) : ?>
                             <tr class="menu-row">
                                 <?php foreach ($fila as $platillo) : ?>
-                                    <?php $desc = trim((string) ($platillo->descripcion ?? '')); ?>
+                                    <?php
+                                    $desc = trim((string) ($platillo->descripcion ?? ''));
+                                    $nombre = (string) ($platillo->nombre ?? '');
+                                    // 28 caracteres caben en un renglon de la
+                                    // columna con su precio al lado.
+                                    $corto = mb_strlen($nombre) <= 28;
+                                    ?>
                                     <td>
                                         <div class="cell-inner">
                                             <table class="dish-line">
                                                 <tr>
-                                                    <td class="dish-name"><?php echo htmlspecialchars($platillo->nombre ?? ''); ?></td>
-                                                    <td class="dish-price">$<?php echo number_format((float) ($platillo->precio ?? 0), 2); ?></td>
+                                                    <td class="dish-name<?php echo $corto ? ' dish-name--corto' : ''; ?>"><?php echo htmlspecialchars($nombre); ?></td>
+                                                    <td class="dish-puntos<?php echo $corto ? '' : ' dish-puntos--fijo'; ?>"><div></div></td>
+                                                    <td class="dish-price"><?php echo htmlspecialchars($precio($platillo->precio ?? 0)); ?></td>
                                                 </tr>
                                             </table>
                                             <?php /* Ya no hay platillo sin descripción —las bebidas

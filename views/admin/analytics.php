@@ -31,6 +31,9 @@ $hoyIso = date('Y-m-d');
         <?php include __DIR__ . '/partials/_range-picker.php'; ?>
     </header>
 
+    <?php /* Consultas rápidas: preguntar sin salir del módulo. */ ?>
+    <?php $crAmbito = 'ventas'; include __DIR__ . '/partials/_consulta-rapida.php'; ?>
+
     <?php
     /*
      * Tres niveles de lectura, en vez de seis cajas del mismo peso:

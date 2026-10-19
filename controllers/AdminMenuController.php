@@ -18,8 +18,11 @@ use Model\HistorialPrecio;
 use Model\Producto;
 use MVC\Router;
 use Services\Menu\CategoriaMenuService;
+use Services\Menu\FotoPlatillo;
 use Services\Inventory\HistorialPrecios;
 use Services\Menu\MenuPdf;
+use Services\Menu\Variantes;
+use Services\Security\AdminCsrfService;
 
 class AdminMenuController
 {
@@ -32,6 +35,7 @@ class AdminMenuController
     {
         $todasLasCategorias = CategoriasMenu::ordenadas();
         $categoriasMap = [];
+        $categoriasFoto = [];
 
         // El mapa lleva TODAS las categorías aunque haya una carta elegida: es
         // sólo para rotular filas, y la fila de una carta nunca trae otra, pero
@@ -39,6 +43,9 @@ class AdminMenuController
         // el criterio.
         foreach ($todasLasCategorias as $cat) {
             $categoriasMap[(int) $cat->id] = $cat->nombre;
+            // La miniatura de un platillo sin foto propia es la de su
+            // categoría, que es lo que la carta enseñará en su lugar.
+            $categoriasFoto[(int) $cat->id] = FotoPlatillo::url($cat->img);
         }
 
         $porPagina = 10;
@@ -72,8 +79,10 @@ class AdminMenuController
             'platillos' => $platillos,
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
+            'categoriasFoto' => $categoriasFoto,
             'cartas' => CategoriasMenu::CARTAS,
             'areasMap' => self::areasMap(),
+            'variantesPorProducto' => self::conteoVariantes(),
             'filtros' => $filtros,
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
             'cartaActiva' => $cartaActiva,
@@ -113,15 +122,22 @@ class AdminMenuController
     {
         $platillo = new Producto();
         $alertas = [];
+        $foto = null;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::sincronizarPlatillo($platillo);
             $alertas = $platillo->validar();
+            // La foto se procesa aunque la validación ya haya fallado: así la
+            // recién subida sobrevive como pendiente y no hay que volver a
+            // elegirla al corregir el formulario.
+            $foto = FotoPlatillo::desdeFormulario($platillo, null, $_POST, $_FILES);
+            $alertas = self::sumarErrores($alertas, $foto->errores());
 
             if (empty($alertas)) {
-                $resultado = $platillo->guardar();
+                $resultado = self::guardarPlatillo($platillo);
 
                 if ($resultado && $resultado['resultado']) {
+                    $foto->confirmar();
                     HistorialPrecios::registrarAlta(
                         HistorialPrecio::ENTIDAD_PRODUCTO,
                         (int) $resultado['id'],
@@ -135,9 +151,11 @@ class AdminMenuController
                 Producto::setAlerta('error', 'No se pudo guardar el platillo. Revisa que el nombre no esté repetido.');
                 $alertas = Producto::getAlertas();
             }
+
+            $foto->revertir($platillo);
         }
 
-        self::renderForm('Nuevo platillo', 'Crear platillo', $platillo, $alertas);
+        self::renderForm('Nuevo platillo', 'Crear platillo', $platillo, $alertas, $foto);
     }
 
     public static function edit(Router $router): void
@@ -152,17 +170,24 @@ class AdminMenuController
         }
 
         $alertas = [];
+        $foto = null;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // El precio vigente hay que leerlo antes de sincronizar: después el
-            // objeto ya trae el nuevo y no queda con qué comparar.
+            // El precio y la foto vigentes hay que leerlos antes de sincronizar:
+            // después el objeto ya trae lo nuevo y no queda con qué comparar.
             $precioAnterior = $platillo->precio;
+            $imagenActual = $platillo->img;
 
             self::sincronizarPlatillo($platillo);
             $alertas = $platillo->validar();
+            $foto = FotoPlatillo::desdeFormulario($platillo, $imagenActual, $_POST, $_FILES);
+            $alertas = self::sumarErrores($alertas, $foto->errores());
 
             if (empty($alertas)) {
-                if ($platillo->guardar()) {
+                if (self::guardarPlatillo($platillo)) {
+                    // Hasta aquí la foto anterior sigue en disco: si el UPDATE
+                    // hubiera fallado, el platillo seguiría nombrándola.
+                    $foto->confirmar();
                     // registrar() no escribe si el precio no cambió, así que
                     // guardar sólo la descripción no ensucia el histórico.
                     HistorialPrecios::registrar(
@@ -179,9 +204,11 @@ class AdminMenuController
                 Producto::setAlerta('error', 'No se pudo actualizar el platillo');
                 $alertas = Producto::getAlertas();
             }
+
+            $foto->revertir($platillo);
         }
 
-        self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas);
+        self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas, $foto);
     }
 
     public static function delete(Router $router): void
@@ -199,7 +226,20 @@ class AdminMenuController
             return;
         }
 
-        if ($platillo->eliminar()) {
+        // mysqli lanza excepción en vez de devolver false (PHP 8.1+): sin
+        // capturarla, un DELETE fallido era un 500 en vez del aviso de abajo,
+        // y aquí además es lo que decide si se borra el archivo de la foto.
+        try {
+            $eliminado = (bool) $platillo->eliminar();
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::delete - ' . $e->getMessage());
+            $eliminado = false;
+        }
+
+        if ($eliminado) {
+            // Sólo cuando la fila ya no existe: si el DELETE no pasa, el
+            // platillo sigue vivo y sigue mostrando su foto.
+            ImagenUploader::eliminar($platillo->img);
             Producto::setAlerta('exito', 'Platillo eliminado correctamente');
         } else {
             Producto::setAlerta('error', 'No se pudo eliminar: el platillo tiene una receta o ventas asociadas.');
@@ -393,12 +433,46 @@ class AdminMenuController
 
     private static function sincronizarPlatillo(Producto $platillo): void
     {
+        $img = $platillo->img;
         $platillo->sincronizar($_POST);
+        // La foto no se escribe desde el formulario como texto: la decide
+        // FotoPlatillo con lo que se sube. Sin esto, un campo `img` añadido a
+        // mano al POST se copiaría tal cual a la columna.
+        $platillo->img = $img;
         $platillo->activo = isset($_POST['activo']) ? 1 : 0;
     }
 
-    private static function renderForm(string $titulo, string $accion, Producto $platillo, array $alertas): void
+    /**
+     * guardar() puede lanzar (mysqli en PHP 8.1+) y, con una foto recién
+     * subida de por medio, un 500 la dejaría huérfana en disco. Aquí un fallo
+     * es un `false` y el llamador revierte.
+     */
+    private static function guardarPlatillo(Producto $platillo)
     {
+        try {
+            return $platillo->guardar();
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::guardarPlatillo - ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private static function sumarErrores(array $alertas, array $errores): array
+    {
+        foreach ($errores as $error) {
+            $alertas['error'][] = $error;
+        }
+
+        return $alertas;
+    }
+
+    private static function renderForm(
+        string $titulo,
+        string $accion,
+        Producto $platillo,
+        array $alertas,
+        ?FotoPlatillo $foto = null
+    ): void {
         self::render('menu/form', [
             'title' => $titulo,
             'topbarSection' => 'Menú / ' . $titulo,
@@ -407,6 +481,7 @@ class AdminMenuController
             'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => $accion,
+            'foto' => $foto ? $foto->vista() : FotoPlatillo::vistaInicial($platillo->img),
         ]);
     }
 
@@ -432,6 +507,93 @@ class AdminMenuController
         $map = [];
         foreach (self::areas() as $area) {
             $map[$area['id']] = $area['nombre'];
+        }
+
+        return $map;
+    }
+
+    /**
+     * GET /admin/menu/variantes?id= — editor de variantes del platillo.
+     *
+     * Página propia y no una sección del formulario del platillo: el editor
+     * necesita ancho para la vista previa de receta y del POS, y guarda por
+     * JSON (sin recargar), mientras que el formulario es un POST clásico.
+     */
+    public static function variantes(Router $router): void
+    {
+        $id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $platillo = $id ? Producto::find($id) : null;
+        if (!$platillo) {
+            header('Location: ' . self::ITEMS_PATH, true, 302);
+            exit;
+        }
+
+        try {
+            $editor = Variantes::datosEditor((int) $platillo->id);
+            $alertas = [];
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::variantes - ' . $e->getMessage());
+            $editor = null;
+            $alertas = ['error' => ['No fue posible cargar las variantes. Revisa que existan las tablas `producto_variantes` y `variante_ajustes` (database/ddl.sql).']];
+        }
+
+        self::render('menu/variantes', [
+            'title' => 'Variantes · ' . $platillo->nombre,
+            'topbarSection' => 'Menú',
+            'platillo' => $platillo,
+            'categoriasMap' => self::mapaCategorias(),
+            'editorVariantes' => $editor,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+            'styles' => [self::MENU_CSS, '/build/css/admin/variantes.css'],
+            'scripts' => ['/build/js/admin/variantes.js'],
+        ]);
+    }
+
+    /** POST /admin/api/menu/variantes — guarda todos los grupos de un platillo. */
+    public static function guardarVariantes(Router $router): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $datos = json_decode((string) file_get_contents('php://input'), true);
+        $datos = is_array($datos) ? $datos : [];
+
+        if (!AdminCsrfService::validar(isset($datos['admin_csrf']) ? (string) $datos['admin_csrf'] : null)) {
+            http_response_code(419);
+            echo json_encode(['ok' => false, 'errores' => ['La sesión del editor venció. Recarga la página; tus cambios siguen en pantalla hasta entonces.']], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $productoId = filter_var($datos['producto_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!$productoId || !Producto::find($productoId)) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'errores' => ['El platillo ya no existe.']], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $grupos = isset($datos['grupos']) && is_array($datos['grupos']) ? $datos['grupos'] : [];
+        $resultado = Variantes::guardar((int) $productoId, $grupos);
+        if (!$resultado['ok']) {
+            http_response_code(422);
+        }
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Opciones de variante por producto, para el contador del listado. */
+    private static function conteoVariantes(): array
+    {
+        try {
+            return Variantes::conteoPorProducto();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /** [id => nombre] de las categorías, para la ficha del editor. */
+    private static function mapaCategorias(): array
+    {
+        $map = [];
+        foreach (CategoriasMenu::ordenadas() as $categoria) {
+            $map[(int) $categoria->id] = (string) $categoria->nombre;
         }
 
         return $map;

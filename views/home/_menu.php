@@ -1,67 +1,67 @@
-<?php /* Menú — La Carta (tabs y lista se renderizan via JS) */ ?>
+<?php /* Menú — La carta (pestañas y lista las pinta menu.js desde /menu) */ ?>
 <section class="section menu" id="menu" data-tono="verde" data-screen-label="Menú">
+  <?php echo ornamento('carta', 'orn--seccion orn--dentro', true); ?>
   <div class="wrap">
     <div class="menu__head">
       <div>
         <span class="eyebrow" data-reveal>02 — Il menù</span>
         <h2 class="menu__title" data-lineas>Il nostro <em class="accent-italic">menù</em></h2>
+        <?php echo ornamento('filete', 'menu__filete'); ?>
       </div>
-      <p class="body" data-reveal style="max-width:42ch">Antipasti, pasta fresca, pizza de horno de leña y postres de la casa. Explora cada sección — los precios están en pesos mexicanos.</p>
+      <p class="body menu__intro" data-reveal>Antipasti, pasta fresca, pizza de horno de leña y postres de la casa. Precios en pesos mexicanos.</p>
     </div>
 
-    <div class="menu__tabs" id="menuTabs" data-reveal></div>
+    <?php /* Pestañas de verdad (role="tab" con flechas, en menu.js): antes eran
+             botones sueltos y el lector de pantalla no sabía que elegían qué
+             lista se ve debajo. */ ?>
+    <div class="menu__tabs" id="menuTabs" role="tablist" aria-label="Secciones de la carta" data-reveal></div>
 
     <div class="menu__layout">
-      <div class="menu__list" id="menuList" data-reveal></div>
+      <?php /* Sin aria-live: con pestañas el cambio de panel ya lo anuncia la
+               pestaña elegida, y una región viva leía la lista ENTERA —26
+               platillos con su descripción— cada vez que se cambiaba de sección.
+               tabindex="0" porque el panel no tiene nada enfocable dentro
+               cuando ningún platillo trae foto propia: es la parada que el
+               patrón de pestañas pide para llegar a su contenido. */ ?>
+      <div class="menu__list" id="menuList" role="tabpanel" tabindex="0" data-reveal></div>
       <?php /*
         El marco es cartón: relleno, filete y escuadras. El HUECO es un elemento
-        aparte, y ahí dentro viven la fotografía, el velo y la cartela.
+        aparte, y ahí dentro viven la fotografía, el velo y la cartela: todas las
+        capas se posicionan contra él con `inset: 0` y no hay medida que
+        repetir. `data-zoom` va en el hueco para que la chapa de ampliar caiga
+        sobre la fotografía, no sobre el cartón.
 
-        No es un div de adorno. Antes la imagen la insertaba menu.js dentro del
-        propio marco y se colocaba `absolute` con `inset: var(--menu-marco)`;
-        el velo, la cartela y la chapa de "Ampliar" repetían esa misma medida
-        cada uno por su cuenta. Cuatro capas cuadrándose a mano contra el mismo
-        rectángulo es justo donde se descuadran. Con un hueco real, todas se
-        posicionan contra ÉL y la alineación deja de ser un acuerdo entre
-        cuatro reglas.
-
-        `data-zoom` va en el hueco y no en el marco para que la chapa de ampliar
-        caiga sobre la fotografía, no sobre el cartón.
+        La foto es la del platillo si tiene, y si no la de su categoría (las dos
+        se suben desde el panel, en Menú).
       */ ?>
       <aside class="menu__preview" aria-hidden="true">
         <div class="menu__preview-frame" id="previewFrame">
+          <?php echo ornamento('olivo', 'menu__preview-orn'); ?>
           <div class="menu__preview-hueco" id="previewHueco" data-zoom>
             <div class="menu__preview-cap">
-              <div class="pc-cat" id="pcCat">Desayunos</div>
+              <div class="pc-cat" id="pcCat"></div>
               <div class="pc-name" id="pcName">Pasa el cursor por un platillo</div>
+              <div class="pc-precio" id="pcPrecio"></div>
             </div>
           </div>
         </div>
         <div class="menu__preview-note">
-          <span id="pcCount">— platillos</span><span>Casa Pestalozzi</span>
+          <span id="pcCount"></span><span>Casa Pestalozzi</span>
         </div>
       </aside>
     </div>
 
+    <?php /*
+      La carta impresa es la acción principal de esta sección y va en relleno
+      de oro con su icono de cubiertos. La de maridaje no se enlaza desde aquí:
+      vive con las copas, en Catas, con la copa y su propio color.
+    */ ?>
     <div class="menu__foot" data-reveal>
-      <a class="btn-line" href="#reserva" data-magnetic><span>Reservar una mesa</span><span class="arrow">↗</span></a>
-      <?php /*
-        Las dos cartas de la casa, apiladas: la de comida —lo que pinta la
-        rejilla de arriba— y la de maridaje, que no tiene sección propia en la
-        landing y vive entera en su PDF.
-
-        Van agrupadas y no sueltas en la fila porque son la misma acción
-        —llevarse la carta— sobre dos piezas distintas; sueltas, el pie ofrecía
-        tres destinos del mismo peso y el CTA de reserva dejaba de ser el
-        único principal de la sección.
-
-        El primero deja de llamarse "Ver en PDF" a secas: con dos piezas,
-        esa etiqueta ya no dice cuál de las dos se abre.
-      */ ?>
-      <div class="menu__docs">
-        <a class="btn-line btn-line--pdf" href="/menu/pdf" target="_blank" rel="noopener" data-magnetic><span>Menú en PDF</span><span class="arrow">↓</span></a>
-        <a class="btn-line btn-line--pdf" href="/maridaje/pdf" target="_blank" rel="noopener" data-magnetic><span>Maridaje en PDF</span><span class="arrow">↓</span></a>
-      </div>
+      <a class="btn-line btn-line--solid btn-line--carta" href="/menu/pdf" target="_blank" rel="noopener" data-magnetic>
+        <svg class="btn-line__icono" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1-3 4-3 8 0 2 1 3 3 3"/></svg>
+        <span>Carta completa en PDF</span>
+      </a>
+      <a class="btn-line menu__reservar" href="#reserva" data-magnetic><span>Reservar mesa</span><span class="arrow" aria-hidden="true">→</span></a>
     </div>
   </div>
 </section>

@@ -1,0 +1,72 @@
+// ── Las dos familias del manual de identidad ──────────────────
+//
+// The Seasons para títulos y subtítulos; TT Wellingtons para el cuerpo, en
+// regular para el texto general y en negrita para enfatizar. Son las únicas que
+// la landing pide además de KudosKaps (el wordmark), y salen del manual con los
+// mismos pesos que usa él: The Seasons en regular y negrita; TT Wellingtons en
+// light, regular y negrita. La itálica de The Seasons no se pide: la landing no
+// usa cursivas (ver «El acento» en _reset.scss).
+//
+// Son mixins y no reglas sueltas porque las consumen dos hojas que viven a
+// distinta profundidad: app.css (`../fonts`) y la vista previa del aviso en
+// Configuración, admin/configuration.css (`../../fonts`). Este parcial no emite
+// nada por sí solo; cada hoja incluye lo que necesita con su ruta.
+//
+// ⚠️ Son tipografías COMERCIALES y no salen de npm. Los .woff2 se copian a mano
+// a assets/fonts/marca/ con los nombres de abajo, y tienen que ser los de
+// licencia WEB: las copias que van incrustadas en el PDF del manual son
+// subconjuntos (sólo las letras que el documento usa) con licencia de
+// documento, y el propio manual se compuso con la versión de prueba de TT
+// Wellingtons («Trl»). Mientras falte un archivo, su @font-face da 404 y el
+// texto cae al respaldo de sistema del token (_reset.scss) — nunca a otra
+// webfont, porque una webfont de respaldo también se descargaría.
+//
+// `local()` va primero para que una máquina con la familia instalada la use sin
+// esperar a la red. No se nombran las versiones «Trl»: una fuente de prueba no
+// se publica.
+
+@mixin the-seasons($fuentes) {
+  @font-face {
+    font-family: "The Seasons";
+    src: local("The Seasons Regular"), local("TheSeasons-Regular"),
+      url("#{$fuentes}/marca/the-seasons-regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "The Seasons";
+    src: local("The Seasons Bold"), local("TheSeasons-Bold"),
+      url("#{$fuentes}/marca/the-seasons-bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+}
+
+@mixin tt-wellingtons($fuentes) {
+  @font-face {
+    font-family: "TT Wellingtons";
+    src: local("TT Wellingtons Light"), local("TTWellingtons-Light"),
+      url("#{$fuentes}/marca/tt-wellingtons-light.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "TT Wellingtons";
+    src: local("TT Wellingtons Regular"), local("TTWellingtons-Regular"),
+      url("#{$fuentes}/marca/tt-wellingtons-regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "TT Wellingtons";
+    src: local("TT Wellingtons Bold"), local("TTWellingtons-Bold"),
+      url("#{$fuentes}/marca/tt-wellingtons-bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+}

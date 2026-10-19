@@ -42,6 +42,7 @@
 // ── Pantallas de piso ────────────────────────────────────────
 @use 'empty-state';
 @use '../punto-de-venta/punto-de-venta';
+@use '../punto-de-venta/variantes';
 @use '../punto-de-venta/pago-modal';
 @use '../area/area';
 @use '../auth/login';

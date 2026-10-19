@@ -261,7 +261,8 @@ class AdminFinanzasController
      * completa y repetirla por periodo multiplica las consultas.
      *
      * @param array<string, array{id: int, precio: float}> $productosPorNombre
-     * @param array<int, float> $costoCache
+     * @param array<int|string, float> $costoCache por producto (int) o por
+     *        producto + variante ("id|ids") en el COGS
      * @return array{ingresos: float, propinas: float, tickets: int, cogs: float}
      */
     private static function agregadosDelPeriodo(
@@ -298,13 +299,16 @@ class AdminFinanzasController
             $agregados['propinas'] = (float) $row['propinas'];
         }
 
-        // COGS: unidades vendidas × costo de receta.
+        // COGS: unidades vendidas × costo de receta. Se agrupa también por
+        // variante: un Cappuccino con almendra no cuesta lo mismo que el de la
+        // carta, y la receta con la que se descontó el inventario es la que
+        // debe costearse.
         $res = $db->query(
-            "SELECT ti.nombre, SUM(ti.cantidad) AS unidades
+            "SELECT ti.nombre, COALESCE(ti.variante_ids, '') AS variante_ids, SUM(ti.cantidad) AS unidades
                FROM ticket_items ti
                JOIN tickets t ON t.id = ti.ticket_id
               WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtro}
-              GROUP BY ti.nombre"
+              GROUP BY ti.nombre, COALESCE(ti.variante_ids, '')"
         );
         if ($res) {
             while ($row = $res->fetch_assoc()) {
@@ -313,10 +317,12 @@ class AdminFinanzasController
                     continue;
                 }
                 $pid = $prod['id'];
-                if (!isset($costoCache[$pid])) {
-                    $costoCache[$pid] = Inventario::costoDeProducto($pid);
+                $ids = $row['variante_ids'] !== '' ? array_map('intval', explode(',', $row['variante_ids'])) : [];
+                $clave = $pid . '|' . $row['variante_ids'];
+                if (!isset($costoCache[$clave])) {
+                    $costoCache[$clave] = Inventario::costoDeProducto($pid, $ids);
                 }
-                $agregados['cogs'] += $costoCache[$pid] * (float) $row['unidades'];
+                $agregados['cogs'] += $costoCache[$clave] * (float) $row['unidades'];
             }
         }
 

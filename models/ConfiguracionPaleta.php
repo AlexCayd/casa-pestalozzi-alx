@@ -13,13 +13,13 @@ class ConfiguracionPaleta extends ActiveRecord
 {
     private const ID_UNICO = 1;
     /** Las columnas de color, en el orden en que el panel las presenta. */
-    public const COLORES = ['verde', 'cafe', 'beige', 'crema'];
+    public const COLORES = ['verde', 'oro', 'beige', 'crema'];
 
     protected static $tabla = 'configuracion_paleta';
     protected static $columnasDB = [
         'id',
         'verde',
-        'cafe',
+        'oro',
         'beige',
         'crema',
         'updated_by',
@@ -28,7 +28,7 @@ class ConfiguracionPaleta extends ActiveRecord
 
     public $id = self::ID_UNICO;
     public $verde = null;
-    public $cafe = null;
+    public $oro = null;
     public $beige = null;
     public $crema = null;
     public $updated_by = null;
@@ -66,11 +66,11 @@ class ConfiguracionPaleta extends ActiveRecord
     public static function guardarColores(array $colores, ?int $usuarioId): bool
     {
         $stmt = self::getDB()->prepare(
-            'INSERT INTO ' . static::$tabla . ' (id, verde, cafe, beige, crema, updated_by)
+            'INSERT INTO ' . static::$tabla . ' (id, verde, oro, beige, crema, updated_by)
              VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 verde = VALUES(verde),
-                cafe = VALUES(cafe),
+                oro = VALUES(oro),
                 beige = VALUES(beige),
                 crema = VALUES(crema),
                 updated_by = VALUES(updated_by)'
@@ -81,10 +81,10 @@ class ConfiguracionPaleta extends ActiveRecord
 
         $id = self::ID_UNICO;
         $verde = $colores['verde'] ?? null;
-        $cafe = $colores['cafe'] ?? null;
+        $oro = $colores['oro'] ?? null;
         $beige = $colores['beige'] ?? null;
         $crema = $colores['crema'] ?? null;
-        $stmt->bind_param('issssi', $id, $verde, $cafe, $beige, $crema, $usuarioId);
+        $stmt->bind_param('issssi', $id, $verde, $oro, $beige, $crema, $usuarioId);
         $ok = $stmt->execute();
         $stmt->close();
 

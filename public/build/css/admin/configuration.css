@@ -11,7 +11,7 @@
   --announcement-gold: var(--accent);
   --announcement-gold-soft: var(--accent-soft);
   --announcement-cream: var(--beige);
-  --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --announcement-font: "TT Wellingtons", "Helvetica Neue", Arial, sans-serif;
   --announcement-accent: var(--feedback-info-bg);
   --announcement-border: color-mix(in srgb, var(--feedback-info) 52%, transparent);
   --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
@@ -44,7 +44,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px, transparent 1px 6px);
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px, transparent 1px 6px);
 }
 .hero-announcement[hidden] {
   display: none !important;
@@ -310,15 +310,22 @@
   }
 }
 @font-face {
-  font-family: "Montserrat";
-  src: url("../../fonts/Montserrat-Regular.ttf") format("truetype");
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Light"), local("TTWellingtons-Light"), url("../../fonts/marca/tt-wellingtons-light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Regular"), local("TTWellingtons-Regular"), url("../../fonts/marca/tt-wellingtons-regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Montserrat";
-  src: url("../../fonts/Montserrat-Bold.ttf") format("truetype");
+  font-family: "TT Wellingtons";
+  src: local("TT Wellingtons Bold"), local("TTWellingtons-Bold"), url("../../fonts/marca/tt-wellingtons-bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -1730,7 +1737,8 @@
  */
 .admin-palette-preview {
   --pv-verde-deep: color-mix(in srgb, var(--pv-verde) 72%, black);
-  --pv-cafe-deep: color-mix(in srgb, var(--pv-cafe) 74%, black);
+  --pv-verde-ink: color-mix(in srgb, var(--pv-verde) 58%, black);
+  --pv-oro-claro: color-mix(in srgb, var(--pv-oro) 70%, var(--pv-crema));
   display: grid;
   overflow: hidden;
   border-radius: var(--admin-radius-md);
@@ -1746,19 +1754,31 @@
 .admin-palette-preview__band--crema {
   --pv-bg: var(--pv-crema);
   --pv-txt: var(--pv-verde-deep);
-  --pv-strong: var(--pv-cafe-deep);
+  --pv-strong: var(--pv-verde-ink);
   --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 69%, var(--pv-bg));
-  --pv-line: color-mix(in srgb, var(--pv-cafe) 54%, transparent);
-  --pv-accent: var(--pv-cafe);
-  --pv-on-accent: var(--pv-crema);
+  --pv-line: color-mix(in srgb, var(--pv-oro) 72%, transparent);
+  --pv-accent: var(--pv-oro);
+  --pv-accent-text: var(--pv-verde);
+  --pv-on-accent: var(--pv-verde-ink);
 }
 .admin-palette-preview__band--beige {
   --pv-bg: var(--pv-beige);
   --pv-txt: var(--pv-verde-deep);
-  --pv-strong: var(--pv-cafe-deep);
+  --pv-strong: var(--pv-verde-ink);
   --pv-faint: color-mix(in srgb, var(--pv-verde-deep) 74%, var(--pv-bg));
-  --pv-line: color-mix(in srgb, var(--pv-cafe) 58%, transparent);
-  --pv-accent: var(--pv-cafe);
+  --pv-line: color-mix(in srgb, var(--pv-oro) 86%, transparent);
+  --pv-accent: var(--pv-oro);
+  --pv-accent-text: var(--pv-verde);
+  --pv-on-accent: var(--pv-verde-ink);
+}
+.admin-palette-preview__band--oro {
+  --pv-bg: var(--pv-oro);
+  --pv-txt: var(--pv-verde-ink);
+  --pv-strong: var(--pv-verde-ink);
+  --pv-faint: color-mix(in srgb, var(--pv-verde-ink) 79%, var(--pv-bg));
+  --pv-line: color-mix(in srgb, var(--pv-verde-ink) 26%, transparent);
+  --pv-accent: var(--pv-verde);
+  --pv-accent-text: var(--pv-verde-ink);
   --pv-on-accent: var(--pv-crema);
 }
 .admin-palette-preview__band--verde {
@@ -1766,21 +1786,13 @@
   --pv-txt: var(--pv-crema);
   --pv-strong: white;
   --pv-faint: color-mix(in srgb, var(--pv-crema) 65%, var(--pv-bg));
-  --pv-line: color-mix(in srgb, var(--pv-beige) 54%, transparent);
-  --pv-accent: var(--pv-beige);
-  --pv-on-accent: var(--pv-verde-deep);
-}
-.admin-palette-preview__band--cafe {
-  --pv-bg: var(--pv-cafe-deep);
-  --pv-txt: var(--pv-crema);
-  --pv-strong: white;
-  --pv-faint: color-mix(in srgb, var(--pv-crema) 52%, var(--pv-bg));
-  --pv-line: color-mix(in srgb, var(--pv-beige) 42%, transparent);
-  --pv-accent: var(--pv-beige);
-  --pv-on-accent: var(--pv-cafe-deep);
+  --pv-line: color-mix(in srgb, var(--pv-oro) 76%, transparent);
+  --pv-accent: var(--pv-oro);
+  --pv-accent-text: var(--pv-oro-claro);
+  --pv-on-accent: var(--pv-verde-ink);
 }
 .admin-palette-preview__eyebrow {
-  color: var(--pv-accent);
+  color: var(--pv-accent-text);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.18em;

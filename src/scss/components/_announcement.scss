@@ -5,7 +5,10 @@
   --announcement-gold: var(--accent);
   --announcement-gold-soft: var(--accent-soft);
   --announcement-cream: var(--beige);
-  --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  // Nombre literal y no var(--sans): la misma tarjeta se ve en la vista previa
+  // de Configuración, donde --sans es la del panel. Las dos hojas declaran la
+  // cara (_caras-de-marca.scss).
+  --announcement-font: "TT Wellingtons", "Helvetica Neue", Arial, sans-serif;
   --announcement-accent: var(--feedback-info-bg);
   --announcement-border: color-mix(in srgb, var(--feedback-info) 52%, transparent);
   --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
@@ -46,12 +49,12 @@
     background-image:
       repeating-linear-gradient(
         45deg,
-        color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px,
         transparent 1px 4px
       ),
       repeating-linear-gradient(
         -45deg,
-        color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+        color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px,
         transparent 1px 6px
       );
   }

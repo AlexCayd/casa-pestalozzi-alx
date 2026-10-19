@@ -1,12 +1,19 @@
 // ── Chef ──────────────────────────────────────────────────────
+// Menos alta que una banda normal: con el retrato a 4:5 en media columna la
+// sección pasaba de una pantalla entera para tres claves y una firma. El aire
+// vertical baja, el retrato se acota por alto y la columna de la foto estrecha.
 .chef {
+  padding-block: clamp(4.5rem, 11vh, 8.5rem);
   background: var(--bg);
-  overflow: hidden;
+  // `clip` en horizontal y nada en vertical: el sello de la sección se monta
+  // sobre el corte con la banda de arriba y un `overflow: hidden` lo cortaba
+  // por la mitad.
+  overflow-x: clip;
 }
 
 .chef__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
   gap: clamp(2rem, 6vw, 6rem);
   align-items: center;
 }
@@ -14,42 +21,95 @@
 
 .chef__portrait {
   position: relative;
-  aspect-ratio: 4/5;
+  aspect-ratio: 1 / 1.05;
+  max-height: min(72vh, 600px);
   overflow: hidden;
   border: 1px solid var(--line);
 
   img { width: 100%; height: 100%; object-fit: cover; }
 }
 
+// El margen de abajo no se aprieta como el resto: el acento lleva su subrayado
+// bajo la línea base, y a 1.1rem la frase de entrada quedaba a 18 px de él —
+// el filete se leía como un subrayado de la frase y no del título.
 .chef__title {
-  font-size: clamp(2.2rem, 4.5vw, 4rem);
-  margin: 1.2rem 0 1.5rem;
+  font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+  margin: 1rem 0 1.6rem;
 }
 
-.chef__cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem 2.5rem;
-  margin-top: 2.5rem;
+.chef .lead {
+  font-size: clamp(1.1rem, 1.6vw, 1.38rem);
+}
 
-  h5 {
-    font-size: 0.66rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--accent-text);
-    margin-bottom: 0.6rem;
+// Las tres claves de la cocina: el nombre en la negrita del cuerpo (el
+// recurso que el manual da para enfatizar) con un rombo de acento, y debajo qué
+// significa en el plato. Sustituyen al párrafo y a las dos columnas con rótulo
+// que había antes.
+.chef__claves {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1.6rem 0 0;
+
+  div {
+    display: grid;
+    grid-template-columns: 0.5rem minmax(0, 1fr);
+    column-gap: 0.9rem;
+    align-items: baseline;
+
+    &::before {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      background: var(--accent);
+      transform: translateY(-0.1em) rotate(45deg);
+    }
   }
 
-  p { font-size: 0.85rem; color: var(--txt-mute); line-height: 1.75; }
+  dt {
+    color: var(--txt-strong);
+    font-size: clamp(1rem, 1.2vw, 1.08rem);
+    font-weight: 700;
+  }
+
+  dd {
+    grid-column: 2;
+    margin: 0.15rem 0 0;
+    color: var(--txt);
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
 }
-@media (max-width: 520px) { .chef__cols { grid-template-columns: 1fr; } }
+
+.chef__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-top: 1.7rem;
+}
 
 .chef__sig {
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: 1.6rem;
+  margin: 0;
   color: var(--accent-soft);
-  margin-top: 1.5rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+}
+
+.chef__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  color: var(--txt-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--accent);
+
+  svg { transition: transform 0.25s var(--ease); }
+  &:hover svg { transform: translateX(4px); }
 }
 
 // Placeholder visual

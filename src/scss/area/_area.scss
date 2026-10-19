@@ -470,6 +470,28 @@
   line-height: 1.2;
 }
 
+// La variante (Almendra · Grande, Término medio) es parte de lo que se prepara:
+// va en su propia línea DENTRO del nombre, en tinta plena. No es la nota: ésa
+// es la que lleva papel y filete propios.
+//
+// Con variante, el nombre deja de recortarse. Subir el tope a tres líneas no
+// bastaba: un nombre de dos líneas más una variante de dos («Leche de
+// almendra · Grande · Extra shot») perdía justo la última línea de la
+// variante, que es lo que cambia la preparación. La fila crece un renglón; la
+// columna ya tiene scroll propio.
+.area-card__name:has(.area-card__variante) {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+}
+
+.area-card__variante {
+  display: block;
+  color: var(--admin-text);
+  font-size: .86em;
+  font-weight: var(--operational-weight-semibold);
+}
+
 // La nota es lo único de la comanda que el cocinero NO puede pasar por alto:
 // va sobre su propio papel y con filete de aviso, no con el acento del sistema.
 // Es también lo único que sigue bajando de línea ahora que el platillo cabe en

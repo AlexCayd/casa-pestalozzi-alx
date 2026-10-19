@@ -298,6 +298,9 @@ function initMapa() {
   // ── Iconos SVG en línea (heredan currentColor) ────────────
   var SVG_PATHS = {
     search:  '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    // Opciones de un platillo (variantes): tres deslizadores, el mismo dibujo
+    // que `variantes` en el catálogo del panel.
+    sliders: '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/>',
     printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
     receipt: '<path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -2993,6 +2996,9 @@ function initMapa() {
   function closeModal(options) {
     if (!modal) return;
     options = options || {};
+    // La hoja de opciones vive en #mesa-modal, no en #mesa-modal-content: no
+    // se va sola con el siguiente repintado.
+    cerrarOpciones(false);
     modal.classList.remove('mesa-modal--open');
     modal.setAttribute('aria-hidden', 'true');
     modal.inert = true;
@@ -3911,21 +3917,31 @@ function initMapa() {
     // que el teclado y el foco funcionen sin replicarlos a mano.
     for (var i = 0; i < lista.length; i++) {
       var dish = lista[i];
+      var conOpciones = tieneOpciones(dish);
       var row  = document.createElement('button');
       row.type = 'button';
-      row.className = 'mmodal-dish-row';
-      row.setAttribute('aria-label', 'Agregar ' + dish.n);
+      row.className = 'mmodal-dish-row' + (conOpciones ? ' mmodal-dish-row--opciones' : '');
+      row.setAttribute('aria-label', (conOpciones ? 'Elegir opciones de ' : 'Agregar ') + dish.n);
       row.innerHTML =
         '<div class="mmodal-dish-info">' +
           '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
         '</div>' +
-        '<span class="mmodal-dish-price">$' + dish.p + '</span>';
+        '<span class="mmodal-dish-price">$' + dish.p + '</span>' +
+        // Las opciones se anuncian ANTES del toque: si la fila abriera un
+        // selector sin avisar, el mesero que espera agregar de un golpe lo
+        // leería como un error.
+        (conOpciones ? '<span class="mmodal-dish-opts">' + svgIcon('sliders', 12) + '<span>' +
+          (opcionesObligatorias(dish) ? 'Elegir' : 'Opciones') + '</span></span>' : '');
 
-      (function(d) {
-        row.addEventListener('click', function() {
+      (function(d, boton) {
+        boton.addEventListener('click', function() {
+          if (tieneOpciones(d)) {
+            abrirOpciones(d, { comensal: selectedComensal, origen: boton });
+            return;
+          }
           addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '');
         });
-      })(dish);
+      })(dish, row);
       dishesEl.appendChild(row);
     }
   }
@@ -3973,13 +3989,26 @@ function initMapa() {
     pintarDishes(res);
   }
 
-  function addToComanda(name, price, areaSlug, categoria) {
+  /*
+   * `variante` = { ids, label } que arma el selector de opciones. Dos líneas
+   * se funden sólo si son el MISMO platillo con las MISMAS opciones para el
+   * mismo comensal: un Cappuccino con almendra y otro entero son dos renglones
+   * en la comanda aunque se llamen igual.
+   */
+  function claveVariante(ids) {
+    return (ids || []).slice().sort(function(a, b) { return a - b; }).join(',');
+  }
+
+  function addToComanda(name, price, areaSlug, categoria, variante, comensal) {
     var areaId = (window.CP_AREAS && window.CP_AREAS[areaSlug])
                  ? window.CP_AREAS[areaSlug].id : 3;
+    var para = typeof comensal === 'number' ? comensal : selectedComensal;
+    var ids = variante && variante.ids ? variante.ids.slice() : [];
+    var clave = claveVariante(ids);
     var found = false;
     for (var i = 0; i < commandaItems.length; i++) {
       var ci = commandaItems[i];
-      if (ci.n === name && ci.comensal === selectedComensal) {
+      if (ci.n === name && ci.comensal === para && claveVariante(ci.v) === clave) {
         ci.qty++;
         found = true;
         break;
@@ -3988,14 +4017,218 @@ function initMapa() {
     if (!found) {
       commandaItems.push({
         n: name, p: price, area: areaSlug, area_id: areaId,
-        categoria: categoria, comensal: selectedComensal, qty: 1, nota: ''
+        categoria: categoria, comensal: para, qty: 1, nota: '',
+        v: ids, vl: variante && variante.label ? variante.label : ''
       });
     }
     renderComandaCart();
     updateEnviarBtn();
   }
 
+  // ── Opciones de un platillo (variantes) ───────────────────
+  //
+  // Hoja encima del modal de mesa —no un diálogo aparte— para que el ticket
+  // siga a la vista detrás, velado. Los grupos vienen en CP_MENU (dish.g); el precio
+  // que se ve aquí es orientativo: el servidor lo recalcula al enviar.
+
+  var opcionesHoja = null;
+
+  function tieneOpciones(dish) {
+    return !!(dish && dish.g && dish.g.length);
+  }
+
+  function opcionesObligatorias(dish) {
+    return tieneOpciones(dish) && dish.g.some(function(gr) { return gr.req; });
+  }
+
+  function buscarDishPorNombre(nombre) {
+    var cats = window.CP_MENU || [];
+    for (var c = 0; c < cats.length; c++) {
+      for (var d = 0; d < cats[c].dishes.length; d++) {
+        if (cats[c].dishes[d].n === nombre) {
+          var dish = cats[c].dishes[d];
+          dish._cat = dish._cat || cats[c].label;
+          return dish;
+        }
+      }
+    }
+    return null;
+  }
+
+  function opcionesAbiertas() {
+    return !!opcionesHoja;
+  }
+
+  function dineroCorto(n) {
+    var v = Math.round((Number(n) || 0) * 100) / 100;
+    return '$' + (v % 1 === 0 ? v : v.toFixed(2));
+  }
+
+  function resumenOpciones() {
+    var h = opcionesHoja;
+    var delta = 0;
+    var ids = [];
+    var etiqueta = [];
+    var faltan = [];
+    h.dish.g.forEach(function(gr, gi) {
+      var id = h.seleccion[gi];
+      var op = gr.o.filter(function(o) { return o.id === id; })[0];
+      if (!op) {
+        faltan.push(gr.n);
+        return;
+      }
+      ids.push(op.id);
+      delta += Number(op.d) || 0;
+      if (!op.def) etiqueta.push(op.n);
+    });
+    return { ids: ids, label: etiqueta.join(' · '), precio: (Number(h.dish.p) || 0) + delta, faltan: faltan };
+  }
+
+  function pintarOpciones(enfocar) {
+    var h = opcionesHoja;
+    if (!h) return;
+    var r = resumenOpciones();
+    var html = '<div class="mmodal-opts__head">' +
+      '<div><p class="mmodal-opts__eyebrow">' + (h.ctx.editIdx !== undefined ? 'Cambiar opciones' : 'Opciones') + '</p>' +
+      '<h3 class="mmodal-opts__titulo" id="mmodal-opts-titulo">' + escHtml(h.dish.n) + '</h3></div>' +
+      '<button type="button" class="mmodal-opts__cerrar" data-opts-cerrar aria-label="Cerrar opciones">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>' +
+      '</div><div class="mmodal-opts__cuerpo">';
+    h.dish.g.forEach(function(gr, gi) {
+      var elegido = h.seleccion[gi];
+      var falta = gr.req && !elegido;
+      html += '<div class="mmodal-opts__grupo' + (falta ? ' is-falta' : '') + '">' +
+        '<p class="mmodal-opts__grupo-nombre" id="mmodal-opts-g' + gi + '">' + escHtml(gr.n) +
+        (gr.req ? '<span class="mmodal-opts__req">' + (falta ? 'Elige una' : 'Obligatorio') + '</span>' : '') + '</p>' +
+        '<div class="mmodal-opts__pills" role="radiogroup" aria-labelledby="mmodal-opts-g' + gi + '">';
+      gr.o.forEach(function(o) {
+        var on = o.id === elegido;
+        // Roving tabindex: un solo tope de tabulador por grupo, flechas dentro.
+        var foco = on || (!elegido && o === gr.o[0]);
+        html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '"' +
+          ' class="mmodal-opts__pill' + (on ? ' is-on' : '') + '" data-opt-g="' + gi + '" data-opt-id="' + o.id + '">' +
+          '<span class="mmodal-opts__pill-nombre">' + escHtml(o.n) + '</span>' +
+          (Number(o.d) ? '<span class="mmodal-opts__pill-delta">' + (o.d > 0 ? '+' : '−') + dineroCorto(Math.abs(o.d)) + '</span>' : '') +
+          '</button>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div><div class="mmodal-opts__pie">' +
+      '<p class="mmodal-opts__resumen">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</p>' +
+      '<div class="mmodal-opts__acciones">' +
+      '<button type="button" class="mmodal-btn mmodal-btn--ghost" data-opts-cerrar>Cancelar</button>' +
+      '<button type="button" class="mmodal-btn mmodal-btn--primary" data-opts-confirmar' + (r.faltan.length ? ' disabled' : '') + '>' +
+      (r.faltan.length ? 'Elige ' + escHtml(r.faltan[0].toLowerCase()) : (h.ctx.editIdx !== undefined ? 'Guardar · ' : 'Agregar · ') + dineroCorto(r.precio)) +
+      '</button></div></div>';
+    h.card.innerHTML = html;
+
+    if (enfocar) {
+      var destino = h.card.querySelector(enfocar);
+      if (destino) destino.focus();
+    }
+  }
+
+  function abrirOpciones(dish, ctx) {
+    cerrarOpciones(false);
+    // Va en #mesa-modal y no dentro del panel: en móvil el panel es una hoja
+    // con scroll propio, y una capa absoluta dentro se iría con el scroll.
+    var panel = modal;
+    if (!panel || !tieneOpciones(dish)) return;
+    ctx = ctx || {};
+    var seleccion = {};
+    dish.g.forEach(function(gr, gi) {
+      var previa = ctx.ids ? gr.o.filter(function(o) { return ctx.ids.indexOf(o.id) !== -1; })[0] : null;
+      var defecto = gr.o.filter(function(o) { return o.def; })[0];
+      seleccion[gi] = previa ? previa.id : (defecto ? defecto.id : null);
+    });
+    var hoja = document.createElement('div');
+    hoja.className = 'mmodal-opts';
+    hoja.innerHTML = '<div class="mmodal-opts__bd" data-opts-cerrar></div>' +
+      '<div class="mmodal-opts__card" role="dialog" aria-modal="true" aria-labelledby="mmodal-opts-titulo"></div>';
+    panel.appendChild(hoja);
+    opcionesHoja = {
+      el: hoja,
+      card: hoja.querySelector('.mmodal-opts__card'),
+      dish: dish,
+      ctx: ctx,
+      seleccion: seleccion,
+      origen: ctx.origen || document.activeElement
+    };
+    pintarOpciones();
+    // El foco va al primer grupo que falte por elegir; si no falta ninguno,
+    // directo al botón de agregar: lo normal es aceptar lo predeterminado.
+    var primeraFalta = hoja.querySelector('.mmodal-opts__grupo.is-falta [tabindex="0"]');
+    (primeraFalta || hoja.querySelector('[data-opts-confirmar]')).focus();
+    window.requestAnimationFrame(function() { hoja.classList.add('is-open'); });
+  }
+
+  function cerrarOpciones(devolverFoco) {
+    if (!opcionesHoja) return;
+    var h = opcionesHoja;
+    opcionesHoja = null;
+    h.el.parentNode && h.el.parentNode.removeChild(h.el);
+    if (devolverFoco !== false && h.origen && document.body.contains(h.origen)) h.origen.focus();
+  }
+
+  function confirmarOpciones() {
+    var h = opcionesHoja;
+    if (!h) return;
+    var r = resumenOpciones();
+    if (r.faltan.length) return;
+    var d = h.dish;
+    if (h.ctx.editIdx !== undefined && commandaItems[h.ctx.editIdx]) {
+      var item = commandaItems[h.ctx.editIdx];
+      item.v = r.ids;
+      item.vl = r.label;
+      item.p = r.precio;
+      // Si el cambio la deja igual a otra línea del mismo comensal, se funden.
+      for (var i = 0; i < commandaItems.length; i++) {
+        var otra = commandaItems[i];
+        if (otra !== item && otra.n === item.n && otra.comensal === item.comensal && claveVariante(otra.v) === claveVariante(item.v)) {
+          otra.qty += item.qty;
+          if (!otra.nota && item.nota) otra.nota = item.nota;
+          commandaItems.splice(commandaItems.indexOf(item), 1);
+          break;
+        }
+      }
+      cerrarOpciones();
+      renderComandaCart();
+      updateEnviarBtn();
+      return;
+    }
+    var comensal = typeof h.ctx.comensal === 'number' ? h.ctx.comensal : selectedComensal;
+    cerrarOpciones();
+    addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal);
+  }
+
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (!opcionesHoja || !opcionesHoja.el.contains(e.target)) return;
+      if (e.target.closest('[data-opts-cerrar]')) {
+        cerrarOpciones();
+        return;
+      }
+      if (e.target.closest('[data-opts-confirmar]')) {
+        confirmarOpciones();
+        return;
+      }
+      var pill = e.target.closest('[data-opt-id]');
+      if (pill) {
+        var gi = Number(pill.getAttribute('data-opt-g'));
+        opcionesHoja.seleccion[gi] = Number(pill.getAttribute('data-opt-id'));
+        pintarOpciones('[data-opt-g="' + gi + '"][data-opt-id="' + pill.getAttribute('data-opt-id') + '"]');
+      }
+    });
+  }
+
   function addSuggestionItem(sug, comensal) {
+    // Una sugerencia con elección obligatoria (el término de la hamburguesa)
+    // no puede entrar a ciegas: el servidor la rechazaría al enviar.
+    var dishSug = buscarDishPorNombre(sug.n);
+    if (opcionesObligatorias(dishSug)) {
+      abrirOpciones(dishSug, { comensal: comensal });
+      return;
+    }
     for (var i = 0; i < commandaItems.length; i++) {
       if (commandaItems[i].n === sug.n && commandaItems[i].comensal === comensal) {
         commandaItems[i].qty++;
@@ -4140,8 +4373,16 @@ function initMapa() {
         var comLabel = item.comensal === 0 ? 'G' : 'C.' + item.comensal;
         var row = document.createElement('div');
         row.className = 'mmodal-cart-row';
+        var dishCart = buscarDishPorNombre(item.n);
         row.innerHTML =
-          '<span class="mmodal-cart-name">' + escHtml(item.n) + '</span>' +
+          '<span class="mmodal-cart-name">' + escHtml(item.n) +
+            (item.vl ? '<span class="mmodal-cart-variante">' + escHtml(item.vl) + '</span>' : '') +
+            // El nombre accesible dice de QUÉ platillo: en un pedido con tres
+            // cappuccinos, cinco «Cambiar» seguidos no se distinguen en voz.
+            (tieneOpciones(dishCart) ? '<button type="button" class="mmodal-cart-cambiar" data-cambiar-opciones="' + idx + '"' +
+              ' aria-label="' + (item.vl ? 'Cambiar opciones de ' : 'Opciones de ') + escHtml(item.n) + '">' +
+              svgIcon('sliders', 12) + '<span>' + (item.vl ? 'Cambiar' : 'Opciones') + '</span></button>' : '') +
+          '</span>' +
           '<span class="mmodal-cart-comensal">' + comLabel + '</span>' +
           '<div class="mmodal-cart-controls">' +
             '<button data-idx="' + idx + '" data-op="dec" aria-label="Quitar uno">' + svgIcon('minus', 14) + '</button>' +
@@ -4181,6 +4422,18 @@ function initMapa() {
 
         cartEl.appendChild(row);
       })(commandaItems[i], i);
+    }
+
+    var cambiarBtns = cartEl.querySelectorAll('[data-cambiar-opciones]');
+    for (var k = 0; k < cambiarBtns.length; k++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var idx = parseInt(btn.getAttribute('data-cambiar-opciones'), 10);
+          var item = commandaItems[idx];
+          var dish = item ? buscarDishPorNombre(item.n) : null;
+          if (dish) abrirOpciones(dish, { editIdx: idx, ids: item.v || [], comensal: item.comensal, origen: btn });
+        });
+      })(cambiarBtns[k]);
     }
 
     // Rebind +/- en carrito
@@ -4396,9 +4649,11 @@ function initMapa() {
               ? '<button class="mmodal-cancel-btn" data-id="' + row.id +
                 '" data-nombre="' + escHtml(row.nombre) + '">×</button>'
               : '';
-            var notaHtml = row.nota
+            var notaHtml = (row.variante
+              ? '<span class="mmodal-resumen-variante">' + escHtml(row.variante) + '</span>'
+              : '') + (row.nota
               ? '<span class="mmodal-resumen-nota">' + escHtml(row.nota) + '</span>'
-              : '';
+              : '');
             var itemClass = row.estado === 'cancelado'
               ? 'mmodal-confirm-item mmodal-confirm-item--cancelado'
               : 'mmodal-confirm-item';
@@ -6257,7 +6512,8 @@ function initMapa() {
         area_id:   ci.area_id,
         comensal:  ci.comensal === 0 ? null : ci.comensal,
         cantidad:  ci.qty,
-        nota:      ci.nota && ci.nota.trim() ? ci.nota.trim() : null
+        nota:      ci.nota && ci.nota.trim() ? ci.nota.trim() : null,
+        variantes: ci.v || []
       });
     }
 
@@ -6870,6 +7126,53 @@ function initMapa() {
     }
   });
 
+  // Hoja de opciones: Escape la cierra, Tab no sale de ella y las flechas se
+  // mueven dentro del grupo (patrón de radiogroup) eligiendo al moverse.
+  function teclaOpciones(e) {
+    var h = opcionesHoja;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cerrarOpciones();
+      return;
+    }
+    var pill = e.target.closest ? e.target.closest('[data-opt-id]') : null;
+    if (pill && /^Arrow(Left|Right|Up|Down)$/.test(e.key)) {
+      e.preventDefault();
+      var hermanos = Array.prototype.slice.call(pill.parentNode.querySelectorAll('[data-opt-id]'));
+      var paso = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+      var siguiente = hermanos[(hermanos.indexOf(pill) + paso + hermanos.length) % hermanos.length];
+      var gi = Number(siguiente.getAttribute('data-opt-g'));
+      h.seleccion[gi] = Number(siguiente.getAttribute('data-opt-id'));
+      pintarOpciones('[data-opt-g="' + gi + '"][data-opt-id="' + siguiente.getAttribute('data-opt-id') + '"]');
+      return;
+    }
+    // Enter sobre una opción la elige Y agrega si ya no falta nada: el camino
+    // corto del teclado es «flecha hasta la opción, Enter».
+    if (e.key === 'Enter' && pill) {
+      e.preventDefault();
+      var giEnter = Number(pill.getAttribute('data-opt-g'));
+      h.seleccion[giEnter] = Number(pill.getAttribute('data-opt-id'));
+      if (resumenOpciones().faltan.length) {
+        pintarOpciones('.mmodal-opts__grupo.is-falta [tabindex="0"]');
+        return;
+      }
+      confirmarOpciones();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    var items = Array.prototype.slice.call(h.card.querySelectorAll('button:not([disabled]):not([tabindex="-1"])'));
+    if (!items.length) return;
+    var primero = items[0];
+    var ultimo = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === primero) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault();
+      primero.focus();
+    }
+  }
+
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
   document.addEventListener('keydown', function(e) {
@@ -6896,6 +7199,10 @@ function initMapa() {
       return;
     }
     if (!modal || !modal.classList.contains('mesa-modal--open')) return;
+    if (opcionesAbiertas()) {
+      teclaOpciones(e);
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       closeModal();

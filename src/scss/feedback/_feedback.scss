@@ -87,8 +87,7 @@
   text-align: center;
 
   &__sub {
-    font-family: var(--crimson);
-    font-style: italic;
+    font-family: var(--serif);
     font-size: 1.05rem;
     color: var(--txt-mute);
   }
@@ -137,16 +136,15 @@
 
   &--active { display: block; }
 
-  // El título de cada paso es un heading de la casa: Bodoni, tracking a cero y
-  // tamaño óptico automático. Un didone apretado se empasta.
+  // El título de cada paso es un heading de la casa: The Seasons en regular,
+  // como compone el manual sus títulos.
   &__label {
     margin: 0.5rem 0 clamp(1.5rem, 4vw, 2.25rem);
     font-family: var(--serif);
-    font-weight: 600;
+    font-weight: 400;
     font-size: clamp(1.45rem, 4vw, 2.1rem);
     line-height: 1.15;
     letter-spacing: 0;
-    font-optical-sizing: auto;
     color: var(--txt-strong);
     text-wrap: balance;
   }
@@ -347,8 +345,7 @@
   }
 
   &__text {
-    font-family: var(--crimson);
-    font-size: 1.02rem;
+    font-size: 0.98rem;
     line-height: 1.6;
     color: var(--txt);
     // Lo escribió el comensal: puede venir sin espacios y desbordar la caja.
@@ -409,26 +406,23 @@
 
 .fb-done-title {
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 400;
   font-size: clamp(1.9rem, 5.5vw, 2.8rem);
   line-height: 1.1;
   letter-spacing: 0;
-  font-optical-sizing: auto;
   color: var(--txt-strong);
 
-  // Un heading es una sola voz: la cursiva se separa por PESO, no por familia.
+  // Un heading es una sola voz: el acento es color y subrayado (_reset.scss).
   em {
     font-family: var(--serif);
     font-weight: 400;
-    font-style: italic;
   }
 }
 
 .fb-done-sub {
   max-width: 42ch;
   margin: 0.9rem auto 1.75rem;
-  font-family: var(--crimson);
-  font-size: 1.08rem;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--txt-mute);
 }

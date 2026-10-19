@@ -1,0 +1,1151 @@
+@use '../shared/abstracts/variables' as vars;
+@use '../shared/abstracts/mixins' as mixins;
+
+/*
+ * Editor de variantes de platillo (Menú → Variantes).
+ *
+ * Panel en blanco y negro como el resto: el único color es el de estado
+ * (margen negativo, ajustes que restan) y nada de cromo teñido. Dos columnas:
+ * a la izquierda se edita, a la derecha se comprueba —cómo lo verá el mesero y
+ * qué descuenta del almacén—, pegada al scroll para que el efecto de cada
+ * cambio esté siempre a la vista.
+ *
+ * La regla global de campos de _forms.scss (0,6,1) impone padding, borde,
+ * min-height y `font: inherit; font-size: 14px` a todo <input>: aquí NO se
+ * pelea con ella en la caja —los campos se dimensionan por la celda de la
+ * rejilla—, pero sí en la letra de tres de ellos (el nombre del grupo, que es
+ * el titular de la tarjeta, y las dos cifras: precio y cantidad, en mono). Ahí
+ * va `!important` acotado, que es la salida que CLAUDE.md admite: igualar
+ * (0,6,1) pediría siete clases.
+ */
+
+// Todo el módulo va bajo `.admin-body`. No es decoración: el reset del panel
+// declara `.admin-body button { font: inherit }` y `.admin-body p { color }`
+// con (0,1,1), que le ganan a cualquier clase sola. Sin el ámbito, cada botón
+// propio de esta pantalla —la receta de la fila, las pastillas de la vista
+// previa, las plantillas, «Agregar opción»— se pintaba a 16 px y en 400 en vez
+// de lo que dice su regla, y los <p> que piden tinta fuerte salían tenues.
+// Con el ámbito (0,2,0) manda el componente. El selector se porta al <body>,
+// que también es `.admin-body`, así que lo alcanza igual.
+.admin-body {
+  .admin-variantes {
+    display: grid;
+    gap: 20px;
+    padding-bottom: 96px;
+
+    &__ficha {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--admin-muted);
+      font-size: 13px;
+
+      strong {
+        color: var(--admin-text);
+        font-weight: 600;
+      }
+    }
+
+    &__noscript,
+    &__errores {
+      padding: 14px 16px;
+      border: 1px solid var(--admin-danger-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-danger-bg);
+      color: var(--admin-danger-text);
+      font-size: 13px;
+      line-height: 1.5;
+
+      &[hidden] {
+        display: none;
+      }
+
+      ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+    }
+
+    &__layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+      align-items: start;
+      gap: 20px;
+    }
+
+    &__main {
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    &__grupos {
+      display: grid;
+      gap: 16px;
+    }
+
+    // Pegada al scroll, pero con tope: la vista previa más la receta miden más
+    // que una pantalla, y un `sticky` más alto que el viewport deja su parte de
+    // abajo fuera de alcance hasta que se acaba la columna de grupos — justo el
+    // margen, que es la cifra por la que se mira esta columna. Con tope y scroll
+    // propio todo se alcanza mientras se edita el primer grupo. Los 180 px son
+    // el topbar y su respiro (84) más la barra de guardado, que flota encima.
+    // `data-scrollable` en la vista le devuelve la rueda frente a Lenis.
+    &__aside {
+      position: sticky;
+      top: 84px;
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      // El foco de las pastillas dibuja su anillo hacia fuera; sin este
+      // respiro el overflow lo recortaba contra el borde de la tarjeta.
+      padding: 3px;
+      margin: -3px;
+
+      &::-webkit-scrollbar { width: 6px; }
+      &::-webkit-scrollbar-track { background: transparent; }
+
+      &::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--admin-text) 22%, transparent);
+      }
+    }
+
+    &__preview,
+    &__receta {
+      padding: 18px;
+    }
+
+    &__preview-titulo {
+      margin: 0;
+      color: var(--admin-text);
+      font-family: var(--admin-font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    &__preview-ayuda {
+      margin-top: 3px;
+      color: var(--admin-muted);
+      font-size: 12px;
+    }
+
+    // Estado vacío: el platillo se vende tal cual. Dice qué pasa hoy y qué
+    // cambiaría, en vez de un «no hay datos».
+    &__vacio {
+      display: grid;
+      justify-items: start;
+      gap: 6px;
+      padding: 28px;
+      border-style: dashed;
+    }
+
+    &__vacio-icono {
+      display: inline-flex;
+      margin-bottom: 6px;
+      color: var(--admin-faint);
+    }
+
+    &__vacio-titulo {
+      color: var(--admin-text);
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    &__vacio-texto {
+      max-width: 56ch;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    &__nuevo {
+      display: grid;
+      gap: 10px;
+      padding: 18px 0 0;
+    }
+
+    &__nuevo-titulo {
+      margin: 0;
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    &__nuevo-texto {
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    &__plantillas {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    &__plantilla {
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      min-height: 44px;
+      max-width: 240px;
+      padding: 8px 14px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+
+      &:hover:not(:disabled) {
+        border-color: var(--admin-border-strong);
+        background: var(--admin-surface-soft);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+
+      &:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+    }
+
+    &__plantilla-nombre {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__plantilla-ops {
+      overflow: hidden;
+      color: var(--admin-muted);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__limite {
+      align-self: center;
+      color: var(--admin-muted);
+      font-size: 12px;
+    }
+
+    // Barra de guardado: fija abajo, discreta sin cambios y presente con ellos.
+    // Es la única acción principal de la pantalla.
+    &__barra {
+      position: sticky;
+      bottom: 16px;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px 12px 18px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-md);
+      background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+      box-shadow: var(--admin-shadow-md);
+      backdrop-filter: blur(10px);
+      transition: border-color var(--admin-t-base) var(--admin-ease-out);
+    }
+
+    &.has-changes .admin-variantes__barra {
+      border-color: var(--admin-border-strong);
+    }
+
+    &__estado {
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    &.has-changes .admin-variantes__estado {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--admin-text);
+      font-weight: 600;
+
+      // Un punto de estado, no un color de cromo: «hay algo pendiente» es la
+      // única señal de esta barra que tiene que verse sin leerla, y el ámbar
+      // es el rol de advertencia de la paleta funcional. Sin cambios no hay
+      // punto, así que la barra en reposo sigue siendo blanco y negro.
+      &::before {
+        content: "";
+        flex: 0 0 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--admin-c-ambar);
+      }
+    }
+
+    &__barra-acciones {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    &__kbd {
+      margin-left: 8px;
+      padding: 1px 6px;
+      border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+      border-radius: 6px;
+      font-family: var(--admin-font-mono);
+      font-size: 10px;
+      opacity: 0.8;
+
+      // En una tablet no hay Ctrl: la pista sólo ensucia el botón.
+      @media (pointer: coarse) {
+        display: none;
+      }
+    }
+  }
+
+  /* ── Grupo ────────────────────────────────────────────────────── */
+
+  .admin-vgrupo {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    overflow: visible;
+
+    &__head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+    }
+
+    &__num {
+      color: var(--admin-faint);
+      font-family: var(--admin-font-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    // El nombre del grupo es el titular de la tarjeta. La regla global de
+    // campos (0,6,1) lo dejaba en 14 px y 400, igual que el nombre de cada
+    // opción de debajo, y la tarjeta no tenía cabeza.
+    &__nombre input {
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em;
+    }
+
+    &__acciones {
+      display: flex;
+      gap: 6px;
+    }
+
+    &__regla {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 16px;
+      padding: 10px 12px;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+    }
+
+    &__regla-texto {
+      flex: 1 1 260px;
+      color: var(--admin-muted);
+      font-size: 12px;
+      line-height: 1.45;
+
+      strong {
+        color: var(--admin-text);
+        font-weight: 600;
+      }
+    }
+
+    // Rótulos de columna: en mono y tenues, sólo orientan.
+    &__cabecera {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+      gap: 10px;
+      padding: 0 2px;
+      color: var(--admin-faint);
+      font-family: var(--admin-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    &__opciones {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__agregar {
+      display: inline-flex;
+      align-items: center;
+      justify-self: start;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px dashed var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        border-color: var(--admin-border-strong);
+        background: var(--admin-surface-soft);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+
+      &:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+    }
+  }
+
+  /* ── Opción ───────────────────────────────────────────────────── */
+
+  .admin-vopcion {
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+    transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+
+    &.is-open {
+      border-color: var(--admin-border-strong);
+    }
+
+    // Apagada: sigue editable, pero se lee como fuera de servicio.
+    &.is-off .admin-vopcion__nombre,
+    &.is-off .admin-vopcion__precio {
+      opacity: 0.55;
+    }
+
+    &__fila {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+      align-items: center;
+      gap: 10px;
+      padding: 6px;
+    }
+
+    &__base {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+
+      input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--admin-accent);
+        cursor: pointer;
+      }
+    }
+
+    &__precio {
+      position: relative;
+      display: block;
+
+      input {
+        padding-left: 26px !important;
+        font-family: var(--admin-font-mono) !important;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    &__signo {
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      z-index: 1;
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 13px;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    // El resumen de la receta ES el botón que la despliega: la frase dice qué
+    // hace la opción y tocarla lleva a cambiarlo.
+    &__receta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+      color: var(--admin-muted);
+      font: inherit;
+      font-size: 12px;
+      text-align: left;
+      cursor: pointer;
+
+      svg {
+        flex: 0 0 auto;
+        color: var(--admin-faint);
+      }
+
+      &:hover,
+      &[aria-expanded="true"] {
+        border-color: var(--admin-border);
+        color: var(--admin-text);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+
+    &__resumen {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__borrar {
+      justify-self: center;
+    }
+
+    &__panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px 14px 16px;
+      border-top: 1px solid var(--admin-border-soft);
+    }
+
+    &__panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    &__panel-titulo {
+      color: var(--admin-text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__vacio,
+    &__nota {
+      max-width: 68ch;
+      color: var(--admin-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    &__atajos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+
+      // `.admin-btn--small` pide 12 px, pero en un <button> lo pisa
+      // `.admin-body button { font: inherit }` y salían a 16: tres atajos más
+      // grandes que el ajuste que crean. Aquí se le devuelve su cuerpo.
+      .admin-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 40px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+    }
+  }
+
+  /* ── Ajuste de receta ─────────────────────────────────────────── */
+
+  .admin-vajustes {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  // El ajuste se lee como una frase: el verbo arriba («Cambiar»), y debajo la
+  // oración entera —«Leche 120 ml por Leche deslactosada 120 ml»—. Con el verbo
+  // a la izquierda en la misma fila, la frase se quedaba con un tercio del
+  // ancho y se partía en cuatro renglones, con el verbo flotando centrado en
+  // medio de una caja de 200 px de alto.
+  .admin-vajuste {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "accion borrar"
+      "cuerpo cuerpo";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 8px 8px 10px 10px;
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+
+    &__accion {
+      grid-area: accion;
+      justify-self: start;
+      display: inline-flex;
+      padding: 3px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: 999px;
+      background: var(--admin-surface);
+    }
+
+    &__pill {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &.is-on {
+        background: var(--admin-accent);
+        color: var(--admin-on-accent);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+
+    &__cuerpo {
+      grid-area: cuerpo;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    &__comp {
+      display: inline-flex;
+      flex: 1 1 180px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      max-width: 280px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      svg {
+        flex: 0 0 14px;
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        color: var(--admin-muted);
+      }
+
+      &.is-empty {
+        border-style: dashed;
+        color: var(--admin-muted);
+      }
+
+      &:hover {
+        border-color: var(--admin-border-strong);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+
+    &__cant {
+      display: inline-grid;
+      grid-template-columns: 96px auto;
+      align-items: center;
+      gap: 6px;
+
+      input {
+        font-family: var(--admin-font-mono) !important;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    &__unidad {
+      min-width: 2ch;
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 12px;
+    }
+
+    &__por {
+      color: var(--admin-muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    &__borrar {
+      grid-area: borrar;
+      justify-self: end;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+
+      &:hover {
+        background: var(--admin-surface);
+        color: var(--admin-danger-text);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+  }
+
+  /* ── Selector de componentes (portado al <body>) ──────────────── */
+
+  .admin-vpicker {
+    position: fixed;
+    z-index: 300;
+    display: grid;
+    max-height: min(380px, 60vh);
+    overflow: hidden;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow-lg);
+
+    &[hidden] {
+      display: none;
+    }
+
+    &__buscar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--admin-border-soft);
+      color: var(--admin-muted);
+
+      // El borde y el fondo los pone el contenedor: el input va desnudo, que es
+      // la salida que CLAUDE.md recomienda frente a la regla global de campos.
+      input {
+        min-height: 46px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+    }
+
+    &__lista {
+      margin: 0;
+      padding: 6px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      list-style: none;
+    }
+
+    &__grupo {
+      padding: 10px 10px 4px;
+      color: var(--admin-faint);
+      font-family: var(--admin-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    &__opcion {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: var(--admin-radius-sm);
+      color: var(--admin-text);
+      font-size: 13px;
+      cursor: pointer;
+
+      &.is-active,
+      &:hover {
+        background: var(--admin-surface-soft);
+      }
+
+      &.is-active {
+        box-shadow: inset 0 0 0 1px var(--admin-border);
+      }
+    }
+
+    &__meta {
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+    }
+
+    &__vacio {
+      padding: 14px 10px;
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+  }
+
+  /* ── Vista previa: el selector del POS en miniatura ──────────── */
+
+  .admin-vpos {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface-soft);
+
+    &__cabeza {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    &__nombre {
+      color: var(--admin-text);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    &__precio {
+      color: var(--admin-text);
+      font-family: var(--admin-font-mono);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__grupo {
+      display: grid;
+      gap: 6px;
+    }
+
+    &__grupo-nombre {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    &__falta {
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--admin-warning-bg);
+      color: var(--admin-warning-text);
+      font-family: var(--admin-font-sans);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    &__pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    &__pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--admin-border);
+      border-radius: 999px;
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &.is-on {
+        border-color: var(--admin-accent);
+        background: var(--admin-accent);
+        color: var(--admin-on-accent);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+
+    &__delta {
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+
+    &__sin {
+      color: var(--admin-muted);
+      font-size: 12px;
+    }
+
+    // Cómo saldrá en la comanda: lo que la cocina va a leer.
+    &__linea {
+      display: grid;
+      gap: 4px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--admin-border);
+    }
+
+    &__linea-label {
+      color: var(--admin-faint);
+      font-family: var(--admin-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    &__linea-texto {
+      display: grid;
+      color: var(--admin-text);
+      font-family: var(--admin-font-mono);
+      font-size: 12px;
+
+      strong {
+        font-weight: 600;
+      }
+    }
+
+    &__agregar {
+      min-height: 44px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.92;
+    }
+  }
+
+  /* ── Receta resultante ────────────────────────────────────────── */
+
+  .admin-vreceta {
+    display: grid;
+    gap: 2px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+
+    &__fila {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: baseline;
+      gap: 10px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+
+      &.is-new,
+      &.is-diff {
+        background: var(--admin-surface-soft);
+      }
+
+      &.is-out {
+        color: var(--admin-faint);
+
+        .admin-vreceta__nombre,
+        .admin-vreceta__cant {
+          text-decoration: line-through;
+        }
+      }
+    }
+
+    &__nombre {
+      color: inherit;
+    }
+
+    &__marca {
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+    }
+
+    &__fila.is-new .admin-vreceta__marca {
+      color: var(--admin-success-text);
+    }
+
+    &__cant {
+      font-family: var(--admin-font-mono);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    &__totales {
+      display: grid;
+      gap: 6px;
+      margin: 14px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--admin-border-soft);
+
+      div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+      }
+
+      dt {
+        color: var(--admin-muted);
+      }
+
+      dd {
+        margin: 0;
+        color: var(--admin-text);
+        font-family: var(--admin-font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    &__margen {
+      font-weight: 600;
+
+      dd span {
+        margin-left: 6px;
+        color: var(--admin-muted);
+      }
+
+      &.is-neg dd {
+        color: var(--admin-danger-text);
+      }
+    }
+
+    &__vacia {
+      margin-top: 10px;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.5;
+
+      a {
+        color: var(--admin-text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+    }
+  }
+
+  @include mixins.reduced-motion {
+    .admin-vopcion,
+    .admin-variantes__barra,
+    .admin-variantes__plantilla {
+      transition: none;
+    }
+  }
+
+  @include mixins.down(vars.$breakpoint-wide) {
+    .admin-variantes__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    // Debajo del editor ya no va pegada: sin el tope ni el scroll propio, que
+    // sólo tenían sentido mientras acompañaba al scroll.
+    .admin-variantes__aside {
+      position: static;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      max-height: none;
+      overflow: visible;
+      padding: 0;
+      margin: 0;
+    }
+  }
+
+  @include mixins.down(vars.$breakpoint-tablet) {
+    .admin-variantes__aside {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-vgrupo__cabecera {
+      display: none;
+    }
+
+    // En móvil la fila se parte en dos: nombre y precio arriba, la receta
+    // debajo a todo el ancho; base y borrar quedan en los extremos.
+    .admin-vopcion__fila {
+      grid-template-columns: 44px minmax(0, 1fr) 96px 44px;
+      grid-template-areas:
+        "base nombre precio borrar"
+        "receta receta receta receta";
+    }
+
+    .admin-vopcion__base { grid-area: base; }
+    .admin-vopcion__nombre { grid-area: nombre; }
+    .admin-vopcion__precio { grid-area: precio; }
+    .admin-vopcion__receta { grid-area: receta; }
+    .admin-vopcion__borrar { grid-area: borrar; }
+  }
+}

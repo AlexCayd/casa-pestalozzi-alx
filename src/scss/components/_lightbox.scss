@@ -2,25 +2,40 @@
 //
 // El fondo salía de --scrim, que se mezcla sobre --verde-deep: la ventana de
 // ampliar una foto se abría en verde botella, un color que no tiene ninguna
-// otra capa de la landing. Ahora es café —el fondo con el que la casa cierra— y
-// lleva la misma fibra de mantel que las secciones, para que ampliar una imagen
-// se sienta parte de la página y no un visor pegado encima.
+// otra capa de la landing. Ahora es el verde más hondo (--verde-ink, casi
+// negro: la foto manda) con [data-tono="verde"] para textos y acento, y lleva
+// la misma fibra de mantel que las secciones, para que ampliar una imagen se
+// sienta parte de la página y no un visor pegado encima.
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: color-mix(in srgb, var(--cafe-deep) 97%, transparent);
+  background: color-mix(in srgb, var(--verde-ink) 97%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s;
+  // Cerrado no basta con la opacidad: sus tres botones seguían en el recorrido
+  // de teclado, invisibles. `visibility` espera a que acabe el fundido al
+  // cerrar y cambia en el acto al abrir (mismo patrón que el menú).
+  visibility: hidden;
+  transition: opacity 0.4s, visibility 0s linear 0.4s;
   padding: clamp(1rem, 4vw, 3rem);
   isolation: isolate;
 
-  &.open { opacity: 1; pointer-events: all; }
+  &.open {
+    opacity: 1;
+    pointer-events: all;
+    visibility: visible;
+    transition: opacity 0.4s, visibility 0s;
+  }
+
+  // Mientras corre la transición de vista, el fundido CSS se congela: la
+  // captura «nueva» tiene que ver el visor ya abierto (o ya cerrado). Ver
+  // conMorfo() en lightbox.js.
+  &.lightbox--en-vista { transition: none; }
 
   // Misma trama que .section::before en su variante para fondos oscuros.
   &::before {
@@ -87,7 +102,6 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  font-size: 1.3rem;
   color: var(--txt-strong);
   transition: background 0.3s, color 0.3s, transform 0.3s;
   line-height: 1;
@@ -123,11 +137,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--serif);
-  font-size: 2rem;
   color: var(--txt-strong);
   transition: background 0.3s, color 0.3s;
-  padding-bottom: 6px;
 
   &:hover { background: var(--accent); color: var(--on-accent); }
   &.prev { left: clamp(0.8rem, 3vw, 2.5rem); }
@@ -168,8 +179,20 @@
 }
 
 ::view-transition-group(zoom-origen) {
-  animation-duration: 0.52s;
+  animation-duration: 0.58s;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// La miniatura y la foto grande casi nunca tienen la misma proporción (un arco
+// vertical contra una foto apaisada). Por defecto el navegador ESTIRA las dos
+// capturas al rectángulo intermedio y la foto se deforma a mitad del vuelo;
+// con alto completo y recorte por la caja, crece sin deformarse.
+::view-transition-old(zoom-origen),
+::view-transition-new(zoom-origen) {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  overflow: clip;
 }
 
 // Con movimiento reducido el JS ni siquiera arranca la transición, pero si el

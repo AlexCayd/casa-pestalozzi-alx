@@ -44,6 +44,9 @@ $ticketsUrl = static fn (int $page): string => '/admin/tickets?page=' . $page;
         </div>
     </header>
 
+    <?php /* Consultas rápidas: preguntar sin salir del módulo. */ ?>
+    <?php $crAmbito = 'ventas'; include __DIR__ . '/../partials/_consulta-rapida.php'; ?>
+
     <section class="admin-grid admin-tk__metrics" aria-label="Resumen de tickets">
         <?php foreach ($metricas as $m) : ?>
             <article class="admin-card admin-tk__metric">

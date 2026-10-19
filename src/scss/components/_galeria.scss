@@ -16,7 +16,9 @@
   flex-direction: column;
   justify-content: center;
   min-height: 100vh;
-  overflow: hidden;
+  // Sólo en horizontal (la pista de tarjetas): el sello de la sección se monta
+  // sobre el corte de arriba y un `overflow: hidden` lo cortaba.
+  overflow-x: clip;
   padding-left: 0;
   padding-right: 0;
   // Menos aire vertical que una sección normal: aquí el alto es un presupuesto
@@ -127,7 +129,7 @@
   z-index: 2;
   pointer-events: none;
 
-  --gcard-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --gcard-escuadra: color-mix(in srgb, var(--brand-oro) 92%, transparent);
   --gcard-brazo: 16%;
 
   background-image:
@@ -162,7 +164,7 @@
   overflow: hidden;
   // El filete interior es lo que convierte el relleno en cartón montado: sin él
   // el hueco no tiene borde y el marco se lee como un margen.
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-oro) 70%, transparent);
 
   img {
     width: 100%;
@@ -208,8 +210,8 @@
 // Abajo al centro y no en la esquina superior derecha: arriba caía justo sobre
 // la parte más clara de casi todas las fotos y encima competía con el botón de
 // menú, que es fijo y vive en esa misma esquina de la pantalla. Tinta crema
-// sobre un velo café —los colores del acento no contrastan contra una foto
-// cualquiera, un velo oscuro sí.
+// sobre un velo verde casi negro —los colores del acento no contrastan contra
+// una foto cualquiera, un velo oscuro sí.
 .zoom-badge {
   position: absolute;
   left: 50%;
@@ -225,7 +227,7 @@
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--brand-crema);
-  background: color-mix(in srgb, var(--cafe-deep) 72%, transparent);
+  background: color-mix(in srgb, var(--verde-ink) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--brand-crema) 28%, transparent);
   backdrop-filter: blur(4px);
   padding: 0.4rem 0.85rem;

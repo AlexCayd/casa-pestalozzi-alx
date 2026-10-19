@@ -18,6 +18,12 @@ class AdminController
             'title' => 'Análisis de datos',
             'path' => '/admin/analytics'
         ],
+        // Junto a Análisis porque es la otra manera de preguntarle a los datos,
+        // y arriba para que se vea sin desplazar el menú.
+        'ia' => [
+            'title' => 'Asistente IA',
+            'path' => '/admin/ia'
+        ],
         'menu' => [
             'title' => 'Menú',
             'path' => '/admin/menu'

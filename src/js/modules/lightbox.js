@@ -30,13 +30,30 @@ function silenciarDescartes(t) {
 // el instante de la captura, así que se pone justo antes y se retira al acabar:
 // si se dejara puesto, la siguiente foto encontraría el nombre ocupado y el
 // navegador descartaría la transición entera.
+//
+// Y el fundido CSS del visor se congela mientras dura: la instantánea «nueva»
+// se toma al principio, con el visor a opacidad 0 porque su `transition` acaba
+// de arrancar. Era lo que hacía invisible el morfo —la foto volaba hacia un
+// fondo que todavía no existía y el visor aparecía después, de golpe—. Con la
+// transición congelada, la captura ve el estado final y el fundido lo hace la
+// transición de vista. Sin la API, el fundido CSS sigue haciendo su trabajo.
 function conMorfo(origen, fn) {
-  var img = origen && (origen.tagName === "IMG" ? origen : origen.querySelector("img"));
+  var img = origen && (origen.tagName === "IMG"
+    ? origen
+    // El hueco de la carta guarda varias fotos apiladas; la que se ve es la
+    // de `.show`, y es la que tiene que crecer.
+    : (origen.querySelector("img.show") || origen.querySelector("img")));
   var lbImg = $("#lbImg");
+  var lb = $("#lightbox");
   if (reduce || !document.startViewTransition || !img || !lbImg) { fn(); return; }
+  // Un morfo desde una foto fuera de pantalla entra volando desde el borde y
+  // no se entiende de dónde viene: en ese caso, fundido sin morfo.
+  var r = img.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight || !r.width) return conTransicion(fn);
 
   img.style.viewTransitionName = "zoom-origen";
   lbImg.style.viewTransitionName = "zoom-origen";
+  if (lb) lb.classList.add("lightbox--en-vista");
 
   var t = silenciarDescartes(document.startViewTransition(fn));
   // Con `finished` y no con `ready`: el nombre debe seguir puesto mientras dura
@@ -45,18 +62,33 @@ function conMorfo(origen, fn) {
   function limpiar() {
     img.style.viewTransitionName = "";
     lbImg.style.viewTransitionName = "";
+    if (lb) lb.classList.remove("lightbox--en-vista");
   }
   return t;
 }
 
 function injectBadges() {
   $$("[data-zoom]").forEach(function(el) {
+    // Las fotos ampliables son <div>: con ratón se abrían, con teclado no
+    // había forma de llegar a ellas. Pasan a ser botones a efectos de foco y
+    // de lector de pantalla (Intro y Espacio los atiende initLightbox).
+    // Lo que vive dentro de un bloque aria-hidden (la foto grande de la carta,
+    // que repite la miniatura de la lista) no entra: un control enfocable que
+    // el lector de pantalla no anuncia es peor que ninguno.
+    if (!/^(BUTTON|A)$/.test(el.tagName) && !el.hasAttribute("tabindex") && !el.closest('[aria-hidden="true"]')) {
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("role", "button");
+      var nombre = el.getAttribute("data-zoom-name") || (el.querySelector("img") || {}).alt || "";
+      el.setAttribute("aria-label", nombre ? "Ampliar foto: " + nombre : "Ampliar foto");
+    }
     if (el.classList.contains("dish__thumb")) return;
     if (el.classList.contains("gcard")) return;
     if (el.querySelector(":scope > .zoom-badge")) return;
     var b = document.createElement("span");
     b.className = "zoom-badge";
-    b.textContent = "⤢ Ampliar";
+    // Icono dibujado y no el glifo «⤢»: el glifo lo pinta la fuente del
+    // sistema, no hereda el color y en algunas caras ni existe.
+    b.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg>Ampliar';
     el.appendChild(b);
     if (!el.hasAttribute("data-cursor")) el.setAttribute("data-cursor", "Ampliar");
   });
@@ -92,7 +124,15 @@ function initLightbox() {
 
   function groupId(el) { var s = el.closest("section, header"); return s ? s.id : ""; }
 
-  function open(el) {
+  var origenFoco = null;
+  var soltarFondo = null;
+
+  // `devolverA`: a quién vuelve el foco al cerrar, cuando no es la propia foto.
+  // La carta abre el visor desde la foto grande, que vive en un bloque
+  // aria-hidden y no es enfocable; el foco tiene que volver al platillo.
+  function open(el, devolverA) {
+    // Al cerrar, el foco vuelve a la foto que se amplió (ya es enfocable).
+    origenFoco = devolverA || el;
     var g = groupId(el);
     list = getZoomList().filter(function(z) { return groupId(z.el) === g; });
     if (!list.length) list = getZoomList();
@@ -103,11 +143,20 @@ function initLightbox() {
     // fundido.
     document.body.style.overflow = "hidden";
     if (lenis) lenis.stop();
+    // aria-modal no encierra el foco: sin esto el tabulador salía del visor a
+    // la página de detrás, invisible bajo el velo.
+    if (!soltarFondo) soltarFondo = inertarFondo([lb]);
 
     conMorfo(el, function() {
       render(false);
       lb.classList.add("open");
       lb.setAttribute("aria-hidden", "false");
+      // El foco entra al visor dentro del cambio y no después: hasta que
+      // `.open` llega el visor es `visibility: hidden` y no admite foco. Con
+      // teclado, Esc y las flechas ya funcionaban, pero el tabulador seguía
+      // recorriendo la página de detrás.
+      var cerrar = $("#lbClose");
+      if (cerrar) cerrar.focus({ preventScroll: true });
     });
   }
 
@@ -119,6 +168,11 @@ function initLightbox() {
     });
     document.body.style.overflow = "";
     if (lenis) lenis.start();
+    // El fondo deja de ser inerte ANTES de devolver el foco: sobre un nodo
+    // inerte, focus() no hace nada y el foco caería al <body>.
+    if (soltarFondo) { soltarFondo(); soltarFondo = null; }
+    if (origenFoco && origenFoco.focus) origenFoco.focus({ preventScroll: true });
+    origenFoco = null;
   }
 
   function nav(d) {
@@ -132,6 +186,14 @@ function initLightbox() {
   document.addEventListener("click", function(e) {
     var z = e.target.closest("[data-zoom]");
     if (!z) return;
+    e.preventDefault();
+    open(z);
+  });
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var z = e.target.closest && e.target.closest('[data-zoom][role="button"]');
+    if (!z || e.target !== z) return;
     e.preventDefault();
     open(z);
   });

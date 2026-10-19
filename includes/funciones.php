@@ -57,3 +57,26 @@ function recursoVersionado(string $ruta) : string {
 
     return $cache[$ruta] = $camino . '?' . http_build_query($params);
 }
+
+/**
+ * `<link rel="preload">` de una fuente de /build/fonts, o nada si el archivo no
+ * está.
+ *
+ * Las caras del manual de marca (The Seasons, TT Wellingtons) son comerciales y
+ * no salen de npm: alguien las copia a assets/fonts/marca/ al comprar la
+ * licencia web. Precargarlas a ciegas costaría una petición fallida por cara en
+ * cada visita mientras falten; con el archivo en su sitio, la etiqueta sale
+ * sola y no hay que volver a tocar las vistas.
+ */
+function precargaFuente(string $ruta) : string {
+    if (!is_file(dirname(__DIR__) . '/public' . $ruta)) {
+        return '';
+    }
+    $tipo = match (strtolower(pathinfo($ruta, PATHINFO_EXTENSION))) {
+        'woff2' => 'font/woff2',
+        'woff'  => 'font/woff',
+        'otf'   => 'font/otf',
+        default => 'font/ttf',
+    };
+    return '<link rel="preload" href="' . s($ruta) . '" as="font" type="' . $tipo . '" crossorigin>';
+}

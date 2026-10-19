@@ -45,6 +45,27 @@ var T = Object.assign({ hero: "cinema", cursor: true, smooth: true, anim: true }
 // que cualquier cambio en los tokens quedaba anulado. La paleta la fija el
 // manual de marca en src/scss/layout/_reset.scss y no se conmuta en runtime.
 
+// ── Fondo inerte bajo una capa ───────────────────────────────
+// El menú a pantalla completa y el visor de fotos tapan la página, pero ni un
+// `<nav>` ni un `aria-modal` encierran el foco por sí solos: el tabulador salía
+// de la capa a los enlaces de detrás, invisibles bajo ella, y el lector de
+// pantalla seguía leyendo la portada. Marca inerte todo lo que cuelga del
+// <body> salvo lo que se pase en `excepto`, y devuelve la función que lo
+// deshace. Sólo toca lo que no estaba ya inerte, para no levantar al cerrar el
+// inert que hubiera puesto otro diálogo.
+function inertarFondo(excepto) {
+  var marcados = [];
+  Array.prototype.forEach.call(document.body.children, function(n) {
+    if (n.inert || n.tagName === "SCRIPT" || excepto.indexOf(n) !== -1) return;
+    n.inert = true;
+    marcados.push(n);
+  });
+  return function() {
+    marcados.forEach(function(n) { n.inert = false; });
+    marcados = [];
+  };
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 function boot() {
   var yearEl = document.getElementById("year");
@@ -79,6 +100,7 @@ function boot() {
   initRail();
   initFab();
   initMenu();
+  initMaridaje();
   initGallery();
   initLightbox();
   initForm();
@@ -87,9 +109,13 @@ function boot() {
   initPrivacidad();
   initTweaks();
 
-  // El lienzo del hero se monta antes que la intro: heroIntro() abre el velo
-  // sobre él, y si el shader llegara después el fundido se vería en dos pasos.
-  initHeroWebgl();
+  // La marca fija se esconde mientras el hero pasa bajo ella, y los bucles de
+  // la mesa se paran cuando el hero sale de pantalla. Fuera de
+  // la rama de GSAP: ninguna de las dos depende de las libs de movimiento.
+  initMarcaHero();
+  initMesaViva();
+  initMesaPuntero();
+  initOrnamentos();
 
   if (window.gsap && window.ScrollTrigger) {
     heroIntro();
@@ -107,7 +133,7 @@ function boot() {
 // archivo, y la razón es cómo se construye el bundle: es un concat por orden
 // alfabético de ruta, así que app.js va PRIMERO y los módulos se evalúan
 // después. Las funciones no dan problema —se izan—, pero las constantes de
-// nivel superior (GALLERY en gallery.js, HERO_VERT/HERO_FRAG en hero-webgl.js)
+// nivel superior (GALLERY en gallery.js, por ejemplo)
 // sólo existen cuando su archivo ya corrió. Un boot() síncrono aquí llama a
 // initGallery() con GALLERY todavía en undefined y revienta la página entera.
 //

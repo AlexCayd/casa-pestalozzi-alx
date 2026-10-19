@@ -266,7 +266,10 @@
     line-height: 1;
     transition: border-color 0.2s, background 0.2s, color 0.2s;
 
-    &:hover:not(.disabled):not(.empty) {
+    // `:not(.selected)`: sin él esta regla suma (0,4,0) y le gana a `.selected`
+    // (0,2,0), así que el día elegido perdía su marca en cuanto el cursor
+    // pasaba por encima — justo cuando se está confirmando la elección.
+    &:hover:not(.disabled):not(.empty):not(.selected) {
       border-color: var(--reservation-picker-day-hover-border, transparent);
       background: var(--reservation-picker-hover-bg, var(--surface-2));
       color: var(--reservation-picker-hover-color, var(--beige));

@@ -91,6 +91,7 @@ final class ReservacionErrorCatalog
         'PAGO_INSUFICIENTE' => self::TIPO_ERROR,
         'METODO_PAGO_INVALIDO' => self::TIPO_ERROR,
         'COMANDA_ENVIO_FALLIDO' => self::TIPO_ERROR,
+        'VARIANTE_INVALIDA' => self::TIPO_CONFLICTO,
         'ITEM_ID_REQUERIDO' => self::TIPO_ERROR,
         'ITEM_CANCELACION_FALLIDA' => self::TIPO_ERROR,
         'ITEM_ENTREGA_FALLIDA' => self::TIPO_ERROR,
@@ -1012,6 +1013,12 @@ final class ReservacionErrorCatalog
             'mensaje' => 'No fue posible enviar la comanda. Intenta de nuevo.',
             'consecuencia' => 'Los productos no se confirmaron para preparación.',
             'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
+        ],
+        'VARIANTE_INVALIDA' => [
+            'titulo' => 'Revisa las opciones del platillo',
+            'mensaje' => '{nombre}: {motivo}',
+            'consecuencia' => 'No se envió nada de esta comanda. Corrige la opción y vuelve a enviarla.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'ITEM_ID_REQUERIDO' => [
             'titulo' => 'Producto no identificado',

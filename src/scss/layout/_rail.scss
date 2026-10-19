@@ -40,12 +40,14 @@
   pointer-events: none;
 
   // Respaldo para el primer pintado, antes de que rail.js publique el tono: la
-  // landing abre sobre el hero, que es fotografía en oscuro. Si un [data-tono]
-  // nuevo se olvida de declarar los suyos, hereda éstos — que es lo correcto
-  // sobre una banda oscura y lo que hay que revisar sobre una clara.
-  --rail-ink: var(--brand-crema);
-  --rail-mute: color-mix(in srgb, var(--brand-crema) 82%, transparent);
+  // landing abre sobre el hero, que ahora es crema («Isologo editorial»). Si
+  // un [data-tono] nuevo se olvida de declarar los suyos, hereda éstos — que
+  // es lo correcto sobre una banda clara y lo que hay que revisar sobre una
+  // oscura.
+  --rail-ink: var(--verde-ink);
+  --rail-mute: color-mix(in srgb, var(--verde-ink) 84%, transparent);
   --rail-halo: none;
+  transition: opacity 0.4s var(--ease), visibility 0.4s;
 
   a {
     pointer-events: auto;
@@ -91,19 +93,23 @@
 // una sección nueva tiene que declarar el suyo. Los porcentajes están
 // calculados contra el --bg de cada banda, no elegidos a ojo: el mismo valor da
 // ratios distintos sobre crema que sobre verde.
+// La banda de oro es clara: va con la tinta verde (oro, y sus alias cafe/vino).
+// El 84% lo fija el oro, que es el más oscuro de los tres fondos: al 78% los
+// rótulos de 0.6rem daban 4.42:1 sobre él, por debajo del AA. Al 84% son
+// 5.01 sobre oro, y sobre crema y lino sobran.
 [data-tono-rail="crema"],
-[data-tono-rail="beige"] {
+[data-tono-rail="beige"],
+[data-tono-rail="oro"],
+[data-tono-rail="cafe"],
+[data-tono-rail="vino"] {
   .rail {
-    --rail-ink: var(--brand-cafe);
-    --rail-mute: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+    --rail-ink: var(--verde-ink);
+    --rail-mute: color-mix(in srgb, var(--verde-ink) 84%, transparent);
   }
 }
 
-// Sobre fondo oscuro no se usa el oro: salió de la landing porque sobre crema no
-// contrasta, y un rail que cambia de acento a mitad de página cantaría más que
-// el propio índice. La tinta es simplemente la crema.
-[data-tono-rail="cafe"],
-[data-tono-rail="vino"],
+// Sobre el verde la tinta es la crema, no el oro: un rail que cambia de acento
+// a mitad de página cantaría más que el propio índice.
 [data-tono-rail="verde"] {
   .rail {
     --rail-ink: var(--brand-crema);
@@ -126,6 +132,73 @@
 }
 
 @media (max-width: 1100px) { .rail { display: none; } }
+
+// ── Cuando no cabe en el margen ───────────────────────────────
+//
+// La columna de contenido mide --maxw (1320 px) y el índice, con su etiqueta
+// más larga, ~160 px más su margen: sólo por encima de ~1760 px queda en el
+// aire de la derecha. Por debajo —que es casi cualquier portátil— las diez
+// etiquetas se montaban sobre titulares, precios, el horario del pie y la
+// foto de la carta.
+//
+// Ahí el índice se queda en sus rayitas —la de la sección activa, más larga—
+// y al apuntarlo, o al tabular dentro, se despliegan las etiquetas, cada una en
+// una chapa del tono de la banda para leerse sobre lo que haya debajo. Se probó
+// a dejar visible la etiqueta ACTIVA y también se montaba sobre el contenido
+// («Cocina» encima del titular, «Reservar» sobre el botón de comensales): en
+// reposo, ninguna.
+//
+// La etiqueta sale del flujo (absolute a la izquierda de la rayita) para que
+// el enlace mida sólo la rayita: con la etiqueta invisible pero en flujo, su
+// hueco seguía capturando los clics de lo que hubiera debajo.
+@media (min-width: 1101px) and (max-width: 1759px) {
+  .rail {
+    --rail-chapa: color-mix(in srgb, var(--brand-crema) 92%, transparent);
+    // Los enlaces ganan alto (24 px); el hueco baja para que la columna mida
+    // lo mismo que antes.
+    gap: 0.5rem;
+
+    a {
+      position: relative;
+      // 24 px de alto como mínimo: con la etiqueta fuera del flujo el enlace
+      // es sólo la rayita y se quedaba en un blanco de 1 px de alto.
+      min-height: 24px;
+      padding-left: 10px;
+    }
+
+    .rlabel {
+      position: absolute;
+      top: 50%;
+      right: calc(100% + 0.1rem);
+      padding: 0.32rem 0.7rem;
+      border-radius: 999px;
+      background: var(--rail-chapa);
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(6px, -50%);
+      transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), visibility 0s linear 0.2s, color 0.3s;
+    }
+
+    &:hover .rlabel,
+    &:focus-within .rlabel {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(0, -50%);
+      transition-delay: 0s;
+    }
+  }
+
+  // La chapa sigue al tono de la banda, igual que la tinta.
+  [data-tono-rail="verde"] .rail {
+    --rail-chapa: color-mix(in srgb, var(--verde-deep) 92%, transparent);
+  }
+
+  [data-tono-rail="foto"] .rail {
+    --rail-chapa: color-mix(in srgb, var(--scrim) 88%, transparent);
+    --rail-halo: none;
+  }
+}
 
 // ── FAB de reserva ────────────────────────────────────────────
 .reserve-fab {
@@ -175,4 +248,13 @@
 
     &.show:hover { transform: translateX(-50%); }
   }
+}
+
+// En el hero el índice se retira, igual que la marca fija (hero.js,
+// initMarcaHero): a la derecha está la mesa, y las etiquetas se montaban
+// encima del panel. Vuelve cuando el hero termina de pasar, en el corte con
+// Nosotros.
+.marca-en-hero .rail {
+  opacity: 0;
+  visibility: hidden;
 }

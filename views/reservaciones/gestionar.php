@@ -20,6 +20,8 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php /* Página con el token de un solo comensal: nunca en un buscador. */ ?>
+    <meta name="robots" content="noindex, nofollow">
     <title><?php echo $h($pageTitle); ?> · Casa Pestalozzi</title>
     <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
     <link rel="stylesheet" href="/build/css/app.css?v=reservation-management-v1">

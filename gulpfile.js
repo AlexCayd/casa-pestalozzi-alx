@@ -60,6 +60,12 @@ const paths = {
     // El histórico de precios lo abren las fichas de Menú y de Inventario: dos
     // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
     "src/js/admin/core/historial-precios.js",
+    // Campo de foto del platillo (Menú → alta/edición). Menú no tiene bundle
+    // propio, así que va aquí como historial-precios; sin el campo en la
+    // página no hace nada.
+    "src/js/admin/core/foto-platillo.js",
+    // Consultas rápidas: la comparten Tickets, Análisis, Menú e Inventario.
+    "src/js/admin/core/consultas-rapidas.js",
   ],
   adminAnalyticsJs: [
     // mock-data.js se retiró: los datos reales llegan desde PHP como
@@ -114,6 +120,12 @@ const paths = {
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/configuration/configuration.js",
   ],
+  // Asistente IA. Un solo archivo: ConfirmationModal, AppNotice y el catálogo
+  // de iconos (que trae la marca `ia`) ya llegan en admin.js, que el layout
+  // carga antes que cualquier bundle de módulo.
+  adminIaJs: ["src/js/admin/ia/ia.js"],
+  // Editor de variantes de platillo (Menú → Variantes).
+  adminVariantesJs: ["src/js/admin/menu/variantes.js"],
   imagenes: "src/img/**/*",
   // sankey.js va PRIMERO: define window.AdminSankey, que finanzas.js consume
   // al arrancar. Es un concat en scope global, no un módulo, así que el orden
@@ -141,14 +153,10 @@ const paths = {
   // Sólo el subconjunto 'latin': cubre entero el español (acentos y eñe) y
   // pesa la mitad que arrastrar también latin-ext.
   //
-  // De Bodoni se toma la variante 'standard', la que trae los dos ejes (wght y
-  // opsz). El eje óptico es el que permite que UNA familia sirva de display y
-  // de cursiva de acento: un didone a cuerpo de texto necesita serifas más
-  // robustas que a cuerpo de titular.
-  //
-  // La itálica de Crimson no es un extra: .eyebrow__it, .lead y .display em la
-  // piden desde siempre y, sin fichero, el navegador venía inclinando la
-  // redonda por su cuenta.
+  // La landing ya no tiene caras aquí: habla sólo con las del manual de marca
+  // (The Seasons y TT Wellingtons), que son comerciales y se copian a mano a
+  // assets/fonts/marca/ — de ahí las publica copyFonts. Ver
+  // src/scss/layout/_caras-de-marca.scss.
   //
   // Geist y Geist Mono son la voz del sistema ADMINISTRATIVO, que no comparte
   // tipografía con la landing: el panel se diseña para poder despegarse como
@@ -162,10 +170,6 @@ const paths = {
   // navegador inclinaría la redonda por su cuenta. La casa no admite caras
   // sintéticas (ver CLAUDE.md).
   vendorFonts: [
-    "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-normal.woff2",
-    "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-italic.woff2",
-    "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-normal.woff2",
-    "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-italic.woff2",
     "node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2",
     "node_modules/@fontsource-variable/geist/files/geist-latin-wght-italic.woff2",
     "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2",
@@ -350,6 +354,24 @@ function adminConfigurationJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminIaJavascript() {
+  return src(paths.adminIaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("ia.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminVariantesJavascript() {
+  return src(paths.adminVariantesJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("variantes.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function copyChartJs() {
   return src(paths.chartJs).pipe(dest("public/build/js/vendor"));
 }
@@ -463,6 +485,8 @@ function devWatch(done) {
     ],
     adminConfigurationJavascript,
   );
+  watch("src/js/admin/ia/**/*.js", adminIaJavascript);
+  watch("src/js/admin/menu/**/*.js", adminVariantesJavascript);
   watch(paths.chartJs, copyChartJs);
   watch(paths.vendorJs, copyVendorJs);
   watch(paths.vendorFonts, copyVendorFonts);
@@ -492,6 +516,8 @@ exports.adminUsersJs = adminUsersJavascript;
 exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
+exports.adminIaJs = adminIaJavascript;
+exports.adminVariantesJs = adminVariantesJavascript;
 exports.copyChartJs = copyChartJs;
 exports.copyVendorJs = copyVendorJs;
 exports.copyVendorFonts = copyVendorFonts;
@@ -525,6 +551,8 @@ exports.dev = parallel(
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
+  adminIaJavascript,
+  adminVariantesJavascript,
   copyChartJs,
   copyVendorJs,
   copyVendorFonts,
@@ -557,12 +585,14 @@ exports.build = series(
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
+  adminIaJavascript,
+  adminVariantesJavascript,
   // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas
   // cargan desde /build/js/vendor.
   copyChartJs,
-  // Idem: sin esto la landing se queda sin GSAP/ScrollTrigger/Lenis y sin las
-  // caras de Bodoni y la itálica de Crimson. copyVendorFonts va antes que
-  // copyFonts porque siembra assets/fonts/, de donde parte la otra.
+  // Idem: sin esto la landing se queda sin GSAP/ScrollTrigger/Lenis y el panel
+  // sin Geist. copyVendorFonts va antes que copyFonts porque siembra
+  // assets/fonts/, de donde parte la otra.
   copyVendorJs,
   copyVendorFonts,
   copyFonts,
