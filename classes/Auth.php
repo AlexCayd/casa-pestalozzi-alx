@@ -2,88 +2,32 @@
 
 namespace Classes;
 
+use Model\Rol;
 use Model\Usuario;
+use Services\Security\Permisos;
 
 /**
  * Sesión y protección de rutas del personal.
  *
- * Un solo formulario en /login con dos pestañas; el rol guardado en la BD
- * decide qué rutas puede visitar cada quien:
- *   - waiter → /punto-de-venta, las APIs del POS y el mapa operativo de reservaciones
- *   - cook   → /area/* y las APIs de los tableros de producción
- *   - admin  → todo, incluido /admin
- * Cada pestaña envía a su propio endpoint (/login y /admin/login), que siguen
- * existiendo. Venga de donde venga la sesión, el rol es lo único que manda.
+ * Un solo formulario en /login con dos pestañas (NIP y contraseña). Qué rutas
+ * puede visitar cada quien lo decide su ROL con los permisos por módulo de
+ * Roles y permisos: la tabla de rutas y la decisión viven en
+ * Services\Security\Permisos; aquí se carga el rol de la sesión y se aplica
+ * la respuesta (dejar pasar, mandar al login, negar).
  *
- * Las listas de API se separan por rol a propósito: una ruta nueva que no esté
- * en ninguna lista queda pública, así que al añadir un endpoint hay que
- * anotarlo aquí.
+ * Los roles de sistema (super_admin y admin) lo tienen todo. Mesero y
+ * Cocinero son roles predefinidos, editables como cualquier otro.
+ *
+ * Una ruta /api/... que no esté en Permisos::APIS queda pública: al añadir un
+ * endpoint del personal hay que anotarlo allí.
  */
 class Auth {
 
-    /**
-     * Direcciones de la antigua pantalla de Operación de reservaciones. Ya no
-     * pintan nada: redirigen al POS, que es donde vive la operación. Se abren
-     * a meseros como el POS porque una tablet con el favorito viejo debe
-     * aterrizar en el mapa, no rebotar contra la guardia de /admin/. Sus APIs
-     * NO están aquí: desaparecieron y quedan cerradas por el prefijo.
-     */
-    private const REDIRECCIONES_OPERACION = [
-        '/admin/reservaciones/operacion',
-        '/admin/reservations/operation',
-    ];
+    /** Rol de la sesión ya resuelto, por petición: [slug, nombre, sistema, permisos]. */
+    private static ?array $rolCache = null;
 
-    /** APIs del punto de venta: meseros y admin. */
-    private const APIS_POS = [
-        '/api/punto-de-venta',
-        '/api/abrir-ticket',
-        '/api/cerrar-ticket',
-        '/api/cancelar-mesa',
-        '/api/enviar-comanda',
-        '/api/entregar-item',
-        '/api/actualizar-ticket',
-        '/api/cancelar-item',
-        '/api/punto-de-venta/reservaciones',
-        '/api/punto-de-venta/mesa-contexto',
-        '/api/punto-de-venta/reservaciones/comenzar',
-        '/api/punto-de-venta/reservaciones/cancelar',
-        '/api/punto-de-venta/reservaciones/no-show',
-        // Reservaciones operadas desde el POS (fase 4). Ruta exacta, nunca por
-        // prefijo: una ruta /api/ fuera de las listas queda pública.
-        '/api/punto-de-venta/reservaciones/disponibilidad',
-        '/api/punto-de-venta/reservaciones/crear',
-        '/api/punto-de-venta/reservaciones/asignar-mesas',
-        '/api/punto-de-venta/reservaciones/reasignar',
-        '/api/punto-de-venta/reservaciones/comentario',
-        '/api/punto-de-venta/reservaciones/reubicaciones/revisar',
-        '/api/corte-caja',
-        '/api/sugerencias',
-        '/api/impresion/alertas/atender',
-    ];
-
-    /** APIs de los tableros de producción: cocineros y admin. */
-    private const APIS_AREA = [
-        '/api/area-items',
-        '/api/avanzar-item',
-        '/api/retroceder-item',
-    ];
-
-    /**
-     * Lecturas que necesitan los dos roles de piso: el catálogo para pintar la
-     * carta y el detalle del ticket, que la comanda del área también consulta.
-     */
-    private const APIS_PISO = [
-        '/api/productos',
-        '/api/ticket-items',
-    ];
-
-    /** Escrituras de configuración que siempre exigen rol administrador. */
-    private const APIS_ADMIN = [
-        '/api/configuracion/horarios/semanales',
-        '/api/configuracion/horarios/especiales',
-        '/api/configuracion/horarios/excepciones',
-        '/api/configuracion/horarios/excepciones/estado',
-    ];
+    /** Aviso que la guardia deja para la siguiente pantalla del panel. */
+    public const AVISO_PERMISO = '_aviso_permiso';
 
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
@@ -184,103 +128,166 @@ class Auth {
         return (string) ($_SESSION['rol'] ?? '');
     }
 
-    public static function esAdmin(): bool {
-        return self::check() && self::rol() === 'admin';
+    /**
+     * El rol de la sesión con sus permisos, resuelto una vez por petición.
+     *
+     * Lee $_SESSION y no exige check(): las vistas lo consultan y la guardia
+     * ya validó la sesión antes. Los de sistema no tocan la base (lo tienen
+     * todo); los demás se leen de roles/rol_permisos y, si la base no
+     * responde, Mesero y Cocinero caen a sus permisos de siempre en vez de
+     * quedarse sin nada a media jornada.
+     *
+     * @return array{slug: string, nombre: string, sistema: bool, permisos: array<string, string>}
+     */
+    public static function rolActual(): array {
+        $slug = (string) ($_SESSION['rol'] ?? '');
+        if (self::$rolCache !== null && self::$rolCache['slug'] === $slug) {
+            return self::$rolCache;
+        }
+
+        return self::$rolCache = self::resolverRol($slug);
     }
 
+    /** Lo mismo que rolActual() para un slug cualquiera (destinos, formularios). */
+    public static function resolverRol(string $slug): array {
+        if ($slug === '') {
+            return ['slug' => '', 'nombre' => '', 'sistema' => false, 'permisos' => []];
+        }
+
+        if (Permisos::esSistema($slug)) {
+            $nombre = Rol::NOMBRES_POR_DEFECTO[$slug] ?? $slug;
+            try {
+                $guardado = Rol::getDB() ? Rol::porSlug($slug) : null;
+                if ($guardado) {
+                    $nombre = (string) $guardado->nombre;
+                }
+            } catch (\Throwable $e) {
+                // Sin base, el nombre de respaldo.
+            }
+            return ['slug' => $slug, 'nombre' => $nombre, 'sistema' => true, 'permisos' => Permisos::todos()];
+        }
+
+        try {
+            $rol = Rol::getDB() ? Rol::porSlug($slug) : null;
+            if ($rol) {
+                return [
+                    'slug' => $slug,
+                    'nombre' => (string) $rol->nombre,
+                    'sistema' => $rol->esSistema(),
+                    'permisos' => $rol->permisos(),
+                ];
+            }
+        } catch (\Throwable $e) {
+            error_log('Auth::resolverRol - ' . $e->getMessage());
+        }
+
+        return [
+            'slug' => $slug,
+            'nombre' => Rol::NOMBRES_POR_DEFECTO[$slug] ?? $slug,
+            'sistema' => false,
+            'permisos' => Rol::PERMISOS_POR_DEFECTO[$slug] ?? [],
+        ];
+    }
+
+    /** Super admin o administrador: los roles de sistema, que lo tienen todo. */
+    public static function esAdmin(): bool {
+        return self::check() && Permisos::esSistema(self::rol());
+    }
+
+    public static function esSuperAdmin(): bool {
+        return self::check() && self::rol() === Permisos::SUPER_ADMIN;
+    }
+
+    /** El rol predefinido Mesero. Las listas de meseros cuentan sólo éste. */
     public static function esMesero(): bool {
-        return self::check() && self::rol() === 'waiter';
+        return self::check() && self::rol() === Permisos::MESERO;
     }
 
     public static function esCocinero(): bool {
-        return self::check() && self::rol() === 'cook';
+        return self::check() && self::rol() === Permisos::COCINERO;
+    }
+
+    /** ¿El rol de la sesión llega a $nivel en $modulo? */
+    public static function puede(string $modulo, string $nivel = Permisos::VER): bool {
+        $rol = self::rolActual();
+        if ($rol['sistema']) {
+            return true;
+        }
+        $tiene = $rol['permisos'][$modulo] ?? null;
+
+        return $tiene !== null && Permisos::alcanza($tiene, $nivel);
+    }
+
+    /** ¿Entra al panel (algún módulo que no sea de piso)? */
+    public static function tienePanel(): bool {
+        $rol = self::rolActual();
+
+        return $rol['sistema'] || Permisos::tienePanel($rol['permisos']);
+    }
+
+    public static function nombreRol(?string $slug = null): string {
+        return $slug === null ? self::rolActual()['nombre'] : self::resolverRol($slug)['nombre'];
     }
 
     /**
-     * Áreas del sistema a las que un rol puede entrar, en lenguaje humano.
-     *
-     * Deriva de la misma guardia que aplica proteger(): si cambian las reglas
-     * de acceso hay que actualizar las dos, pero al menos el formulario de
-     * usuarios deja de describir permisos de memoria.
+     * Módulos a los que entra un rol, en lenguaje humano, para el formulario
+     * de usuarios. Sale de los mismos permisos que aplica la guardia.
      *
      * @return array<int, array{titulo: string, detalle: string}>
      */
     public static function areasPorRol(string $rol): array {
-        $pos = [
-            'titulo' => 'Punto de venta',
-            'detalle' => 'Mapa de mesas, tickets, comandas y cobro',
-        ];
-        $areas = [
-            'titulo' => 'Tableros de producción',
-            'detalle' => 'Cola de platillos de su área y cambios de estado',
-        ];
-
-        if ($rol === 'admin') {
-            return [
-                [
-                    'titulo' => 'Panel de administración',
-                    'detalle' => 'Menú, inventario, recetas, analíticas, finanzas, usuarios y configuración',
-                ],
-                $pos,
-                $areas,
+        $resuelto = self::resolverRol($rol);
+        $areas = [];
+        foreach (Permisos::MODULOS as $clave => $modulo) {
+            $nivel = $resuelto['permisos'][$clave] ?? null;
+            if ($nivel === null) {
+                continue;
+            }
+            $areas[] = [
+                'titulo' => $modulo['titulo'] . ($nivel === Permisos::VER ? ' (sólo consulta)' : ''),
+                'detalle' => $modulo['detalle'],
             ];
         }
 
-        if ($rol === 'cook') {
-            return [$areas];
-        }
-
-        return [$pos];
+        return $areas;
     }
 
     /** Vista inicial que corresponde a un rol tras iniciar sesión. */
     public static function destinoPorRol(?string $rol = null): string {
-        $rol = $rol ?? self::rol();
+        $resuelto = $rol === null ? self::rolActual() : self::resolverRol($rol);
 
-        if ($rol === 'admin') {
-            return '/admin';
-        }
-
-        return $rol === 'cook' ? '/area' : '/punto-de-venta';
+        return Permisos::destino($resuelto['sistema'], $resuelto['permisos']);
     }
 
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
-     * /admin/*                 → solo admin, salvo las redirecciones de Operación
-     * redirecciones de Operación → waiter y admin (aterrizan en el POS)
-     * /punto-de-venta, APIs POS → waiter y admin
-     * /area, /area/*, APIs área → cook y admin
-     * El resto (sitio público, /feedback, /api/feedback…) queda libre.
      *
-     * Sin sesión se redirige a /login (o 401 JSON). Con sesión pero sin el rol
-     * que toca, se manda a la vista de trabajo del rol (o 403 JSON): no hay
-     * página de error, la persona simplemente aterriza donde sí puede operar.
+     * Permisos::decidir() dice qué toca; aquí se responde. Sin sesión, al
+     * login (o 401 JSON). Sin el módulo, a la vista de trabajo del rol (o 403
+     * JSON): no hay página de error, la persona aterriza donde sí puede
+     * operar. Con el módulo en «ver» y una petición que escribe, el formulario
+     * vuelve a la pantalla de donde salió con el aviso de sólo consulta.
      */
     public static function proteger(string $url): void {
-        // El endpoint del formulario de contraseña es público
-        if ($url === '/admin/login') {
+        if (Permisos::clasificar($url)['tipo'] === 'publica') {
             return;
         }
 
-        $esRedireccionOperacion = in_array($url, self::REDIRECCIONES_OPERACION, true);
-        $esAdminUrl = !$esRedireccionOperacion && ($url === '/admin'
-            || str_starts_with($url, '/admin/')
-            || in_array($url, self::APIS_ADMIN, true));
-        $esPosUrl = $url === '/punto-de-venta'
-            || $esRedireccionOperacion
-            || in_array($url, self::APIS_POS, true);
-        $esAreaUrl = $url === '/area'
-            || str_starts_with($url, '/area/')
-            || in_array($url, self::APIS_AREA, true);
-        $esPisoUrl = in_array($url, self::APIS_PISO, true);
-
-        if (!$esAdminUrl && !$esPosUrl && !$esAreaUrl && !$esPisoUrl) {
-            return;
-        }
-
+        $metodo = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $esApi = str_starts_with($url, '/api/') || str_starts_with($url, '/admin/api/');
+        $rol = null;
+        if (self::check() && self::refrescarSesion()) {
+            $actual = self::rolActual();
+            $rol = ['sistema' => $actual['sistema'], 'permisos' => $actual['permisos']];
+        }
 
-        if (!self::check()) {
+        $decision = Permisos::decidir($url, $metodo, $rol);
+
+        if ($decision['resultado'] === 'libre' || $decision['resultado'] === 'permitir') {
+            return;
+        }
+
+        if ($decision['resultado'] === 'login') {
             if ($esApi) {
                 self::negarJson(401, 'Sesión expirada. Vuelve a iniciar sesión.');
             }
@@ -288,19 +295,92 @@ class Auth {
             exit;
         }
 
-        // El admin entra a todo; para el resto, cada zona exige su rol.
-        $permitido = self::esAdmin()
-            || ($esPosUrl && self::esMesero())
-            || ($esAreaUrl && self::esCocinero())
-            || ($esPisoUrl && (self::esMesero() || self::esCocinero()));
+        $soloLectura = $decision['motivo'] === 'solo_lectura';
+        $mensaje = $soloLectura
+            ? 'Tu rol sólo puede consultar este módulo.'
+            : 'No tienes permisos para esta acción.';
 
-        if (!$permitido) {
-            if ($esApi) {
-                self::negarJson(403, 'No tienes permisos para esta acción.');
-            }
-            header('Location: ' . self::destinoPorRol());
+        if ($esApi) {
+            self::negarJson(403, $mensaje);
+        }
+
+        $destino = self::destinoPorRol();
+        if ($destino === '/login') {
+            // Un rol que se quedó sin módulos: con la sesión abierta, el login
+            // lo mandaría de vuelta aquí en bucle.
+            self::logout();
+            header('Location: /login?resultado=sin_acceso');
             exit;
         }
+
+        if ($soloLectura && strtoupper($metodo) !== 'GET') {
+            // Un formulario del panel: vuelve a la pantalla de donde salió,
+            // con el aviso. Sólo a una ruta propia, nunca a un Referer ajeno.
+            $_SESSION[self::AVISO_PERMISO] = $mensaje;
+            $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+            $volver = parse_url($referer, PHP_URL_PATH);
+            $consulta = parse_url($referer, PHP_URL_QUERY);
+            if (is_string($volver) && str_starts_with($volver, '/') && !str_starts_with($volver, '//')) {
+                $destino = $volver . (is_string($consulta) && $consulta !== '' ? '?' . $consulta : '');
+            }
+        }
+
+        header('Location: ' . $destino);
+        exit;
+    }
+
+    /** El aviso que dejó la guardia, una sola vez. */
+    public static function consumirAvisoPermiso(): ?string {
+        self::start();
+        $aviso = $_SESSION[self::AVISO_PERMISO] ?? null;
+        unset($_SESSION[self::AVISO_PERMISO]);
+
+        return is_string($aviso) && $aviso !== '' ? $aviso : null;
+    }
+
+    /**
+     * Vuelve a leer el rol y el estado de la cuenta en cada petición protegida:
+     * un cambio de rol o de permisos, o una desactivación, valen desde la
+     * siguiente petición y no desde el siguiente login. Si la cuenta ya no
+     * existe o está inactiva, se cierra la sesión.
+     *
+     * Tolerante: si la base no responde se conserva la sesión tal cual, como
+     * antes de que existiera esta comprobación.
+     */
+    private static function refrescarSesion(): bool {
+        try {
+            $db = Usuario::getDB();
+            if (!$db) {
+                return true;
+            }
+            $stmt = $db->prepare('SELECT rol, activo FROM usuarios WHERE id = ? LIMIT 1');
+            if (!$stmt) {
+                return true;
+            }
+            $id = (int) ($_SESSION['id'] ?? 0);
+            $stmt->bind_param('i', $id);
+            if (!$stmt->execute()) {
+                $stmt->close();
+                return true;
+            }
+            $fila = $stmt->get_result()->fetch_assoc() ?: null;
+            $stmt->close();
+        } catch (\Throwable $e) {
+            error_log('Auth::refrescarSesion - ' . $e->getMessage());
+            return true;
+        }
+
+        if (!$fila || (int) $fila['activo'] !== 1) {
+            self::logout();
+            return false;
+        }
+
+        if ((string) $fila['rol'] !== (string) ($_SESSION['rol'] ?? '')) {
+            $_SESSION['rol'] = (string) $fila['rol'];
+            self::$rolCache = null;
+        }
+
+        return true;
     }
 
     /**

@@ -91,6 +91,53 @@ class Carta
     }
 
     /**
+     * Especiales de temporada para la vitrina de la landing
+     * (views/home/_firma.php): los platillos activos de las categorías con
+     * carta = 'temporada', en una lista plana y en el orden de alta.
+     *   [{ n, d, p, cat, img, propia }]
+     *
+     * Plana porque la vitrina no agrupa: todos son «especial de la semana».
+     *
+     * La foto es opcional en el panel —los especiales cambian cada semana y no
+     * siempre hay foto del platillo—, y aquí sí se resuelve el respaldo, al
+     * revés que en publica(): la vitrina sólo sabe pintar tarjetas de
+     * fotografía, así que sin foto propia el especial toma la de su categoría
+     * (deploy.sql siembra una para «Especiales de temporada», y se cambia en
+     * Menú → Categorías). `propia` dice cuál de las dos es, por si alguien
+     * necesita distinguirlas.
+     *
+     * Un especial sin foto propia NI de categoría se queda fuera: una tarjeta
+     * de vitrina sin imagen es un marco vacío con el nombre en tinta clara
+     * sobre papel claro. El formulario del platillo lo avisa al guardarlo.
+     */
+    public static function especiales(): array
+    {
+        $out = [];
+
+        foreach (self::publica(CategoriasMenu::CARTA_TEMPORADA) as $categoria) {
+            foreach ($categoria['dishes'] as $dish) {
+                $img = $dish['img'] ?: $categoria['img'];
+                if ($img === null) {
+                    continue;
+                }
+
+                $out[] = [
+                    'n'      => $dish['n'],
+                    'd'      => $dish['d'],
+                    'p'      => $dish['p'],
+                    // La categoría del platillo: es lo que la vitrina pinta en
+                    // la línea chica sobre el nombre, como hacía el arreglo fijo.
+                    'cat'    => $categoria['label'],
+                    'img'    => $img,
+                    'propia' => $dish['img'] !== null,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Carta para el punto de venta.
      *
      * Se omiten descripción e imagen (el POS no las pinta) y el área viaja como

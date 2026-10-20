@@ -9,8 +9,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
 $usuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
-$rolEtiquetas = ['admin' => 'Administrador', 'waiter' => 'Mesero', 'cook' => 'Cocinero'];
-$usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
+// El nombre del rol sale de Roles y permisos.
+$usuarioRol = \Classes\Auth::nombreRol() ?: 'Usuario';
 
 // Identidad del mesero para el JS: las preferencias del modal se guardan con
 // su id, porque la tablet de piso es compartida entre turnos.

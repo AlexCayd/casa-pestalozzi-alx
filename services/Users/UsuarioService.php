@@ -4,11 +4,17 @@ namespace Services\Users;
 
 use Model\ActiveRecord;
 use Model\Usuario;
+use Services\Security\Permisos;
 
 /**
  * Coordina las escrituras de usuarios y mantiene las reglas de acceso dentro
  * de transacciones. La única credencial de piso se crea aquí mediante
  * NipService; nunca se toma de los datos enviados por un formulario.
+ *
+ * Qué credencial lleva una cuenta lo decide su ROL (Usuario::rolUsaContrasena):
+ * los roles con algún módulo del panel entran con contraseña y no tienen NIP;
+ * los de piso, con NIP. «La cuenta que no se puede perder» es el último super
+ * admin activo.
  */
 class UsuarioService
 {
@@ -34,7 +40,8 @@ class UsuarioService
         $db = ActiveRecord::getDB();
         $nip = null;
 
-        if ($usuario->rol !== 'admin' && !NipService::secretoConfigurado()) {
+        $usaContrasena = Usuario::rolUsaContrasena((string) $usuario->rol);
+        if (!$usaContrasena && !NipService::secretoConfigurado()) {
             return self::errorNip($usuario, self::NIP_CONFIGURACION_INVALIDA);
         }
 
@@ -52,7 +59,7 @@ class UsuarioService
             $id = 0;
 
             for ($intento = 1; $intento <= NipService::MAX_INTENTOS; $intento++) {
-                if ($usuario->rol === 'admin') {
+                if ($usaContrasena) {
                     $nipHash = null;
                     $nipLookup = null;
                 } else {
@@ -63,22 +70,24 @@ class UsuarioService
                 }
 
                 $stmt = $db->prepare(
-                    'INSERT INTO usuarios (username, nombre, password_hash, nip_hash, nip_lookup, rol, activo)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO usuarios (username, nombre, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 if (!$stmt) {
                     throw new \RuntimeException($db->error);
                 }
 
                 $activo = (int) $usuario->activo;
+                $unidadId = self::unidadPara($usuario);
                 $stmt->bind_param(
-                    'ssssssi',
+                    'ssssssii',
                     $usuario->username,
                     $usuario->nombre,
                     $usuario->password_hash,
                     $nipHash,
                     $nipLookup,
                     $usuario->rol,
+                    $unidadId,
                     $activo
                 );
 
@@ -86,7 +95,7 @@ class UsuarioService
                     self::ejecutarStatement($stmt);
                 } catch (\Throwable $e) {
                     $stmt->close();
-                    if (NipService::esColision($e) && $usuario->rol !== 'admin') {
+                    if (NipService::esColision($e) && !$usaContrasena) {
                         $db->rollback();
                         $db->begin_transaction();
                         continue;
@@ -108,9 +117,9 @@ class UsuarioService
                 throw new \RuntimeException('No fue posible verificar el usuario creado.');
             }
 
-            if ($usuario->rol === 'admin') {
+            if ($usaContrasena) {
                 if ($guardado['nip_hash'] !== null || $guardado['nip_lookup'] !== null) {
-                    throw new \RuntimeException('El administrador quedó con una credencial de piso.');
+                    throw new \RuntimeException('Una cuenta de contraseña quedó con una credencial de piso.');
                 }
                 if (!password_verify((string) $usuario->password, (string) $guardado['password_hash'])) {
                     throw new \RuntimeException('No fue posible verificar la contraseña creada.');
@@ -174,16 +183,18 @@ class UsuarioService
             $usuario->activo = (int) ($datos['activo'] ?? $usuario->activo);
 
             $reduceAdmins = self::filaEsAdminActivo($fila)
-                && ((string) $usuario->rol !== 'admin' || (int) $usuario->activo !== 1);
+                && ((string) $usuario->rol !== Permisos::SUPER_ADMIN || (int) $usuario->activo !== 1);
             if ($reduceAdmins && count($adminsActivos) <= 1) {
                 $db->rollback();
                 return ['ok' => false, 'codigo' => self::ADMIN_ACTIVO_REQUERIDO, 'usuario' => $usuario];
             }
 
             $alertas = $usuario->validarEditar();
-            $promocionaAAdmin = $rolAnterior !== 'admin' && $usuario->rol === 'admin';
-            if ($promocionaAAdmin && trim((string) $usuario->password) === '') {
-                Usuario::setAlerta('error', 'Define una contraseña administrativa antes de cambiar el rol.');
+            $anteriorUsaContrasena = Usuario::rolUsaContrasena($rolAnterior);
+            $usaContrasena = Usuario::rolUsaContrasena((string) $usuario->rol);
+            $pasaAContrasena = !$anteriorUsaContrasena && $usaContrasena;
+            if ($pasaAContrasena && trim((string) $usuario->password) === '') {
+                Usuario::setAlerta('error', 'Este rol entra al panel: define una contraseña antes de cambiarlo.');
                 $alertas = Usuario::getAlertas();
             }
             if (!empty($alertas['error'])) {
@@ -191,14 +202,14 @@ class UsuarioService
                 return self::resultadoInvalido($usuario, $alertas);
             }
 
-            $generaNip = $usuario->rol !== 'admin'
-                && ($rolAnterior === 'admin' || !$fila['nip_hash'] || !$fila['nip_lookup']);
+            $generaNip = !$usaContrasena
+                && ($anteriorUsaContrasena || !$fila['nip_hash'] || !$fila['nip_lookup']);
             if ($generaNip && !NipService::secretoConfigurado()) {
                 $db->rollback();
                 return self::errorNip($usuario, self::NIP_CONFIGURACION_INVALIDA);
             }
 
-            $escribePassword = $usuario->rol === 'admin' && trim((string) $usuario->password) !== '';
+            $escribePassword = $usaContrasena && trim((string) $usuario->password) !== '';
             if ($escribePassword) {
                 $usuario->hashPassword();
             }
@@ -208,11 +219,11 @@ class UsuarioService
             $filasAfectadas = 0;
 
             for ($intento = 1; $intento <= NipService::MAX_INTENTOS; $intento++) {
-                $columnas = ['username = ?', 'nombre = ?', 'rol = ?', 'activo = ?'];
-                $tipos = 'sssi';
-                $valores = [$usuario->username, $usuario->nombre, $usuario->rol, (int) $usuario->activo];
+                $columnas = ['username = ?', 'nombre = ?', 'rol = ?', 'unidad_id = ?', 'activo = ?'];
+                $tipos = 'sssii';
+                $valores = [$usuario->username, $usuario->nombre, $usuario->rol, self::unidadPara($usuario), (int) $usuario->activo];
 
-                if ($usuario->rol === 'admin') {
+                if ($usaContrasena) {
                     $columnas[] = 'nip_hash = NULL';
                     $columnas[] = 'nip_lookup = NULL';
                     $usuario->nip_hash = null;
@@ -313,14 +324,14 @@ class UsuarioService
             }
             if (
                 !$actor
-                || $actor['rol'] !== 'admin'
+                || !Usuario::rolUsaContrasena((string) $actor['rol'])
                 || (int) $actor['activo'] !== 1
                 || !password_verify($secretoActor, (string) $actor['password_hash'])
             ) {
                 $db->rollback();
                 return ['ok' => false, 'codigo' => self::CREDENCIAL_ACTUAL_INCORRECTA];
             }
-            if ((string) $fila['rol'] !== 'admin') {
+            if (!Usuario::rolUsaContrasena((string) $fila['rol'])) {
                 $db->rollback();
                 return ['ok' => false, 'codigo' => self::ROL_INVALIDO];
             }
@@ -375,7 +386,7 @@ class UsuarioService
                 $db->rollback();
                 return ['ok' => false, 'codigo' => self::USUARIO_NO_EXISTE];
             }
-            if (!in_array((string) $fila['rol'], ['waiter', 'cook'], true)) {
+            if (Usuario::rolUsaContrasena((string) $fila['rol'])) {
                 $db->rollback();
                 return ['ok' => false, 'codigo' => self::ROL_INVALIDO];
             }
@@ -518,7 +529,7 @@ class UsuarioService
     private static function bloquearAdminsActivos(): array
     {
         $resultado = ActiveRecord::getDB()->query(
-            "SELECT id FROM usuarios WHERE rol = 'admin' AND activo = 1 ORDER BY id FOR UPDATE"
+            "SELECT id FROM usuarios WHERE rol = 'super_admin' AND activo = 1 ORDER BY id FOR UPDATE"
         );
         if (!$resultado) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
@@ -534,7 +545,7 @@ class UsuarioService
 
     private static function seleccionarUsuario(int $usuarioId, bool $forUpdate = false): ?array
     {
-        $sql = 'SELECT id, username, nombre, password_hash, nip_hash, nip_lookup, rol, activo, created_at, updated_at
+        $sql = 'SELECT id, username, nombre, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo, created_at, updated_at
                 FROM usuarios WHERE id = ? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
         $stmt = ActiveRecord::getDB()->prepare($sql);
         if (!$stmt) {
@@ -575,7 +586,7 @@ class UsuarioService
             return false;
         }
 
-        if ($usuario->rol === 'admin') {
+        if (Usuario::rolUsaContrasena((string) $usuario->rol)) {
             return $fila['nip_hash'] === null && $fila['nip_lookup'] === null;
         }
 
@@ -589,9 +600,24 @@ class UsuarioService
             && (string) $fila['nip_lookup'] === (string) $filaAnterior['nip_lookup'];
     }
 
+    /**
+     * La unidad sólo tiene sentido en una cuenta de administrador: en
+     * cualquier otro rol se guarda NULL, para que un cambio de rol no deje una
+     * asignación colgando.
+     */
+    private static function unidadPara(Usuario $usuario): ?int
+    {
+        if ((string) $usuario->rol !== Permisos::ADMIN) {
+            return null;
+        }
+        $unidad = (int) ($usuario->unidad_id ?? 0);
+
+        return $unidad > 0 ? $unidad : null;
+    }
+
     private static function filaEsAdminActivo(array $fila): bool
     {
-        return (string) $fila['rol'] === 'admin' && (int) $fila['activo'] === 1;
+        return (string) $fila['rol'] === Permisos::SUPER_ADMIN && (int) $fila['activo'] === 1;
     }
 
     private static function resultadoInvalido(Usuario $usuario, array $alertas): array

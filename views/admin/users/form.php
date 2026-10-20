@@ -1,16 +1,22 @@
 <?php
     $usuario = $usuario ?? [];
     $alertas = $alertas ?? [];
-    $roles = $roles ?? ['admin', 'waiter', 'cook'];
+    // Los roles que quien edita puede asignar (AdminUsersController) y el
+    // catálogo completo, para el nombre y la vía de acceso de cada uno.
+    $roles = is_array($roles ?? null) ? $roles : [];
+    $catalogoRoles = is_array($catalogoRoles ?? null) ? $catalogoRoles : [];
+    $unidades = is_iterable($unidades ?? null) ? $unidades : [];
+    $puedeAsignarUnidad = !empty($puedeAsignarUnidad);
     $accion = $accion ?? 'Guardar usuario';
     $modo = $modo ?? 'crear';
     $action = $action ?? '';
 
-    $roleLabels = [
-        'admin' => 'Administrador',
-        'waiter' => 'Mesero',
-        'cook' => 'Cocinero',
-    ];
+    $nombreRol = static fn (string $slug): string =>
+        isset($catalogoRoles[$slug]) ? (string) $catalogoRoles[$slug]['rol']->nombre : ucfirst($slug);
+    // Cómo entra cada rol: lo deducen sus permisos (contraseña si tiene algún
+    // módulo del panel, NIP si sólo pantallas de piso).
+    $accesoRol = static fn (string $slug): string =>
+        (string) ($catalogoRoles[$slug]['acceso'] ?? (in_array($slug, ['super_admin', 'admin'], true) ? 'contrasena' : 'nip'));
 
     $valor = static function (string $campo, $default = '') use ($usuario) {
         if (is_array($usuario)) {
@@ -22,14 +28,17 @@
         return $default;
     };
 
-    $rolActual = (string) $valor('rol', 'waiter');
+    $rolActual = (string) $valor('rol', in_array('waiter', $roles, true) ? 'waiter' : (string) ($roles[0] ?? 'waiter'));
     $rolOriginal = (string) ($rolOriginal ?? $rolActual);
     $activoActual = (int) $valor('activo', 1);
+    $unidadActual = (int) $valor('unidad_id', 0);
     $esEdicion = $modo === 'editar';
-    $esAdmin = $rolActual === 'admin';
-    $requierePassword = $esAdmin && (!$esEdicion || $rolOriginal !== 'admin');
+    // $esAdmin conserva el nombre de antes, pero ya no es «rol admin»: es
+    // «este rol entra con usuario y contraseña».
+    $esAdmin = $accesoRol($rolActual) === 'contrasena';
+    $requierePassword = $esAdmin && (!$esEdicion || $accesoRol($rolOriginal) !== 'contrasena');
     $tieneNipPersistido = $esEdicion
-        && $rolOriginal !== 'admin'
+        && $accesoRol($rolOriginal) !== 'contrasena'
         && trim((string) $valor('nip_hash')) !== ''
         && trim((string) $valor('nip_lookup')) !== '';
 
@@ -51,6 +60,7 @@
     action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>"
     data-user-id="<?php echo (int) $valor('id', 0); ?>"
     data-original-role="<?php echo htmlspecialchars($rolOriginal, ENT_QUOTES, 'UTF-8'); ?>"
+    data-original-access="<?php echo htmlspecialchars($accesoRol($rolOriginal), ENT_QUOTES, 'UTF-8'); ?>"
     data-form-mode="<?php echo htmlspecialchars($modo, ENT_QUOTES, 'UTF-8'); ?>"
     data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
 >
@@ -101,22 +111,45 @@
                                 name="rol"
                                 value="<?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?>"
                                 data-user-role
+                                data-acceso="<?php echo htmlspecialchars($accesoRol($rol), ENT_QUOTES, 'UTF-8'); ?>"
                                 <?php echo $rolActual === $rol ? 'checked' : ''; ?>
                                 required
                             >
-                            <span><?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span><?php echo htmlspecialchars($nombreRol($rol), ENT_QUOTES, 'UTF-8'); ?></span>
                         </label>
                     <?php endforeach; ?>
                 </div>
                 <p class="admin-users-form__hint" data-role-credential-hint>
                     <?php echo $esAdmin
-                        ? 'El administrador entra con usuario y contraseña.'
+                        ? 'Este rol entra al panel con usuario y contraseña.'
                         : 'El NIP se genera automáticamente al crear el usuario.'; ?>
                 </p>
                 <div class="admin-role-access" data-role-access>
                     <span class="admin-role-access__title">Acceso del rol</span>
                     <ul class="admin-role-access__list" data-role-access-list></ul>
                 </div>
+            </div>
+
+            <?php /* Unidad de negocio: sólo para el rol Administrador. Hoy no
+                     restringe nada —es la base de la integración multiempresa—
+                     y sólo la asigna el super admin; al resto se le enseña,
+                     deshabilitada. Sin JS se ve siempre; el servidor la
+                     descarta en cualquier rol que no sea Administrador. */ ?>
+            <div class="admin-users-form__field" data-user-unidad-field <?php echo $rolActual === 'admin' ? '' : 'hidden'; ?>>
+                <label for="unidad_id">Unidad</label>
+                <select id="unidad_id" name="unidad_id" <?php echo $puedeAsignarUnidad ? '' : 'disabled'; ?>>
+                    <option value="">Sin unidad</option>
+                    <?php foreach ($unidades as $unidad) : ?>
+                        <option value="<?php echo (int) $unidad->id; ?>" <?php echo $unidadActual === (int) $unidad->id ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars((string) $unidad->nombre, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="admin-users-form__hint">
+                    <?php echo $puedeAsignarUnidad
+                        ? 'A qué unidad pertenece este administrador. Por ahora no limita lo que ve: lo hará la integración multiempresa.'
+                        : 'Sólo el super admin asigna unidades.'; ?>
+                </p>
             </div>
 
             <div
@@ -172,7 +205,7 @@
         <?php echo $esEdicion ? 'data-user-password-optional' : ''; ?>
     >
         <div class="admin-users-form__section-head">
-            <h4>Contraseña administrativa</h4>
+            <h4>Contraseña de acceso al panel</h4>
             <p>
                 <?php echo $esEdicion && !$requierePassword
                     ? 'Deja los campos vacíos para conservar la contraseña actual.'

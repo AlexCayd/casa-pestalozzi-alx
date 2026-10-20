@@ -234,9 +234,10 @@ class ImpresionAlertaService
         ];
         // El detalle técnico lleva IPs y rutas de red: al piso le basta el
         // motivo; el administrador sí lo necesita para diagnosticar. Se lee
-        // $_SESSION y no Auth::esAdmin() porque el refresco del mapa ya liberó
-        // la sesión, y esAdmin() la reabriría con su bloqueo.
-        if (($_SESSION['rol'] ?? '') === 'admin' && !empty($fila['detalle'])) {
+        // Auth::puede() y no esAdmin(): lee $_SESSION sin reabrirla, y el
+        // refresco del mapa ya la liberó. El detalle técnico (IP, ruta SMB) es
+        // de quien administra las impresoras.
+        if (\Classes\Auth::puede('printers') && !empty($fila['detalle'])) {
             $alerta['detalle'] = (string)$fila['detalle'];
         }
 

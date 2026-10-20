@@ -19,11 +19,14 @@
 -- Al final va un cuarto bloque, «Variantes por platillo» (ingredientes 35-71,
 -- recetas de barra, opciones de variante y tickets 900-999 de los últimos
 -- siete días). Ése sí es reidempotente y se puede correr suelto sobre una base
--- que ya tenga los otros tres. Y tras él un quinto, «Uso del asistente»: dos
--- meses y medio de operación hasta la hora de la corrida —tickets 10000-19999,
+-- que ya tenga los otros tres. Tras él, un quinto, «Especiales de temporada»
+-- (platillos de muestra de la categoría 15 para la vitrina de la landing,
+-- reidempotente por nombre), y un sexto, «Uso del asistente»: dos meses y
+-- medio de operación hasta la hora de la corrida —tickets 10000-19999,
 -- ticket_items 100000-199999, movimientos_inventario 1000000-1999999— para
 -- que el Asistente IA tenga qué contestar en todos sus periodos. También es
--- reidempotente y suelto, y va siempre después del 4.
+-- reidempotente y suelto, y va siempre al final: después del 4 y del 5, para
+-- sembrar ventas sobre el catálogo completo.
 --
 -- SE CARGA UNA VEZ, sobre una base recién creada. Los bloques 2 y 3 sí son
 -- reidempotentes por su cuenta —borran su rango antes de sembrarlo—, pero el
@@ -343,7 +346,7 @@ ON DUPLICATE KEY UPDATE
 -- -------------------------------------------------------
 
 INSERT INTO usuarios (id, username, nombre, password_hash, nip_hash, nip_lookup, rol, activo) VALUES
-(1, 'admin_demo',      'Administrador Demo', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', NULL, NULL, 'admin',  1),
+(1, 'admin_demo',      'Administrador Demo', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', NULL, NULL, 'super_admin', 1),
 (2, 'mesero1',         'Carlos Hernández',   '!sin-credencial', NULL, NULL, 'waiter', 1),
 (3, 'mesero2',         'Valeria Ríos',       '!sin-credencial', NULL, NULL, 'waiter', 1),
 (4, 'cocinero1',       'Mariana López',      '!sin-credencial', NULL, NULL, 'cook',   1),
@@ -4035,9 +4038,38 @@ UPDATE ticket_items ti
 
 -- Fin del bloque 4
 
+-- ═════════════════════════════════════════════════════════════════════
+-- BLOQUE 5 · ESPECIALES DE TEMPORADA
+-- ═════════════════════════════════════════════════════════════════════
+-- Platillos de muestra para la vitrina «Especiales de temporada» de la
+-- landing (categoría 15, sembrada en deploy.sql con carta = 'temporada').
+-- Tres llevan foto propia y dos no, para ver el respaldo: los que no la
+-- tienen salen con la foto de su categoría.
+--
+-- Las fotos son las que antes estaban fijas en src/js/modules/gallery.js y
+-- ningún otro registro usa: ImagenUploader::eliminar() borra el archivo
+-- anterior al reemplazar la foto de un platillo, así que apuntar aquí a una
+-- foto compartida con una categoría la dejaría sin imagen.
+--
+-- Reidempotente: casa por nombre, que es UNIQUE.
+INSERT INTO productos (nombre, descripcion, img, categoria_id, precio, area_id, activo) VALUES
+('Camarones a la Brasa',    'Camarón U15 a las brasas con mantequilla de ajo ahumado, limón amarillo y perejil.',      'build/images/mejor-5.webp', 15, 345.00, 3, 1),
+('Tostas de Otoño',         'Pan de masa madre con calabaza asada, ricotta batida, nuez tostada y miel de agave.',     'build/images/mejor-3.webp', 15, 210.00, 4, 1),
+('Aceitunas Temperadas',    'Aceitunas mixtas tibias con cáscara de naranja, romero y aceite de oliva.',               'build/images/mejor-1.webp', 15, 120.00, 3, 1),
+('Crema de Calabaza Asada', 'Calabaza de Castilla asada, pepita tostada y un hilo de crema de rancho.',                NULL,                        15, 165.00, 3, 1),
+('Pan de Muerto con Nata',  'Pan de muerto de la casa relleno de nata y azahar. Sólo durante la temporada.',           NULL,                        15,  95.00, 4, 1)
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  img          = VALUES(img),
+  categoria_id = VALUES(categoria_id),
+  precio       = VALUES(precio),
+  area_id      = VALUES(area_id),
+  activo       = VALUES(activo);
+
+-- Fin del bloque 5
 
 -- ═════════════════════════════════════════════════════════════════════
--- BLOQUE 5 · USO DEL ASISTENTE
+-- BLOQUE 6 · USO DEL ASISTENTE
 -- ═════════════════════════════════════════════════════════════════════
 -- Dos meses y medio de operación verosímil para que el Asistente IA
 -- (/admin/ia, sobre Services\Analytics\ConsultasRapidas) conteste sus doce
@@ -4110,12 +4142,12 @@ UPDATE ticket_items ti
 -- Por eso los folios nuevos de Llevar salen ya con cinco cifras. Si una base
 -- llegara por su cuenta a esos números, hay que mover los rangos.
 --
--- Depende de los bloques 1-4 (usuarios, recetas, variantes), y del orden:
--- el bloque 4 borra y recrea las variantes con ids nuevos, y además pone
--- rótulo a cualquier renglón de Cappuccino, Latte o Hamburguesa que no lo
--- tenga —también a éstos—, así que si se vuelve a correr el 4 hay que correr
--- después el 5. Lo mismo con el 2, que borra los ingredientes 10-99 y con
--- ellos —en cascada— sus movimientos.
+-- Depende de los bloques 1-5 (usuarios, recetas, variantes y el catálogo de
+-- especiales), y del orden: el bloque 4 borra y recrea las variantes con ids
+-- nuevos, y además pone rótulo a cualquier renglón de Cappuccino, Latte o
+-- Hamburguesa que no lo tenga —también a éstos—, así que si se vuelve a
+-- correr el 4 hay que correr después este 6. Lo mismo con el 2, que borra los
+-- ingredientes 10-99 y con ellos —en cascada— sus movimientos.
 --
 -- Simplificaciones, a sabiendas:
 --   · Una sustitución por componente y por combinación, y sin cadenas (la
@@ -4128,7 +4160,7 @@ UPDATE ticket_items ti
 --     lee.
 --
 -- Para correrlo suelto: copiar desde la cabecera de este bloque hasta
--- «Fin del bloque 5» y cargarlo como cualquier .sql. En qué fechas quedó:
+-- «Fin del bloque 6» y cargarlo como cualquier .sql. En qué fechas quedó:
 --
 --   SELECT DATE(MIN(hora_apertura)) AS desde, MAX(hora_cierre) AS hasta,
 --          COUNT(*) AS tickets
@@ -4963,4 +4995,4 @@ DROP TEMPORARY TABLE IF EXISTS a5_num, a5_dia, a5_hora_peso, a5_franja, a5_cat, 
   a5_dist, a5_mesa, a5_tk0, a5_tk, a5_ln, a5_it, a5_opc, a5_elec, a5_cmb, a5_cr, a5_cc,
   a5_sust, a5_ct, a5_ciraw, a5_ci, a5_merma, a5_mv, a5_tot;
 
--- Fin del bloque 5
+-- Fin del bloque 6

@@ -31,7 +31,8 @@ $datePickerHtml = $datePickerHtml ?? '';
 $usuarioNombre = $usuarioNombre ?? '';
 $usuarioRol = $usuarioRol ?? 'Usuario';
 
-$esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
+// El enlace al panel, para quien entra al panel.
+$esAdmin = \Classes\Auth::tienePanel();
 
 /*
  * Fecha del cajón en cristiano.
@@ -98,7 +99,8 @@ $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
 // Vive bajo /admin: a un mesero la guardia lo rebotaría, así que sólo se
 // ofrece si quien mira es administrador.
-$operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
+// /admin y no /admin/analytics: un rol sin Análisis aterriza en su primer módulo.
+$operationalAdminHref = $esAdmin ? '/admin' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;
 $operationalShellClass = 'mapa-shell pos-shell';

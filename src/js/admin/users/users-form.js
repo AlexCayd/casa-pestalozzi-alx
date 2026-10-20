@@ -20,13 +20,27 @@
     var nipPendingHint = form.querySelector("[data-role-nip-pending]");
     var nipPendingDescription = form.querySelector("[data-role-nip-pending-description]");
     var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
-    var originalRole = form.getAttribute("data-original-role") || "";
+    // La vía de acceso del rol con el que se abrió el formulario: decide si
+    // al cambiar a un rol de contraseña hay que exigirla.
+    var originalAccess = form.getAttribute("data-original-access") || "";
+    var unidadField = form.querySelector("[data-user-unidad-field]");
     var mode = form.getAttribute("data-form-mode") || "crear";
     var hasPersistedNip = form.getAttribute("data-has-persisted-nip") === "1";
 
+    function selectedInput() {
+      return roles.filter(function (input) { return input.checked; })[0] || null;
+    }
+
     function role() {
-      var selected = roles.filter(function (input) { return input.checked; })[0];
+      var selected = selectedInput();
       return selected ? selected.value : "";
+    }
+
+    // Cómo entra el rol elegido: lo marca el servidor en cada radio
+    // (data-acceso), deducido de sus permisos.
+    function access() {
+      var selected = selectedInput();
+      return selected ? (selected.getAttribute("data-acceso") || "") : "";
     }
 
     function escapeHtml(value) {
@@ -45,16 +59,22 @@
     }
 
     function applyRole() {
-      var selectedRole = role();
-      var isAdmin = selectedRole === "admin";
-      var isStaff = selectedRole === "waiter" || selectedRole === "cook";
-      var isPromotion = isStaff && mode === "editar" && originalRole === "admin";
+      // isAdmin conserva el nombre: es «este rol entra con contraseña».
+      var isAdmin = access() === "contrasena";
+      var isStaff = !isAdmin;
+      // Un rol de NIP que pasa a uno de contraseña: la contraseña es
+      // obligatoria aunque en edición normalmente sea opcional.
+      var isPromotion = isAdmin && mode === "editar" && originalAccess !== "contrasena";
       var showConfiguredNip = isStaff && hasPersistedNip;
       var showPendingNip = isStaff && mode === "editar" && !hasPersistedNip;
 
+      if (unidadField) {
+        unidadField.hidden = role() !== "admin";
+      }
+
       if (roleHint) {
         if (isAdmin) {
-          roleHint.textContent = "El administrador entra con usuario y contraseña.";
+          roleHint.textContent = "Este rol entra al panel con usuario y contraseña.";
           roleHint.hidden = false;
         } else if (mode === "editar" && (showPendingNip || showConfiguredNip)) {
           roleHint.textContent = "";

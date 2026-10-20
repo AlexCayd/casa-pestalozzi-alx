@@ -4,17 +4,21 @@ Fuente de verdad vigente para cuentas internas, roles y credenciales de acceso. 
 
 ## Roles
 
-| Rol | Acceso principal |
-| --- | --- |
-| Administrador | Administración, usuarios, reservaciones, configuración y datos operativos autorizados. |
-| Mesero | Operación de piso, mapa, tickets y tareas de atención permitidas. |
-| Cocinero | Funciones de cocina permitidas por el sistema. |
+Cada cuenta tiene un rol, y cada rol abre módulos del sistema en modo consulta o edición. El detalle —modelo de datos, decisión de la guardia, reglas de gobierno y el plan multiempresa— está en [Roles y permisos](roles-y-permisos.md).
 
-El backend autoriza cada acción por sesión y rol. Ocultar un botón en el navegador no es una medida de seguridad.
+| Rol | Tipo | Acceso principal |
+| --- | --- | --- |
+| Super admin | sistema | Todo el sistema. Único que asigna unidades y gestiona cuentas de administrador. |
+| Administrador | sistema | Todos los módulos. No toca roles de sistema ni cuentas de administrador. |
+| Mesero | predefinido | Punto de venta (editable desde Roles y permisos). |
+| Cocinero | predefinido | Tableros de producción (editable desde Roles y permisos). |
+| Personalizados | personalizado | Los módulos que se les den, cada uno en consulta o edición. |
+
+El backend autoriza cada acción por sesión y rol, y relee el rol de la cuenta en cada petición protegida. Ocultar un botón en el navegador no es una medida de seguridad.
 
 ## Inicio de sesión
 
-El administrador entra con usuario y contraseña. El personal operativo entra con un NIP numérico de cuatro dígitos cuando la superficie lo permita. El frontend no solicita que el usuario invente o escriba manualmente un NIP durante el alta normal: el servidor lo genera y lo entrega una sola vez por el flujo autorizado.
+La vía de acceso la deciden los módulos del rol: con algún módulo del panel, usuario y contraseña; si sólo tiene pantallas de piso (punto de venta, producción), un NIP numérico de cuatro dígitos. El frontend no solicita que el usuario invente o escriba manualmente un NIP durante el alta normal: el servidor lo genera y lo entrega una sola vez por el flujo autorizado.
 
 Las contraseñas y NIP se almacenan con hash. El secreto de lookup o derivación del NIP (`NIP_LOOKUP_SECRET`) vive únicamente en variables de entorno; no se coloca en Git, documentación, logs, HTML ni respuestas de API.
 
@@ -24,7 +28,7 @@ Al crear un usuario se define un rol válido y el servidor aplica las reglas de 
 
 La regeneración de NIP invalida el anterior. El nuevo NIP sólo se muestra o entrega en el momento autorizado y no se vuelve a revelar desde una consulta posterior. Las respuestas deben evitar confirmar información sensible cuando la cuenta no existe o no está autorizada.
 
-No se permite retirar el último administrador activo ni dejar usuarios operativos sin un rol válido. Las acciones de alta, edición, regeneración y baja requieren autorización, CSRF cuando corresponda y límites contra abuso.
+No se permite retirar el último super admin activo ni dejar usuarios sin un rol válido. Las acciones de alta, edición, regeneración y baja requieren autorización, CSRF cuando corresponda y límites contra abuso.
 
 ## Configuración y despliegue
 

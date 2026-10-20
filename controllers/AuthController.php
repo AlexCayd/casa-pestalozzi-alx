@@ -37,6 +37,12 @@ class AuthController {
             $alertasAdmin['aviso'][] = 'Tu cuenta fue eliminada. Entra con otro usuario administrador.';
             $tabActiva = 'admin';
         }
+        // La guardia cerró la sesión porque el rol se quedó sin módulos. Va
+        // en la pestaña de NIP, que es la que abre: la de contraseña sólo
+        // pinta sus propios errores.
+        if (($_GET['resultado'] ?? '') === 'sin_acceso') {
+            $alertas['error'][] = 'Tu rol ya no tiene acceso a ningún módulo. Pide a un administrador que lo revise.';
+        }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tabActiva = 'nip';
@@ -100,8 +106,8 @@ class AuthController {
     }
 
     /**
-     * Acceso del administrador por usuario + contraseña alfanumérica → /admin.
-     * Un mesero o cocinero con credenciales válidas no entra por aquí: solo admin.
+     * Acceso por usuario + contraseña alfanumérica: los roles de sistema y los
+     * que tienen algún módulo del panel. Un rol de piso no entra por aquí.
      *
      * En GET redirige a /login: la pantalla es una sola. Se conserva la ruta
      * para no romper marcadores ni POST antiguos.
@@ -129,15 +135,17 @@ class AuthController {
         } else {
             $usuario = Usuario::porCredenciales($username, $password);
 
-            if ($usuario && $usuario->rol === 'admin') {
+            // porCredenciales() ya sólo encuentra cuentas cuyo rol entra con
+            // contraseña (los de sistema y los que tienen módulos del panel).
+            if ($usuario) {
                 Auth::login($usuario);
                 Auth::anunciarLlegada();
-                header('Location: /admin');
+                header('Location: ' . Auth::destinoPorRol($usuario->rol));
                 exit;
             }
 
-            // Mensaje genérico: no revelar si el usuario existe o si el
-            // rol no es admin.
+            // Mensaje genérico: no revelar si el usuario existe o si su rol
+            // entra por NIP.
             $alertasAdmin['error'][] = 'Credenciales incorrectas';
         }
 

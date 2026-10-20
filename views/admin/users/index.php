@@ -5,6 +5,8 @@ $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'role' => '', 'st
 $filtrosActivos = (bool) ($filtrosActivos ?? false);
 $roles = isset($roles) && is_iterable($roles) ? $roles : [];
 $roleLabels = is_array($roleLabels ?? null) ? $roleLabels : [];
+// Roles cuyas cuentas puede tocar quien mira; las demás filas van sin acciones.
+$gestionables = is_array($gestionables ?? null) ? $gestionables : [];
 $partialOnly = (bool)($partialOnly ?? false);
 
 $valorUsuario = static function ($usuario, string $campo, $default = '') {
@@ -145,15 +147,20 @@ $iniciales = static function (string $nombre, string $username): string {
                             $activo = (int) $valorUsuario($usuario, 'activo', 0) === 1;
                             $createdAt = (string) $valorUsuario($usuario, 'created_at', '');
                             $createdLabel = $createdAt !== '' ? date('d/m/Y', strtotime($createdAt)) : 'Sin fecha';
-                            // Único freno a la eliminación: que no quede el
-                            // panel sin nadie que pueda entrar. Un admin sí
-                            // puede borrar a otro admin, e incluso a sí mismo.
-                            $esUnicoAdminActivo = $rol === 'admin' && $activo && $totalAdminsActivos <= 1;
-                            $mensajeAdminActivo = 'Debe existir un usuario administrador activo siempre.';
+                            // Freno a la eliminación: que no quede el sistema
+                            // sin un super admin que pueda entrar. Un super
+                            // admin sí puede borrar a otro, e incluso a sí mismo.
+                            $esUnicoAdminActivo = $rol === 'super_admin' && $activo && $totalAdminsActivos <= 1;
+                            $mensajeAdminActivo = 'Debe existir siempre un super admin activo.';
                             $esYoMismo = $id === (int) ($_SESSION['id'] ?? 0);
-                            $rolClase = in_array($rol, ['admin', 'waiter', 'cook'], true) ? $rol : 'waiter';
+                            $gestionable = in_array($rol, $gestionables, true);
+                            // La etiqueta toma el tono de las tres familias de
+                            // siempre (users.scss): sistema, cocina y el resto.
+                            $rolClase = in_array($rol, ['super_admin', 'admin'], true)
+                                ? 'admin'
+                                : ($rol === 'cook' ? 'cook' : 'waiter');
                             ?>
-                            <tr data-row-href="/admin/usuarios/edit?id=<?php echo $id; ?>">
+                            <tr<?php echo $gestionable ? ' data-row-href="/admin/usuarios/edit?id=' . $id . '"' : ''; ?>>
                                 <td>
                                     <div class="admin-user-cell">
                                         <span class="admin-user-avatar" aria-hidden="true"><?php echo htmlspecialchars($iniciales($nombre, $username), ENT_QUOTES, 'UTF-8'); ?></span>
@@ -175,9 +182,9 @@ $iniciales = static function (string $nombre, string $username): string {
                                         <button
                                             type="submit"
                                             class="admin-status-switch <?php echo $activo ? 'is-on' : 'is-off'; ?>"
-                                            title="<?php echo $esUnicoAdminActivo ? $mensajeAdminActivo : ($activo ? 'Desactivar usuario' : 'Activar usuario'); ?>"
+                                            title="<?php echo !$gestionable ? 'Tu rol no puede gestionar esta cuenta' : ($esUnicoAdminActivo ? $mensajeAdminActivo : ($activo ? 'Desactivar usuario' : 'Activar usuario')); ?>"
                                             aria-label="<?php echo $activo ? 'Desactivar usuario ' : 'Activar usuario '; ?><?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"
-                                            <?php echo $esUnicoAdminActivo ? 'disabled' : ''; ?>
+                                            <?php echo $esUnicoAdminActivo || !$gestionable ? 'disabled' : ''; ?>
                                         >
                                             <span class="admin-status-switch__track" aria-hidden="true">
                                                 <span class="admin-status-switch__thumb"></span>
@@ -191,6 +198,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                 </td>
                                 <?php $nombreCompleto = $nombre !== '' ? $nombre : $username; ?>
                                 <td>
+                                    <?php if ($gestionable) : ?>
                                     <div class="admin-table-actions">
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
@@ -234,6 +242,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                             </button>
                                         </form>
                                     </div>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
