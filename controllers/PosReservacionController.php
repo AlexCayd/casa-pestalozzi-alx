@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Classes\Auth;
+use Services\Security\Permisos;
 use Model\ReservacionReubicacion;
 use MVC\Router;
 use Services\Pos\PosAltaReservacionService;
@@ -65,7 +66,7 @@ final class PosReservacionController
         if (!self::csrfValido($datos)) {
             return;
         }
-        $datos = PosAltaReservacionService::normalizarEntrada($datos, !Auth::esAdmin());
+        $datos = PosAltaReservacionService::normalizarEntrada($datos, !Auth::puede('reservations', Permisos::EDITAR));
         $resultado = ReservacionErrorCatalog::enriquecer(
             ReservacionService::crearAdministrativa($datos, (int)($_SESSION['id'] ?? 0) ?: null),
             ['superficie' => 'pos']
@@ -137,8 +138,9 @@ final class PosReservacionController
     /**
      * POST /api/punto-de-venta/reservaciones/comentario
      *
-     * El comentario interno es de administración. En Operación sólo lo
-     * escondía la interfaz; aquí lo cierra el servidor.
+     * El comentario interno es de administración —de quien edita
+     * Reservaciones—. En Operación sólo lo escondía la interfaz; aquí lo
+     * cierra el servidor.
      */
     public static function comentario(Router $router): void
     {
@@ -146,7 +148,7 @@ final class PosReservacionController
         if (!self::csrfValido($datos)) {
             return;
         }
-        if (!Auth::esAdmin()) {
+        if (!Auth::puede('reservations', Permisos::EDITAR)) {
             self::json(['ok' => false, 'codigo' => 'PERMISO_DENEGADO'], 403);
             return;
         }
@@ -260,8 +262,9 @@ final class PosReservacionController
         if (array_key_exists('codigo', $datos) && $datos['codigo'] !== null) {
             $datos = ReservacionErrorCatalog::enriquecer($datos, ['superficie' => 'pos']);
         }
-        // El contacto nunca cruza hacia un mesero, tampoco anidado.
-        if (!Auth::esAdmin()) {
+        // El contacto nunca cruza hacia quien no ve Reservaciones, tampoco
+        // anidado.
+        if (!Auth::puede('reservations')) {
             $datos = PosReservacionSerializer::sanitizarParaWaiter($datos);
         }
         http_response_code($status);

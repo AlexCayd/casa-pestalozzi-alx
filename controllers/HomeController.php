@@ -24,6 +24,7 @@ class HomeController
         $anuncioPublico = null;
         $catasProximas = [];
         $cartaMaridaje = [];
+        $especialesTemporada = [];
         $reservationRequestToken = ReservacionService::generarRequestToken();
 
         // La agenda de catas se imprime en el servidor: la sección tiene que
@@ -43,6 +44,15 @@ class HomeController
             $cartaMaridaje = Carta::publica(CategoriasMenu::CARTA_MARIDAJE);
         } catch (\Throwable $e) {
             error_log('HomeController::index carta de maridaje - ' . $e->getMessage());
+        }
+
+        // Los especiales de temporada, también impresos en el servidor: la
+        // vitrina se lee sin JS y sin esperar a ninguna petición. Si la consulta
+        // falla, el parcial cae a su estado vacío en vez de tumbar la portada.
+        try {
+            $especialesTemporada = Carta::especiales();
+        } catch (\Throwable $e) {
+            error_log('HomeController::index especiales de temporada - ' . $e->getMessage());
         }
 
         try {

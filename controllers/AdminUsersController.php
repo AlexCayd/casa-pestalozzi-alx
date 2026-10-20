@@ -8,9 +8,12 @@
 namespace Controllers;
 
 use Classes\Auth;
+use Model\Rol;
+use Model\Unidad;
 use Model\Usuario;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
+use Services\Security\RolService;
 use Services\Users\UsuarioService;
 
 class AdminUsersController
@@ -18,12 +21,11 @@ class AdminUsersController
     private const MENU_CSS = '/build/css/admin/menu.css';
     private const USERS_CSS = '/build/css/admin/users.css';
     private const USERS_JS = '/build/js/admin/users.js';
-    private const ADMIN_ACTIVO_REQUERIDO = 'Debe existir un usuario administrador activo siempre.';
-    private const ROLE_LABELS = [
-        'admin' => 'Administrador',
-        'waiter' => 'Mesero',
-        'cook' => 'Cocinero',
-    ];
+    private const ADMIN_ACTIVO_REQUERIDO = 'Debe existir siempre un super admin activo.';
+    private const SIN_PERMISO_CUENTA = 'Tu rol no puede gestionar esa cuenta.';
+
+    /** Roles con sus permisos, una vez por petición. */
+    private static ?array $catalogo = null;
 
     public static function index(Router $router): void
     {
@@ -41,7 +43,13 @@ class AdminUsersController
             'usuarios' => $usuarios,
             'filtros' => $filtros,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'roleLabels' => self::ROLE_LABELS,
+            'roleLabels' => self::etiquetasRoles(),
+            // El filtro del listado ofrece todos los roles, no sólo los que
+            // el actor puede asignar.
+            'roles' => array_keys(self::catalogo()),
+            // Los roles cuyas cuentas puede tocar el actor: el resto de filas
+            // se ve, pero sin acciones.
+            'gestionables' => self::rolesAsignables(),
             'alertas' => $alertas,
             'totalAdminsActivos' => Usuario::contarAdminsActivos(),
             'partialUrl' => AdminController::filterUrl('/admin/usuarios', $filtros),
@@ -70,8 +78,16 @@ class AdminUsersController
 
             // Checkbox: si no viene en POST, queda inactivo.
             $user->activo = isset($_POST['activo']) ? 1 : 0;
+            // La unidad sólo la asigna el super admin.
+            if (!Auth::esSuperAdmin()) {
+                $user->unidad_id = null;
+            }
 
-            $resultado = UsuarioService::crear($user);
+            if (!in_array((string) $user->rol, self::rolesAsignables(), true)) {
+                $resultado = ['ok' => false, 'alertas' => ['error' => ['Tu rol no puede asignar ese rol.']]];
+            } else {
+                $resultado = UsuarioService::crear($user);
+            }
             $user = $resultado['usuario'] ?? $user;
             $alertas = $resultado['alertas'] ?? [];
 
@@ -126,6 +142,10 @@ class AdminUsersController
             exit;
         }
 
+        if (!self::puedeGestionarCuenta((string) $user->rol)) {
+            self::redirect('/admin/usuarios?resultado=sin_permiso_cuenta');
+        }
+
         $rolOriginal = (string) $user->rol;
         $alertas = [];
 
@@ -140,7 +160,17 @@ class AdminUsersController
             $datos = $_POST;
             $datos['rol'] = $nuevoRol;
             $datos['activo'] = $nuevoActivo;
-            $resultado = UsuarioService::editar($id, $datos);
+            // La unidad sólo la cambia el super admin; para el resto se
+            // conserva la que tenía.
+            if (!Auth::esSuperAdmin()) {
+                $datos['unidad_id'] = $user->unidad_id;
+            }
+
+            if (!in_array($nuevoRol, self::rolesAsignables(), true)) {
+                $resultado = ['ok' => false, 'usuario' => $user, 'alertas' => ['error' => ['Tu rol no puede asignar ese rol.']]];
+            } else {
+                $resultado = UsuarioService::editar($id, $datos);
+            }
             $user = $resultado['usuario'] ?? $user;
             $alertas = $resultado['alertas'] ?? [];
 
@@ -206,12 +236,17 @@ class AdminUsersController
             session_start();
         }
 
-        if ($user->rol !== 'admin') {
+        if (!Usuario::rolUsaContrasena((string) $user->rol)) {
             header('Location: /admin/usuarios/edit?id=' . $id);
             exit;
         }
 
         $esPropio = (int) ($_SESSION['id'] ?? 0) === $id;
+        // La propia contraseña siempre; la de otra cuenta, sólo si su rol es
+        // de los que el actor gestiona.
+        if (!$esPropio && !self::puedeGestionarCuenta((string) $user->rol)) {
+            self::redirect('/admin/usuarios?resultado=sin_permiso_cuenta');
+        }
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -272,6 +307,7 @@ class AdminUsersController
             self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
+        self::exigirCuentaGestionable((int) $id);
         $resultado = UsuarioService::cambiarActivo((int)$id, false);
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
@@ -295,6 +331,7 @@ class AdminUsersController
             self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
+        self::exigirCuentaGestionable((int) $id);
         $resultado = UsuarioService::cambiarActivo((int)$id, true);
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
@@ -317,6 +354,7 @@ class AdminUsersController
             self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
+        self::exigirCuentaGestionable((int) $id);
         $resultado = UsuarioService::regenerarNip((int) $id);
         if ($resultado['ok'] ?? false) {
             self::guardarNipFlash(
@@ -415,6 +453,7 @@ class AdminUsersController
             session_start();
         }
 
+        self::exigirCuentaGestionable((int) $id);
         $usuarioActualId = (int) ($_SESSION['id'] ?? 0);
         $resultado = UsuarioService::eliminar((int)$id, $usuarioActualId);
 
@@ -435,14 +474,83 @@ class AdminUsersController
             'activeModule' => 'users',
             'styles' => [self::MENU_CSS, self::USERS_CSS],
             'scripts' => [self::USERS_JS],
-            'roles' => Usuario::rolesPermitidos(),
+            // En los formularios sólo se ofrecen los roles que el actor puede
+            // asignar; el filtro del listado (index) los quiere todos.
+            'roles' => self::rolesAsignables(),
+            'catalogoRoles' => self::catalogo(),
+            'unidades' => self::unidades(),
+            'puedeAsignarUnidad' => Auth::esSuperAdmin(),
         ], $data));
     }
 
+    /**
+     * La guardia central ya exigió «Usuarios · editar» para cualquier POST de
+     * este módulo; aquí sólo queda la sesión y el token.
+     */
     private static function adminCsrfValido(): bool
     {
-        return Auth::esAdmin()
+        return Auth::check()
             && AdminCsrfService::validar($_POST['admin_csrf'] ?? null);
+    }
+
+    // ── Roles: qué puede asignar y qué cuentas puede tocar el actor ──
+
+    private static function catalogo(): array
+    {
+        if (self::$catalogo === null) {
+            try {
+                self::$catalogo = Rol::catalogo();
+            } catch (\Throwable $e) {
+                error_log('AdminUsersController::catalogo - ' . $e->getMessage());
+                self::$catalogo = [];
+            }
+        }
+
+        return self::$catalogo;
+    }
+
+    /** @return array<string, string> slug => nombre */
+    private static function etiquetasRoles(): array
+    {
+        $etiquetas = [];
+        foreach (self::catalogo() as $slug => $info) {
+            $etiquetas[$slug] = (string) $info['rol']->nombre;
+        }
+
+        return $etiquetas;
+    }
+
+    /** @return list<string> */
+    private static function rolesAsignables(): array
+    {
+        return RolService::rolesAsignables(Auth::rolActual(), self::catalogo());
+    }
+
+    private static function puedeGestionarCuenta(string $rolCuenta): bool
+    {
+        return RolService::puedeAsignar(
+            Auth::rolActual(),
+            $rolCuenta,
+            self::catalogo()[$rolCuenta]['permisos'] ?? []
+        );
+    }
+
+    /** Corta la acción si la cuenta tiene un rol que el actor no gestiona. */
+    private static function exigirCuentaGestionable(int $id): void
+    {
+        $cuenta = Usuario::find($id);
+        if ($cuenta && !self::puedeGestionarCuenta((string) $cuenta->rol)) {
+            self::redirect('/admin/usuarios?resultado=sin_permiso_cuenta');
+        }
+    }
+
+    private static function unidades(): array
+    {
+        try {
+            return Unidad::todas();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     private static function leerFiltros(): array
@@ -451,7 +559,7 @@ class AdminUsersController
         $role = (string) ($_GET['role'] ?? '');
         $status = (string) ($_GET['status'] ?? '');
 
-        if (!in_array($role, Usuario::rolesPermitidos(), true)) {
+        if (!isset(self::catalogo()[$role])) {
             $role = '';
         }
 
@@ -505,8 +613,9 @@ class AdminUsersController
             'usuario_sin_cambios' => ['warning' => ['El usuario ya tenia el estado solicitado; no se realizaron cambios.']],
             'error_guardado' => ['error' => ['No fue posible guardar el cambio solicitado.']],
             'nip_error' => ['error' => ['No fue posible generar un NIP disponible. Intenta nuevamente.']],
-            'rol_invalido' => ['error' => ['La regeneración sólo aplica a usuarios de piso.']],
+            'rol_invalido' => ['error' => ['La regeneración sólo aplica a cuentas que entran con NIP.']],
             'csrf_invalido' => ['error' => ['La confirmación expiró. Recarga la página e inténtalo de nuevo.']],
+            'sin_permiso_cuenta' => ['error' => [self::SIN_PERMISO_CUENTA]],
             default => [],
         };
     }

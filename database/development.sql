@@ -339,7 +339,7 @@ ON DUPLICATE KEY UPDATE
 -- -------------------------------------------------------
 
 INSERT INTO usuarios (id, username, nombre, password_hash, nip_hash, nip_lookup, rol, activo) VALUES
-(1, 'admin_demo',      'Administrador Demo', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', NULL, NULL, 'admin',  1),
+(1, 'admin_demo',      'Administrador Demo', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', NULL, NULL, 'super_admin', 1),
 (2, 'mesero1',         'Carlos Hernández',   '!sin-credencial', NULL, NULL, 'waiter', 1),
 (3, 'mesero2',         'Valeria Ríos',       '!sin-credencial', NULL, NULL, 'waiter', 1),
 (4, 'cocinero1',       'Mariana López',      '!sin-credencial', NULL, NULL, 'cook',   1),
@@ -4030,3 +4030,33 @@ UPDATE ticket_items ti
  WHERE ti.ticket_id BETWEEN 900 AND 999 AND ti.variante IS NOT NULL;
 
 -- Fin del bloque 4
+
+-- ═════════════════════════════════════════════════════════════════════
+-- BLOQUE 5 · ESPECIALES DE TEMPORADA
+-- ═════════════════════════════════════════════════════════════════════
+-- Platillos de muestra para la vitrina «Especiales de temporada» de la
+-- landing (categoría 15, sembrada en deploy.sql con carta = 'temporada').
+-- Tres llevan foto propia y dos no, para ver el respaldo: los que no la
+-- tienen salen con la foto de su categoría.
+--
+-- Las fotos son las que antes estaban fijas en src/js/modules/gallery.js y
+-- ningún otro registro usa: ImagenUploader::eliminar() borra el archivo
+-- anterior al reemplazar la foto de un platillo, así que apuntar aquí a una
+-- foto compartida con una categoría la dejaría sin imagen.
+--
+-- Reidempotente: casa por nombre, que es UNIQUE.
+INSERT INTO productos (nombre, descripcion, img, categoria_id, precio, area_id, activo) VALUES
+('Camarones a la Brasa',    'Camarón U15 a las brasas con mantequilla de ajo ahumado, limón amarillo y perejil.',      'build/images/mejor-5.webp', 15, 345.00, 3, 1),
+('Tostas de Otoño',         'Pan de masa madre con calabaza asada, ricotta batida, nuez tostada y miel de agave.',     'build/images/mejor-3.webp', 15, 210.00, 4, 1),
+('Aceitunas Temperadas',    'Aceitunas mixtas tibias con cáscara de naranja, romero y aceite de oliva.',               'build/images/mejor-1.webp', 15, 120.00, 3, 1),
+('Crema de Calabaza Asada', 'Calabaza de Castilla asada, pepita tostada y un hilo de crema de rancho.',                NULL,                        15, 165.00, 3, 1),
+('Pan de Muerto con Nata',  'Pan de muerto de la casa relleno de nata y azahar. Sólo durante la temporada.',           NULL,                        15,  95.00, 4, 1)
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  img          = VALUES(img),
+  categoria_id = VALUES(categoria_id),
+  precio       = VALUES(precio),
+  area_id      = VALUES(area_id),
+  activo       = VALUES(activo);
+
+-- Fin del bloque 5

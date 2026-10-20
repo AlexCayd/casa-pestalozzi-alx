@@ -29,7 +29,7 @@
                 Volver
             </a>
             <?php $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? ''); ?>
-            <?php if ($rolUsuario === 'admin') : ?>
+            <?php if (\Model\Usuario::rolUsaContrasena((string) $rolUsuario)) : ?>
                 <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
             <?php endif; ?>
         </div>

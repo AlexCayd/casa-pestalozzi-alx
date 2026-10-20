@@ -175,6 +175,104 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   Sin la columna fallan el guardado del platillo y `GET /menu` (la carta de la
   landing), así que el `ALTER` va antes de desplegar el código.
 
+- **Roles y permisos** (`/admin/roles`): roles con permisos por módulo
+  (`ver` / `editar`), super admin y administrador como roles de sistema, Mesero
+  y Cocinero como roles predefinidos editables, y unidades de negocio
+  (Restaurante, Panadería) asignables a los administradores. Reglas en
+  CLAUDE.md («Roles y permisos»). Para una base existente —**respaldar antes**:
+  el DDL de MySQL no es transaccional—:
+
+  ```sql
+  -- Roles y permisos sobre una base existente. Ver docs/config.md.
+  SET NAMES utf8mb4;
+
+  CREATE TABLE IF NOT EXISTS unidades (
+    id     TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(60) NOT NULL,
+    slug   VARCHAR(30) NOT NULL UNIQUE
+  );
+
+  CREATE TABLE IF NOT EXISTS roles (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    slug        VARCHAR(40) NOT NULL UNIQUE,
+    nombre      VARCHAR(60) NOT NULL,
+    descripcion VARCHAR(255) NULL,
+    tipo        ENUM('sistema','predefinido','personalizado') NOT NULL DEFAULT 'personalizado',
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_roles_nombre (nombre)
+  );
+
+  CREATE TABLE IF NOT EXISTS rol_permisos (
+    rol_id INT NOT NULL,
+    modulo VARCHAR(40) NOT NULL,
+    nivel  ENUM('ver','editar') NOT NULL,
+    PRIMARY KEY (rol_id, modulo),
+    CONSTRAINT fk_rol_permisos_rol
+      FOREIGN KEY (rol_id) REFERENCES roles(id) ON DELETE CASCADE
+  );
+
+  INSERT INTO unidades (id, nombre, slug) VALUES
+  (1, 'Restaurante', 'restaurante'),
+  (2, 'Panadería',   'panaderia')
+  ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), slug = VALUES(slug);
+
+  INSERT INTO roles (id, slug, nombre, descripcion, tipo) VALUES
+  (1, 'super_admin', 'Super admin',   'Ve todo el sistema. Gestiona las unidades y las cuentas de administrador.', 'sistema'),
+  (2, 'admin',       'Administrador', 'Todos los módulos. No toca los roles de sistema ni las cuentas de administrador.', 'sistema'),
+  (3, 'waiter',      'Mesero',        'Punto de venta: mesas, comandas, cobro y reservas del día.', 'predefinido'),
+  (4, 'cook',        'Cocinero',      'Tableros de producción de su área.', 'predefinido')
+  ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), descripcion = VALUES(descripcion), tipo = VALUES(tipo);
+
+  INSERT INTO rol_permisos (rol_id, modulo, nivel) VALUES
+  (3, 'pdv',  'editar'),
+  (4, 'area', 'editar')
+  ON DUPLICATE KEY UPDATE nivel = VALUES(nivel);
+
+  -- El CHECK viejo nombra rol = 'admin' sobre un ENUM: se suelta antes de
+  -- cambiar el tipo de la columna y se vuelve a poner con super_admin.
+  ALTER TABLE usuarios DROP CHECK chk_usuarios_admin_sin_nip;
+  ALTER TABLE usuarios
+    MODIFY rol VARCHAR(40) NOT NULL DEFAULT 'waiter',
+    ADD COLUMN unidad_id TINYINT UNSIGNED NULL AFTER rol;
+
+  -- Decisión del despliegue: todos los administradores de hoy pasan a super
+  -- admin, para que nadie pierda acceso. Después, un super admin baja a
+  -- Administrador a quien corresponda desde Usuarios.
+  UPDATE usuarios SET rol = 'super_admin' WHERE rol = 'admin';
+
+  ALTER TABLE usuarios
+    ADD CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol) REFERENCES roles(slug),
+    ADD CONSTRAINT fk_usuarios_unidad FOREIGN KEY (unidad_id) REFERENCES unidades(id) ON DELETE SET NULL,
+    ADD CONSTRAINT chk_usuarios_admin_sin_nip
+      CHECK (rol NOT IN ('admin','super_admin') OR (nip_hash IS NULL AND nip_lookup IS NULL));
+  ```
+
+  El `UPDATE` convierte a **todos** los administradores de hoy en super admin,
+  para que nadie pierda acceso; después, un super admin baja a «Administrador»
+  a quien corresponda desde Usuarios. El código nuevo exige estas tablas: sin
+  ellas no entra nadie con contraseña, así que la migración va **antes** de
+  desplegar.
+
+- **Especiales de temporada** (landing, sección «Especiales de temporada»):
+  son los platillos de las categorías con `carta = 'temporada'`. No hay
+  módulo propio: se dan de alta en Menú, con foto opcional («Foto para la
+  landing»; sin ella, el especial usa la de su categoría), y se apagan con el
+  interruptor de visibilidad cuando acaba la semana. Reglas en CLAUDE.md. Para
+  una base existente:
+
+  ```sql
+  ALTER TABLE categorias
+    MODIFY carta ENUM('comida','maridaje','temporada') NOT NULL DEFAULT 'comida';
+  INSERT INTO categorias (id, nombre, carta, img) VALUES
+    (15, 'Especiales de temporada', 'temporada', 'build/images/especiales-temporada.webp')
+  ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+  ```
+
+  Sin el `ALTER`, guardar una categoría de temporada falla (MySQL rechaza el
+  valor) y la vitrina sale con su línea de «esta semana»; el resto del sitio
+  no cambia, así que puede ir antes o después de desplegar el código.
+
 Las columnas son tolerantes: en una base sin migrar se leen los valores por
 defecto. Los `ALTER` están en
 [Reservaciones](reservaciones/reservaciones.md#migracion-de-bases-existentes).

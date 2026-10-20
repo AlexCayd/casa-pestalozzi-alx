@@ -2,6 +2,7 @@
 
 namespace Model;
 
+use Services\Security\Permisos;
 use Services\Users\NipService;
 
 class Usuario extends ActiveRecord
@@ -16,6 +17,7 @@ class Usuario extends ActiveRecord
         'nip_hash',
         'nip_lookup',
         'rol',
+        'unidad_id',
         'activo',
         'created_at',
         'updated_at'
@@ -28,6 +30,7 @@ class Usuario extends ActiveRecord
     public $nip_hash;
     public $nip_lookup;
     public $rol = 'waiter';
+    public $unidad_id = null;
     public $activo = 1;
     public $created_at;
     public $updated_at;
@@ -36,15 +39,42 @@ class Usuario extends ActiveRecord
     public $password;
     public $password_confirm;
 
-    protected const ROLES_PERMITIDOS = [
-        'admin',
-        'waiter',
-        'cook'
-    ];
-
+    /**
+     * Los slugs de rol que existen: los de la tabla roles. Si la base no
+     * responde, los cuatro de siempre, para que el formulario no se quede sin
+     * opciones a media edición.
+     */
     public static function rolesPermitidos(): array
     {
-        return self::ROLES_PERMITIDOS;
+        try {
+            $slugs = array_keys(Rol::catalogo());
+            if ($slugs !== []) {
+                return $slugs;
+            }
+        } catch (\Throwable $e) {
+            error_log('Usuario::rolesPermitidos - ' . $e->getMessage());
+        }
+
+        return [Permisos::SUPER_ADMIN, Permisos::ADMIN, Permisos::MESERO, Permisos::COCINERO];
+    }
+
+    /** ¿Este rol entra con usuario y contraseña (y no con NIP)? */
+    public static function rolUsaContrasena(string $rol): bool
+    {
+        if (Permisos::esSistema($rol)) {
+            return true;
+        }
+
+        try {
+            $info = Rol::catalogo()[$rol] ?? null;
+            if ($info !== null) {
+                return $info['acceso'] === Permisos::ACCESO_CONTRASENA;
+            }
+        } catch (\Throwable $e) {
+            error_log('Usuario::rolUsaContrasena - ' . $e->getMessage());
+        }
+
+        return false;
     }
 
     public static function buscarAdmin(array $filtros = []): array
@@ -73,7 +103,7 @@ class Usuario extends ActiveRecord
             $condiciones[] = "(nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR username LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
         }
 
-        if (in_array($rol, self::ROLES_PERMITIDOS, true)) {
+        if ($rol !== '' && in_array($rol, self::rolesPermitidos(), true)) {
             $condiciones[] = "rol = '" . self::escaparString($rol) . "'";
         }
 
@@ -93,7 +123,7 @@ class Usuario extends ActiveRecord
         $this->normalizarDatos();
         $this->validarDatosBase();
 
-        if ($this->rol === 'admin') {
+        if (self::rolUsaContrasena((string) $this->rol)) {
             $this->validarPassword();
         }
 
@@ -140,6 +170,7 @@ class Usuario extends ActiveRecord
         $this->username = trim((string) ($this->username ?? ''));
         $this->rol = (string) ($this->rol ?: 'waiter');
         $this->activo = (int) $this->activo;
+        $this->unidad_id = ($this->unidad_id === '' || $this->unidad_id === null) ? null : (int) $this->unidad_id;
     }
 
     private function validarDatosBase(): void
@@ -157,7 +188,7 @@ class Usuario extends ActiveRecord
             );
         }
 
-        if (!in_array($this->rol, self::ROLES_PERMITIDOS, true)) {
+        if (!in_array($this->rol, self::rolesPermitidos(), true)) {
             static::setAlerta('error', 'El rol no es válido');
         }
 
@@ -216,9 +247,16 @@ class Usuario extends ActiveRecord
         try {
             $lookup = NipService::lookup($nip);
             $db = self::getDB();
+            // Sólo los roles que entran por NIP —los de piso—: una cuenta cuyo
+            // rol ganó un módulo del panel conserva su NIP viejo, pero ya no
+            // entra con él.
+            $roles = self::listaSql(Rol::slugsConAcceso(Permisos::ACCESO_NIP));
+            if ($roles === '') {
+                return null;
+            }
             $stmt = $db->prepare(
                 "SELECT * FROM " . static::$tabla .
-                " WHERE nip_lookup = ? AND activo = 1 AND rol IN ('waiter', 'cook') LIMIT 1"
+                " WHERE nip_lookup = ? AND activo = 1 AND rol IN ({$roles}) LIMIT 1"
             );
 
             if (!$stmt) {
@@ -248,13 +286,17 @@ class Usuario extends ActiveRecord
         }
     }
 
-    /** Login administrativo por usuario + contraseña. */
+    /** Login del panel por usuario + contraseña: los roles con algún módulo del panel. */
     public static function porCredenciales(string $username, string $password): ?Usuario
     {
         $db = self::getDB();
+        $roles = self::listaSql(Rol::slugsConAcceso(Permisos::ACCESO_CONTRASENA));
+        if ($roles === '') {
+            return null;
+        }
         $stmt = $db->prepare(
             "SELECT * FROM " . static::$tabla .
-            " WHERE activo = 1 AND rol = 'admin' AND username = ? LIMIT 1"
+            " WHERE activo = 1 AND rol IN ({$roles}) AND username = ? LIMIT 1"
         );
 
         if (!$stmt) {
@@ -286,14 +328,19 @@ class Usuario extends ActiveRecord
         $this->password_hash = password_hash($secreto, PASSWORD_DEFAULT);
     }
 
+    /**
+     * La cuenta que el sistema no puede perder: siempre tiene que quedar un
+     * super admin activo (antes era «un admin activo»; los admins de antes
+     * pasaron a super admin).
+     */
     public function esAdminActivo(): bool
     {
-        return $this->rol === 'admin' && (int) $this->activo === 1;
+        return $this->rol === Permisos::SUPER_ADMIN && (int) $this->activo === 1;
     }
 
     public static function contarAdminsActivos(): int
     {
-        $query = "SELECT COUNT(*) FROM " . static::$tabla . " WHERE rol = 'admin' AND activo = 1";
+        $query = "SELECT COUNT(*) FROM " . static::$tabla . " WHERE rol = 'super_admin' AND activo = 1";
         $resultado = self::$db->query($query);
 
         if (!$resultado) {
@@ -304,5 +351,14 @@ class Usuario extends ActiveRecord
         $resultado->free();
 
         return (int) array_shift($total);
+    }
+
+    /** Lista SQL de slugs escapados para un IN (...). Vacía si no hay ninguno. */
+    private static function listaSql(array $slugs): string
+    {
+        return implode(', ', array_map(
+            static fn ($slug): string => "'" . self::escaparString((string) $slug) . "'",
+            $slugs
+        ));
     }
 }

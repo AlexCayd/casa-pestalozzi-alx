@@ -7,15 +7,27 @@ class CategoriasMenu extends ActiveRecord {
     protected static $columnasDB = ['id', 'nombre', 'carta', 'img', 'activo'];
 
     /**
-     * Las dos piezas impresas de la casa.
+     * Dónde se publica cada categoría: las dos piezas impresas de la casa y
+     * la vitrina de especiales de la landing.
      *
      * `carta` es un ENUM en base, así que la lista se escribe aquí una sola vez
      * y de ella salen las pastillas del panel, la validación y el filtro de
-     * Services\Menu\Carta. Agregar una tercera pieza es tocar el ENUM del DDL y
-     * este arreglo — nada más.
+     * Services\Menu\Carta. Agregar otro destino es tocar el ENUM del DDL y
+     * este arreglo — y, si se imprime, CARTAS_IMPRESAS y MenuPdf::PIEZAS.
      */
-    public const CARTA_COMIDA   = 'comida';
-    public const CARTA_MARIDAJE = 'maridaje';
+    public const CARTA_COMIDA    = 'comida';
+    public const CARTA_MARIDAJE  = 'maridaje';
+    /**
+     * Especiales de temporada: no es una pieza impresa sino la vitrina de la
+     * landing («Especiales de temporada», views/home/_firma.php). Vive en el
+     * mismo ENUM porque responde a la misma pregunta —dónde se publica esta
+     * sección— y así los especiales se dan de alta como cualquier platillo,
+     * sin módulo propio. Consecuencias que salen solas del filtro de
+     * Carta::publica(): no entran en la sección de menú de la landing ni en
+     * ningún PDF (cambian cada semana; el papel no), y el punto de venta sí los
+     * vende, porque Carta::paraPos() no mira la carta.
+     */
+    public const CARTA_TEMPORADA = 'temporada';
 
     public const CARTAS = [
         self::CARTA_COMIDA => [
@@ -28,7 +40,15 @@ class CategoriasMenu extends ActiveRecord {
             'corto'  => 'Maridaje',
             'ayuda'  => 'Sale sólo en el PDF de maridaje (barra)',
         ],
+        self::CARTA_TEMPORADA => [
+            'titulo' => 'Especiales de temporada',
+            'corto'  => 'Temporada',
+            'ayuda'  => 'Sale en «Especiales de temporada» de la landing; no entra en ningún PDF',
+        ],
     ];
+
+    /** Las cartas que se imprimen: las que tienen PDF (Services\Menu\MenuPdf). */
+    public const CARTAS_IMPRESAS = [self::CARTA_COMIDA, self::CARTA_MARIDAJE];
 
     public $id;
     public $nombre;

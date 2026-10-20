@@ -66,6 +66,11 @@ DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS reservaciones;
 DROP TABLE IF EXISTS usuarios;
+-- Roles y unidades van DESPUÉS de usuarios: usuarios.rol y usuarios.unidad_id
+-- apuntan a ellas.
+DROP TABLE IF EXISTS rol_permisos;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS unidades;
 DROP TABLE IF EXISTS areas_produccion;
 DROP TABLE IF EXISTS mesas;
 
@@ -109,22 +114,70 @@ CREATE TABLE IF NOT EXISTS areas_produccion (
 --
 -- El punto de venta NO lo mira: el mesero cobra bebida y comida en el mismo
 -- ticket, asi que Carta::paraPos() sigue trayendo las dos.
+--
+-- 'temporada' no es papel: es la vitrina «Especiales de temporada» de la
+-- landing. Sus platillos cambian cada semana y se dan de alta en Menu como
+-- cualquier otro; no salen en la seccion de menu ni en ningun PDF, y el POS
+-- los vende igual. deploy.sql siembra la categoria «Especiales de temporada».
 CREATE TABLE IF NOT EXISTS categorias (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(40) NOT NULL,
-  carta  ENUM('comida','maridaje') NOT NULL DEFAULT 'comida',
+  carta  ENUM('comida','maridaje','temporada') NOT NULL DEFAULT 'comida',
   img    VARCHAR(200),
   activo TINYINT(1) NOT NULL DEFAULT 1,
   KEY idx_categorias_carta (carta, id)
 );
 
--- Accesos: los administradores usan usuario + password alfanumerica
--- (password_hash); el personal de piso usa un NIP numerico de 4 digitos,
--- guardado hasheado con bcrypt (nip_hash). nip_lookup es un HMAC determinista
--- que permite localizar el candidato y respaldar la unicidad en la BD.
+-- -------------------------------------------------------
+-- ROLES, PERMISOS Y UNIDADES
+-- -------------------------------------------------------
+
+-- Unidades de negocio (Restaurante, Panadería). Hoy sólo se ASIGNAN a las
+-- cuentas de administrador y no restringen nada: es el gancho de la futura
+-- integración multiempresa, donde un admin verá sólo lo de su unidad.
+CREATE TABLE IF NOT EXISTS unidades (
+  id     TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(60) NOT NULL,
+  slug   VARCHAR(30) NOT NULL UNIQUE
+);
+
+-- Roles del personal. `slug` es lo que guarda usuarios.rol y no cambia nunca
+-- (de ahí que la llave foránea no necesite ON UPDATE). `tipo`:
+--   sistema      super_admin y admin: todo en «editar», ni se editan ni se borran;
+--   predefinido  waiter y cook: se editan sus permisos, no se borran;
+--   personalizado los que se crean en Roles y permisos.
+-- Los permisos de los de sistema no se guardan: se calculan
+-- (Services\Security\Permisos::todos()).
+CREATE TABLE IF NOT EXISTS roles (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  slug        VARCHAR(40) NOT NULL UNIQUE,
+  nombre      VARCHAR(60) NOT NULL,
+  descripcion VARCHAR(255) NULL,
+  tipo        ENUM('sistema','predefinido','personalizado') NOT NULL DEFAULT 'personalizado',
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_roles_nombre (nombre)
+);
+
+-- Un renglón por módulo al que el rol entra; sin renglón, sin acceso.
+-- `modulo` es una clave de Services\Security\Permisos::MODULOS.
+CREATE TABLE IF NOT EXISTS rol_permisos (
+  rol_id INT NOT NULL,
+  modulo VARCHAR(40) NOT NULL,
+  nivel  ENUM('ver','editar') NOT NULL,
+  PRIMARY KEY (rol_id, modulo),
+  CONSTRAINT fk_rol_permisos_rol
+    FOREIGN KEY (rol_id) REFERENCES roles(id) ON DELETE CASCADE
+);
+
+-- Accesos: los roles con algún módulo del panel entran con usuario +
+-- password alfanumerica (password_hash); los que sólo tienen pantallas de
+-- piso, con un NIP numerico de 4 digitos, guardado hasheado con bcrypt
+-- (nip_hash). nip_lookup es un HMAC determinista que permite localizar el
+-- candidato y respaldar la unicidad en la BD.
 --
--- El rol decide a que vista se entra y que rutas se permiten: waiter al punto
--- de venta, cook a los tableros de area, admin a todo.
+-- El rol decide a que vista se entra y que rutas se permiten: lo resuelve
+-- Classes\Auth con los permisos del rol (rol_permisos).
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
@@ -132,13 +185,23 @@ CREATE TABLE IF NOT EXISTS usuarios (
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
   nip_lookup    CHAR(64) NULL,
-  rol           ENUM('admin','waiter','cook') NOT NULL DEFAULT 'waiter',
+  rol           VARCHAR(40) NOT NULL DEFAULT 'waiter',
+  -- Sólo para administradores; NULL = sin unidad. Hoy no restringe nada.
+  unidad_id     TINYINT UNSIGNED NULL,
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_usuarios_nip_lookup (nip_lookup),
+  -- Sin ON UPDATE/ON DELETE a propósito: MySQL no admite un CHECK sobre una
+  -- columna que participa en una acción referencial, y el slug no cambia.
+  CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol) REFERENCES roles(slug),
+  CONSTRAINT fk_usuarios_unidad
+    FOREIGN KEY (unidad_id) REFERENCES unidades(id) ON DELETE SET NULL,
+  -- Los roles de sistema entran con contraseña: nunca con NIP. Para los
+  -- personalizados la regla depende de sus permisos y la aplica PHP
+  -- (Services\Users\UsuarioService).
   CONSTRAINT chk_usuarios_admin_sin_nip
-    CHECK (rol <> 'admin' OR (nip_hash IS NULL AND nip_lookup IS NULL))
+    CHECK (rol NOT IN ('admin','super_admin') OR (nip_hash IS NULL AND nip_lookup IS NULL))
 );
 
 -- -------------------------------------------------------

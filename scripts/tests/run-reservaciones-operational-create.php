@@ -28,18 +28,26 @@ function readOperationalCreateSource(string $root, string $path): string
     return $contents;
 }
 
-$auth = readOperationalCreateSource($root, 'classes/Auth.php');
+// La tabla de rutas vive en Permisos desde Roles y permisos.
+$auth = readOperationalCreateSource($root, 'services/Security/Permisos.php');
 $index = readOperationalCreateSource($root, 'public/index.php');
 $posController = readOperationalCreateSource($root, 'controllers/PosReservacionController.php');
 $adminController = readOperationalCreateSource($root, 'controllers/AdminReservacionController.php');
 $altaJs = readOperationalCreateSource($root, 'src/js/operation/pos-alta.js');
 
 foreach (['/api/punto-de-venta/reservaciones/crear', '/api/punto-de-venta/reservaciones/disponibilidad'] as $route) {
-    assertOperationalCreate(str_contains($auth, "'{$route}'"), "Auth registra {$route}");
+    assertOperationalCreate(
+        \Services\Security\Permisos::clasificar($route)['modulos'] === ['pdv'],
+        "Permisos registra {$route} en el POS"
+    );
     assertOperationalCreate(str_contains($index, "'{$route}'"), "Router registra {$route}");
 }
 assertOperationalCreate(
-    !str_contains($auth, "'/admin/api/reservaciones/disponibilidad',"),
+    \Services\Security\Permisos::decidir(
+        '/admin/api/reservaciones/disponibilidad',
+        'GET',
+        ['sistema' => false, 'permisos' => ['pdv' => 'editar']]
+    )['resultado'] === 'negar',
     'la disponibilidad administrativa general no se abre a meseros'
 );
 
@@ -65,7 +73,8 @@ $adminData = $normalizer->invoke(null, $manipulada, false);
 assertOperationalCreate($adminData === $manipulada, 'admin conserva el formulario completo de contacto');
 
 assertOperationalCreate(
-    str_contains($posController, 'PosAltaReservacionService::normalizarEntrada($datos, !Auth::esAdmin());')
+    // Normaliza por PERMISO: captura el contacto quien edita Reservaciones.
+    str_contains($posController, "PosAltaReservacionService::normalizarEntrada(\$datos, !Auth::puede('reservations', Permisos::EDITAR));")
         && str_contains($posController, 'ReservacionService::crearAdministrativa(')
         && str_contains($posController, 'ReservacionAltaPresenter::json($resultado, $datos)'),
     'el alta del POS normaliza por rol y usa el mismo dominio y presenter que el panel'

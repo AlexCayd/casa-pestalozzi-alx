@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Classes\Auth;
+use Services\Security\Permisos;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
 use Services\Reservations\ReservacionConfig;
@@ -22,7 +23,7 @@ final class ReservacionMantenimientoController
     {
         self::protegerAmbiente();
         self::protegerPost();
-        if (!Auth::esAdmin()) {
+        if (!Auth::puede('reservations', Permisos::EDITAR)) {
             http_response_code(403);
             header('Content-Type: text/plain; charset=utf-8');
             echo 'No autorizado.';

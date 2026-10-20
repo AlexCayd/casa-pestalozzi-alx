@@ -11,6 +11,7 @@ use Model\TicketMesa;
 use Model\Usuario;
 use Classes\TicketPrinter;
 use Classes\Auth;
+use Services\Security\Permisos;
 use MVC\Router;
 use Services\Menu\Carta;
 use Services\Menu\Variantes;
@@ -145,7 +146,7 @@ class PuntoVentaController {
             $lectura = PosReservacionQueryService::paraFecha($fecha, $hora, [
                 'incluir_inactivas' => false,
                 'calcular_conflictos' => true,
-                'superficie' => Auth::esAdmin() ? 'admin' : 'waiter',
+                'superficie' => Auth::puede('reservations', Permisos::EDITAR) ? 'admin' : 'waiter',
                 'contexto_pos' => true,
                 'reservacion_enfocada_id' => $reservacionId,
                 'intencion' => $intencion,
@@ -216,9 +217,11 @@ class PuntoVentaController {
             // Lo que la pantalla puede ofrecer según quién mira. El servidor
             // revalida cada acción; esto sólo evita enseñar botones muertos.
             'permisos'      => [
-                'es_admin' => Auth::esAdmin(),
-                'comentar_reservacion' => Auth::esAdmin(),
-                'ver_contacto' => Auth::esAdmin(),
+                // Los poderes administrativos del POS son los de quien edita
+                // Reservaciones (los roles de sistema los tienen todos).
+                'es_admin' => Auth::puede('reservations', Permisos::EDITAR),
+                'comentar_reservacion' => Auth::puede('reservations', Permisos::EDITAR),
+                'ver_contacto' => Auth::puede('reservations'),
                 'crear_reservacion' => true,
                 'cambiar_mesas' => true,
             ],
@@ -999,7 +1002,7 @@ class PuntoVentaController {
         $fecha = trim((string)($_GET['fecha'] ?? ReservacionConfig::fechaActual()));
         self::responder(PuntoVentaReservacionService::listar(
             $fecha,
-            Auth::esAdmin() ? 'admin' : 'waiter'
+            Auth::puede('reservations') ? 'admin' : 'waiter'
         ));
     }
 
@@ -1008,7 +1011,7 @@ class PuntoVentaController {
     {
         self::responder(PuntoVentaReservacionService::contextoMesa(
             (int)($_GET['mesa_id'] ?? 0),
-            Auth::esAdmin() ? 'admin' : 'waiter'
+            Auth::puede('reservations') ? 'admin' : 'waiter'
         ));
     }
 
@@ -1060,7 +1063,7 @@ class PuntoVentaController {
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
             !empty($datos['override']),
-            Auth::esAdmin(),
+            Auth::puede('reservations', Permisos::EDITAR),
             trim((string)($datos['motivo'] ?? ''))
         );
         if (($resultado['ok'] ?? false) === true) {
@@ -1092,7 +1095,7 @@ class PuntoVentaController {
     private static function responder(array $resultado): void
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!Auth::esAdmin()) {
+        if (!Auth::puede('reservations')) {
             $resultado = PosReservacionSerializer::sanitizarParaWaiter($resultado);
         }
         if (array_key_exists('codigo', $resultado)) {

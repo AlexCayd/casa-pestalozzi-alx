@@ -38,6 +38,7 @@ use Controllers\PuntoVentaController;
 use Controllers\PosReservacionController;
 use Controllers\AreaController;
 use Controllers\AdminConsultasController;
+use Controllers\AdminRolesController;
 
 $router = new Router();
 
@@ -274,6 +275,14 @@ $router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit'
 $router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
 $router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
 
+// Roles y permisos: qué módulos abre cada rol. La guardia exige el módulo
+// 'roles' (ver para mirar, editar para cualquier POST).
+$router->get('/admin/roles', [AdminRolesController::class, 'index']);
+$router->get('/admin/roles/crear', [AdminRolesController::class, 'crear']);
+$router->post('/admin/roles/crear', [AdminRolesController::class, 'crear']);
+$router->get('/admin/roles/editar', [AdminRolesController::class, 'editar']);
+$router->post('/admin/roles/editar', [AdminRolesController::class, 'editar']);
+$router->post('/admin/roles/eliminar', [AdminRolesController::class, 'eliminar']);
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);

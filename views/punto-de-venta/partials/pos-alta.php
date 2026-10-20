@@ -11,7 +11,8 @@
  * El mesero no captura contacto: el campo no se pinta y el servidor descarta
  * el que llegue. pos-alta.js rellena horas y vista previa.
  */
-$posAltaAdmin = ($_SESSION['rol'] ?? '') === 'admin';
+// Capturar el contacto del cliente es de quien edita Reservaciones.
+$posAltaAdmin = \Classes\Auth::puede('reservations', \Services\Security\Permisos::EDITAR);
 ?>
 <dialog class="pos-alta" id="pos-alta" aria-labelledby="pos-alta-titulo" data-pos-alta>
   <form class="pos-alta__form" method="dialog" novalidate data-alta-form>

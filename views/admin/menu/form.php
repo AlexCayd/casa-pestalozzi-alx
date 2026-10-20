@@ -29,10 +29,15 @@
     // enseña cuando el platillo no tiene la suya.
     $categoriaFoto = null;
     $categoriaNombre = '';
+    $esEspecial = false;
     foreach ($categorias as $cat) {
         if ((int) $cat->id === (int) ($platillo->categoria_id ?? 0)) {
             $categoriaFoto = \Services\Menu\FotoPlatillo::url($cat->img ?? null);
             $categoriaNombre = (string) $cat->nombre;
+            // Los especiales de temporada no salen en la carta sino en la
+            // vitrina de la landing: mismos estados, con otro destino en el
+            // texto. Y sin foto propia ni de categoría no salen (Carta::especiales()).
+            $esEspecial = \Model\CategoriasMenu::normalizarCarta($cat->carta ?? null) === \Model\CategoriasMenu::CARTA_TEMPORADA;
             break;
         }
     }
@@ -47,24 +52,27 @@
     }
 
     // El texto de estado lo reescribe el JS al cambiar de archivo o de
-    // categoría; éste es el del primer render, y el único sin JS.
+    // categoría; éste es el del primer render, y el único sin JS. Espejo de
+    // foto-platillo.js: los dos textos tienen que coincidir.
     $categoriaCita = $categoriaNombre !== '' ? '«' . $categoriaNombre . '»' : '';
+    $destino = $esEspecial ? 'La landing' : 'La carta';
+    $fueraDeLanding = $esEspecial ? ': el especial no saldrá en la landing hasta tener una' : '';
     if ($fotoEstado === 'pendiente') {
         $fotoTexto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
     } elseif ($fotoEstado === 'propia') {
-        $fotoTexto = 'La carta muestra esta foto.';
+        $fotoTexto = $esEspecial ? 'La landing muestra esta foto en «Especiales de temporada».' : 'La carta muestra esta foto.';
     } elseif ($fotoQuitar) {
         if ($categoriaFoto !== null) {
-            $fotoTexto = 'Se quitará al guardar. La carta volverá a la de ' . $categoriaCita . '.';
+            $fotoTexto = 'Se quitará al guardar. ' . $destino . ' volverá a la de ' . $categoriaCita . '.';
         } elseif ($categoriaCita !== '') {
-            $fotoTexto = 'Se quitará al guardar, y ' . $categoriaCita . ' tampoco tiene foto.';
+            $fotoTexto = 'Se quitará al guardar, y ' . $categoriaCita . ' tampoco tiene foto' . $fueraDeLanding . '.';
         } else {
             $fotoTexto = 'Se quitará al guardar.';
         }
     } elseif ($categoriaFoto !== null) {
-        $fotoTexto = 'Sin foto propia: la carta muestra la de ' . $categoriaCita . '.';
+        $fotoTexto = 'Sin foto propia: ' . mb_strtolower($destino) . ' muestra la de ' . $categoriaCita . '.';
     } elseif ($categoriaCita !== '') {
-        $fotoTexto = 'Ni el platillo ni ' . $categoriaCita . ' tienen foto.';
+        $fotoTexto = 'Ni el platillo ni ' . $categoriaCita . ' tienen foto' . $fueraDeLanding . '.';
     } else {
         $fotoTexto = 'Sin foto propia: la carta usará la de su categoría.';
     }
@@ -106,9 +114,11 @@
                         <?php foreach ($categorias as $cat) : $cid = (int) $cat->id; ?>
                             <label class="admin-tabs__tab">
                                 <?php /* data-foto: la foto por defecto que tomaría el platillo
-                                         con esta categoría; la lee el campo de foto de abajo. */ ?>
+                                         con esta categoría; data-carta, a dónde se publica. Los
+                                         dos los lee el campo de foto de abajo. */ ?>
                                 <input type="radio" name="categoria_id" value="<?php echo $cid; ?>"
                                        data-foto="<?php echo htmlspecialchars((string) \Services\Menu\FotoPlatillo::url($cat->img ?? null), ENT_QUOTES, 'UTF-8'); ?>"
+                                       data-carta="<?php echo htmlspecialchars(\Model\CategoriasMenu::normalizarCarta($cat->carta ?? null), ENT_QUOTES, 'UTF-8'); ?>"
                                        data-nombre="<?php echo htmlspecialchars((string) $cat->nombre, ENT_QUOTES, 'UTF-8'); ?>"
                                        <?php echo (int) ($platillo->categoria_id ?? 0) === $cid ? 'checked' : ''; ?> required>
                                 <span><?php echo htmlspecialchars($cat->nombre); ?></span>
@@ -131,8 +141,15 @@
                      data-foto-platillo
                      data-estado="<?php echo $fotoEstado; ?>"
                      data-actual="<?php echo htmlspecialchars((string) $fotoActual, ENT_QUOTES, 'UTF-8'); ?>"
-                     data-pendiente="<?php echo htmlspecialchars((string) ($fotoPendiente['url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                    <span class="admin-field__label" id="foto-rotulo">Foto del platillo <span class="admin-foto__opcional">Opcional</span></span>
+                     data-pendiente="<?php echo htmlspecialchars((string) ($fotoPendiente['url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                     data-especial="<?php echo $esEspecial ? '1' : '0'; ?>">
+                    <?php /* El rótulo cambia con la categoría (foto-platillo.js): en un
+                             especial de temporada esta foto es la que sale en la landing,
+                             y hay que decirlo así, no como «foto del platillo». */ ?>
+                    <span class="admin-field__label" id="foto-rotulo"><span data-foto-titulo><?php echo $esEspecial ? 'Foto para la landing' : 'Foto del platillo'; ?></span> <span class="admin-foto__opcional">Opcional</span></span>
+                    <p class="admin-field__hint admin-foto__especial" data-foto-especial <?php echo $esEspecial ? '' : 'hidden'; ?>>
+                        Es la imagen de referencia con la que este especial sale en «Especiales de temporada» de la landing. Súbela cuando la tengas: sin foto propia, el especial sale con la de su categoría, que se cambia en Categorías.
+                    </p>
 
                     <div class="admin-foto__cuerpo" data-foto-zona>
                         <?php /* Etiqueta del input: un clic en la vista previa abre el

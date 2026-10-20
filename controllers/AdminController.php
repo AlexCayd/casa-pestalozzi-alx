@@ -6,6 +6,7 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use MVC\Router;
 use Services\Analytics\Analiticas;
 use Services\Analytics\AreasMejora;
@@ -79,11 +80,20 @@ class AdminController
             'title' => 'Configuración',
             'path' => '/admin/configuracion'
         ],
+        'roles' => [
+            'title' => 'Roles y permisos',
+            'path' => '/admin/roles'
+        ],
     ];
 
     public static function index(Router $router): void
     {
-        // Fase 1: /admin usa analytics como pantalla inicial del shell interno.
+        // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
+        // que sí tenga, en vez de en una pantalla que no puede ver.
+        if (!Auth::puede('analytics')) {
+            header('Location: ' . Auth::destinoPorRol(), true, 302);
+            exit;
+        }
         self::analytics($router);
     }
 
@@ -741,9 +751,22 @@ class AdminController
 
     public static function render(string $view, array $data = []): void
     {
-        $modules = self::MODULES;
+        // El menú sólo enseña lo que el rol puede abrir: un enlace que lleva
+        // a un rebote no es navegación.
+        $modules = array_filter(
+            self::MODULES,
+            static fn (string $clave): bool => Auth::puede($clave),
+            ARRAY_FILTER_USE_KEY
+        );
         $styles = [];
         $scripts = [];
+
+        // El aviso de «sólo consulta» que dejó la guardia al rechazar un
+        // guardado. Lo pinta el layout con AppNotice y no las alertas de la
+        // vista: puede caer en cualquier módulo, y no todos cargan los
+        // estilos del parcial de alertas.
+        $avisoPermiso = Auth::consumirAvisoPermiso();
+
         foreach ($data as $key => $value) {
             $$key = $value;
         }

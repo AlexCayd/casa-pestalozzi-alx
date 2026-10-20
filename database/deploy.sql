@@ -7,6 +7,33 @@
 SET NAMES utf8mb4;
 
 -- -------------------------------------------------------
+-- Roles, permisos y unidades — antes que cualquier usuario: usuarios.rol es
+-- llave foránea a roles.slug.
+-- -------------------------------------------------------
+
+-- Las dos unidades de negocio. Hoy sólo se asignan a los administradores; la
+-- restricción por unidad llega con la integración multiempresa.
+INSERT INTO unidades (id, nombre, slug) VALUES
+(1, 'Restaurante', 'restaurante'),
+(2, 'Panadería',   'panaderia')
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), slug = VALUES(slug);
+
+-- Los dos de sistema no llevan renglones en rol_permisos: lo tienen todo y se
+-- calcula (Services\Security\Permisos::todos()). Mesero y Cocinero son los
+-- roles de piso de siempre, ahora editables desde Roles y permisos.
+INSERT INTO roles (id, slug, nombre, descripcion, tipo) VALUES
+(1, 'super_admin', 'Super admin',   'Ve todo el sistema. Gestiona las unidades y las cuentas de administrador.', 'sistema'),
+(2, 'admin',       'Administrador', 'Todos los módulos. No toca los roles de sistema ni las cuentas de administrador.', 'sistema'),
+(3, 'waiter',      'Mesero',        'Punto de venta: mesas, comandas, cobro y reservas del día.', 'predefinido'),
+(4, 'cook',        'Cocinero',      'Tableros de producción de su área.', 'predefinido')
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), descripcion = VALUES(descripcion), tipo = VALUES(tipo);
+
+INSERT INTO rol_permisos (rol_id, modulo, nivel) VALUES
+(3, 'pdv',  'editar'),
+(4, 'area', 'editar')
+ON DUPLICATE KEY UPDATE nivel = VALUES(nivel);
+
+-- -------------------------------------------------------
 -- Horario efectivo semanal usado por el flujo público. Se mantiene alineado
 INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre) VALUES
 (0, 1, '08:30', '19:00'),
@@ -514,6 +541,16 @@ INSERT INTO categorias (id, nombre, carta, img) VALUES
 (12, 'Cocktails',             'maridaje', 'build/images/comida-1.webp'),  -- <-- imagen provisional
 (13, 'Cervezas',              'maridaje', 'build/images/comida-9.webp'),  -- <-- imagen provisional
 (14, 'Bebidas sin Alcohol',   'maridaje', 'build/images/comida-2.webp')   -- <-- imagen provisional
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+
+-- Especiales de temporada: la vitrina de la landing (views/home/_firma.php).
+-- Se siembra la categoria y NINGUN platillo: cambian cada semana y los da de
+-- alta la cocina desde Menu, con foto opcional. La img de la categoria es la
+-- que toma un especial sin foto propia (Carta::especiales()); es un archivo
+-- propio y no una foto compartida porque reemplazarla desde Categorias borra
+-- el archivo anterior.
+INSERT INTO categorias (id, nombre, carta, img) VALUES
+(15, 'Especiales de temporada', 'temporada', 'build/images/especiales-temporada.webp')
 ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
 
 -- -------------------------------------------------------

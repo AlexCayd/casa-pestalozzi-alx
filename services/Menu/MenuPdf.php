@@ -49,6 +49,11 @@ class MenuPdf
         ?string $nombreArchivo = null
     ): void {
         $carta = CategoriasMenu::normalizarCarta($carta);
+        // Los especiales de temporada son una carta válida pero sin papel:
+        // pedirlos aquí no puede romper con un índice indefinido.
+        if (!isset(self::PIEZAS[$carta])) {
+            $carta = CategoriasMenu::CARTA_COMIDA;
+        }
         $pieza = self::PIEZAS[$carta];
 
         // La plantilla (views/admin/menu/items-pdf.php) recibe los grupos en

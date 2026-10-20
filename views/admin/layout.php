@@ -108,5 +108,17 @@
     <?php foreach ($scripts ?? [] as $script): ?>
         <script src="<?php echo htmlspecialchars(recursoVersionado($script), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
     <?php endforeach; ?>
+    <?php if (!empty($avisoPermiso)) : ?>
+        <?php /* Lo dejó la guardia (Classes\Auth) al rechazar un guardado de un
+                 rol que sólo consulta este módulo. DOMContentLoaded porque los
+                 bundles van con defer: AppNotice viaja en admin.js. */ ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.AppNotice) {
+                    window.AppNotice.warning(<?php echo json_encode((string) $avisoPermiso, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
+                }
+            });
+        </script>
+    <?php endif; ?>
 </body>
 </html>

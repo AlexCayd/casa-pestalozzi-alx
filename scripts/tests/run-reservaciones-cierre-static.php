@@ -12,7 +12,8 @@ function assertClosureContract(bool $condition, string $message): void
     }
 }
 
-$auth = file_get_contents($root . '/classes/Auth.php');
+// La tabla de rutas vive en Permisos desde Roles y permisos.
+$auth = file_get_contents($root . '/services/Security/Permisos.php');
 $controller = file_get_contents($root . '/controllers/PuntoVentaController.php');
 $posRaw = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $pos = is_string($posRaw) ? str_replace(["\r\n", "\r"], "\n", $posRaw) : $posRaw;
@@ -33,8 +34,7 @@ assertClosureContract(
 );
 
 assertClosureContract(
-    str_contains($auth, "'/api/sugerencias'")
-        && str_contains($auth, "in_array(\$url, self::APIS_POS, true)"),
+    str_contains($auth, "'/api/sugerencias' => ['pdv']"),
     'sugerencias queda dentro de las APIs protegidas del POS'
 );
 assertClosureContract(

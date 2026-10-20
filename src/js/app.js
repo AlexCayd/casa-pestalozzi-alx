@@ -133,9 +133,9 @@ function boot() {
 // archivo, y la razón es cómo se construye el bundle: es un concat por orden
 // alfabético de ruta, así que app.js va PRIMERO y los módulos se evalúan
 // después. Las funciones no dan problema —se izan—, pero las constantes de
-// nivel superior (GALLERY en gallery.js, por ejemplo)
-// sólo existen cuando su archivo ya corrió. Un boot() síncrono aquí llama a
-// initGallery() con GALLERY todavía en undefined y revienta la página entera.
+// nivel superior (lo era GALLERY en gallery.js, antes de que los especiales
+// salieran de la base) sólo existen cuando su archivo ya corrió. Un boot()
+// síncrono aquí las leería en undefined y reventaría la página entera.
 //
 // Antes esto se sostenía por accidente: el <script> del bundle no llevaba
 // defer, así que al ejecutarse readyState era "loading" y boot() se aplazaba

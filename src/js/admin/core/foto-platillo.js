@@ -62,6 +62,8 @@
         var deshacer = campo.querySelector('[data-foto-deshacer]');
         var error = campo.querySelector('[data-foto-error]');
         var zona = campo.querySelector('[data-foto-zona]');
+        var titulo = campo.querySelector('[data-foto-titulo]');
+        var avisoEspecial = campo.querySelector('[data-foto-especial]');
 
         if (!input || !img || !vacia || !estadoTxt || !deshacer) {
             return;
@@ -78,7 +80,10 @@
             var radio = form ? form.querySelector('input[name="categoria_id"]:checked') : null;
             return {
                 foto: radio ? radio.getAttribute('data-foto') || '' : '',
-                nombre: radio ? radio.getAttribute('data-nombre') || '' : ''
+                nombre: radio ? radio.getAttribute('data-nombre') || '' : '',
+                // Los especiales de temporada no salen en la carta sino en la
+                // vitrina de la landing.
+                especial: !!radio && radio.getAttribute('data-carta') === 'temporada'
             };
         }
 
@@ -111,31 +116,49 @@
             } else if (propia && !quitando) {
                 estado = esPendiente ? 'pendiente' : 'propia';
                 src = propia;
-                texto = esPendiente
-                    ? 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.'
-                    : 'La carta muestra esta foto.';
+                if (esPendiente) {
+                    texto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
+                } else {
+                    texto = cat.especial
+                        ? 'La landing muestra esta foto en «Especiales de temporada».'
+                        : 'La carta muestra esta foto.';
+                }
             } else {
                 estado = cat.foto ? 'categoria' : 'vacia';
                 src = cat.foto;
+                // Un especial de temporada sale en la landing, no en la carta;
+                // y sin foto propia ni de categoría no sale (Carta::especiales()).
+                var destino = cat.especial ? 'La landing' : 'La carta';
+                var fuera = cat.especial ? ': el especial no saldrá en la landing hasta tener una' : '';
                 if (quitando) {
                     // Espejo de form.php: los dos textos tienen que coincidir.
                     if (cat.foto) {
-                        texto = 'Se quitará al guardar. La carta volverá a la de ' + cita(cat.nombre) + '.';
+                        texto = 'Se quitará al guardar. ' + destino + ' volverá a la de ' + cita(cat.nombre) + '.';
                     } else if (cat.nombre) {
-                        texto = 'Se quitará al guardar, y ' + cita(cat.nombre) + ' tampoco tiene foto.';
+                        texto = 'Se quitará al guardar, y ' + cita(cat.nombre) + ' tampoco tiene foto' + fuera + '.';
                     } else {
                         texto = 'Se quitará al guardar.';
                     }
                 } else if (cat.foto) {
-                    texto = 'Sin foto propia: la carta muestra la de ' + cita(cat.nombre) + '.';
+                    texto = 'Sin foto propia: ' + destino.toLowerCase() + ' muestra la de ' + cita(cat.nombre) + '.';
                 } else if (cat.nombre) {
-                    texto = 'Ni el platillo ni ' + cita(cat.nombre) + ' tienen foto.';
+                    texto = 'Ni el platillo ni ' + cita(cat.nombre) + ' tienen foto' + fuera + '.';
                 } else {
                     texto = 'Sin foto propia: la carta usará la de su categoría.';
                 }
             }
 
             campo.setAttribute('data-estado', estado);
+            campo.setAttribute('data-especial', cat.especial ? '1' : '0');
+            if (titulo) {
+                var tituloTexto = cat.especial ? 'Foto para la landing' : 'Foto del platillo';
+                if (titulo.textContent !== tituloTexto) {
+                    titulo.textContent = tituloTexto;
+                }
+            }
+            if (avisoEspecial) {
+                avisoEspecial.hidden = !cat.especial;
+            }
 
             if (src) {
                 if (img.getAttribute('src') !== src) {

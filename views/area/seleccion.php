@@ -15,9 +15,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 $h = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $usuarioNombre = trim((string) ($_SESSION['nombre'] ?? ''));
-$rolEtiquetas = ['admin' => 'Administrador', 'waiter' => 'Mesero', 'cook' => 'Cocinero'];
-$usuarioRol = $rolEtiquetas[(string) ($_SESSION['rol'] ?? '')] ?? 'Usuario';
-$esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
+// El nombre del rol sale de Roles y permisos; «volver al panel» sólo se
+// ofrece a quien entra al panel.
+$usuarioRol = \Classes\Auth::nombreRol() ?: 'Usuario';
+$esAdmin = \Classes\Auth::tienePanel();
 ?>
 <!DOCTYPE html>
 <html lang="es" data-admin-theme="dark">

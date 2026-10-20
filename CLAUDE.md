@@ -22,12 +22,13 @@ componentes. Lo que parezca "convención de framework" aquí es código propio.
   envuelve en `views/layout.php` (o el layout del módulo).
 - **Frontend**: JS vanilla ES5 (`var`, IIFEs, `fetch`, HTML por concatenación) y SCSS.
   Sin bundler más allá de gulp-concat/terser.
-- **Autenticación**: `classes/Auth.php`. `Auth::proteger()` corre en `public/index.php`
-  **antes** del ruteo y cierra `/admin/*` a `rol === 'admin'` **por prefijo**: una
-  ruta nueva bajo `/admin/` queda protegida sola, incluidas las `/admin/api/*`.
-  Las APIs que viven fuera de `/admin/` se abren a meseros o cocineros por
-  allowlist (`APIS_POS`, `APIS_AREA`, `APIS_PISO`, `APIS_ADMIN`): **una ruta
-  `/api/...` que no esté en ninguna lista queda pública**.
+- **Autenticación y permisos**: `classes/Auth.php` + `services/Security/Permisos.php`.
+  `Auth::proteger()` corre en `public/index.php` **antes** del ruteo; la decisión
+  la toma `Permisos::decidir()` (pura, sin base ni sesión) y Auth sólo carga el
+  rol y responde. Ver «Roles y permisos» abajo. Dos reglas que no perdonan:
+  **una ruta `/admin/*` sin módulo en `Permisos::RUTAS` sólo la abren los roles
+  de sistema** (y `run-roles-permisos.php` la delata), y **una ruta `/api/...`
+  que no esté en `Permisos::APIS` queda pública**.
 
 ### Rutas y convenciones
 
@@ -137,8 +138,9 @@ Credenciales de demo en `docs/usuarios/credenciales.md`.
 
 Fuentes documentales vigentes: `docs/arquitectura.md`, `docs/config.md`,
 `docs/operacion.md`, `docs/reservaciones/reservaciones.md`,
-`docs/reservaciones/notificaciones.md`, `docs/usuarios/usuarios.md` y
-`docs/privacidad/privacidad.md`. Las reglas de mesas y reservaciones tienen una
+`docs/reservaciones/notificaciones.md`, `docs/usuarios/usuarios.md`,
+`docs/usuarios/roles-y-permisos.md` (incluye el plan de la integración
+multiempresa) y `docs/privacidad/privacidad.md`. Las reglas de mesas y reservaciones tienen una
 fuente normativa en `docs/reservaciones/reservaciones.md`.
 
 El esquema vigente está en `database/ddl.sql`. Los datos mínimos de operación
@@ -154,7 +156,7 @@ Cosas que cargan peso y no son obvias:
   solo lectura; no escribir ahí.
 - `productos.nombre` es UNIQUE por dependencia funcional: el descuento de
   inventario, el COGS y el motor de sugerencias unen por nombre, no por id.
-- `categorias.carta` (`comida` | `maridaje`) parte el catálogo en las **dos
+- `categorias.carta` (`comida` | `maridaje` | `temporada`) parte el catálogo en las **dos
   piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
   categoría y no en el producto porque la carta es una decisión de SECCIÓN —
   «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
@@ -174,6 +176,25 @@ Cosas que cargan peso y no son obvias:
   ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
   por campos ocultos: si añades una columna a `categorias`, tiene que viajar
   ahí también o apagar una categoría la devuelve a su valor por defecto.
+- **Especiales de temporada** son el tercer valor de `categorias.carta`
+  (`temporada`), y no un módulo: la vitrina de la landing
+  (`views/home/_firma.php`) pinta los platillos activos de esas categorías
+  desde `Carta::especiales()`, impresos en el servidor. `deploy.sql` siembra
+  la categoría «Especiales de temporada» (id 15) **sin platillos**; la cocina
+  los da de alta en Menú cada semana y los apaga con el interruptor de
+  visibilidad. Antes eran un arreglo fijo en `src/js/modules/gallery.js`, que
+  ahora sólo engancha el clic y el avance con el scroll; las tarjetas usan el
+  marcado y el SCSS de siempre (`.gcard`, `_galeria.scss` sin cambios). Cuatro
+  reglas: no salen en la sección de menú ni en ningún PDF (`MenuPdf` cae a
+  comida si se le pide `temporada`) y el POS sí los vende; la foto es
+  **opcional** —el campo del formulario pasa a llamarse «Foto para la
+  landing»— y sin foto propia el especial toma la de su categoría
+  (`especiales-temporada.webp`, archivo propio porque reemplazarla borra el
+  anterior); sin ninguna de las dos no sale, porque la vitrina sólo pinta
+  tarjetas de foto; una semana sin especiales deja la sección con una línea
+  `.lead`, para no mover su número ni su enlace del índice; y
+  `run-especiales-temporada.php` falla si el ENUM del DDL se separa de
+  `CategoriasMenu::CARTAS`.
 - `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
 - **Variantes por platillo** (`producto_variantes` + `variante_ajustes`,
@@ -225,11 +246,48 @@ Cosas que cargan peso y no son obvias:
   una un enlace con su frase ya escrita. Las catas escriben al WhatsApp del
   restaurante (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering, al de
   eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
-- `usuarios` tiene dos vías de acceso: `password_hash` (admins, usuario+contraseña)
-  y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup
-  es un HMAC con `NIP_LOOKUP_SECRET` para resolver la fila directamente;
-  `password_verify` sólo confirma la credencial encontrada. La generación,
-  rotación y migración están documentadas en `docs/usuarios/usuarios.md`.
+- `usuarios` tiene dos vías de acceso: `password_hash` (usuario+contraseña)
+  y `nip_hash` + `nip_lookup` (NIP de **4 dígitos**). Cuál usa una cuenta lo
+  decide su ROL (ver «Roles y permisos»). El lookup es un HMAC con
+  `NIP_LOOKUP_SECRET` para resolver la fila directamente; `password_verify` sólo
+  confirma la credencial encontrada. La generación, rotación y migración están
+  documentadas en `docs/usuarios/usuarios.md`.
+- **Roles y permisos** (`/admin/roles`, módulo `roles`; documentación completa
+  y plan multiempresa en `docs/usuarios/roles-y-permisos.md`). `usuarios.rol` es un
+  slug con llave foránea a `roles.slug`; `rol_permisos` guarda, por rol, un
+  renglón por módulo con `ver` o `editar` (sin renglón, sin acceso). Los módulos
+  son las claves de `AdminController::MODULES` —el menú del panel—, y `pdv` y
+  `area` además abren las pantallas de piso (`/punto-de-venta`, `/area`).
+  Lo que hay que saber:
+  - **Ver = GET/HEAD, editar = todo lo demás**, en la guardia central: una ruta
+    nueva hereda la regla sola. Un formulario de un rol que sólo consulta vuelve
+    a su pantalla con el aviso de `AppNotice` que pinta el layout; una API
+    responde 403. Los botones de editar **no** se esconden por módulo (decisión
+    de la primera entrega): el servidor es la frontera.
+  - **Tres tipos de rol**: `sistema` (`super_admin`, `admin`: todo en editar,
+    calculado, ni se editan ni se borran), `predefinido` (`waiter`, `cook`:
+    se editan sus permisos, no se borran) y `personalizado`.
+  - **La vía de acceso se deduce, no se elige** (`Permisos::acceso()`): con algún
+    módulo del panel, contraseña; sólo piso, NIP. Por eso un rol con usuarios no
+    puede cambiar de vía (sus cuentas tienen la credencial de la otra) y los
+    logins filtran por `Rol::slugsConAcceso()`.
+  - **Nadie da lo que no tiene** (`Permisos::puedeOtorgar`). El super admin
+    asigna cualquier rol; el admin, cualquiera que no sea de sistema (no crea
+    ni edita cuentas de admin ni de super admin); un rol personalizado con
+    Usuarios o Roles, sólo roles que caben en los suyos. La cuenta que no se
+    puede perder es el **último super admin activo**.
+  - **Cada petición protegida relee el rol y el estado** de la cuenta: cambiar
+    permisos, reasignar o desactivar vale desde la siguiente acción, sin cerrar
+    sesión. Mesero y Cocinero tienen permisos de respaldo
+    (`Rol::PERMISOS_POR_DEFECTO`) por si la base no responde.
+  - **Quién es «admin» en el POS**: las capacidades administrativas de
+    reservaciones (comentario interno, ver contacto, capturarlo en el alta) son
+    de quien tiene `reservations` (ver para mirar el contacto, editar para el
+    resto), no de un rol con nombre. Las listas de «meseros» (asignar mesero a
+    un ticket, desempeño) siguen siendo sólo el rol `waiter`.
+  - **Unidades** (`unidades`: Restaurante, Panadería; `usuarios.unidad_id`):
+    sólo se asignan a cuentas con rol `admin`, sólo las asigna el super admin y
+    **hoy no restringen nada**: son la base de la integración multiempresa.
 
 ## Design system
 
