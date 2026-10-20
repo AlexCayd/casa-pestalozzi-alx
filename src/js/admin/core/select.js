@@ -16,6 +16,43 @@
     var registry = [];
     var instancias = [];
 
+    /**
+     * Da nombre accesible al disparador. El <label for> del formulario apunta
+     * al <select> nativo, que queda oculto, así que el control que se ve no
+     * tenía nombre: el lector anunciaba sólo el valor elegido —«Abarrotes El
+     * Puente»— sin decir de qué campo era.
+     *
+     * Orden: la <label> del select (y su clic pasa a enfocar el disparador, que
+     * es lo que hace una etiqueta con un campo nativo); si no hay, su
+     * aria-label; y si tampoco, el propio valor, que era el comportamiento de
+     * antes. Con rol combobox el nombre no sale del contenido, por eso hay que
+     * darlo siempre.
+     */
+    function nombrar(select, trigger, id) {
+        var etiqueta = select.labels && select.labels.length ? select.labels[0] : null;
+
+        if (etiqueta) {
+            if (!etiqueta.id) {
+                etiqueta.id = id + '-rotulo';
+            }
+            trigger.setAttribute('aria-labelledby', etiqueta.id);
+            etiqueta.addEventListener('click', function (event) {
+                event.preventDefault();
+                if (!trigger.disabled) {
+                    trigger.focus();
+                }
+            });
+            return;
+        }
+
+        if (select.getAttribute('aria-label')) {
+            trigger.setAttribute('aria-label', select.getAttribute('aria-label'));
+            return;
+        }
+
+        trigger.setAttribute('aria-labelledby', id + '-valor');
+    }
+
     function enhance(select) {
         if (
             select.dataset.enhanced
@@ -42,6 +79,14 @@
         var trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.className = 'admin-select__trigger';
+        /*
+         * combobox y no un botón a secas: es el patrón «select-only combobox».
+         * Con el rol de botón, el aria-activedescendant de abajo no lo
+         * reconoce ningún lector (no es un atributo válido en un botón) y las
+         * flechas movían una opción que nadie oía. Un <button> admite el rol
+         * combobox, así que conserva el foco, el Enter y el clic nativos.
+         */
+        trigger.setAttribute('role', 'combobox');
         trigger.setAttribute('aria-haspopup', 'listbox');
         trigger.setAttribute('aria-expanded', 'false');
         trigger.setAttribute('aria-controls', id);
@@ -49,16 +94,24 @@
             trigger.disabled = true;
         }
         trigger.innerHTML =
-            '<span class="admin-select__value"></span>' +
+            '<span class="admin-select__value" id="' + id + '-valor"></span>' +
             '<svg class="admin-select__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
             'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="m6 9 6 6 6-6"/></svg>';
         wrapper.appendChild(trigger);
+        nombrar(select, trigger, id);
 
         var list = document.createElement('ul');
         list.className = 'admin-select__list';
         list.id = id;
         list.setAttribute('role', 'listbox');
+        // La lista se llama como su campo: se porta a <body>, lejos de la
+        // etiqueta, y sin nombre el lector la anunciaba como «lista» a secas.
+        if (trigger.getAttribute('aria-labelledby')) {
+            list.setAttribute('aria-labelledby', trigger.getAttribute('aria-labelledby'));
+        } else if (trigger.getAttribute('aria-label')) {
+            list.setAttribute('aria-label', trigger.getAttribute('aria-label'));
+        }
         list.hidden = true;
 
         var valueEl = trigger.querySelector('.admin-select__value');
@@ -209,6 +262,24 @@
                 }
             } else if (event.key === 'Escape' && open) {
                 event.preventDefault();
+                closeList();
+            } else if ((event.key === 'Home' || event.key === 'End') && open) {
+                // Primera y última opción, como en un <select> nativo.
+                event.preventDefault();
+                if (event.key === 'Home') {
+                    setActive(options[0] || null);
+                    if (options[0] && select.options[0].disabled) {
+                        moveActive(1);
+                    }
+                } else {
+                    setActive(options[options.length - 1] || null);
+                    if (options.length && select.options[options.length - 1].disabled) {
+                        moveActive(-1);
+                    }
+                }
+            } else if (event.key === 'Tab' && open) {
+                // El foco se va: la lista no puede quedarse flotando sobre la
+                // página sin dueño. No se previene el Tab, sigue su camino.
                 closeList();
             }
         });

@@ -6,16 +6,31 @@
  * con scroll propio. Por eso ocupa el alto útil entero y anula el padding del
  * contenedor de módulo.
  *
- * Todo sale de los tokens del panel (base/_globals.scss): blanco y negro, Geist
- * para el texto y Geist Mono para cifras y rótulos. El único color funcional que
- * aparece es de ESTADO —el punto ámbar de «vista previa», el azul de un aviso,
- * el rojo de un error o de borrar—, nunca de cromo.
+ * Dos modos sobre el mismo marcado (`.ia-chat.is-vacia` o no): en una
+ * conversación nueva, saludo, compositor y catálogo forman un bloque centrado;
+ * con mensajes, el hilo ocupa el alto y el compositor se queda abajo.
+ *
+ * Todo sale de los tokens del panel (base/_globals.scss): blanco y negro,
+ * Satoshi para el texto, Expose para el saludo y para la cifra de una
+ * respuesta (`--admin-font-cifra`), y Geist Mono para los rótulos en
+ * versalitas y las cifras de tabla, siempre por `--admin-font-*`. Los botones
+ * van en relleno SÓLIDO (lo pidió el cliente), nunca en tinte translúcido, y
+ * sin filetes laterales de color. El color funcional sólo aparece como ESTADO
+ * —un ingrediente bajo mínimo, una cifra que mejora o empeora, un error,
+ * borrar—, nunca en el cromo.
+ *
+ * Casi todo va escrito bajo `.ia` (0,2,0) y no como clase suelta: las reglas
+ * de elemento del panel —`.admin-body button` (`font: inherit; margin: 0`),
+ * `.admin-body p` y `.admin-body h1…h3`— suman (0,1,1) y le ganaban a
+ * cualquier clase sola. Así se perdían el cuerpo y el peso de casi todos los
+ * botones de esta pantalla.
  */
 @use '../shared/abstracts/variables' as vars;
 @use '../shared/abstracts/mixins' as mixins;
 
-/* El patrón de scroll de la casa, en los tres contenedores que lo necesitan:
-   el historial, el hilo y el propio campo cuando llega a su tope. */
+/* El patrón de scroll de la casa, en los contenedores que lo necesitan: el
+   historial, el hilo, el estado vacío y el propio campo cuando llega a su
+   tope. */
 @mixin scroll-propio {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -36,6 +51,38 @@
     background-clip: padding-box;
     background-color: var(--admin-sidebar-scroll);
   }
+}
+
+/* Rótulo de la casa: mono, versalitas y tracking abierto. */
+@mixin rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@mixin oculto-visual {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* El panel ya pinta su foco como un box-shadow doble (`.admin-body
+   :focus-visible`, _finishes.scss: halo de 2 px y acento de 2 px). Sumado a
+   este outline salían TRES líneas concéntricas alrededor de cada fila del
+   catálogo. Aquí manda uno solo: con 2 px de desfase el outline dibuja lo mismo
+   que el anillo del panel —hueco y acento—, y además no lo borra el box-shadow
+   que algunos botones ponen al apuntar. */
+@mixin anillo($desfase: 2px) {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: $desfase;
+  box-shadow: none;
 }
 
 /* ── El lienzo ─────────────────────────────────────────────────
@@ -70,19 +117,29 @@
      dos filas—; este valor sólo cubre la primera pintura. */
   --ia-cabecera-panel: 56px;
   --ia-historial-ancho: 272px;
-  /* Columna de lectura: unos 70 caracteres a 15 px, que es lo que se lee sin
-     mover la cabeza. El hilo y el compositor comparten este ancho para que el
-     texto que se escribe caiga en la misma vertical que el que se lee. */
+  /* Columna de lectura: unos 70 caracteres a 15 px. El hilo, el compositor y
+     el catálogo comparten este ancho para que lo que se escribe caiga en la
+     misma vertical que lo que se lee. */
   --ia-columna: 784px;
   --ia-hueco: clamp(16px, 3vw, 32px);
-  --ia-campo-max: 220px;
-  --ia-hover: color-mix(in srgb, var(--admin-text) 6%, transparent);
-  --ia-activo: color-mix(in srgb, var(--admin-text) 9%, transparent);
+  /* Rellenos de botón SÓLIDOS, no tintes translúcidos (lo pidió el cliente):
+     la mezcla es contra la superficie sobre la que van, no contra
+     `transparent`, así que el botón no deja ver lo que tiene detrás. El
+     historial, que va sobre `--admin-bg`, los redeclara contra su fondo. */
+  --ia-hover: color-mix(in srgb, var(--admin-text) 7%, var(--admin-surface));
+  --ia-activo: color-mix(in srgb, var(--admin-text) 11%, var(--admin-surface));
+  /* El relleno en reposo de un botón secundario (preguntas base, píldoras,
+     la pregunta del compositor): un escalón por encima de la superficie. Con
+     una pizca de tinta y no `--admin-surface-strong` a secas: en claro las
+     dos superficies son el mismo blanco, y el «relleno sólido» se leía como
+     un botón de puro contorno. */
+  --ia-boton: color-mix(in srgb, var(--admin-text) 4%, var(--admin-surface-strong));
   /* El texto más tenue de la pantalla. `--admin-faint` está calibrado contra
      `--admin-bg` y llega justo al 4.5:1 sobre `--admin-surface`; sobre una
-     superficie más clara que ésa —la caja del compositor y el cajón de cristal
-     en tema oscuro— baja a 3.4-3.7:1. Por eso no se escribe a pelo: cada
-     superficie elevada redeclara este rol con lo que sí cumple sobre ella. */
+     superficie más clara que ésa —la caja del compositor, la ficha y el cajón
+     de cristal en tema oscuro— baja a 3.4-3.7:1. Por eso no se escribe a
+     pelo: cada superficie elevada redeclara este rol con lo que sí cumple
+     sobre ella. */
   --ia-tenue: var(--admin-faint);
 
   position: relative;
@@ -110,6 +167,33 @@
   grid-template-columns: 0 minmax(0, 1fr);
 }
 
+/* Botones de sólo icono: historial, nueva conversación y cerrar el cajón. */
+.ia .ia-icono-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition:
+    background var(--admin-t-fast) var(--admin-ease-out),
+    color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    background: var(--ia-hover);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    @include anillo;
+  }
+}
+
 /* ── Historial ─────────────────────────────────────────────────
  *
  * Ancho FIJO aunque su columna se pliegue a cero: así el contenido no se
@@ -117,6 +201,9 @@
  * del chat, que va encima (z-index) y es opaco.
  */
 .ia-historial {
+  --ia-hover: color-mix(in srgb, var(--admin-text) 7%, var(--admin-bg));
+  --ia-activo: color-mix(in srgb, var(--admin-text) 11%, var(--admin-bg));
+
   display: flex;
   flex-direction: column;
   width: var(--ia-historial-ancho);
@@ -138,40 +225,40 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 61px;
-  padding: 8px 8px 8px 18px;
+  min-height: 56px;
+  padding: 6px 8px 6px 18px;
 }
 
 .ia .ia-historial__rotulo {
+  @include rotulo;
   color: var(--admin-muted);
-  font-family: var(--admin-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
-/* El botón de cerrar sólo existe en el cajón (tablet y móvil). */
-.ia-historial__cerrar {
+/* El botón de cerrar sólo existe en el cajón (tablet y móvil). Con el `.ia`
+   delante, porque `.ia .ia-icono-btn` también fija su `display`. */
+.ia .ia-historial__cerrar {
   display: none;
 }
 
-.ia-nueva {
+/* «Nueva conversación»: la acción de la columna, pero no la principal de la
+   pantalla —ésa es enviar, en acento—, así que va en relleno sólido NEUTRO:
+   botón de verdad, sin competir con el primario. */
+.ia .ia-nueva {
   display: flex;
   flex: none;
   align-items: center;
   gap: 10px;
-  margin: 0 12px 12px;
-  min-height: 44px;
+  margin: 2px 12px 14px;
+  min-height: 42px;
   padding: 0 14px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
+  background: var(--admin-surface-strong);
   box-shadow: var(--admin-shadow-sm);
   color: var(--admin-text);
   font-size: 13.5px;
   font-weight: 600;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   text-align: left;
   cursor: pointer;
@@ -185,42 +272,73 @@
 
   &:hover {
     border-color: var(--admin-border-strong);
-    background: var(--admin-surface-strong);
+    background: color-mix(in srgb, var(--admin-text) 7%, var(--admin-surface-strong));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--admin-surface-strong));
   }
 
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: 2px;
+    @include anillo;
   }
 }
 
 .ia-historial__lista {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 2px 8px 16px;
+  padding: 0 8px 16px;
   @include scroll-propio;
 }
 
-.ia .ia-historial__vacio {
-  padding: 10px 10px;
+/* Sin conversaciones: qué es esta columna y para qué va a servir, en vez de
+   un hueco que parece un error de carga. */
+.ia-historial__vacio {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin: 4px 4px 0;
+  padding: 16px 14px 18px;
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+}
+
+.ia-historial__vacio-icono {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border-radius: 9px;
+  background: var(--admin-neutral-bg);
+  color: var(--admin-muted);
+
+  svg {
+    stroke-width: 1.9;
+  }
+}
+
+.ia .ia-historial__vacio-titulo {
+  color: var(--admin-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ia .ia-historial__vacio-texto {
   color: var(--ia-tenue);
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.5;
 }
 
 .ia-grupo + .ia-grupo {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .ia .ia-grupo__titulo {
+  @include rotulo;
   padding: 6px 10px;
   color: var(--ia-tenue);
-  font-family: var(--admin-font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .ia-grupo__lista {
@@ -233,15 +351,15 @@
   position: relative;
 }
 
-.ia-conv__abrir {
+.ia .ia-conv__abrir {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 44px;
+  min-height: 52px;
   /* El hueco de la derecha es del botón de borrar, que se superpone. Se
      reserva siempre para que el título no cambie de corte al apuntar. */
-  padding: 0 44px 0 10px;
+  padding: 7px 44px 7px 10px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -260,23 +378,51 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: -2px;
+    @include anillo(-2px);
   }
 }
 
-.ia-conv__texto {
+.ia-conv__cuerpo {
+  display: grid;
   flex: 1 1 auto;
+  gap: 2px;
   min-width: 0;
+}
+
+.ia-conv__texto {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.ia-conv.is-activa .ia-conv__abrir {
+/* Cuándo y cuánto: la hora (o el día) y el número de preguntas, en la mono de
+   las cifras. Es lo que distingue dos conversaciones con títulos parecidos. */
+.ia-conv__meta {
+  overflow: hidden;
+  color: var(--ia-tenue);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ia .ia-conv.is-activa .ia-conv__abrir {
   background: var(--ia-activo);
   color: var(--admin-text);
-  font-weight: 600;
+
+  .ia-conv__texto {
+    font-weight: 600;
+  }
+}
+
+/* Sobre el relleno de la fila activa, `--admin-faint` —calibrado contra el
+   fondo desnudo— bajaba a 4.3:1 en los dos temas (medido en el navegador). La
+   meta sube a `--admin-muted` (6.4-6.5:1) en la activa y al apuntar: la fila
+   entera se enciende, título y meta a la vez. */
+.ia .ia-conv__abrir:hover .ia-conv__meta,
+.ia .ia-conv.is-activa .ia-conv__meta {
+  color: var(--admin-muted);
 }
 
 /* Una respuesta que llegó mientras se miraba otra conversación. Un punto en
@@ -297,9 +443,9 @@
   animation: ia-latido 1.4s var(--admin-ease-out) infinite;
 }
 
-.ia-conv__borrar {
+.ia .ia-conv__borrar {
   position: absolute;
-  top: 0;
+  top: 50%;
   right: 0;
   display: grid;
   place-items: center;
@@ -309,22 +455,31 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--ia-tenue);
+  color: var(--admin-muted);
   cursor: pointer;
   opacity: 0;
+  transform: translateY(-50%);
   transition:
     opacity var(--admin-t-fast) var(--admin-ease-out),
     color var(--admin-t-fast) var(--admin-ease-out);
 
-  /* El círculo visible es más chico que el área de toque: 44 px de blanco
-     para el dedo, 30 px de forma para el ojo. */
+  /* El borrar del panel es papel sobre rojo pleno (`.admin-icon-button--danger`)
+     y éste lo sigue, pero sólo cuando el objetivo es ÉL: apuntado, enfocado o
+     pulsándose. En reposo visible (la fila apuntada, la activa, o siempre en
+     táctil) es el glifo en neutro, como «Salir» del topbar: un rojo fijo junto
+     a la conversación que se está leyendo —o diez a la vez en una tablet—
+     diría «hay algo que atender» cuando no lo hay. Borrar pasa además por
+     ConfirmationModal. La forma visible es más chica que el área de toque:
+     44 px para el dedo, 30 px para el ojo. */
   &::before {
     content: "";
     position: absolute;
     inset: 7px;
     border-radius: 8px;
     background: transparent;
-    transition: background var(--admin-t-fast) var(--admin-ease-out);
+    transition:
+      background var(--admin-t-fast) var(--admin-ease-out),
+      box-shadow var(--admin-t-fast) var(--admin-ease-out);
   }
 
   svg {
@@ -333,24 +488,31 @@
     height: 16px;
   }
 
-  &:hover {
-    color: var(--admin-danger-text);
+  &:hover,
+  &:focus-visible,
+  &:active {
+    color: var(--admin-on-danger);
+  }
 
-    &::before {
-      background: var(--admin-danger-bg);
-    }
+  &:hover::before,
+  &:focus-visible::before {
+    background: var(--admin-danger);
+    box-shadow: var(--admin-shadow-sm);
+  }
+
+  &:active::before {
+    background: color-mix(in srgb, var(--admin-danger) 86%, var(--admin-ink));
   }
 
   &:focus-visible {
     opacity: 1;
-    outline: 2px solid var(--admin-accent);
-    outline-offset: -5px;
+    @include anillo(-5px);
   }
 }
 
-.ia-conv:hover .ia-conv__borrar,
-.ia-conv:focus-within .ia-conv__borrar,
-.ia-conv.is-activa .ia-conv__borrar {
+.ia .ia-conv:hover .ia-conv__borrar,
+.ia .ia-conv:focus-within .ia-conv__borrar,
+.ia .ia-conv.is-activa .ia-conv__borrar {
   opacity: 1;
 }
 
@@ -378,7 +540,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   background: var(--admin-surface);
@@ -387,10 +549,11 @@
 .ia-chat__cabecera {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 61px;
-  padding: 8px 16px 8px 10px;
+  gap: 8px;
+  min-height: 56px;
+  padding: 6px 12px 6px 8px;
   border-bottom: 1px solid var(--admin-border-soft);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out);
 }
 
 .ia-chat__titulo {
@@ -399,9 +562,12 @@
 }
 
 .ia .ia-chat__h1 {
-  margin-top: 2px;
   overflow: hidden;
   color: var(--admin-text);
+  /* Es el <h1> de la página, pero se lee como una etiqueta de 15 px: en la
+     cara de titulares (la de `.admin-body h1`) se apretaba. La sans, como los
+     encabezados de componente. */
+  font-family: var(--admin-font-sans);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.3;
@@ -417,89 +583,127 @@
   }
 }
 
-/* Botones de sólo icono: historial, nueva conversación y cerrar el cajón. */
-.ia-icono-btn {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--admin-radius-sm);
-  background: transparent;
-  color: var(--admin-muted);
-  cursor: pointer;
-  transition:
-    background var(--admin-t-fast) var(--admin-ease-out),
-    color var(--admin-t-fast) var(--admin-ease-out);
-
-  &:hover {
-    background: var(--ia-hover);
-    color: var(--admin-text);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: 2px;
-  }
+/* En una conversación nueva la cabecera se queda en sus botones: el título
+   («Nueva conversación») sigue para el lector de pantalla, pero el
+   protagonista visible es el saludo, y la raya de abajo partía en dos un
+   lienzo que tiene que leerse entero. */
+.ia-chat.is-vacia .ia-chat__cabecera {
+  border-bottom-color: transparent;
 }
 
-/* Con el historial a la vista, «Nueva conversación» ya está arriba de la lista;
-   repetirla en la cabecera sería tener dos botones iguales a un palmo. */
-.ia:not(.is-historial-oculto) .ia-chat__nueva {
+.ia .ia-chat.is-vacia .ia-chat__h1 {
+  @include oculto-visual;
+}
+
+/* Con el historial a la vista, «Nueva conversación» ya está arriba de la
+   lista; repetirla en la cabecera sería tener dos botones iguales a un palmo.
+   Y en una conversación nueva no hay nada nuevo que abrir. */
+.ia:not(.is-historial-oculto) .ia-chat__nueva,
+.ia .ia-chat.is-vacia .ia-chat__nueva {
   display: none;
 }
 
-/* El aviso de que la integración está pendiente. Discreto: una píldora neutra
-   con un punto ámbar, que es el color de advertencia del sistema. Dice algo
-   del estado de la herramienta, no del negocio, y no debe competir con la
-   conversación. */
-.ia .ia-estado {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
+/* ── El escenario: los dos modos ───────────────────────────────── */
+
+/* Conversación: el hilo ocupa lo que haya y el compositor se queda abajo. */
+.ia-chat__escenario {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
 }
 
-.ia-estado__punto {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--admin-warning);
-  box-shadow: 0 0 0 3px var(--admin-warning-bg);
-}
-
-/* ── Hilo ──────────────────────────────────────────────────────── */
 .ia-chat__cuerpo {
   position: relative;
   display: grid;
   min-height: 0;
 }
 
+/* Conversación nueva: saludo, compositor y catálogo en una sola columna
+   centrada que se desplaza entera si no cabe. Los dos espaciadores reparten el
+   aire sobrante 1 : 1.4, así el compositor queda algo por encima del centro,
+   donde cae la vista al llegar; con contenido de sobra se encogen a cero y el
+   bloque arranca arriba sin cortarse (un `justify-content: center` lo cortaría
+   por arriba). */
+.ia-chat.is-vacia .ia-chat__escenario {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 40px;
+  /* Lo mismo que en el hilo: en un portátil el catálogo desborda, y la barra
+     descentraba el compositor justo antes de que viajara al pie. */
+  scrollbar-gutter: stable both-edges;
+  @include scroll-propio;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1 1 0;
+  }
+
+  &::after {
+    flex-grow: 1.4;
+  }
+}
+
+.ia-chat.is-vacia .ia-chat__cuerpo,
+.ia-chat:not(.is-vacia) .ia-saludo,
+.ia-chat:not(.is-vacia) .ia-catalogo {
+  display: none;
+}
+
+/* ── Saludo ────────────────────────────────────────────────────── */
+.ia-saludo {
+  flex: none;
+  width: min(100%, var(--ia-columna));
+  padding: 0 var(--ia-hueco);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.ia .ia-saludo__hola {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--admin-muted);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.ia .ia-saludo__titulo {
+  margin-top: 12px;
+  color: var(--admin-text);
+  /* Por token y no heredada de `.admin-body h2`: el saludo es EL titular de
+     la pantalla y no debe cambiar de cara si cambia la regla de los h2. */
+  font-family: var(--admin-font-titular);
+  font-size: clamp(30px, 4.4vw, 46px);
+  font-weight: 600;
+  line-height: 1.04;
+  /* La cara de titulares ya es estrecha: el tracking cerrado que pedía una
+     sans de texto la empastaba. Apenas un toque, para el cuerpo grande. */
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+/* ── Hilo ──────────────────────────────────────────────────────── */
 .ia-hilo {
   min-height: 0;
   container-type: inline-size;
   container-name: ia-hilo;
   scroll-padding-bottom: 24px;
+  /* Sin canal reservado, la segunda o tercera respuesta —la primera que
+     desborda— hacía aparecer la barra y el hilo entero saltaba de lado, y desde
+     ahí la columna de mensajes dejaba de caer sobre la del compositor, que está
+     fuera del scroll. En los dos bordes para que la columna siga centrada en el
+     mismo eje que él. */
+  scrollbar-gutter: stable both-edges;
   @include scroll-propio;
 
   /* Es una región desplazable con foco propio (tabindex="0"), para que quien
      navega con teclado pueda leer el historial con las flechas. */
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: -2px;
+    @include anillo(-2px);
   }
 }
 
@@ -509,144 +713,171 @@
   width: min(100%, var(--ia-columna));
   min-height: 100%;
   margin: 0 auto;
-  padding: 32px var(--ia-hueco) 32px;
+  padding: 32px var(--ia-hueco);
 }
 
-/* ── Estado vacío ──────────────────────────────────────────────── */
-.ia-vacio {
-  margin-block: auto;
-  padding-block: 16px 8px;
-}
-
-.ia-vacio__saludo {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-}
-
-.ia .ia-vacio__titulo {
-  color: var(--admin-text);
-  font-size: clamp(26px, 3.4vw, 36px);
-  font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: -0.035em;
-}
-
-.ia .ia-vacio__bajada {
-  max-width: 54ch;
-  color: var(--admin-muted);
-  font-size: 15px;
-  line-height: 1.55;
-}
-
-.ia-sugerencias {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px 18px;
+/* ── Catálogo: lo que se puede preguntar ───────────────────────────
+ *
+ * Compacto: una fila por familia de pregunta —el rótulo en mono encima y sus
+ * preguntas base en píldoras con su icono—. Elegir una píldora ARMA la
+ * pregunta en el compositor de arriba; no consulta. Por eso no llevan la
+ * flecha de enviar: prometería algo que no pasa. La que está armada queda
+ * marcada (aria-pressed) en relleno de acento: es la misma pregunta que se lee
+ * arriba. Ya no hay fila de periodos: el periodo es un hueco con su lista.
+ */
+.ia-catalogo {
+  flex: none;
+  width: min(100%, var(--ia-columna));
   margin-top: 40px;
+  padding: 0 var(--ia-hueco);
+  container-type: inline-size;
+  container-name: ia-catalogo;
 }
 
-.ia .ia-tema__titulo {
+.ia .ia-catalogo__titulo {
+  @include rotulo;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  color: var(--admin-muted);
-  font-family: var(--admin-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 14px;
+  color: var(--ia-tenue);
 
-  svg {
-    stroke-width: 2;
+  /* Dos filetes a los lados: el rótulo separa el catálogo del compositor sin
+     una caja que lo encierre. */
+  &::before,
+  &::after {
+    content: "";
+    flex: 1 1 0;
+    border-top: 1px solid var(--admin-border-soft);
   }
 }
 
-.ia-tema__lista {
+.ia .ia-catalogo__ayuda {
+  margin: 8px 0 18px;
+  color: var(--ia-tenue);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.ia-catalogo__temas {
+  display: grid;
+  gap: 18px;
+}
+
+/* El rótulo ENCIMA de sus píldoras, no en una columna al lado. Con el rótulo
+   en una columna de 104 px a la izquierda, las cuatro preguntas de Ventas no
+   cabían nunca en un renglón —ni a 1536 px— y «Lo más vendido» quedaba sola en
+   el segundo, en todos los anchos de escritorio. Encima, las cuatro caben en
+   la columna entera desde unos 640 px de contenido, que es lo que queda a
+   1280 px con el sidebar y el historial abiertos; y es el par de la casa:
+   rótulo mono arriba, contenido debajo. */
+.ia-tema {
   display: grid;
   gap: 8px;
+}
+
+.ia .ia-tema__titulo {
+  @include rotulo;
+  color: var(--admin-muted);
+}
+
+.ia-tema__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   list-style: none;
 }
 
-.ia-sugerencia {
-  display: flex;
+/* 13 px, como los botones del panel y las píldoras de las respuestas: a 13.5
+   el renglón de Ventas se pasaba por 20 px justo en el portátil de 1280.
+   Relleno sólido en reposo (`--ia-boton`) con canto y sombra corta: se lee
+   como botón, no como etiqueta. Cuatro estados que no se confunden: apuntada
+   (un escalón más oscuro), pulsándose (se hunde), enfocada (el anillo) y
+   ARMADA (acento pleno con su tinta encima). */
+.ia .ia-base {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding: 12px 14px 12px 16px;
-  /* `--admin-border` y no `-soft`: son ocho botones y la flecha sólo asoma al
-     apuntar, así que en reposo el contorno es lo único que dice «se pulsa».
-     El `-soft` (9 % de tinta sobre blanco) es de separador, y con él la rejilla
-     se leía como una lista de texto. */
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px 0 11px;
   border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
+  border-radius: 999px;
+  background: var(--ia-boton);
+  box-shadow: var(--admin-shadow-sm);
   color: var(--admin-text);
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: left;
+  font-family: var(--admin-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
   cursor: pointer;
   transition:
     border-color var(--admin-t-fast) var(--admin-ease-out),
     background var(--admin-t-fast) var(--admin-ease-out),
+    color var(--admin-t-fast) var(--admin-ease-out),
+    box-shadow var(--admin-t-fast) var(--admin-ease-out),
     transform var(--admin-t-fast) var(--admin-ease-out);
 
   &:hover {
     border-color: var(--admin-border-strong);
-    background: color-mix(in srgb, var(--admin-text) 3%, var(--admin-surface));
+    background: color-mix(in srgb, var(--admin-text) 7%, var(--ia-boton));
   }
 
   &:active {
-    transform: scale(0.99);
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--ia-boton));
+    box-shadow: none;
+    transform: scale(0.97);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: 2px;
+    @include anillo;
+  }
+
+  &[aria-pressed="true"] {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+    font-weight: 600;
+
+    &:hover {
+      background: color-mix(in srgb, var(--admin-on-accent) 12%, var(--admin-accent));
+    }
   }
 }
 
-/* La flecha de enviar asoma al apuntar: dice que pulsar MANDA la pregunta, no
-   que la copia al campo. En táctil no hay «apuntar», así que va siempre. */
-.ia-sugerencia__flecha {
+.ia-base__icono {
+  display: inline-flex;
   color: var(--admin-muted);
-  opacity: 0;
-  transform: translateY(3px);
-  transition:
-    opacity var(--admin-t-fast) var(--admin-ease-out),
-    transform var(--admin-t-base) var(--admin-ease);
+  transition: color var(--admin-t-fast) var(--admin-ease-out);
 
-  .ia-sugerencia:hover &,
-  .ia-sugerencia:focus-visible & {
-    opacity: 1;
-    transform: none;
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1.9;
   }
 
-  @media (hover: none) {
-    opacity: 0.7;
-    transform: none;
+  .ia-base:hover &,
+  .ia-base:focus-visible & {
+    color: var(--admin-text);
+  }
+
+  .ia-base[aria-pressed="true"] & {
+    color: var(--admin-on-accent);
   }
 }
 
-@container ia-hilo (max-width: 620px) {
-  .ia-sugerencias {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-    margin-top: 32px;
+@container ia-catalogo (max-width: 560px) {
+  .ia .ia-catalogo__ayuda {
+    text-align: left;
   }
 }
 
 /* ── Mensajes ──────────────────────────────────────────────────── */
 /* Cada mensaje arrastra debajo su fila de acciones de 44 px —invisible con
    ratón hasta apuntar—, así que con un `gap` uniforme la pregunta quedaba a la
-   misma distancia de su respuesta que del intercambio anterior, ~64 px en los
-   dos sentidos, y el hilo se leía como mensajes sueltos. El hueco base es
-   corto y el aire extra va ANTES de cada pregunta que sigue a una respuesta:
-   pregunta y respuesta se agrupan, y cada intercambio empieza separado. */
+   misma distancia de su respuesta que del intercambio anterior, y el hilo se
+   leía como mensajes sueltos. El hueco base es corto y el aire extra va ANTES
+   de cada pregunta que sigue a una respuesta. */
 .ia-mensajes {
   display: flex;
   flex-direction: column;
@@ -666,14 +897,6 @@
    historial el hilo se pinta de golpe, sin cascada. */
 .ia-msg.is-nuevo {
   animation: ia-entra 320ms var(--admin-ease) both;
-}
-
-/* La respuesta que sale en el mismo fotograma que la pregunta (el aviso de
-   «conexión pendiente») entra un instante después: sin el desfase las dos
-   llegarían como un solo bloque y no se leería quién dijo qué. Es el CSS el
-   que escalona, no una espera simulada en el JS. */
-.ia-msg.is-nuevo.is-nuevo-tras {
-  animation-delay: 160ms;
 }
 
 .ia-msg--usuario {
@@ -728,28 +951,23 @@
   }
 }
 
-.ia-marca--grande {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 10px;
-  border-radius: 15px;
+.ia-marca--chica {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
 
   svg {
-    width: 26px;
-    height: 26px;
-    stroke-width: 1.6;
+    width: 15px;
+    height: 15px;
   }
 }
 
-/* «Pensando»: la estrella gira un cuarto de vuelta y respira, y la chispa
-   parpadea. Un cuarto de vuelta exacto porque la estrella tiene cuatro puntas:
-   a 90° vuelve a ser idéntica y el bucle no tiene costura. Sólo gira la
-   estrella —la chispa saltaría de esquina al reiniciar—.
-
-   Curva de ida y vuelta, no la expo-out del sistema: en un bucle, una curva de
-   salida arranca a toda velocidad en cada fotograma clave, y la estrella daba
-   dos tirones por ciclo durante todo lo que tardara la respuesta. Con ésta
-   respira en continuo, y en fase con la chispa, que usa la misma. */
+/* Mientras consulta: la estrella gira un cuarto de vuelta y respira, y la
+   chispa parpadea. Un cuarto de vuelta exacto porque la estrella tiene cuatro
+   puntas: a 90° vuelve a ser idéntica y el bucle no tiene costura. Curva de
+   ida y vuelta, no la expo-out del sistema: en un bucle, una curva de salida
+   arranca a toda velocidad en cada fotograma clave y daba dos tirones por
+   ciclo. */
 .ia-marca.is-viva svg path:first-child {
   transform-box: fill-box;
   transform-origin: center;
@@ -775,7 +993,7 @@
   font-weight: 500;
 }
 
-/* Un barrido de luz sobre la palabra en vez de tres puntos: dice «trabajando»
+/* Un barrido de luz sobre la frase en vez de tres puntos: dice «trabajando»
    sin añadir un objeto más a la fila. Detrás de @supports porque con
    `color: transparent` y sin recorte de fondo la palabra desaparecería. */
 @supports ((background-clip: text) or (-webkit-background-clip: text)) {
@@ -792,7 +1010,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: ia-brillo 2.2s linear infinite;
+    animation: ia-brillo 1.8s linear infinite;
   }
 }
 
@@ -803,131 +1021,24 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Markdown de las respuestas ────────────────────────────────
+/* ── La respuesta ──────────────────────────────────────────────────
  *
- * El JS escapa el HTML ANTES de dar formato, así que aquí sólo llegan las
- * etiquetas que él mismo emite. Los selectores van con `.ia` delante porque
- * `.admin-body p` y `.admin-body h3` (0,1,1) imponen color y cuerpo de titular
- * a todo el panel.
+ * Frase, ficha y por dónde seguir. La frase es lo que diría una persona; la
+ * ficha, el dato con su prueba; y las píldoras, las preguntas siguientes de
+ * un toque.
  */
-.ia .ia-md {
+.ia-resp {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.ia .ia-resp__frase {
+  max-width: 64ch;
   color: var(--admin-text);
-  font-size: 15px;
-  line-height: 1.65;
-  overflow-wrap: break-word;
-
-  > * + * {
-    margin-top: 0.8em;
-  }
-
-  p {
-    color: var(--admin-text);
-  }
-
-  strong {
-    color: var(--admin-text);
-    font-weight: 600;
-  }
-
-  em {
-    font-style: italic;
-  }
-
-  del {
-    color: var(--admin-faint);
-  }
-
-  ul,
-  ol {
-    display: grid;
-    gap: 0.35em;
-    padding-left: 1.4em;
-  }
-
-  ul {
-    list-style: disc;
-  }
-
-  ol {
-    list-style: decimal;
-  }
-
-  li {
-    padding-left: 0.2em;
-  }
-
-  li::marker {
-    color: var(--admin-faint);
-  }
-
-  ol > li::marker {
-    font-family: var(--admin-font-mono);
-    font-size: 0.88em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  code {
-    padding: 0.1em 0.38em;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: 6px;
-    background: var(--admin-surface-soft);
-    font-size: 0.86em;
-  }
-
-  pre {
-    padding: 14px 16px;
-    overflow-x: auto;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-    font-family: var(--admin-font-mono);
-    font-size: 13px;
-    line-height: 1.55;
-    scrollbar-width: thin;
-
-    code {
-      padding: 0;
-      border: 0;
-      background: none;
-      font-size: inherit;
-    }
-  }
-
-  blockquote {
-    padding-left: 14px;
-    border-left: 2px solid var(--admin-line-strong);
-    color: var(--admin-muted);
-  }
-
-  hr {
-    margin-block: 1.2em;
-    border: 0;
-    border-top: 1px solid var(--admin-border-soft);
-  }
-
-  a {
-    color: var(--admin-text);
-    text-decoration: underline;
-    text-decoration-color: var(--admin-border-strong);
-    text-underline-offset: 3px;
-
-    &:hover {
-      text-decoration-color: currentColor;
-    }
-  }
-
-  .ia-md__h {
-    margin-top: 1.2em;
-    color: var(--admin-text);
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: -0.015em;
-  }
-
-  > .ia-md__h:first-child {
-    margin-top: 0;
-  }
+  font-size: 15.5px;
+  line-height: 1.6;
+  text-wrap: pretty;
 }
 
 /* Cifras de la prosa: el par mono/sans del panel también dentro de una frase.
@@ -941,86 +1052,537 @@
   letter-spacing: -0.01em;
 }
 
-.ia-md__tabla {
-  overflow-x: auto;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  scrollbar-width: thin;
+/* Entrada palabra a palabra: cada una con su retraso (lo calcula el JS) y un
+   desenfoque que se despeja, que se lee como texto que se escribe y no como
+   un bloque que aparece. Sólo opacidad y filtro: nada se mueve de su sitio, así
+   que el renglón no baila mientras entra. */
+.is-escribiendo > .ia-palabra {
+  animation: ia-palabra 380ms var(--admin-ease-out) both;
+  animation-delay: var(--ia-retraso, 0ms);
 }
 
-.ia .ia-md table {
+/* La tarjeta del motor (core/consultas-rapidas.js) a lo ancho de la columna:
+   el desglose y los huecos necesitan la medida entera. */
+.ia-resp__tarjeta {
   width: 100%;
-  border-collapse: collapse;
+  min-width: 0;
+}
+
+/* En la barra de los módulos la frase de la tarjeta es una nota al pie de la
+   cifra (13 px, tenue). Aquí es la VOZ del asistente —lo que diría una
+   persona, y lo que se escribe palabra a palabra—, y cuando no hay cifra («No
+   hay ventas cerradas esta semana») es la respuesta entera: a 13 px en gris
+   era el texto más chico y más pálido de la conversación, por debajo de la
+   pregunta que contestaba. Sube al cuerpo de lectura del hilo. El color se
+   deja en paz en la tarjeta de error, que lo trae de estado. */
+.ia .ia-resp .admin-consulta__frase {
+  font-size: 15px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.ia .ia-resp .admin-consulta__card:not(.admin-consulta__card--error) .admin-consulta__frase {
+  color: var(--admin-text);
+}
+
+.ia .ia-resp .admin-consulta__comparacion {
+  font-size: 13px;
+}
+
+.ia .ia-resp__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-text);
   font-size: 13.5px;
-  line-height: 1.45;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--admin-border-strong);
+  text-underline-offset: 3px;
 
-  th {
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--admin-border-soft);
-    background: var(--admin-surface-soft);
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    border-radius: 4px;
+    @include anillo;
+  }
+}
+
+/* La ficha: el único objeto ELEVADO del hilo —la misma superficie que la caja
+   del compositor—, porque es lo que se consulta, se compara y se copia. */
+.ia-ficha {
+  /* Tenue recalculado contra la superficie elevada: con `--admin-faint` los
+     rótulos se quedaban en 3.4:1 en tema oscuro. */
+  --ia-tenue: color-mix(in srgb, var(--admin-text) 58%, var(--admin-surface-strong));
+
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-width: 560px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-strong);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.ia-ficha__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ia .ia-ficha__rubro {
+  @include rotulo;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ia-tenue);
+
+  .ia-ico {
+    display: inline-flex;
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+  }
+}
+
+/* «Bajo mínimo» y «Agotado» en palabras además de en color. */
+.ia-ficha__estado {
+  @include rotulo;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  letter-spacing: 0.1em;
+}
+
+.ia-ficha.is-agotado .ia-ficha__estado {
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+}
+
+.ia .ia-ficha__titulo {
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+
+.ia .ia-ficha__dato {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 2px;
+}
+
+/* La cifra de un indicador, como en la tarjeta del motor y las KPI: Expose
+   600 por `--admin-font-cifra`. No trae `tnum`; contar() le reserva el ancho
+   final mientras cuenta. */
+.ia-ficha__cifra {
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(30px, 3.4vw, 40px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+}
+
+.ia-ficha.is-bajo .ia-ficha__cifra {
+  color: var(--admin-warning-text);
+}
+
+.ia-ficha.is-agotado .ia-ficha__cifra {
+  color: var(--admin-danger-text);
+}
+
+.ia-ficha__unidad {
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* La comparación con el periodo anterior: el color dice hacia dónde, la
+   flecha lo repite en forma para quien no distingue el verde del rojo. */
+.ia .ia-ficha__comparacion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+
+  .ia-ico {
+    display: inline-flex;
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.2;
+  }
+
+  &.is-sube {
+    color: var(--admin-success-text);
+  }
+
+  &.is-baja {
+    color: var(--admin-danger-text);
+  }
+
+  /* La lectura gana a la dirección (va después): más cancelaciones suben y
+     son malas. Igual que la tarjeta del motor. */
+  &.is-bien {
+    color: var(--admin-success-text);
+  }
+
+  &.is-mal {
+    color: var(--admin-danger-text);
+  }
+
+  &.is-igual {
     color: var(--admin-muted);
-    font-family: var(--admin-font-mono);
-    font-size: 10.5px;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-align: left;
-    text-transform: uppercase;
-    white-space: nowrap;
+  }
+}
+
+.ia-ficha__detalle {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.ia .ia-ficha__detalle-titulo {
+  @include rotulo;
+  margin-bottom: 6px;
+  color: var(--ia-tenue);
+}
+
+.ia-ficha__lista {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+}
+
+.ia-ficha__fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "item valor"
+    "barra barra";
+  align-items: center;
+  column-gap: 16px;
+  padding: 3px 0 6px;
+}
+
+.ia .ia-ficha__item {
+  grid-area: item;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 13.5px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* Las filas que se pueden preguntar: subrayado tenue en reposo —se distinguen
+   de las que no— y la flecha asoma al apuntar. */
+.ia button.ia-ficha__item {
+  cursor: pointer;
+
+  .ia-ficha__item-texto {
+    text-decoration: underline;
+    text-decoration-color: var(--admin-border);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--admin-t-fast) var(--admin-ease-out);
   }
 
-  td {
-    padding: 9px 14px;
-    border-top: 1px solid var(--admin-border-soft);
-    vertical-align: top;
+  .ia-ficha__item-flecha {
+    display: inline-flex;
+    color: var(--ia-tenue);
+    opacity: 0;
+    transform: translateX(-3px);
+    transition:
+      opacity var(--admin-t-fast) var(--admin-ease-out),
+      transform var(--admin-t-base) var(--admin-ease);
   }
 
-  tr:first-child td {
-    border-top: 0;
-  }
+  &:hover,
+  &:focus-visible {
+    .ia-ficha__item-texto {
+      text-decoration-color: currentColor;
+    }
 
-  /* Una columna que el JS reconoce como numérica se alinea a la derecha y va
-     entera en mono: así las unidades caen en la misma vertical de fila a fila. */
-  .ia-md__celda-num {
-    font-family: var(--admin-font-mono);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-    white-space: nowrap;
-
-    .ia-num {
-      font-size: inherit;
+    .ia-ficha__item-flecha {
+      opacity: 1;
+      transform: none;
     }
   }
 
-  .ia-md__al-centro {
-    text-align: center;
+  &:focus-visible {
+    border-radius: 4px;
+    @include anillo;
   }
 
-  .ia-md__al-derecha {
-    text-align: right;
+  @media (hover: none) {
+    .ia-ficha__item-flecha {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+.ia-ficha__valor {
+  grid-area: valor;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Barra de magnitud de un solo tono: es tamaño, no categoría. */
+.ia-ficha__barra {
+  grid-area: barra;
+  height: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--admin-border-soft);
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--admin-text) 42%, transparent);
+    transform-origin: left center;
+  }
+}
+
+.ia-ficha__pie {
+  margin-top: 10px;
+}
+
+.ia .ia-ficha__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+
+  .ia-ico {
+    display: inline-flex;
+    transition: transform var(--admin-t-base) var(--admin-ease);
+  }
+
+  &:hover .ia-ico {
+    transform: translateX(3px);
+  }
+
+  &:focus-visible {
+    border-radius: 6px;
+    @include anillo;
+  }
+}
+
+/* ── Seguir preguntando ────────────────────────────────────────── */
+.ia-seguir {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.ia-seguir__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.ia .ia-seguir__rotulo {
+  @include rotulo;
+  color: var(--ia-tenue);
+}
+
+.ia-seguir__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.ia .ia-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--ia-boton);
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out),
+    transform var(--admin-t-fast) var(--admin-ease-out);
+
+  .ia-ico {
+    display: inline-flex;
+    color: var(--admin-muted);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    border-color: var(--admin-border-strong);
+    background: color-mix(in srgb, var(--admin-text) 7%, var(--ia-boton));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--ia-boton));
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    @include anillo;
+  }
+}
+
+/* El catálogo dentro de una respuesta («no entendí»): el rótulo encima y las
+   preguntas en filas de dos, con lo que demuestra cada una debajo. */
+.ia-seguir__grupo--catalogo {
+  display: grid;
+  gap: 8px;
+
+  .ia-seguir__lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+    gap: 6px;
+  }
+}
+
+/* El catálogo de rescate sólo en la ÚLTIMA respuesta, el mismo criterio que
+   «Repetir»: sirve para salir del atasco ahora. Con tres preguntas fallidas
+   seguidas el hilo acumulaba tres catálogos completos —en el teléfono, más de
+   una pantalla cada uno— y lo que se había contestado de verdad quedaba
+   enterrado entre ellos. La respuesta vieja conserva su frase, sus huecos y
+   sus «¿Buscabas…?». */
+.ia-mensajes > .ia-msg:not(:last-child) .ia-seguir__grupo--catalogo {
+  display: none;
+}
+
+/* Una pregunta base dentro de una respuesta: el icono de su tipo, el título y,
+   debajo, el ejemplo con el que se armará. */
+.ia .ia-chip--ejemplo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-items: start;
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px 8px 12px;
+  border-radius: var(--admin-radius-sm);
+  text-align: left;
+
+  .ia-chip__texto,
+  .ia-chip__que {
+    grid-column: 2;
+  }
+}
+
+.ia .ia-chip__icono {
+  grid-row: span 2;
+  display: inline-flex;
+  color: var(--admin-muted);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1.9;
+  }
+}
+
+.ia-chip__texto {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.ia-chip__que {
+  color: var(--ia-tenue);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* Entrada escalonada de una respuesta NUEVA: la ficha cuando la frase va por
+   la mitad, sus filas detrás y las píldoras al final. Los retrasos los pone el
+   JS en `--ia-retraso`. */
+.ia-msg.is-nuevo {
+  .ia-ficha,
+  .ia-seguir,
+  .ia-resp__enlace {
+    animation: ia-entra 420ms var(--admin-ease) both;
+    animation-delay: var(--ia-retraso, 0ms);
+  }
+
+  .ia-ficha__fila {
+    animation: ia-funde 320ms var(--admin-ease-out) both;
+    animation-delay: var(--ia-retraso, 0ms);
+  }
+
+  .ia-ficha__barra > span {
+    animation: ia-barra 640ms var(--admin-ease) both;
+    animation-delay: inherit;
   }
 }
 
 /* ── Avisos dentro del hilo ────────────────────────────────────
  *
- * Lo que dice el asistente cuando NO responde: integración pendiente, error o
- * respuesta detenida. Van con la marca a la izquierda, como una respuesta, pero
- * en una caja: no son contenido, son el estado de la herramienta. El borde
- * discontinuo es «todavía no»; el continuo con rojo, «falló».
+ * Lo que dice el asistente cuando NO responde: error, consulta detenida o
+ * página recargada a media espera. Van con la marca a la izquierda, como una
+ * respuesta, pero en una caja: no son contenido, son el estado de la
+ * herramienta. El continuo con rojo es «falló».
  */
 .ia-aviso {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 2px 12px;
+  max-width: 560px;
   padding: 14px 16px;
-  border: 1px dashed var(--admin-border-strong);
+  border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-md);
 }
 
-/* La variante base es «Conexión pendiente», y va en la familia de advertencia
-   porque dice lo mismo que el punto ámbar de la píldora de la cabecera: el
-   asistente aún no está conectado. Iba en azul de información, y la pantalla
-   contaba un solo hecho en dos colores a un palmo de distancia. */
 .ia-aviso__icono {
   display: grid;
   grid-row: span 2;
@@ -1028,8 +1590,8 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-muted);
 
   svg {
     width: 16px;
@@ -1052,7 +1614,6 @@
 }
 
 .ia-aviso--error {
-  border-style: solid;
   border-color: var(--admin-danger-border);
 
   .ia-aviso__icono {
@@ -1061,23 +1622,12 @@
   }
 }
 
-/* Detenida a mano: no es un fallo ni algo pendiente de nadie, sólo una nota. */
-.ia-aviso--nota {
-  border-style: solid;
-  border-color: var(--admin-border-soft);
-
-  .ia-aviso__icono {
-    background: var(--admin-neutral-bg);
-    color: var(--admin-muted);
-  }
-}
-
 /* ── Acciones por mensaje ──────────────────────────────────────── */
 .ia-msg__pie {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-top: 2px;
+  margin-top: 4px;
   margin-left: -10px;
 }
 
@@ -1086,9 +1636,19 @@
   margin-left: 0;
 }
 
+/* Bajo la pregunta la fila de acciones es más baja: con los 44 px enteros la
+   respuesta quedaba a un palmo de su pregunta y el par no se leía junto. */
+.ia .ia-msg--usuario .ia-accion {
+  min-height: 36px;
+
+  &::before {
+    inset: 4px 0;
+  }
+}
+
 /* 44 px de alto para el dedo; el fondo que se ve al apuntar es más bajo
    (`inset` del ::before) para que la fila no pese como una barra de botones. */
-.ia-accion {
+.ia .ia-accion {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -1100,6 +1660,7 @@
   color: var(--admin-faint);
   font-size: 12.5px;
   font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out);
 
@@ -1138,6 +1699,10 @@
 
   &:focus-visible {
     outline: none;
+    /* El anillo va en la forma visible (::before), no en la caja de toque de
+       44 px: sin anular el box-shadow global del panel salían dos anillos, uno
+       dentro del otro. */
+    box-shadow: none;
     color: var(--admin-text);
 
     &::before {
@@ -1158,8 +1723,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Reintentar sólo tiene sentido en la última respuesta: rehacer una de en
-   medio dejaría el resto de la conversación contestando a otra cosa. */
+/* Repetir sólo tiene sentido en la última respuesta: rehacer una de en medio
+   dejaría el resto de la conversación contestando a otra cosa. */
 .ia-mensajes > .ia-msg:not(:last-child) [data-ia-reintentar] {
   display: none;
 }
@@ -1181,7 +1746,7 @@
 }
 
 /* ── Ir al final ──────────────────────────────────────────────── */
-.ia-ir-final {
+.ia .ia-ir-final {
   position: absolute;
   bottom: 14px;
   left: 50%;
@@ -1200,6 +1765,7 @@
   color: var(--admin-text);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
   opacity: 0;
   visibility: hidden;
@@ -1232,28 +1798,42 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: 2px;
+    @include anillo;
+    /* `anillo` anula el box-shadow; ésta es una píldora flotante y sin su
+       sombra se fundía con el hilo justo al enfocarla. */
+    box-shadow: var(--admin-shadow-md);
   }
 }
 
 /* ── Compositor ────────────────────────────────────────────────── */
 .ia-compositor {
+  /* Encima de sus vecinos: al cambiar de modo viaja con un `transform` sobre
+     el catálogo, que también entra con `transform`, y sin capa propia lo
+     cruzaba por debajo. */
+  position: relative;
+  z-index: 2;
+  flex: none;
   width: min(100%, var(--ia-columna));
   margin: 0 auto;
   padding: 0 var(--ia-hueco) 14px;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
 }
 
-/* El contorno y el anillo de foco van en la CAJA y no en el campo: el campo es
-   sólo una parte de ella —debajo están la pista y el botón— y el foco tiene
-   que abrazar todo lo que se usa junto. */
+.ia-chat.is-vacia .ia-compositor {
+  padding-bottom: 0;
+}
+
+/* El contorno y el anillo de foco van en la CAJA: la pregunta, la pregunta
+   base y enviar se usan juntos, y el foco de cualquiera de ellos tiene que
+   abrazar el conjunto. */
 .ia-compositor__caja {
   /* Tenue recalculado contra la superficie real de la caja, que en oscuro está
-     un escalón por encima del chat: con `--admin-faint` la pista, el contador y
-     el placeholder se quedaban en 3.4:1. Al 58 % da 4.8:1 en claro y 5.3:1 en
-     oscuro, y sigue siendo claramente más claro que lo que se teclea. */
+     un escalón por encima del chat: con `--admin-faint` la pista y la línea de
+     ayuda se quedaban en 3.4:1. Al 58 % da 4.8:1 en claro y 5.3:1 en oscuro. */
   --ia-tenue: color-mix(in srgb, var(--admin-text) 58%, var(--admin-surface-strong));
+  /* Dentro de la caja los botones van un escalón por encima de ELLA, no del
+     chat: si no, el de la pregunta base se fundía con su fondo. */
+  --ia-boton: color-mix(in srgb, var(--admin-text) 5%, var(--admin-surface-strong));
 
   display: flex;
   flex-direction: column;
@@ -1271,89 +1851,192 @@
   }
 }
 
-/*
- * El campo, desnudo.
- *
- * La regla global de _forms.scss (`.admin-body textarea`, 0,1,1; y 0,2,1 con
- * :hover o :focus) le pone borde, fondo, sombra, 120 px de alto y un tirador
- * de redimensionar. Se iguala con la etiqueta delante (0,2,1 / 0,3,1) y gana
- * por orden, porque esta hoja carga después de admin.css. Los cuatro estados
- * juntos: si falta uno, el borde reaparece justo al enfocar.
- */
-.ia-compositor textarea.ia-compositor__campo,
-.ia-compositor textarea.ia-compositor__campo:hover,
-.ia-compositor textarea.ia-compositor__campo:focus,
-.ia-compositor textarea.ia-compositor__campo:focus-visible {
-  display: block;
-  width: 100%;
-  min-height: 56px;
-  max-height: var(--ia-campo-max);
-  padding: 16px 18px 4px;
-  border: 0;
-  border-radius: 22px 22px 0 0;
-  outline: none;
-  background: transparent;
-  box-shadow: none;
-  color: var(--admin-text);
-  font-size: 15px;
-  line-height: 1.5;
-  resize: none;
-  @include scroll-propio;
+/* En la conversación nueva la caja es la pieza principal de la pantalla: un
+   escalón más de sombra la despega del lienzo. */
+.ia-chat.is-vacia .ia-compositor__caja {
+  box-shadow: var(--admin-shadow-lg);
+
+  &:focus-within {
+    box-shadow: var(--admin-shadow-lg), var(--admin-focus-ring);
+  }
 }
 
-/* La global (`.admin-body ::placeholder`, 0,1,1) lo pinta en `--admin-faint`,
-   que sobre esta caja no llega al 4.5:1 en oscuro. */
-.ia-compositor .ia-compositor__campo::placeholder {
+/* ── La pregunta armada ────────────────────────────────────────────
+ *
+ * Ocupa el sitio que tenía el campo de texto: el rótulo en la voz mono de la
+ * casa, la frase en la tinta de lo que se lee y sus variables en los MISMOS
+ * huecos que la tarjeta del motor (`.admin-consulta__hueco`, de admin.css),
+ * para que «esto se cambia» se vea igual antes y después de preguntar. Debajo,
+ * en la conversación nueva, qué contesta.
+ */
+.ia-constructor {
+  display: grid;
+  gap: 6px;
+  min-height: 58px;
+  padding: 14px 18px 4px;
+}
+
+.ia .ia-constructor__rotulo {
+  @include rotulo;
   color: var(--ia-tenue);
-  opacity: 1;
+}
+
+.ia .ia-constructor__frase {
+  min-width: 0;
+  gap: 8px 7px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.ia .ia-constructor__frase .admin-consulta__hueco {
+  min-height: 38px;
+  padding: 0 9px 0 12px;
+  border-color: var(--admin-border);
+  background: var(--ia-boton);
+  font-size: 15px;
+  font-weight: 600;
+
+  &:hover {
+    border-color: var(--admin-border-strong);
+    background: color-mix(in srgb, var(--admin-text) 7%, var(--ia-boton));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--ia-boton));
+  }
+
+  &[aria-expanded="true"] {
+    border-color: var(--admin-accent);
+  }
+
+  &:focus-visible {
+    @include anillo;
+  }
+}
+
+/* El «·» viaja pegado al hueco que le sigue (ia.js y la vista los envuelven
+   juntos): al partirse la frase en un teléfono, el renglón terminaba en un
+   punto suelto —«Ventas de [Cappuccino ▾] ·»— y el periodo bajaba solo al
+   siguiente. */
+.ia .ia-constructor__par {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Un hueco sin elegir (una base sin datos para el ejemplo): discontinuo y en
+   tenue, como lo que falta. Enviar lleva a él. */
+.ia .ia-constructor__frase .admin-consulta__hueco.is-vacio {
+  border-style: dashed;
+  background: transparent;
+  color: var(--admin-muted);
+  font-weight: 500;
+}
+
+/* Qué contesta la pregunta armada, en una línea tenue. Sólo en la
+   conversación nueva: con el hilo a la vista, cada renglón del compositor se
+   le quita a la respuesta. */
+.ia .ia-constructor__ayuda {
+  color: var(--ia-tenue);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.ia .ia-chat:not(.is-vacia) .ia-constructor__ayuda {
+  @include oculto-visual;
+}
+
+/* Al armarse sin viaje (desde la lista de la pregunta base, o con la caja
+   fuera de la vista), la caja se ilumina un instante. Sólo fondo, nada se
+   mueve. */
+.ia-compositor__caja.is-recien-armada {
+  animation: ia-armada 900ms var(--admin-ease-out);
 }
 
 .ia-compositor__barra {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px 8px 18px;
+  padding: 6px 8px 8px 12px;
 }
 
-.ia .ia-compositor__pista {
-  flex: 1 1 auto;
+/* La pregunta base: dice cuál es la armada —icono y título— y abre la lista
+   para cambiarla. Relleno sólido neutro: es un control de verdad, pero el
+   primario de la caja es enviar. */
+.ia .ia-bases {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px 0 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--ia-boton);
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    width: 15px;
+    height: 15px;
+    stroke-width: 1.9;
+  }
+
+  &:hover,
+  &[aria-expanded="true"] {
+    border-color: var(--admin-border-strong);
+    background: color-mix(in srgb, var(--admin-text) 7%, var(--ia-boton));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--ia-boton));
+  }
+
+  &:focus-visible {
+    @include anillo;
+  }
+}
+
+.ia-bases__icono,
+.ia-bases__chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--admin-muted);
+}
+
+.ia-bases__texto {
   min-width: 0;
   overflow: hidden;
-  color: var(--ia-tenue);
-  font-size: 12px;
-  line-height: 1.4;
   white-space: nowrap;
   text-overflow: ellipsis;
-
-  kbd {
-    display: inline-block;
-    padding: 1px 5px;
-    border: 1px solid var(--admin-border);
-    border-bottom-width: 2px;
-    border-radius: 5px;
-    background: var(--admin-surface-soft);
-    color: var(--admin-muted);
-    font-size: 10.5px;
-    line-height: 1.4;
-  }
 }
 
-/* Sólo aparece cerca del tope; lejos de él contar caracteres es ruido. */
-.ia-compositor__contador {
-  flex: none;
-  color: var(--ia-tenue);
-  font-family: var(--admin-font-mono);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-
-  &.is-limite {
-    color: var(--admin-danger-text);
-    font-weight: 600;
-  }
+.ia-bases__chevron svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
 }
 
-.ia-enviar,
-.ia-detener {
+.ia .ia-bases[aria-expanded="true"] .ia-bases__chevron svg {
+  transform: rotate(180deg);
+}
+
+.ia .ia-enviar,
+.ia .ia-detener {
   display: inline-grid;
   flex: none;
   place-items: center;
@@ -1370,13 +2053,12 @@
     transform var(--admin-t-fast) var(--admin-ease-out);
 
   &:focus-visible {
-    outline: 2px solid var(--admin-accent);
-    outline-offset: 3px;
+    @include anillo(3px);
   }
 }
 
 /* El primario del sistema: relleno de acento con su tinta encima. */
-.ia-enviar {
+.ia .ia-enviar {
   border: 0;
   background: var(--admin-accent);
   color: var(--admin-on-accent);
@@ -1394,16 +2076,18 @@
     transform: scale(0.95);
   }
 
+  /* Mientras espera respuesta. Sólido y no translúcido: el círculo apagado
+     sigue siendo un botón, sólo que en espera. */
   &:disabled {
-    background: color-mix(in srgb, var(--admin-text) 9%, transparent);
-    color: var(--admin-faint);
+    background: color-mix(in srgb, var(--admin-text) 12%, var(--admin-surface-strong));
+    color: var(--ia-tenue);
     cursor: not-allowed;
   }
 }
 
-/* Detener no es destructivo —la pregunta queda y se puede reintentar—, así que
+/* Detener no es destructivo —la pregunta queda y se puede repetir—, así que
    va neutro y no en rojo. */
-.ia-detener {
+.ia .ia-detener {
   border: 1px solid var(--admin-border-strong);
   background: var(--admin-surface);
   color: var(--admin-text);
@@ -1421,50 +2105,62 @@
   text-align: center;
 }
 
+/* En la conversación nueva el catálogo de abajo ya dice de qué sabe. */
+.ia .ia-chat.is-vacia .ia-compositor__nota:not(.ia-compositor__nota--aviso) {
+  display: none;
+}
+
 .ia .ia-compositor__nota--aviso {
   color: var(--admin-warning-text);
 }
 
-/* En táctil Enter hace salto de línea (no hay Shift en un teclado de
-   pantalla) y se envía con el botón: la pista diría lo contrario. */
 @media (hover: none) and (pointer: coarse) {
-  .ia .ia-compositor__pista {
-    display: none;
-  }
-
-  .ia-conv__borrar {
+  .ia .ia-conv__borrar {
     opacity: 1;
   }
 
-  /* Sin la pista, la fila de abajo sólo llevaba el botón: 52 px de alto para
-     un círculo. Con el teclado de pantalla abierto el hilo se queda en un
-     tercio del alto y esa fila es la que más se echa en falta, así que el botón
-     sube al lado del campo y se queda pegado a su línea de base mientras el
-     campo crece. */
-  .ia-compositor__caja {
-    flex-direction: row;
-    align-items: flex-end;
-  }
-
-  .ia-compositor textarea.ia-compositor__campo,
-  .ia-compositor textarea.ia-compositor__campo:hover,
-  .ia-compositor textarea.ia-compositor__campo:focus,
-  .ia-compositor textarea.ia-compositor__campo:focus-visible {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 52px;
-    padding: 14px 6px 14px 18px;
-    border-radius: 22px 0 0 22px;
-  }
-
-  .ia-compositor__barra {
-    flex: none;
-    gap: 6px;
-    padding: 4px;
+  /* Píldoras y huecos al alto del dedo. Los del constructor también: la
+     regla de arriba (0,3,0) les fijaba 38 px y le ganaba a la de táctil de la
+     tarjeta del motor (0,2,0), que los sube a 40 — el mismo hueco medía
+     distinto en la pregunta y en la respuesta. */
+  .ia .ia-chip,
+  .ia .ia-base,
+  .ia .ia-bases,
+  .ia .ia-constructor__frase .admin-consulta__hueco {
+    min-height: 44px;
   }
 }
 
 /* ── Movimiento ────────────────────────────────────────────────── */
+
+/* Volver a una conversación nueva: el saludo y los temas del catálogo entran
+   escalonados mientras el compositor sube a su sitio. */
+.ia-chat.is-llegando {
+  .ia-saludo,
+  .ia-catalogo__titulo,
+  .ia-catalogo__ayuda,
+  .ia-tema {
+    animation: ia-entra 360ms var(--admin-ease) both;
+  }
+
+  .ia-catalogo__titulo,
+  .ia-catalogo__ayuda {
+    animation-delay: 80ms;
+  }
+
+  .ia-tema {
+    animation-delay: 110ms;
+  }
+
+  .ia-tema + .ia-tema {
+    animation-delay: 140ms;
+  }
+
+  .ia-tema + .ia-tema + .ia-tema {
+    animation-delay: 170ms;
+  }
+}
+
 @keyframes ia-entra {
   from {
     opacity: 0;
@@ -1473,6 +2169,28 @@
 
   to {
     opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ia-palabra {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@keyframes ia-barra {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
     transform: none;
   }
 }
@@ -1525,6 +2243,16 @@
   }
 }
 
+@keyframes ia-armada {
+  from {
+    background-color: color-mix(in srgb, var(--admin-text) 9%, var(--admin-surface-strong));
+  }
+
+  to {
+    background-color: var(--admin-surface-strong);
+  }
+}
+
 @keyframes ia-funde {
   from {
     opacity: 0;
@@ -1546,21 +2274,36 @@
   }
 }
 
-/* Sin movimiento no es sin señal: nada gira, nada barre y nada se desplaza,
-   pero lo que entra funde y lo que espera late en opacidad, que no mueve nada
-   en el espacio. Si todo se quedara quieto, «Pensando» no se distinguiría de
-   un texto olvidado hasta que asomara el contador a los dos segundos. */
+/* Sin movimiento no es sin señal: nada gira, nada barre, nada se desplaza ni
+   cuenta, pero lo que entra funde y lo que espera late en opacidad, que no
+   mueve nada en el espacio. Si todo se quedara quieto, «Consultando los datos»
+   no se distinguiría de un texto olvidado. */
 @include mixins.reduced-motion {
   .ia,
   .ia-historial,
-  .ia-ir-final,
-  .ia-sugerencia__flecha {
+  .ia .ia-ir-final,
+  .ia .ia-base,
+  .ia-base__icono {
     transition: none;
   }
 
-  .ia-msg.is-nuevo {
+  .ia-msg.is-nuevo,
+  .ia-msg.is-nuevo .ia-ficha,
+  .ia-msg.is-nuevo .ia-seguir,
+  .ia-msg.is-nuevo .ia-resp__enlace,
+  .ia-chat.is-llegando .ia-saludo,
+  .ia-chat.is-llegando .ia-catalogo__titulo,
+  .ia-chat.is-llegando .ia-catalogo__ayuda,
+  .ia-chat.is-llegando .ia-tema {
     animation-name: ia-funde;
     animation-duration: 200ms;
+    animation-delay: 0ms;
+  }
+
+  .is-escribiendo > .ia-palabra,
+  .ia-msg.is-nuevo .ia-ficha__fila,
+  .ia-msg.is-nuevo .ia-ficha__barra > span {
+    animation: none;
   }
 
   .ia-marca.is-viva svg path:first-child {
@@ -1574,7 +2317,7 @@
   .ia-pensando__texto {
     background: none;
     color: var(--admin-muted);
-    animation: none;
+    animation: ia-pulso 1.6s ease-in-out infinite;
   }
 }
 
@@ -1628,7 +2371,7 @@
       visibility 0s;
   }
 
-  .ia-historial__cerrar {
+  .ia .ia-historial__cerrar {
     display: inline-grid;
   }
 
@@ -1654,8 +2397,9 @@
   }
 
   /* Aquí el historial está siempre fuera de la vista, así que «Nueva
-     conversación» vive también en la cabecera. */
-  .ia:not(.is-historial-oculto) .ia-chat__nueva {
+     conversación» vive también en la cabecera (salvo en una conversación
+     nueva, donde no hay nada nuevo que abrir). */
+  .ia:not(.is-historial-oculto) .ia-chat:not(.is-vacia) .ia-chat__nueva {
     display: inline-grid;
   }
 
@@ -1677,32 +2421,20 @@
 
   .ia-chat__cabecera {
     gap: 6px;
-    min-height: 56px;
-    padding: 6px 8px 6px 4px;
-  }
-
-  /* Fuera de la vista, no fuera del árbol: con `display:none` el lector de
-     pantalla se quedaba en «Vista previa» sin saber de qué. */
-  .ia-estado__largo {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    min-height: 54px;
+    padding: 5px 8px 5px 4px;
   }
 
   .ia-hilo__interior {
     padding-top: 24px;
   }
 
-  /* 16 px: por debajo, Safari en iOS amplía la página al enfocar el campo. */
-  .ia-compositor textarea.ia-compositor__campo,
-  .ia-compositor textarea.ia-compositor__campo:hover,
-  .ia-compositor textarea.ia-compositor__campo:focus,
-  .ia-compositor textarea.ia-compositor__campo:focus-visible {
-    font-size: 16px;
+  .ia-catalogo {
+    margin-top: 36px;
+  }
+
+  .ia-constructor {
+    padding: 12px 14px 4px;
   }
 }
 
@@ -1727,11 +2459,68 @@
     max-width: 92%;
   }
 
+  .ia-ficha {
+    padding: 14px 14px 12px;
+  }
+
   .ia-compositor__caja {
     border-radius: 20px;
   }
 
-  .ia .ia-compositor__nota {
-    font-size: 11px;
+  .ia .ia-saludo__titulo {
+    margin-top: 10px;
   }
+
+  /* En el teléfono la nota partía en dos renglones fijos bajo el compositor,
+     y con el teclado abierto cada renglón se le quita al hilo. Lo que dice ya
+     lo enseñó el catálogo de la conversación nueva. El aviso de <noscript>
+     sí se queda. */
+  .ia .ia-compositor__nota:not(.ia-compositor__nota--aviso) {
+    display: none;
+  }
+}
+
+/* ── De la píldora a la pregunta: View Transition ──────────────────
+ *
+ * Elegir una pregunta base del catálogo la hace VIAJAR al compositor: ia.js
+ * (transicionArmar) le pone a la píldora el nombre `ia-pregunta` justo antes,
+ * y a la frase armada justo después; el grupo vuela de una caja a la otra y
+ * las dos imágenes se funden. El nombre es pasajero —se retira al terminar—:
+ * uno fijo le daría grupo propio en TODAS las transiciones del panel (la del
+ * tema y la de navegación, _finishes.scss 4b y 4c) y su instantánea taparía el
+ * círculo del cambio de tema.
+ *
+ * Las imágenes NO se escalan (object-fit: none, ancladas a la izquierda): la
+ * píldora mide 150 px y la frase 500, y estirar una sobre la otra deformaba
+ * las letras. Se recortan contra el grupo mientras éste cambia de tamaño.
+ *
+ * Valores literales y no tokens: los pseudoelementos de la transición cuelgan
+ * de <html>, fuera de `.admin-body`, que es donde viven `--admin-ease` y
+ * compañía. La curva y los 320 ms son los de la otra pieza que viaja en el
+ * panel (`admin-nav-activo`, _finishes.scss): mientras corre la transición
+ * sus capas se quedan con los clics, así que no puede alargarse.
+ */
+::view-transition-group(ia-pregunta) {
+  overflow: clip;
+  border-radius: 12px;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(ia-pregunta),
+::view-transition-new(ia-pregunta) {
+  height: 100%;
+  object-fit: none;
+  object-position: left center;
+  animation-duration: 320ms;
+}
+
+/* Sólo se mueve la pregunta: el resto de la página cambia en seco (la píldora
+   marcada, el título de la pregunta base). Acotado al tipo para no tocar el
+   fundido de la navegación entre módulos. Donde no hay tipos, el bloque 4b de
+   _finishes.scss ya apaga el fundido de la raíz para toda transición. */
+:root:active-view-transition-type(ia-armar)::view-transition-old(root),
+:root:active-view-transition-type(ia-armar)::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }

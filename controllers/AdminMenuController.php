@@ -30,6 +30,15 @@ class AdminMenuController
     private const ITEMS_PATH = '/admin/menu';
     private const MENU_CSS = '/build/css/admin/menu.css';
 
+    /**
+     * Listas de pendientes que el listado sabe pintar (?pendiente=). Hoy sólo
+     * la receta: es lo único incompleto que tiene consecuencia —sin ella la
+     * venta no descuenta inventario y el costo sale en cero—. La descripción ya
+     * la exige el formulario y la foto propia es opcional por diseño (la carta
+     * usa la de la categoría).
+     */
+    private const PENDIENTES = ['receta'];
+
     /** Listado de platillos con pestañas de categoría. */
     public static function index(Router $router): void
     {
@@ -62,6 +71,15 @@ class AdminMenuController
             ));
 
 
+        // Se vuelve aquí desde el editor de recetas (?volver=) por redirección:
+        // su acuse viaja en la sesión y se enseña como el resto de avisos.
+        $recetaGuardada = AdminRecetasController::consumirAvisoGuardado();
+        if ($recetaGuardada !== null) {
+            Producto::setAlerta('exito', $recetaGuardada);
+        }
+
+        $resumen = self::resumenEstado($filtros);
+
         $totalMenu = Producto::totalAdmin($filtros);
         $totalPaginas = max(1, (int) ceil($totalMenu / $porPagina));
 
@@ -86,8 +104,17 @@ class AdminMenuController
             'filtros' => $filtros,
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
             'cartaActiva' => $cartaActiva,
+            'pendienteActivo' => (string) $filtros['pendiente'],
+            'resumen' => $resumen,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'alertas' => array_merge_recursive(Producto::getAlertas(), CategoriasMenu::getAlertas()),
+            // array_unique: $alertas es UN estático de ActiveRecord compartido
+            // por todos los modelos, así que Producto y CategoriasMenu
+            // devuelven el mismo arreglo y la mezcla pintaba cada aviso dos
+            // veces («Platillo creado correctamente» ×2).
+            'alertas' => array_map(
+                static fn ($mensajes) => array_values(array_unique((array) $mensajes)),
+                array_merge_recursive(Producto::getAlertas(), CategoriasMenu::getAlertas())
+            ),
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
             'totalMenu' => $totalMenu,
@@ -639,10 +666,62 @@ class AdminMenuController
             }
         }
 
+        // Lista cerrada: un valor desconocido vuelve a «todos» en vez de a una
+        // lista de pendientes vacía que celebraría algo que no se ha hecho.
+        $pendiente = $_GET['pendiente'] ?? '';
+        $pendiente = is_string($pendiente) && in_array($pendiente, self::PENDIENTES, true) ? $pendiente : '';
+
         return [
             'q' => $q,
             'carta' => $carta,
             'categoria' => $categoryId ?: '',
+            'pendiente' => $pendiente,
+        ];
+    }
+
+    /**
+     * Cifras de las tarjetas-filtro de la cabecera del listado.
+     *
+     * Consulta propia y no un recuento de $platillos: el listado viene de diez
+     * en diez y contar las filas traídas describiría la página, no el menú (la
+     * trampa que ya se pagó en Tickets y en Recetas).
+     *
+     * El alcance es la carta y la categoría elegidas, y NO la búsqueda ni el
+     * propio pendiente: las tarjetas viven junto a las pestañas y dicen cómo va
+     * lo que esas pestañas acotan. Si siguieran al texto del buscador, la cifra
+     * de avance bailaría con cada tecla.
+     *
+     * @return array{total:int, sinReceta:int, ocultos:int, sinRecetaMenu:int}
+     */
+    private static function resumenEstado(array $filtros): array
+    {
+        $alcance = [
+            'carta' => $filtros['carta'] ?? '',
+            'categoria' => $filtros['categoria'] ?? '',
+        ];
+
+        try {
+            $total = Producto::totalAdmin($alcance);
+            $sinReceta = Producto::totalAdmin($alcance + ['pendiente' => 'receta']);
+            $ocultos = Producto::totalAdmin($alcance + ['visible' => '0']);
+
+            // Sólo hace falta cuando el alcance está acotado y ya no le quedan
+            // pendientes: es lo que permite decir «aquí ya está, pero quedan N
+            // en el resto del menú» en vez de celebrar el menú entero.
+            $acotado = (string) $alcance['carta'] !== '' || (string) $alcance['categoria'] !== '';
+            $sinRecetaMenu = $acotado && $sinReceta === 0
+                ? Producto::totalAdmin(['pendiente' => 'receta'])
+                : $sinReceta;
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::resumenEstado - ' . $e->getMessage());
+            $total = $sinReceta = $ocultos = $sinRecetaMenu = 0;
+        }
+
+        return [
+            'total' => $total,
+            'sinReceta' => $sinReceta,
+            'ocultos' => $ocultos,
+            'sinRecetaMenu' => $sinRecetaMenu,
         ];
     }
 

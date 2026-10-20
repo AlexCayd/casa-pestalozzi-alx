@@ -2,32 +2,45 @@
 /**
  * Asistente IA: conversación con los datos del restaurante.
  *
- * El marcado es el armazón; las conversaciones las pinta src/js/admin/ia/ia.js,
- * que las guarda en el navegador. Lo que sí sale de aquí es todo lo que tiene
- * que verse en la primera pintura —el saludo y las sugerencias del estado
- * vacío— para que la pantalla no parpadee mientras carga el JS.
+ * Responde el motor de consultas rápidas (ver AdminIaController), no un modelo
+ * de lenguaje. El marcado es el armazón; las conversaciones las pinta
+ * src/js/admin/ia/ia.js, que las guarda en el navegador.
  *
- * `data-ia-endpoint` es la URL del flujo de n8n, o vacío. Vacío significa que
- * el front NO hace red y lo dice: aviso en la cabecera y, al preguntar, un
- * mensaje de estado en lugar de una respuesta inventada.
+ * No hay texto libre: el compositor ES la pregunta armada —«Ventas de [todo el
+ * restaurante ▾] · [Hoy ▾]»—, con sus variables como huecos que se eligen de
+ * listas. Se cambia de pregunta desde el catálogo (conversación nueva) o desde
+ * el botón de la pregunta, en la fila de abajo del compositor.
+ *
+ * La pantalla tiene DOS modos, y el compositor es la misma pieza en los dos:
+ *
+ *   - `is-vacia` (conversación nueva): saludo, compositor y catálogo, centrados
+ *     en un solo bloque que se desplaza entero si no cabe.
+ *   - conversación: el hilo con scroll propio arriba y el compositor fijo
+ *     abajo.
+ *
+ * Todo lo que se ve en la primera pintura sale de aquí —saludo, la primera
+ * pregunta armada y el catálogo— para que no parpadee mientras carga el JS.
  */
 require_once __DIR__ . '/../partials/_icons.php';
 
 $h = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 
-$iaEndpoint = (string) ($iaEndpoint ?? '');
-$iaConectado = $iaEndpoint !== '';
+$iaApi = (string) ($iaApi ?? '/admin/api/consultas');
 $iaNombre = trim((string) ($iaNombre ?? ''));
 $iaSaludo = (string) ($iaSaludo ?? 'Hola');
-$iaMaxCaracteres = max(1, (int) ($iaMaxCaracteres ?? 4000));
-$iaSugerencias = is_array($iaSugerencias ?? null) ? $iaSugerencias : [];
-$iaTituloSaludo = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '') . '.';
+$iaMaxConversaciones = max(1, (int) ($iaMaxConversaciones ?? 10));
+$iaCatalogo = is_array($iaCatalogo ?? null) ? $iaCatalogo : [];
+$iaHola = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '');
+
+// La pregunta con la que nace el compositor: la primera del catálogo. ia.js la
+// vuelve a pintar igual (o la de la conversación que retome).
+$iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
 ?>
 <section
     class="ia"
     data-ia
-    data-ia-endpoint="<?php echo $h($iaEndpoint); ?>"
-    data-ia-max="<?php echo $iaMaxCaracteres; ?>"
+    data-ia-api="<?php echo $h($iaApi); ?>"
+    data-ia-max-conversaciones="<?php echo $iaMaxConversaciones; ?>"
     aria-label="Asistente IA"
 >
     <?php /* Se aplica ANTES de pintar el historial: si se dejó plegado, abrir
@@ -64,10 +77,16 @@ $iaTituloSaludo = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '') . '.';
         </button>
 
         <nav class="ia-historial__lista" data-ia-lista data-scrollable aria-labelledby="ia-historial-titulo">
-            <p class="ia-historial__vacio" data-ia-lista-vacia>Aún no hay conversaciones. La primera pregunta abre una.</p>
+            <div class="ia-historial__vacio" data-ia-lista-vacia>
+                <span class="ia-historial__vacio-icono" aria-hidden="true"><?php echo admin_icon('reloj', 18); ?></span>
+                <p class="ia-historial__vacio-titulo">Aún no hay conversaciones</p>
+                <p class="ia-historial__vacio-texto">Cada pregunta abre una y se queda aquí para retomarla otro día.</p>
+            </div>
         </nav>
 
-        <p class="ia-historial__pie" data-ia-almacen>Se guardan sólo en este navegador.</p>
+        <?php /* El tope se dice donde se ve la lista: al abrir una más, la más
+                 antigua desaparece, y sin esta línea parecería un fallo. */ ?>
+        <p class="ia-historial__pie" data-ia-almacen>Se guardan las <?php echo $iaMaxConversaciones; ?> más recientes, sólo en este navegador.</p>
     </aside>
 
     <?php /* Velo del cajón en tablet y móvil. No es un botón: el teclado ya
@@ -75,7 +94,7 @@ $iaTituloSaludo = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '') . '.';
              sólo añadiría una parada muda al recorrido de tabulación. */ ?>
     <div class="ia-telon" data-ia-telon aria-hidden="true"></div>
 
-    <div class="ia-chat">
+    <div class="ia-chat is-vacia" data-ia-chat>
         <header class="ia-chat__cabecera">
             <button
                 class="ia-icono-btn"
@@ -87,21 +106,13 @@ $iaTituloSaludo = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '') . '.';
                 title="Historial de conversaciones"
             ><?php echo admin_icon('panel-lateral', 20); ?></button>
 
+            <?php /* El nombre del módulo ya lo dice la barra del panel, justo
+                     encima: aquí sólo va el de la conversación. En una nueva
+                     el <h1> sigue existiendo para el lector de pantalla, pero
+                     no se ve: el protagonista es el saludo. */ ?>
             <div class="ia-chat__titulo">
-                <p class="admin-eyebrow">Asistente IA</p>
                 <h1 class="ia-chat__h1" data-ia-titulo>Nueva conversación</h1>
             </div>
-
-            <?php if (!$iaConectado) : ?>
-                <?php /* La integración con n8n está pendiente y la pantalla lo
-                         dice donde se ve, no en una nota al pie: una vista que
-                         parece funcionar y no responde es peor que una que
-                         avisa. En móvil se queda la palabra corta. */ ?>
-                <p class="ia-estado" title="Vista previa · El asistente aún no está conectado">
-                    <span class="ia-estado__punto" aria-hidden="true"></span>
-                    <span>Vista previa</span><span class="ia-estado__largo"> · El asistente aún no está conectado</span>
-                </p>
-            <?php endif; ?>
 
             <button
                 class="ia-icono-btn ia-chat__nueva"
@@ -112,123 +123,213 @@ $iaTituloSaludo = $iaSaludo . ($iaNombre !== '' ? ', ' . $iaNombre : '') . '.';
             ><?php echo admin_icon('mas', 20); ?></button>
         </header>
 
-        <div class="ia-chat__cuerpo">
-            <div
-                class="ia-hilo"
-                data-ia-hilo
-                data-scrollable
-                tabindex="0"
-                role="region"
-                aria-label="Mensajes de la conversación"
-            >
-                <div class="ia-hilo__interior">
-                    <div class="ia-vacio" data-ia-vacio>
-                        <div class="ia-vacio__saludo">
-                            <span class="ia-marca ia-marca--grande" aria-hidden="true"><?php echo admin_icon('ia', 24); ?></span>
-                            <h2 class="ia-vacio__titulo"><?php echo $h($iaTituloSaludo); ?></h2>
-                            <p class="ia-vacio__bajada">
-                                Pregunta con tus palabras por las ventas, el inventario, las reservaciones o el menú.
-                                <?php if (!$iaConectado) : ?>
-                                    Por ahora es una vista previa: todavía no consulta los datos.
-                                <?php endif; ?>
-                            </p>
-                        </div>
+        <div class="ia-chat__escenario" data-ia-escenario data-scrollable>
+            <div class="ia-chat__cuerpo" data-ia-cuerpo>
+                <div
+                    class="ia-hilo"
+                    data-ia-hilo
+                    data-scrollable
+                    tabindex="0"
+                    role="region"
+                    aria-label="Mensajes de la conversación"
+                >
+                    <div class="ia-hilo__interior">
+                        <ol class="ia-mensajes" data-ia-mensajes aria-label="Mensajes"></ol>
+                    </div>
+                </div>
 
-                        <div class="ia-sugerencias">
-                            <?php foreach ($iaSugerencias as $indice => $grupo) : ?>
-                                <?php
-                                $temaId = 'ia-tema-' . (int) $indice;
-                                $preguntas = is_array($grupo['preguntas'] ?? null) ? $grupo['preguntas'] : [];
-                                ?>
-                                <section class="ia-tema" aria-labelledby="<?php echo $h($temaId); ?>">
-                                    <h3 class="ia-tema__titulo" id="<?php echo $h($temaId); ?>">
-                                        <?php echo admin_icon((string) ($grupo['icono'] ?? ''), 14); ?>
-                                        <span><?php echo $h($grupo['tema'] ?? ''); ?></span>
-                                    </h3>
-                                    <ul class="ia-tema__lista">
-                                        <?php foreach ($preguntas as $pregunta) : ?>
-                                            <li>
-                                                <button
-                                                    class="ia-sugerencia"
-                                                    type="button"
-                                                    data-ia-sugerencia="<?php echo $h($pregunta); ?>"
-                                                >
-                                                    <span><?php echo $h($pregunta); ?></span>
-                                                    <?php echo admin_icon('enviar', 16, 'ia-sugerencia__flecha'); ?>
-                                                </button>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </section>
-                            <?php endforeach; ?>
-                        </div>
+                <?php /* Fuera del hilo para no desplazarse con él. Arranca fuera del
+                         recorrido de teclado y del árbol de accesibilidad: el JS lo
+                         devuelve a los dos sólo mientras está a la vista. */ ?>
+                <button class="ia-ir-final" type="button" data-ia-ir-final tabindex="-1" aria-hidden="true">
+                    <?php echo admin_icon('flecha-abajo', 16); ?>
+                    <span>Ir al final</span>
+                </button>
+            </div>
+
+            <div class="ia-saludo" data-ia-saludo>
+                <p class="ia-saludo__hola">
+                    <span class="ia-marca ia-marca--chica" aria-hidden="true"><?php echo admin_icon('ia', 16); ?></span>
+                    <span><?php echo $h($iaHola); ?></span>
+                </p>
+                <h2 class="ia-saludo__titulo">¿Qué quieres saber hoy?</h2>
+            </div>
+
+            <form class="ia-compositor" data-ia-compositor novalidate aria-labelledby="ia-constructor-rotulo">
+                <div class="ia-compositor__caja" data-ia-caja>
+                    <?php /* El constructor de preguntas: la frase con sus
+                             variables como huecos. Elegir un valor no consulta
+                             nada; se consulta al enviar. Lo repinta ia.js con
+                             el mismo marcado (ver pintarConstructor). */ ?>
+                    <div class="ia-constructor" data-ia-constructor>
+                        <p class="ia-constructor__rotulo" id="ia-constructor-rotulo">Tu pregunta</p>
+                        <div
+                            class="ia-constructor__frase admin-consulta__plantilla"
+                            data-ia-constructor-frase
+                            role="group"
+                            aria-labelledby="ia-constructor-rotulo"
+                            aria-describedby="ia-constructor-ayuda"
+                        ><?php
+                            if ($iaInicial === null) {
+                                echo '<span class="ia-constructor__texto">No se pudo cargar la lista de preguntas. Recarga la página.</span>';
+                            } else {
+                                // El «·» va envuelto con la parte que le sigue,
+                                // como en ia.js: ningún renglón termina en él.
+                                $iaPar = false;
+                                foreach ($iaInicial['borrador']['partes'] as $i => $parte) {
+                                    $cerrarPar = $iaPar;
+                                    $iaPar = false;
+                                    echo $i > 0 ? ' ' : '';
+                                    if (($parte['tipo'] ?? '') === 'hueco') {
+                                        $vacio = ($parte['campo'] ?? '') === 'entidad' && ($parte['valor'] ?? '') === '';
+                                        echo '<button type="button" class="ia-hueco admin-consulta__hueco' . ($vacio ? ' is-vacio' : '') . '"'
+                                            . ' data-ia-hueco="' . (int) $i . '" data-ia-hueco-campo="' . $h($parte['campo']) . '"'
+                                            . ' aria-haspopup="' . (!empty($parte['catalogo']) ? 'dialog' : 'listbox') . '" aria-expanded="false"'
+                                            . ' aria-label="' . $h($parte['etiqueta'] . ', ' . mb_strtolower((string) $parte['rotulo'])) . '">'
+                                            . '<span class="admin-consulta__hueco-valor">' . $h($parte['etiqueta']) . '</span>'
+                                            . '<span class="admin-consulta__hueco-chevron" aria-hidden="true">' . admin_icon('chevron-abajo', 14) . '</span>'
+                                            . '</button>';
+                                    } elseif (($parte['texto'] ?? '') === '·') {
+                                        echo '<span class="ia-constructor__par"><span class="admin-consulta__plantilla-sep" aria-hidden="true">·</span>';
+                                        $iaPar = true;
+                                        continue;
+                                    } else {
+                                        echo '<span class="ia-constructor__texto">' . $h($parte['texto'] ?? '') . '</span>';
+                                    }
+                                    echo $cerrarPar ? '</span>' : '';
+                                }
+                                echo $iaPar ? '</span>' : '';
+                            }
+                        ?></div>
+                        <?php /* Qué contesta la pregunta armada, en una línea:
+                                 «Horas pico» no dice por sí sola qué cuenta. Sólo
+                                 en la conversación nueva (CSS); el lector la oye
+                                 siempre como descripción del grupo. */ ?>
+                        <p class="ia-constructor__ayuda" id="ia-constructor-ayuda" data-ia-constructor-ayuda><?php echo $h($iaInicial['descripcion'] ?? ''); ?></p>
                     </div>
 
-                    <ol class="ia-mensajes" data-ia-mensajes aria-label="Mensajes" hidden></ol>
+                    <div class="ia-compositor__barra">
+                        <?php /* La pregunta base: dice cuál es la armada y abre la
+                                 lista para cambiarla (también Ctrl/⌘+K). */ ?>
+                        <button
+                            class="ia-bases"
+                            type="button"
+                            data-ia-bases
+                            aria-haspopup="listbox"
+                            aria-expanded="false"
+                            aria-keyshortcuts="Control+K Meta+K"
+                            aria-label="Pregunta: <?php echo $h($iaInicial['titulo'] ?? ''); ?>. Elegir otra"
+                            <?php echo $iaInicial === null ? 'hidden' : ''; ?>
+                        >
+                            <span class="ia-bases__icono" data-ia-bases-icono aria-hidden="true"><?php echo admin_icon((string) ($iaInicial['icono'] ?? 'plano'), 15); ?></span>
+                            <span class="ia-bases__texto" data-ia-bases-texto><?php echo $h($iaInicial['titulo'] ?? 'Preguntas'); ?></span>
+                            <span class="ia-bases__chevron" aria-hidden="true"><?php echo admin_icon('chevron-abajo', 14); ?></span>
+                        </button>
+                        <?php /* Sin pista de teclas: el cliente la retiró de la caja.
+                                 Los atajos siguen funcionando y los anuncian los
+                                 aria-keyshortcuts de los botones. */ ?>
+                        <button class="ia-enviar" type="submit" data-ia-enviar aria-label="Enviar pregunta" aria-keyshortcuts="Control+Enter Meta+Enter"<?php echo $iaInicial === null ? ' disabled' : ''; ?>>
+                            <?php echo admin_icon('enviar', 20); ?>
+                        </button>
+                        <button class="ia-detener" type="button" data-ia-detener aria-label="Detener la consulta" hidden>
+                            <?php echo admin_icon('detener', 18); ?>
+                        </button>
+                    </div>
                 </div>
-            </div>
+                <?php /* Sólo en conversación: en la vacía el catálogo de abajo ya
+                         dice, con ejemplos, de qué sabe. */ ?>
+                <p class="ia-compositor__nota">Responde con los datos del panel al momento: ventas, equipo e inventario.</p>
+                <noscript>
+                    <p class="ia-compositor__nota ia-compositor__nota--aviso">El asistente necesita JavaScript para funcionar.</p>
+                </noscript>
+            </form>
 
-            <?php /* Fuera del hilo para no desplazarse con él. Arranca fuera del
-                     recorrido de teclado y del árbol de accesibilidad: el JS lo
-                     devuelve a los dos sólo mientras está a la vista. */ ?>
-            <button class="ia-ir-final" type="button" data-ia-ir-final tabindex="-1" aria-hidden="true">
-                <?php echo admin_icon('flecha-abajo', 16); ?>
-                <span>Ir al final</span>
-            </button>
+            <?php if ($iaCatalogo !== []) : ?>
+                <?php /* El catálogo COMPLETO de lo que el motor responde
+                         (ConsultasRapidas::capacidades()), por familia de
+                         pregunta. Elegir una píldora la ARMA en el compositor de
+                         arriba con valores reales, no consulta; la armada queda
+                         marcada (aria-pressed). Cada una lleva su borrador (la
+                         plantilla con los valores del ejemplo y la consulta
+                         estructurada). Sin fila de periodos: el periodo ya es
+                         un hueco de la pregunta, con su lista. */ ?>
+                <section class="ia-catalogo" data-ia-catalogo aria-labelledby="ia-catalogo-titulo" aria-describedby="ia-catalogo-ayuda">
+                    <h2 class="ia-catalogo__titulo" id="ia-catalogo-titulo">Lo que puedes preguntar</h2>
+                    <p class="ia-catalogo__ayuda" id="ia-catalogo-ayuda">Elige una y se arma arriba: cambia sus valores y envíala. Cada cifra llega comparada con el periodo anterior.</p>
+
+                    <div class="ia-catalogo__temas">
+                        <?php foreach ($iaCatalogo as $indice => $grupo) : ?>
+                            <?php
+                            $temaId = 'ia-tema-' . (int) $indice;
+                            $consultas = is_array($grupo['consultas'] ?? null) ? $grupo['consultas'] : [];
+                            ?>
+                            <div class="ia-tema" role="group" aria-labelledby="<?php echo $h($temaId); ?>">
+                                <h3 class="ia-tema__titulo" id="<?php echo $h($temaId); ?>"><?php echo $h($grupo['tema'] ?? ''); ?></h3>
+                                <ul class="ia-tema__lista">
+                                    <?php foreach ($consultas as $consulta) : ?>
+                                        <?php $descId = 'ia-base-' . $h($consulta['intencion']); ?>
+                                        <li>
+                                            <button
+                                                class="ia-base"
+                                                type="button"
+                                                aria-pressed="<?php echo $iaInicial !== null && $consulta['intencion'] === $iaInicial['intencion'] ? 'true' : 'false'; ?>"
+                                                data-ia-base="<?php echo $h($consulta['intencion']); ?>"
+                                                data-ia-borrador="<?php echo $h(json_encode($consulta['borrador'], JSON_UNESCAPED_UNICODE)); ?>"
+                                                data-ia-borradores="<?php echo $h(json_encode($consulta['borradores'] ?? [$consulta['borrador']], JSON_UNESCAPED_UNICODE)); ?>"
+                                                data-ia-tema="<?php echo $h($grupo['tema'] ?? ''); ?>"
+                                                aria-describedby="<?php echo $descId; ?>"
+                                            >
+                                                <span class="ia-base__icono" aria-hidden="true"><?php echo admin_icon((string) $consulta['icono'], 16); ?></span>
+                                                <span class="ia-base__titulo"><?php echo $h($consulta['titulo']); ?></span>
+                                            </button>
+                                            <span class="admin-visually-hidden" id="<?php echo $descId; ?>"><?php echo $h($consulta['descripcion']); ?></span>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
         </div>
-
-        <form class="ia-compositor" data-ia-compositor novalidate>
-            <div class="ia-compositor__caja">
-                <label class="admin-visually-hidden" for="ia-campo">Escribe tu pregunta para el asistente</label>
-                <textarea
-                    id="ia-campo"
-                    class="ia-compositor__campo"
-                    data-ia-campo
-                    data-scrollable
-                    rows="1"
-                    maxlength="<?php echo $iaMaxCaracteres; ?>"
-                    placeholder="Pregunta sobre ventas, inventario, reservaciones o el menú…"
-                    aria-describedby="ia-pista"
-                    aria-keyshortcuts="/ Control+K Meta+K"
-                    autocomplete="off"
-                    enterkeyhint="enter"
-                ></textarea>
-                <?php /* `enter` y no `send`: la tecla sólo se ve en el teclado de
-                         pantalla, y ahí Enter hace salto de línea (ia.js). Con
-                         `send` el teclado rotulaba «Enviar» una tecla que no
-                         envía. */ ?>
-
-                <div class="ia-compositor__barra">
-                    <p class="ia-compositor__pista" id="ia-pista" data-ia-pista>
-                        <kbd>Enter</kbd> envía · <kbd>Shift</kbd> + <kbd>Enter</kbd>, nueva línea
-                    </p>
-                    <span class="ia-compositor__contador" data-ia-contador hidden></span>
-                    <button class="ia-enviar" type="submit" data-ia-enviar aria-label="Enviar pregunta" disabled>
-                        <?php echo admin_icon('enviar', 20); ?>
-                    </button>
-                    <button class="ia-detener" type="button" data-ia-detener aria-label="Detener la respuesta" hidden>
-                        <?php echo admin_icon('detener', 18); ?>
-                    </button>
-                </div>
-            </div>
-            <?php /* Mientras no hay conexión la frase de siempre sería falsa: no
-                     sale nada de ningún dato. */ ?>
-            <p class="ia-compositor__nota">
-                <?php if ($iaConectado) : ?>
-                    Las respuestas salen de los datos del restaurante. Verifica las cifras importantes antes de decidir.
-                <?php else : ?>
-                    Vista previa: las preguntas se guardan, pero todavía no se consultan los datos.
-                <?php endif; ?>
-            </p>
-            <noscript>
-                <p class="ia-compositor__nota ia-compositor__nota--aviso">El asistente necesita JavaScript para funcionar.</p>
-            </noscript>
-        </form>
     </div>
+
+    <?php /* Las opciones del hueco de periodo del compositor, las mismas del
+             motor (valor, etiqueta, escala y consulta). JSON_HEX_* porque va
+             dentro de un <script>: ningún texto puede cerrarlo. */ ?>
+    <script type="application/json" data-ia-periodos><?php
+        echo json_encode($iaOpcionesPeriodo ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    ?></script>
+
+    <?php /* Si la conversación que se retoma es de hoy (ia.js la reabre), la
+             pantalla tiene que nacer en modo conversación: los scripts del
+             panel van con `defer` y, sin esto, la primera pintura enseñaba el
+             saludo centrado y un instante después el compositor saltaba al pie.
+             Repite a propósito la única regla de ia.js que decide el modo:
+             activa guardada y tocada hoy. */ ?>
+    <script>
+        (function (chat) {
+            try {
+                var activa = window.localStorage.getItem('cp-admin-ia-activa');
+                if (!activa || !chat) return;
+                var datos = JSON.parse(window.localStorage.getItem('cp-admin-ia-conversaciones-v1') || 'null');
+                var lista = datos && Array.isArray(datos.conversaciones) ? datos.conversaciones : [];
+                var hoy = new Date();
+                var inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
+                for (var i = 0; i < lista.length; i++) {
+                    var c = lista[i];
+                    if (c && c.id === activa && Number(c.actualizada) >= inicio && Array.isArray(c.mensajes) && c.mensajes.length) {
+                        chat.classList.remove('is-vacia');
+                        return;
+                    }
+                }
+            } catch (error) {}
+        })(document.querySelector('[data-ia-chat]'));
+    </script>
 
     <?php /* Una sola región viva y aparte de la lista: si la lista misma
              fuera `aria-live`, el lector de pantalla repetiría también la
-             pregunta que se acaba de escribir y cada reconstrucción del hilo al
+             pregunta que se acaba de enviar y cada reconstrucción del hilo al
              cambiar de conversación. Aquí sólo entra lo que dice el asistente.
 
              Va FUERA de .ia-chat porque el JS vuelve inerte esa columna

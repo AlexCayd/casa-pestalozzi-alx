@@ -75,7 +75,14 @@ $hoy = \Services\Reservations\ReservacionConfig::fechaActual();
                  en cuanto se resuelve un caso, y fuera se quedarían viejas. Las
                  cifras cuentan CASOS, no tarjetas —una reservación sin mesas y
                  sin contacto suma en las dos—, y por eso «Todos» no lleva
-                 número: no sería la suma de los demás. */ ?>
+                 número: no sería la suma de los demás.
+
+                 Un tipo sin casos sale del filtro (salvo que sea el elegido).
+                 Con el modelo de tres estados «No llegó» y «Sin mesas» casi
+                 siempre valen cero —las ausencias se registran solas y toda
+                 reservación se guarda con mesas—, y seis pestañas para usar
+                 dos eran lo primero que había que leer para no encontrar
+                 nada. Si un día aparecen, aparece su pestaña. */ ?>
         <nav class="admin-tabs admin-tabs--links estrategia-filtro" aria-label="Filtrar casos por tipo">
             <span class="admin-tabs__tab">
                 <a href="<?php echo $h($urlCasos(['tipo' => '', 'pagina' => 1])); ?>"
@@ -84,6 +91,7 @@ $hoy = \Services\Reservations\ReservacionConfig::fechaActual();
             </span>
             <?php foreach ($tipos as $clave => $tipo) : ?>
                 <?php $cuenta = (int)($porTipo[$clave] ?? 0); ?>
+                <?php if ($cuenta === 0 && $tipoActivo !== $clave) { continue; } ?>
                 <span class="admin-tabs__tab">
                     <a href="<?php echo $h($urlCasos(['tipo' => $clave, 'pagina' => 1])); ?>"
                        class="<?php echo $tipoActivo === $clave ? 'is-active' : ''; ?><?php echo $cuenta === 0 ? ' is-empty' : ''; ?>"
@@ -119,7 +127,8 @@ $hoy = \Services\Reservations\ReservacionConfig::fechaActual();
                     $principal = (string)($casos[0]['tipo'] ?? '');
                     $id = (int)$reserva['id'];
                     $nombre = (string)$reserva['nombre'];
-                    $mesas = trim((string)($reserva['mesas'] ?? ''));
+                    // La misma forma que la Agenda y el POS: «Mesas 3 y 4», «Mesas 8 a 11».
+                    $mesas = \Services\Reservations\ReservacionListadoPresenter::mesas((string)($reserva['mesas'] ?? ''));
                     $tiposDeTarjeta = array_column($casos, 'tipo');
                     $reubicacionId = 0;
                     foreach ($casos as $caso) {
@@ -131,16 +140,24 @@ $hoy = \Services\Reservations\ReservacionConfig::fechaActual();
                     $asignar = '/punto-de-venta?' . http_build_query(['reservation_id' => $id, 'mode' => 'assign']);
                     $esHoy = (string)$reserva['fecha'] === $hoy;
                     ?>
+                    <?php /* La severidad ya no va en un filete de color a la
+                             izquierda (el cliente los retiró del módulo): la dice
+                             la etiqueta del caso principal, que es la primera de
+                             la lista y lleva la familia de .admin-badge. La clase
+                             de severidad se conserva para quien la consulte. */ ?>
                     <li class="estrategia-caso estrategia-caso--<?php echo $h($tipos[$principal]['badge'] ?? 'neutral'); ?>">
                         <article aria-labelledby="caso-<?php echo $id; ?>">
+                            <?php /* El cuándo es el ancla, en el margen, como en la
+                                     Agenda: la hora en mono grande y el día encima
+                                     en palabras. «Hoy» va en fuerte porque es lo
+                                     que hace urgente la tarjeta. */ ?>
+                            <p class="estrategia-caso__cuando">
+                                <time datetime="<?php echo $h($reserva['fecha'] . 'T' . $reserva['hora']); ?>">
+                                    <span class="estrategia-caso__dia<?php echo $esHoy ? ' is-hoy' : ''; ?>"><?php echo $esHoy ? 'Hoy' : $h($fechaCorta((string)$reserva['fecha'])); ?></span>
+                                    <span class="estrategia-caso__hora admin-num"><?php echo $h($reserva['hora']); ?></span>
+                                </time>
+                            </p>
                             <header class="estrategia-caso__cabecera">
-                                <p class="estrategia-caso__cuando">
-                                    <time datetime="<?php echo $h($reserva['fecha'] . 'T' . $reserva['hora']); ?>">
-                                        <?php /* Mono sólo para la hora: la fecha son palabras. «Hoy» en
-                                                 fuerte porque es lo que hace urgente la tarjeta. */ ?>
-                                        <?php echo $esHoy ? '<strong>Hoy</strong>' : $h($fechaCorta((string)$reserva['fecha'])); ?> · <span class="admin-num"><?php echo $h($reserva['hora']); ?></span>
-                                    </time>
-                                </p>
                                 <h2 class="estrategia-caso__nombre" id="caso-<?php echo $id; ?>"><?php echo $h($nombre); ?></h2>
                                 <p class="estrategia-caso__datos">
                                     <?php echo $personas((int)$reserva['comensales']); ?>

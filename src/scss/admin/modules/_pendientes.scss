@@ -1,0 +1,651 @@
+/*
+ * Tarjetas-filtro y listas de pendientes.
+ *
+ * Lo comparten Menú («Con receta») e Inventario («Sobre el mínimo», «Con
+ * proveedor»): la misma tarjeta resume cuánto falta y, al pulsarla, el listado
+ * de debajo se vuelve una lista de tareas con su acción directa. Es un parcial
+ * y no un componente de admin.css porque sólo lo cargan esas dos hojas de
+ * módulo (cada una lo incluye con @use; gulp-sass no compila los `_*.scss`).
+ *
+ * Marcado: views/admin/partials/_filtros-estado.php y _tareas-completas.php;
+ * las filas las pinta cada vista.
+ *
+ * Todo cuelga de `.admin-body` (0,2,0): las tarjetas son <a> y el reset del
+ * panel (`.admin-body a`, (0,1,1)) les quitaría el fondo y el color; y los
+ * párrafos del acuse pierden contra `.admin-body p` con una clase sola.
+ *
+ * Fondos SÓLIDOS a propósito, ni vidrio ni tinte: es lo que el cliente pidió
+ * para el panel, y una tarjeta que se pulsa necesita un borde nítido que la
+ * separe del fondo. Sin filetes laterales de color: el estado lo dice el
+ * sello («77 sin receta») y la selección, el contorno en tinta.
+ */
+@use "../shared/abstracts/variables" as vars;
+@use "../shared/abstracts/mixins" as mixins;
+
+// ── Tira de tarjetas-filtro ───────────────────────────────────────
+//
+// La tarjeta «todos» toma lo que pide su cifra y las de tarea se reparten el
+// resto: es donde la barra de avance aprovecha el ancho. --fe-tareas lo pone
+// el parcial con el número de tarjetas de tarea.
+.admin-body .admin-filtros-estado {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 0.8fr)
+    repeat(var(--fe-tareas, 1), minmax(240px, 1.35fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-body .admin-filtro-estado {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px 18px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  color: var(--admin-text);
+  text-decoration: none;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    box-shadow var(--admin-t-fast) var(--admin-ease-out),
+    background-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    border-color: var(--admin-border-strong);
+    background-color: var(--admin-surface-strong);
+    box-shadow: var(--admin-shadow-md);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 3px;
+  }
+
+  // La vigente: contorno de tinta de 2 px (el borde más un canto interior,
+  // para no mover la caja ni un píxel) y la superficie de reposo aunque se
+  // apunte. Es el mismo «esto es lo elegido» que la pastilla maciza de las
+  // pestañas, pero en una caja de este tamaño el relleno negro entero
+  // pesaría más que la lista que filtra.
+  &[aria-current="true"],
+  &[aria-current="true"]:hover {
+    border-color: var(--admin-accent);
+    background-color: var(--admin-surface);
+    box-shadow:
+      inset 0 0 0 1px var(--admin-accent),
+      var(--admin-shadow-md);
+  }
+
+  .admin-filtro-estado__cabeza {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  // El rótulo es la mitad mono del par, como el eyebrow del titular.
+  .admin-filtro-estado__rotulo {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .admin-filtro-estado__pct {
+    flex: 0 0 auto;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // La cifra del indicador va en la display, como la de las tarjetas KPI.
+  .admin-filtro-estado__cifra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    color: var(--admin-text);
+    font-family: var(--admin-font-cifra);
+    font-size: clamp(26px, 2.3vw, 32px);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1;
+  }
+
+  // «de 107» en la voz de cuerpo y un escalón por debajo: el número que
+  // cambia con el trabajo es el de delante.
+  .admin-filtro-estado__de {
+    color: var(--admin-muted);
+    font-family: var(--admin-font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .admin-filtro-estado__nota {
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  // Un solo tono: es una magnitud, no una serie (CLAUDE.md, Gráficas).
+  .admin-filtro-estado__barra {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--admin-border-soft);
+  }
+
+  .admin-filtro-estado__relleno {
+    display: block;
+    width: var(--avance, 0%);
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--admin-accent);
+  }
+
+  // El pie se pega abajo: con tres tarjetas de alturas distintas las acciones
+  // quedan en la misma línea (continuidad).
+  .admin-filtro-estado__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 10px;
+    margin-top: auto;
+    padding-top: 2px;
+  }
+
+  .admin-filtro-estado__accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    color: var(--admin-text);
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+
+    svg {
+      flex: 0 0 auto;
+      stroke-width: 2.2;
+      transition: transform var(--admin-t-fast) var(--admin-ease-out);
+    }
+  }
+
+  // «Ver todos» va a la izquierda: es volver, no avanzar.
+  .admin-filtro-estado__accion--volver {
+    margin-left: 0;
+    color: var(--admin-muted);
+  }
+
+  &:hover .admin-filtro-estado__accion svg {
+    transform: translateX(3px);
+  }
+
+  &:hover .admin-filtro-estado__accion--volver svg {
+    transform: translateX(-3px);
+  }
+
+  @include mixins.reduced-motion {
+    transition: none;
+
+    .admin-filtro-estado__accion svg {
+      transition: none;
+    }
+
+    &:hover .admin-filtro-estado__accion svg {
+      transform: none;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-body .admin-filtros-estado {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+// Con el dedo, cada tarjeta ya es un blanco de sobra (más de 100 px de alto);
+// lo que se ajusta es que el pie no se apriete contra el borde.
+@media (pointer: coarse) {
+  .admin-body .admin-filtro-estado {
+    padding-block: 16px;
+  }
+}
+
+// ── Fila de cabecera: tarjetas-filtro + buscador ──────────────────
+//
+// Menú y Recetas ponen el buscador en la MISMA fila que las tarjetas: es el
+// tercer filtro del mismo listado, y separado era otra franja apilada entre
+// las pestañas y la tabla.
+.admin-body .admin-filtros-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(250px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-block: 16px 18px;
+}
+
+// En un portátil estrecho con el sidebar abierto la fila no da para tres:
+// las tarjetas siguen juntas y el buscador baja a su propia fila, entero.
+@media (max-width: 1100px) {
+  .admin-body .admin-filtros-fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// El buscador toma la misma lámina que las tarjetas de al lado (semejanza),
+// con el campo abajo, a la altura de sus pies. Va sobre un <form
+// class="admin-filters">: `align-items: stretch` repone lo que la barra de
+// filtros de Menú pone en flex-end pensando en una fila, que en columna
+// arrinconaba el campo a la derecha y a media anchura.
+.admin-body .admin-filtro-buscar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 15px 18px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+
+  .admin-filters__search {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  // El rótulo del campo habla igual que el de las tarjetas.
+  label {
+    margin: 0;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  // Con JS el listado responde al teclear y el botón sobra (sin JS, sigue).
+  &.is-reactive .admin-filters__actions {
+    display: none;
+  }
+}
+
+// La nota ocupa el sitio de la cifra de las tarjetas vecinas: dice hasta
+// dónde busca.
+.admin-body .admin-filtro-buscar__nota {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+// ── Cabecera de la lista de pendientes ────────────────────────────
+.admin-body .admin-tareas-cabeza {
+  margin-bottom: 14px;
+
+  .admin-eyebrow {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  p {
+    max-width: 64ch;
+  }
+}
+
+.admin-body .admin-tareas-cabeza__volver {
+  flex: 0 0 auto;
+}
+
+.admin-body .admin-tareas-cuenta {
+  margin: 0 0 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+
+  .admin-num {
+    color: var(--admin-text);
+  }
+}
+
+// ── Lista de pendientes ───────────────────────────────────────────
+//
+// Una rejilla y cada fila un subgrid: así el precio y la acción caen en la
+// misma vertical de fila a fila aunque los nombres midan distinto (continuidad),
+// sin fijar anchos a mano. Las columnas cambian por módulo con --tareas-cols.
+.admin-body .admin-tareas {
+  --tareas-cols: auto minmax(0, 1fr) auto auto;
+
+  display: grid;
+  grid-template-columns: var(--tareas-cols);
+  column-gap: 16px;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--admin-border-soft);
+  list-style: none;
+}
+
+.admin-body .admin-tareas--con-foto {
+  --tareas-cols: auto auto minmax(0, 1fr) auto auto;
+}
+
+.admin-body .admin-tarea {
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover,
+  &:focus-within {
+    background-color: var(--admin-surface-soft);
+  }
+}
+
+// Sin subgrid cada fila reparte sola: se pierde la vertical de las cifras,
+// pero la fila sigue entera y legible.
+@supports not (grid-template-columns: subgrid) {
+  .admin-body .admin-tarea {
+    grid-template-columns: var(--tareas-cols);
+    column-gap: 16px;
+  }
+}
+
+// El círculo vacío de una tarea por hacer. Discontinuo y no una casilla: no
+// se marca a mano —sale solo de la lista al resolverse—, y una casilla
+// prometería un clic que no existe.
+.admin-body .admin-tarea__marca {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 1.5px dashed var(--admin-border-strong);
+  border-radius: 50%;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-body .admin-tarea:hover .admin-tarea__marca,
+.admin-body .admin-tarea:focus-within .admin-tarea__marca {
+  border-color: var(--admin-accent);
+}
+
+.admin-body .admin-tarea__texto {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-body .admin-tarea__nombre {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-body .admin-tarea__detalle {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Lo que dice por qué urge esta fila (Agotado, Faltan 900 ml): tinta de
+// estado sobre el texto, no un relleno.
+.admin-body .admin-tarea__aviso {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+
+  &--grave {
+    color: var(--admin-danger-text);
+  }
+}
+
+.admin-body .admin-tarea__dato {
+  color: var(--admin-muted);
+  font-size: 13.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-body .admin-tarea__accion {
+  display: flex;
+  justify-content: flex-end;
+}
+
+// El enlace de la fila se estira a todo el renglón con su ::after: el blanco
+// es la fila entera y no un botón de 34 px. Para que el ::after se mida contra
+// la FILA, el enlace no puede ser contenedor de posición: se le quitan el
+// `position`, el `overflow` y el salto de hover que .admin-btn trae (un
+// `transform` también crea contenedor, y el blanco encogería al apuntar).
+.admin-body .admin-tarea__enlace {
+  position: static;
+  overflow: visible;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  &:hover,
+  &:active {
+    transform: none;
+  }
+}
+
+// Apuntar a cualquier punto de la fila enciende la acción: es la figura.
+.admin-body .admin-tarea:hover .admin-tarea__enlace,
+.admin-body .admin-tarea__enlace:focus-visible {
+  border-color: var(--admin-accent);
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+.admin-body .admin-tarea__enlace .admin-btn__icon {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-body .admin-tarea:hover .admin-tarea__enlace .admin-btn__icon {
+  transform: translateX(2px);
+}
+
+@include mixins.reduced-motion {
+  .admin-body .admin-tarea,
+  .admin-body .admin-tarea__marca,
+  .admin-body .admin-tarea__enlace .admin-btn__icon {
+    transition: none;
+  }
+
+  .admin-body .admin-tarea:hover .admin-tarea__enlace .admin-btn__icon {
+    transform: none;
+  }
+}
+
+// En una columna: la marca a la izquierda y todo lo demás apilado a su
+// derecha. La foto sale (el nombre basta para reconocer el platillo) y la
+// acción ocupa el ancho, que es como se pulsa con el pulgar.
+@include mixins.down(640px) {
+  .admin-body .admin-tareas {
+    display: block;
+  }
+
+  .admin-body .admin-tarea {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 8px;
+    padding-inline: 4px;
+  }
+
+  .admin-body .admin-tarea__marca {
+    align-self: start;
+    margin-top: 2px;
+  }
+
+  // Con la tarea como ancestro (0,3,0): la miniatura de Menú declara su
+  // `display: grid` en menu.scss, que se emite DESPUÉS de este parcial y con
+  // (0,2,0) le ganaba por orden.
+  .admin-body .admin-tarea .admin-tarea__foto {
+    display: none;
+  }
+
+  .admin-body .admin-tarea__dato,
+  .admin-body .admin-tarea__accion {
+    grid-column: 2;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .admin-body .admin-tarea__accion .admin-btn {
+    min-height: 44px;
+  }
+}
+
+// ── Acuse: ya no queda nada ───────────────────────────────────────
+//
+// El único movimiento de las listas de pendientes. 460 ms con rebote para el
+// sello —el «acuse celebratorio» de la doctrina, raro por definición— y el
+// visto que se traza después. Con movimiento reducido aparece quieto: no se
+// sustituye por un fundido porque el sello ya es la señal.
+.admin-body .admin-tareas-fin {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: clamp(32px, 6vw, 56px) 20px;
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface-soft);
+  text-align: center;
+}
+
+.admin-body .admin-tareas-fin__sello {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  place-items: center;
+  border-radius: 50%;
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+  animation: admin-tareas-sello 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+  svg {
+    width: 30px;
+    height: 30px;
+    stroke-width: 2.6;
+  }
+
+  // El trazo del visto mide ~22.6 unidades; 24 lo cubre entero.
+  svg path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 0;
+    animation: admin-tareas-visto 320ms 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+}
+
+.admin-body .admin-tareas-fin__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.admin-body .admin-tareas-fin__texto {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.admin-body .admin-tareas-fin__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+// Parcial: la sección está al día pero el menú no. Sello en contorno y sin
+// rebote — se reconoce el avance sin celebrar algo que no ha terminado.
+.admin-body .admin-tareas-fin--parcial .admin-tareas-fin__sello {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--admin-accent);
+  background-color: var(--admin-surface);
+  color: var(--admin-accent);
+  animation-name: admin-tareas-aparece;
+  animation-duration: 240ms;
+  animation-timing-function: var(--admin-ease-out);
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@keyframes admin-tareas-sello {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes admin-tareas-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes admin-tareas-visto {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+@include mixins.reduced-motion {
+  .admin-body .admin-tareas-fin__sello,
+  .admin-body .admin-tareas-fin__sello svg path {
+    animation: none;
+  }
+}

@@ -1,8 +1,11 @@
 // ── Variantes en el POS ───────────────────────────────────────
 //
-// Tres piezas: el aviso en la fila del platillo («Opciones» / «Elegir»), la
-// hoja de opciones que se abre encima del modal de mesa, y el rótulo de la
-// variante en el pedido y en el ticket.
+// Dos piezas: la hoja de opciones que se abre encima del modal de mesa, y el
+// rótulo de la variante en el pedido y en el ticket. Hubo una tercera —la
+// pastilla «Opciones» / «Elegir» en la tarjeta del platillo— y el cliente la
+// retiró: tocar el platillo abre la hoja sola, y en la rejilla de tres
+// columnas la pastilla era lo que más ancho pedía. Lo mismo el «Cambiar» de la
+// fila del pedido: ahora la fila entera abre la hoja (ver _punto-de-venta).
 //
 // Escrito, como el resto del POS, contra los nombres públicos que traduce
 // `puente-tokens-publicos` (--txt, --accent, --line…). La hoja va en
@@ -15,32 +18,12 @@
 // <button>, <h3> o <p> van con el bloque delante (`& &__x`, 0,2,0): sin él las
 // pastillas salían en 400 en vez de 600 —en una tablet a un brazo de
 // distancia, el peso es lo que las hace legibles— y el titular a 25 px.
-
-// La fila avisa ANTES del toque. Mono para nada: es una palabra, no una cifra.
-.mmodal-dish-opts {
-  display: inline-flex;
-  align-items: center;
-  gap: .25rem;
-  padding: .1rem .45rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--txt-mute);
-  // .6rem eran 9.6 px: ilegible a un brazo de distancia, y es justo el aviso
-  // que tiene que leerse ANTES del toque.
-  font-size: .66rem;
-  font-weight: 600;
-  letter-spacing: .04em;
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
-}
-
-.mmodal-dish-row.is-active .mmodal-dish-opts {
-  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
-  color: var(--on-accent);
-}
+//
+// Tipografía: la voz del piso (_voz.scss). Rótulo y grupo en mono, el platillo
+// en Satoshi a 700 —es el encabezado de una pieza, no un titular: Expose se
+// queda en el nombre de la mesa—, las opciones en sans a 600 y los importes en
+// mono.
+@use 'voz' as *;
 
 // ── La hoja ───────────────────────────────────────────────────
 
@@ -96,22 +79,18 @@
   }
 
   & &__eyebrow {
-    margin: 0 0 .2rem;
+    @include rotulo(10.5px);
+    margin: 0 0 .3rem;
     color: var(--txt-faint);
-    font-family: var(--operational-font-ui);
-    font-size: .62rem;
-    font-weight: 600;
-    letter-spacing: .14em;
-    text-transform: uppercase;
   }
 
   & &__titulo {
     margin: 0;
     color: var(--txt);
-    font-family: var(--operational-font-ui);
-    font-size: 1.15rem;
+    font-family: var(--admin-font-sans);
+    font-size: 1.2rem;
     font-weight: 700;
-    letter-spacing: -.01em;
+    letter-spacing: 0;
     line-height: 1.2;
   }
 
@@ -161,26 +140,26 @@
   }
 
   & &__grupo-nombre {
+    @include rotulo;
     display: flex;
     align-items: center;
     gap: .5rem;
     margin: 0;
     color: var(--txt-mute);
-    font-size: .7rem;
-    font-weight: 600;
-    letter-spacing: .1em;
-    text-transform: uppercase;
   }
 
   // Lo obligatorio que falta es lo único con color de estado en la hoja: es lo
-  // que impide agregar, y tiene que verse sin leer.
+  // que impide agregar, y tiene que verse sin leer. Vuelve a la sans: vive
+  // dentro del rótulo mono del grupo, pero es una frase («Elige una»).
   &__req {
-    padding: .1rem .45rem;
+    padding: .12rem .5rem;
     border-radius: 999px;
     background: color-mix(in srgb, var(--txt) 8%, transparent);
     color: var(--txt-mute);
-    font-size: .64rem;
-    letter-spacing: .02em;
+    font-family: var(--admin-font-sans);
+    font-size: var(--operational-text-xs);
+    font-weight: 600;
+    letter-spacing: 0;
     text-transform: none;
   }
 
@@ -206,11 +185,11 @@
     border-radius: 12px;
     background: transparent;
     color: var(--txt);
-    font-family: var(--operational-font-ui);
-    font-size: .85rem;
+    font-family: var(--admin-font-sans);
+    font-size: var(--operational-text-base);
     font-weight: 600;
     cursor: pointer;
-    transition: background .14s, border-color .14s, color .14s;
+    transition: background .14s, border-color .14s, color .14s, transform .1s;
     -webkit-tap-highlight-color: transparent;
 
     &:hover { border-color: var(--line-strong); }
@@ -229,10 +208,9 @@
   }
 
   &__pill-delta {
-    font-family: var(--admin-font-mono, monospace);
-    font-size: .72rem;
+    @include cifra-columna;
+    font-size: .75rem;
     font-weight: 500;
-    font-variant-numeric: tabular-nums;
     opacity: .8;
   }
 
@@ -258,6 +236,37 @@
       width: 100%;
       min-height: 48px;
     }
+  }
+
+  /*
+   * «Agregar» y el precio, en los dos extremos del botón.
+   *
+   * El precio es la respuesta a «¿cuánto va a costar con esto?», y se lee de
+   * un vistazo porque siempre está en el mismo sitio: a la derecha, en mono
+   * tabular —los mismos dígitos que el «+$15» de cada opción, que es de donde
+   * sale la suma—. Cambia en vivo con cada opción que se toca; el servidor lo
+   * vuelve a calcular al enviar. Mientras falta un grupo obligatorio el botón
+   * se apaga, pero el precio se queda («desde $X» si la opción que falta
+   * mueve el importe).
+   */
+  & &__confirmar {
+    justify-content: space-between;
+    gap: .75rem;
+    padding-inline: 1.1rem;
+  }
+
+  &__verbo {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__precio {
+    @include cifra-columna;
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
   }
 }
 
@@ -286,55 +295,14 @@
 
 // ── Rótulo de la variante en el pedido y en el ticket ─────────
 
+// La opción elegida, debajo del nombre: un escalón por debajo de él en tono y
+// en peso, para que «Cappuccino» se lea primero y «Almendra» después.
 .mmodal-cart-variante,
 .mmodal-resumen-variante {
   display: block;
   margin-top: .15rem;
-  color: var(--txt);
-  font-size: .7rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-// Visualmente es una pastilla de 32 px —la fila del pedido es densa y no
-// puede crecer por cada platillo con opciones—, pero el área táctil llega a
-// 44 con el ::after. Va con la fila delante por la misma razón que la hoja:
-// `.admin-body button` le quitaba el cuerpo y el peso.
-.mmodal-cart-row .mmodal-cart-cambiar {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  min-height: 32px;
-  margin-top: .25rem;
-  padding: 0 .55rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
   color: var(--txt-mute);
-  font-family: inherit;
-  font-size: .66rem;
-  font-weight: 600;
-  cursor: pointer;
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -6px -2px;
-  }
-
-  &:hover {
-    border-color: var(--line-strong);
-    color: var(--txt);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus, var(--txt));
-    outline-offset: 2px;
-  }
+  font-size: var(--operational-text-xs);
+  font-weight: 500;
+  line-height: 1.3;
 }

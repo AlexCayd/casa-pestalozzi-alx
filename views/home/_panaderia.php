@@ -20,22 +20,21 @@
   mientras cruza esta franja se comporte como si fuera una portada.
 */ ?>
 <section class="section pan" id="panaderia" data-tono="crema" data-screen-label="Panadería">
-  <?php echo ornamento('trigo', 'orn--seccion', true); ?>
   <div class="wrap pan__lienzo">
 
     <div class="pan__mosaic" data-reveal data-tono-franja="foto">
 
       <div class="pm pm--alta arco" data-portada data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Pan artesanal">
-        <img src="/build/images/galeria-2.webp" alt="Pan artesanal de masa madre" loading="lazy" />
+        <img src="/build/images/galeria-2.webp"<?php echo srcsetImagen('/build/images/galeria-2.webp'); ?> decoding="async" alt="Pan artesanal de masa madre" loading="lazy" />
       </div>
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Repostería de la casa">
-        <img src="/build/images/galeria-4.webp" alt="Repostería artesanal" loading="lazy" />
+        <img src="/build/images/galeria-4.webp"<?php echo srcsetImagen('/build/images/galeria-4.webp'); ?> decoding="async" alt="Repostería artesanal" loading="lazy" />
       </div>
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Vitrina del día">
-        <img src="/build/images/panaderia-vitrina.webp" alt="Vitrina con la panadería del día" loading="lazy" />
+        <img src="/build/images/panaderia-vitrina.webp"<?php echo srcsetImagen('/build/images/panaderia-vitrina.webp'); ?> decoding="async" alt="Vitrina con la panadería del día" loading="lazy" />
       </div>
       <div class="pm pm--alta arco" data-portada data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Croissants">
-        <img src="/build/images/panaderia-1.webp" alt="Croissants recién horneados" loading="lazy" />
+        <img src="/build/images/panaderia-1.webp"<?php echo srcsetImagen('/build/images/panaderia-1.webp'); ?> decoding="async" alt="Croissants recién horneados" loading="lazy" />
       </div>
 
       <?php /*
@@ -70,16 +69,16 @@
       </div>
 
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Horno artesanal">
-        <img src="/build/images/galeria-6.webp" alt="Horno artesanal" loading="lazy" />
+        <img src="/build/images/galeria-6.webp"<?php echo srcsetImagen('/build/images/galeria-6.webp'); ?> decoding="async" alt="Horno artesanal" loading="lazy" />
       </div>
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Panadería tradicional">
-        <img src="/build/images/galeria-1.webp" alt="Panadería tradicional" loading="lazy" />
+        <img src="/build/images/galeria-1.webp"<?php echo srcsetImagen('/build/images/galeria-1.webp'); ?> decoding="async" alt="Panadería tradicional" loading="lazy" />
       </div>
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Panes del día">
-        <img src="/build/images/galeria-7.webp" alt="Panes artesanales del día" loading="lazy" />
+        <img src="/build/images/galeria-7.webp"<?php echo srcsetImagen('/build/images/galeria-7.webp'); ?> decoding="async" alt="Panes artesanales del día" loading="lazy" />
       </div>
       <div class="pm" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Masa madre">
-        <img src="/build/images/panaderia-3.webp" alt="Hogazas de masa madre en el obrador" loading="lazy" />
+        <img src="/build/images/panaderia-3.webp"<?php echo srcsetImagen('/build/images/panaderia-3.webp'); ?> decoding="async" alt="Hogazas de masa madre en el obrador" loading="lazy" />
       </div>
 
     </div>

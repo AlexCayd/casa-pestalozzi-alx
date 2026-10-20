@@ -108,6 +108,13 @@ if (!function_exists('admin_icon_paths')) {
             'estrella' => '<path d="m12 3 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.9 6.1 21l1.2-6.5L2.5 9.9 9.1 9Z"/>',
             'alerta' => '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
             'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+            // Pareja de icons.js, donde ya vivía para los avisos: error y
+            // advertencia se separan por FORMA (círculo con aspa frente a
+            // triángulo). El Asistente lo usa para «Cancelaciones».
+            'error' => '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/>',
+            // Una gota: lo que se gasta de un ingrediente («Consumo» en el
+            // Asistente). Pareja de icons.js.
+            'gota' => '<path d="M12 3.5c3.2 3.9 6 7.3 6 10.6a6 6 0 0 1-12 0c0-3.3 2.8-6.7 6-10.6Z"/><path d="M9.2 14.6a2.9 2.9 0 0 0 2.4 2.6"/>',
 
             // ── Estados de mesa del POS ───────────────────────────────
             //
@@ -122,6 +129,9 @@ if (!function_exists('admin_icon_paths')) {
             // Reservaciones en el POS: barra de contexto, cajón y ficha.
             'chevron-izquierda' => '<path d="m15 6-6 6 6 6"/>',
             'chevron-derecha' => '<path d="m9 6 6 6-6 6"/>',
+            // El de los huecos del Asistente, que el servidor pinta en la
+            // primera impresión. Pareja de icons.js, donde ya vivía.
+            'chevron-abajo' => '<path d="m6 9 6 6 6-6"/>',
             'ahora' => '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V10H9"/><path d="M12 8v4.5l3 1.8"/>',
             'reloj' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 1.9"/>',
             'plano' => '<rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',

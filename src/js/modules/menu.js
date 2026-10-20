@@ -130,6 +130,7 @@ function initMenu() {
       }
 
       var botones = [];
+      var fila = null;
       function selectCat(i, enfocar) {
         currentCat = i;
         botones.forEach(function(b, k) {
@@ -138,7 +139,12 @@ function initMenu() {
           b.setAttribute("aria-selected", activa ? "true" : "false");
           b.tabIndex = activa ? 0 : -1;
         });
-        if (enfocar) botones[i].focus();
+        // El foco no desplaza la fila por su cuenta (lo haría de golpe y sin
+        // contar el desvanecido): la pestaña la trae a la vista la fila, con
+        // margen para que no quede debajo de la flecha. Vale igual para el
+        // teclado que para el clic en una pestaña que asomaba cortada.
+        if (enfocar) botones[i].focus({ preventScroll: true });
+        if (fila) fila.mostrar(botones[i]);
         renderList(i);
         if (window.ScrollTrigger) ScrollTrigger.refresh();
       }
@@ -173,12 +179,284 @@ function initMenu() {
         else return;
         e.preventDefault();
         selectCat(i, true);
-        botones[i].scrollIntoView({ block: "nearest", inline: "nearest" });
       });
 
+      fila = filaDesplazable(tabs, $("#menuPestanas"));
       renderList(0);
     })
     .catch(function() {
       list.innerHTML = '<p class="menu__estado">No pudimos cargar la carta. Puedes abrirla en PDF.</p>';
     });
+}
+
+/* La fila de pestañas que desborda
+   ------------------------------------------------------------------
+   Nueve secciones no caben en ninguna pantalla y la fila se desplaza en
+   horizontal. Aquí vive todo lo que hace que eso se note y sea cómodo:
+
+   · Publica en el contenedor de qué lado queda carta (.is-desborda-ini /
+     .is-desborda-fin): el CSS desvanece ese borde y enseña su flecha.
+   · Las flechas desplazan una «página» que termina en el borde de una
+     pestaña, nunca a media palabra.
+   · Con ratón, la fila se arrastra (con inercia al soltar) y la rueda
+     vertical la recorre, pero sólo mientras le quede recorrido en ese
+     sentido: al llegar al extremo la rueda vuelve a ser de la página. Y si el
+     gesto de rueda empezó fuera de la fila (bajando por la página), sigue
+     siendo de la página aunque la fila pase por debajo del puntero: es el
+     mismo «enganche» que hacen los navegadores con los scrolls anidados, y
+     sin él la página se frenaba en seco a mitad de la bajada.
+   · La primera vez que la fila entra en pantalla con carta escondida, la
+     flecha da un empujoncito. Una sola vez y nunca con movimiento reducido.
+
+   Lenis cancela la rueda en toda la página salvo dentro de
+   [data-lenis-prevent]. La marca se pone y se quita EN CADA evento, antes de
+   que le llegue a Lenis (este listener está en la fila; el suyo, en window):
+   sólo cuando la fila se queda el gesto. Escrita a mano y fija, la página se
+   plantaría encima de la carta aunque la fila ya no tuviera adónde ir.
+
+   Devuelve { mostrar(pestaña) } para traer a la vista la pestaña elegida. */
+function filaDesplazable(fila, contenedor) {
+  if (!fila || !contenedor) return { mostrar: function() {} };
+  var flechas = $$("[data-desliza]", contenedor);
+  var tocada = false;
+
+  // El hueco del desvanecido, leído del CSS y no repetido aquí: la fila lo
+  // usa como scroll-padding, y ése sí computa a píxeles.
+  function fundido() {
+    var v = parseFloat(getComputedStyle(fila).scrollPaddingLeft);
+    return v > 0 ? v : 56;
+  }
+  function maximo() { return Math.max(0, fila.scrollWidth - fila.clientWidth); }
+  function conMovimiento() { return !reduce && !body.classList.contains("no-anim"); }
+
+  // ── De qué lado queda carta ──
+  var pendiente = false;
+  function estado() {
+    pendiente = false;
+    var max = maximo();
+    // Un píxel de tolerancia: con zoom del navegador scrollLeft se queda en
+    // x.5 y la flecha del final no se retiraba nunca.
+    contenedor.classList.toggle("is-desborda-ini", fila.scrollLeft > 1);
+    contenedor.classList.toggle("is-desborda-fin", fila.scrollLeft < max - 1);
+  }
+  function programar() {
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(estado);
+  }
+  fila.addEventListener("scroll", programar, { passive: true });
+  // La fila cambia de ancho sin que cambie la ventana: llegan las fuentes,
+  // cambia la columna. El observer lo ve todo.
+  if (window.ResizeObserver) new ResizeObserver(programar).observe(fila);
+  else window.addEventListener("resize", programar);
+  estado();
+
+  // ── Un solo dueño del desplazamiento por código ──
+  // Inercia y rueda escriben scrollLeft fotograma a fotograma; si las dos
+  // corrieran a la vez se pelearían por el mismo valor.
+  var bucle = null, objetivo = null;
+  function parar() {
+    if (bucle) cancelAnimationFrame(bucle);
+    bucle = null;
+    objetivo = null;
+  }
+
+  function ir(x) {
+    parar();
+    fila.scrollTo({ left: Math.max(0, Math.min(maximo(), x)), behavior: conMovimiento() ? "smooth" : "auto" });
+  }
+
+  // Una «página» hacia un lado, cortada en el borde de una pestaña: hacia
+  // delante, la primera que asoma bajo el desvanecido derecho pasa a ser la
+  // primera entera; hacia atrás, la última que asoma por la izquierda pasa a
+  // ser la última entera.
+  function pagina(sentido) {
+    var f = fundido(), ini = fila.scrollLeft, fin = ini + fila.clientWidth;
+    var pestanas = $$(".menu__tab", fila), destino = null, k, p;
+    if (sentido > 0) {
+      for (k = 0; k < pestanas.length; k++) {
+        p = pestanas[k];
+        if (p.offsetLeft + p.offsetWidth > fin - f + 1) { destino = p.offsetLeft - f; break; }
+      }
+      if (destino === null || destino <= ini + 1) destino = ini + fila.clientWidth * 0.8;
+    } else {
+      for (k = pestanas.length - 1; k >= 0; k--) {
+        p = pestanas[k];
+        if (p.offsetLeft < ini + f - 1) { destino = p.offsetLeft + p.offsetWidth - fila.clientWidth + f; break; }
+      }
+      if (destino === null || destino >= ini - 1) destino = ini - fila.clientWidth * 0.8;
+    }
+    ir(destino);
+  }
+
+  flechas.forEach(function(b) {
+    // Sin robar el foco: si estaba en una pestaña, tiene que seguir ahí.
+    b.addEventListener("pointerdown", function(e) { e.preventDefault(); });
+    b.addEventListener("click", function() {
+      tocada = true;
+      pagina(parseInt(b.getAttribute("data-desliza"), 10) || 1);
+    });
+  });
+
+  // ── Arrastre con ratón ──
+  // Sólo ratón: el dedo ya desplaza la fila de forma nativa, y un arrastre
+  // propio pelearía con el del navegador.
+  var arrastre = null, trasArrastre = false;
+  fila.addEventListener("pointerdown", function(e) {
+    if (e.pointerType !== "mouse" || e.button !== 0 || maximo() <= 0) return;
+    parar();
+    arrastre = { id: e.pointerId, x: e.clientX, inicio: fila.scrollLeft, movido: false, v: 0, t: e.timeStamp, ultimoX: e.clientX };
+  });
+  fila.addEventListener("pointermove", function(e) {
+    if (!arrastre || e.pointerId !== arrastre.id) return;
+    var dx = e.clientX - arrastre.x;
+    if (!arrastre.movido) {
+      // Umbral: un clic con el pulso tembloroso sigue siendo un clic.
+      if (Math.abs(dx) < 6) return;
+      arrastre.movido = true;
+      tocada = true;
+      fila.classList.add("is-arrastrando");
+      try { fila.setPointerCapture(e.pointerId); } catch (err) { /* ya soltado */ }
+    }
+    var dt = Math.max(1, e.timeStamp - arrastre.t);
+    arrastre.v = (e.clientX - arrastre.ultimoX) / dt;
+    arrastre.t = e.timeStamp;
+    arrastre.ultimoX = e.clientX;
+    fila.scrollLeft = arrastre.inicio - dx;
+  });
+  function soltar(e) {
+    if (!arrastre || e.pointerId !== arrastre.id) return;
+    var a = arrastre;
+    arrastre = null;
+    if (!a.movido) return;
+    fila.classList.remove("is-arrastrando");
+    // El clic que el navegador dispara al soltar no debe elegir la pestaña
+    // sobre la que terminó el gesto.
+    trasArrastre = true;
+    setTimeout(function() { trasArrastre = false; }, 0);
+    // Un gesto que se detuvo antes de soltar no lanza la fila.
+    if (conMovimiento() && e.timeStamp - a.t < 80) inercia(-a.v);
+  }
+  fila.addEventListener("pointerup", soltar);
+  fila.addEventListener("pointercancel", soltar);
+  fila.addEventListener("click", function(e) {
+    if (!trasArrastre) return;
+    e.stopPropagation();
+    e.preventDefault();
+    trasArrastre = false;
+  }, true);
+
+  // La fila sigue un poco tras soltarla y frena sola. La constante se
+  // normaliza por tiempo, como la del cursor: a 60 y a 144 Hz frena igual.
+  function inercia(v) {
+    parar();
+    if (Math.abs(v) < 0.05) return;
+    var anterior = 0;
+    function paso(ahora) {
+      var dt = anterior ? Math.min(48, ahora - anterior) : 16.67;
+      anterior = ahora;
+      fila.scrollLeft += v * dt;
+      v *= Math.pow(0.92, dt / 16.67);
+      if (Math.abs(v) < 0.02 || fila.scrollLeft <= 0 || fila.scrollLeft >= maximo() - 0.5) { bucle = null; return; }
+      bucle = requestAnimationFrame(paso);
+    }
+    bucle = requestAnimationFrame(paso);
+  }
+
+  // ── La rueda ──
+  // Un gesto de rueda es una ráfaga de eventos sin pausas de más de 250 ms. Se
+  // engancha a donde EMPEZÓ: si empezó fuera de la fila, es de la página.
+  var ultimaRueda = -1e9, gestoEnFila = false;
+  window.addEventListener("wheel", function(e) {
+    if (e.timeStamp - ultimaRueda > 250) gestoEnFila = fila.contains(e.target);
+    ultimaRueda = e.timeStamp;
+  }, { passive: true, capture: true });
+
+  fila.addEventListener("wheel", function(e) {
+    var max = maximo();
+    var dx = e.deltaX, dy = e.deltaY;
+    if (e.deltaMode === 1) { dx *= 16; dy *= 16; }
+    else if (e.deltaMode === 2) { dx *= fila.clientWidth; dy *= fila.clientWidth; }
+
+    // El gesto horizontal (trackpad, rueda inclinable) lo resuelve el
+    // navegador de forma nativa: sólo hay que impedir que Lenis lo cancele.
+    if (max > 0 && Math.abs(dx) > Math.abs(dy)) {
+      fila.setAttribute("data-lenis-prevent", "");
+      return;
+    }
+
+    var puede = max > 0 && gestoEnFila && !e.shiftKey && !e.ctrlKey &&
+      ((dy > 0 && fila.scrollLeft < max - 1) || (dy < 0 && fila.scrollLeft > 1));
+    if (!puede) {
+      fila.removeAttribute("data-lenis-prevent");
+      return;
+    }
+    fila.setAttribute("data-lenis-prevent", "");
+    e.preventDefault();
+    tocada = true;
+
+    // Rueda de ratón (saltos de 100 px) o trackpad (pasos finos): los dos
+    // acaban en el mismo seguimiento suave hacia un objetivo que se acumula.
+    var base = objetivo === null ? fila.scrollLeft : objetivo;
+    var destino = Math.max(0, Math.min(max, base + dy));
+    if (!conMovimiento()) { parar(); fila.scrollLeft = destino; return; }
+    if (objetivo === null) parar();
+    objetivo = destino;
+    if (bucle) return;
+    var anterior = 0;
+    function paso(ahora) {
+      if (objetivo === null) { bucle = null; return; }
+      var dt = anterior ? Math.min(48, ahora - anterior) : 16.67;
+      anterior = ahora;
+      var antes = fila.scrollLeft, resto = objetivo - antes;
+      fila.scrollLeft = antes + resto * (1 - Math.pow(1 - 0.24, dt / 16.67));
+      // scrollLeft se redondea al píxel: cerca del objetivo el paso es menor
+      // que medio píxel y la fila dejaba de avanzar con el bucle todavía vivo,
+      // a dos píxeles del final. Si el paso ya no mueve nada, se llega de una.
+      if (Math.abs(resto) < 0.5 || Math.abs(fila.scrollLeft - antes) < 0.5) {
+        fila.scrollLeft = objetivo; objetivo = null; bucle = null; return;
+      }
+      bucle = requestAnimationFrame(paso);
+    }
+    bucle = requestAnimationFrame(paso);
+  }, { passive: false });
+
+  // ── Traer a la vista la pestaña elegida ──
+  // Con el margen del desvanecido a cada lado, para que no quede debajo de la
+  // flecha; y sólo si hace falta. Si el destino cae a menos de un desvanecido
+  // del extremo, se va al extremo: con margen quedaría una franja borrosa sin
+  // nada detrás.
+  function mostrar(pestana) {
+    if (!pestana || maximo() <= 0) return;
+    var f = fundido(), ini = fila.scrollLeft, ancho = fila.clientWidth;
+    var izq = pestana.offsetLeft, der = izq + pestana.offsetWidth;
+    if (izq < ini + f) ir(izq - f < f ? 0 : izq - f);
+    else if (der > ini + ancho - f) ir(der + f > fila.scrollWidth - f ? maximo() : der - ancho + f);
+  }
+
+  // ── El empujoncito ──
+  // La primera vez que la fila entra en pantalla con carta escondida a la
+  // derecha y nadie la ha tocado todavía, la flecha avanza dos veces.
+  var sig = $(".menu__desliza--sig", contenedor);
+  var icono = sig && sig.querySelector("svg");
+  if (icono && icono.animate && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(entradas) {
+      if (!entradas[0].isIntersecting) return;
+      io.disconnect();
+      setTimeout(function() {
+        if (tocada || !conMovimiento() || !contenedor.classList.contains("is-desborda-fin")) return;
+        icono.animate([
+          { transform: "translateX(0)" },
+          { transform: "translateX(5px)", offset: 0.18 },
+          { transform: "translateX(0)", offset: 0.36 },
+          { transform: "translateX(5px)", offset: 0.54 },
+          { transform: "translateX(0)", offset: 0.72 },
+          { transform: "translateX(0)" }
+        ], { duration: 1300, easing: "ease-in-out" });
+      }, 700);
+    }, { threshold: 0.9 });
+    io.observe(contenedor);
+  }
+
+  return { mostrar: mostrar };
 }

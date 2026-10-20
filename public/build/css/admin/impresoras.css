@@ -1,0 +1,325 @@
+@charset "UTF-8";
+/*
+ * Estaciones de impresión: el color de cada área en su fila, el botón de
+ * prueba con sus estados y el aviso de servicio pausado.
+ *
+ * Hoja propia que se carga DESPUÉS de menu.css: de Menú siguen saliendo el
+ * formulario, la cabecera y el panel del listado; lo de aquí es sólo de
+ * impresión. Lo que vivía en menu.scss para esta página (.admin-printers__*,
+ * .admin-tag--cuenta / --comanda) dejó de usarse.
+ *
+ * El color de un área NO está en esta hoja: llega de la base
+ * (areas_produccion.color) como `--prn-area` en el atributo style de la fila
+ * —o de la pill del formulario—, y su tinta legible encima como
+ * `--prn-area-tinta`, que el controlador elige entre --admin-ink y
+ * --admin-paper por contraste. Así un área nueva o un color cambiado en la
+ * base se ven bien sin tocar el SCSS.
+ *
+ * Todo bajo `.admin-body`: `.admin-body button { font: inherit }`, `h3` y `p`
+ * suman (0,1,1) y le ganarían a una clase sola.
+ */
+.admin-body {
+  /* Cuánto tiñe el color del área el fondo de su fila. Más en oscuro: la
+     misma mezcla sobre una superficie casi negra apenas se distingue. */
+}
+.admin-body .prn {
+  --prn-lavado: 6%;
+  --prn-lavado-hover: 11%;
+}
+.admin-body {
+  /* ── La tabla ──────────────────────────────────────────────────── */
+}
+.admin-body .prn-tabla {
+  min-width: 900px;
+}
+.admin-body .prn-tabla th.prn-tabla__num,
+.admin-body .prn-tabla td.prn-tabla__num {
+  text-align: right;
+  white-space: nowrap;
+}
+.admin-body {
+  /* El hover global de .admin-table pinta un filete de 3 px a la izquierda
+     de la fila. Sobre una fila teñida se leía como un borde de color más, y
+     la casa no usa filetes laterales: aquí el hover sólo intensifica el
+     fondo. El foco de teclado conserva un anillo completo. */
+}
+.admin-body .prn-tabla tbody tr:hover {
+  box-shadow: none;
+}
+.admin-body .prn-tabla tbody tr[data-row-href]:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--admin-accent);
+}
+.admin-body .prn-tabla tbody tr.prn-fila--area {
+  background: color-mix(in srgb, var(--prn-area) var(--prn-lavado), var(--admin-surface));
+}
+.admin-body .prn-tabla tbody tr.prn-fila--area:hover,
+.admin-body .prn-tabla tbody tr.prn-fila--area:focus-visible {
+  background: color-mix(in srgb, var(--prn-area) var(--prn-lavado-hover), var(--admin-surface));
+}
+.admin-body .prn-tabla tbody tr.prn-fila--area td {
+  border-bottom-color: color-mix(in srgb, var(--prn-area) 16%, var(--admin-border-soft));
+}
+.admin-body .prn-tabla__sub {
+  display: block;
+  margin-top: 5px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.admin-body {
+  /* IP y puerto bajo la etiqueta de conexión: pegados a ella se leían como
+     una sola cosa. En mono porque es una dirección. */
+}
+.admin-body .prn-tabla__destino {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-body {
+  /* ── Lo que imprime cada estación ────────────────────────────────
+   *
+   * El área va en una pastilla SÓLIDA de su color con la tinta que le toca:
+   * es la identidad de la fila, la misma que corona el tablero de esa
+   * estación, y es lo que se busca al recorrer la tabla. La cuenta del
+   * cliente no es un área y va neutra.
+   */
+}
+.admin-body .prn-imprime {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--prn-area, var(--admin-surface-soft));
+  color: var(--prn-area-tinta, var(--admin-text));
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.admin-body .prn-imprime svg {
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+.admin-body .prn-imprime--cuenta {
+  padding-left: 10px;
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+.admin-body .prn-imprime--sin-area {
+  padding-left: 10px;
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+}
+.admin-body {
+  /* El punto del área en las pills del formulario. Con un aro del mismo tono
+     para que un color claro (el ámbar de Jugos) no se pierda sobre la pill. */
+}
+.admin-body .prn-imprime__punto {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: var(--prn-area);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--prn-area) 24%, transparent);
+}
+.admin-body .prn-pill-area .admin-pill__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.admin-body {
+  /* ── Imprimir prueba ─────────────────────────────────────────────
+   *
+   * Relleno sólido en azul —«información» en la paleta funcional, y libre: el
+   * ámbar es editar y el rojo eliminar, en la misma celda—. El azul pleno
+   * sólo da 3.4:1 con papel encima; mezclado al 82 % con la tinta llega a
+   * 4.6:1, que vale para la etiqueta de 13 px. El hover OSCURECE: aclararlo
+   * bajaría el contraste justo cuando el cursor está encima.
+   *
+   * El estado lo pone impresoras.js en data-estado y cambia relleno, icono y
+   * palabra a la vez: el resultado no depende sólo del color.
+   */
+}
+.admin-body .prn-prueba {
+  margin: 0;
+}
+.admin-body .prn-prueba__boton {
+  --prn-prueba-fondo: color-mix(in srgb, var(--admin-c-azul) 82%, var(--admin-ink));
+  --prn-prueba-tinta: var(--admin-paper);
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-sm);
+  background: var(--prn-prueba-fondo);
+  box-shadow: var(--admin-shadow-sm);
+  color: var(--prn-prueba-tinta);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms var(--admin-ease-out), color 160ms var(--admin-ease-out), box-shadow 160ms var(--admin-ease-out), transform 120ms var(--admin-ease-out);
+}
+.admin-body .prn-prueba__boton:hover {
+  --prn-prueba-fondo: color-mix(in srgb, var(--admin-c-azul) 70%, var(--admin-ink));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-azul) 32%, transparent);
+}
+.admin-body .prn-prueba__boton:active {
+  transform: translateY(1px);
+}
+.admin-body .prn-prueba__boton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+}
+.admin-body .prn-prueba__boton[data-estado=enviando] {
+  cursor: progress;
+}
+.admin-body .prn-prueba__boton[data-estado=ok] {
+  --prn-prueba-fondo: var(--admin-c-verde);
+  --prn-prueba-tinta: var(--admin-ink);
+}
+.admin-body .prn-prueba__boton[data-estado=error] {
+  --prn-prueba-fondo: var(--admin-c-rojo);
+  --prn-prueba-tinta: var(--admin-paper);
+}
+.admin-body {
+  /* Los cuatro iconos y las cuatro palabras viven apilados en la misma celda
+     de rejilla; sólo se ve la del estado actual. El botón mide siempre lo que
+     la más larga, así que no empuja a editar y eliminar al cambiar. */
+}
+.admin-body .prn-prueba__icono,
+.admin-body .prn-prueba__textos {
+  display: grid;
+}
+.admin-body .prn-prueba__icono {
+  width: 16px;
+  height: 16px;
+  place-items: center;
+}
+.admin-body .prn-prueba__icono svg {
+  stroke-width: 2;
+}
+.admin-body .prn-prueba__capa {
+  display: inline-flex;
+  grid-area: 1/1;
+  align-items: center;
+  visibility: hidden;
+}
+.admin-body .prn-prueba__boton[data-estado=listo] .prn-prueba__capa[data-para=listo],
+.admin-body .prn-prueba__boton[data-estado=enviando] .prn-prueba__capa[data-para=enviando],
+.admin-body .prn-prueba__boton[data-estado=ok] .prn-prueba__capa[data-para=ok],
+.admin-body .prn-prueba__boton[data-estado=error] .prn-prueba__capa[data-para=error] {
+  visibility: visible;
+}
+.admin-body .prn-prueba__giro {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+.admin-body .prn-prueba__boton[data-estado=enviando] .prn-prueba__giro {
+  animation: prn-giro 700ms linear infinite;
+}
+.admin-body .prn-prueba__boton[data-estado=ok] .prn-prueba__capa[data-para=ok] svg,
+.admin-body .prn-prueba__boton[data-estado=error] .prn-prueba__capa[data-para=error] svg {
+  animation: prn-acuse 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .prn-prueba__boton,
+  .admin-body .prn-prueba__boton:active {
+    transform: none;
+  }
+  .admin-body .prn-prueba__boton[data-estado=enviando] .prn-prueba__giro {
+    border-right-color: currentColor;
+    border-style: dotted;
+    animation: prn-latido 1.2s ease-in-out infinite;
+  }
+  .admin-body .prn-prueba__boton[data-estado=ok] .prn-prueba__capa[data-para=ok] svg,
+  .admin-body .prn-prueba__boton[data-estado=error] .prn-prueba__capa[data-para=error] svg {
+    animation: none;
+  }
+}
+.admin-body {
+  /* ── Servicio pausado ────────────────────────────────────────────
+   *
+   * Ámbar y no rojo: nada se rompió. La configuración de cada estación sigue
+   * intacta y los pedidos llegan al tablero; lo único que no ocurre es la
+   * impresión. Antes era un filete lateral de 3 px; ahora el aviso entero va
+   * en el fondo de advertencia del panel con el icono en una pastilla sólida,
+   * que es como se lee «atención» en el resto del sistema.
+   */
+}
+.admin-body .prn-pausa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+}
+.admin-body .prn-pausa__icono {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-c-ambar);
+  color: var(--admin-ink);
+}
+.admin-body .prn-pausa__icono svg {
+  stroke-width: 1.8;
+}
+.admin-body .prn-pausa__texto {
+  min-width: 0;
+  flex: 1 1 380px;
+}
+.admin-body .prn-pausa__titulo {
+  margin: 0 0 6px;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.admin-body .prn-pausa__cuerpo {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.admin-body .prn-pausa__accion {
+  flex: 0 0 auto;
+}
+
+[data-admin-theme=dark] .admin-body .prn {
+  --prn-lavado: 10%;
+  --prn-lavado-hover: 16%;
+}
+
+@keyframes prn-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes prn-acuse {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes prn-latido {
+  50% {
+    opacity: 0.35;
+  }
+}

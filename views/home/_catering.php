@@ -27,7 +27,6 @@ $ocasiones = SitioConfig::OCASIONES_EVENTO;
 $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 ?>
 <section class="section catering" id="catering" data-tono="verde" data-screen-label="Catering">
-  <?php echo ornamento('guirnalda', 'orn--seccion', true); ?>
   <div class="wrap">
 
     <div class="catering__head">
@@ -52,6 +51,11 @@ $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 
       </div>
     </div>
 
+    <?php /* Las portadas son casi cuadradas y el arco las recorta en VERTICAL
+             (object-fit: cover en una celda de ~309×413): piden de alto lo que el
+             sizes por defecto (25vw) calcula de ancho. Con 25vw una pantalla de
+             densidad 2 recibía la variante de 720 px y la ampliaba un 15 %. */
+          $cateringSizes = '(max-width: 760px) 50vw, 30vw'; ?>
     <?php /*
       Banda de portadas entre la cabecera y las ocasiones: la prueba visual va
       justo antes de que el visitante elija su celebración, no al final. Cuatro
@@ -60,16 +64,16 @@ $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 
     */ ?>
     <div class="catering__fotos" data-reveal>
       <div class="cf arco" data-portada data-parallax-img data-zoom data-zoom-cat="Catering" data-zoom-name="Evento en sala">
-        <img src="/build/images/catering-evento.webp" alt="Evento servido en la sala de Casa Pestalozzi" loading="lazy" />
+        <img src="/build/images/catering-evento.webp"<?php echo srcsetImagen('/build/images/catering-evento.webp', $cateringSizes); ?> decoding="async" alt="Evento servido en la sala de Casa Pestalozzi" loading="lazy" />
       </div>
       <div class="cf" data-portada data-parallax-img data-zoom data-zoom-cat="Catering" data-zoom-name="Montaje">
-        <img src="/build/images/catering-montaje.webp" alt="Montaje de mesa para un evento privado" loading="lazy" />
+        <img src="/build/images/catering-montaje.webp"<?php echo srcsetImagen('/build/images/catering-montaje.webp', $cateringSizes); ?> decoding="async" alt="Montaje de mesa para un evento privado" loading="lazy" />
       </div>
       <div class="cf" data-portada data-parallax-img data-zoom data-zoom-cat="Catering" data-zoom-name="Mesa vestida">
-        <img src="/build/images/catering-mesa.webp" alt="Mesa vestida con la vajilla de la casa" loading="lazy" />
+        <img src="/build/images/catering-mesa.webp"<?php echo srcsetImagen('/build/images/catering-mesa.webp', $cateringSizes); ?> decoding="async" alt="Mesa vestida con la vajilla de la casa" loading="lazy" />
       </div>
       <div class="cf arco" data-portada data-parallax-img data-zoom data-zoom-cat="Catering" data-zoom-name="Banquete">
-        <img src="/build/images/catering-banquete.webp" alt="Banquete servido para un grupo grande" loading="lazy" />
+        <img src="/build/images/catering-banquete.webp"<?php echo srcsetImagen('/build/images/catering-banquete.webp', $cateringSizes); ?> decoding="async" alt="Banquete servido para un grupo grande" loading="lazy" />
       </div>
     </div>
 
@@ -114,4 +118,4 @@ $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 
 
   </div>
 </section>
-<?php unset($ocasiones, $h); ?>
+<?php unset($ocasiones, $h, $cateringSizes); ?>

@@ -146,7 +146,7 @@
 }
 .admin-analytics .admin-hero__value {
   color: var(--admin-text);
-  font-family: var(--admin-font-sans);
+  font-family: var(--admin-font-cifra);
   font-size: clamp(40px, 4.4vw, 62px);
   font-weight: 600;
   line-height: 1;
@@ -232,10 +232,9 @@
 }
 .admin-analytics .admin-metric-chip__value {
   color: var(--admin-text);
-  font-family: var(--admin-font-heading);
+  font-family: var(--admin-font-cifra);
   font-size: 26px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   line-height: 1.1;
 }
 .admin-analytics .admin-metric-chip__detail {
@@ -274,7 +273,7 @@
   margin-top: auto;
   padding-top: 14px;
   color: var(--admin-text);
-  font-family: var(--admin-font-sans);
+  font-family: var(--admin-font-cifra);
   font-weight: 600;
   font-size: clamp(26px, 2.3vw, 34px);
   line-height: 1.02;
@@ -708,10 +707,6 @@
   max-width: 100%;
   height: 100% !important;
 }
-.admin-nivel1 [data-n1-asociacion] .admin-table-wrap {
-  max-height: 460px;
-  overflow-y: auto;
-}
 .admin-nivel1 > .admin-panel + .admin-panel {
   margin-top: 20px;
 }
@@ -824,6 +819,34 @@
 .admin-nivel1-lift {
   font-weight: 700;
   color: var(--admin-sage-deep);
+}
+
+/* El par de una regla de asociación: los dos platillos al mismo peso y el «+»
+   apartado y atenuado entre ellos. Sin estas reglas los tres spans iban
+   pegados («Margarita+Margaritas»). Envuelve si el par no cabe. */
+.admin-nivel1-pair {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.admin-nivel1-pair__plus {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-weight: 500;
+}
+
+/* Paginación de las reglas (la pinta nivel1.js con botones). Va dentro del
+   panel, así que lleva el aire del panel y no el de una página. Los botones
+   se igualan a los enlaces de _pagination.php: `.admin-body button` (0,1,1)
+   los dejaba a 16 px junto a los 12 de un enlace. */
+.admin-nivel1-paginacion {
+  margin-top: 14px;
+}
+
+.admin-body .admin-nivel1-paginacion .admin-btn {
+  font-size: 12px;
 }
 
 /*

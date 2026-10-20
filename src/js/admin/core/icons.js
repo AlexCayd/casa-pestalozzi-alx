@@ -41,6 +41,9 @@
         // error y advertencia se separan por FORMA —círculo con aspa frente a
         // triángulo—, no sólo por el rojo y el ámbar.
         error: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/>',
+        // Lo que se gasta de un ingrediente («Consumo» en el Asistente).
+        // Pareja de _icons.php.
+        gota: '<path d="M12 3.5c3.2 3.9 6 7.3 6 10.6a6 6 0 0 1-12 0c0-3.3 2.8-6.7 6-10.6Z"/><path d="M9.2 14.6a2.9 2.9 0 0 0 2.4 2.6"/>',
 
         // Asistente IA. `ia` es la marca del asistente (pareja de _icons.php,
         // que la usa en el sidebar); `basura` es el mismo trazo que allí. Los
@@ -74,6 +77,10 @@
         // Reservaciones en el POS: barra de contexto, cajón y ficha.
         'chevron-izquierda': '<path d="m15 6-6 6 6 6"/>',
         'chevron-derecha': '<path d="m9 6 6 6-6 6"/>',
+        // Los huecos de las consultas rápidas: «esto se despliega». No es
+        // `baja`, que es la tendencia de una cifra: el mismo trazo diciendo
+        // «bajó» y «ábreme» en la misma tarjeta se leería como dato.
+        'chevron-abajo': '<path d="m6 9 6 6 6-6"/>',
         ahora: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V10H9"/><path d="M12 8v4.5l3 1.8"/>',
         reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 1.9"/>',
         plano: '<rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',

@@ -79,13 +79,54 @@
             }
         }
 
-        agregar.addEventListener('click', function () {
-            filas.appendChild(plantilla.content.cloneNode(true));
+        /*
+         * La fila nueva llega de un <template>, cuyo contenido no está en el
+         * documento cuando select.js recorre la página al cargar: su <select>
+         * se quedaba NATIVO —la lista blanca con el resaltado azul del sistema,
+         * fuera del panel— mientras las filas pintadas por PHP sí salían con
+         * el selector de la casa. Se realza al insertarla.
+         *
+         * Devuelve el disparador del selector (o el select si no hubo realce)
+         * para poder enfocarlo.
+         */
+        function agregarFila() {
+            var fragmento = plantilla.content.cloneNode(true);
+            var fila = fragmento.querySelector('.admin-proveedores__fila');
+            filas.appendChild(fragmento);
             renumerar();
+            if (fila && window.AdminSelect && typeof window.AdminSelect.init === 'function') {
+                window.AdminSelect.init(fila);
+            }
             if (window.AdminScrollLock) {
                 window.AdminScrollLock.remedir();
             }
+            return fila
+                ? (fila.querySelector('.admin-select__trigger') || fila.querySelector('select'))
+                : null;
+        }
+
+        agregar.addEventListener('click', function () {
+            var control = agregarFila();
+            // El foco va al proveedor recién añadido: es lo siguiente que hay
+            // que decidir, y sin moverlo se quedaba en el botón de abajo.
+            if (control) {
+                control.focus();
+            }
         });
+
+        /*
+         * Se llega con #proveedores desde la lista de pendientes «Sin
+         * proveedor»: si el ingrediente no tiene ninguno, la fila ya está
+         * abierta y enfocada, que es la tarea a la que se venía.
+         */
+        if (window.location.hash === '#proveedores'
+            && !filas.querySelector('.admin-proveedores__fila')) {
+            var primero = agregarFila();
+            if (primero) {
+                primero.focus({ preventScroll: true });
+                raiz.scrollIntoView({ block: 'center' });
+            }
+        }
 
         raiz.addEventListener('click', function (event) {
             if (!event.target.closest('[data-proveedor-quitar]')) {
@@ -95,6 +136,9 @@
             if (fila) {
                 fila.remove();
                 renumerar();
+                // El botón pulsado ya no existe: sin esto el foco caía al
+                // <body> y el teclado volvía al principio de la página.
+                agregar.focus();
             }
         });
 

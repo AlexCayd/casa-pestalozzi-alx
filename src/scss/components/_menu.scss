@@ -17,11 +17,6 @@
 
 .menu__title { font-size: clamp(2.6rem, 6vw, 5.5rem); }
 
-.menu__filete {
-  --orn-ancho: clamp(9rem, 16vw, 13rem);
-  margin-top: 1.1rem;
-}
-
 .menu__intro { max-width: 40ch; }
 
 .menu__estado {
@@ -29,20 +24,162 @@
   color: var(--txt-mute);
 }
 
-// Pestañas. En una fila que se desplaza en horizontal cuando no caben: en un
-// teléfono, envueltas en tres renglones, empujaban la carta fuera de pantalla.
-.menu__tabs {
-  display: flex;
-  gap: 0.4rem;
+// ── Pestañas ─────────────────────────────────────────────────
+//
+// En una fila que se desplaza en horizontal cuando no caben: en un teléfono,
+// envueltas en tres renglones, empujaban la carta fuera de pantalla.
+//
+// Y casi nunca caben (nueve secciones), pero nada lo decía: la última pestaña
+// salía cortada contra el borde y se leía como un error de maquetación, no
+// como «hay más». Ahora lo dicen tres cosas a la vez, y sólo en el lado donde
+// queda carta (menu.js publica .is-desborda-ini / .is-desborda-fin):
+//
+//   · un desvanecido de borde (máscara), que es lo que el ojo entiende como
+//     «sigue por aquí»;
+//   · una flecha en un disco, que además desplaza al pulsarla;
+//   · un empujoncito de la flecha la primera vez que la fila entra en
+//     pantalla (menu.js, sólo con movimiento).
+//
+// Los filetes van en el contenedor y no en la fila: así quedan enteros y lo
+// único que se desvanece es la carta que continúa.
+@property --pestanas-ini {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --pestanas-fin {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.menu__pestanas {
+  // Lo que mide el desvanecido. Es también el hueco de la flecha y el margen
+  // con el que una pestaña elegida se trae a la vista: nunca queda debajo del
+  // disco.
+  --pestanas-fundido: clamp(3.25rem, 6vw, 4.5rem);
+
+  position: relative;
   margin-bottom: clamp(2rem, 5vh, 3rem);
-  padding: 0.9rem 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+.menu__tabs {
+  // Contexto de posición: menu.js mide cada pestaña con offsetLeft contra la
+  // fila, que es el mismo sistema que scrollLeft.
+  position: relative;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.9rem 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+  scroll-padding-inline: var(--pestanas-fundido);
+
+  // La máscara recorta la fila, no su contenedor: así las flechas, que viven
+  // fuera, quedan nítidas encima del desvanecido. Los dos extremos son
+  // longitudes registradas (@property) para poder transicionarlas: el
+  // desvanecido aparece y se retira con la fila, no de golpe.
+  --pestanas-ini: 0px;
+  --pestanas-fin: 0px;
+  --pestanas-mascara: linear-gradient(
+    90deg,
+    transparent 0,
+    black var(--pestanas-ini),
+    black calc(100% - var(--pestanas-fin)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--pestanas-mascara);
+  mask-image: var(--pestanas-mascara);
+  transition:
+    --pestanas-ini 0.35s var(--ease),
+    --pestanas-fin 0.35s var(--ease);
 
   &::-webkit-scrollbar { display: none; }
+
+  // Arrastre con ratón (menu.js): el texto no se selecciona a medio gesto.
+  &.is-arrastrando {
+    user-select: none;
+
+    .menu__tab { pointer-events: none; }
+  }
+}
+
+.menu__pestanas.is-desborda-ini .menu__tabs { --pestanas-ini: var(--pestanas-fundido); }
+.menu__pestanas.is-desborda-fin .menu__tabs { --pestanas-fin: var(--pestanas-fundido); }
+
+// En pantallas táctiles la fila se suelta en la pestaña más cercana. Sólo ahí:
+// con ratón el desplazamiento lo hacen la rueda y el arrastre a golpe de
+// scrollLeft, y el navegador ajusta también esas asignaciones al punto de
+// anclaje más cercano, así que la fila daría tirones.
+@media (pointer: coarse) {
+  .menu__tabs { scroll-snap-type: x proximity; }
+  .menu__tab { scroll-snap-align: start; }
+}
+
+// Las flechas. Discos sobre el desvanecido, a ras de cada extremo, centrados
+// entre los dos filetes. Aparecen sólo en el lado donde queda carta; en el
+// otro extremo se retiran (y dejan de recibir el puntero), en vez de quedarse
+// apagadas prometiendo algo que no hay.
+.menu__desliza {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--txt-strong);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.8);
+  transition:
+    opacity 0.25s var(--ease),
+    transform 0.35s var(--ease),
+    visibility 0s linear 0.35s,
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+
+  &--ant { left: 0; }
+  &--sig { right: 0; }
+
+  svg { display: block; }
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+}
+
+.menu__pestanas.is-desborda-ini .menu__desliza--ant,
+.menu__pestanas.is-desborda-fin .menu__desliza--sig {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+  transition:
+    opacity 0.25s var(--ease),
+    transform 0.35s var(--ease),
+    visibility 0s,
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu__tabs,
+  .menu__desliza {
+    transition: none;
+  }
 }
 
 .menu__tab {
@@ -203,20 +340,12 @@
     order: -1;
   }
 
-  .menu__preview-frame { aspect-ratio: 16 / 10; }
+  // `.menu__preview .menu__preview-frame` y no la clase sola: la regla base
+  // (aspect-ratio 4/5) va MÁS ABAJO en este archivo con la misma
+  // especificidad y ganaba por orden. La foto salía de 348×436 en un teléfono
+  // y empujaba la carta casi una pantalla hacia abajo.
+  .menu__preview .menu__preview-frame { aspect-ratio: 16 / 10; }
   .menu__preview-note { display: none; }
-  .menu__preview-orn { --orn-ancho: 5rem; top: -1.6rem; right: -0.6rem; }
-}
-
-// La rama de olivo se apoya en la esquina del marco, por fuera: es el adorno
-// de la foto, no un sello encima de ella.
-.menu__preview-orn {
-  --orn-ancho: clamp(6rem, 9vw, 8.5rem);
-  position: absolute;
-  top: -2.2rem;
-  right: -1.6rem;
-  z-index: 3;
-  transform: rotate(-14deg);
 }
 
 // Marco de fotografía, no borde de caja: el filete de --line sobre el verde de

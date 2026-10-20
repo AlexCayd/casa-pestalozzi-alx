@@ -38,8 +38,18 @@ class AdminRecetasController
         $totalPaginas = 1;
         $paginaActual = 1;
 
+        // Acuse de la receta recién guardada: se llega aquí por redirección
+        // desde el editor (?volver=), y la alerta normal no sobrevive al salto.
+        $guardada = self::consumirAvisoGuardado();
+        if ($guardada !== null) {
+            Producto::setAlerta('exito', $guardada);
+        }
+
+        $ocultos = 0;
+
         try {
             $conteos = self::conteoComponentes();
+            $ocultos = self::conteoOcultos();
 
             /*
              * Las dos cifras de la cabecera se consultan aparte, y no se
@@ -74,7 +84,9 @@ class AdminRecetasController
             'conteosReceta' => $conteos,
             'categoriasMap' => self::categoriasMap(),
             'totalProductos' => $catalogo,
-            'conReceta' => count(array_filter($conteos)),
+            'conReceta' => count($conteos),
+            'ocultos' => $ocultos,
+            'pendienteActivo' => $filtros['estado'] === 'sin',
             'filtros' => $filtros,
             'filtrosActivos' => $filtros['q'] !== '' || $filtros['estado'] !== 'todas',
             'totalFiltrado' => $total,
@@ -136,9 +148,27 @@ class AdminRecetasController
         }
 
         $alertas = [];
+        $volver = self::volverSeguro($_GET['volver'] ?? null);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            self::guardarComponentes((int) $producto->id);
+            $componentes = self::guardarComponentes((int) $producto->id);
+
+            /*
+             * Se llegó desde una lista de pendientes (la de Menú o la de este
+             * mismo módulo): se vuelve a ella con una redirección de verdad
+             * —recargar no reenvía el formulario— y el platillo ya no sale en
+             * la lista. El acuse viaja en la sesión porque la alerta del
+             * modelo es de esta petición y no sobrevive al salto.
+             */
+            if ($volver !== null) {
+                // Guardar vacía no resuelve el pendiente: el acuse lo dice para
+                // que no parezca que el platillo «se perdió» de la lista.
+                $_SESSION[self::AVISO_GUARDADO] = $componentes > 0
+                    ? 'Receta de «' . $producto->nombre . '» guardada.'
+                    : 'Se guardó «' . $producto->nombre . '» sin componentes: sigue sin receta.';
+                self::redirect($volver);
+            }
+
             Producto::setAlerta('exito', 'Receta actualizada correctamente');
             self::index($router);
             return;
@@ -163,6 +193,8 @@ class AdminRecetasController
             'componentes' => self::componentesDe((int) $producto->id),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
+            // «Volver» y «Cancelar» regresan a la lista de la que se vino.
+            'volverUrl' => $volver ?? self::PATH,
         ]);
     }
 
@@ -266,7 +298,8 @@ class AdminRecetasController
     }
 
     // ── Persistencia de recetas ──────────────────────────────
-    private static function guardarComponentes(int $productoId): void
+    /** @return int Componentes que quedaron en la receta. */
+    private static function guardarComponentes(int $productoId): int
     {
         // Cada componente llega como "tipo:ref" (p. ej. "ingrediente:5") en comp[]
         // con su cantidad en comp_cant[]. Así no depende de JS para el tipo.
@@ -275,8 +308,9 @@ class AdminRecetasController
 
         Producto::ejecutarSQL("DELETE FROM producto_componentes WHERE producto_id = {$productoId}");
 
+        $guardados = 0;
         if (!is_array($comps)) {
-            return;
+            return $guardados;
         }
 
         foreach ($comps as $i => $valor) {
@@ -295,7 +329,10 @@ class AdminRecetasController
                 "INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
                  VALUES ({$productoId}, '{$tipo}', {$ref}, {$cantSql})"
             );
+            $guardados++;
         }
+
+        return $guardados;
     }
 
     private static function guardarSubrecetaIngredientes(int $subrecetaId): void
@@ -365,19 +402,81 @@ class AdminRecetasController
         return $rows;
     }
 
+    /**
+     * Componentes de receta por platillo, separados por tipo: el listado dice
+     * «4 ingredientes · 1 subreceta» en vez de llamar ingredientes a todo.
+     * Sólo trae los platillos que TIENEN receta, así que su tamaño es el
+     * «con receta» de la tarjeta.
+     *
+     * @return array<int, array{ingredientes:int, subrecetas:int}>
+     */
     private static function conteoComponentes(): array
     {
         $db = Producto::getDB();
         $map = [];
         $res = $db->query(
-            "SELECT producto_id, COUNT(*) AS n FROM producto_componentes GROUP BY producto_id"
+            "SELECT producto_id,
+                    SUM(tipo = 'ingrediente') AS ingredientes,
+                    SUM(tipo = 'subreceta')   AS subrecetas
+               FROM producto_componentes
+              GROUP BY producto_id"
         );
         if ($res) {
             while ($row = $res->fetch_assoc()) {
-                $map[(int) $row['producto_id']] = (int) $row['n'];
+                $map[(int) $row['producto_id']] = [
+                    'ingredientes' => (int) $row['ingredientes'],
+                    'subrecetas' => (int) $row['subrecetas'],
+                ];
             }
         }
         return $map;
+    }
+
+    /** Platillos ocultos de la carta, para la nota de la tarjeta «Platillos». */
+    private static function conteoOcultos(): int
+    {
+        $res = Producto::getDB()->query("SELECT COUNT(*) AS n FROM productos WHERE activo = 0");
+        $row = $res ? $res->fetch_assoc() : null;
+
+        return (int) ($row['n'] ?? 0);
+    }
+
+    /** Clave de sesión del acuse que sobrevive a la redirección tras guardar. */
+    private const AVISO_GUARDADO = '_admin_receta_guardada';
+
+    /**
+     * El acuse pendiente, si lo hay, y lo borra: se enseña una sola vez. Lo
+     * consume también Menú (AdminMenuController::index), que es la otra lista
+     * a la que se vuelve.
+     */
+    public static function consumirAvisoGuardado(): ?string
+    {
+        $aviso = $_SESSION[self::AVISO_GUARDADO] ?? null;
+        unset($_SESSION[self::AVISO_GUARDADO]);
+
+        return is_string($aviso) && $aviso !== '' ? $aviso : null;
+    }
+
+    /**
+     * El destino de «volver», sólo si es una ruta propia de las dos listas de
+     * pendientes. Lista cerrada por prefijo, y nada que el navegador pudiera
+     * leer como otro origen: `//host`, barras invertidas o saltos de línea
+     * (cabecera inyectada). Cualquier otra cosa se ignora y el editor se
+     * comporta como siempre.
+     */
+    private static function volverSeguro($volver): ?string
+    {
+        if (!is_string($volver) || $volver === '' || strlen($volver) > 300) {
+            return null;
+        }
+        if (strpbrk($volver, "\\\r\n") !== false) {
+            return null;
+        }
+        if (!preg_match('~^/admin/(menu|recetas)(?:[/?#]|$)~', $volver)) {
+            return null;
+        }
+
+        return $volver;
     }
 
     private static function conteoSubrecetaIngredientes(): array

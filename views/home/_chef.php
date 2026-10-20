@@ -4,11 +4,10 @@
   texto junto a una foto que ya cuenta lo mismo. Queda una línea de entrada,
   tres claves que se leen en dos segundos, la firma y el enlace a la carta. */ ?>
 <section class="section chef" id="chef" data-tono="oro" data-screen-label="La cocina">
-  <?php echo ornamento('cubiertos', 'orn--seccion', true); ?>
   <div class="wrap chef__grid">
     <div class="chef__portrait arco" data-reveal data-portada data-parallax-img data-zoom
          data-zoom-name="La brigada de Casa Pestalozzi" data-zoom-cat="La cocina">
-      <img src="/build/images/testimonios.webp" alt="La brigada de cocina de Casa Pestalozzi" loading="lazy" />
+      <img src="/build/images/testimonios.webp"<?php echo srcsetImagen('/build/images/testimonios.webp', '(max-width: 900px) 92vw, 42vw'); ?> decoding="async" alt="La brigada de cocina de Casa Pestalozzi" loading="lazy" />
     </div>
     <div class="chef__text">
       <span class="eyebrow" data-reveal>04 — La cucina</span>

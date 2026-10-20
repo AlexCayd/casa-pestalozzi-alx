@@ -31,9 +31,6 @@ $hoyIso = date('Y-m-d');
         <?php include __DIR__ . '/partials/_range-picker.php'; ?>
     </header>
 
-    <?php /* Consultas rápidas: preguntar sin salir del módulo. */ ?>
-    <?php $crAmbito = 'ventas'; include __DIR__ . '/partials/_consulta-rapida.php'; ?>
-
     <?php
     /*
      * Tres niveles de lectura, en vez de seis cajas del mismo peso:
@@ -292,8 +289,11 @@ $hoyIso = date('Y-m-d');
             </header>
             <?php // A y B van juntos y al mismo peso en la celda "Combinación",
                   // y el lift baja como subtítulo de la confianza: el par es un
-                  // solo dato sin dirección, no dos columnas independientes. ?>
-            <div class="admin-table-wrap" data-lenis-prevent>
+                  // solo dato sin dirección, no dos columnas independientes.
+                  // data-scrollable y no data-lenis-prevent: paginada ya no
+                  // desborda en vertical, y con la marca puesta a mano la rueda
+                  // se quedaba atascada encima de la tabla. ?>
+            <div class="admin-table-wrap" data-scrollable>
                 <table class="admin-table admin-table--compact">
                     <thead>
                         <tr>
@@ -305,6 +305,9 @@ $hoyIso = date('Y-m-d');
                     <tbody data-n1-asociacion-table></tbody>
                 </table>
             </div>
+            <?php // La pinta nivel1.js: las reglas llegan todas en el JSON y se
+                  // paginan en el navegador, sin volver al servidor. ?>
+            <nav class="admin-pagination admin-nivel1-paginacion" aria-label="Páginas de combinaciones" data-n1-asociacion-paginas hidden></nav>
         </article>
     </section>
 </section>

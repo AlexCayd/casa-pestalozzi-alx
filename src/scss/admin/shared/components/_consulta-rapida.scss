@@ -1,158 +1,37 @@
-// ── Consultas rápidas ─────────────────────────────────────────
+// ── Consultas rápidas: la tarjeta de respuesta y el selector de un hueco ─
 //
-// La barra de pregunta de Tickets, Análisis, Menú e Inventario. NO es un
-// buscador: el panel ya tiene filtros por todos lados —en Menú, «Buscar
-// platillo» queda dos bloques más abajo— y esto es la forma corta de
-// PREGUNTAR. Por eso no lleva lupa ni la caja hundida de un campo: lleva el
-// signo de pregunta, el rótulo «Pregunta» en la voz mono de los rótulos, y una
-// caja plana sin sombra en reposo, para no ser lo más alto de la página antes
-// de que nadie la use. La respuesta se lee de arriba abajo como lo pregunta el
-// usuario: la cifra, de qué es, qué significa, y luego el desglose.
+// Es lo que pinta el Asistente IA (core/consultas-rapidas.js). Hubo además una
+// barra de pregunta con campo de texto en Tickets, Análisis, Menú e
+// Inventario; se retiró, y el cliente quitó después el texto libre del
+// Asistente, así que aquí ya no hay ningún campo para escribir preguntas.
 //
-// Color sólo de estado: la comparación que sube o baja y el stock bajo. El
-// resto es tinta y papel del panel.
+// La respuesta se lee de arriba abajo como lo pregunta el usuario: la pregunta
+// dicha de vuelta (con sus huecos), la cifra, de qué es, qué significa, y luego
+// el desglose. Los HUECOS son lo único de la tarjeta que se toca: llevan caja,
+// peso y una flecha, y el texto que los une va en tinta tenue. Es la diferencia
+// entre «esto es la pregunta» y «esto lo puedes cambiar».
+//
+// Color sólo de estado: la comparación que mejora o empeora y el stock bajo.
+// El resto es tinta y papel del panel.
 //
 // La regla global de campos de _forms.scss (0,6,1) pinta borde, fondo,
-// padding y letra a todo <input>: aquí el borde y el fondo los lleva la BARRA
-// y el input va desnudo dentro, que es la salida que recomienda CLAUDE.md.
+// padding y letra a todo <input>: el buscador del selector lleva el borde y el
+// fondo en su caja y el input va desnudo dentro, que es la salida que
+// recomienda CLAUDE.md.
 
 // Todo el componente va bajo `.admin-body`, y no por gusto: el reset del panel
 // declara `.admin-body button { font: inherit }` y `.admin-body p { color }`
-// con (0,1,1), que le ganan a una clase sola. Sin el ámbito, los ejemplos, los
-// periodos y las alternativas salían a 16 px —más grandes que el titular de la
-// respuesta— y el rótulo del desglose perdía su tinta tenue. Los @keyframes
-// salen solos a la raíz al compilar.
+// con (0,1,1), que le ganan a una clase sola. Sin el ámbito, los huecos y las
+// alternativas salían a 16 px —más grandes que el titular de la respuesta— y
+// el rótulo del desglose perdía su tinta tenue. Los @keyframes salen solos a
+// la raíz al compilar.
+//
+// La tarjeta (`.admin-consulta__card`) y el selector (`.admin-consulta-pop`)
+// no dependen de ningún contenedor: el Asistente monta la tarjeta en el suyo
+// (ConsultasRapidas.montar) y el selector se porta a <body>, que es
+// `.admin-body`.
 .admin-body {
   .admin-consulta {
-    display: grid;
-    gap: 10px;
-    // El bloque no tenía aire propio por abajo: los ejemplos quedaban pegados
-    // a 2-4 px de lo siguiente —los KPI de Tickets, la barra de acciones de
-    // Inventario, el filtro de carta de Menú— y se leían como parte de ello.
-    // 24 px es el mismo respiro que deja la cabecera de página.
-    margin-bottom: 24px;
-
-    &__barra {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 48px;
-      padding: 0 12px 0 14px;
-      border: 1px solid var(--admin-border);
-      border-radius: var(--admin-radius-md);
-      background: var(--admin-surface);
-      transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
-
-      &:hover {
-        border-color: var(--admin-border-strong);
-      }
-
-      &:focus-within {
-        border-color: var(--admin-border-strong);
-        box-shadow: var(--admin-focus-ring), var(--admin-shadow-sm);
-      }
-    }
-
-    &__icono {
-      display: inline-flex;
-      color: var(--admin-muted);
-    }
-
-    // El <label> visible del campo. En mono y versalitas, como todo rótulo del
-    // panel: es lo que separa «pregunta» de «buscar» sin leer el placeholder.
-    &__rotulo {
-      flex: 0 0 auto;
-      padding-right: 10px;
-      border-right: 1px solid var(--admin-border-soft);
-      color: var(--admin-muted);
-      font-family: var(--admin-font-mono);
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.14em;
-      line-height: 1.6;
-      text-transform: uppercase;
-      cursor: text;
-    }
-
-    // Sin borde ni fondo propios: los pone la barra. La letra también va con
-    // `!important`: la regla global la fija en 14 px.
-    &__input {
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 46px !important;
-      padding: 0 !important;
-      border: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      color: var(--admin-text);
-      font-size: 15px !important;
-
-      &::placeholder {
-        color: var(--admin-faint);
-      }
-
-      &::-webkit-search-cancel-button {
-        cursor: pointer;
-      }
-    }
-
-    &__atajo {
-      padding: 2px 8px;
-      border: 1px solid var(--admin-border);
-      border-radius: 6px;
-      color: var(--admin-faint);
-      font-family: var(--admin-font-mono);
-      font-size: 11px;
-    }
-
-    &__barra:focus-within .admin-consulta__atajo {
-      visibility: hidden;
-    }
-
-    // Durante la consulta, un filete que recorre el borde inferior: la barra
-    // sigue usable y no salta nada de sitio.
-    &__barra::after {
-      content: "";
-      position: absolute;
-      right: 16px;
-      bottom: -1px;
-      left: 16px;
-      height: 2px;
-      border-radius: 2px;
-      background: linear-gradient(90deg, transparent, var(--admin-text), transparent);
-      background-size: 40% 100%;
-      background-repeat: no-repeat;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    &.is-busy .admin-consulta__barra::after {
-      opacity: 1;
-      animation: admin-consulta-barrido 1s linear infinite;
-    }
-
-    &__ejemplos {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-
-      &[hidden] {
-        display: none;
-      }
-    }
-
-    &__ejemplos-label {
-      margin-right: 2px;
-      color: var(--admin-faint);
-      font-family: var(--admin-font-mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    &__ejemplo,
     &__alternativa {
       display: inline-flex;
       align-items: center;
@@ -172,15 +51,6 @@
         border-color: var(--admin-border-strong);
         color: var(--admin-text);
       }
-
-      &:focus-visible {
-        outline: none;
-        box-shadow: var(--admin-focus-ring);
-      }
-    }
-
-    &__resultado[hidden] {
-      display: none;
     }
 
     &__card {
@@ -191,7 +61,12 @@
       border-radius: var(--admin-radius-md);
       background: var(--admin-surface);
       box-shadow: var(--admin-shadow-md);
-      animation: admin-consulta-entra var(--admin-t-base) var(--admin-ease-out);
+
+      // Sólo al aparecer. Repetida en cada cambio de hueco, la tarjeta
+      // «saltaba» justo donde el usuario estaba mirando.
+      &.is-entrando {
+        animation: admin-consulta-entra var(--admin-t-base) var(--admin-ease-out);
+      }
 
       &--error {
         border-color: var(--admin-danger-border);
@@ -203,79 +78,78 @@
       }
     }
 
+    // La pregunta dicha de vuelta, separada de la respuesta por un filete.
     &__head {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--admin-border-soft);
+    }
+
+    &__plantilla {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px 12px;
-    }
-
-    // El rubro empuja todo lo demás a la derecha: periodos y cerrar quedan
-    // juntos al final, haya periodos o no.
-    &__rubro {
-      margin-right: auto;
+      gap: 6px 8px;
+      min-width: 0;
       color: var(--admin-muted);
-      font-family: var(--admin-font-mono);
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+      font-size: 14px;
+      line-height: 1.4;
     }
 
-    &__periodos {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
+    &__plantilla-sep {
+      color: var(--admin-faint);
     }
 
-    &__periodo {
-      min-height: 30px;
-      padding: 0 10px;
-      border: 1px solid transparent;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--admin-muted);
-      font: inherit;
-      font-size: 12px;
-      cursor: pointer;
-
-      &:hover {
-        border-color: var(--admin-border);
-        color: var(--admin-text);
-      }
-
-      &.is-on {
-        background: var(--admin-accent);
-        color: var(--admin-on-accent);
-      }
-
-      &:focus-visible {
-        outline: none;
-        box-shadow: var(--admin-focus-ring);
-      }
-    }
-
-    &__cerrar {
+    &__hueco {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: var(--admin-muted);
+      gap: 4px;
+      max-width: 100%;
+      min-height: 34px;
+      padding: 0 8px 0 11px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.005em;
       cursor: pointer;
+      transition:
+        border-color var(--admin-t-fast) var(--admin-ease-out),
+        background var(--admin-t-fast) var(--admin-ease-out);
 
       &:hover {
-        background: var(--admin-surface-soft);
-        color: var(--admin-text);
+        border-color: var(--admin-border-strong);
+        background: var(--admin-surface);
       }
 
-      &:focus-visible {
-        outline: none;
-        box-shadow: var(--admin-focus-ring);
+      &[aria-expanded="true"] {
+        border-color: var(--admin-accent);
+        background: var(--admin-surface);
       }
+    }
+
+    &__hueco-valor {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__hueco-chevron {
+      display: inline-flex;
+      flex: 0 0 auto;
+      color: var(--admin-muted);
+      transition: transform var(--admin-t-fast) var(--admin-ease-out);
+
+      svg {
+        stroke-width: 2.2;
+      }
+    }
+
+    &__hueco[aria-expanded="true"] .admin-consulta__hueco-chevron {
+      transform: rotate(180deg);
     }
 
     &__cuerpo {
@@ -283,9 +157,22 @@
       grid-template-columns: auto minmax(0, 1fr);
       align-items: center;
       gap: 18px;
+
+      &--sin-cifra {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 
-    // La cifra manda: mono, grande y en tinta. El estado del stock la tiñe sólo
+    // Mientras se pide otra consulta, la respuesta vieja se apaga —no la
+    // pregunta, que es lo que se está tocando—. Con retraso: una respuesta que
+    // llega en 80 ms no debe parpadear.
+    &__cuerpo,
+    &__detalle,
+    &__pie {
+      transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+    }
+
+    // La cifra manda: grande y en tinta. El estado del stock la tiñe sólo
     // cuando hay algo que atender.
     &__dato {
       display: grid;
@@ -303,14 +190,18 @@
       }
     }
 
+    // La cifra de una respuesta es la cifra de un INDICADOR, no una columna de
+    // tabla: va en la display del panel (--admin-font-cifra, Expose 600), como
+    // las tarjetas KPI. Expose no trae `tnum`; el Asistente, que la anima
+    // contando, le reserva el ancho final con `min-width`.
     &__cifra {
       color: var(--admin-text);
-      font-family: var(--admin-font-mono);
-      font-size: clamp(30px, 4vw, 42px);
-      font-variant-numeric: tabular-nums;
-      font-weight: 500;
-      letter-spacing: -0.03em;
+      font-family: var(--admin-font-cifra);
+      font-size: clamp(32px, 4vw, 44px);
+      font-weight: 600;
+      letter-spacing: -0.005em;
       line-height: 1;
+      overflow-wrap: anywhere;
     }
 
     &__unidad {
@@ -326,7 +217,7 @@
     }
 
     // `.admin-body h3` gana a una clase sola: con el ámbito (0,2,0) manda el
-    // componente.
+    // componente. Igual si el anfitrión pide otro nivel de encabezado.
     &__titulo {
       margin: 0;
       color: var(--admin-text);
@@ -334,6 +225,7 @@
       font-size: 16px;
       font-weight: 600;
       letter-spacing: -0.01em;
+      line-height: 1.3;
     }
 
     &__frase {
@@ -351,12 +243,29 @@
       color: var(--admin-muted);
       font-size: 12px;
 
+      // La flecha dice hacia dónde (is-sube / is-baja) y el color lo que
+      // significa (is-bien / is-mal), que van por separado: más cancelaciones
+      // suben y son malas. Las reglas de lectura van DESPUÉS para ganar por
+      // orden; `is-igual` vuelve a la tinta tenue (más consumo de un
+      // ingrediente no es mejor ni peor).
       &.is-sube {
         color: var(--admin-success-text);
       }
 
       &.is-baja {
         color: var(--admin-danger-text);
+      }
+
+      &.is-bien {
+        color: var(--admin-success-text);
+      }
+
+      &.is-mal {
+        color: var(--admin-danger-text);
+      }
+
+      &.is-igual {
+        color: var(--admin-muted);
       }
     }
 
@@ -411,10 +320,9 @@
         text-decoration-color: currentColor;
       }
 
+      // El anillo es el global; aquí sólo su forma.
       &:focus-visible {
-        outline: none;
         border-radius: 4px;
-        box-shadow: var(--admin-focus-ring);
       }
     }
 
@@ -422,6 +330,14 @@
       color: var(--admin-text);
       font-family: var(--admin-font-mono);
       font-variant-numeric: tabular-nums;
+      text-align: right;
+
+      // Una palabra en la columna de valores (la categoría de un platillo sin
+      // venta): mono sólo para las cifras, como en el resto del panel.
+      &--texto {
+        color: var(--admin-muted);
+        font-family: var(--admin-font-sans);
+      }
     }
 
     &__barra-dato {
@@ -478,6 +394,266 @@
         text-decoration: underline;
         text-underline-offset: 3px;
       }
+
+      &:focus-visible {
+        border-radius: 4px;
+      }
+    }
+  }
+
+  // El contenedor lleva aria-busy mientras llega la siguiente respuesta (lo
+  // pone el componente, sea la barra o el contenedor del Asistente).
+  [aria-busy="true"] > .admin-consulta__card {
+    .admin-consulta__cuerpo,
+    .admin-consulta__detalle,
+    .admin-consulta__pie {
+      opacity: 0.45;
+      transition-delay: 160ms;
+    }
+  }
+
+  // ── Selector de un hueco ──────────────────────────────────────
+  //
+  // Portado a <body> y fijo, como `.admin-select__list`, y con su mismo
+  // vidrio: flota sobre la tarjeta y tiene que leerse sobre lo que tape.
+  .admin-consulta-pop {
+    position: fixed;
+    z-index: 130;
+    display: grid;
+    max-width: calc(100vw - 16px);
+    padding: 6px;
+    border: 1px solid var(--admin-glass-border);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-glass-bg-strong);
+    backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    box-shadow:
+      inset 0 1px 0 var(--admin-glass-edge),
+      var(--admin-shadow-lg);
+    color: var(--admin-text);
+    font-family: var(--admin-font-sans);
+
+    &[hidden] {
+      display: none;
+    }
+
+    &.is-open {
+      animation: admin-consulta-pop-entra var(--admin-t-fast) var(--admin-ease-out);
+    }
+
+    &.is-open.is-arriba {
+      animation-name: admin-consulta-pop-entra-arriba;
+    }
+  }
+
+  .admin-consulta-pop__buscar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 0 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+
+    &:focus-within {
+      border-color: var(--admin-accent);
+      box-shadow: var(--admin-focus-ring);
+    }
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .admin-consulta-pop__lupa {
+    display: inline-flex;
+    color: var(--admin-muted);
+  }
+
+  // 16 px y no 14: por debajo, Safari en tablet hace zoom al enfocar.
+  .admin-consulta-pop__campo {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 42px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--admin-text);
+    font-size: 16px !important;
+
+    &::placeholder {
+      color: var(--admin-faint);
+    }
+  }
+
+  // Oculto a la vista salvo que haya algo que decir (cargando, error, nada
+  // coincide): el recuento de resultados sólo lo oye el lector.
+  .admin-consulta-pop__estado {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+
+    &.is-visible {
+      position: static;
+      width: auto;
+      height: auto;
+      padding: 10px 10px 8px;
+      overflow: visible;
+      clip-path: none;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: normal;
+    }
+  }
+
+  // Posicionada: los offsetTop de las opciones se miden contra ella para
+  // mantener la activa a la vista.
+  .admin-consulta-pop__lista {
+    position: relative;
+    max-height: 340px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border-strong) transparent;
+
+    &[hidden] {
+      display: none;
+    }
+
+    // Con aria-activedescendant el foco visible es la OPCIÓN activa, no la
+    // caja: el anillo global de `.admin-body :focus-visible` rodeaba la lista
+    // entera con un rectángulo duro dentro del panel redondeado.
+    &:focus,
+    &:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+
+    &:focus-visible .admin-consulta-pop__op.is-activa {
+      box-shadow: inset 0 0 0 2px var(--admin-accent);
+    }
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background-clip: padding-box;
+      background-color: var(--admin-border-strong);
+    }
+  }
+
+  .admin-consulta-pop__grupo + .admin-consulta-pop__grupo,
+  .admin-consulta-pop__op + .admin-consulta-pop__grupo {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--admin-border-soft);
+  }
+
+  // --admin-muted y no --admin-faint: el faint está calibrado contra
+  // --admin-bg, y sobre el vidrio del selector en oscuro (gris-4 al 84 %)
+  // se quedaba en 3.4-3.6:1 — por debajo de AA para un rótulo de 10 px.
+  .admin-consulta-pop__grupo-titulo {
+    padding: 8px 10px 4px;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .admin-consulta-pop__op {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: var(--admin-text);
+    font-size: 14px;
+    line-height: 1.3;
+    cursor: pointer;
+
+    // La activa es también el foco de teclado (aria-activedescendant): por
+    // eso lleva canto además del fondo, para verse sin depender del ratón.
+    &.is-activa {
+      background: var(--admin-surface-soft);
+      box-shadow: inset 0 0 0 1px var(--admin-border-strong);
+    }
+
+    &[aria-selected="true"] {
+      font-weight: 600;
+    }
+
+    mark {
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--admin-text) 12%, transparent);
+      color: inherit;
+    }
+  }
+
+  .admin-consulta-pop__op-texto {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .admin-consulta-pop__op-nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-consulta-pop__op-detalle {
+    overflow: hidden;
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-consulta-pop__op-check,
+  .admin-consulta-pop__op-icono {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .admin-consulta-pop__op-icono {
+    color: var(--admin-muted);
+  }
+
+  // Lista de ancho fijo (la de preguntas base del Asistente): la descripción
+  // se lee entera en varios renglones en vez de cortarse, y el icono se queda
+  // arriba, junto al título.
+  .admin-consulta-pop--envolver {
+    .admin-consulta-pop__op {
+      align-items: flex-start;
+      padding-block: 8px;
+    }
+
+    .admin-consulta-pop__op-icono {
+      margin-top: 1px;
+    }
+
+    .admin-consulta-pop__op-detalle {
+      margin-top: 2px;
+      line-height: 1.4;
+      white-space: normal;
+      text-wrap: pretty;
     }
   }
 
@@ -488,19 +664,49 @@
     }
   }
 
-  @keyframes admin-consulta-barrido {
-    from { background-position: -40% 0; }
-    to { background-position: 140% 0; }
+
+  @keyframes admin-consulta-pop-entra {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes admin-consulta-pop-entra-arriba {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  // En tablet el dedo necesita más que el puntero: huecos, alternativas y
+  // opciones suben a 40-44 px. Los renglones del desglose son texto en línea:
+  // crecen en área de toque (padding con margen negativo) sin mover la
+  // rejilla.
+  @media (pointer: coarse) {
+    .admin-consulta__hueco,
+    .admin-consulta__alternativa {
+      min-height: 40px;
+    }
+
+    .admin-consulta__item-enlace {
+      margin-block: -6px;
+      padding-block: 6px;
+    }
+
+    .admin-consulta-pop__op {
+      min-height: 44px;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .admin-consulta__card {
+    .admin-consulta__card.is-entrando,
+    .admin-consulta-pop.is-open {
       animation: none;
     }
 
-    .admin-consulta.is-busy .admin-consulta__barra::after {
-      animation: none;
-      background: var(--admin-border-strong);
+    .admin-consulta__hueco-chevron {
+      transition: none;
     }
   }
 
@@ -513,28 +719,6 @@
       padding: 0 0 12px;
       border-right: 0;
       border-bottom: 1px solid var(--admin-border-soft);
-    }
-
-    .admin-consulta__periodos {
-      order: 3;
-      width: 100%;
-    }
-
-    .admin-consulta__atajo {
-      display: none;
-    }
-
-    // En un teléfono el rótulo se come un tercio de la barra. Se oculta sólo a
-    // la vista: sigue siendo el <label> del campo.
-    .admin-consulta__rotulo {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-      border: 0;
-      padding: 0;
     }
   }
 }

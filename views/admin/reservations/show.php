@@ -122,6 +122,11 @@ $operationUrl = '/punto-de-venta?' . http_build_query([
     'reservation_id' => $id,
 ]);
 $seguimientoActivo = $seguimientoHorario !== null;
+// El estado en la voz de la Agenda y del POS («No llegó», «Atendida», «En mesa»)
+// y no en la del catálogo técnico («No show», «Completada», «En curso»): la misma
+// reserva no debe cambiar de nombre al abrir su detalle.
+$etiquetaEstado = \Services\Reservations\ReservacionListadoPresenter::ETIQUETAS[$estado]
+    ?? ($estadoLabels[$estado] ?? ucfirst($estado));
 ?>
 
 <section
@@ -136,7 +141,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
             <h1 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h1>
         </div>
         <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
-            <?php echo $h(($estadoLabels[$estado] ?? ucfirst($estado)) . (!empty($vigencia['tolerancia_vencida']) ? ' · Tolerancia vencida' : '')); ?>
+            <?php echo $h($etiquetaEstado . (!empty($vigencia['tolerancia_vencida']) ? ' · Tolerancia vencida' : '')); ?>
         </span>
     </header>
 
@@ -188,7 +193,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
                 <dl class="reservation-detail-list reservation-detail-list--grid">
                     <div>
                         <dt>Estado</dt>
-                        <dd><?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?></dd>
+                        <dd><?php echo $h($etiquetaEstado); ?></dd>
                     </div>
                     <?php if (!empty($vigencia['tolerancia_vencida'])) : ?>
                         <div>
@@ -393,11 +398,8 @@ $seguimientoActivo = $seguimientoHorario !== null;
                         </form>
                         <?php endif; ?>
 
-                        <?php if (false && $estado === 'pendiente_verificacion' && $editable) : ?>
-                            <?php $actionButton('confirmada', 'Confirmar verificación', 'admin-btn admin-btn--primary'); ?>
-                        <?php endif; ?>
                         <?php if (!empty($vigencia['elegible_no_show'])) : ?>
-                            <?php $actionButton('no_show', 'Registrar que el cliente no se presentó', 'admin-btn admin-btn--ghost'); ?>
+                            <?php $actionButton('no_show', 'Registrar que no llegó', 'admin-btn admin-btn--ghost'); ?>
                         <?php endif; ?>
                         <?php if (in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
                             <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--danger', true); ?>

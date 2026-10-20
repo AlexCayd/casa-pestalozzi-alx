@@ -122,7 +122,7 @@
   --confirmation-danger-text: var(--admin-danger-text);
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
-  --confirmation-on-danger: var(--admin-paper);
+  --confirmation-on-danger: var(--admin-on-danger);
 
   /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
      en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
@@ -322,6 +322,14 @@
   --admin-c-turquesa-border: color-mix(in srgb, var(--admin-c-turquesa) 42%, transparent);
   --admin-c-verde-bg: color-mix(in srgb, var(--admin-c-verde) 14%, var(--admin-surface));
   --admin-c-verde-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
+
+  /* Tinta sobre un relleno ROJO pleno: borrar, cancelar, el diálogo
+     destructivo y el botón de notificaciones con algo por atender. Papel en
+     los DOS temas, a propósito: --admin-c-rojo tiene luminancia 0.17 y con
+     papel da 4.58:1, con tinta 4.15:1. --admin-on-accent no sirve aquí — en
+     oscuro vale tinta, y era lo que dejaba la papelera de las tablas con el
+     icono negro sobre rojo. */
+  --admin-on-danger: var(--admin-paper);
 
   /* Estados de un platillo: mismos valores que --estado-* del sitio público
      (src/scss/layout/_reset.scss) para que POS y área no discrepen. */

@@ -1,298 +1,152 @@
 <?php
 /**
- * Lista administrativa de reservaciones con filtros, metricas y acceso al detalle.
+ * Agenda de reservaciones: quién viene y qué pasó, día por día.
+ *
+ * Es la primera de las tres pantallas del módulo (Agenda · Grupos grandes ·
+ * Casos) y la única que enseña TODAS las reservaciones. No opera: sentar,
+ * mover mesas y dar de alta viven en el POS. Aquí se busca a un cliente, se
+ * repasa cómo terminó un periodo, se abre el detalle y se cierra la ausencia
+ * que nadie registró.
+ *
+ * La lista es una libreta: cada día lleva su cabecera, la hora se escribe una
+ * vez por franja en el margen y las reservas cuelgan de una línea vertical con
+ * una marca cuya FORMA dice el estado (ver reservations.scss). La forma va
+ * además en palabras en la etiqueta de cada fila: el color nunca dice nada
+ * solo.
+ *
+ * Variables (AdminReservacionController::index): $diasAgenda, $conteos,
+ * $filtros, $filtrosActivos, $periodoPorDefecto, $rango, $urlListado,
+ * $urlConEstado (callable), $hoy, $adminCsrfToken, $alertas, $partialOnly.
+ *
+ * Con $partialOnly se pinta sólo el bloque de resultados: lo piden los
+ * filtros reactivos al buscar o elegir un estado, y lista.js tras registrar
+ * una ausencia.
  */
+require_once __DIR__ . '/../partials/_icons.php';
 
-$reservaciones = isset($reservaciones) && is_iterable($reservaciones) ? $reservaciones : [];
-$metricas = is_array($metricas ?? null) ? $metricas : [];
+use Services\Reservations\ReservacionListadoPresenter;
+
+$diasAgenda = is_array($diasAgenda ?? null) ? $diasAgenda : [];
+$conteos = is_array($conteos ?? null) ? $conteos : [];
 $filtros = is_array($filtros ?? null) ? $filtros : [];
-$estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
-
-/*
- * Cada estado, a una familia del vocabulario de badges del panel.
- *
- * Antes cada estado tenía su propia clase (.reservations-table__status--*) con
- * un color escrito a mano y un `max-width: 104px` que recortaba "Pendiente de
- * verificación" hasta dejarlo ilegible. Reutilizar .admin-badge da los mismos
- * colores que el resto del panel y quita el tope de ancho.
- *
- * Los dos estados TERMINALES van en --outline: cancelada y no-show son cosas
- * que ya no van a pasar, y con relleno macizo pesaban más en el listado que las
- * reservas vivas. La clave desconocida cae a 'neutral', que es lo seguro.
- */
-$estadoBadge = [
-    'pendiente_verificacion' => 'warning',
-    'confirmada' => 'success',
-    'completada' => 'info',
-    'cancelada' => 'danger admin-badge--outline',
-    'no_show' => 'danger admin-badge--outline',
-];
 $filtrosActivos = (bool)($filtrosActivos ?? false);
+$periodoPorDefecto = (bool)($periodoPorDefecto ?? true);
 $partialOnly = (bool)($partialOnly ?? false);
-$fechaDefault = \Services\Reservations\ReservacionConfig::fechaActual();
-$queryString = (string)($queryString ?? '');
-$returnTo = '/admin/reservaciones' . ($queryString !== '' ? '?' . $queryString : '');
-$alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
-$fechaOperacion = (string)($filtros['fecha_inicio'] ?? date('Y-m-d'));
-$developmentTools = (bool)($developmentTools ?? false);
+$alertas = is_array($alertas ?? null) ? $alertas : [];
+$urlListado = (string)($urlListado ?? '/admin/reservaciones');
+$urlConEstado = is_callable($urlConEstado ?? null) ? $urlConEstado : static fn(string $e): string => '/admin/reservaciones';
+$adminCsrfToken = (string)($adminCsrfToken ?? '');
+$horaAhora = (string)($horaAhora ?? date('H:i'));
+$estadoActivo = (string)($filtros['estado'] ?? '');
+$busqueda = (string)($filtros['q'] ?? '');
 
-if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaOperacion) !== 1) {
-    $fechaOperacion = date('Y-m-d');
-}
+$h = static fn($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 
-// La operación del día vive en el POS.
-$operationUrl = '/punto-de-venta?fecha=' . rawurlencode($fechaOperacion);
-$rango = [
-    'start' => (string)($filtros['fecha_inicio'] ?? $fechaDefault),
-    'end' => (string)($filtros['fecha_fin'] ?? $fechaDefault),
-    'preset' => 0,
-    'label' => 'Periodo',
-];
-
-$valor = static function ($item, string $campo, $default = '') {
-    if (is_array($item)) {
-        return $item[$campo] ?? $default;
-    }
-
-    if (is_object($item)) {
-        return $item->$campo ?? $default;
-    }
-
-    return $default;
-};
-
-$h = static function ($value): string {
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-};
-
-$fechaLegible = static function ($fecha): string {
-    $timestamp = strtotime((string)$fecha);
-    return $timestamp ? date('d/m/Y', $timestamp) : 'Sin fecha';
-};
-
-$horaLegible = static function ($hora): string {
-    return substr((string)$hora, 0, 5);
-};
-
-$pluralPersonas = static function ($total): string {
-    $total = (int)$total;
-    return $total . ' ' . ($total === 1 ? 'persona' : 'personas');
-};
-
-/*
- * Métricas accionables: cada una responde «¿qué tengo que hacer ahora?» y lleva
- * al filtro que la produce. Antes eran contadores sueltos que no se podían
- * pulsar, así que ver «3 sin mesa» obligaba a ir a buscarlas a mano.
- *
- * La tolerancia vencida se cuenta sobre las filas cargadas: la calcula
- * ReservacionService::clasificarVigencia() al vuelo y no hay columna que
- * consultar.
- */
-$enTolerancia = 0;
-foreach ($reservaciones as $r) {
-    if (!empty($valor($r, 'tolerancia_vencida', false))) {
-        $enTolerancia++;
-    }
-}
-
-$urlFiltro = static function (array $cambios) use ($filtros): string {
-    $query = array_merge($filtros, $cambios);
-    $query = array_filter($query, static fn ($v): bool => $v !== '' && $v !== null);
-    return '/admin/reservaciones' . ($query ? '?' . http_build_query($query) : '');
-};
-
-$metricCards = [
-    [
-        'label' => 'En el periodo',
-        'value' => $metricas['total'] ?? 0,
-        // «Todos los estados», no «con los filtros actuales»: la franja se
-        // calcula a propósito SIN el filtro de estado (Reservacion::metricasAdmin
-        // pasa $incluirEstado = false) para que cada tarjeta siga siendo un
-        // atajo utilizable. Si se estrechara al filtro activo, pulsar «Por
-        // confirmar» estando en «no show» daría cero. La etiqueta decía lo
-        // contrario y hacía que el número pareciera discrepar de la tabla.
-        'detalle' => 'Todos los estados del periodo',
-        'url' => $urlFiltro(['estado' => '', 'asignacion' => '']),
-    ],
-    [
-        'label' => 'Por confirmar',
-        'value' => $metricas['pendientes'] ?? 0,
-        'detalle' => 'Esperan verificación de contacto',
-        'tone' => 'pending',
-        'url' => $urlFiltro(['estado' => 'pendiente_verificacion', 'asignacion' => '']),
-    ],
-    [
-        'label' => 'Sin mesa',
-        'value' => $metricas['sin_mesa'] ?? 0,
-        'detalle' => 'Confirmadas y aún sin asignar',
-        'tone' => 'needs',
-        'url' => $urlFiltro(['asignacion' => 'sin_mesa', 'estado' => '']),
-    ],
-    [
-        'label' => 'Tolerancia vencida',
-        'value' => $enTolerancia,
-        'detalle' => 'Pasó su hora y nadie llegó',
-        'tone' => 'late',
-    ],
-    [
-        'label' => 'No show',
-        'value' => $metricas['no_show'] ?? 0,
-        'detalle' => 'Marcadas como ausencia',
-        'tone' => 'other',
-        'url' => $urlFiltro(['estado' => 'no_show', 'asignacion' => '']),
-    ],
-];
-
-/*
- * Chips de los filtros aplicados. Se pintan dentro del bloque que sustituyen
- * los filtros reactivos, así se rehacen solos con cada búsqueda. Cada uno es un
- * enlace que quita ese filtro: sin JS de por medio y con una URL compartible.
- */
-$etiquetaAsignacion = ['con_mesa' => 'Con mesa', 'sin_mesa' => 'Sin mesas asignadas'];
-$etiquetaOrigen = ['admin' => 'Administrativa', 'landing' => 'Landing pública'];
-$chipsFiltro = [];
-
-/*
- * El periodo va SIEMPRE, y va primero.
- *
- * Era el único filtro sin chip, y justamente el que puede vaciar la tabla: con
- * la ventana por defecto en un solo día la pantalla decía «0 reservaciones» sin
- * nada visible que explicara por qué. Cuando coincide con la ventana por
- * defecto el chip es informativo (no lleva enlace de quitar); en cuanto el
- * usuario lo mueve, se vuelve removible como los demás.
- */
-$rangoInicio = (string)($filtros['fecha_inicio'] ?? '');
-$rangoFin = (string)($filtros['fecha_fin'] ?? '');
-$diaBonito = static function (string $iso): string {
-    $ts = strtotime($iso);
-    return $ts ? date('d/m/Y', $ts) : $iso;
-};
-$finPorDefecto = date('Y-m-d', strtotime($fechaDefault . ' +29 days'));
-$rangoEsPorDefecto = $rangoInicio === $fechaDefault && $rangoFin === $finPorDefecto;
-if ($rangoInicio !== '' && $rangoFin !== '') {
-    $chipsFiltro[] = [
-        'label' => $rangoInicio === $rangoFin
-            ? 'Periodo: ' . $diaBonito($rangoInicio)
-            : 'Periodo: ' . $diaBonito($rangoInicio) . ' – ' . $diaBonito($rangoFin),
-        'url' => $rangoEsPorDefecto ? '' : $urlFiltro(['fecha_inicio' => '', 'fecha_fin' => '']),
-    ];
-}
-
-if (($filtros['q'] ?? '') !== '') {
-    $chipsFiltro[] = ['label' => 'Busca «' . $filtros['q'] . '»', 'url' => $urlFiltro(['q' => ''])];
-}
-if (($filtros['estado'] ?? '') !== '') {
-    $chipsFiltro[] = [
-        'label' => 'Estado: ' . ($estadoLabels[$filtros['estado']] ?? $filtros['estado']),
-        'url' => $urlFiltro(['estado' => '']),
-    ];
-}
-if (($filtros['asignacion'] ?? '') !== '') {
-    $chipsFiltro[] = [
-        'label' => $etiquetaAsignacion[$filtros['asignacion']] ?? $filtros['asignacion'],
-        'url' => $urlFiltro(['asignacion' => '']),
-    ];
-}
-if (($filtros['origen'] ?? '') !== '') {
-    $chipsFiltro[] = [
-        'label' => 'Origen: ' . ($etiquetaOrigen[$filtros['origen']] ?? $filtros['origen']),
-        'url' => $urlFiltro(['origen' => '']),
-    ];
-}
-
-// Filtros avanzados: el bloque plegable arranca abierto si alguno está puesto,
-// o el usuario no vería por qué la lista está recortada.
-$filtrosAvanzadosActivos = ($filtros['estado'] ?? '') !== ''
-    || ($filtros['asignacion'] ?? '') !== ''
-    || ($filtros['origen'] ?? '') !== '';
+// Sólo la cifra en mono: la palabra en mono se lee como volcado de terminal.
+$cifra = static fn(int $n, string $uno, string $varios): string =>
+    '<span class="admin-num">' . $n . '</span> ' . ($n === 1 ? $uno : $varios);
 
 $alertasNormalizadas = [];
-$agregarAlerta = static function ($tipo, $mensajes) use (&$alertasNormalizadas, &$agregarAlerta): void {
-    if ($mensajes === null || $mensajes === '') {
-        return;
-    }
-
-    if (is_array($mensajes)) {
-        foreach ($mensajes as $mensaje) {
-            $agregarAlerta($tipo, $mensaje);
-        }
-        return;
-    }
-
-    $tipo = is_string($tipo) ? $tipo : 'error';
-    $alertasNormalizadas[$tipo][] = (string)$mensajes;
-};
-
 foreach ($alertas as $tipo => $mensajes) {
-    $agregarAlerta($tipo, $mensajes);
+    foreach ((array)$mensajes as $mensaje) {
+        if ((string)$mensaje !== '') {
+            $alertasNormalizadas[is_string($tipo) ? $tipo : 'error'][] = (string)$mensaje;
+        }
+    }
 }
 
+/*
+ * La línea de «ahora» en la hoja de hoy: cruza la libreta entre la última
+ * reserva que ya debió llegar y la primera que falta, y dice en qué punto del
+ * servicio se está sin tener que comparar horas. Es una fotografía de cuando
+ * se cargó la página, como el resto de la lista. aria-hidden: las horas de
+ * cada fila ya lo dicen, y un renglón que no es una reserva cambiaría la
+ * cuenta de la lista para el lector de pantalla.
+ */
+$pintarAhora = static function () use ($h, $horaAhora): void {
+    ?>
+    <li class="reservations-ahora" aria-hidden="true">
+        <span class="reservations-ahora__hora"><?php echo $h($horaAhora); ?></span>
+        <span class="reservations-ahora__marca"></span>
+        <span class="reservations-ahora__rotulo">Ahora</span>
+    </li>
+    <?php
+};
+
+/*
+ * Un estado pedido por dirección que no tiene botón («Apartada», «Expirada»)
+ * se añade como opción activa al final: sin ella la lista saldría recortada
+ * sin que nada en pantalla dijera por qué.
+ */
+$opcionesEstado = ReservacionListadoPresenter::FILTROS;
+if ($estadoActivo !== '' && !array_key_exists($estadoActivo, $opcionesEstado)) {
+    $opcionesEstado[$estadoActivo] = ReservacionListadoPresenter::ETIQUETAS[$estadoActivo] ?? ucfirst($estadoActivo);
+}
 ?>
-
 <?php if (!$partialOnly) : ?>
-<section class="admin-reservations admin-menu admin-page">
+<section class="admin-page admin-reservations reservations-agenda-page"
+         data-reservations-listado
+         data-admin-csrf="<?php echo $h($adminCsrfToken); ?>">
     <?php $subnavActiva = 'historico'; include __DIR__ . '/_subnav.php'; ?>
-    <header class="admin-menu__header admin-page__header">
+
+    <header class="admin-page__header">
         <div class="admin-page__intro">
-            <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
-            <h1 class="admin-page__title">Reservaciones</h1>
-            <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
+            <span class="admin-page__eyebrow">Reservaciones</span>
+            <h1 class="admin-page__title">Agenda</h1>
+            <p class="admin-page__subtitle">Quién viene y qué pasó, día por día. Para sentar, mover mesas o dar de alta, el POS.</p>
         </div>
-        <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-reservations__header-action" href="/admin/reservaciones/crear">
-                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M12 5v14"/>
-                    <path d="M5 12h14"/>
-                </svg>
-                <span>Crear reservación</span>
-            </a>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-reservations__header-action" href="<?php echo $h($operationUrl); ?>">
-                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z"/>
-                    <path d="M9 3v15"/>
-                    <path d="M15 6v15"/>
-                </svg>
-                <span>Abrir en el POS</span>
-            </a>
-        </div>
-    </header>
+        <?php /*
+          Buscar y periodo comparten la fila del encabezado. Antes eran una
+          caja de filtros propia —búsqueda, periodo, «Buscar», «Limpiar» y un
+          «Más filtros» con estado, asignación y origen— entre el título y la
+          primera reservación. El estado pasó a la tira de cifras de abajo, que
+          además dice cuántas hay de cada uno; asignación y origen salieron
+          (ver el controlador).
 
-    <?php foreach ($alertasNormalizadas as $tipo => $mensajes) : ?>
-        <?php
-        $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
-        $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atención' : 'Revisa los siguientes datos');
-        ?>
-        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>" role="<?php echo $tipoAlerta === 'error' ? 'alert' : 'status'; ?>" aria-live="polite">
-            <strong><?php echo $h($tituloAlerta); ?></strong>
-            <span><?php echo $h(implode(' ', $mensajes)); ?></span>
-        </div>
-    <?php endforeach; ?>
-
-    <form
-        class="admin-filters admin-reservations__filters"
-        method="GET"
-        action="/admin/reservaciones"
-        aria-label="Filtros de reservaciones"
-        data-reactive-filters
-        data-reactive-target="#reservations-results"
-        data-reactive-loading="#reservations-results-loading"
-        data-reactive-error="#reservations-results-error"
-        data-reactive-debounce="350"
-    >
-        <div class="admin-filters__search">
-            <label for="reservations-q">Buscar</label>
-            <input
-                id="reservations-q"
-                type="search"
-                data-reactive-control
-                data-reactive-default=""
-                name="q"
-                value="<?php echo $h($filtros['q'] ?? ''); ?>"
-                placeholder="Nombre o correo"
-            >
-        </div>
-        <div class="admin-filters__range">
+          El estado y el periodo viajan en campos ocultos porque el formulario
+          arma la URL sólo con lo que lleva dentro: sin ellos, escribir un
+          nombre devolvía la lista a «Todas» y a los próximos 30 días. El estado
+          lleva data-reactive-control (lo pone la tira y «Limpiar» lo vacía); el
+          periodo no, porque se cambia en su selector y «Limpiar» no debe dejar
+          el selector diciendo un periodo y la lista enseñando otro.
+        */ ?>
+        <div class="admin-actions reservations-controles">
+            <form class="admin-filters reservations-buscador"
+                  method="GET"
+                  action="/admin/reservaciones"
+                  role="search"
+                  aria-label="Buscar reservaciones"
+                  data-reactive-filters
+                  data-reactive-target="#reservations-results"
+                  data-reactive-loading="#reservations-results-loading"
+                  data-reactive-error="#reservations-results-error"
+                  data-reactive-debounce="300">
+                <label class="reservations-buscador__rotulo" for="reservations-q">Buscar</label>
+                <div class="reservations-buscador__fila">
+                    <input id="reservations-q"
+                           type="search"
+                           name="q"
+                           value="<?php echo $h($busqueda); ?>"
+                           placeholder="Nombre, teléfono o correo"
+                           autocomplete="off"
+                           data-reactive-control
+                           data-reactive-default="">
+                    <input type="hidden" name="estado" value="<?php echo $h($estadoActivo); ?>" data-reactive-control data-reactive-default="">
+                    <?php if (!$periodoPorDefecto) : ?>
+                        <input type="hidden" name="fecha_inicio" value="<?php echo $h($filtros['fecha_inicio'] ?? ''); ?>">
+                        <input type="hidden" name="fecha_fin" value="<?php echo $h($filtros['fecha_fin'] ?? ''); ?>">
+                    <?php endif; ?>
+                    <?php /* Para quien navega sin JS; con JS lo oculta _forms.scss. */ ?>
+                    <button type="submit" class="admin-btn admin-btn--secondary" data-reactive-submit>Buscar</button>
+                    <a class="admin-btn admin-btn--ghost reservations-buscador__limpiar"
+                       href="<?php echo $h($periodoPorDefecto ? '/admin/reservaciones' : '/admin/reservaciones?' . http_build_query(['fecha_inicio' => $filtros['fecha_inicio'] ?? '', 'fecha_fin' => $filtros['fecha_fin'] ?? ''])); ?>"
+                       data-reactive-clear
+                       <?php echo $filtrosActivos ? '' : 'hidden'; ?>>Limpiar</a>
+                </div>
+            </form>
             <?php
+            // Fuera del formulario: el selector navega por su cuenta y conserva
+            // la búsqueda y el estado ($rangePreserveQuery).
             $rangeCaption = 'Periodo';
             $rangeStartParam = 'fecha_inicio';
             $rangeEndParam = 'fecha_fin';
@@ -302,349 +156,236 @@ foreach ($alertas as $tipo => $mensajes) {
             include __DIR__ . '/../partials/_range-picker.php';
             ?>
         </div>
-        <div class="admin-filters__actions">
-            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservaciones" data-reactive-clear <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>Limpiar filtros</a>
-        </div>
+    </header>
 
-        <?php /*
-          Estado, asignación y origen se pliegan: son los que menos se tocan y
-          entre los seis campos ocupaban un tercio de la pantalla antes de
-          enseñar una sola reservación. <details> los mantiene en el DOM, que es
-          lo que reactive-filters necesita para leerlos.
-        */ ?>
-        <details class="admin-filters__more" <?php echo $filtrosAvanzadosActivos ? 'open' : ''; ?>>
-            <summary>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-                Más filtros
-            </summary>
-            <div class="admin-filters__more-grid">
-                <div class="admin-filters__group">
-                    <label for="reservations-estado">Estado</label>
-                    <select id="reservations-estado" name="estado" data-reactive-control data-reactive-default="">
-                        <option value="">Todos</option>
-                        <?php foreach ($estadoLabels as $estado => $label) : ?>
-                            <option value="<?php echo $h($estado); ?>" <?php echo ($filtros['estado'] ?? '') === $estado ? 'selected' : ''; ?>>
-                                <?php echo $h($label); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="admin-filters__group">
-                    <label for="reservations-asignacion">Asignación</label>
-                    <select id="reservations-asignacion" name="asignacion" data-reactive-control data-reactive-default="">
-                        <option value="">Todas</option>
-                        <option value="con_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'con_mesa' ? 'selected' : ''; ?>>Con mesa</option>
-                        <option value="sin_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'sin_mesa' ? 'selected' : ''; ?>>Sin mesas asignadas</option>
-                    </select>
-                </div>
-                <div class="admin-filters__group">
-                    <label for="reservations-origen">Origen</label>
-                    <select id="reservations-origen" name="origen" data-reactive-control data-reactive-default="">
-                        <option value="">Todos</option>
-                        <option value="admin" <?php echo ($filtros['origen'] ?? '') === 'admin' ? 'selected' : ''; ?>>Administrativa</option>
-                        <option value="landing" <?php echo ($filtros['origen'] ?? '') === 'landing' ? 'selected' : ''; ?>>Landing pública</option>
-                    </select>
-                </div>
-            </div>
-        </details>
-    </form>
+    <?php foreach ($alertasNormalizadas as $tipo => $mensajes) : ?>
+        <?php
+        $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
+        $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atención' : 'No se pudo');
+        ?>
+        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>" role="<?php echo $tipoAlerta === 'error' ? 'alert' : 'status'; ?>">
+            <strong><?php echo $h($tituloAlerta); ?></strong>
+            <span><?php echo $h(implode(' ', $mensajes)); ?></span>
+        </div>
+    <?php endforeach; ?>
 
     <div class="admin-reactive-results-shell">
-        <div id="reservations-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
+        <div id="reservations-results" class="admin-reactive-results reservations-resultados" data-reactive-results aria-busy="false">
 <?php endif; ?>
-    <?php if (!empty($chipsFiltro)) : ?>
-        <div class="admin-reservations__chips" aria-label="Filtros aplicados">
-            <span class="admin-reservations__chips-label">Filtrando por</span>
-            <?php foreach ($chipsFiltro as $chip) : ?>
-                <?php /* Sin URL el chip es informativo, no removible: es el caso
-                         del periodo cuando aún es la ventana por defecto. Se
-                         pinta como <span> para no ofrecer una × que no quita
-                         nada. */ ?>
-                <?php if (($chip['url'] ?? '') !== '') : ?>
-                    <a class="admin-reservations__chip" href="<?php echo $h($chip['url']); ?>">
-                        <span><?php echo $h($chip['label']); ?></span>
-                        <span class="admin-reservations__chip-x" aria-hidden="true">×</span>
-                        <span class="admin-visually-hidden">Quitar este filtro</span>
-                    </a>
-                <?php else : ?>
-                    <span class="admin-reservations__chip admin-reservations__chip--fijo">
-                        <span><?php echo $h($chip['label']); ?></span>
-                    </span>
-                <?php endif; ?>
+    <?php /*
+      La tira de estados: resumen y filtro a la vez. Sustituye a las cinco
+      tarjetas de métricas —tres de ellas contaban cosas que el modelo de
+      tres estados ya no produce (sin mesa, por confirmar, tolerancia)— y al
+      desplegable de estado. Cada cifra es un enlace al filtro que la produce y
+      el reemplazo parcial lo atiende sin recargar (data-reactive-page).
+
+      No es .admin-tabs--links a propósito: reactive-filters.js re-marca esas
+      pestañas comparando la URL, y «Todas» —que no lleva parámetro— salía
+      activa junto a la elegida. Ésta la pinta el servidor en cada reemplazo.
+
+      tabindex="-1": es adonde vuelve el foco tras registrar una ausencia si
+      la fila ya no está en la lista (lista.js).
+    */ ?>
+    <nav class="reservations-estados" aria-label="Filtrar por estado" tabindex="-1">
+        <?php foreach ($opcionesEstado as $clave => $etiqueta) : ?>
+            <?php
+            $clave = (string)$clave;
+            $activa = $clave === $estadoActivo;
+            $cuenta = (int)($conteos[$clave] ?? 0);
+            $clase = 'reservations-estados__opcion reservations-estados__opcion--' . ($clave === '' ? 'todas' : $clave)
+                . ($activa ? ' is-active' : '')
+                . ($cuenta === 0 && !$activa ? ' is-empty' : '');
+            ?>
+            <a class="<?php echo $h($clase); ?>"
+               href="<?php echo $h($urlConEstado($clave)); ?>"
+               data-reactive-page
+               <?php echo $activa ? 'aria-current="page"' : ''; ?>>
+                <span class="reservations-estados__cifra"><?php echo $cuenta; ?></span>
+                <span class="reservations-estados__etiqueta">
+                    <?php /* La misma marca que lleva cada fila en la línea del
+                             día: la tira hace de leyenda sin ser una leyenda. */ ?>
+                    <?php if ($clave !== '') : ?>
+                        <span class="reservations-marca reservations-marca--<?php echo $h(ReservacionListadoPresenter::tono($clave)); ?>" aria-hidden="true"></span>
+                    <?php endif; ?>
+                    <?php echo $h($etiqueta); ?>
+                </span>
+            </a>
+        <?php endforeach; ?>
+    </nav>
+
+    <?php if ($diasAgenda === []) : ?>
+        <div class="reservations-vacio">
+            <?php echo admin_icon('reservations', 22, 'reservations-vacio__icono'); ?>
+            <?php if ($busqueda !== '') : ?>
+                <p><strong>Nadie con «<?php echo $h($busqueda); ?>»</strong> en este periodo.</p>
+                <p>Prueba con otra parte del nombre, el teléfono o el correo, o amplía el periodo.</p>
+            <?php elseif ($estadoActivo !== '') : ?>
+                <p><strong>Nada en «<?php echo $h($opcionesEstado[$estadoActivo] ?? $estadoActivo); ?>»</strong> en este periodo.</p>
+            <?php else : ?>
+                <p><strong>Sin reservaciones</strong> en este periodo.</p>
+                <p>Las nuevas llegan desde la página y desde «Nueva reservación» del POS.</p>
+            <?php endif; ?>
+            <?php if ($filtrosActivos) : ?>
+                <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $h($periodoPorDefecto ? '/admin/reservaciones' : $urlConEstado('')); ?>" data-reactive-clear>Ver todas</a>
+            <?php endif; ?>
+        </div>
+    <?php else : ?>
+        <div class="reservations-libreta">
+            <?php foreach ($diasAgenda as $dia) : ?>
+                <?php
+                $fecha = (string)$dia['fecha'];
+                $idDia = 'agenda-' . $fecha;
+                $partesResumen = [];
+                if ((int)$dia['reservas'] > 0) {
+                    $partesResumen[] = $cifra((int)$dia['reservas'], 'reservación', 'reservaciones');
+                    $partesResumen[] = $cifra((int)$dia['personas'], 'persona', 'personas');
+                }
+                if ((int)$dia['no_llegaron'] > 0) {
+                    $partesResumen[] = $cifra((int)$dia['no_llegaron'], 'no llegó', 'no llegaron');
+                }
+                if ((int)$dia['canceladas'] > 0) {
+                    $partesResumen[] = $cifra((int)$dia['canceladas'], 'cancelada', 'canceladas');
+                }
+                $claseDia = 'reservations-dia'
+                    . (!empty($dia['es_hoy']) ? ' is-hoy' : '')
+                    . (!empty($dia['pasado']) ? ' is-pasado' : '');
+                ?>
+                <section class="<?php echo $h($claseDia); ?>" aria-labelledby="<?php echo $h($idDia); ?>">
+                    <?php /* Una hoja de agenda: el número del día en el margen de
+                             las horas —misma columna, misma mono— y a su derecha
+                             «Hoy» y el día de la semana. El encabezado se lee
+                             entero para el lector de pantalla; lo visible es la
+                             composición. */ ?>
+                    <header class="reservations-dia__cabecera">
+                        <h2 class="reservations-dia__titulo" id="<?php echo $h($idDia); ?>">
+                            <span class="admin-visually-hidden"><?php echo $h(($dia['relativo'] !== '' ? $dia['relativo'] . ', ' : '') . $dia['titulo']); ?></span>
+                            <span class="reservations-dia__fecha" aria-hidden="true">
+                                <span class="reservations-dia__numero"><?php echo (int)$dia['numero']; ?></span>
+                                <span class="reservations-dia__mes"><?php echo $h($dia['mes']); ?></span>
+                            </span>
+                            <span class="reservations-dia__nombre" aria-hidden="true">
+                                <?php if ($dia['relativo'] !== '') : ?>
+                                    <span class="reservations-dia__relativo"><?php echo $h($dia['relativo']); ?></span>
+                                <?php endif; ?>
+                                <span class="reservations-dia__semana"><?php echo $h($dia['dia_semana'] . ($dia['anio'] !== '' ? ' · ' . $dia['anio'] : '')); ?></span>
+                            </span>
+                        </h2>
+                        <?php if ($partesResumen !== []) : ?>
+                            <p class="reservations-dia__resumen"><?php echo implode(' · ', $partesResumen); ?></p>
+                        <?php endif; ?>
+                    </header>
+
+                    <ol class="reservations-dia__filas">
+                        <?php $ahoraPintada = empty($dia['es_hoy']); ?>
+                        <?php foreach ($dia['filas'] as $fila) : ?>
+                            <?php
+                            $nombre = $fila['nombre'] !== '' ? $fila['nombre'] : 'Sin nombre';
+                            $claseFila = 'reservations-fila reservations-fila--' . $fila['tono']
+                                . ($fila['inicio_franja'] ? ' is-inicio-franja' : '')
+                                . ($fila['sin_efecto'] ? ' is-sin-efecto' : '')
+                                . ($fila['tarde'] ? ' is-late' : '');
+                            $momento = $fila['hora'] . ', ' . ReservacionListadoPresenter::fechaCorta($fecha);
+                            ?>
+                            <?php if (!$ahoraPintada && $fila['hora'] > $horaAhora) : ?>
+                                <?php $ahoraPintada = true; $pintarAhora(); ?>
+                            <?php endif; ?>
+                            <li class="<?php echo $h($claseFila); ?>" data-reservacion-id="<?php echo (int)$fila['id']; ?>">
+                                <?php /* La hora se escribe una vez por franja; en las
+                                         que comparten hora queda sólo para el lector de
+                                         pantalla, que no ve el margen. */ ?>
+                                <time class="reservations-fila__hora" datetime="<?php echo $h($fecha . 'T' . $fila['hora']); ?>">
+                                    <?php if ($fila['inicio_franja']) : ?>
+                                        <?php echo $h($fila['hora']); ?>
+                                    <?php else : ?>
+                                        <span class="admin-visually-hidden"><?php echo $h($fila['hora']); ?></span>
+                                    <?php endif; ?>
+                                </time>
+                                <span class="reservations-fila__marca reservations-marca reservations-marca--<?php echo $h($fila['tono']); ?>" aria-hidden="true"></span>
+
+                                <div class="reservations-fila__quien">
+                                    <?php /* La fila entera abre el detalle: el enlace es
+                                             el nombre y su ::after cubre la fila. Los
+                                             botones de la derecha quedan por encima. */ ?>
+                                    <a class="reservations-fila__nombre" href="<?php echo $h($fila['url_detalle']); ?>">
+                                        <?php echo $h($nombre); ?><span class="admin-visually-hidden">, <?php echo $h($fila['hora']); ?>. Ver detalle</span>
+                                    </a>
+                                    <?php if ($fila['nota'] !== '') : ?>
+                                        <p class="reservations-fila__nota" title="<?php echo $h($fila['nota']); ?>">
+                                            <?php echo admin_icon('nota', 13, 'reservations-fila__nota-icono'); ?>
+                                            <span><?php echo $h($fila['nota']); ?></span>
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="reservations-fila__datos">
+                                    <span class="reservations-fila__personas"><?php echo $cifra((int)$fila['comensales'], 'persona', 'personas'); ?></span>
+                                    <?php
+                                    // Sin mesas sólo es un aviso en una reserva que todavía va a
+                                    // ocurrir (se guardan con ellas; si falta, es un Caso). En una
+                                    // que ya terminó no avisa de nada: es lo que quedó registrado.
+                                    $mesasAviso = $fila['mesas'] === '' && in_array($fila['estado'], ['confirmada', 'en_curso'], true);
+                                    ?>
+                                    <span class="reservations-fila__mesas<?php echo $fila['mesas'] === '' ? ($mesasAviso ? ' is-aviso' : ' is-vacio') : ''; ?>"<?php echo $fila['mesas'] !== '' ? ' title="' . $h($fila['mesas']) . '"' : ''; ?>>
+                                        <?php echo $fila['mesas'] !== '' ? $h($fila['mesas']) : ($mesasAviso ? 'Sin mesas asignadas' : 'Sin mesa'); ?>
+                                    </span>
+                                    <span class="reservations-fila__estado"><?php echo $h($fila['etiqueta']); ?></span>
+                                </div>
+
+                                <div class="reservations-fila__acciones">
+                                    <?php if ($fila['puede_no_show']) : ?>
+                                        <?php /* La única acción que se resuelve aquí. Sin JS el
+                                                 formulario publica y vuelve (POST-redirect-GET);
+                                                 con JS, lista.js confirma con el componente y
+                                                 repinta sólo la lista. data-confirm-* es el
+                                                 respaldo del diálogo genérico de admin.js. */ ?>
+                                        <form class="reservations-fila__form"
+                                              method="POST"
+                                              action="/admin/reservaciones/estado"
+                                              data-reservacion-no-llego
+                                              data-confirm-delete
+                                              data-confirm-variant="warning"
+                                              data-confirm-eyebrow="Reservaciones"
+                                              data-confirm-title="Registrar que no llegó"
+                                              data-confirm-description="<?php echo $h($nombre . ', ' . $momento . '. La tolerancia de llegada ya venció.'); ?>"
+                                              data-confirm-consequence="Quedará como ausencia y su mesa se libera."
+                                              data-confirm-primary="Registrar que no llegó"
+                                              data-nombre="<?php echo $h($nombre); ?>">
+                                            <input type="hidden" name="id" value="<?php echo (int)$fila['id']; ?>">
+                                            <input type="hidden" name="estado" value="no_show">
+                                            <input type="hidden" name="motivo" value="agenda_ausencia_pendiente">
+                                            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
+                                            <input type="hidden" name="return_to" value="<?php echo $h($urlListado); ?>">
+                                            <button type="submit" class="admin-btn admin-btn--primary admin-btn--small reservations-fila__accion">
+                                                <?php echo admin_icon('estado-sin-llegar', 14, 'admin-btn__icon'); ?>
+                                                <span>No llegó</span>
+                                            </button>
+                                        </form>
+                                    <?php elseif ($fila['url_pos'] !== '') : ?>
+                                        <a class="reservations-fila__pos"
+                                           href="<?php echo $h($fila['url_pos']); ?>"
+                                           title="Abrir en el POS"
+                                           aria-label="Abrir en el POS la reservación de <?php echo $h($nombre . ', ' . $momento); ?>">
+                                            <?php echo admin_icon('plano', 16); ?>
+                                        </a>
+                                    <?php endif; ?>
+                                    <span class="reservations-fila__ir" aria-hidden="true"><?php echo admin_icon('chevron-derecha', 16); ?></span>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                        <?php if (!$ahoraPintada) : ?>
+                            <?php $pintarAhora(); ?>
+                        <?php endif; ?>
+                    </ol>
+                </section>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
-
-    <section class="admin-reservations__metrics" aria-label="Métricas de reservaciones">
-        <div class="admin-reservations__metrics-grid">
-            <?php foreach ($metricCards as $card) : ?>
-                <?php
-                $claseMetric = 'admin-reservations__metric'
-                    . (!empty($card['tone']) ? ' admin-reservations__metric--' . $h($card['tone']) : '');
-                $etiqueta = $h($card['label']);
-                $cifra = (int) $card['value'];
-                $detalle = $h($card['detalle'] ?? '');
-                ?>
-                <?php if (!empty($card['url'])) : ?>
-                    <a class="<?php echo $claseMetric; ?>" href="<?php echo $h($card['url']); ?>">
-                        <span><?php echo $etiqueta; ?></span>
-                        <strong><?php echo $cifra; ?></strong>
-                        <small><?php echo $detalle; ?></small>
-                    </a>
-                <?php else : ?>
-                    <article class="<?php echo $claseMetric; ?>">
-                        <span><?php echo $etiqueta; ?></span>
-                        <strong><?php echo $cifra; ?></strong>
-                        <small><?php echo $detalle; ?></small>
-                    </article>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <?php
-        // Agrupación por día: en un rango de varias fechas la columna "Fecha" se
-        // repetía en cada renglón sin aportar nada. El encabezado de día lo dice
-        // una vez y de paso separa visualmente las jornadas.
-        $porDia = [];
-        foreach ($reservaciones as $r) {
-            $porDia[(string) $valor($r, 'fecha')][] = $r;
-        }
-        $totalEncontradas = count($reservaciones);
-    ?>
-    <section class="reservations-table-card admin-card" aria-labelledby="reservations-results-title">
-        <div class="reservations-table-card__header">
-            <div>
-                <h2 id="reservations-results-title"><?php echo $totalEncontradas; ?> <?php echo $totalEncontradas === 1 ? 'reservación encontrada' : 'reservaciones encontradas'; ?></h2>
-                <p>Periodo: <?php echo $h($fechaLegible($filtros['fecha_inicio'] ?? date('Y-m-d'))); ?> – <?php echo $h($fechaLegible($filtros['fecha_fin'] ?? date('Y-m-d'))); ?></p>
-            </div>
-
-            <?php if (!empty($reservaciones)) : ?>
-                <?php /* Dos lecturas del mismo dato: la lista para trabajar fila
-                         a fila y la agenda para ver de un vistazo cómo se reparte
-                         la carga del servicio. */ ?>
-                <fieldset class="admin-tabs reservations-views">
-                    <legend class="admin-visually-hidden">Forma de ver las reservaciones</legend>
-                    <label class="admin-tabs__tab">
-                        <input type="radio" name="reservations-view" value="lista" checked data-reservations-view aria-label="Vista de lista" title="Lista">
-                        <span title="Lista" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
-                        </span>
-                    </label>
-                    <label class="admin-tabs__tab">
-                        <input type="radio" name="reservations-view" value="agenda" data-reservations-view aria-label="Vista de agenda" title="Agenda">
-                        <span title="Agenda" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></svg>
-                        </span>
-                    </label>
-                </fieldset>
-            <?php endif; ?>
-        </div>
-
-        <?php if (empty($reservaciones)) : ?>
-            <div class="admin-menu__empty admin-empty">
-                <p>No se encontraron reservaciones con los filtros aplicados.</p>
-                <?php if ($filtrosActivos) : ?>
-                    <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservaciones" data-reactive-clear>Limpiar filtros</a>
-                <?php endif; ?>
-            </div>
-        <?php else : ?>
-            <?php /*
-              Lista de TARJETAS, no una tabla.
-              La tabla tenía seis columnas y `min-width: 960px`, así que en
-              cualquier pantalla por debajo de eso —y el panel se abre a menudo
-              en portátil— el estado y las acciones quedaban fuera de vista tras
-              un scroll horizontal: había que arrastrar para saber si una
-              reservación estaba confirmada. El scroll no era un descuido de
-              padding, era estructural.
-
-              Una reservación no es una fila de datos comparables columna a
-              columna: es una ficha que se lee entera —quién viene, cuándo, con
-              cuántos, en qué mesa— y sobre la que se actúa. En tarjeta cada
-              dato tiene el sitio que le toca por importancia y nada se sale de
-              la caja.
-
-              Se conserva la agrupación por día, que es la que da el ritmo del
-              listado, y el orden cronológico dentro de cada grupo. Al no haber
-              tabla, table-sort.js ya no aplica aquí.
-
-              Sin data-scrollable: la lista fluye en vertical con la página y no
-              tiene scroll propio que marcar.
-            */ ?>
-            <div class="reservations-list" data-reservations-panel="lista">
-                    <?php foreach ($porDia as $dia => $delDia) : ?>
-                        <section class="reservations-list__day" aria-labelledby="dia-<?php echo $h($dia); ?>">
-                            <h3 class="reservations-list__day-head" id="dia-<?php echo $h($dia); ?>">
-                                <span><?php echo $h($fechaLegible($dia)); ?></span>
-                                <small><?php echo count($delDia); ?> <?php echo count($delDia) === 1 ? 'reservación' : 'reservaciones'; ?></small>
-                            </h3>
-                            <?php foreach ($delDia as $reservacion) : ?>
-                                <?php
-                                $id = (int)$valor($reservacion, 'id', 0);
-                                $nombre = (string)$valor($reservacion, 'nombre');
-                                $contacto = (string)$valor($reservacion, 'contacto');
-                                $fecha = (string)$valor($reservacion, 'fecha');
-                                $hora = (string)$valor($reservacion, 'hora');
-                                $comensales = (int)$valor($reservacion, 'comensales', 0);
-                                $nota = trim((string)$valor($reservacion, 'nota'));
-                                $estado = (string)$valor($reservacion, 'estado', 'confirmada');
-                                $mesasCount = (int)$valor($reservacion, 'mesas_count', 0);
-                                // mesas_asignadas ya viene de buscarAdmin() y no se
-                                // usaba: decir "Mesa 3, Mesa 4" es más útil que "2 mesas".
-                                $mesasNombres = trim((string)$valor($reservacion, 'mesas_asignadas'));
-                                $tieneMesa = $mesasCount > 0;
-                                $origen = (string)$valor($reservacion, 'origen', 'admin');
-                                $toleranciaVencida = !empty($valor($reservacion, 'tolerancia_vencida', false));
-                                $showUrl = '/admin/reservaciones/detalle?id=' . $id . '&return_url=' . rawurlencode($returnTo);
-                                $operationContextUrl = '/punto-de-venta?' . http_build_query([
-                                    'fecha' => $fecha,
-                                    'reservation_id' => $id,
-                                ]);
-                                ?>
-                                <?php
-                                // El filete izquierdo dice el ESTADO de la reserva; la clase
-                                // is-late lo cambia a la familia de aviso. Es el mismo recurso
-                                // con el que el KDS marca la antigüedad de una comanda.
-                                $claseTarjeta = 'reservations-card reservations-card--' . $estado;
-                                if ($toleranciaVencida) {
-                                    $claseTarjeta .= ' is-late';
-                                }
-                                ?>
-                                <article class="<?php echo $h($claseTarjeta); ?>">
-                                    <?php /* Cabecera: cuándo y en qué estado. Son las dos
-                                             preguntas que se hacen a la vez —"¿a qué hora, y
-                                             viene o no?"— así que comparten renglón. */ ?>
-                                    <header class="reservations-card__head">
-                                        <p class="reservations-card__when">
-                                            <time class="reservations-card__time admin-num" datetime="<?php echo $h($fecha . 'T' . $horaLegible($hora)); ?>"><?php echo $h($horaLegible($hora)); ?></time>
-                                            <?php if ($toleranciaVencida) : ?>
-                                                <span class="reservations-card__late">Tolerancia vencida</span>
-                                            <?php endif; ?>
-                                        </p>
-                                        <span class="admin-badge admin-badge--<?php echo $h($estadoBadge[$estado] ?? 'neutral'); ?> reservations-card__status">
-                                            <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
-                                        </span>
-                                    </header>
-
-                                    <?php /* Quién viene. El nombre es lo que se busca al
-                                             recorrer el listado, así que es el único texto de
-                                             la tarjeta a cuerpo de titular. */ ?>
-                                    <div class="reservations-card__customer">
-                                        <strong class="reservations-card__name"><?php echo $h($nombre); ?></strong>
-                                        <span class="reservations-card__contact"><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></span>
-                                    </div>
-
-                                    <?php /* Cuántos y dónde, como pares rótulo/valor: fuera de
-                                             una tabla, un número suelto no dice de qué es. */ ?>
-                                    <dl class="reservations-card__facts">
-                                        <div class="reservations-card__fact">
-                                            <dt>Personas</dt>
-                                            <dd class="admin-num"><?php echo $h($pluralPersonas($comensales)); ?></dd>
-                                        </div>
-                                        <div class="reservations-card__fact<?php echo $tieneMesa ? '' : ' reservations-card__fact--pendiente'; ?>">
-                                            <dt>Mesas</dt>
-                                            <dd<?php echo $tieneMesa && $mesasNombres !== '' ? ' title="' . $h($mesasNombres) . '"' : ''; ?>>
-                                                <?php if ($tieneMesa) : ?>
-                                                    <?php echo $mesasNombres !== '' ? $h($mesasNombres) : $mesasCount . ' ' . ($mesasCount === 1 ? 'mesa' : 'mesas'); ?>
-                                                <?php else : ?>
-                                                    Sin asignar
-                                                <?php endif; ?>
-                                            </dd>
-                                        </div>
-                                    </dl>
-
-                                    <?php if ($nota !== '') : ?>
-                                        <p class="reservations-card__note"><?php echo $h($nota); ?></p>
-                                    <?php endif; ?>
-
-                                    <footer class="reservations-card__foot">
-                                        <span class="admin-badge admin-badge--<?php echo $origen === 'admin' ? 'info' : 'neutral'; ?> admin-badge--outline reservations-card__origin"><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing'; ?></span>
-                                        <div class="reservations-card__actions">
-                                            <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
-                                            <a
-                                                class="admin-btn admin-btn--ghost admin-btn--small reservations-card__operate"
-                                                href="<?php echo $h($operationContextUrl); ?>"
-                                                title="Abrir esta reservación en el POS"
-                                                aria-label="Abrir en el POS la reservación de <?php echo $h($nombre); ?>"
-                                            >
-                                                <span>Operar</span>
-                                                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                                    <path d="M7 17 17 7"/>
-                                                    <path d="M7 7h10v10"/>
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </footer>
-                                </article>
-                            <?php endforeach; ?>
-                        </section>
-                    <?php endforeach; ?>
-            </div>
-
-            <?php /*
-              Agenda: el mismo listado repartido por franja horaria. Contesta de
-              un vistazo a qué hora se concentra el servicio y cuánto aforo hay
-              comprometido, que en una tabla ordenada por fecha no se ve.
-            */ ?>
-            <div class="reservations-agenda" data-reservations-panel="agenda" hidden data-lenis-prevent>
-                <?php foreach ($porDia as $dia => $delDia) : ?>
-                    <?php
-                    $porHora = [];
-                    $comensalesDia = 0;
-                    foreach ($delDia as $r) {
-                        $porHora[$horaLegible($valor($r, 'hora'))][] = $r;
-                        $comensalesDia += (int) $valor($r, 'comensales', 0);
-                    }
-                    ksort($porHora);
-                    ?>
-                    <section class="reservations-agenda__day">
-                        <header class="reservations-agenda__day-head">
-                            <h3><?php echo $h($fechaLegible($dia)); ?></h3>
-                            <span><?php echo count($delDia); ?> reservaciones · <?php echo $h($pluralPersonas($comensalesDia)); ?></span>
-                        </header>
-                        <?php foreach ($porHora as $franja => $deLaHora) : ?>
-                            <?php
-                            $comensalesFranja = 0;
-                            foreach ($deLaHora as $r) {
-                                $comensalesFranja += (int) $valor($r, 'comensales', 0);
-                            }
-                            ?>
-                            <div class="reservations-agenda__slot">
-                                <div class="reservations-agenda__hour">
-                                    <strong><?php echo $h($franja); ?></strong>
-                                    <small><?php echo $h($pluralPersonas($comensalesFranja)); ?></small>
-                                </div>
-                                <ul class="reservations-agenda__list">
-                                    <?php foreach ($deLaHora as $r) : ?>
-                                        <?php
-                                        $rid = (int) $valor($r, 'id', 0);
-                                        $rEstado = (string) $valor($r, 'estado', 'confirmada');
-                                        $rMesas = trim((string) $valor($r, 'mesas_asignadas'));
-                                        ?>
-                                        <li>
-                                            <a class="reservations-agenda__card reservations-agenda__card--<?php echo $h($rEstado); ?>"
-                                               href="/admin/reservaciones/detalle?id=<?php echo $rid; ?>&return_url=<?php echo $h(rawurlencode($returnTo)); ?>">
-                                                <strong><?php echo $h((string) $valor($r, 'nombre')); ?></strong>
-                                                <span><?php echo $h($pluralPersonas((int) $valor($r, 'comensales', 0))); ?></span>
-                                                <small><?php echo $rMesas !== '' ? $h($rMesas) : 'Sin mesas'; ?></small>
-                                            </a>
-                                        </li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            </div>
-                        <?php endforeach; ?>
-                    </section>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </section>
 <?php if (!$partialOnly) : ?>
         </div>
-        <div class="admin-reactive-loading" id="reservations-results-loading" role="status" hidden>Actualizando resultados</div>
+        <div class="admin-reactive-loading" id="reservations-results-loading" role="status" hidden>Actualizando la agenda</div>
     </div>
     <div class="admin-reactive-error" id="reservations-results-error" role="alert" hidden>
-        <span>No fue posible actualizar las reservaciones.</span>
+        <span>No fue posible actualizar la agenda.</span>
         <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-reactive-retry>Volver a intentar</button>
     </div>
 </section>

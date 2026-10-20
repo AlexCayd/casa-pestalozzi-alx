@@ -40,138 +40,209 @@
 }
 
 /*
- * Color por función en los botones de la barra.
+ * ── Los botones redondos de la barra ─────────────────────────
  *
- * Los dos DISPARADORES DE AVISO —notificaciones y reportar un problema— van en
- * relleno SÓLIDO de su color funcional. Empezaron siendo neutros, luego un
- * tinte al 12% sobre --admin-surface, y ninguna de las dos versiones resolvía
- * lo que tenían que resolver: sobre el fondo casi negro del tema oscuro un 12%
- * de ámbar es indistinguible de gris, así que los dos círculos volvían a
- * leerse como "dos botones iguales" y había que apuntarles para saber cuál era
- * cuál. Sólidos, el azul dice buzón y el ámbar dice incidencia desde el otro
- * lado de la pantalla.
+ * Notificaciones, reportar un problema y salir comparten UNA caja, y el color
+ * de cada uno entra sólo por variables:
  *
- * La cuenta que lo permite: son DOS botones, no cuatro. Salir se queda en
- * tinte a propósito —terminar la sesión no debe ser lo más ruidoso del panel—
- * y el conmutador de tema conserva su relleno neutro. Ver CLAUDE.md.
+ *   --tb-fondo / --tb-tinta / --tb-borde   relleno, icono y contorno;
+ *   --tb-fondo-hover                       el relleno al apuntar (por defecto
+ *                                          el propio, hundido un 10 % hacia la
+ *                                          tinta);
+ *   --tb-canto / --tb-halo / --tb-relieve  canto de luz interior, halo del
+ *                                          tono y relieve del trazo.
  *
- * --tono es el color funcional; --tono-tinta, lo que se lee encima. Se
- * declaran por botón y el resto de las reglas es común.
+ * Así se acabó la trampa de cascada que costó varias vueltas: las reglas de
+ * caja vivían en tres archivos, después del bloque de color y con su misma
+ * especificidad, y un `border: 1px solid` o un `background` escrito en ellas
+ * borraba el color sin avisar. Ahora la caja es esta regla, el color son
+ * variables, y una variable no pisa una propiedad.
+ *
+ * Quién lleva qué color, y por qué (CLAUDE.md, «los disparadores de acción»):
+ *
+ *   · Notificaciones (_buzon.scss): PAPEL cuando no hay nada por atender y
+ *     ROJO sólido en cuanto hay al menos una tarjeta en «Por atender». Es el
+ *     único botón de la barra que cambia de color, y por eso el rojo dice
+ *     «atiende esto» sin necesidad de leer el contador.
+ *   · Reportar un problema: ÁMBAR sólido con tinta encima. Avisa, no
+ *     destruye; y el ámbar (luminancia 0.52) no admite icono claro.
+ *   · Salir: relleno NEUTRO en reposo, rojo sólo al apuntarlo. Terminar la
+ *     sesión no debe ser lo más ruidoso del panel, y un segundo círculo rojo
+ *     fijo le quitaría al de notificaciones su significado.
+ *   · El conmutador de tema (_theme-toggle.scss) conserva su relleno de
+ *     acento: enseña el tema al que va a cambiar.
+ *
+ * `:where()` deja la regla en (0,1,0): el anillo de foco único de
+ * _finishes.scss (`.admin-body :focus-visible`, (0,2,0)) gana siempre.
  */
-.admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox) {
-  --tono: var(--admin-muted);
-  --tono-tinta: var(--admin-paper);
-  /* El relieve del icono va en sentido CONTRARIO a su tinta. Un trazo claro se
-     levanta con sombra oscura debajo; uno oscuro se hunde con un canto claro
-     debajo, como la letra de imprenta. Con la misma sombra de tinta para los
-     dos, el icono negro sobre ámbar salía con un segundo trazo corrido un
-     píxel: más grueso y más sucio, no más recortado. */
-  --tono-relieve: color-mix(in srgb, var(--admin-ink) 26%, transparent);
+.admin-topbar__actions :where(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout) {
+  --tb-fondo: var(--admin-surface-soft);
+  --tb-fondo-hover: color-mix(in srgb, var(--tb-fondo) 90%, var(--admin-ink));
+  --tb-tinta: var(--admin-text);
+  --tb-borde: var(--admin-border);
+  --tb-canto: transparent;
+  --tb-halo: transparent;
+  --tb-relieve: transparent;
 
-  border-color: color-mix(in srgb, var(--tono) 80%, var(--admin-ink));
-  background: var(--tono);
-  color: var(--tono-tinta);
-  /* Tres capas y cada una hace una cosa distinta:
-     · el canto iluminado del borde superior interior, que es lo que da el
-       relieve de pieza moldeada en vez de círculo plano de color;
-     · una sombra corta y cerrada que asienta el botón sobre la barra;
-     · el halo largo del propio tono, que ya estaba.
-     El canto va en el papel y no en blanco puro: sobre el ámbar, un blanco
-     absoluto se ve como un arañazo. */
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--admin-paper) 34%, transparent),
-    0 1px 2px color-mix(in srgb, var(--admin-ink) 22%, transparent),
-    0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
-
-  &:hover {
-    /* El hover oscurece el propio relleno en vez de cambiar de familia: sobre
-       un sólido, aclarar lo lava y saltar de tono lo convierte en otro botón. */
-    border-color: color-mix(in srgb, var(--tono) 62%, var(--admin-ink));
-    background: color-mix(in srgb, var(--tono) 84%, var(--admin-ink));
-    color: var(--tono-tinta);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, var(--admin-paper) 40%, transparent),
-      0 2px 4px color-mix(in srgb, var(--admin-ink) 26%, transparent),
-      0 8px 22px color-mix(in srgb, var(--tono) 40%, transparent);
-  }
-}
-
-/* Ámbar y no rojo: reportar un problema AVISA, no destruye nada. El rojo de
-   esta barra está reservado a la acción que termina la sesión.
-   Sobre ámbar la tinta es la del papel invertida: #f5b400 tiene luminancia
-   0.52, así que un icono claro encima no llegaría ni a 2:1. */
-.admin-topbar__support {
-  --tono: var(--admin-c-ambar);
-  --tono-tinta: var(--admin-ink);
-  --tono-relieve: color-mix(in srgb, var(--admin-paper) 45%, transparent);
-}
-
-.admin-topbar__inbox { --tono: var(--admin-c-azul); }
-
-/* Salir conserva el tinte derivado: es la única acción destructiva de la barra
-   y no compite con los dos avisos por atención. */
-.admin-topbar__logout {
-  --tono: var(--admin-c-rojo);
-
-  border-color: color-mix(in srgb, var(--tono) 26%, var(--admin-border));
-  background: color-mix(in srgb, var(--tono) 12%, var(--admin-surface));
-  color: color-mix(in srgb, var(--tono) 70%, var(--admin-text));
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--tono) 55%, transparent);
-    background: color-mix(in srgb, var(--tono) 22%, var(--admin-surface));
-    color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--tono) 22%, transparent);
-  }
-}
-
-// Botón-icono redondo (antes tenía el texto "Reportar un problema").
-/*
- * Los tres botones de la barra (reportar, tema, salir) medían 36 / 40 / 38px
- * con iconos de 17 / 18 / 17 y tres juegos distintos de borde y fondo, porque
- * se definieron en archivos separados. Aquí quedan al mismo tamaño; el tema
- * usa la misma caja en _theme-toggle.scss.
- */
-.admin-topbar__support {
-  display: inline-flex;
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 40px;
   width: 40px;
   height: 40px;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
   padding: 0;
-  /* Grosor y estilo por separado, NUNCA el atajo `border`: el color del borde,
-     el relleno y la tinta los pone el bloque de --tono de arriba, y `border:
-     1px solid` reescribiría border-color a currentcolor desde una regla
-     posterior de la misma especificidad. Es lo que dejaba el botón en gris
-     mientras el bloque de color parecía estar aplicándose. */
-  border-width: 1px;
-  border-style: solid;
+  border: 1px solid var(--tb-borde);
   border-radius: 999px;
+  background-color: var(--tb-fondo);
+  color: var(--tb-tinta);
+  /* Tres capas y cada una hace una cosa: el canto iluminado del borde
+     superior (pieza moldeada, no círculo plano), una sombra corta que asienta
+     el botón sobre la barra y el halo largo del propio tono. */
+  box-shadow:
+    inset 0 1px 0 var(--tb-canto),
+    0 1px 2px color-mix(in srgb, var(--admin-sombra) 16%, transparent),
+    0 4px 14px var(--tb-halo);
   cursor: pointer;
-  /* El hover lo pone el patrón de --tono de arriba y el foco el anillo único
-     de _finishes.scss, así que aquí sólo queda la caja. */
+  /* El color cambia a ritmo de estado (260 ms: el buzón pasa de papel a rojo
+     sin parpadear); la respuesta física, a ritmo de mano (140 ms). Las dos
+     con propiedades individuales —translate, scale— y no con `transform`,
+     que queda libre para quien lo necesite. */
   transition:
-    color var(--admin-t-fast) var(--admin-ease-out),
-    border-color var(--admin-t-fast) var(--admin-ease-out),
-    background var(--admin-t-fast) var(--admin-ease-out),
-    box-shadow var(--admin-t-fast) var(--admin-ease-out);
+    background-color var(--admin-t-base) var(--admin-ease-out),
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    color var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out),
+    translate var(--admin-t-fast) var(--admin-ease-out),
+    scale var(--admin-t-fast) var(--admin-ease-out);
 
-  /* El trazo sube de 1.8 a 2.15. A 18px de caja, 1.8 daba un dibujo demasiado
-     fino para el peso que tienen estos botones —dos son los únicos con relleno
-     de color de todo el panel— y de lejos se leían como grises. El relieve es
-     de un píxel y sin desenfoque apreciable a propósito: sobre un relleno
-     sólido, un drop-shadow marcado emborrona el trazo en vez de recortarlo. El
-     color lo decide --tono-relieve, arriba. */
+  /* Trazo a 2.15: a 18 px de caja, 1.8 daba un dibujo demasiado fino para el
+     peso de estos botones. El relieve es de un píxel y sin desenfoque
+     apreciable: sobre un relleno sólido, una sombra marcada emborrona el
+     trazo en vez de recortarlo. `overflow: visible` porque la campana se
+     mece y la flecha de salir sale un poco de su caja. */
   svg {
     width: 18px;
     height: 18px;
+    overflow: visible;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 2.15;
-    filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
+    filter: drop-shadow(0 1px 0.5px var(--tb-relieve));
   }
+}
+
+/* Reportar un problema. El relieve va en sentido CONTRARIO a la tinta: un
+   trazo oscuro se hunde con un canto claro debajo, como la letra de imprenta.
+   Con sombra oscura el icono negro sobre ámbar salía con un segundo trazo
+   corrido un píxel. */
+.admin-topbar__support {
+  --tb-fondo: var(--admin-c-ambar);
+  --tb-tinta: var(--admin-ink);
+  --tb-borde: color-mix(in srgb, var(--admin-c-ambar) 80%, var(--admin-ink));
+  --tb-canto: color-mix(in srgb, var(--admin-paper) 34%, transparent);
+  --tb-halo: color-mix(in srgb, var(--admin-c-ambar) 26%, transparent);
+  --tb-relieve: color-mix(in srgb, var(--admin-paper) 45%, transparent);
+}
+
+/* Salir: neutro en reposo. Es el mismo escalón de superficie que la ficha
+   del usuario de al lado, y los dos se leen como el grupo «sesión». */
+.admin-topbar__logout {
+  --tb-fondo: var(--admin-surface-soft);
+  --tb-tinta: var(--admin-text);
+  --tb-borde: var(--admin-border);
+}
+
+/* ── Respuesta física ──────────────────────────────────────────
+ *
+ * Sólo con puntero fino: en una pantalla táctil el hover se queda pegado tras
+ * el toque y el botón quedaría levantado. La pulsación sí vale para todos.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .admin-topbar__actions :where(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout):hover {
+    translate: 0 -1px;
+    background-color: var(--tb-fondo-hover);
+    box-shadow:
+      inset 0 1px 0 var(--tb-canto),
+      0 3px 6px color-mix(in srgb, var(--admin-sombra) 18%, transparent),
+      0 8px 20px var(--tb-halo);
+  }
+
+  /* Salir enseña lo que hace en cuanto hay intención, ni antes ni después. */
+  .admin-topbar__logout:hover {
+    --tb-fondo-hover: var(--admin-danger);
+    --tb-tinta: var(--admin-on-danger);
+    --tb-borde: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+    --tb-halo: color-mix(in srgb, var(--admin-danger) 26%, transparent);
+  }
+
+  /* La flecha sale por la puerta; el marco se queda. */
+  // 2.5 unidades del viewBox de 24: a 18 px de icono, unos dos píxeles.
+  .admin-topbar__logout:hover .admin-topbar__salida {
+    transform: translateX(2.5px);
+  }
+
+  /* El triángulo de aviso se tambalea sobre su base, un solo vaivén. */
+  .admin-topbar__support:hover svg {
+    animation: admin-aviso-tambalea 240ms var(--admin-ease-out);
+  }
+
+  /* El conmutador es magnético (motion.js lo mueve con GSAP, que reescribe
+     su `transform` y además absorbe `translate` y `scale` si los encuentra),
+     así que la respuesta va en el ICONO y no en la caja: la luna se inclina,
+     el sol gira un rayo. */
+  .admin-topbar__actions .admin-theme-toggle:hover .admin-theme-toggle__moon {
+    rotate: -18deg;
+  }
+
+  .admin-topbar__actions .admin-theme-toggle:hover .admin-theme-toggle__sun {
+    rotate: 45deg;
+  }
+}
+
+.admin-topbar__actions :where(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout):active {
+  translate: 0 0;
+  scale: 0.94;
+}
+
+.admin-topbar__logout:active {
+  --tb-fondo: var(--admin-danger);
+  --tb-fondo-hover: var(--admin-danger);
+  --tb-tinta: var(--admin-on-danger);
+  --tb-borde: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+}
+
+.admin-topbar__salida {
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+
+/* El origen va en el pie del triángulo (y = 21 de 24): oscila sobre su base
+   en vez de girar sobre su centro, que se leería como un icono roto. */
+.admin-topbar__support svg {
+  transform-origin: 50% 88%;
+}
+
+/* La transición del icono del conmutador se redeclara entera: la de
+   _theme-toggle.scss sólo lista opacity y transform, y sin `rotate` el giro
+   del hover saltaría en seco. */
+.admin-topbar__actions .admin-theme-toggle svg {
+  transition:
+    opacity var(--admin-t-base) var(--admin-ease-out),
+    transform var(--admin-t-base) var(--admin-ease),
+    rotate var(--admin-t-base) var(--admin-ease),
+    scale var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-topbar__actions .admin-theme-toggle:active svg {
+  scale: 0.84;
+}
+
+@keyframes admin-aviso-tambalea {
+  0% { transform: rotate(0); }
+  35% { transform: rotate(-8deg); }
+  70% { transform: rotate(5deg); }
+  100% { transform: rotate(0); }
 }
 
 .admin-topbar__module {
@@ -215,36 +286,6 @@
   display: inline-flex;
 }
 
-.admin-topbar__logout {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  // Igual que en support: aquí sólo la caja; el color va en el bloque de --tono.
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 999px;
-  cursor: pointer;
-  transition:
-    color var(--admin-t-base) var(--admin-ease-out),
-    border-color var(--admin-t-base) var(--admin-ease-out),
-    background var(--admin-t-base) var(--admin-ease-out),
-    box-shadow var(--admin-t-base) var(--admin-ease-out);
-
-  // Mismo grosor que los otros dos: los tres se leen como una familia, y a 1.8
-  // el de salir se quedaba atrás. Sin drop-shadow, que aquí el fondo es un
-  // tinte y no un sólido — la sombra ensuciaría el trazo sin ganar recorte.
-  svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.15;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-}
-
 @include mixins.down(vars.$breakpoint-tablet) {
   .admin-topbar {
     gap: 10px;
@@ -277,10 +318,11 @@
     height: 32px;
   }
 
-  // En móvil encogen los tres a la vez, no solo el de soporte.
-  .admin-topbar__support,
-  .admin-topbar__logout,
-  .admin-theme-toggle {
+  // En móvil encogen los cuatro a la vez. (0,2,0) para ganarle a la caja
+  // común, que va dentro de :where() pero colgada de .admin-topbar__actions.
+  .admin-topbar__actions :is(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout),
+  .admin-topbar__actions .admin-theme-toggle {
+    flex-basis: 34px;
     width: 34px;
     height: 34px;
 
@@ -294,4 +336,33 @@
     }
   }
 
+}
+
+/* ── Movimiento reducido ───────────────────────────────────────
+ *
+ * Reducido no es inmóvil: los cambios de COLOR se quedan —son la señal de
+ * estado, y un fundido no desplaza nada—, y se retira todo lo que mueve:
+ * elevación, pulsación, vaivenes y la flecha que sale.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .admin-topbar__actions :where(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout) {
+    transition-property: background-color, border-color, color, box-shadow;
+  }
+
+  .admin-topbar__actions :where(.admin-topbar__inbox, .admin-topbar__support, .admin-topbar__logout):is(:hover, :active) {
+    translate: none;
+    scale: none;
+  }
+
+  .admin-topbar__actions .admin-topbar__support:hover svg,
+  .admin-topbar__actions .admin-topbar__logout:hover .admin-topbar__salida {
+    animation: none;
+    transform: none;
+  }
+
+  // Mismo (0,4,0) que las reglas del hover, que nombran cada icono.
+  .admin-topbar__actions .admin-theme-toggle:is(:hover, :active) :is(.admin-theme-toggle__moon, .admin-theme-toggle__sun) {
+    rotate: none;
+    scale: none;
+  }
 }

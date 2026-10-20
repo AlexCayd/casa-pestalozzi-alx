@@ -111,6 +111,9 @@ final class ReservacionBuzonService
             }
             $transaccion = true;
             HorarioOperacionImpactoService::actualizarSeguimientosVencidosEnTransaccion($db);
+            // Lo primero, los avisos cuya fuente se borró: el recorrido de
+            // abajo va por reservaciones y nunca llegaría a ellos.
+            $avisosCerrados += ReservacionBuzonBandejaService::cerrarHuerfanasEnTransaccion($db);
 
             foreach ($reservaciones as $reservacion) {
                 $id = (int)($reservacion['id'] ?? 0);
@@ -232,7 +235,9 @@ final class ReservacionBuzonService
             'procesadas' => count($reservaciones),
             'avisos_creados' => $avisosCreados,
             'avisos_cerrados' => $avisosCerrados,
-            'resumen' => BuzonNotificacionesService::resumen(),
+            // El resumen de la bandeja, no el conteo de filas: es el que
+            // coincide con lo que el cajón pinta (ver ReservacionBuzonBandejaService).
+            'resumen' => ReservacionBuzonBandejaService::resumen(),
         ];
     }
 

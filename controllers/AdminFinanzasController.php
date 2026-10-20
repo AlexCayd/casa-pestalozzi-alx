@@ -12,6 +12,7 @@ namespace Controllers;
 use Model\GastoFijo;
 use Model\Producto;
 use MVC\Router;
+use Services\Finance\DiagnosticoFinanciero;
 use Services\Inventory\Inventario;
 use Services\Shared\RangoPeriodo;
 
@@ -20,10 +21,20 @@ class AdminFinanzasController
     private const PATH = '/admin/finanzas';
     private const CSS = '/build/css/admin/finanzas.css';
     private const JS = '/build/js/admin/finanzas.js';
-    // Chart.js sigue haciendo falta para la dona del reparto del gasto. El
-    // plugin chartjs-chart-sankey se retiró: la descomposición del ingreso la
-    // dibuja src/js/admin/finanzas/sankey.js en SVG, dentro del propio bundle.
-    private const CHART_JS = '/build/js/vendor/chart.umd.min.js';
+    /*
+     * Ya no se carga Chart.js. Sólo lo usaba la dona del reparto del gasto
+     * fijo, y eran 208 KB para un anillo cuyo total, además, se pintaba en
+     * Georgia (pedía "Fraunces", que el panel ya no sirve). El reparto es ahora
+     * una barra en HTML dentro de la sección de gastos fijos, y el Sankey lo
+     * dibuja src/js/admin/finanzas/sankey.js en SVG.
+     */
+
+    /*
+     * Días con venta por página en los cortes de caja. Catorce son dos semanas
+     * cuando se abre todos los días: el ritmo de la semana se lee en una sola
+     * página, y «Último año» no vuelca trescientas filas de golpe.
+     */
+    private const CORTES_POR_PAGINA = 14;
 
     public static function index(Router $router): void
     {
@@ -34,14 +45,16 @@ class AdminFinanzasController
             'propinas' => 0.0,
             'tickets' => 0,
             'cogs' => 0.0,
+            'sinCosto' => 0.0,
         ];
-        // Las cuatro claves, no dos: con la comparación apagada el resto de
+        // Las mismas claves en los dos: con la comparación apagada el resto de
         // deltas leería índices inexistentes.
-        $previo = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0];
+        $previo = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0, 'sinCosto' => 0.0];
         $merma = 0.0;
         $mermaPrev = 0.0;
         $gastos = [];
         $gastosPorCategoria = [];
+        $gastosMensuales = [];
         $totalGastos = 0.0;
         $rentabilidad = [];
         $inventarioValor = 0.0;
@@ -100,7 +113,12 @@ class AdminFinanzasController
                 $monto = (float) $g->monto * $factorGastos;
                 $totalGastos += $monto;
                 $gastosPorCategoria[$g->categoria] = ($gastosPorCategoria[$g->categoria] ?? 0.0) + $monto;
+                // Sin prorratear: la sección de gastos fijos habla en la
+                // unidad en la que se capturan, que es el mes.
+                $gastosMensuales[$g->categoria] = ($gastosMensuales[$g->categoria] ?? 0.0) + (float) $g->monto;
             }
+            arsort($gastosPorCategoria);
+            arsort($gastosMensuales);
 
             // Valor del inventario a hoy, para la rotación. Es un dato puntual:
             // no hay histórico de stock ni costo al momento del movimiento.
@@ -172,12 +190,61 @@ class AdminFinanzasController
             error_log('AdminFinanzasController::cortes - ' . $e->getMessage());
         }
 
+        /*
+         * Paginación de los cortes. Los totales se suman sobre TODOS los días
+         * del periodo, antes de recortar: si se calcularan recorriendo las
+         * filas de la página describirían la página, no el periodo (el error
+         * que ya tuvo Tickets). Una página fuera de rango cae a la última en
+         * vez de pintar una tabla vacía: pasa al acortar el periodo desde una
+         * página alta con un enlace guardado.
+         */
+        $totalesCortes = ['dias' => count($cortes), 'tickets' => 0, 'ventas' => 0.0, 'propinas' => 0.0,
+            'efectivo' => 0.0, 'tarjeta' => 0.0, 'total' => 0.0];
+        foreach ($cortes as $c) {
+            $totalesCortes['tickets'] += (int) $c['tickets'];
+            foreach (['ventas', 'propinas', 'efectivo', 'tarjeta', 'total'] as $campo) {
+                $totalesCortes[$campo] += (float) $c[$campo];
+            }
+        }
+        $cortesPaginas = max(1, (int) ceil(count($cortes) / self::CORTES_POR_PAGINA));
+        $cortesPagina = filter_var($_GET['cortes'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+        $cortesPagina = min($cortesPagina, $cortesPaginas);
+        $cortesDesde = ($cortesPagina - 1) * self::CORTES_POR_PAGINA;
+        $cortesVisibles = array_slice($cortes, $cortesDesde, self::CORTES_POR_PAGINA);
+
+        $diagnostico = DiagnosticoFinanciero::armar([
+            'ingresos' => $ingresos,
+            'cogs' => $cogs,
+            'merma' => $merma,
+            'gastos' => $totalGastos,
+            'gastosPorCategoria' => $gastosPorCategoria,
+            'dias' => (int) $rango['dias'],
+            'tickets' => $datos['tickets'],
+            'propinas' => $datos['propinas'],
+            'inventarioValor' => $inventarioValor,
+            'ingresosSinCosto' => $datos['sinCosto'],
+            'comparando' => $comparando,
+            'periodoAnterior' => (string) ($rango['prevLabel'] ?? ''),
+            'previo' => [
+                'ingresos' => $previo['ingresos'],
+                'cogs' => $previo['cogs'],
+                'merma' => $mermaPrev,
+                'tickets' => $previo['tickets'],
+            ],
+        ]);
+
         self::render('finanzas/index', [
             'title' => 'Finanzas',
             'topbarSection' => 'Finanzas',
             'rango' => $rango,
-            'cortes' => $cortes,
+            'diagnostico' => $diagnostico,
+            'cortes' => $cortesVisibles,
+            'totalesCortes' => $totalesCortes,
+            'cortesPagina' => $cortesPagina,
+            'cortesPaginas' => $cortesPaginas,
+            'cortesDesde' => $cortesDesde,
             'rangoCortes' => $rangoCortes,
+            'gastosMensuales' => $gastosMensuales,
             'ingresos' => $ingresos,
             'propinas' => $datos['propinas'],
             'tickets' => $datos['tickets'],
@@ -263,7 +330,7 @@ class AdminFinanzasController
      * @param array<string, array{id: int, precio: float}> $productosPorNombre
      * @param array<int|string, float> $costoCache por producto (int) o por
      *        producto + variante ("id|ids") en el COGS
-     * @return array{ingresos: float, propinas: float, tickets: int, cogs: float}
+     * @return array{ingresos: float, propinas: float, tickets: int, cogs: float, sinCosto: float}
      */
     private static function agregadosDelPeriodo(
         \mysqli $db,
@@ -277,7 +344,7 @@ class AdminFinanzasController
         $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
         $filtro = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
 
-        $agregados = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0];
+        $agregados = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0, 'sinCosto' => 0.0];
 
         $res = $db->query(
             "SELECT COALESCE(SUM(ti.precio * ti.cantidad), 0) AS ingresos
@@ -303,8 +370,14 @@ class AdminFinanzasController
         // variante: un Cappuccino con almendra no cuesta lo mismo que el de la
         // carta, y la receta con la que se descontó el inventario es la que
         // debe costearse.
+        //
+        // Se suma además lo que se vendió SIN costo conocido —platillo que ya
+        // no existe en el catálogo, o sin receta—: cuenta como $0 de insumos y
+        // abarata el porcentaje sin que nadie lo note. El diagnóstico lo avisa
+        // cuando pasa del 5 % de la venta.
         $res = $db->query(
-            "SELECT ti.nombre, COALESCE(ti.variante_ids, '') AS variante_ids, SUM(ti.cantidad) AS unidades
+            "SELECT ti.nombre, COALESCE(ti.variante_ids, '') AS variante_ids, SUM(ti.cantidad) AS unidades,
+                    SUM(ti.precio * ti.cantidad) AS importe
                FROM ticket_items ti
                JOIN tickets t ON t.id = ti.ticket_id
               WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtro}
@@ -314,6 +387,7 @@ class AdminFinanzasController
             while ($row = $res->fetch_assoc()) {
                 $prod = $productosPorNombre[$row['nombre']] ?? null;
                 if (!$prod) {
+                    $agregados['sinCosto'] += (float) $row['importe'];
                     continue;
                 }
                 $pid = $prod['id'];
@@ -321,6 +395,9 @@ class AdminFinanzasController
                 $clave = $pid . '|' . $row['variante_ids'];
                 if (!isset($costoCache[$clave])) {
                     $costoCache[$clave] = Inventario::costoDeProducto($pid, $ids);
+                }
+                if ($costoCache[$clave] <= 0) {
+                    $agregados['sinCosto'] += (float) $row['importe'];
                 }
                 $agregados['cogs'] += $costoCache[$clave] * (float) $row['unidades'];
             }
@@ -449,7 +526,7 @@ class AdminFinanzasController
         AdminController::render($view, array_merge([
             'activeModule' => 'finanzas',
             'styles' => [self::CSS],
-            'scripts' => [self::CHART_JS, self::JS],
+            'scripts' => [self::JS],
         ], $data));
     }
 

@@ -1,193 +1,1128 @@
 @charset "UTF-8";
 /*
- * Módulo Finanzas: P&L del mes, gastos fijos y rentabilidad por producto.
- * Reutiliza tarjetas, tablas y KPIs compartidos; aquí van los específicos.
+ * Módulo Finanzas: el diagnóstico del periodo (veredicto, cascada del estado
+ * de resultados y signos vitales), el flujo del ingreso, los cortes de caja,
+ * los gastos fijos y la rentabilidad por producto.
+ *
+ * Todo va colgado de `.admin-finanzas` y no por casualidad: las reglas de
+ * etiqueta del panel (`.admin-body h3/h4/p/a`) suman (0,1,1) y le ganan a
+ * cualquier clase sola. Con el prefijo, cada regla de aquí parte de (0,2,0).
  */
+.admin-finanzas {
+  /* Escala local del módulo. No son roles del sistema: son las tres tintas de
+     la cascada y su geometría, para que la cascada, el desglose de fijos y el
+     reparto hablen el mismo idioma.
+       · tinta    el dinero (lo que entra y lo que queda): la tinta del panel
+       · consumo  lo que se va en insumos, merma y fijos: gris de control,
+                  que cumple el 3:1 de un elemento gráfico sobre la superficie
+       · el color sólo en el desenlace: verde si sobró, rojo si faltó */
+  --fin-tinta: var(--admin-text);
+  --fin-consumo: var(--admin-gris-7);
+  --fin-positivo: var(--admin-c-verde);
+  --fin-negativo: var(--admin-c-rojo);
+  --fin-hoja: var(--admin-surface-soft);
+  --fin-fila: 54px;
+  --fin-barra: 18px;
+}
 .admin-finanzas .admin-card {
   padding: clamp(18px, 2.4vw, 26px);
 }
-.admin-finanzas > .admin-panel + .admin-panel,
-.admin-finanzas > .admin-finanzas__grid + .admin-panel {
+.admin-finanzas > .admin-panel + .admin-panel {
   margin-top: 24px;
 }
-.admin-finanzas > .admin-stat-strip,
-.admin-finanzas > .admin-finanzas__grid {
-  margin-bottom: 24px;
-}
-.admin-finanzas {
-  /*
-   * Conteo de columnas fijo, no `auto-fit`.
-   *
-   * Son 7 tarjetas y la primera («Utilidad neta estimada») lleva --lead, que
-   * ocupa dos columnas: 8 celdas en total. El `repeat(auto-fit, minmax(220px,
-   * 1fr))` compartido resolvía a 5 columnas en un panel ancho, así que la
-   * segunda fila se quedaba con 3 tarjetas y dos huecos al final. Con 4
-   * columnas las 8 celdas dan dos filas exactas.
-   *
-   * Va aquí y no en el componente compartido porque Inventario usa la misma
-   * franja con 5 tarjetas y ahí `auto-fit` sí cuadra.
-   */
-}
-.admin-finanzas > .admin-stat-strip {
-  grid-template-columns: minmax(0, 1fr);
-}
-@media (min-width: 720px) {
-  .admin-finanzas > .admin-stat-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1100px) {
-  .admin-finanzas > .admin-stat-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+.admin-finanzas > [id] {
+  scroll-margin-top: calc(var(--admin-header-height) + 16px);
 }
 .admin-finanzas .admin-finanzas__add .admin-select__trigger {
   font-size: 14px;
 }
 
-.admin-finanzas__grid {
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 18px;
-  margin-bottom: 18px;
+/* Estado: icono + palabra + color, nunca sólo color. Fondos macizos (las
+   mezclas *-bg del sistema son opacas: color sobre la superficie). */
+.admin-finanzas .fin-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
 }
-@media (max-width: 900px) {
-  .admin-finanzas__grid {
-    grid-template-columns: minmax(0, 1fr);
+.admin-finanzas .fin-estado--good {
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
+}
+.admin-finanzas .fin-estado--warn {
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+}
+.admin-finanzas .fin-estado--bad {
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+}
+
+.admin-finanzas .fin-estado__icono {
+  flex: 0 0 auto;
+  stroke-width: 2.2;
+}
+
+/* Variación contra el periodo anterior. La flecha dice hacia dónde se movió;
+   el color, si eso es bueno (en un costo, subir es malo). */
+.admin-finanzas .fin-delta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  font-family: var(--admin-font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin-finanzas .fin-delta--bueno {
+  color: var(--admin-success-text);
+}
+.admin-finanzas .fin-delta--malo {
+  color: var(--admin-danger-text);
+}
+.admin-finanzas .fin-delta--igual {
+  color: var(--admin-faint);
+}
+
+.admin-finanzas .fin-delta__icono {
+  flex: 0 0 auto;
+  stroke-width: 2.6;
+}
+
+/* Enlace de acción: texto subrayado con flecha, no botón. En el diagnóstico
+   hay hasta seis destinos a la vista, y seis botones competirían con el único
+   primario de la pantalla («Agregar» gasto). */
+.admin-finanzas .fin-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--admin-border-strong);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-finanzas .fin-enlace:hover {
+  text-decoration-color: currentColor;
+}
+.admin-finanzas .fin-enlace:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+.admin-finanzas .fin-enlace--linea {
+  display: inline;
+  min-height: 0;
+}
+@media (pointer: coarse) {
+  .admin-finanzas .fin-enlace {
+    min-height: 44px;
+  }
+  .admin-finanzas .fin-enlace--linea {
+    min-height: 0;
   }
 }
 
-.admin-pnl {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.admin-finanzas .fin-enlace__icono {
+  flex: 0 0 auto;
+  stroke-width: 2;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
 }
 
-.admin-pnl__row {
+.admin-finanzas .fin-enlace:hover .fin-enlace__icono {
+  transform: translateX(2px);
+}
+
+/* Lámina maciza, sin el vidrio de .admin-panel: carga las cifras que se
+   comparan y el cliente prefiere fondos sólidos. Las dos declaraciones de
+   backdrop-filter anulan las que _finishes.scss pone dentro de @supports. */
+.admin-finanzas .fin-diag {
+  container: fin-diag/inline-size;
+  background: var(--admin-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.admin-finanzas .fin-diag__veredicto {
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 2.6vw, 30px);
+}
+
+@container fin-diag (min-width: 900px) {
+  .admin-finanzas .fin-diag__veredicto {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
+    align-items: end;
+    gap: 32px;
+  }
+}
+.admin-finanzas .fin-diag__principal {
+  min-width: 0;
+}
+
+.admin-finanzas .fin-diag__arriba {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 11px 2px;
+  gap: 10px 14px;
+}
+
+/* El veredicto. La frase va en la sans del panel y la cifra en la de
+   indicador (Expose): es el número que se lee en cinco segundos, así que va
+   sola en su renglón y a cuerpo de cartel. Expose no trae cifras tabulares,
+   pero esta cifra no se anima ni se compara en vertical. */
+.admin-finanzas .fin-diag__titular {
+  margin: 14px 0 0;
   color: var(--admin-muted);
-  font-size: 14px;
-  border-bottom: 1px solid var(--admin-border-soft);
-}
-.admin-pnl__row strong {
   font-family: var(--admin-font-sans);
-  font-size: 17px;
-  color: var(--admin-text);
+  font-size: clamp(1.15rem, 0.95rem + 0.6vw, 1.4rem);
   font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
-.admin-pnl__row .is-pos {
-  color: var(--admin-success-text);
+
+.admin-finanzas .fin-diag__antes {
+  display: block;
 }
-.admin-pnl__row .is-neg {
+.admin-finanzas .fin-diag__antes:only-child {
+  color: var(--admin-text);
+  font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.admin-finanzas .fin-diag__cifra {
+  display: block;
+  margin-top: 6px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(2.6rem, 1.7rem + 3vw, 4.25rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-diag--bad .fin-diag__cifra {
   color: var(--admin-danger-text);
 }
-.admin-pnl__row--total {
+
+.admin-finanzas .fin-diag--good .fin-diag__cifra {
+  color: var(--admin-success-text);
+}
+
+.admin-finanzas .fin-diag__razon {
+  max-width: 62ch;
+  margin-top: 16px;
+  color: var(--admin-text);
+  font-size: clamp(15px, 14px + 0.25vw, 17px);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-diag__razon strong {
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-diag__claves {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: var(--admin-radius-md);
+  background: var(--fin-hoja);
+}
+
+.admin-finanzas .fin-diag__clave dt {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.admin-finanzas .fin-diag__clave dd {
+  margin: 4px 0 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-diag__clave dd strong {
   color: var(--admin-text);
   font-weight: 700;
 }
-.admin-pnl__row--total strong {
-  color: var(--admin-gold);
-}
-.admin-pnl__row--grand {
-  margin-top: 14px;
-  padding: 18px 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 12px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  font-weight: 800;
-}
-.admin-pnl__row--grand strong {
-  font-size: 24px;
-}
-.admin-pnl__row--grand.is-pos {
-  border-color: var(--admin-success-border);
-}
-.admin-pnl__row--grand.is-pos strong {
-  color: var(--admin-success-text);
-}
-.admin-pnl__row--grand.is-neg {
-  border-color: var(--admin-danger-border);
-}
-.admin-pnl__row--grand.is-neg strong {
-  color: var(--admin-danger-text);
-}
-.admin-pnl__row:last-child {
-  border-bottom: 0;
+
+.admin-finanzas .fin-diag__cuerpo {
+  display: grid;
+  gap: 22px;
+  padding: clamp(20px, 2.6vw, 30px);
+  border-top: 1px solid var(--admin-border-soft);
 }
 
-.admin-finanzas__note {
+/* Cascada y detalle lado a lado sólo cuando la cascada sigue teniendo sitio
+   para su fila completa (rótulo, barra y cifras, unos 500 px). Por debajo, el
+   detalle baja y cada uno conserva el ancho entero. */
+@container fin-diag (min-width: 1000px) {
+  .admin-finanzas .fin-diag__cuerpo {
+    grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr);
+    align-items: start;
+    gap: 28px;
+  }
+}
+.admin-finanzas .fin-cascada {
+  container: fin-cascada/inline-size;
+  min-width: 0;
+}
+
+.admin-finanzas .fin-cascada__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.admin-finanzas .fin-cascada__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.admin-finanzas .fin-cascada__ayuda {
+  margin: 2px 0 12px;
+  color: var(--admin-faint);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.admin-finanzas .fin-cascada__pasos {
+  display: grid;
+}
+
+/* El renglón. Por defecto (cascada estrecha) son dos líneas: rótulo y cifras
+   arriba, la barra a todo el ancho debajo. Con sitio, una sola fila de alto
+   fijo — el alto fijo es lo que permite dibujar los conectores entre barras
+   sin medir nada en JS. */
+.admin-finanzas .fin-paso {
+  position: relative;
+  display: grid;
+  grid-template-areas: "rotulo cifras" "pista pista";
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-finanzas .fin-paso > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-finanzas .fin-paso:hover {
+  background: color-mix(in srgb, var(--fin-hoja) 55%, var(--admin-surface));
+}
+
+.admin-finanzas .fin-paso__rotulo {
+  grid-area: rotulo;
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.admin-finanzas .fin-paso__op {
+  flex: 0 0 1ch;
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.admin-finanzas .fin-paso__nombre {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-paso--total .fin-paso__nombre,
+.admin-finanzas .fin-paso--positivo .fin-paso__nombre,
+.admin-finanzas .fin-paso--negativo .fin-paso__nombre {
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-paso__cifras {
+  grid-area: cifras;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+
+.admin-finanzas .fin-paso__monto {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-paso__pct {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-paso__cambio {
+  display: none;
+}
+
+/* La pista: el eje del dinero, compartido por todos los renglones. --cero
+   viene de .fin-cascada; como los renglones van pegados, la línea del cero
+   de cada uno forma una sola vertical. */
+.admin-finanzas .fin-paso__pista {
+  grid-area: pista;
+  position: relative;
+  height: 24px;
+}
+.admin-finanzas .fin-paso__pista::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--cero, 0%);
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--admin-border-strong);
+  content: "";
+}
+
+/* La barra se posiciona con left/width en porcentaje del eje y crece con
+   transform desde su origen: las restas, desde el acumulado que se comen; los
+   totales, desde el cero. La entrada cuenta el orden de la cuenta —cada barra
+   arranca donde acabó la anterior— y es CSS: sin JS la barra ya está en su
+   sitio. El margen negativo centra sin gastar el transform. */
+.admin-finanzas .fin-paso__barra {
+  position: absolute;
+  top: 50%;
+  left: var(--ini);
+  z-index: 1;
+  width: calc(var(--fin) - var(--ini));
+  min-width: 3px;
+  height: var(--fin-barra);
+  margin-top: calc(var(--fin-barra) / -2);
+  border-radius: 3px;
+  background: var(--fin-consumo);
+  transform-origin: var(--origen, left) center;
+  animation: fin-crece 560ms var(--admin-ease) both;
+  animation-delay: calc(180ms + var(--i, 0) * 70ms);
+}
+
+.admin-finanzas .fin-paso--base .fin-paso__barra,
+.admin-finanzas .fin-paso--total .fin-paso__barra {
+  background: var(--fin-tinta);
+}
+
+.admin-finanzas .fin-paso--positivo .fin-paso__barra {
+  background: var(--fin-positivo);
+}
+
+.admin-finanzas .fin-paso--negativo .fin-paso__barra {
+  background: var(--fin-negativo);
+}
+
+/* El periodo anterior, como contorno discontinuo en la misma escala. Va
+   oculto con opacity/visibility y no con display: así encender la comparación
+   no mueve nada y el contorno puede fundirse. */
+.admin-finanzas .fin-paso__fantasma {
+  position: absolute;
+  top: 50%;
+  left: var(--ini-prev);
+  width: calc(var(--fin-prev) - var(--ini-prev));
+  min-width: 3px;
+  height: calc(var(--fin-barra) + 8px);
+  margin-top: calc((var(--fin-barra) + 8px) / -2);
+  border: 1.5px dashed var(--admin-line-strong);
+  border-radius: 5px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out), visibility 0s linear var(--admin-t-base);
+}
+
+.admin-finanzas .fin-cascada__eje {
+  display: grid;
+  padding: 0 12px;
+}
+
+.admin-finanzas .fin-cascada__eje-pista {
+  position: relative;
+  height: 20px;
+}
+
+.admin-finanzas .fin-cascada__cero {
+  position: absolute;
+  top: 3px;
+  left: var(--cero, 0%);
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  transform: translateX(-50%);
+}
+
+.admin-finanzas .fin-cascada__leyenda {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--admin-faint);
+  font-size: 12px;
+}
+
+.admin-finanzas .fin-cascada__muestra {
+  width: 22px;
+  height: 12px;
+  flex: 0 0 22px;
+  border: 1.5px dashed var(--admin-line-strong);
+  border-radius: 3px;
+}
+
+/* Con sitio: una fila por renglón y las mismas columnas en todas, para que el
+   eje sea uno solo. Con subgrid, rótulo y cifras miden lo que su texto más
+   largo y la barra se queda con todo lo demás (unos 40 px más de pista que
+   con columnas fijas, que tenían que reservar para el peor caso). */
+@container fin-cascada (min-width: 500px) {
+  .admin-finanzas .fin-cascada__pasos {
+    grid-template-columns: 10.5rem minmax(0, 1fr) 9rem;
+    column-gap: 14px;
+  }
+  .admin-finanzas .fin-paso {
+    grid-column: 1/-1;
+    grid-template-areas: "rotulo pista cifras";
+    grid-template-columns: 10.5rem minmax(0, 1fr) 9rem;
+    height: var(--fin-fila);
+    padding-block: 0;
+    gap: 0 14px;
+  }
+  .admin-finanzas .fin-paso__pista {
+    align-self: stretch;
+    height: auto;
+  }
+  /* El conector: una línea discontinua desde el pie de la barra anterior
+     hasta la cabeza de ésta, a la altura del acumulado que pasa de una a otra.
+     Es lo que hace leer la cascada como una sola cuenta y no como seis barras
+     sueltas. Depende de que la fila mida exactamente --fin-fila. */
+  .admin-finanzas .fin-paso--enlazado .fin-paso__pista::before {
+    position: absolute;
+    top: calc((var(--fin-fila) - var(--fin-barra)) / -2);
+    left: var(--enlace);
+    height: calc(var(--fin-fila) - var(--fin-barra));
+    margin-left: -0.5px;
+    border-left: 1px dashed var(--admin-border-strong);
+    content: "";
+  }
+  .admin-finanzas .fin-cascada__eje {
+    grid-column: 1/-1;
+    grid-template-columns: 10.5rem minmax(0, 1fr) 9rem;
+    column-gap: 14px;
+  }
+  .admin-finanzas .fin-cascada__eje-pista {
+    grid-column: 2;
+  }
+  @supports (grid-template-columns: subgrid) {
+    .admin-finanzas .fin-cascada__pasos {
+      grid-template-columns: max-content minmax(0, 1fr) max-content;
+    }
+    .admin-finanzas .fin-paso,
+    .admin-finanzas .fin-cascada__eje {
+      grid-template-columns: subgrid;
+    }
+  }
+}
+.admin-finanzas .fin-detalle {
+  min-width: 0;
+  scroll-margin-top: calc(var(--admin-header-height) + 12px);
+  scroll-margin-bottom: 16px;
+  padding: clamp(18px, 2vw, 24px);
+  border-radius: var(--admin-radius-md);
+  background: var(--fin-hoja);
+}
+
+/* Cada vez que un panel pasa de oculto a visible la animación vuelve a
+   correr: es el acuse de la elección, y no hace falta JS para dispararlo. */
+.admin-finanzas .fin-detalle__panel {
+  display: none;
+  animation: fin-aparece 240ms var(--admin-ease-out) both;
+}
+
+.admin-finanzas .fin-detalle__papel {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-finanzas .fin-detalle__titulo {
+  margin: 6px 0 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.admin-finanzas .fin-detalle__cifra {
+  margin-top: 8px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(1.9rem, 1.5rem + 1vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+.admin-finanzas .fin-detalle__cifra--negativo {
+  color: var(--admin-danger-text);
+}
+.admin-finanzas .fin-detalle__cifra--positivo {
+  color: var(--admin-success-text);
+}
+
+.admin-finanzas .fin-detalle__lead {
+  margin-top: 14px;
+  color: var(--admin-text);
+  font-size: 14.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.admin-finanzas .fin-detalle__texto {
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-detalle__texto strong {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-detalle__hechos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 12px 16px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-finanzas .fin-detalle__hechos dt {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-finanzas .fin-detalle__hechos dd {
+  margin: 3px 0 0;
+  color: var(--admin-text);
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.admin-finanzas .fin-detalle__antes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 14px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-finanzas .fin-detalle__antes strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.admin-finanzas .fin-detalle__nota {
+  margin-top: 10px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-finanzas .fin-detalle__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
   margin-top: 12px;
+}
+
+/* En qué se van los fijos, dentro de su detalle. Un solo tono: aquí manda la
+   magnitud, no la identidad de cada categoría. */
+.admin-finanzas .fin-desglose {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-finanzas .fin-desglose__fila {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 7rem) minmax(0, 1fr) auto 2.75rem;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.admin-finanzas .fin-desglose__nombre {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-desglose__barra {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--admin-gris-4);
+}
+.admin-finanzas .fin-desglose__barra::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--parte);
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--fin-tinta);
+  content: "";
+}
+
+.admin-finanzas .fin-desglose__monto {
+  color: var(--admin-text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-desglose__pct {
+  color: var(--admin-faint);
+  font-size: 12px;
+  text-align: right;
+}
+
+/* Interruptor de la comparación. No es .admin-switch: ése pinta el apagado en
+   rojo de peligro. Apagado es gris; encendido, el acento (la tinta). */
+.admin-finanzas .fin-interruptor {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-finanzas .fin-interruptor input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-interruptor__pista {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  flex: 0 0 36px;
+  border-radius: 999px;
+  background: var(--admin-gris-5);
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-finanzas .fin-interruptor__pista::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  content: "";
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-finanzas .fin-interruptor input:checked + .fin-interruptor__pista {
+  background: var(--admin-accent);
+}
+.admin-finanzas .fin-interruptor input:checked + .fin-interruptor__pista::after {
+  background: var(--admin-on-accent);
+  transform: translateX(14px);
+}
+
+.admin-finanzas .fin-interruptor input:checked ~ .fin-interruptor__texto {
+  color: var(--admin-text);
+}
+
+.admin-finanzas .fin-interruptor input:focus-visible + .fin-interruptor__pista {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+
+/* Con :has() el estado lo deciden los controles —sin JS—. Los dos caminos
+   van en bloques @supports separados porque un selector con :has() en una
+   lista invalidaría la lista entera en un motor que no lo entienda. */
+@supports selector(:has(*)) {
+  .admin-finanzas .fin-diag:has(#fin-paso-ingresos:checked) #fin-detalle-ingresos {
+    display: block;
+  }
+  .admin-finanzas .fin-diag:has(#fin-paso-insumos:checked) #fin-detalle-insumos {
+    display: block;
+  }
+  .admin-finanzas .fin-diag:has(#fin-paso-merma:checked) #fin-detalle-merma {
+    display: block;
+  }
+  .admin-finanzas .fin-diag:has(#fin-paso-bruta:checked) #fin-detalle-bruta {
+    display: block;
+  }
+  .admin-finanzas .fin-diag:has(#fin-paso-fijos:checked) #fin-detalle-fijos {
+    display: block;
+  }
+  .admin-finanzas .fin-diag:has(#fin-paso-neta:checked) #fin-detalle-neta {
+    display: block;
+  }
+  .admin-finanzas .fin-paso:has(> input:checked) {
+    background: var(--fin-hoja);
+  }
+  .admin-finanzas .fin-paso:has(> input:checked) .fin-paso__nombre {
+    font-weight: 700;
+  }
+  .admin-finanzas .fin-paso:has(> input:checked) .fin-paso__op {
+    color: var(--admin-text);
+  }
+  .admin-finanzas .fin-paso:has(> input:focus-visible) {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: -2px;
+  }
+  .admin-finanzas .fin-diag:has([data-fin-comparar]:checked) .fin-paso__pct {
+    display: none;
+  }
+  .admin-finanzas .fin-diag:has([data-fin-comparar]:checked) .fin-paso__cambio {
+    display: inline-flex;
+  }
+  .admin-finanzas .fin-diag:has([data-fin-comparar]:checked) .fin-cascada__leyenda {
+    display: flex;
+  }
+  .admin-finanzas .fin-diag:has([data-fin-comparar]:checked) .fin-paso__fantasma {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+@supports not selector(:has(*)) {
+  .admin-finanzas .fin-detalle__panel.is-activo {
+    display: block;
+  }
+  .admin-finanzas .fin-paso.is-elegido {
+    background: var(--fin-hoja);
+  }
+  .admin-finanzas .fin-paso.is-elegido .fin-paso__nombre {
+    font-weight: 700;
+  }
+  .admin-finanzas .fin-paso.is-elegido .fin-paso__op {
+    color: var(--admin-text);
+  }
+  .admin-finanzas .fin-paso:focus-within {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: -2px;
+  }
+  .admin-finanzas .fin-diag.is-comparando .fin-paso__pct {
+    display: none;
+  }
+  .admin-finanzas .fin-diag.is-comparando .fin-paso__cambio {
+    display: inline-flex;
+  }
+  .admin-finanzas .fin-diag.is-comparando .fin-cascada__leyenda {
+    display: flex;
+  }
+  .admin-finanzas .fin-diag.is-comparando .fin-paso__fantasma {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+.admin-finanzas .fin-signos {
+  container: fin-signos/inline-size;
+  padding: clamp(20px, 2.4vw, 26px);
+  background: var(--admin-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.admin-finanzas .fin-signos__cabeza {
+  margin-bottom: 18px;
+}
+
+.admin-finanzas .fin-signos__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.admin-finanzas .fin-signos__bajada {
+  margin-top: 5px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Un instrumento, no cuatro tarjetas: las celdas comparten marco y las
+   separa un filete de un píxel (el hueco de la rejilla deja ver el fondo).
+   Vale para cualquier número de columnas sin tocar bordes uno por uno. */
+.admin-finanzas .fin-signos__lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-border-soft);
+  list-style: none;
+}
+
+@container fin-signos (min-width: 600px) {
+  .admin-finanzas .fin-signos__lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container fin-signos (min-width: 1040px) {
+  .admin-finanzas .fin-signos__lista {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.admin-finanzas .fin-signo {
+  --fin-estado-color: var(--admin-faint);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--admin-surface);
+}
+.admin-finanzas .fin-signo--good {
+  --fin-estado-color: var(--admin-c-verde);
+}
+.admin-finanzas .fin-signo--warn {
+  --fin-estado-color: var(--admin-c-ambar);
+}
+.admin-finanzas .fin-signo--bad {
+  --fin-estado-color: var(--admin-c-rojo);
+}
+
+.admin-finanzas .fin-signo__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-finanzas .fin-signo__rotulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-finanzas .fin-signo__valor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.admin-finanzas .fin-signo__cifra {
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(1.75rem, 1.45rem + 0.8vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.admin-finanzas .fin-signo__unidad {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-finanzas .fin-signo__frase {
+  color: var(--admin-text);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-signo__frase strong {
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-signo__ref {
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-finanzas .fin-signo__accion {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.admin-finanzas .fin-signos__fuentes {
+  max-width: 96ch;
+  margin-top: 16px;
   color: var(--admin-faint);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.admin-pnl__margen {
-  margin-left: 8px;
-  color: var(--admin-faint);
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.admin-finanzas__donut-wrap {
+/* El medidor: dónde cae la cifra respecto a lo sano. La banda es la
+   referencia del sector, en un gris más oscuro que la pista; el punto, la
+   cifra, en el color de su estado con un aro de la superficie que lo separa
+   de la banda y un canto que le da el 3:1 aun en ámbar. */
+.admin-finanzas .fin-medidor {
   display: grid;
-  gap: 18px;
+  gap: 6px;
+  padding-top: 4px;
 }
 
-.admin-finanzas__donut {
+.admin-finanzas .fin-medidor__pista {
   position: relative;
-  height: clamp(240px, 26vw, 320px);
+  height: 8px;
+  border-radius: 999px;
+  background: var(--admin-gris-3);
 }
 
-.admin-finanzas__donut-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  margin: 0;
-  padding: 0;
-  gap: 10px 24px;
-  list-style: none;
-}
-.admin-finanzas__donut-list li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: baseline;
-  gap: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--admin-border-soft);
+.admin-finanzas .fin-medidor__banda {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--banda-ini);
+  width: calc(var(--banda-fin) - var(--banda-ini));
+  border-radius: 999px;
+  background: var(--admin-gris-6);
 }
 
-.admin-finanzas__donut-label {
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 700;
+.admin-finanzas .fin-medidor__relleno {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--valor);
+  min-width: 4px;
+  border-radius: inherit;
+  background: var(--fin-estado-color);
 }
 
-.admin-finanzas__donut-val {
-  color: var(--admin-text);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.admin-finanzas .fin-medidor__meta {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: var(--meta);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--admin-text);
 }
 
-.admin-finanzas__donut-pct {
-  min-width: 46px;
+.admin-finanzas .fin-medidor__marca {
+  position: absolute;
+  top: 50%;
+  left: var(--valor);
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--fin-estado-color);
+  box-shadow: 0 0 0 2px var(--admin-surface), 0 0 0 3px var(--admin-border-strong);
+}
+
+.admin-finanzas .fin-medidor--progreso .fin-medidor__marca {
+  display: none;
+}
+
+.admin-finanzas .fin-medidor.is-desborda .fin-medidor__marca {
+  left: 100%;
+  width: 12px;
+  margin-left: -10px;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.admin-finanzas .fin-medidor__rotulos {
+  position: relative;
+  height: 14px;
+}
+
+.admin-finanzas .fin-medidor__rotulo {
+  position: absolute;
+  top: 0;
+  left: calc((var(--banda-ini, 0%) + var(--banda-fin, 0%)) / 2);
   color: var(--admin-faint);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
 
-.admin-finanzas__sankey-panel {
-  margin-bottom: 20px;
+.admin-finanzas .fin-medidor--progreso .fin-medidor__rotulo {
+  left: var(--meta);
 }
 
 /* AQUÍ NO SE DECLARA ALTO. Lo trae el SVG, en píxeles, y esta caja lo
@@ -209,6 +1144,13 @@
 }
 .admin-finanzas__sankey > svg {
   max-width: none;
+}
+
+.admin-finanzas__note {
+  margin-top: 12px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .admin-finanzas__note--ayuda {
@@ -238,11 +1180,9 @@
    pinta el trazo DETRÁS del relleno, así que el glifo no engorda hacia dentro).
 
    Las columnas que no son la última escriben a la derecha del nodo, es decir,
-   ENCIMA de sus propias cintas de salida, y con el lienzo más alto las cintas
-   son más gruesas: «Utilidad bruta · $…» caía entera sobre el cruce de dos
-   degradados al 62 %, tinta oscura sobre verde y rojo apagados. El halo le
-   devuelve su fondo sin mover la geometría: getComputedTextLength ignora el
-   trazo, así que el cálculo de choques de sankey.js no cambia. */
+   ENCIMA de sus propias cintas de salida: el halo le devuelve su fondo a la
+   etiqueta sin mover la geometría (getComputedTextLength ignora el trazo, así
+   que el cálculo de choques de sankey.js no cambia). */
 .admin-sankey__rotulo {
   font-family: var(--admin-font-mono);
   font-size: 12px;
@@ -275,6 +1215,176 @@
   display: none;
 }
 
+.admin-cortes__day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-cortes__day .admin-table__cell-main {
+  display: inline-block;
+}
+.admin-cortes__table td:not(:first-child),
+.admin-cortes__table th:not(:first-child) {
+  text-align: right;
+}
+.admin-cortes__total {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+.admin-cortes .is-today {
+  background: var(--admin-surface-soft);
+}
+.admin-cortes .is-today .admin-table__cell-main {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+.admin-cortes .admin-pagination {
+  margin-top: 16px;
+}
+
+.admin-finanzas .admin-cortes .admin-panel-head {
+  align-items: flex-end;
+}
+
+.admin-finanzas .admin-cortes__conteo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* El total del PERIODO al pie, en todas las páginas. Se despega de los días
+   por el fondo y el filete superior, y el rótulo dice cuántos días suma para
+   que no se lea como el total de la página. */
+.admin-finanzas .admin-cortes__table tfoot th,
+.admin-finanzas .admin-cortes__table tfoot td {
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-finanzas .admin-cortes__table tfoot th {
+  text-align: left;
+}
+
+.admin-finanzas .admin-cortes__dias {
+  display: block;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* El reparto del gasto fijo, en meses y en grises: la identidad de cada
+   categoría la dice su nombre en la lista, y el panel no pinta de colores lo
+   que no es estado. La rampa va de la tinta hacia el papel, de la categoría
+   más grande a la más chica; en oscuro se invierte con el tema. */
+.admin-finanzas .fin-reparto {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-finanzas .fin-reparto__total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.admin-finanzas .fin-reparto__cifra {
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(1.6rem, 1.3rem + 0.8vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.admin-finanzas .fin-reparto__unidad {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-finanzas .fin-reparto__barra {
+  display: flex;
+  height: 14px;
+  gap: 3px;
+}
+
+.admin-finanzas .fin-reparto__seg {
+  min-width: 3px;
+  flex: var(--peso, 1) 1 0;
+  border-radius: 3px;
+}
+
+.admin-finanzas .fin-reparto__seg--1 {
+  background: var(--admin-gris-11);
+}
+
+.admin-finanzas .fin-reparto__seg--2 {
+  background: var(--admin-gris-9);
+}
+
+.admin-finanzas .fin-reparto__seg--3 {
+  background: var(--admin-gris-7);
+}
+
+.admin-finanzas .fin-reparto__seg--4 {
+  background: var(--admin-gris-6);
+}
+
+.admin-finanzas .fin-reparto__seg--5 {
+  background: var(--admin-gris-5);
+}
+
+.admin-finanzas .fin-reparto__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 4px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-finanzas .fin-reparto__item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 2.75rem;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+  font-size: 13px;
+}
+
+.admin-finanzas .fin-reparto__muestra {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.admin-finanzas .fin-reparto__nombre {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.admin-finanzas .fin-reparto__monto {
+  color: var(--admin-text);
+}
+
+.admin-finanzas .fin-reparto__pct {
+  color: var(--admin-faint);
+  text-align: right;
+}
+
 .admin-finanzas__add {
   display: grid;
   grid-template-columns: 1.4fr 0.9fr 0.9fr auto;
@@ -302,7 +1412,7 @@
 }
 .admin-finanzas__money input {
   width: 100%;
-  padding-left: 30px;
+  padding-left: 30px !important;
 }
 
 .admin-gasto-list {
@@ -321,7 +1431,7 @@
   transition: border-color var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-gasto-card:hover {
-  border-color: color-mix(in srgb, var(--admin-gold-deep) 40%, transparent);
+  border-color: var(--admin-border);
 }
 .admin-gasto-card.is-inactive {
   opacity: 0.62;
@@ -361,18 +1471,10 @@
   min-height: 38px;
 }
 .admin-gasto-card {
-  /* La papelera, en la misma fila que Guardar y a su misma altura, pero
-   * deliberadamente MENOS pesada: es la acción irreversible, no la habitual.
-   *
-   * .admin-icon-button--danger es un rojo MACIZO —es el de las barras de
-   * acciones de tabla, donde compite con un botón de editar igual de sólido—, y
-   * aquí ese relleno pesaba más que el propio «Guardar»: en una rejilla de
-   * doce tarjetas lo primero que se veía eran doce cuadrados rojos. Baja a
-   * tinte, y el rojo pleno vuelve en el hover, cuando ya hay intención.
-   *
-   * El selector lleva .admin-body y las dos clases para ganarle a
-   * `.admin-body .admin-icon-button--danger` de _tables.scss, que es (0,2,0) y
-   * vive en otra hoja. */
+  /* La papelera, en la misma fila que Guardar y a su misma altura. Lleva el
+     rojo pleno del sistema (.admin-icon-button--danger, papel sobre rojo):
+     aquí se la devolvía a un tinte en reposo y era el único borrar del panel
+     que no hablaba como los demás. Sólo se fija la medida. */
 }
 .admin-gasto-card__trash {
   width: 38px;
@@ -388,56 +1490,43 @@
   display: contents;
 }
 
-.admin-body .admin-gasto-card__trash.admin-icon-button--danger {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
-  background-color: color-mix(in srgb, var(--admin-c-rojo) 10%, var(--admin-surface));
-  color: var(--admin-danger-text);
-  box-shadow: none;
+@keyframes fin-crece {
+  from {
+    transform: scaleX(0);
+  }
 }
-.admin-body .admin-gasto-card__trash.admin-icon-button--danger:hover, .admin-body .admin-gasto-card__trash.admin-icon-button--danger:focus-visible {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, var(--admin-ink));
-  background-color: var(--admin-c-rojo);
-  color: var(--admin-paper);
+@keyframes fin-aparece {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes fin-funde {
+  from {
+    opacity: 0;
+  }
+}
+/* Reducido no es inmóvil: las barras quedan quietas en su sitio, pero el
+   cambio de detalle sigue avisando con un fundido, sin desplazamiento. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-finanzas .fin-paso__barra {
+    animation: none;
+  }
+  .admin-finanzas .fin-detalle__panel {
+    animation-name: fin-funde;
+  }
+  .admin-finanzas .fin-paso,
+  .admin-finanzas .fin-paso__fantasma,
+  .admin-finanzas .fin-interruptor__pista,
+  .admin-finanzas .fin-interruptor__pista::after,
+  .admin-finanzas .fin-enlace__icono {
+    transition: none;
+  }
+}
+.admin-no-anim .admin-finanzas .fin-paso__barra {
+  animation: none;
 }
 
-.admin-cortes__filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
-}
-.admin-cortes__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.admin-cortes__field > span {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.admin-cortes__day {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.admin-cortes__day .admin-table__cell-main {
-  display: inline-block;
-}
-.admin-cortes__table td:not(:first-child),
-.admin-cortes__table th:not(:first-child) {
-  text-align: right;
-}
-.admin-cortes__total {
-  color: var(--admin-text);
-  font-weight: 800;
-}
-.admin-cortes .is-today {
-  background: color-mix(in srgb, var(--admin-c-verde) 10%, transparent);
-}
-.admin-cortes .is-today .admin-table__cell-main {
-  color: var(--admin-success-text);
+.admin-no-anim .admin-finanzas .fin-detalle__panel {
+  animation-name: fin-funde;
 }

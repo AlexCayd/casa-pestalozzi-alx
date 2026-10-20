@@ -69,7 +69,7 @@
         $fotoTexto = 'Sin foto propia: la carta usará la de su categoría.';
     }
 ?>
-<section class="admin-menu admin-menu--form admin-page">
+<section class="admin-menu admin-menu--modulo admin-menu--form admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Menú</span>

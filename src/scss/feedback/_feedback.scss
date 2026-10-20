@@ -1,440 +1,1389 @@
-@use "../abstracts/vidrio" as v;
-
 // ── Encuesta de salida del comensal ──────────────────────────
 //
 // La única pantalla de tablet que pertenece a la MARCA y no al sistema
-// administrativo: la abre un cliente al terminar de comer. Por eso es la
-// landing —crema, Bodoni, café de acento, rótulos italianos— y no el blanco y
-// negro del panel.
+// administrativo: la abre un cliente al terminar de comer, en la tablet que le
+// pasa el mesero. Por eso conserva la paleta de la landing —crema, verde y oro,
+// `data-tono="crema"`— y vive en app.css.
 //
-// Estaba en [data-modo="oscuro"], heredando el verde profundo y el oro del POS,
-// que es la pantalla del mesero. El comensal veía una interfaz de trabajo.
+// Lo que comparte con el panel y el POS es la VOZ y los PRINCIPIOS, a petición
+// del cliente, para que se lea como de la misma familia:
 //
-// Este archivo llevaba además, en sus líneas 444-926, el modal de cobro del POS.
-// Se separó a punto-de-venta/_pago-modal.scss: no tenían nada en común más que
-// el orden en que se escribieron.
+//   · Satoshi para todo el texto y Expose SÓLO para el titular (la pregunta y
+//     el «Grazie mille» final), como en el panel. Rótulos en versalitas con
+//     tracking .14em; ninguna serif.
+//   · Botones de relleno SÓLIDO: el primario en verde de marca —en la casa el
+//     acento es la tinta, como en el panel el negro— y el secundario en lino
+//     opaco. Nada de tintes translúcidos ni de `.btn-line`.
+//   · Sin filetes laterales de color: lo que se distingue, se distingue por
+//     superficie (los campos y las filas del resumen van HUNDIDOS en el papel
+//     de la página) o por posición.
+//   · Estados explícitos: el aviso de lo que falta junto a la escala, el envío
+//     con giro y «Enviando…», el error junto al botón, y una tarjeta final.
+//
+// Antes era una lámina de vidrio sobre dos halos (que existían sólo para que
+// el blur tuviera algo que desenfocar), con The Seasons, TT Wellingtons y el
+// wordmark en KudosKaps escrito en caja mixta. La lámina pasa a papel opaco: en
+// una tablet el backdrop-filter cuesta y aquí no separaba nada.
+
+// ── Las dos caras del sistema administrativo ─────────────────
+//
+// Las mismas @font-face que admin/shared/base/_typography.scss, con la ruta de
+// app.css. Una @font-face sin consumidores no se descarga, y en app.css sólo
+// esta pantalla nombra "Satoshi" y "Expose" (dentro de .fb-page): la landing no
+// las pide. La vista las precarga; ninguna otra página lo hace.
+//
+// Sin la itálica de Satoshi: aquí nada la pide, y con `font-synthesis: none`
+// (body, _reset.scss) un `em` sale en redonda en vez de inclinado a la fuerza.
+@font-face {
+  font-family: "Satoshi";
+  src: url("../fonts/satoshi-variable.woff2") format("woff2-variations");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Expose";
+  src: url("../fonts/expose-variable.woff2") format("woff2-variations");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 // ── Página ───────────────────────────────────────────────────
 //
-// El cursor propio de la landing no tiene sentido en una tablet táctil, y la
-// viñeta tampoco: aquí no hay fotografía a sangre que enmarcar.
+// cursor.js (setCursorEnabled, que boot() corre en TODA página antes de mirar
+// cuál es) escribe `cursor: none` EN LÍNEA en <html> y <body> cuando hay
+// puntero fino, para el cursor propio de la portada. Aquí no hay cursor
+// propio: con ratón, la página quedaba sin flecha. Sólo un !important le gana
+// a un estilo en línea.
+html:has(> body.fb-page) {
+  cursor: auto !important;
+}
+
 .fb-page {
+  // Caras. --sans y --serif se redeclaran aquí —en el mismo <body> donde
+  // [data-tono="crema"] declara los roles heredados— para que lo compartido que
+  // viva dentro (el aviso AppNotice pide --sans) hable Satoshi y no TT
+  // Wellingtons. --serif va a la sans, como --admin-font-heading en el panel:
+  // la display es SÓLO --fb-font-titular.
+  --fb-font: "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --fb-font-titular: "Expose", var(--fb-font);
+  --sans: var(--fb-font);
+  --serif: var(--fb-font);
+
+  // Isologo: el «em» es lo que mediría la letra si se escribiera con la fuente.
+  // Los tres colores son los del hero (verde las letras, oro filete y óvalo,
+  // tinta el monograma) y salen de la capa 1, así que siguen a la paleta
+  // editable de Configuración.
+  --fb-iso: clamp(1.3rem, 3.6vw, 2rem);
+  --fb-iso-verde: var(--brand-verde);
+  --fb-iso-tinta: var(--verde-deep);
+  --fb-iso-oro: var(--brand-oro);
+
+  // La escala de cinco caras sale de la paleta funcional, validada para
+  // daltonismo: bajo deuteranopia se sigue leyendo porque además del tono hay
+  // un salto de luminosidad de extremo a extremo.
+  --fb-cara-1: var(--c-rojo);
+  --fb-cara-2: var(--c-naranja);
+  --fb-cara-3: var(--c-ambar);
+  --fb-cara-4: var(--c-lima);
+  --fb-cara-5: var(--c-verde);
+  // El TRAZO de cada cara en reposo. El color pleno no llega: ámbar y lima dan
+  // 1.7-1.9:1 sobre el papel, y el gris que se mezclaba antes los dejaba en
+  // 2.5-2.7. Hundido al 62 % en la tinta de la casa todos pasan de 3:1 (ámbar
+  // 3.5, lima 3.7, rojo 8.0) sin perder el tono. Calculado, no a ojo.
+  --fb-trazo-1: color-mix(in srgb, var(--fb-cara-1) 62%, var(--verde-ink));
+  --fb-trazo-2: color-mix(in srgb, var(--fb-cara-2) 62%, var(--verde-ink));
+  --fb-trazo-3: color-mix(in srgb, var(--fb-cara-3) 62%, var(--verde-ink));
+  --fb-trazo-4: color-mix(in srgb, var(--fb-cara-4) 62%, var(--verde-ink));
+  --fb-trazo-5: color-mix(in srgb, var(--fb-cara-5) 62%, var(--verde-ink));
+  // La tinta de los rasgos sobre el disco RELLENO. Tinta oscura en cuatro de
+  // las cinco (naranja 4.9:1, ámbar 7.9, lima 7.3, verde 4.8); el rojo es el
+  // único que pide tinta clara (crema 4.2 frente a 3.1 de la oscura).
+  --fb-tinta-oscura: var(--verde-ink);
+  --fb-tinta-clara: var(--brand-crema);
+
+  // Botones. Primario: crema sobre verde, 8.3:1. Secundario: tinta sobre lino
+  // opaco, 11:1.
+  --fb-primario: var(--brand-verde);
+  --fb-primario-hover: var(--verde-deep);
+  --fb-on-primario: var(--brand-crema);
+  --fb-secundario: color-mix(in srgb, var(--brand-beige) 70%, var(--surface));
+  --fb-secundario-hover: var(--brand-beige);
+  --fb-on-secundario: var(--txt-strong);
+
+  // Superficies: la tarjeta es --surface (papel claro) y lo que va hundido
+  // dentro de ella —campos, filas del resumen— vuelve al --bg de la página.
+  --fb-hundido: var(--bg);
+  --fb-pista: color-mix(in srgb, var(--txt) 12%, transparent);
+
+  --fb-radio: 12px;
+  --fb-radio-lg: 20px;
+  --fb-curva: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fb-cara-tam: clamp(52px, 12vw, 92px);
+
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: clamp(1.25rem, 4vw, 3rem);
-  // Dos halos muy abiertos detrás de la tarjeta. No son decoración: el vidrio
-  // necesita algo que desenfocar, y sobre un crema plano el blur no tendría
-  // nada que hacer y la lámina se vería igual que un rectángulo opaco.
-  background:
-    radial-gradient(60rem 40rem at 18% -10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
-    radial-gradient(48rem 36rem at 88% 110%, color-mix(in srgb, var(--brand-verde) 8%, transparent), transparent 70%),
-    var(--bg);
+  padding:
+    max(env(safe-area-inset-top), clamp(1.25rem, 5vh, 3rem))
+    max(env(safe-area-inset-right), clamp(1rem, 4vw, 2.5rem))
+    max(env(safe-area-inset-bottom), clamp(1.5rem, 5vh, 3rem))
+    max(env(safe-area-inset-left), clamp(1rem, 4vw, 2.5rem));
+  background: var(--bg);
   color: var(--txt);
-  font-family: var(--sans);
-  cursor: auto;
+  font-family: var(--fb-font);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  cursor: auto !important;
+  -webkit-tap-highlight-color: transparent;
 
-  *,
-  a,
-  button { cursor: auto; }
+  // Sin viñeta: aquí no hay fotografía a sangre que enmarcar.
+  &::after {
+    content: none;
+  }
 
-  a,
-  button,
-  .fb-face { cursor: pointer; }
+  // El reset de la landing pone `cursor: none` a los botones (para el cursor
+  // propio). Aquí todo hereda el `auto`, y lo accionable dice que lo es.
+  * {
+    cursor: inherit;
+  }
 
-  &::after { content: none; }
+  textarea {
+    cursor: text;
+  }
+
+  :is(button, .fb-face) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@supports (min-height: 100svh) {
+  .fb-page {
+    min-height: 100svh;
+  }
 }
 
 .fb-shell {
   width: 100%;
-  // Más ancha que los 540px de antes: en una tablet en horizontal la escala de
-  // cinco caras necesita sitio para que cada una siga siendo tocable.
-  max-width: 720px;
+  max-width: 44rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.25rem, 3.5vh, 2rem);
 }
 
-.fb-card {
-  padding: clamp(1.75rem, 5vw, 3.25rem);
-  border-radius: 14px;
-  @include v.vidrio(flotante, var(--glass-bg-strong));
-
-  box-shadow:
-    inset 0 1px 0 var(--glass-edge),
-    0 24px 70px color-mix(in srgb, var(--sombra) 14%, transparent);
-
-  &[hidden] { display: none; }
+.fb-cabecera {
+  display: flex;
+  justify-content: center;
 }
 
-// ── Marca ────────────────────────────────────────────────────
+// ── Isologo ──────────────────────────────────────────────────
 //
-// KudosKaps tiene UNA cara de peso 400. Sin declararlo hereda el 600 de h1..h4
-// y el navegador fabrica una negrita falsa que empasta los remates: el wordmark
-// deja de reconocerse (ver CLAUDE.md).
-.fb-brand-mark {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-family: var(--logo);
-  font-weight: 400;
-  font-size: clamp(1.9rem, 5.5vw, 2.9rem);
+// La composición del hero (_hero.scss) a escala de membrete: CASA sobre
+// PESTALOZZI, y debajo el filete de oro partido por el medallón. Las letras
+// son trazo (views/feedback/_isologo.php), así que su proporción la fija el
+// viewBox: el ancho va en em —7.859 em es el ancho de PESTALOZZI con su
+// tracking, el viewBox entre 1000 unidades por em— y el alto es `auto`. Nada
+// se estira.
+.fb-isologo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  font-size: var(--fb-iso);
   line-height: 1;
-  letter-spacing: 0.02em;
-  color: var(--accent-text);
-  text-decoration: none;
+  color: var(--fb-iso-verde);
+
+  &__nombre {
+    display: block;
+    width: 7.859em;
+    height: auto;
+    fill: currentColor;
+  }
+
+  // Respaldo si faltara el archivo de trazos: la misma composición en la
+  // fuente. KudosKaps tiene UNA cara de 400 y hay que pedirla así (CLAUDE.md).
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--logo);
+    font-weight: 400;
+    line-height: 1.02;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  &__casa,
+  &__pestalozzi {
+    display: block;
+    margin-right: -0.03em;
+  }
+
+  // 0.3 em desde el pie del trazo deja el filete a la misma distancia de la
+  // línea base de PESTALOZZI que en el hero (0.65 em hasta su eje).
+  &__filete {
+    display: flex;
+    align-items: center;
+    gap: 0.16em;
+    margin-top: 0.3em;
+  }
+
+  &__linea {
+    flex: 1;
+    height: 1px;
+    background: var(--fb-iso-oro);
+  }
+
+  &__medallon {
+    flex: none;
+    display: block;
+    width: 0.5em;
+    height: 0.625em;
+    overflow: visible;
+  }
+
+  // Más grueso que en el hero (1.6 / 1.8) porque aquí el medallón mide unos
+  // 15 px y no 60: con el trazo del hero el óvalo se quedaba en medio píxel y
+  // la corona punteada desaparecía.
+  &__ovalo {
+    stroke: var(--fb-iso-oro);
+    stroke-width: 2.4;
+  }
+
+  &__puntos {
+    stroke: var(--fb-iso-oro);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-dasharray: 0 5.6;
+  }
+
+  &__cp {
+    fill: var(--fb-iso-tinta);
+  }
 }
 
-.fb-header {
-  margin-bottom: clamp(1.75rem, 4vw, 2.5rem);
-  text-align: center;
+// ── Tarjeta ──────────────────────────────────────────────────
+.fb-card {
+  width: 100%;
+  padding: clamp(1.25rem, 4.5vw, 2.5rem);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--fb-radio-lg);
+  background: var(--surface);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--sombra) 6%, transparent),
+    0 24px 56px -28px color-mix(in srgb, var(--sombra) 30%, transparent);
 
-  &__sub {
-    font-family: var(--serif);
-    font-size: 1.05rem;
+  &[hidden] {
+    display: none;
+  }
+
+  // La tarjeta final recibe el foco para anunciarse; no es un control.
+  &:focus {
+    outline: none;
+  }
+}
+
+// ── Avance ───────────────────────────────────────────────────
+//
+// Rótulo y contador en una fila, la barra debajo: un solo grupo, la cabecera
+// de la tarjeta. La barra va por SEGMENTOS, uno por paso, en vez de una línea
+// continua de 3 px: se cuenta de un vistazo cuánto falta, y cada pregunta
+// respondida se queda con el color de su cara.
+.fb-progreso {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.75rem 1rem;
+  margin-bottom: clamp(1.75rem, 5vh, 2.75rem);
+
+  // Es el <h1> de la encuesta y se ve como un rótulo: la pregunta de cada paso
+  // es la que manda.
+  &__rotulo {
+    margin: 0;
+    font-family: var(--fb-font);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--txt-mute);
   }
-}
 
-// ── Progreso ─────────────────────────────────────────────────
-.fb-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-top: 1.5rem;
-
-  &__bar {
-    flex: 1;
-    height: 3px;
-    border-radius: 999px;
-    background: var(--line-soft);
-    overflow: hidden;
-  }
-
-  // El relleno toma el color de la última cara elegida (--fb-tono, que escribe
-  // feedback.js) y cae al acento mientras no haya ninguna. Así el progreso deja
-  // de ser sólo "cuánto falta" y dice también cómo va yendo la encuesta.
-  &__fill {
-    height: 100%;
-    width: 0;
-    border-radius: inherit;
-    background: var(--fb-tono, var(--accent));
-    transition: width 0.45s var(--ease), background 0.45s var(--ease);
-  }
-
-  &__label {
-    flex: none;
-    font-size: 0.62rem;
+  &__cuenta {
+    font-size: 0.8125rem;
     font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
     font-variant-numeric: tabular-nums;
+    color: var(--txt-mute);
+  }
+
+  &__barra {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+  }
+
+  &__seg {
+    position: relative;
+    flex: 1 1 0;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--fb-pista);
+
+    // El relleno crece con transform, no con width: no toca maquetación.
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--seg, var(--txt));
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: background-color 0.24s var(--fb-curva);
+    }
+
+    &.is-actual::after {
+      transform: scaleX(0.4);
+    }
+
+    &.is-hecho::after,
+    &[data-valor]::after {
+      transform: scaleX(1);
+    }
+
+    &[data-valor="1"] { --seg: var(--fb-trazo-1); }
+    &[data-valor="2"] { --seg: var(--fb-trazo-2); }
+    &[data-valor="3"] { --seg: var(--fb-trazo-3); }
+    &[data-valor="4"] { --seg: var(--fb-trazo-4); }
+    &[data-valor="5"] { --seg: var(--fb-trazo-5); }
   }
 }
 
 // ── Pasos ────────────────────────────────────────────────────
+//
+// Rótulo italiano (la voz de la casa) pegado a la pregunta, y la escala con
+// aire debajo: la proximidad agrupa lo que se lee junto.
 .fb-step {
-  display: none;
+  text-align: center;
 
-  &--active { display: block; }
+  &__rotulo {
+    margin: 0 0 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+  }
 
-  // El título de cada paso es un heading de la casa: The Seasons en regular,
-  // como compone el manual sus títulos.
-  &__label {
-    margin: 0.5rem 0 clamp(1.5rem, 4vw, 2.25rem);
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: clamp(1.45rem, 4vw, 2.1rem);
-    line-height: 1.15;
-    letter-spacing: 0;
+  // El titular de la pantalla: Expose 600, como el titular de página del
+  // panel, más grande porque aquí es lo único que hay que leer. Con clase
+  // basta para ganarle al `h2` de _reset.scss, que pide la serif.
+  &__titulo {
+    margin: 0;
+    font-family: var(--fb-font-titular);
+    font-size: clamp(1.75rem, 1.15rem + 2.4vw, 2.625rem);
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.01em;
     color: var(--txt-strong);
     text-wrap: balance;
+
+    // Recibe el foco al cambiar de paso sólo para que se anuncie.
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__ayuda {
+    max-width: 38ch;
+    margin: 0.75rem auto 0;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--txt-mute);
+    text-wrap: pretty;
+  }
+}
+
+// Con JS (clase `fb-js`, que la vista pone antes del primer pintado): una
+// pregunta a la vez.
+.fb-js .fb-step {
+  display: none;
+}
+
+.fb-js .fb-step--active {
+  display: block;
+}
+
+// Los botones según dónde está la encuesta. data-posicion lo escribe
+// feedback.js; el marcado nace en «primero».
+.fb-js .fb-nav__enviar,
+.fb-js .fb-form[data-posicion="primero"] .fb-nav__prev,
+.fb-js .fb-form[data-posicion="ultimo"] .fb-nav__next {
+  display: none;
+}
+
+.fb-js .fb-form[data-posicion="ultimo"] .fb-nav__enviar {
+  display: inline-flex;
+}
+
+// Sin JS —o si el bundle no llegó—: el formulario seguido, separado por
+// filetes, con el envío nativo. Lo que sólo tiene sentido paso a paso se
+// retira.
+html:not(.fb-js) {
+  .fb-step + .fb-step {
+    margin-top: clamp(2rem, 5vh, 3rem);
+    padding-top: clamp(2rem, 5vh, 3rem);
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .fb-step--resumen,
+  .fb-progreso__cuenta,
+  .fb-progreso__barra,
+  .fb-nav__prev,
+  .fb-nav__next {
+    display: none;
   }
 }
 
 // ── La escala de cinco caras ─────────────────────────────────
 .fb-escala {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: clamp(0.35rem, 1.5vw, 0.9rem);
-  align-items: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.25rem, 1.6vw, 0.875rem);
+  max-width: 36rem;
+  margin: clamp(1.75rem, 5vh, 2.5rem) auto 0;
 }
 
-// Line-art, no discos planos. El SVG hereda `currentColor`, así que el color de
-// cada cara se decide aquí abajo y NO en el PHP ni en el JS: era el mismo valor
-// escrito en tres sitios, y los tres discrepaban.
-//
-// Cada cara lleva su color YA EN REPOSO, y no sólo al elegirla. Con las cinco en
-// gris, decidir exigía leer las cinco etiquetas; en color la escala se recorre
-// de un vistazo —rojo a la izquierda, verde a la derecha— y la etiqueta pasa a
-// confirmar en vez de informar. En reposo el tono va rebajado contra --txt-faint
-// para que el conjunto no grite y la elegida tenga de dónde subir.
-//
-// Los cinco tonos son los de la paleta funcional, que está validada para
-// daltonismo: bajo deuteranopia la escala se sigue leyendo porque además de
-// hue hay un salto de luminosidad de extremo a extremo.
+// Cada cara es un <label> con su radio dentro. El color de la cara se decide
+// aquí y en ningún otro sitio. La expresión se mueve por variables: cuánto se
+// acentúa la boca (--boca-viva, desde --boca-origen) y hacia dónde se inclina
+// el rostro (--inclina).
 .fb-face {
-  --cara: var(--txt-faint);
+  --cara: var(--fb-cara-3);
+  --trazo: var(--fb-trazo-3);
+  --tinta: var(--fb-tinta-oscura);
+  --boca-origen: 50% 0%;
+  --boca-viva: none;
+  --inclina: -6deg;
 
+  position: relative;
   display: flex;
+  min-width: 0;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.2rem;
-  border: 0;
-  background: none;
-  color: color-mix(in srgb, var(--cara) 62%, var(--txt-faint));
-  transition: color 0.3s var(--ease), transform 0.3s var(--ease);
+  gap: 0.625rem;
+  padding: 0.5rem 0.125rem 0.375rem;
+  border-radius: var(--fb-radio);
+  color: var(--trazo);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 
-  &--1 { --cara: var(--c-rojo); }
-  &--2 { --cara: var(--c-naranja); }
-  &--3 { --cara: var(--c-ambar); }
-  &--4 { --cara: var(--c-lima); }
-  &--5 { --cara: var(--c-verde); }
-
-  &__disc {
-    display: block;
-    width: clamp(46px, 11vw, 66px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    transition: box-shadow 0.3s var(--ease);
+  // Las bocas tristes se acentúan desde sus comisuras, que están ABAJO; las
+  // alegres, desde las suyas, que están arriba. scaleY desde esa línea hace la
+  // curva más honda sin mover los extremos.
+  &--1 {
+    --cara: var(--fb-cara-1);
+    --trazo: var(--fb-trazo-1);
+    --tinta: var(--fb-tinta-clara);
+    --boca-origen: 50% 100%;
+    --boca-viva: scaleY(1.35);
+    --inclina: 6deg;
   }
 
-  svg { width: 100%; height: 100%; display: block; }
+  &--2 {
+    --cara: var(--fb-cara-2);
+    --trazo: var(--fb-trazo-2);
+    --boca-origen: 50% 100%;
+    --boca-viva: scaleY(1.6);
+    --inclina: 4deg;
+  }
 
-  // El aro se atenúa respecto del rostro: da peso a la expresión, que es lo que
-  // se lee de un vistazo, sin que el círculo compita. El relleno tenue le da
-  // cuerpo de ficha sin cerrarla.
-  &__aro {
-    fill: color-mix(in srgb, var(--cara) 9%, transparent);
-    opacity: 0.55;
-    transition: fill 0.3s var(--ease), opacity 0.3s var(--ease);
+  // «Regular» no sonríe ni se entristece: tuerce la boca.
+  &--3 {
+    --boca-origen: 50% 50%;
+    --boca-viva: rotate(-9deg);
+    --inclina: -3deg;
+  }
+
+  &--4 {
+    --cara: var(--fb-cara-4);
+    --trazo: var(--fb-trazo-4);
+    --boca-viva: scaleY(1.4);
+  }
+
+  &--5 {
+    --cara: var(--fb-cara-5);
+    --trazo: var(--fb-trazo-5);
+    --boca-viva: scaleY(1.2);
+    --inclina: -8deg;
+  }
+
+  // El radio real, fuera de la vista pero dentro del recorrido de teclado y
+  // del árbol de accesibilidad (como en .admin-pills): recortado, nunca
+  // display:none.
+  &__input {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    appearance: none;
+  }
+
+  &__disc {
+    position: relative;
+    display: block;
+    width: var(--fb-cara-tam);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    transition: opacity 0.2s var(--fb-curva), box-shadow 0.24s var(--fb-curva);
+
+    // La onda del acuse: un aro que sale de la cara elegida y se desvanece.
+    // Sólo existe mientras anima (ver el bloque de movimiento).
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--cara);
+      border-radius: inherit;
+      opacity: 0;
+      pointer-events: none;
+    }
   }
 
   &__label {
-    font-size: 0.56rem;
+    max-width: 100%;
+    font-size: clamp(0.75rem, 0.68rem + 0.35vw, 0.9375rem);
     font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    line-height: 1.3;
+    line-height: 1.2;
     text-align: center;
-    color: inherit;
-    transition: color 0.3s var(--ease), font-weight 0.3s var(--ease);
-  }
-
-  &:hover,
-  &:focus-visible {
-    color: var(--cara);
-    transform: translateY(-2px);
-
-    .fb-face__aro { opacity: 0.85; }
-  }
-
-  // Activa. El disco se RELLENA y la cara se invierte: es un cambio de forma,
-  // no sólo de tinte, y por eso no se puede confundir con el hover —que en una
-  // tablet, además, se queda pegado tras el toque anterior.
-  //
-  // El halo va como box-shadow y no como borde: no ocupa caja, así que la
-  // rejilla de cinco no se mueve al elegir.
-  &--active {
-    color: var(--cara);
-    transform: translateY(-4px) scale(1.08);
-
-    .fb-face__aro {
-      fill: var(--cara);
-      stroke: var(--cara);
-      opacity: 1;
-    }
-
-    // Los ojos llevan fill="currentColor" como ATRIBUTO en el PHP; la propiedad
-    // CSS gana sobre el atributo de presentación, así que basta con esto para
-    // invertirlos sin tocar el marcado.
-    //
-    // Ojos y trazos van por separado a propósito: `fill` sobre los <path>
-    // rellenaría la boca, que en cuatro de las cinco caras es una curva
-    // ABIERTA y se cerraría formando una lente. Los path sólo cambian stroke;
-    // el fill="none" del <svg> se queda donde está.
-    svg circle:not(.fb-face__aro) { fill: var(--surface); }
-    svg path { stroke: var(--surface); }
-
-    .fb-face__disc {
-      box-shadow:
-        0 0 0 6px color-mix(in srgb, var(--cara) 15%, transparent),
-        0 10px 26px color-mix(in srgb, var(--cara) 28%, transparent);
-    }
-
-    .fb-face__label {
-      color: var(--cara);
-      font-weight: 800;
-    }
+    overflow-wrap: break-word;
+    color: var(--txt-mute);
+    transition: color 0.2s var(--fb-curva);
   }
 }
 
-// El rebote sólo confirma el toque; sin él el salto de escala se lee como que
-// la interfaz dio un tirón.
-@media (prefers-reduced-motion: no-preference) {
-  .fb-face--active .fb-face__disc { animation: fb-pop 0.42s var(--ease); }
+.fb-cara {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+
+  // En reposo, un velo del color de la cara: la escala se recorre de un
+  // vistazo —rojo a la izquierda, verde a la derecha— y la etiqueta confirma
+  // en vez de informar.
+  &__aro {
+    fill: color-mix(in srgb, var(--cara) 7%, var(--surface));
+    stroke: var(--trazo);
+    stroke-width: 2.2;
+    transition: fill 0.2s var(--fb-curva), stroke 0.2s var(--fb-curva);
+  }
+
+  &__rostro {
+    transform-box: view-box;
+    transform-origin: 32px 32px;
+  }
+
+  &__ojo {
+    fill: currentColor;
+    stroke: none;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  &__ojos,
+  &__ojos-felices {
+    transition: opacity 0.14s linear;
+  }
+
+  &__ojos-felices {
+    opacity: 0;
+  }
+
+  &__boca {
+    transform-box: fill-box;
+    transform-origin: var(--boca-origen);
+    transition: fill 0.2s var(--fb-curva);
+  }
 }
 
-@keyframes fb-pop {
-  0% { transform: scale(0.86); }
-  55% { transform: scale(1.06); }
-  100% { transform: scale(1); }
+// Elegida. El disco se RELLENA con el color pleno de la cara y los rasgos
+// cambian a su tinta: es un cambio de forma, no sólo de tinte, y por eso no se
+// confunde con el hover —que en una tablet, además, ni existe—. Y cambia la
+// expresión: la boca se acentúa, «Bueno» y «Excelente» cierran los ojos en
+// dos arcos y «Excelente» abre la sonrisa.
+.fb-face__input:checked ~ .fb-face__disc {
+  color: var(--tinta);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--cara) 24%, transparent),
+    0 12px 24px -10px color-mix(in srgb, var(--trazo) 70%, transparent);
+
+  .fb-cara__aro {
+    fill: var(--cara);
+    stroke: var(--trazo);
+  }
+
+  .fb-cara__boca {
+    transform: var(--boca-viva);
+  }
+
+  .fb-cara__ojos--cambian {
+    opacity: 0;
+  }
+
+  .fb-cara__ojos-felices {
+    opacity: 1;
+  }
+}
+
+.fb-face--5 .fb-face__input:checked ~ .fb-face__disc .fb-cara__boca {
+  fill: currentColor;
+}
+
+.fb-face__input:checked ~ .fb-face__label {
+  color: var(--txt-strong);
+  font-weight: 700;
+}
+
+// Las demás se apagan para que la elegida mande. Sólo el disco: las etiquetas
+// bajan a --txt-faint, que sigue en AA, porque siguen siendo opciones vivas.
+// Sin :has() no se apagan, y la elegida se sigue distinguiendo por su relleno.
+.fb-escala:has(.fb-face__input:checked) .fb-face__input:not(:checked) ~ .fb-face__disc {
+  opacity: 0.45;
+}
+
+.fb-escala:has(.fb-face__input:checked) .fb-face__input:not(:checked) ~ .fb-face__label {
+  color: var(--txt-faint);
+}
+
+// Foco de teclado: un anillo con aire alrededor del disco, que es redondo y el
+// contorno lo sigue. Declarado después del apagado y con su misma
+// especificidad para devolverle la opacidad: el anillo de un disco apagado
+// también saldría apagado.
+.fb-face__input:focus-visible ~ .fb-face__disc,
+.fb-escala:has(.fb-face__input:checked) .fb-face__input:focus-visible ~ .fb-face__disc {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+  opacity: 1;
+}
+
+.fb-face__input:focus-visible ~ .fb-face__label {
+  color: var(--txt-strong);
+}
+
+// Puntero fino: la cara responde antes de tocarla. Acotado a (hover: hover)
+// porque en una tablet el :hover se queda pegado tras el toque anterior.
+@media (hover: hover) and (pointer: fine) {
+  .fb-face:hover .fb-face__label {
+    color: var(--txt-strong);
+  }
+
+  .fb-face:hover .fb-cara__boca {
+    transform: var(--boca-viva);
+  }
+
+  .fb-escala:has(.fb-face__input:checked) .fb-face:hover .fb-face__input:not(:checked) ~ .fb-face__disc {
+    opacity: 0.85;
+  }
+}
+
+// ── Avisos ───────────────────────────────────────────────────
+//
+// El de cada paso reserva su renglón aunque esté vacío: si apareciera
+// empujando, los botones de abajo saltarían justo cuando el dedo va a ellos.
+.fb-alerta {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--feedback-danger);
+
+  &__icono {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  &:not(.is-visible) .fb-alerta__icono {
+    display: none;
+  }
+}
+
+// El error de envío sí es una pieza: va junto al botón, con fondo de estado.
+.fb-envio-error {
+  justify-content: flex-start;
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--fb-radio);
+  background: var(--feedback-danger-bg);
+  text-align: left;
+
+  &:not(.is-visible) {
+    display: none;
+  }
 }
 
 // ── Comentario libre ─────────────────────────────────────────
 .fb-textarea {
+  display: block;
   width: 100%;
-  padding: 1rem 1.1rem;
+  min-height: 9.5rem;
+  margin: clamp(1.25rem, 3.5vh, 1.75rem) 0 0;
+  padding: 0.875rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--bg);
-  color: var(--txt);
-  font-family: var(--sans);
-  font-size: 1rem;
-  line-height: 1.65;
+  border-radius: var(--fb-radio);
+  background: var(--fb-hundido);
+  color: var(--txt-strong);
+  font: inherit;
+  // 17 px: por debajo de 16, Safari de iOS amplía la página al enfocar.
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  text-align: left;
   resize: vertical;
+  transition:
+    border-color 0.16s var(--fb-curva),
+    box-shadow 0.16s var(--fb-curva),
+    background-color 0.16s var(--fb-curva);
 
-  &::placeholder { color: var(--txt-faint); }
+  &::placeholder {
+    color: var(--txt-faint);
+    opacity: 1;
+  }
 
-  &:focus-visible {
+  &:hover {
+    border-color: var(--line-strong);
+  }
+
+  // Al escribir, el campo sube a papel y se enmarca en oro: el estado se ve
+  // aunque no se mire el cursor.
+  &:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: var(--txt);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
   }
 }
 
 // ── Resumen ──────────────────────────────────────────────────
 //
-// Las escalas de aquí son los MISMOS nodos clonados de los pasos, así que
-// heredan todo lo de arriba; sólo se encogen.
-.fb-resumen-row {
-  padding: 1.15rem 0;
-  border-bottom: 1px solid var(--line-soft);
+// Cada respuesta es una fila hundida —región común: nombre, valor y la escala
+// para corregir van juntos— y no una lista separada por filetes. Las escalas
+// son los MISMOS nodos clonados de los pasos, así que heredan todo lo de
+// arriba; sólo se encogen y esconden su etiqueta, que ya dice la fila.
+.fb-resumen {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: clamp(1.25rem, 3.5vh, 1.75rem);
+  text-align: left;
 
-  &__label {
-    display: block;
-    margin-bottom: 0.7rem;
-    font-size: 0.6rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
-  }
-}
-
-.fb-escala--resumen {
-  gap: 0.25rem;
-
-  .fb-face__disc { width: clamp(34px, 8vw, 46px); }
-  .fb-face__label { font-size: 0.5rem; }
-}
-
-.fb-resumen-comment {
-  margin-top: 1.25rem;
-  padding: 1.1rem 1.2rem;
-  border-left: 2px solid var(--accent);
-  background: var(--bg);
-
-  &__label {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.6rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
+  &__fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 0.75rem 0.625rem 1rem;
+    border-radius: var(--fb-radio);
+    background: var(--fb-hundido);
   }
 
-  &__text {
-    font-size: 0.98rem;
-    line-height: 1.6;
+  &__cabeza {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  &__nombre {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--txt-mute);
+  }
+
+  &__valor {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--txt-strong);
+  }
+
+  &__nota {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.125rem 1rem;
+    padding: 0.625rem 0.75rem 0.875rem 1rem;
+    border-radius: var(--fb-radio);
+    background: var(--fb-hundido);
+  }
+
+  &__texto {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
     color: var(--txt);
     // Lo escribió el comensal: puede venir sin espacios y desbordar la caja.
     overflow-wrap: anywhere;
+    white-space: pre-line;
+  }
+
+  &__nota--vacia &__texto {
+    color: var(--txt-faint);
+  }
+}
+
+// 44 px: el mínimo táctil real, aunque aquí la cara sea pequeña.
+.fb-escala--resumen {
+  --fb-cara-tam: 44px;
+
+  grid-template-columns: repeat(5, auto);
+  gap: 0.25rem;
+  max-width: none;
+  margin: 0;
+
+  .fb-face {
+    gap: 0;
+    padding: 0;
+  }
+
+  .fb-face__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .fb-face__input:checked ~ .fb-face__disc {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cara) 24%, transparent);
+  }
+}
+
+// Acción de texto (Editar / Añadir). Terciaria: subrayada, sin caja, pero con
+// 44 px de alto tocable.
+.fb-enlace {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin: -0.5rem -0.25rem -0.5rem 0;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+  transition: text-decoration-color 0.16s var(--fb-curva);
+
+  &:hover {
+    text-decoration-color: currentColor;
   }
 }
 
 // ── Navegación y envío ───────────────────────────────────────
+//
+// La acción principal está SIEMPRE en el mismo sitio, abajo a la derecha:
+// Siguiente, Omitir o Enviar. Anterior, a la izquierda y en secundario.
 .fb-nav {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: clamp(1.75rem, 4vw, 2.5rem);
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: clamp(1.25rem, 3.5vh, 2rem);
+  padding-top: clamp(1.25rem, 3.5vh, 1.75rem);
+  border-top: 1px solid var(--line-soft);
 
-  button {
-    border: 0;
-    background: none;
-    padding: 0.5rem 0;
-    font-family: var(--sans);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--txt-mute);
-    transition: color 0.3s var(--ease);
-
-    &:hover { color: var(--accent-text); }
-    &[hidden] { display: none; }
+  &__next,
+  &__enviar {
+    margin-left: auto;
   }
-
-  // El «Anterior» oculto no debe empujar al «Siguiente» a la izquierda.
-  &__prev[hidden] + &__next { margin-left: auto; }
-  &__next { margin-left: auto; }
 }
 
-.fb-submit {
-  width: 100%;
-  margin-top: 1.25rem;
+.fb-btn {
+  position: relative;
+  display: inline-flex;
+  min-width: 7.5rem;
+  min-height: 52px;
+  align-items: center;
   justify-content: center;
-
-  &[hidden] { display: none; }
-  &:disabled { opacity: 0.55; }
-}
-
-// ── Pantalla de agradecimiento ───────────────────────────────
-.fb-card--done {
-  text-align: center;
-}
-
-.fb-done-icon {
-  display: block;
-  width: 56px;
-  margin: 1.5rem auto 1.25rem;
-  color: var(--feedback-ok);
-
-  svg { width: 100%; height: 100%; display: block; }
-}
-
-.fb-done-title {
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(1.9rem, 5.5vw, 2.8rem);
-  line-height: 1.1;
+  gap: 0.625rem;
+  padding: 0 1.375rem;
+  border: 0;
+  border-radius: var(--fb-radio);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: 0;
-  color: var(--txt-strong);
+  white-space: nowrap;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition:
+    background-color 0.16s var(--fb-curva),
+    color 0.16s var(--fb-curva),
+    box-shadow 0.16s var(--fb-curva),
+    transform 0.12s var(--fb-curva),
+    opacity 0.16s var(--fb-curva);
 
-  // Un heading es una sola voz: el acento es color y subrayado (_reset.scss).
-  em {
-    font-family: var(--serif);
-    font-weight: 400;
+  &__icono {
+    flex: none;
+    width: 18px;
+    height: 12px;
+  }
+
+  &__icono--envia {
+    height: 14px;
+  }
+
+  &--primario {
+    background: var(--fb-primario);
+    color: var(--fb-on-primario);
+    box-shadow:
+      0 1px 2px color-mix(in srgb, var(--sombra) 18%, transparent),
+      0 8px 18px -10px color-mix(in srgb, var(--fb-primario) 70%, transparent);
+  }
+
+  &--secundario {
+    background: var(--fb-secundario);
+    color: var(--fb-on-secundario);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+
+  // Enviando: el botón no se apaga —el comensal tiene que ver que algo pasa—,
+  // cambia el icono por un giro y la etiqueta por «Enviando…».
+  &.is-cargando {
+    opacity: 1;
+    cursor: progress;
+  }
+
+  &__giro {
+    display: none;
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 2px solid color-mix(in srgb, currentColor 32%, transparent);
+    border-top-color: currentColor;
+    border-radius: 50%;
+  }
+
+  &.is-cargando &__giro {
+    display: block;
+    animation: fb-giro 0.75s linear infinite;
+  }
+
+  &.is-cargando &__icono {
+    display: none;
   }
 }
 
-.fb-done-sub {
-  max-width: 42ch;
-  margin: 0.9rem auto 1.75rem;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--txt-mute);
+@media (hover: hover) and (pointer: fine) {
+  .fb-btn--primario:hover {
+    background: var(--fb-primario-hover);
+  }
+
+  .fb-btn--secundario:hover {
+    background: var(--fb-secundario-hover);
+  }
 }
 
-// ── Móvil ────────────────────────────────────────────────────
+// ── Final ────────────────────────────────────────────────────
+.fb-fin {
+  padding-block: clamp(2.25rem, 7vh, 3.75rem);
+  text-align: center;
+
+  &__sello {
+    display: block;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.5rem;
+    // 3.8:1 sobre el papel: es un gráfico, no texto.
+    color: var(--feedback-ok);
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  // pathLength="1" en el marcado: el trazo entero mide 1, y dibujarlo es
+  // llevar el desfase de 1 a 0.
+  &__aro,
+  &__check {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: var(--fb-font-titular);
+    font-size: clamp(2.25rem, 1.5rem + 3vw, 3.25rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.012em;
+    color: var(--txt-strong);
+  }
+
+  &__texto {
+    max-width: 34ch;
+    margin: 0.875rem auto 0;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: var(--txt-mute);
+    text-wrap: pretty;
+  }
+
+  &__nota {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.75rem auto 0;
+    padding: 0.625rem 1rem;
+    border-radius: 999px;
+    background: var(--fb-hundido);
+    color: var(--txt);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  &__nota-icono {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    color: var(--accent-text);
+  }
+}
+
+// ── Pantallas ────────────────────────────────────────────────
 //
-// El archivo no tenía una sola @media: todo salía de clamp(). A 380px las cinco
-// etiquetas de la escala se rompían en tres líneas cada una y la fila se comía
-// la pantalla, así que ahí se ocultan — la cara ya dice lo que hay que saber, y
-// el aria-label sigue diciéndolo para quien use lector.
-@media (max-width: 420px) {
-  .fb-escala { gap: 0.15rem; }
-  .fb-face__label { display: none; }
-  .fb-face__disc { width: clamp(48px, 15vw, 60px); }
+// Teléfono: el resumen apila nombre y escala, y en lo más estrecho «Anterior»
+// se queda en su flecha (el texto sigue ahí para el lector de pantalla).
+@media (max-width: 520px) {
+  .fb-resumen__fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fb-escala--resumen {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-items: center;
+  }
+
+  .fb-btn {
+    min-width: 0;
+    padding-inline: 1.125rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .fb-face__label {
+    font-size: 0.6875rem;
+  }
+
+  .fb-nav__prev {
+    min-width: 52px;
+    padding-inline: 0;
+  }
+
+  .fb-nav__prev .fb-btn__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+// Tablet en horizontal: lo escaso es el alto. Se aprieta el ritmo vertical y
+// el isologo, para que la pregunta, las caras y los botones quepan sin scroll.
+@media (orientation: landscape) and (max-height: 760px) {
+  .fb-page {
+    --fb-iso: clamp(1.1rem, 2.6vw, 1.5rem);
+    --fb-cara-tam: clamp(52px, 10.5vh, 80px);
+
+    padding-top: max(env(safe-area-inset-top), 1rem);
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+
+  .fb-shell {
+    gap: 1rem;
+  }
+
+  .fb-card {
+    padding-block: clamp(1.25rem, 3.5vh, 1.75rem);
+  }
+
+  .fb-progreso {
+    margin-bottom: 1.25rem;
+  }
+
+  .fb-escala {
+    margin-top: 1.25rem;
+  }
+
+  .fb-nav {
+    margin-top: 0.75rem;
+    padding-top: 1rem;
+  }
+}
+
+// ── Movimiento ───────────────────────────────────────────────
+//
+// Todo lo que se DESPLAZA vive aquí dentro; fuera quedan sólo los cambios de
+// color y relleno, que no marean. Con movimiento reducido la elegida sigue
+// rellenándose y cambiando de gesto al instante —reducido no es inmóvil: la
+// señal de que se marcó tiene que llegar—, y el cambio de paso funde
+// (feedback.js).
+@media (prefers-reduced-motion: no-preference) {
+  // Entrada: el isologo como en el hero (el filete se traza desde el medallón
+  // hacia fuera, el sello entra girando) y la tarjeta sube un poco. La
+  // pregunta se puede leer a los ~200 ms: no es un peaje.
+  .fb-isologo__nombre {
+    animation: fb-aparece 0.7s var(--fb-curva) both;
+  }
+
+  .fb-isologo__medallon {
+    animation: fb-sello 0.8s var(--fb-curva) 0.2s both;
+  }
+
+  .fb-isologo__linea {
+    animation: fb-filete 0.8s var(--fb-curva) 0.3s both;
+  }
+
+  .fb-isologo__linea--izq {
+    transform-origin: right center;
+  }
+
+  .fb-isologo__linea--der {
+    transform-origin: left center;
+  }
+
+  .fb-card {
+    animation: fb-sube 0.5s var(--fb-curva) 0.08s both;
+  }
+
+  .fb-progreso__seg::after {
+    transition:
+      transform 0.36s var(--fb-curva),
+      background-color 0.24s var(--fb-curva);
+  }
+
+  .fb-alerta.is-visible {
+    animation: fb-asoma 0.22s var(--fb-curva);
+  }
+
+  // Las caras.
+  .fb-face__disc {
+    transition:
+      transform 0.2s var(--fb-curva),
+      opacity 0.2s var(--fb-curva),
+      box-shadow 0.24s var(--fb-curva);
+  }
+
+  .fb-cara__rostro {
+    transition: transform 0.28s var(--fb-curva);
+  }
+
+  .fb-cara__boca {
+    transition:
+      transform 0.24s var(--fb-curva),
+      fill 0.2s var(--fb-curva);
+  }
+
+  // Al llegar a una pregunta las cinco parpadean una vez, en ola de izquierda
+  // a derecha (--i lo pone la vista): dicen «tócame» sin quedarse moviéndose.
+  .fb-js .fb-step--active .fb-escala:not(.fb-escala--resumen) .fb-cara__ojo {
+    animation: fb-parpadeo 0.3s ease-in-out calc(0.5s + var(--i, 0) * 80ms) both;
+  }
+
+  // Bajo el dedo, la cara se hunde un poco: respuesta táctil inmediata.
+  .fb-face:active .fb-face__disc {
+    transform: scale(0.94);
+    transition-duration: 0.08s;
+  }
+
+  // El acuse: pop con rebote, una onda que sale del disco y un parpadeo.
+  // Especificidad por encima del parpadeo de llegada, para que elegir lo
+  // relance (con otro nombre de animación: el mismo no se reiniciaría).
+  .fb-face__input:checked ~ .fb-face__disc {
+    animation: fb-pop 0.42s var(--fb-curva);
+  }
+
+  .fb-face__input:checked ~ .fb-face__disc::after {
+    animation: fb-onda 0.6s var(--fb-curva);
+  }
+
+  .fb-escala .fb-face .fb-face__input:checked ~ .fb-face__disc .fb-cara__ojo {
+    animation: fb-parpadeo-elige 0.28s ease-in-out 0.12s;
+  }
+
+  .fb-fin__aro {
+    animation: fb-traza 0.6s var(--fb-curva) 0.2s both;
+  }
+
+  .fb-fin__check {
+    animation: fb-traza 0.36s var(--fb-curva) 0.62s both;
+  }
+
+  .fb-fin__titulo,
+  .fb-fin__texto,
+  .fb-fin__nota {
+    animation: fb-sube 0.45s var(--fb-curva) both;
+  }
+
+  .fb-fin__titulo { animation-delay: 0.18s; }
+  .fb-fin__texto { animation-delay: 0.26s; }
+  .fb-fin__nota { animation-delay: 0.34s; }
+
+  .fb-btn__icono {
+    transition: transform 0.2s var(--fb-curva);
+  }
+
+  .fb-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+// Puntero fino y movimiento permitido: la cara se asoma, se inclina, acentúa
+// el gesto y parpadea antes del clic. Las flechas de los botones empujan
+// hacia donde llevan.
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .fb-face:hover .fb-face__disc {
+    transform: translateY(-3px);
+  }
+
+  .fb-face:hover .fb-cara__rostro {
+    transform: rotate(var(--inclina));
+  }
+
+  .fb-escala .fb-face:hover .fb-face__disc .fb-cara__ojo {
+    animation: fb-parpadeo-hover 0.32s ease-in-out 0.05s;
+  }
+
+  .fb-btn:hover .fb-btn__icono--sigue {
+    transform: translateX(3px);
+  }
+
+  .fb-btn:hover .fb-btn__icono--vuelve {
+    transform: translateX(-3px);
+  }
+}
+
+// El giro de «Enviando…» es información, no adorno: con movimiento reducido
+// late en vez de girar.
+@media (prefers-reduced-motion: reduce) {
+  .fb-btn.is-cargando .fb-btn__giro {
+    animation: fb-latido 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes fb-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fb-sello {
+  from { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fb-filete {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+
+// `none` al final y no translateY(0): con `both` el valor final se queda
+// aplicado, y un transform distinto de none haría de la tarjeta un bloque
+// contenedor para lo fijo que hubiera dentro.
+@keyframes fb-sube {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fb-asoma {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fb-pop {
+  0% { transform: scale(0.82); }
+  55% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fb-onda {
+  0% { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+// Tres nombres para el mismo parpadeo: una animación sólo vuelve a empezar si
+// cambia su NOMBRE, y la llegada, el hover y la elección tienen que poder
+// relanzarlo cada una.
+@keyframes fb-parpadeo {
+  0%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(0.1); }
+}
+
+@keyframes fb-parpadeo-hover {
+  0%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(0.1); }
+}
+
+@keyframes fb-parpadeo-elige {
+  0%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(0.1); }
+}
+
+@keyframes fb-traza {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fb-giro {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes fb-latido {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }

@@ -122,6 +122,41 @@ class Auth {
         $_SESSION['rol']      = $usuario->rol;
     }
 
+    /**
+     * Bandera de «recién entró»: la pone el login al autenticar y la consume la
+     * primera página que se pinta después (layout del panel o shell del piso),
+     * que es la única que lleva la animación de llegada. De un solo uso, así
+     * que recargar o cambiar de módulo ya no la repite.
+     */
+    private const LLEGADA = '_llegada_pendiente';
+
+    public static function anunciarLlegada(): void {
+        self::start();
+        $_SESSION[self::LLEGADA] = true;
+    }
+
+    /**
+     * Devuelve true una sola vez por inicio de sesión.
+     *
+     * Una precarga de Speculation Rules (`Sec-Purpose: prefetch`) NO la
+     * consume: esa respuesta puede no llegar a pintarse nunca, y se llevaría la
+     * llegada de la navegación real.
+     */
+    public static function consumirLlegada(): bool {
+        if (!self::check()) {
+            return false;
+        }
+        $proposito = strtolower((string) ($_SERVER['HTTP_SEC_PURPOSE'] ?? $_SERVER['HTTP_PURPOSE'] ?? ''));
+        if (str_contains($proposito, 'prefetch')) {
+            return false;
+        }
+        if (empty($_SESSION[self::LLEGADA])) {
+            return false;
+        }
+        unset($_SESSION[self::LLEGADA]);
+        return true;
+    }
+
     public static function logout(): void {
         self::start();
         $_SESSION = [];

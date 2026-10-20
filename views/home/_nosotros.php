@@ -1,7 +1,6 @@
 <?php /* Nosotros. En lino y no en crema desde que el hero es papel crema: dos
          vecinas con el mismo tono pierden el corte (ver el ritmo en index.php). */ ?>
 <section class="section" id="nosotros" data-tono="beige" data-screen-label="Nosotros">
-  <?php echo ornamento('olivo', 'orn--seccion orn--tras-hero', true); ?>
   <div class="wrap about__grid">
     <div class="about__text">
       <div class="about__head" data-reveal>
@@ -30,16 +29,16 @@
       ninguna columna quede siendo "la de la comida".
     */ ?>
     <div class="about__media" data-reveal>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pescado fresco"><img src="/build/images/nosotros-1.webp" alt="Pescado fresco con hierbas finas" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Emplatado de la casa"><img src="/build/images/emplatado.webp" alt="Emplatado de autor con salsa" loading="lazy" /></div>
-      <div class="m arco--rebajado" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Cóctel cítrico"><img src="/build/images/nosotros-3.webp" alt="Cóctel cítrico de la casa" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Corte a la brasa"><img src="/build/images/carne.webp" alt="Corte de carne a la brasa en su punto" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Espárragos de temporada"><img src="/build/images/esparragos.webp" alt="Espárragos de temporada a la brasa" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="La fachada"><img src="/build/images/banner.webp" alt="Fachada de Casa Pestalozzi de noche" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pizza de horno de piedra"><img src="/build/images/pizza-horno.webp" alt="Pizza recién salida del horno de piedra" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Plato con bebida fresca"><img src="/build/images/nosotros-2.webp" alt="Plato con bebida fresca" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pizza y vino"><img src="/build/images/pizza-vino.webp" alt="Pizza acompañada de una copa de vino" loading="lazy" /></div>
-      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="El comedor"><img src="/build/images/mesas.webp" alt="Mesas vestidas en el comedor" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pescado fresco"><img src="/build/images/nosotros-1.webp"<?php echo srcsetImagen('/build/images/nosotros-1.webp'); ?> decoding="async" alt="Pescado fresco con hierbas finas" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Emplatado de la casa"><img src="/build/images/emplatado.webp"<?php echo srcsetImagen('/build/images/emplatado.webp'); ?> decoding="async" alt="Emplatado de autor con salsa" loading="lazy" /></div>
+      <div class="m arco--rebajado" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Cóctel cítrico"><img src="/build/images/nosotros-3.webp"<?php echo srcsetImagen('/build/images/nosotros-3.webp'); ?> decoding="async" alt="Cóctel cítrico de la casa" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Corte a la brasa"><img src="/build/images/carne.webp"<?php echo srcsetImagen('/build/images/carne.webp'); ?> decoding="async" alt="Corte de carne a la brasa en su punto" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Espárragos de temporada"><img src="/build/images/esparragos.webp"<?php echo srcsetImagen('/build/images/esparragos.webp'); ?> decoding="async" alt="Espárragos de temporada a la brasa" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="La fachada"><img src="/build/images/banner.webp"<?php echo srcsetImagen('/build/images/banner.webp'); ?> decoding="async" alt="Fachada de Casa Pestalozzi de noche" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pizza de horno de piedra"><img src="/build/images/pizza-horno.webp"<?php echo srcsetImagen('/build/images/pizza-horno.webp'); ?> decoding="async" alt="Pizza recién salida del horno de piedra" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Plato con bebida fresca"><img src="/build/images/nosotros-2.webp"<?php echo srcsetImagen('/build/images/nosotros-2.webp'); ?> decoding="async" alt="Plato con bebida fresca" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="Pizza y vino"><img src="/build/images/pizza-vino.webp"<?php echo srcsetImagen('/build/images/pizza-vino.webp'); ?> decoding="async" alt="Pizza acompañada de una copa de vino" loading="lazy" /></div>
+      <div class="m" data-portada data-parallax-img data-zoom data-zoom-cat="Nosotros" data-zoom-name="El comedor"><img src="/build/images/mesas.webp"<?php echo srcsetImagen('/build/images/mesas.webp'); ?> decoding="async" alt="Mesas vestidas en el comedor" loading="lazy" /></div>
     </div>
   </div>
 </section>

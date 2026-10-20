@@ -71,7 +71,10 @@
   min-width: 0;
   flex-direction: column;
   color: var(--admin-gold);
-  font-family: var(--logo, var(--operational-font-brand));
+  // El wordmark pide la cara del sistema administrativo por su nombre, no el
+  // `--logo` de la landing: el puente lo resolvía al mismo KudosKaps, pero el
+  // piso ya no habla con los tokens públicos.
+  font-family: var(--operational-font-brand);
   font-size: clamp(1.15rem, 1.5vw, 1.5rem);
   // KudosKaps tiene UNA sola cara, de peso 400. Sin declararlo, cualquier
   // regla que suba el peso de este enlace haría que el navegador fabricara una
@@ -102,7 +105,11 @@
   word-spacing: 0;
 }
 
-.operational-header__module {
+// `.operational-header` delante: el título es un <h1>, y `.admin-body h1`
+// (_typography.scss, 0,1,1) le ganaba a la clase sola con su cuerpo de titular
+// de página. En el selector de estación «Estaciones» salía a 51 px en Expose,
+// llenando la barra de 64 px, en vez de los 17 px de aquí.
+.operational-header .operational-header__module {
   max-width: min(34vw, 360px);
   margin: 0;
   overflow: hidden;
@@ -123,11 +130,14 @@
   letter-spacing: -0.01em;
   line-height: 1.1;
 
-  // El título es la única voz sans grande del tablero y hace pareja con los
-  // rótulos mono en versalitas de las columnas: la jerarquía documentada del
-  // panel —rótulo en mono abierto, titular en sans apretada— repartida por la
-  // pantalla en vez de apilada dentro de un bloque.
-  letter-spacing: -0.025em;
+  // Es el TITULAR del tablero y hace pareja con los rótulos mono en
+  // versalitas de las columnas: la jerarquía documentada del panel —rótulo en
+  // mono abierto, titular en Expose— repartida por la pantalla en vez de
+  // apilada dentro de un bloque. Expose se pide aquí por nombre: la base de
+  // arriba es la sans, para la barra con marca del selector de estación.
+  // El tracking es el de Expose (−0.012em); el −0.025em era el de Geist.
+  font-family: var(--admin-font-titular);
+  letter-spacing: -0.012em;
   font-weight: var(--operational-weight-bold);
 }
 

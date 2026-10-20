@@ -3,6 +3,11 @@
  * Layout general del panel de administración.
  * Compone sidebar, topbar, contenido y recursos específicos de cada módulo.
  */
+
+// Primera página tras iniciar sesión: lleva la llegada (views/components/
+// llegada.php). Se consume aquí arriba y no junto al marcado porque el <head>
+// también la necesita, para precargar la cara del nombre.
+$llegadaPendiente = \Classes\Auth::consumirLlegada();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -50,6 +55,53 @@
                     root.classList.add('admin-anim-ready');
                 }
             } catch (error) {}
+
+            // Transición entre módulos (_finishes.scss, bloque 4c). Tiene que
+            // vivir aquí: `pagereveal` se dispara antes de la primera pintura y
+            // sólo lo oye un script síncrono del <head>. Pone una CLASE y no el
+            // nombre porque el contenido aún no está parseado; la clase basta
+            // para que el CSS nombre el contenido y el enlace activo sólo
+            // mientras dura, y se retira al terminar (un nombre fijo le daría
+            // grupo propio en la transición del tema y taparía su círculo).
+            // La pareja de salida, `pageswap`, está en core/motion.js.
+            //
+            // En la página de la llegada no se registra: ahí el contenido no
+            // debe tener grupo propio, o se pintaría encima del velo.
+            var hayLlegada = <?php echo $llegadaPendiente ? 'true' : 'false'; ?>;
+            window.addEventListener('pagereveal', function (evento) {
+                var transicion = evento.viewTransition;
+                if (!transicion || hayLlegada) {
+                    return;
+                }
+                var desde = '';
+                try {
+                    var activacion = window.navigation && window.navigation.activation;
+                    desde = activacion && activacion.from && activacion.from.url
+                        ? activacion.from.url
+                        : document.referrer;
+                    // Sin origen conocido no se adivina: `new URL('')` daría la
+                    // página actual y parecería venir de un módulo.
+                    if (!desde) {
+                        return;
+                    }
+                    var url = new URL(desde, location.href);
+                    // Sólo de un módulo a otro: desde el login entra la llegada.
+                    if (url.origin !== location.origin
+                        || !/^\/admin(\/|$)/.test(url.pathname)
+                        || url.pathname === '/admin/login') {
+                        return;
+                    }
+                } catch (error) {
+                    return;
+                }
+                root.classList.add('admin-vt-entra');
+                // Ésta se queda: motion.js la lee más tarde para no repetir
+                // con sus reveals la entrada que la transición ya hizo.
+                root.classList.add('admin-entro-por-modulo');
+                try { transicion.types.add('modulo'); } catch (error) {}
+                var limpiar = function () { root.classList.remove('admin-vt-entra'); };
+                transicion.finished.then(limpiar, limpiar);
+            });
         })();
     </script>
     <?php /*
@@ -57,7 +109,8 @@
         Google Fonts en una petición bloqueante; se precargan las dos redondas,
         que son las que se ven en la primera pintura — las itálicas no.
     */ ?>
-    <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/build/fonts/expose-variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <?php /*
         El `?v=` lo pone recursoVersionado() con el mtime del archivo (includes/
@@ -69,8 +122,35 @@
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado($stylesheet), ENT_QUOTES, 'UTF-8'); ?>">
     <?php endforeach; ?>
+    <?php if ($llegadaPendiente): ?>
+        <?php /* El nombre es lo primero que se ve: viene en caché del login,
+                 pero sin la precarga podía pintarse un instante en la sans. */ ?>
+        <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
+    <?php endif; ?>
+    <?php /*
+        Precarga de los módulos del sidebar al apuntarlos (200 ms) o al pulsar.
+        PREFETCH y no prerender: prerenderizar EJECUTA la página —sus consultas,
+        sus gráficas, el sondeo del buzón— para algo que quizá no se abra; la
+        precarga sólo trae el HTML, que es lo que de verdad tarda. Sólo enlaces
+        del sidebar —GET de lectura— y nunca el módulo en el que ya se está.
+        El servidor la reconoce por `Sec-Purpose: prefetch` (Auth::consumirLlegada
+        no gasta la llegada con ella).
+    */ ?>
+    <script type="speculationrules">
+    {"prefetch": [{"where": {"and": [{"selector_matches": ".admin-sidebar__link"}, {"not": {"selector_matches": ".is-active"}}]}, "eagerness": "moderate"}]}
+    </script>
 </head>
 <body class="admin-body">
+    <?php if ($llegadaPendiente): ?>
+        <?php
+        // El sidebar lleva la marca en dos formas: el nombre apilado (abierto)
+        // y el monograma (plegado). Va primero el que antecede en el DOM; el JS
+        // usa el primero que esté a la vista. En móvil ninguno lo está.
+        $llegadaDestino = '.admin-sidebar__brand-mark, .admin-sidebar__brand-text';
+        $llegadaLugar = 'Panel de administración';
+        include __DIR__ . '/../components/llegada.php';
+        ?>
+    <?php endif; ?>
     <div class="admin-shell">
         <?php include_once __DIR__ . '/partials/_sidebar.php'; ?>
         <button

@@ -2,24 +2,25 @@
 
 namespace Controllers;
 
-use Model\Reservacion;
-use Model\TicketMesa;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
-use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\BuzonNotificacionesService;
+use Services\Reservations\ReservacionBuzonBandejaService;
 use Services\Reservations\ReservacionBuzonService;
-use Services\Scheduling\HorarioOperacionImpactoService;
-use Services\Reservations\ReservacionConfig;
-use Services\Pos\ReservacionPoliticaPosService;
-use Services\Reservations\ReservacionVigenciaService;
 
-/** API ligera del buzón flotante administrativo. */
+/**
+ * API ligera del buzón flotante administrativo.
+ *
+ * Los tres endpoints que devuelven números —resumen, sincronizar y la lista—
+ * los sacan de ReservacionBuzonBandejaService, que cuenta las TARJETAS que el
+ * cajón pinta. Contar filas de `buzon_notificaciones` es lo que dejaba el
+ * contador en «1» con la pestaña «Por atender» vacía.
+ */
 final class AdminBuzonController
 {
     public static function resumen(Router $router): void
     {
-        self::json(array_merge(['ok' => true, 'codigo' => 'BUZON_RESUMEN'], BuzonNotificacionesService::resumen()));
+        self::json(array_merge(['ok' => true, 'codigo' => 'BUZON_RESUMEN'], ReservacionBuzonBandejaService::resumen()));
     }
 
     public static function sincronizar(Router $router): void
@@ -51,118 +52,12 @@ final class AdminBuzonController
 
     public static function listar(Router $router): void
     {
-        $notificaciones = BuzonNotificacionesService::listar(['limit' => 100]);
-        $ticketsPorReservacion = [];
-        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
-        $grupos = [];
-        foreach ($notificaciones as $notificacion) {
-            $item = self::fuente($notificacion, $ticketsPorReservacion);
-            $tipo = (string)$notificacion['tipo'];
-            if ($item === null) {
-                // GET es estrictamente lectura. La reconciliación de fuentes
-                // huérfanas o resueltas vive en POST /sincronizar.
-                continue;
-            }
-            $reservacionId = (int)$item['reservacion_id'];
-            if (!isset($grupos[$reservacionId])) {
-                $grupos[$reservacionId] = [
-                    'reservacion_id' => $reservacionId,
-                    'nombre' => (string)$item['nombre'],
-                    'fecha' => (string)$item['fecha'],
-                    'hora' => (string)$item['hora'],
-                    'comensales' => (int)$item['comensales'],
-                    // El umbral es configurable: el JS no debe compararlo por
-                    // su cuenta contra un número fijo.
-                    'grupo_grande' => (int)$item['comensales'] > ReservacionConfig::umbralGrupoGrande(),
-                    'prioridad' => 'normal',
-                    'severidad' => (int)($item['severidad'] ?? 50),
-                    'leida' => true,
-                    'motivos' => [],
-                'notificaciones' => [],
-                ];
-            }
-            $grupo =& $grupos[$reservacionId];
-            $prioridad = (string)($notificacion['prioridad'] ?? 'normal');
-            if ($prioridad === 'alta') {
-                $grupo['prioridad'] = 'alta';
-            }
-            $grupo['severidad'] = min($grupo['severidad'], (int)($item['severidad'] ?? 50));
-            if (($notificacion['leida_at'] ?? null) === null) {
-                $grupo['leida'] = false;
-            }
-            $grupo['motivos'][] = [
-                'tipo' => $tipo,
-                'prioridad' => $prioridad,
-                'etiqueta' => $item['etiqueta'],
-                'descripcion' => $item['descripcion'] ?? null,
-                'estado' => $item['estado'] ?? null,
-                'severidad' => (int)($item['severidad'] ?? 50),
-            ];
-            $grupo['notificaciones'][] = [
-                'id' => (int)$notificacion['id'],
-                'tipo' => $tipo,
-                'entidad_tipo' => (string)$notificacion['entidad_tipo'],
-                'entidad_id' => (int)$notificacion['entidad_id'],
-                'prioridad' => $prioridad,
-                'leida_at' => $notificacion['leida_at'],
-                'estado' => $item['estado'] ?? null,
-                'etiqueta' => $item['etiqueta'],
-                'descripcion' => $item['descripcion'] ?? null,
-                'accion_primaria' => $item['accion_primaria'] ?? null,
-                'puede_registrar_no_show' => (bool)($item['puede_registrar_no_show'] ?? false),
-                'puede_asignar_mesas' => (bool)($item['puede_asignar_mesas'] ?? false),
-                'ventana_operativa' => $item['ventana_operativa'] ?? null,
-                'impacto_id' => $item['impacto_id'] ?? null,
-                'impacto_reservacion_id' => $item['impacto_reservacion_id'] ?? null,
-                'tiene_contacto' => $item['tiene_contacto'] ?? null,
-                'test_link_disponible' => $item['test_link_disponible'] ?? false,
-                'requiere_accion' => (bool)($item['requiere_accion'] ?? ((int)($notificacion['requiere_accion'] ?? 1) === 1)),
-                'puede_mandar_aviso' => (bool)($item['puede_mandar_aviso'] ?? false),
-                'mensaje_aviso' => $item['mensaje_aviso'] ?? null,
-                'access_expires_at' => $item['access_expires_at'] ?? null,
-                'notification_attempts' => (int)($item['notification_attempts'] ?? 0),
-            ];
-            unset($grupo);
-        }
-
-        foreach ($grupos as &$grupo) {
-            $hayAusencia = array_filter(
-                $grupo['notificaciones'],
-                static fn(array $notificacion): bool => $notificacion['tipo'] === ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE
-            );
-            if ($hayAusencia) {
-                $grupo['notificaciones'] = array_values(array_filter(
-                    $grupo['notificaciones'],
-                    static fn(array $notificacion): bool => $notificacion['tipo'] !== ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA
-                ));
-                $grupo['motivos'] = array_values(array_filter(
-                    $grupo['motivos'],
-                    static fn(array $motivo): bool => $motivo['tipo'] !== ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA
-                ));
-            }
-            usort($grupo['motivos'], static function (array $a, array $b): int {
-                return [(int)($a['severidad'] ?? 50), (string)($a['etiqueta'] ?? '')]
-                    <=> [(int)($b['severidad'] ?? 50), (string)($b['etiqueta'] ?? '')];
-            });
-        }
-        unset($grupo);
-
-        $items = array_values(array_filter($grupos, static fn(array $grupo): bool => $grupo['notificaciones'] !== []));
-        usort($items, static function (array $a, array $b): int {
-            return [$a['severidad'], $a['prioridad'] === 'alta' ? 0 : 1]
-                <=> [$b['severidad'], $b['prioridad'] === 'alta' ? 0 : 1];
-        });
-        self::json([
-            'ok' => true,
-            'codigo' => 'BUZON_LISTA',
-            'items' => $items,
-            ...BuzonNotificacionesService::resumen(),
-        ]);
+        // La lista y sus números salen de la MISMA construcción: lo que el
+        // cajón pinta es exactamente lo que el contador cuenta.
+        self::json(array_merge(
+            ['ok' => true, 'codigo' => 'BUZON_LISTA'],
+            ReservacionBuzonBandejaService::construir()
+        ));
     }
 
     public static function marcarLeida(Router $router): void
@@ -177,214 +72,6 @@ final class AdminBuzonController
             'ok' => $ok,
             'codigo' => $ok ? 'BUZON_MARCADO_LEIDO' : 'BUZON_AVISO_NO_ENCONTRADO',
         ], $ok ? 200 : 404);
-    }
-
-    /** @param array<int, array<string, mixed>> $ticketsPorReservacion */
-    private static function fuente(array $notificacion, array $ticketsPorReservacion = []): ?array
-    {
-        $tipo = (string)$notificacion['tipo'];
-        if ($tipo === ReservacionBuzonService::TIPO_HORARIO_AFECTADO) {
-            $fuente = HorarioOperacionImpactoService::obtenerPorItem((int)$notificacion['entidad_id']);
-            if (!$fuente || in_array((string)$fuente['estado'], [
-                HorarioOperacionImpactoService::ESTADO_ITEM_MANUAL,
-                HorarioOperacionImpactoService::ESTADO_ITEM_CLIENTE,
-            ], true)) {
-                return null;
-            }
-            $ahora = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
-            $expirada = (string)($fuente['access_expires_at'] ?? '') !== ''
-                && (string)$fuente['access_expires_at'] <= $ahora;
-            $tieneContacto = (bool)($fuente['tiene_contacto'] ?? false);
-            $esGrupoGrande = (int)($fuente['comensales'] ?? 0) > ReservacionConfig::umbralGrupoGrande();
-            $estadoEntrega = (string)($fuente['notification_delivery_status'] ?? 'pending');
-            $requiereAccion = !$tieneContacto
-                || $esGrupoGrande
-                || $estadoEntrega === 'failed'
-                || $expirada;
-            if ($esGrupoGrande) {
-                $fuente['etiqueta'] = 'Requiere gestión manual';
-                $fuente['descripcion'] = 'Los grupos de más de ' . ReservacionConfig::umbralGrupoGrande() . ' personas se coordinan desde la reservación.';
-                $fuente['severidad'] = 30;
-            } elseif (!$tieneContacto) {
-                $fuente['etiqueta'] = 'Falta un contacto';
-                $fuente['descripcion'] = 'Agrega un correo o teléfono para enviar el enlace.';
-                $fuente['severidad'] = 20;
-            } elseif ($estadoEntrega === 'failed') {
-                $fuente['etiqueta'] = 'No pudimos enviar el aviso.';
-                $fuente['descripcion'] = 'El acceso se invalidó. Revisa el contacto antes de reenviar el aviso.';
-                $fuente['severidad'] = 20;
-            } elseif ($estadoEntrega === 'pending') {
-                $fuente['etiqueta'] = 'Aviso preparado';
-                $fuente['descripcion'] = 'Esperando respuesta del servicio de envío.';
-                $fuente['severidad'] = 40;
-            } elseif ($expirada) {
-                $fuente['etiqueta'] = 'Sin respuesta';
-                $fuente['descripcion'] = 'El enlace para cambiar el horario venció.';
-                $fuente['severidad'] = 20;
-            } else {
-                $fuente['etiqueta'] = 'Esperando respuesta';
-                $horaExpiracion = '';
-                try {
-                    $horaExpiracion = (new \DateTimeImmutable((string)$fuente['access_expires_at'], ReservacionConfig::timezone()))->format('H:i');
-                } catch (\Throwable) {
-                    $horaExpiracion = substr((string)$fuente['access_expires_at'], 11, 5);
-                }
-                $fuente['descripcion'] = ($estadoEntrega === 'accepted' ? 'Proveedor aceptó el envío. ' : '')
-                    . 'El cliente tiene un enlace activo hasta ' . $horaExpiracion . '.';
-                $fuente['severidad'] = 50;
-            }
-            $fuente['accion_primaria'] = 'Abrir reservación';
-            $fuente['requiere_accion'] = $requiereAccion;
-            $fuente['puede_mandar_aviso'] = !$esGrupoGrande
-                && $tieneContacto
-                && (bool)($fuente['puede_mandar_aviso'] ?? false);
-            $fuente['mensaje_aviso'] = $fuente['puede_mandar_aviso']
-                ? 'Reenviar aviso'
-                : null;
-            return $fuente;
-        }
-
-        if ($tipo === ReservacionBuzonService::TIPO_REUBICADA) {
-            return self::fuenteReubicacion((int)$notificacion['entidad_id']);
-        }
-
-        if (!in_array($tipo, [
-            ReservacionBuzonService::TIPO_GRUPO_GRANDE,
-            ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE,
-            ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA,
-        ], true)) {
-            return null;
-        }
-
-        $reservacion = Reservacion::findWithMesas((int)$notificacion['entidad_id']);
-        if (!$reservacion) {
-            return null;
-        }
-        $reservacionId = (int)$reservacion->id;
-        $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
-        $estado = (string)$reservacion->estado;
-        $estadoFinal = in_array($estado, ReservacionConfig::ESTADOS_FINALES, true);
-        $sinContacto = !in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true)
-            || trim((string)($reservacion->contacto ?? '')) === '';
-        $vigencia = ReservacionVigenciaService::clasificar($reservacion, null, $ticket);
-        $politica = ReservacionPoliticaPosService::evaluar(
-            $reservacion,
-            null,
-            $ticket,
-            null,
-            ['sin_mesas' => (int)$reservacion->mesas_count === 0]
-        );
-
-        $base = [
-            'reservacion_id' => $reservacionId,
-            'nombre' => (string)$reservacion->nombre,
-            'fecha' => (string)$reservacion->fecha,
-            'hora' => substr((string)$reservacion->hora, 0, 5),
-            'comensales' => (int)$reservacion->comensales,
-            'estado' => $estado,
-            'tiene_contacto' => !$sinContacto,
-            'test_link_disponible' => false,
-            'requiere_accion' => true,
-        ];
-
-        if ($tipo === ReservacionBuzonService::TIPO_GRUPO_GRANDE) {
-            if (!ReservacionBuzonService::grupoGrandeVisibleParaBuzon($reservacion)) {
-                return null;
-            }
-            return array_merge($base, [
-                'etiqueta' => 'Requiere gestión manual',
-                'descripcion' => 'Los grupos de más de ' . ReservacionConfig::umbralGrupoGrande() . ' personas se coordinan desde la reservación.',
-                'accion_primaria' => 'Abrir reservación',
-                'requiere_accion' => true,
-                'severidad' => 30,
-            ]);
-        }
-
-        if ($tipo === ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE) {
-            if ($estado !== 'confirmada'
-                || $ticket
-                || !$vigencia['ausencia_pendiente']
-                || !$vigencia['puede_marcar_no_show']) {
-                return null;
-            }
-            return array_merge($base, [
-                'etiqueta' => 'Tolerancia vencida',
-                'descripcion' => 'El cliente no llegó dentro del tiempo de tolerancia.',
-                'accion_primaria' => 'Registrar que no llegó',
-                'puede_registrar_no_show' => true,
-                'requiere_accion' => true,
-                'severidad' => 10,
-            ]);
-        }
-
-        $fueraHorario = !HorarioOperacionService::estaAbierto(
-            (string)$reservacion->fecha,
-            (string)$reservacion->hora
-        );
-        $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? $politica['ventana_pos'] ?? 'futura');
-        if ($estado !== 'confirmada'
-            || $estadoFinal
-            || $ticket
-            || (int)$reservacion->mesas_count > 0
-            || (int)$reservacion->comensales > ReservacionConfig::umbralGrupoGrande()
-            || $vigencia['ausencia_pendiente']
-            || $fueraHorario
-            || !in_array($ventana, ['advertencia', 'bloqueo', 'tolerancia'], true)) {
-            return null;
-        }
-        return array_merge($base, [
-            'etiqueta' => 'Falta asignar mesas',
-            'descripcion' => 'La reservación comienza a las ' . substr((string)$reservacion->hora, 0, 5) . ' y todavía no tiene mesas asignadas.',
-            'accion_primaria' => 'Asignar mesas',
-            'puede_asignar_mesas' => true,
-            'requiere_accion' => true,
-            'ventana_operativa' => $ventana,
-            'severidad' => 40,
-        ]);
-    }
-
-    /**
-     * «Reubicada»: informativo. El sistema ya movió la reserva; lo que hace
-     * falta es que alguien lo sepa antes de sentar al cliente en la mesa que
-     * creía suya. Desaparece cuando se marca revisada (desde el POS) o cuando
-     * la reserva deja de estar viva.
-     */
-    private static function fuenteReubicacion(int $reubicacionId): ?array
-    {
-        $reubicacion = \Model\ReservacionReubicacion::buscarConReservacion($reubicacionId);
-        if (!$reubicacion || $reubicacion['revisada']) {
-            return null;
-        }
-        $reservacion = Reservacion::findWithMesas($reubicacion['reservacion_id']);
-        if (!$reservacion || in_array((string)$reservacion->estado, ReservacionConfig::ESTADOS_FINALES, true)) {
-            return null;
-        }
-        $nombres = [];
-        foreach (\Model\Mesa::buscarTodasParaMapa() as $mesa) {
-            $nombres[(int)$mesa->id] = (string)$mesa->nombre;
-        }
-        $describir = static function (array $ids) use ($nombres): string {
-            $lista = array_map(static fn(int $id): string => $nombres[$id] ?? ('Mesa ' . $id), $ids);
-            return $lista === [] ? 'sin mesa' : implode(' y ', $lista);
-        };
-
-        return [
-            'reservacion_id' => (int)$reservacion->id,
-            'nombre' => (string)$reservacion->nombre,
-            'fecha' => (string)$reservacion->fecha,
-            'hora' => substr((string)$reservacion->hora, 0, 5),
-            'comensales' => (int)$reservacion->comensales,
-            'estado' => (string)$reservacion->estado,
-            'tiene_contacto' => in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true),
-            'test_link_disponible' => false,
-            'etiqueta' => 'Reubicada',
-            'descripcion' => 'Pasó de ' . $describir($reubicacion['mesas_antes']) . ' a '
-                . $describir($reubicacion['mesas_despues'])
-                . ' para dar el exterior a un grupo grande. Al cliente no se le avisa.',
-            'accion_primaria' => 'Abrir reservación',
-            'requiere_accion' => false,
-            'severidad' => 60,
-        ];
     }
 
     private static function entrada(): array

@@ -443,35 +443,101 @@
     list-style: none;
   }
 
-  // El filete izquierdo es el caso MÁS urgente de la tarjeta, el mismo
-  // recurso que usa el listado del histórico para el estado. Las familias son
-  // las de .admin-badge para que filete y etiqueta digan lo mismo.
-  .estrategia-caso {
-    --caso-tono: var(--admin-border-strong);
+  // Contenedor de consulta: la tarjeta se recompone por el ancho de la lista,
+  // que cambia al plegar el sidebar sin que la ventana se entere.
+  .estrategia-resultados {
+    container: casos / inline-size;
+  }
 
-    &--danger { --caso-tono: var(--admin-c-rojo); }
-    &--warning { --caso-tono: var(--admin-c-ambar); }
-    &--info { --caso-tono: var(--admin-c-azul); }
+  // Una tarjeta por reservación, con el cuándo como ancla en el margen
+  // —la misma composición que la Agenda— y sin filete de color a la
+  // izquierda: el cliente los retiró del módulo. La urgencia la dice la
+  // etiqueta del caso principal, que va primera.
+  //
+  //   Hoy     Mariana López                         [Asignar mesas]
+  //   20:30   4 personas · Mesa 3                   [POS] [Detalle]
+  //           [Sin contacto] No recibe recordatorio…
+  .estrategia-caso > article {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    grid-template-areas:
+      "cuando cabecera"
+      "cuando motivos"
+      "cuando acciones";
+    gap: 10px 18px;
+    padding: 16px 18px 16px 12px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+  }
 
-    > article {
-      display: grid;
-      gap: 12px;
-      padding: 14px 16px;
-      border: 1px solid var(--admin-border-soft);
-      border-left: 3px solid var(--caso-tono);
-      border-radius: var(--admin-radius-sm);
-      background: var(--admin-surface);
+  .estrategia-caso__cuando {
+    grid-area: cuando;
+    margin: 0;
+
+    time {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
     }
+  }
+
+  // El día en palabras, rótulo del panel; la hora debajo, en mono grande.
+  .estrategia-caso__dia {
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    &.is-hoy {
+      padding: 2px 6px 1px;
+      border-radius: 4px;
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+    }
+  }
+
+  .estrategia-caso__hora {
+    color: var(--admin-text);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
 
   .estrategia-caso__cabecera {
     display: grid;
+    grid-area: cabecera;
     gap: 2px;
   }
 
-  .estrategia-caso__cuando {
-    color: var(--admin-muted);
-    font-size: 12px;
+  .estrategia-caso__motivos {
+    grid-area: motivos;
+  }
+
+  .estrategia-caso .estrategia-acciones {
+    grid-area: acciones;
+  }
+
+  // Con sitio, las acciones suben a la derecha del nombre: se leen junto a
+  // lo que resuelven y la tarjeta pierde un renglón.
+  @container casos (min-width: 760px) {
+    .estrategia-caso > article {
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+      grid-template-areas:
+        "cuando cabecera acciones"
+        "cuando motivos acciones";
+    }
+
+    .estrategia-caso .estrategia-acciones {
+      max-width: 22rem;
+      align-self: start;
+      justify-content: flex-end;
+    }
   }
 
   .estrategia-caso__nombre {
@@ -545,6 +611,23 @@
     // En el teléfono se toca con el dedo: los 34 px de --small no llegan.
     .estrategia-acciones .admin-btn {
       min-height: 44px;
+    }
+
+    // Sin margen para el ancla: el cuándo sube a un renglón propio.
+    .estrategia-caso > article {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "cuando"
+        "cabecera"
+        "motivos"
+        "acciones";
+      padding-left: 14px;
+    }
+
+    .estrategia-caso__cuando time {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 8px;
     }
   }
 }

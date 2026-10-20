@@ -171,6 +171,13 @@
   }
 }
 
+// La palabra de cada acceso va en su propia caja para el imán (magnetic.js):
+// se desplaza dentro del enlace con menos recorrido que él. inline-block
+// porque una caja en línea no admite `translate`.
+.hero__nav-texto {
+  display: inline-block;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero__nav-enlace,
   .hero__nav-enlace::after {
@@ -518,6 +525,164 @@
   animation: hero-destello 3.6s ease-in-out 2s infinite both;
 }
 
+// ── Más vida en la mesa ──────────────────────────────────────
+//
+// Lo que se sumó para que la mesa se sienta servida y no dibujada: una vela
+// que tiembla, ondas en el vino, un destello que recorre el cuchillo, vapor
+// también sobre el cuenco y migas que saltan. Las reglas para que no parezca
+// un bucle mecánico:
+//
+//   · Cada pieza tiene su periodo y ninguno es múltiplo de otro (2.6, 3.7,
+//     5.3, 7.6, 7.9, 9.8 s), con retrasos repartidos: los ciclos casi nunca
+//     coinciden y la mesa no «late» toda a la vez.
+//   · Lo que pasa de vez en cuando (el destello, las ondas, las migas) ocupa
+//     una fracción corta de su ciclo y el resto descansa: un gesto, no un
+//     parpadeo continuo.
+//   · Todo con transform y opacity, en la línea del dibujo (verde, oro y
+//     crema; nada de brillos que no estén en la paleta).
+//
+// Y reaccionan al puntero (--hero-px / --hero-py, de -1 a 1, initMesaPuntero):
+// el vapor y la llama se inclinan lejos de él, como empujados por el aire que
+// mueve la mano; el vino se escora un poco hacia él, y la pasta, que está más
+// alta que el plato, se desplaza más que la mesa. Con el scroll, al salir el
+// hero, la pasta da un cuarto de vuelta en su plato.
+
+// El vapor se inclina con un sesgo desde su base: lo de arriba se aparta más.
+.hero-vapores {
+  transform-box: view-box;
+  transform-origin: 320px 340px;
+  transform: skewX(calc(var(--hero-px, 0) * 10deg));
+  transition: transform 1.2s var(--hero-curva);
+
+  &--cuenco { transform-origin: 500px 600px; }
+}
+
+.hero-vino {
+  translate: calc(var(--hero-px, 0) * 3px) calc(var(--hero-py, 0) * 3px);
+  transition: translate 1.4s var(--hero-curva);
+}
+
+// La onda se abre desde el centro de la copa y se apaga antes de tocar el
+// borde del vino. El trazo no engorda al escalar (non-scaling-stroke).
+.hero-onda {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-onda 9.8s ease-out 2.6s infinite;
+}
+
+// La pasta: la propiedad `translate` para el puntero y `transform` para el
+// giro con el scroll; se componen sin pisarse.
+.hero-plato {
+  transform-box: view-box;
+  transform-origin: 320px 392px;
+  translate: calc(var(--hero-px, 0) * 5px) calc(var(--hero-py, 0) * 5px);
+  transition: translate 0.9s var(--hero-curva);
+}
+
+@supports (animation-timeline: view()) {
+  .hero { view-timeline-name: --hero-salida; }
+
+  .hero-plato {
+    animation: hero-plato-gira linear both;
+    animation-timeline: --hero-salida;
+    animation-range: exit 0% exit 100%;
+  }
+}
+
+// El destello del cuchillo: la franja baja por la hoja (recortada por su
+// silueta) y en la punta salta una chispa. Mismo periodo y retraso para las
+// dos: van juntas.
+.hero-filo {
+  opacity: 0;
+  animation: hero-filo 7.6s ease-in-out 3.2s infinite;
+}
+
+.hero-filo-chispa {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-filo-chispa 7.6s ease-out 3.2s infinite;
+}
+
+// La vela. La llama tiembla sobre su pabilo con un ritmo irregular, y su
+// eje se inclina con el puntero (`rotate`, que se compone con el temblor).
+.hero-llama-eje {
+  transform-box: view-box;
+  transform-origin: 580px 350px;
+  rotate: calc(var(--hero-px, 0) * -12deg);
+  transition: rotate 1.1s var(--hero-curva);
+}
+
+.hero-llama {
+  transform-box: view-box;
+  transform-origin: 580px 350px;
+  animation: hero-llama 2.6s ease-in-out 1.9s infinite;
+}
+
+.hero-halo {
+  opacity: 0.7;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-halo 3.7s ease-in-out 2.2s infinite both;
+
+  &--lejos {
+    animation-duration: 5.3s;
+    animation-delay: 1.1s;
+    animation-direction: reverse;
+  }
+}
+
+.hero-miga {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-miga 7.9s ease-in-out 2.6s infinite;
+}
+
+@keyframes hero-onda {
+  0% { opacity: 0; transform: scale(0.4); }
+  4% { opacity: 0.9; }
+  40%, 100% { opacity: 0; transform: scale(3.8); }
+}
+
+@keyframes hero-plato-gira {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(52deg); }
+}
+
+@keyframes hero-filo {
+  0% { opacity: 0; transform: translateY(-32px); }
+  3% { opacity: 0.75; }
+  15% { opacity: 0.75; transform: translateY(100px); }
+  17%, 100% { opacity: 0; transform: translateY(104px); }
+}
+
+@keyframes hero-filo-chispa {
+  0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  4% { opacity: 1; transform: scale(1) rotate(45deg); }
+  11%, 100% { opacity: 0; transform: scale(0.3) rotate(90deg); }
+}
+
+@keyframes hero-llama {
+  0%, 100% { transform: scale(1, 1) skewX(0deg); }
+  18% { transform: scale(0.96, 1.1) skewX(-3deg); }
+  33% { transform: scale(1.03, 0.94) skewX(2deg); }
+  52% { transform: scale(0.98, 1.07) skewX(-1.5deg); }
+  70% { transform: scale(1.02, 0.97) skewX(3deg); }
+  86% { transform: scale(0.97, 1.05) skewX(-1deg); }
+}
+
+@keyframes hero-halo {
+  0%, 100% { opacity: 0.45; transform: scale(0.92) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.05) rotate(18deg); }
+}
+
+@keyframes hero-miga {
+  0%, 86%, 94%, 100% { transform: translateY(0); }
+  90% { transform: translateY(-4px); }
+  96.5% { transform: translateY(-1.5px); }
+}
+
 @keyframes hero-sube {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -631,7 +796,11 @@
   .hero__medallon-puntos,
   .hero__rama-mecer,
   .hero-orbita,
-  .hero-destello {
+  .hero-destello,
+  .hero-llama,
+  .hero-halo,
+  .hero-miga,
+  .hero-plato {
     animation: none;
   }
 
@@ -639,14 +808,26 @@
   // vuelo o una mota de harina suspendida se leen como manchas.
   .hero-deriva,
   .hero-harina,
-  .hero__chispa {
+  .hero__chispa,
+  .hero-onda,
+  .hero-filo,
+  .hero-filo-chispa {
     display: none;
   }
 
   .hero__ilustracion,
-  .hero-vivo {
+  .hero-vivo,
+  .hero-vapores {
     transition: none;
     transform: none;
+  }
+
+  .hero-vino,
+  .hero-plato,
+  .hero-llama-eje {
+    transition: none;
+    translate: none;
+    rotate: none;
   }
 
   .hero-dibujo { stroke-dasharray: none; }
@@ -678,14 +859,30 @@
   .hero__medallon-puntos,
   .hero__rama-mecer,
   .hero-orbita,
-  .hero-destello {
+  .hero-destello,
+  .hero-llama,
+  .hero-halo,
+  .hero-miga,
+  .hero-plato {
     animation: none;
   }
 
   .hero-deriva,
   .hero-harina,
-  .hero__chispa {
+  .hero__chispa,
+  .hero-onda,
+  .hero-filo,
+  .hero-filo-chispa {
     display: none;
+  }
+
+  .hero-vapores { transform: none; }
+
+  .hero-vino,
+  .hero-plato,
+  .hero-llama-eje {
+    translate: none;
+    rotate: none;
   }
 
   .hero-dibujo { stroke-dasharray: none; }
@@ -709,7 +906,13 @@
   .hero-orbita,
   .hero-deriva,
   .hero-harina,
-  .hero-destello {
+  .hero-destello,
+  .hero-llama,
+  .hero-halo,
+  .hero-onda,
+  .hero-filo,
+  .hero-filo-chispa,
+  .hero-miga {
     animation-play-state: paused;
   }
 }

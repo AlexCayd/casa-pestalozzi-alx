@@ -115,7 +115,6 @@ function boot() {
   initMarcaHero();
   initMesaViva();
   initMesaPuntero();
-  initOrnamentos();
 
   if (window.gsap && window.ScrollTrigger) {
     heroIntro();

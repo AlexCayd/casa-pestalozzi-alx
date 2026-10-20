@@ -24,7 +24,7 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
     <meta name="robots" content="noindex, nofollow">
     <title><?php echo $h($pageTitle); ?> · Casa Pestalozzi</title>
     <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
-    <link rel="stylesheet" href="/build/css/app.css?v=reservation-management-v1">
+    <link rel="stylesheet" href="<?php echo s(recursoVersionado('/build/css/app.css')); ?>">
     <?php /* Paleta editable desde Configuración: va DESPUÉS de app.css para ganarle por orden. */ echo \Services\Configuration\PaletaLanding::estiloEnLinea(); ?>
 </head>
 <body class="schedule-change-page reserva">
@@ -189,6 +189,6 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
     </main>
 
     <footer class="schedule-change-footer">Casa Pestalozzi · Tu visita, a su tiempo.</footer>
-    <script src="/build/js/bundle.min.js?v=reservation-management-v1" defer></script>
+    <script src="<?php echo s(recursoVersionado('/build/js/bundle.min.js')); ?>" defer></script>
 </body>
 </html>

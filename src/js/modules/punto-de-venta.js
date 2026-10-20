@@ -331,6 +331,7 @@ function initMapa() {
     up:       '<path d="M12 19.5V5"/><path d="m6 11 6-6 6 6"/>',
     down:     '<path d="M12 4.5V19"/><path d="m6 13 6 6 6-6"/>',
     minus:    '<path d="M5.5 12h13"/>',
+    close:    '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
     plus:     '<path d="M5.5 12h13"/><path d="M12 5.5v13"/>'
   };
 
@@ -2594,7 +2595,13 @@ function initMapa() {
 
     var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">Corte de caja</span>';
-    h += '<span class="mmodal-title-cliente">— ' + escHtml(data.fecha || '') + '</span>';
+    // La fecha en cristiano («Lunes 19 de octubre»), no el ISO del contrato:
+    // es la regla del cajón (CLAUDE.md) y la tabla ya vive en PosReservaVista,
+    // que viaja antes que este archivo en map.js.
+    var fechaCaja = data.fecha && window.PosReservaVista && typeof window.PosReservaVista.fechaLarga === 'function'
+      ? window.PosReservaVista.fechaLarga(data.fecha)
+      : (data.fecha || '');
+    h += '<span class="mmodal-title-cliente">— ' + escHtml(fechaCaja) + '</span>';
     h += '</div></div>';
 
     h += '<div class="mmodal-caja">';
@@ -3915,26 +3922,35 @@ function initMapa() {
     // La tarjeta entera es el botón de agregar: en tablet apuntarle a un "+"
     // de 20px cuesta más que tocar la fila completa. Es un <button> real para
     // que el teclado y el foco funcionen sin replicarlos a mano.
+    //
+    // Las tarjetas con opciones ya NO llevan la pastilla «Opciones»/«Elegir»:
+    // el cliente la retiró porque la hoja se abre sola al tocar, y en una
+    // rejilla de tres columnas la pastilla era lo que más ancho pedía y lo que
+    // partía los nombres. Para quien navega con lector, `aria-haspopup` dice
+    // que el toque abre un diálogo en vez de sumar al pedido.
     for (var i = 0; i < lista.length; i++) {
       var dish = lista[i];
       var conOpciones = tieneOpciones(dish);
       var row  = document.createElement('button');
       row.type = 'button';
       row.className = 'mmodal-dish-row' + (conOpciones ? ' mmodal-dish-row--opciones' : '');
-      row.setAttribute('aria-label', (conOpciones ? 'Elegir opciones de ' : 'Agregar ') + dish.n);
+      row.setAttribute('aria-label', 'Agregar ' + dish.n + ', ' + dineroCorto(dish.p) +
+        (conOpciones ? ', con opciones' : ''));
+      if (conOpciones) row.setAttribute('aria-haspopup', 'dialog');
       row.innerHTML =
-        '<div class="mmodal-dish-info">' +
-          '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
-        '</div>' +
-        '<span class="mmodal-dish-price">$' + dish.p + '</span>' +
-        // Las opciones se anuncian ANTES del toque: si la fila abriera un
-        // selector sin avisar, el mesero que espera agregar de un golpe lo
-        // leería como un error.
-        (conOpciones ? '<span class="mmodal-dish-opts">' + svgIcon('sliders', 12) + '<span>' +
-          (opcionesObligatorias(dish) ? 'Elegir' : 'Opciones') + '</span></span>' : '');
+        '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
+        '<span class="mmodal-dish-price">' + dineroCorto(dish.p) + '</span>';
 
       (function(d, boton) {
         boton.addEventListener('click', function() {
+          // Todo platillo con grupos abre la hoja, también si TODOS traen
+          // predeterminada (el Cappuccino: entera, regular, sin jarabe). Se
+          // decidió así con el cliente: «abre el modal en cuanto se elige el
+          // platillo». Lo normal sigue costando un toque más —la hoja nace con
+          // lo predeterminado marcado y el foco en «Agregar»—, y a cambio el
+          // mesero ve SIEMPRE qué se puede pedir distinto antes de que la
+          // comanda salga; agregar directo escondía las opciones justo en los
+          // platillos que más las piden.
           if (tieneOpciones(d)) {
             abrirOpciones(d, { comensal: selectedComensal, origen: boton });
             return;
@@ -4064,9 +4080,22 @@ function initMapa() {
     return '$' + (v % 1 === 0 ? v : v.toFixed(2));
   }
 
+  /*
+   * La cuenta del precio con opciones: base del platillo más el ajuste de cada
+   * opción elegida. Es la MISMA que acaba en el carrito (item.p, y de ahí
+   * item.p × qty en el subtotal), así que el botón de la hoja y la fila del
+   * pedido no pueden discrepar. Sigue siendo orientativa: el servidor la
+   * recalcula en enviarComanda (Variantes::resolver).
+   *
+   * Un grupo obligatorio sin elegir no suma nada, pero su opción más barata es
+   * un piso real: `minimo` lo incluye, para poder decir «desde $X» mientras
+   * falta la elección. `exacto` dice si ya no puede moverse.
+   */
   function resumenOpciones() {
     var h = opcionesHoja;
     var delta = 0;
+    var minimoFaltante = 0;
+    var exacto = true;
     var ids = [];
     var etiqueta = [];
     var faltan = [];
@@ -4075,13 +4104,53 @@ function initMapa() {
       var op = gr.o.filter(function(o) { return o.id === id; })[0];
       if (!op) {
         faltan.push(gr.n);
+        var deltas = gr.o.length ? gr.o.map(function(o) { return Number(o.d) || 0; }) : [0];
+        var menor = Math.min.apply(null, deltas);
+        minimoFaltante += menor;
+        if (Math.max.apply(null, deltas) !== menor) exacto = false;
         return;
       }
       ids.push(op.id);
       delta += Number(op.d) || 0;
       if (!op.def) etiqueta.push(op.n);
     });
-    return { ids: ids, label: etiqueta.join(' · '), precio: (Number(h.dish.p) || 0) + delta, faltan: faltan };
+    var precio = (Number(h.dish.p) || 0) + delta;
+    return {
+      ids: ids,
+      label: etiqueta.join(' · '),
+      precio: precio,
+      minimo: precio + minimoFaltante,
+      exacto: exacto,
+      faltan: faltan
+    };
+  }
+
+  /*
+   * El botón principal de la hoja: verbo a la izquierda y precio a la derecha.
+   * El precio va SIEMPRE, también mientras falta un grupo obligatorio —antes
+   * ese estado decía «Elige término» y nada más, y era justo cuando el mesero
+   * quería saber cuánto iba a costar—. Al editar una línea con varias
+   * unidades lo dice («2 × $90»): cambiar las opciones cambia todas a la vez,
+   * y sin el multiplicador eso sólo se descubría en el subtotal.
+   */
+  function botonConfirmarOpciones(h, r) {
+    var editando = h.ctx.editIdx !== undefined;
+    var item = editando ? commandaItems[h.ctx.editIdx] : null;
+    var qty = item && item.qty > 1 ? item.qty : 1;
+    var verbo = r.faltan.length
+      ? 'Elige ' + r.faltan[0].toLowerCase()
+      : (editando ? 'Guardar' : 'Agregar');
+    var precio = r.faltan.length && !r.exacto
+      ? 'desde ' + dineroCorto(r.minimo)
+      : dineroCorto(r.faltan.length ? r.minimo : r.precio);
+    if (qty > 1) precio = qty + ' \xD7 ' + precio;
+    return '<button type="button" class="mmodal-btn mmodal-btn--primary mmodal-opts__confirmar" data-opts-confirmar' +
+      (r.faltan.length ? ' disabled' : '') + '>' +
+      // El espacio entre los dos <span> no se ve (es un flex) pero hace que
+      // el nombre accesible sea «Agregar $90» y no «Agregar$90».
+      '<span class="mmodal-opts__verbo">' + escHtml(verbo) + '</span> ' +
+      '<span class="mmodal-opts__precio">' + escHtml(precio) + '</span>' +
+      '</button>';
   }
 
   function pintarOpciones(enfocar) {
@@ -4117,9 +4186,8 @@ function initMapa() {
       '<p class="mmodal-opts__resumen">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</p>' +
       '<div class="mmodal-opts__acciones">' +
       '<button type="button" class="mmodal-btn mmodal-btn--ghost" data-opts-cerrar>Cancelar</button>' +
-      '<button type="button" class="mmodal-btn mmodal-btn--primary" data-opts-confirmar' + (r.faltan.length ? ' disabled' : '') + '>' +
-      (r.faltan.length ? 'Elige ' + escHtml(r.faltan[0].toLowerCase()) : (h.ctx.editIdx !== undefined ? 'Guardar · ' : 'Agregar · ') + dineroCorto(r.precio)) +
-      '</button></div></div>';
+      botonConfirmarOpciones(h, r) +
+      '</div></div>';
     h.card.innerHTML = html;
 
     if (enfocar) {
@@ -4181,6 +4249,7 @@ function initMapa() {
       item.v = r.ids;
       item.vl = r.label;
       item.p = r.precio;
+      var queda = item;
       // Si el cambio la deja igual a otra línea del mismo comensal, se funden.
       for (var i = 0; i < commandaItems.length; i++) {
         var otra = commandaItems[i];
@@ -4188,12 +4257,17 @@ function initMapa() {
           otra.qty += item.qty;
           if (!otra.nota && item.nota) otra.nota = item.nota;
           commandaItems.splice(commandaItems.indexOf(item), 1);
+          queda = otra;
           break;
         }
       }
-      cerrarOpciones();
+      // El foco no vuelve al origen: el repintado del pedido lo destruye. Va
+      // a la fila que quedó —la misma o aquella con la que se fundió—.
+      cerrarOpciones(false);
       renderComandaCart();
       updateEnviarBtn();
+      var filaQueda = modalContent.querySelector('[data-editar-opciones="' + commandaItems.indexOf(queda) + '"]');
+      if (filaQueda) filaQueda.focus();
       return;
     }
     var comensal = typeof h.ctx.comensal === 'number' ? h.ctx.comensal : selectedComensal;
@@ -4372,24 +4446,48 @@ function initMapa() {
       (function(item, idx) {
         var comLabel = item.comensal === 0 ? 'G' : 'C.' + item.comensal;
         var row = document.createElement('div');
-        row.className = 'mmodal-cart-row';
         var dishCart = buscarDishPorNombre(item.n);
-        row.innerHTML =
-          '<span class="mmodal-cart-name">' + escHtml(item.n) +
-            (item.vl ? '<span class="mmodal-cart-variante">' + escHtml(item.vl) + '</span>' : '') +
-            // El nombre accesible dice de QUÉ platillo: en un pedido con tres
-            // cappuccinos, cinco «Cambiar» seguidos no se distinguen en voz.
-            (tieneOpciones(dishCart) ? '<button type="button" class="mmodal-cart-cambiar" data-cambiar-opciones="' + idx + '"' +
-              ' aria-label="' + (item.vl ? 'Cambiar opciones de ' : 'Opciones de ') + escHtml(item.n) + '">' +
-              svgIcon('sliders', 12) + '<span>' + (item.vl ? 'Cambiar' : 'Opciones') + '</span></button>' : '') +
+        // Sólo lo que AÚN no se envía se edita así: este carrito es el pedido
+        // en preparación. Lo enviado vive en «Estado del ticket» y ahí ya no se
+        // cambia: la comanda está en la cocina.
+        var editable = tieneOpciones(dishCart);
+        row.className = 'mmodal-cart-row' + (editable ? ' mmodal-cart-row--editable' : '');
+
+        // La pista va pegada al NOMBRE, antes de la opción: la opción es un
+        // bloque propio y detrás de ella la pista caía sola a otro renglón.
+        var nombreHtml = '<span class="mmodal-cart-name__texto">' + escHtml(item.n) +
+            (editable ? '<span class="mmodal-cart-name__pista">' + svgIcon('sliders', 13) + '</span>' : '') +
           '</span>' +
-          '<span class="mmodal-cart-comensal">' + comLabel + '</span>' +
-          '<div class="mmodal-cart-controls">' +
-            '<button data-idx="' + idx + '" data-op="dec" aria-label="Quitar uno">' + svgIcon('minus', 14) + '</button>' +
-            '<span>' + item.qty + '</span>' +
-            '<button data-idx="' + idx + '" data-op="inc">+</button>' +
-          '</div>' +
-          '<span class="mmodal-cart-subtotal">$' + (item.p * item.qty) + '</span>';
+          (item.vl ? '<span class="mmodal-cart-variante">' + escHtml(item.vl) + '</span>' : '');
+        /*
+         * Toda la fila abre las opciones; el BOTÓN es el nombre. Así el
+         * teclado y el lector tienen un control real —con Enter, Espacio y
+         * foco propios— y el dedo tiene la fila entera, que es lo que
+         * sustituye al «Cambiar» que vivía aquí. El nombre accesible empieza
+         * por lo que se ve escrito y dice de QUÉ platillo: en un pedido con
+         * tres cappuccinos, tres «Cambiar opciones» seguidos no se distinguen.
+         * Los deslizadores son una pista, no un botón: en tablet no hay hover
+         * que delate que la fila se puede tocar.
+         */
+        var nombre = editable
+          ? '<button type="button" class="mmodal-cart-name mmodal-cart-name--editable" data-editar-opciones="' + idx + '"' +
+              ' aria-haspopup="dialog" aria-label="' +
+              escHtml(item.n + (item.vl ? ', ' + item.vl : '') + '. Cambiar opciones') + '">' +
+              nombreHtml +
+            '</button>'
+          : '<span class="mmodal-cart-name">' + nombreHtml + '</span>';
+
+        row.innerHTML =
+          nombre +
+          '<span class="mmodal-cart-subtotal">' + dineroCorto(item.p * item.qty) + '</span>' +
+          '<div class="mmodal-cart-meta">' +
+            '<span class="mmodal-cart-comensal">' + comLabel + '</span>' +
+            '<div class="mmodal-cart-controls">' +
+              '<button type="button" data-idx="' + idx + '" data-op="dec" aria-label="Quitar uno de ' + escHtml(item.n) + '">' + svgIcon('minus', 14) + '</button>' +
+              '<span class="mmodal-cart-qty">' + item.qty + '</span>' +
+              '<button type="button" data-idx="' + idx + '" data-op="inc" aria-label="Sumar uno de ' + escHtml(item.n) + '">' + svgIcon('plus', 14) + '</button>' +
+            '</div>' +
+          '</div>';
 
         // Nota toggle
         var noteToggle = document.createElement('button');
@@ -4397,7 +4495,20 @@ function initMapa() {
         noteToggle.type = 'button';
         noteToggle.innerHTML = svgIcon('pencil', 13) + '<span>Nota</span>' +
         (item.nota ? svgIcon('check', 13) : '');
-        row.appendChild(noteToggle);
+        row.querySelector('.mmodal-cart-meta').appendChild(noteToggle);
+
+        if (editable) {
+          // Un toque en cualquier parte de la fila que NO sea otro control
+          // (cantidad, nota, el campo de la nota) abre la hoja. Se filtra por
+          // ancestro y no con stopPropagation en cada control: los +/− se
+          // repintan y re-enlazan a cada toque, y bastaba olvidar uno.
+          row.addEventListener('click', function(e) {
+            var nombreBtn = row.querySelector('[data-editar-opciones]');
+            var otro = e.target.closest('button, textarea, input, select, a, .mmodal-cart-nota-wrap');
+            if (otro && otro !== nombreBtn) return;
+            abrirEdicionOpciones(idx, nombreBtn);
+          });
+        }
 
         var noteWrap = document.createElement('div');
         noteWrap.className = 'mmodal-cart-nota-wrap';
@@ -4424,25 +4535,14 @@ function initMapa() {
       })(commandaItems[i], i);
     }
 
-    var cambiarBtns = cartEl.querySelectorAll('[data-cambiar-opciones]');
-    for (var k = 0; k < cambiarBtns.length; k++) {
-      (function(btn) {
-        btn.addEventListener('click', function() {
-          var idx = parseInt(btn.getAttribute('data-cambiar-opciones'), 10);
-          var item = commandaItems[idx];
-          var dish = item ? buscarDishPorNombre(item.n) : null;
-          if (dish) abrirOpciones(dish, { editIdx: idx, ids: item.v || [], comensal: item.comensal, origen: btn });
-        });
-      })(cambiarBtns[k]);
-    }
-
     // Rebind +/- en carrito
     var ctrlBtns = cartEl.querySelectorAll('button[data-op]');
     for (var j = 0; j < ctrlBtns.length; j++) {
       (function(btn) {
         btn.addEventListener('click', function() {
           var idx = parseInt(btn.dataset.idx, 10);
-          if (btn.dataset.op === 'dec') {
+          var op = btn.dataset.op;
+          if (op === 'dec') {
             if (commandaItems[idx].qty > 1) commandaItems[idx].qty--;
             else commandaItems.splice(idx, 1);
           } else {
@@ -4450,9 +4550,20 @@ function initMapa() {
           }
           renderComandaCart();
           updateEnviarBtn();
+          // El repintado se lleva el botón pulsado: sin esto quien suma con el
+          // teclado perdía el foco a cada pulsación y volvía a empezar desde
+          // el principio del modal.
+          var mismo = cartEl.querySelector('button[data-idx="' + idx + '"][data-op="' + op + '"]');
+          if (mismo) mismo.focus();
         });
       })(ctrlBtns[j]);
     }
+  }
+
+  function abrirEdicionOpciones(idx, origen) {
+    var item = commandaItems[idx];
+    var dish = item ? buscarDishPorNombre(item.n) : null;
+    if (dish) abrirOpciones(dish, { editIdx: idx, ids: item.v || [], comensal: item.comensal, origen: origen });
   }
 
   function updateEnviarBtn() {
@@ -4645,9 +4756,12 @@ function initMapa() {
             var entBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
               ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">' + svgIcon('check', 13) + '<span>Entregar</span></button>'
               : '';
+            // El aspa era el carácter «×»: lo pintaba la fuente, sin nombre
+            // accesible, y a 12 px se quedaba fuera del centro de su círculo.
             var cancelBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
-              ? '<button class="mmodal-cancel-btn" data-id="' + row.id +
-                '" data-nombre="' + escHtml(row.nombre) + '">×</button>'
+              ? '<button type="button" class="mmodal-cancel-btn" data-id="' + row.id +
+                '" data-nombre="' + escHtml(row.nombre) + '" aria-label="Cancelar ' + escHtml(row.nombre) + '">' +
+                svgIcon('close', 12) + '</button>'
               : '';
             var notaHtml = (row.variante
               ? '<span class="mmodal-resumen-variante">' + escHtml(row.variante) + '</span>'
@@ -4664,7 +4778,10 @@ function initMapa() {
                     notaHtml + '</span>' +
                     '<span class="mmodal-confirm-item-qty">\xD7' + row.cantidad + '</span>' +
                     '<span class="mmodal-confirm-item-price">$' + Math.round(row.precio * row.cantidad) + '</span>' +
-                    cancelBtn + entBtn +
+                    // Las acciones van juntas en su propio piso de la rejilla
+                    // (ver .mmodal-confirm-item): en fila con el precio se
+                    // salían de la columna en una tablet a 1024.
+                    (cancelBtn || entBtn ? '<span class="mmodal-confirm-item-acciones">' + cancelBtn + entBtn + '</span>' : '') +
                     '</div>';
           }
         }

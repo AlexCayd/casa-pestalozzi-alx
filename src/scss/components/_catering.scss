@@ -31,6 +31,12 @@
   box-shadow: 0 10px 30px color-mix(in srgb, var(--sombra) 34%, transparent);
 }
 
+// En un teléfono el relleno de escritorio (3rem por lado) partía «Cotizar por
+// WhatsApp» en dos renglones a 360 px. Va con el de los demás .btn-line.
+@media (max-width: 600px) {
+  .catering__cta { padding-inline: 1.5rem; }
+}
+
 .catering__cta-nota {
   font-family: var(--sans);
   // Regular: la light es del párrafo destacado (.lead), no de una nota.

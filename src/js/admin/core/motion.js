@@ -39,6 +39,29 @@
 
         var els = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
 
+        /*
+         * Si se llegó desde otro módulo con View Transition, lo que está a la
+         * vista ya entró: el contenido subió con la transición (_finishes.scss,
+         * 4c). Revelarlo otra vez lo hacía desaparecer y volver a subir medio
+         * segundo después. Se da por entrado sólo lo del primer pliegue; lo de
+         * más abajo conserva su reveal al hacer scroll.
+         */
+        if (root.classList.contains('admin-entro-por-modulo')) {
+            var alto = window.innerHeight;
+            // Primero todas las lecturas y luego las escrituras: intercaladas,
+            // cada clase invalidaría el estilo y la siguiente medida forzaría
+            // un layout por tarjeta.
+            var arriba = els.map(function (el) {
+                return el.getBoundingClientRect().top < alto;
+            });
+            els = els.filter(function (el, i) {
+                if (arriba[i]) {
+                    el.classList.add('is-in');
+                }
+                return !arriba[i];
+            });
+        }
+
         if (!els.length) {
             showEverything();
             return;
@@ -407,12 +430,91 @@
         }
     }
 
+    /*
+     * Transición entre módulos: la mitad de SALIDA (la de entrada vive en el
+     * <head> del layout, porque `pagereveal` sólo lo oye un script síncrono).
+     *
+     * Pone una clase en <html> y el CSS (_finishes.scss, 4c) nombra con ella el
+     * contenido y el enlace activo del sidebar. Sólo si el destino es otro
+     * módulo del panel: salir al login o al POS es un cambio de pantalla
+     * entera, y ahí sigue bastando el fundido de raíz.
+     *
+     * La clase se retira al terminar y otra vez en `pageshow`: si se vuelve con
+     * el botón atrás, la página sale de la bfcache tal como se fue, y con la
+     * clase puesta el contenido conservaría su nombre — y su grupo propio en
+     * la transición del tema.
+     */
+    function esModuloDelPanel(url) {
+        try {
+            var destino = new URL(url, window.location.href);
+            return destino.origin === window.location.origin
+                && /^\/admin(\/|$)/.test(destino.pathname)
+                && destino.pathname !== '/admin/login';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function initSalidaDeModulo() {
+        function limpiar() {
+            root.classList.remove('admin-vt-sale');
+        }
+
+        window.addEventListener('pageswap', function (evento) {
+            var transicion = evento.viewTransition;
+            var entrada = evento.activation && evento.activation.entry;
+            if (!transicion || !entrada || !entrada.url || !esModuloDelPanel(entrada.url)) {
+                return;
+            }
+            root.classList.add('admin-vt-sale');
+            transicion.finished.then(limpiar, limpiar);
+        });
+
+        window.addEventListener('pageshow', limpiar);
+    }
+
+    /*
+     * Primera página tras el login: los reveals esperan a que el velo de la
+     * llegada empiece a abrirse (src/js/components/llegada.js). Sin esto
+     * suben DEBAJO del velo, donde nadie los ve, y el panel aparece ya quieto.
+     * Con él, las tarjetas suben mientras el velo se cierra sobre la marca. El
+     * plazo es un salvavidas por si la llegada no avisa.
+     */
+    function trasLaLlegada(continuar) {
+        var capa = document.querySelector('[data-llegada]');
+        var fase = capa ? capa.getAttribute('data-llegada-fase') : 'fin';
+        if (!capa || fase === 'sale' || fase === 'fin') {
+            continuar();
+            return;
+        }
+
+        var hecho = false;
+        function una() {
+            if (hecho) {
+                return;
+            }
+            hecho = true;
+            document.removeEventListener('cp-llegada:sale', una);
+            document.removeEventListener('cp-llegada:fin', una);
+            continuar();
+        }
+
+        document.addEventListener('cp-llegada:sale', una);
+        document.addEventListener('cp-llegada:fin', una);
+        window.setTimeout(una, 2200);
+    }
+
     function boot() {
+        // Fuera de la rama de movimiento: con movimiento reducido el
+        // `@view-transition` ya está apagado y `pageswap` llega sin transición,
+        // así que no hace nada; registrarlo igual no cuesta.
+        initSalidaDeModulo();
+
         if (reduce) {
             showEverything();
             return;
         }
-        initReveals();
+        trasLaLlegada(initReveals);
         initSpotlight();
         initMagnetic();
         initSmoothScroll();

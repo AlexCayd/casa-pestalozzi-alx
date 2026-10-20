@@ -73,3 +73,32 @@
 @media (max-width: 900px), (pointer: coarse) {
   .cursor-dot, .cursor-ring { display: none; }
 }
+
+// Invisible hasta que el ratón se mueve por la página (cursor.js pone
+// .cursor-vivo en el <body>): nacía pintado en el centro de la ventana y, sin
+// movimiento, se quedaba ahí como un aro suelto.
+.cursor-dot,
+.cursor-ring {
+  opacity: 0;
+}
+
+.cursor-vivo {
+  .cursor-dot,
+  .cursor-ring {
+    opacity: 1;
+  }
+}
+
+// Encima del visor de fotos el cursor de la casa se retira y vuelven los del
+// sistema (los declara _lightbox.scss): ahí el puntero tiene que decir
+// «acercar» o «agarrar», y el aro, sobre el fondo hondo del visor y en
+// diferencia, se quedaba como un círculo suelto a media pantalla junto a la
+// foto. La clase la pone lightbox.js al abrir y la quita al cerrar.
+.lightbox-abierto {
+  .cursor-dot,
+  .cursor-ring {
+    opacity: 0;
+  }
+}
+
+.cursor-dot { transition: opacity 0.3s; }

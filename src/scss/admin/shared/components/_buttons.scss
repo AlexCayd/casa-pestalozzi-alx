@@ -112,54 +112,156 @@
     }
 }
 
+/* ── Destructivo ───────────────────────────────────────────────
+ *
+ * Papel sobre rojo PLENO, con la misma caja, tamaño y peso que cualquier otro
+ * .admin-btn: es el homólogo del botón de editar y sólo cambia el color. Fue
+ * un tinte con texto rojo, y al lado de un botón sólido se leía como
+ * deshabilitado — justo lo contrario de lo que tiene que decir.
+ *
+ * `--danger-solid` era la variante del modal de Usuarios y de «Salir sin
+ * guardar»; hoy son la misma cosa y se declaran juntas.
+ *
+ * El color se pinta con (0,3,0) —`.admin-body .admin-btn:is(…)`— porque hay
+ * tres reglas de (0,2,0) que lo pisaban según el orden de carga: el
+ * `.admin-body .admin-btn` de abajo, el hover neutro de _finishes.scss y el
+ * `.admin-modal .admin-btn--danger-solid` de _modal.scss, que pedía
+ * --admin-text-inverse y en oscuro escribía tinta sobre rojo. Las sombras se
+ * quedan en (0,1,0)/(0,2,0) para que el anillo de foco de _finishes.scss
+ * siga ganando.
+ */
 .admin-btn--danger,
+.admin-btn--danger-solid,
 .admin-menu__button--danger {
-    border-color: var(--admin-danger-border);
-    background: var(--admin-danger-bg);
-    color: var(--admin-danger-text);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
 
-    &:hover {
-        border-color: var(--admin-danger);
-        background: var(--admin-danger-bg);
-        color: var(--admin-danger-text);
-        filter: brightness(1.05);
+    // :where() para no pasar de (0,2,0): con los :not() a pelo la regla subía
+    // a (0,4,0) y le quitaba el anillo de foco al botón apuntado.
+    &:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-danger) 32%, transparent);
     }
 }
 
-/* ── Botones tintados de cabecera ──────────────────────────────
+.admin-body .admin-btn:is(.admin-btn--danger, .admin-btn--danger-solid),
+.admin-body .admin-menu__button.admin-menu__button--danger {
+    border-color: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+    background-color: var(--admin-danger);
+    color: var(--admin-on-danger);
+
+    &:hover:not(:disabled):not([aria-disabled="true"]) {
+        border-color: color-mix(in srgb, var(--admin-danger) 70%, var(--admin-ink));
+        background-color: color-mix(in srgb, var(--admin-danger) 88%, var(--admin-ink));
+        color: var(--admin-on-danger);
+        filter: none;
+    }
+
+    &:active:not(:disabled):not([aria-disabled="true"]) {
+        background-color: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+    }
+}
+
+/* ── Botones de color de cabecera ──────────────────────────────
  *
- * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú,
- * «Subrecetas» e «Inventario» en Recetas. Eran todos --secondary, es decir
- * cuatro cajas idénticas donde sólo cambiaba la palabra, y para elegir había
- * que leerlas una por una. El tono les da forma reconocible.
+ * Para las barras de acciones de módulo: «Categorías» en Menú, «Subrecetas» e
+ * «Inventario» en Recetas, «Reanudar en Configuración» en Impresoras. Eran
+ * cajas idénticas donde sólo cambiaba la palabra; el color les da forma
+ * reconocible.
  *
- * Mismo patrón que los botones de acción del topbar: un TINTE derivado con
- * color-mix sobre --admin-surface, nunca un relleno sólido. El relleno sólido
- * sigue siendo exclusivo de --primary, que es lo que mantiene una sola acción
- * principal por pantalla. Ver la excepción anotada en CLAUDE.md.
+ * Fueron un TINTE translúcido con texto de color y el cliente lo rechazó: en
+ * tema oscuro el texto saturado sobre un velo del mismo tono se veía
+ * fosforescente. Ahora son RELLENO SÓLIDO de la paleta funcional, con la
+ * tinta que pide su luminancia —calculada, no estimada (WCAG, sobre las
+ * anclas del panel)—:
  *
- * El color se pasa en --tono; sin él, el botón se comporta como un secundario
- * neutro en vez de romperse.
+ *   · claros   (ámbar 0.52, turquesa 0.42): relleno pleno y tinta encima,
+ *              10.7:1 y 8.8:1;
+ *   · medios   (azul 0.25, verde 0.29): con papel no llegan (3.4 y 2.9:1),
+ *              así que el relleno se HUNDE hacia la tinta hasta que el papel
+ *              pasa — azul al 78 % (5.0:1), verde al 72 % (5.0:1). Es además
+ *              lo que los aparta del neón: un azul profundo se lee como
+ *              material, uno eléctrico como alarma;
+ *   · oscuros  (índigo 0.14): relleno pleno y papel encima, 5.4:1.
+ *
+ * El nombre `--tinted` se queda por el marcado de los módulos, que así no
+ * cambia.
+ *
+ * La acción principal de la pantalla sigue siendo .admin-btn--primary, y no
+ * por el color sino por jerarquía: es el único en la tinta del sistema —el
+ * extremo de contraste contra el fondo en los dos temas; estos rellenos
+ * quedan a medio camino—, el único con icono, el último de la fila y el único
+ * con sombra en reposo, barrido especular y magnetismo. Éstos van planos.
+ *
+ * Sin un `--tinted-{color}` el botón se pinta como un secundario neutro en vez
+ * de romperse.
  */
 .admin-btn--tinted {
-    --tono: var(--admin-muted);
+    --tono-fondo: var(--admin-btn-secondary-bg);
+    --tono-tinta: var(--admin-text);
+    --tono-borde: var(--admin-border-strong);
 
-    border-color: color-mix(in srgb, var(--tono) 30%, var(--admin-border));
-    background: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
-    color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+    box-shadow: none;
 
-    &:hover {
-        border-color: color-mix(in srgb, var(--tono) 58%, transparent);
-        background: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
-        color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+    // (0,2,0) a propósito, como en el destructivo: el anillo de foco gana.
+    &:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--tono-fondo) 30%, transparent);
     }
 }
 
-.admin-btn--tinted-ambar { --tono: var(--admin-c-ambar); }
-.admin-btn--tinted-azul { --tono: var(--admin-c-azul); }
-.admin-btn--tinted-verde { --tono: var(--admin-c-verde); }
-.admin-btn--tinted-indigo { --tono: var(--admin-c-indigo); }
-.admin-btn--tinted-turquesa { --tono: var(--admin-c-turquesa); }
+.admin-btn--tinted-ambar {
+    --tono-fondo: var(--admin-c-ambar);
+    --tono-tinta: var(--admin-ink);
+}
+
+.admin-btn--tinted-turquesa {
+    --tono-fondo: var(--admin-c-turquesa);
+    --tono-tinta: var(--admin-ink);
+}
+
+.admin-btn--tinted-azul {
+    --tono-fondo: color-mix(in srgb, var(--admin-c-azul) 78%, var(--admin-ink));
+    --tono-tinta: var(--admin-paper);
+}
+
+.admin-btn--tinted-verde {
+    --tono-fondo: color-mix(in srgb, var(--admin-c-verde) 72%, var(--admin-ink));
+    --tono-tinta: var(--admin-paper);
+}
+
+.admin-btn--tinted-indigo {
+    --tono-fondo: var(--admin-c-indigo);
+    --tono-tinta: var(--admin-paper);
+}
+
+/* El borde es el propio relleno un paso más hundido: un contorno neutro
+   alrededor de un sólido de color lo enmarca como si fuera una pegatina. */
+.admin-btn--tinted:is(
+    .admin-btn--tinted-ambar,
+    .admin-btn--tinted-turquesa,
+    .admin-btn--tinted-azul,
+    .admin-btn--tinted-verde,
+    .admin-btn--tinted-indigo
+) {
+    --tono-borde: color-mix(in srgb, var(--tono-fondo) 82%, var(--admin-ink));
+}
+
+/* Pintado, con (0,3,0) por lo mismo que el destructivo de arriba. El hover
+   HUNDE el relleno hacia la tinta en vez de aclararlo: en los rellenos con
+   papel encima sube el contraste, y en el ámbar la tinta sigue a 8.4:1. */
+.admin-body .admin-btn.admin-btn--tinted {
+    border-color: var(--tono-borde);
+    background-color: var(--tono-fondo);
+    color: var(--tono-tinta);
+
+    &:hover:not(:disabled):not([aria-disabled="true"]) {
+        border-color: var(--tono-borde);
+        background-color: color-mix(in srgb, var(--tono-fondo) 88%, var(--admin-ink));
+        color: var(--tono-tinta);
+    }
+
+    &:active:not(:disabled):not([aria-disabled="true"]) {
+        background-color: color-mix(in srgb, var(--tono-fondo) 80%, var(--admin-ink));
+    }
+}
 
 .admin-btn--small,
 .admin-menu__button--small {
@@ -241,24 +343,6 @@
 .admin-body .admin-btn--ghost {
     background-color: transparent;
     color: var(--admin-muted);
-}
-
-// Por lo mismo que --gold: sin este override, `.admin-body .admin-btn` (0,2,0)
-// le gana a `.admin-btn--tinted` (0,1,0) y el tinte no llega a verse.
-.admin-body .admin-btn--tinted {
-    background-color: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
-    color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
-
-    &:hover {
-        background-color: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
-        color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
-    }
-}
-
-.admin-body .admin-btn--danger,
-.admin-body .admin-menu__button--danger {
-    background-color: var(--admin-danger-bg);
-    color: var(--admin-danger-text);
 }
 
 .admin-body .admin-btn--disabled,

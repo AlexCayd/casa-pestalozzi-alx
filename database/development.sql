@@ -19,7 +19,11 @@
 -- Al final va un cuarto bloque, «Variantes por platillo» (ingredientes 35-71,
 -- recetas de barra, opciones de variante y tickets 900-999 de los últimos
 -- siete días). Ése sí es reidempotente y se puede correr suelto sobre una base
--- que ya tenga los otros tres.
+-- que ya tenga los otros tres. Y tras él un quinto, «Uso del asistente»: dos
+-- meses y medio de operación hasta la hora de la corrida —tickets 10000-19999,
+-- ticket_items 100000-199999, movimientos_inventario 1000000-1999999— para
+-- que el Asistente IA tenga qué contestar en todos sus periodos. También es
+-- reidempotente y suelto, y va siempre después del 4.
 --
 -- SE CARGA UNA VEZ, sobre una base recién creada. Los bloques 2 y 3 sí son
 -- reidempotentes por su cuenta —borran su rango antes de sembrarlo—, pero el
@@ -4030,3 +4034,933 @@ UPDATE ticket_items ti
  WHERE ti.ticket_id BETWEEN 900 AND 999 AND ti.variante IS NOT NULL;
 
 -- Fin del bloque 4
+
+
+-- ═════════════════════════════════════════════════════════════════════
+-- BLOQUE 5 · USO DEL ASISTENTE
+-- ═════════════════════════════════════════════════════════════════════
+-- Dos meses y medio de operación verosímil para que el Asistente IA
+-- (/admin/ia, sobre Services\Analytics\ConsultasRapidas) conteste sus doce
+-- preguntas en todos sus periodos —hoy, ayer, antier, esta semana, la
+-- pasada, 7 días, este mes, el pasado, 30 días— y en sus comparaciones contra
+-- el periodo anterior. Con lo que sembraban los bloques 2-4 (unas decenas de
+-- tickets por semana y casi ningún movimiento de inventario) «¿cuánta leche
+-- usamos?» salía siempre en cero, «mes pasado» quedaba vacío y las horas pico
+-- no tenían forma.
+--
+-- LA FECHA ES UNA FUNCIÓN, NO UN DATO. No hay una sola fecha literal en el
+-- bloque: todo cuelga de @ASISTENTE_AHORA := NOW() —y de su fecha,
+-- @ASISTENTE_HOY—, que se leen UNA vez al principio. Cada corrida vuelve a
+-- dejar la ventana terminando HOY, así que los periodos relativos tienen
+-- datos el día que sea. La ventana arranca el día 1 de hace dos meses (el 1
+-- de agosto si hoy es octubre) o hace 74 días, lo que quede antes: entre 75
+-- y 92 días. Es lo que pide la comparación de «mes pasado», que se mide
+-- contra el mes anterior a ése, y la de «30 días», que mira 60 hacia atrás.
+-- HOY sólo lleva tickets ya cobrados a la hora de la corrida; corrido antes
+-- de abrir, «hoy» sale vacío, que es lo que diría el POS.
+--
+-- Qué siembra, todo CERRADO (nada abierto, que ocuparía mesas en el POS):
+--   · tickets 10000-19999 — de 20 a 48 por día según el día de la semana
+--     (lunes flojo, sábado fuerte), con días de lluvia sueltos y un leve
+--     crecimiento hacia hoy. La hora de apertura respeta horarios_operacion y
+--     excepciones_operacion y sigue una curva de restaurante (desayuno, pico
+--     de comida a las 14:00, cena); es la que mide «horas pico». De 1 a 6
+--     comensales, mesas del salón (los grupos de 5-6 juntan dos), barras,
+--     Llevar y Caja; propina por ticket del 8 al 16 % con algunas en cero;
+--     tarjeta, efectivo y cuentas divididas (con su ticket_pagos).
+--   · Meseros por username, no por id: mesero1 encabeza con claridad,
+--     mesero2 y mesero3 le siguen y mesero_inactivo sólo atiende hasta hace
+--     cinco semanas, que es cuando dejó la casa. Las ventas de Caja no llevan
+--     mesero: es la fila «Sin mesero asignado».
+--   · ticket_items 100000-199999 — de 2 a 6 renglones por ticket, cantidades
+--     1-3, popularidad desigual por franja (pocos superventas, cola larga) y
+--     OCHO platillos activos que no se venden nunca, para que «Platillos sin
+--     venta» tenga qué decir. Las variantes salen como del POS
+--     (Variantes::resolver): `variante_ids` con TODAS las opciones elegidas,
+--     ordenadas; `variante` con el rótulo sin las predeterminadas; el precio
+--     con el ajuste de la opción. Del 2 al 4 % de los renglones se cancela,
+--     concentrado en cortes, hamburguesa, calamares y coctelería.
+--   · movimientos_inventario 1000000-1999999 — una `venta` por ingrediente
+--     de cada renglón, con la cuenta de Inventario::aplicarVenta(): receta
+--     base × cantidad, subrecetas explotadas por rendimiento y los ajustes de
+--     la variante (agregar/quitar tal cual; sustituir proporcional). Fechada
+--     a la hora de la comanda y enlazada por ticket_item_id. Cada renglón
+--     cancelado lleva además su `cancelacion`, que la revierte. Y mermas
+--     repartidas (unas tres por semana) con motivo, nota, costo del momento y
+--     quién las registró.
+--   · ticket_mesas y ticket_pagos no tienen rango: caen en cascada con su
+--     ticket.
+--
+-- REIDEMPOTENTE Y EJECUTABLE SUELTO, como el bloque 4: borra sus tres rangos
+-- y vuelve a sembrar. El azar sale de MD5 de la FECHA y del número de ticket
+-- o renglón, no de RAND(): dos corridas el mismo día dejan los mismos datos,
+-- y un día pasado conserva sus ventas aunque la ventana se mueva. Lo único
+-- que puede cambiar entre dos corridas seguidas es HOY, si entre una y otra
+-- se cobró un ticket más.
+--
+-- NO TOCA `ingredientes.stock` ni nada que no sea suyo (catálogo, recetas,
+-- variantes, mesas, usuarios, reservaciones). El inventario vivo ya refleja
+-- lo que refleja: si cada corrida restara lo vendido, repetir el bloque
+-- hundiría las existencias. La consecuencia, asumida: la suma de los
+-- movimientos no cuadra con el stock, igual que en los bloques 2-4.
+--
+-- Sí sube el AUTO_INCREMENT de tickets, ticket_items y movimientos_inventario
+-- al final de su rango (20000, 200000 y 2000000): sin eso, lo que el POS
+-- creara después nacería DENTRO del rango y la siguiente corrida lo borraría.
+-- Por eso los folios nuevos de Llevar salen ya con cinco cifras. Si una base
+-- llegara por su cuenta a esos números, hay que mover los rangos.
+--
+-- Depende de los bloques 1-4 (usuarios, recetas, variantes), y del orden:
+-- el bloque 4 borra y recrea las variantes con ids nuevos, y además pone
+-- rótulo a cualquier renglón de Cappuccino, Latte o Hamburguesa que no lo
+-- tenga —también a éstos—, así que si se vuelve a correr el 4 hay que correr
+-- después el 5. Lo mismo con el 2, que borra los ingredientes 10-99 y con
+-- ellos —en cascada— sus movimientos.
+--
+-- Simplificaciones, a sabiendas:
+--   · Una sustitución por componente y por combinación, y sin cadenas (la
+--     opción que sustituye no es a su vez sustituida): es lo que tiene la
+--     carta. Con eso la explosión en SQL da lo mismo que explotarReceta().
+--   · El costo de una merma es el costo de hoy: no hay historial de costos
+--     que consultar hacia atrás.
+--   · Una mesa del salón se reparte por turno dentro del día; no se comprueba
+--     que dos tickets no la compartan, cosa que con tickets cerrados nadie
+--     lee.
+--
+-- Para correrlo suelto: copiar desde la cabecera de este bloque hasta
+-- «Fin del bloque 5» y cargarlo como cualquier .sql. En qué fechas quedó:
+--
+--   SELECT DATE(MIN(hora_apertura)) AS desde, MAX(hora_cierre) AS hasta,
+--          COUNT(*) AS tickets
+--     FROM tickets WHERE id BETWEEN 10000 AND 19999;
+-- ---------------------------------------------------------------------
+
+SET NAMES utf8mb4;
+-- La sesión de la app va en GMT-6 (includes/database.php): las columnas
+-- TIMESTAMP (ticket_items.created_at, movimientos_inventario.created_at) se
+-- tienen que guardar con la misma referencia con la que se leen, y NOW() es
+-- la hora del restaurante, no la del reloj UTC del contenedor.
+SET time_zone = '-06:00';
+
+-- El ancla. Todo lo demás se deriva de aquí.
+SET @ASISTENTE_AHORA := NOW();
+SET @ASISTENTE_HOY   := DATE(@ASISTENTE_AHORA);
+SET @ASISTENTE_INI   := LEAST(
+  @ASISTENTE_HOY - INTERVAL (DAYOFMONTH(@ASISTENTE_HOY) - 1) DAY - INTERVAL 2 MONTH,
+  @ASISTENTE_HOY - INTERVAL 74 DAY
+);
+
+-- Personal por username: los ids los fija el bloque 1, pero una base donde
+-- falte alguno sólo deja sus tickets sin mesero en vez de romper una FK.
+SET @A5_CARLOS  := (SELECT id FROM usuarios WHERE username = 'mesero1');
+SET @A5_VALERIA := (SELECT id FROM usuarios WHERE username = 'mesero2');
+SET @A5_EMILIO  := (SELECT id FROM usuarios WHERE username = 'mesero3');
+SET @A5_DANIEL  := (SELECT id FROM usuarios WHERE username = 'mesero_inactivo');
+SET @A5_ADMIN   := (SELECT id FROM usuarios WHERE username = 'admin_demo');
+SET @A5_COCINA  := (SELECT id FROM usuarios WHERE username = 'cocinero1');
+
+-- ---------------------------------------------------------------------
+-- Limpieza de lo que sembró una corrida anterior.
+-- ---------------------------------------------------------------------
+-- Los movimientos primero: ticket_item_id no lleva FK, así que borrar los
+-- renglones no se los lleva.
+DELETE m FROM movimientos_inventario m
+  JOIN ticket_items ti ON ti.id = m.ticket_item_id
+ WHERE ti.ticket_id BETWEEN 10000 AND 19999;
+DELETE FROM movimientos_inventario WHERE id BETWEEN 1000000 AND 1999999;
+-- En cascada: ticket_items, ticket_mesas, ticket_pagos y feedback_tokens.
+DELETE FROM tickets WHERE id BETWEEN 10000 AND 19999;
+DELETE FROM ticket_items WHERE id BETWEEN 100000 AND 199999;
+
+-- Notación: «u» es un uniforme en [0, 1) sacado de 8 cifras hexadecimales de
+-- un MD5, CONV(SUBSTRING(h, i, 8), 16, 10) / 4294967296. Un MD5 da cuatro.
+-- Las claves llevan la fecha, no la posición en la ventana: así un día pasado
+-- no cambia cuando la ventana avanza.
+DROP TEMPORARY TABLE IF EXISTS a5_num, a5_dia, a5_hora_peso, a5_franja, a5_cat, a5_pop,
+  a5_dist, a5_mesa, a5_tk0, a5_tk, a5_ln, a5_it, a5_opc, a5_elec, a5_cmb, a5_cr, a5_cc,
+  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_merma, a5_mv, a5_tot;
+
+CREATE TEMPORARY TABLE a5_num (n INT UNSIGNED PRIMARY KEY);
+INSERT INTO a5_num (n)
+WITH RECURSIVE s (n) AS (SELECT 0 UNION ALL SELECT n + 1 FROM s WHERE n < 199)
+SELECT n FROM s;
+
+-- ---------------------------------------------------------------------
+-- Días de la ventana, con su horario y cuántos tickets lleva cada uno.
+-- ---------------------------------------------------------------------
+-- La excepción de una fecha manda sobre el horario semanal; un día cerrado
+-- no vende. Volumen: base del día de la semana × ruido (±14 %) × «día de
+-- lluvia» (uno de cada catorce, al 60 %) × una pendiente de +10 % hacia hoy,
+-- para que «este mes» y «7 días» crezcan un poco contra su periodo anterior.
+CREATE TEMPORARY TABLE a5_dia (
+  d      DATE PRIMARY KEY,
+  dow    TINYINT NOT NULL,
+  edad   INT NOT NULL,
+  abre   INT NOT NULL,   -- minuto del día
+  cierra INT NOT NULL,
+  ultima INT NOT NULL,   -- última apertura de mesa: 45 min antes del cierre
+  ntk    INT NOT NULL,
+  um1    DOUBLE NOT NULL,
+  um2    DOUBLE NOT NULL,
+  um3    DOUBLE NOT NULL,
+  um4    DOUBLE NOT NULL
+);
+INSERT INTO a5_dia (d, dow, edad, abre, cierra, ultima, ntk, um1, um2, um3, um4)
+SELECT d, dow, edad, abre, cierra, cierra - 45,
+       ROUND(base * (0.86 + 0.28 * u1) * IF(u2 < 0.07, 0.6, 1) * (0.90 + 0.10 * (1 - edad / span))),
+       um1, um2, um3, um4
+  FROM (
+    SELECT x.d,
+           DAYOFWEEK(x.d) - 1 AS dow,
+           DATEDIFF(@ASISTENTE_HOY, x.d) AS edad,
+           DATEDIFF(@ASISTENTE_HOY, @ASISTENTE_INI) + 1 AS span,
+           TIME_TO_SEC(COALESCE(IF(e.tipo = 'horario_especial', e.hora_apertura, NULL), h.hora_apertura, '08:30:00')) DIV 60 AS abre,
+           TIME_TO_SEC(COALESCE(IF(e.tipo = 'horario_especial', e.hora_cierre, NULL), h.hora_cierre, '22:00:00')) DIV 60 AS cierra,
+           ELT(DAYOFWEEK(x.d), 36, 24, 28, 29, 31, 40, 45) AS base,
+           CONV(SUBSTRING(x.h, 1, 8), 16, 10) / 4294967296 AS u1,
+           CONV(SUBSTRING(x.h, 9, 8), 16, 10) / 4294967296 AS u2,
+           CONV(SUBSTRING(x.m, 1, 8), 16, 10) / 4294967296 AS um1,
+           CONV(SUBSTRING(x.m, 9, 8), 16, 10) / 4294967296 AS um2,
+           CONV(SUBSTRING(x.m, 17, 8), 16, 10) / 4294967296 AS um3,
+           CONV(SUBSTRING(x.m, 25, 8), 16, 10) / 4294967296 AS um4,
+           COALESCE(h.abierto, 1) AS abierto,
+           e.tipo AS excepcion
+      FROM (SELECT @ASISTENTE_INI + INTERVAL n DAY AS d,
+                   MD5(CONCAT('a5-dia:', @ASISTENTE_INI + INTERVAL n DAY)) AS h,
+                   MD5(CONCAT('a5-merma:', @ASISTENTE_INI + INTERVAL n DAY)) AS m
+              FROM a5_num
+             WHERE n <= DATEDIFF(@ASISTENTE_HOY, @ASISTENTE_INI)) x
+      LEFT JOIN horarios_operacion h ON h.dia_semana = DAYOFWEEK(x.d) - 1
+      LEFT JOIN excepciones_operacion e ON e.fecha = x.d AND e.activo = 1
+  ) z
+ WHERE NOT (excepcion <=> 'cerrado')
+   AND (excepcion = 'horario_especial' OR abierto = 1)
+   AND cierra - 45 >= abre + 30;
+
+-- Curva horaria (peso por hora de apertura). Entre semana el pico es la
+-- comida de las 14:00; en fin de semana el desayuno tardío casi lo alcanza.
+CREATE TEMPORARY TABLE a5_hora_peso (
+  h      TINYINT PRIMARY KEY,
+  semana DECIMAL(5,2) NOT NULL,
+  finde  DECIMAL(5,2) NOT NULL
+);
+INSERT INTO a5_hora_peso (h, semana, finde) VALUES
+(7, 1, 1), (8, 3, 3), (9, 7, 8), (10, 8, 12), (11, 6, 11), (12, 4, 7),
+(13, 7, 8), (14, 11, 11), (15, 10, 9), (16, 5, 5), (17, 3, 3), (18, 4, 4),
+(19, 6, 6), (20, 8, 8), (21, 4, 4), (22, 2, 2), (23, 1, 1);
+
+-- Por día, el tramo acumulado de cada hora abierta, pesado por los minutos
+-- que esa hora tiene abiertos (08:30 abre media hora). En DECIMAL a
+-- propósito: el «hasta» de una hora es exactamente el «desde» de la
+-- siguiente, y ningún sorteo cae en un hueco ni en dos horas.
+CREATE TEMPORARY TABLE a5_franja (
+  d   DATE NOT NULL,
+  h   TINYINT NOT NULL,
+  mlo INT NOT NULL,
+  mhi INT NOT NULL,
+  lo  DECIMAL(20,12) NOT NULL,
+  hi  DECIMAL(20,12) NOT NULL,
+  PRIMARY KEY (d, h)
+);
+INSERT INTO a5_franja (d, h, mlo, mhi, lo, hi)
+SELECT d, h, mlo, mhi, (acum - w) / NULLIF(total, 0), acum / NULLIF(total, 0)
+  FROM (
+    SELECT y.*,
+           SUM(w) OVER (PARTITION BY d ORDER BY h) AS acum,
+           SUM(w) OVER (PARTITION BY d) AS total
+      FROM (
+        SELECT dd.d, hp.h,
+               GREATEST(0, dd.abre - hp.h * 60) AS mlo,
+               LEAST(59, dd.ultima - hp.h * 60) AS mhi,
+               IF(dd.dow IN (0, 6), hp.finde, hp.semana)
+                 * (LEAST(59, dd.ultima - hp.h * 60) - GREATEST(0, dd.abre - hp.h * 60) + 1) AS w
+          FROM a5_dia dd
+          JOIN a5_hora_peso hp ON hp.h * 60 + 59 >= dd.abre AND hp.h * 60 <= dd.ultima
+      ) y
+  ) x
+ WHERE w > 0;
+
+-- ---------------------------------------------------------------------
+-- La carta vista desde el piso: qué se pide, cuándo y cuánto.
+-- ---------------------------------------------------------------------
+-- Factor de cada categoría por franja (desayuno hasta las 12:30, comida
+-- hasta las 18:00, cena) y si va en el lado de la comida o de la bebida del
+-- ticket. Una categoría nueva que no esté aquí entra como comida con 0.30.
+CREATE TEMPORARY TABLE a5_cat (
+  categoria  VARCHAR(60) PRIMARY KEY,
+  pool       ENUM('comida', 'bebida') NOT NULL,
+  f_desayuno DECIMAL(4,2) NOT NULL,
+  f_comida   DECIMAL(4,2) NOT NULL,
+  f_cena     DECIMAL(4,2) NOT NULL
+);
+INSERT INTO a5_cat (categoria, pool, f_desayuno, f_comida, f_cena) VALUES
+('Desayunos',             'comida', 1.00, 0.12, 0.00),
+('Entradas',              'comida', 0.00, 0.50, 0.70),
+('Sopas & Cremas',        'comida', 0.00, 0.50, 0.25),
+('Pastas',                'comida', 0.00, 0.90, 1.00),
+('Platos Fuertes',        'comida', 0.00, 1.00, 1.10),
+('Ensaladas',             'comida', 0.05, 0.60, 0.35),
+('Pizzas',                'comida', 0.00, 0.70, 1.20),
+('Para Picar',            'comida', 0.00, 0.45, 0.80),
+('Café & Bebidas',        'bebida', 1.40, 0.55, 0.35),
+('Jugos & Smoothies',     'bebida', 0.90, 0.35, 0.08),
+('Tablas de Degustación', 'bebida', 0.00, 0.03, 0.25),
+('Cocktails',             'bebida', 0.00, 0.45, 1.10),
+('Cervezas',              'bebida', 0.00, 0.60, 0.70),
+('Bebidas sin Alcohol',   'bebida', 0.25, 0.55, 0.45);
+
+-- Popularidad por platillo y su probabilidad de cancelarse. Lo que no está
+-- en la lista toma una popularidad de cola larga (0.60-2.00, por id) y un
+-- 3 % de cancelación (el primer renglón de un ticket nunca se cancela, así
+-- que el total queda algo por debajo de la media de esta columna). Popularidad 0 = activo en la carta y nunca pedido.
+CREATE TEMPORARY TABLE a5_pop (
+  nombre  VARCHAR(120) PRIMARY KEY,
+  pop     DECIMAL(6,3) NOT NULL,
+  cancela DECIMAL(5,4) NOT NULL DEFAULT 0.0300
+);
+INSERT INTO a5_pop (nombre, pop, cancela) VALUES
+-- Superventas
+('Chilaquiles', 9.000, 0.0450), ('Cappuccino', 10.000, 0.0200), ('Café Americano', 9.000, 0.0150),
+('Latte', 7.000, 0.0200), ('Jugo de Naranja', 7.000, 0.0200), ('Hamburguesa de la Casa', 7.000, 0.1000),
+('Margarita', 7.000, 0.0400), ('Spaguetti a la Boloñesa', 6.000, 0.0350), ('Aperol Spritz', 6.000, 0.0400),
+-- Fuertes
+('Enchiladas Suizas', 4.000, 0.0300), ('Molletes', 4.000, 0.0200), ('Huevos al Gusto', 4.000, 0.0600),
+('Enmoladas', 3.000, 0.0300), ('Toast de Salmón Ahumado', 3.000, 0.0300), ('Pan Francés Estilo C.P.', 3.000, 0.0200),
+('Burrata', 4.000, 0.0400), ('Milano', 4.000, 0.0400), ('Salmón al Horno', 3.500, 0.1000),
+('Filete de Res en su Jugo', 3.000, 0.1400), ('Rib Eye (450 grs.)', 2.500, 0.1800),
+('Tacos de Cochinita', 3.000, 0.0300), ('Lasagna de Filete de Res', 3.000, 0.0300),
+('Fetuccini a los Cuatro Quesos y Camarones', 3.000, 0.0400), ('Papas a la Francesa con Parmesano', 4.000, 0.0200),
+('Mix de 3 Brusquetas', 3.000, 0.0200), ('Queso Burrata con Jitomates Cherrys', 3.000, 0.0300),
+('Tabla Mixta', 2.000, 0.0300), ('Aros de Calamar', 2.500, 0.1200),
+('Limonada Natural', 5.000, 0.0200), ('Agua Fresca', 4.000, 0.0150), ('Chocolate Caliente', 3.000, 0.0200),
+('Café de Olla', 3.000, 0.0200), ('Té / Infusión', 2.500, 0.0200), ('Smoothie de Fresa', 2.500, 0.1000),
+('Gin Tonic', 5.000, 0.0400), ('Margaritas', 5.000, 0.0500), ('Mezcalitas', 3.500, 0.0500),
+('Pestalozzi Negroni', 3.000, 0.0600), ('Espresso Martini', 3.000, 0.1200), ('Gin Cocktails', 2.500, 0.0500),
+('Modelo Especial', 4.000, 0.0150), ('Victoria', 3.000, 0.0150), ('Estrella Galicia', 3.000, 0.0150),
+('Agua Mineral', 3.000, 0.0100), ('Refrescos de Barra', 3.000, 0.0100), ('Naranjada/Limonada', 2.000, 0.0150),
+-- Cola muy fina: en un día suelen quedarse sin venta
+('Camarones a los 4 Quesos', 0.120, 0.0300), ('Tiradito de Atún', 0.120, 0.0300),
+('Ciruela Betabel', 0.120, 0.0300), ('Glenmorangie', 0.120, 0.0300), ('Tequila Negroni', 0.120, 0.0300),
+('Batanga Tequileño', 0.120, 0.0300), ('Piñada', 0.120, 0.0300),
+('Spaguetti al Pomodoro y Parmesano', 0.120, 0.0300), ('New York (450 grs.)', 0.400, 0.1200),
+-- Nunca pedidos: «Platillos sin venta» los lista en cualquier periodo
+('Huevos Pamplona', 0, 0), ('Croissant con Huevo y Estragón', 0, 0),
+('Jamón Serrano con Perlas de Melón', 0, 0), ('Aceitunas Temperadas con Aceite de Chile', 0, 0),
+('Regiones de Escocia', 0, 0), ('Cata Tequileño', 0, 0), ('Agua de Coco', 0, 0), ('Suero de Limón', 0, 0);
+
+-- Distribución acumulada por (franja, lado del ticket): platillo activo en
+-- categoría activa, peso = popularidad × factor de su categoría en la franja.
+CREATE TEMPORARY TABLE a5_dist (
+  franja      ENUM('desayuno', 'comida', 'cena') NOT NULL,
+  pool        ENUM('comida', 'bebida') NOT NULL,
+  producto_id INT UNSIGNED NOT NULL,
+  lo          DECIMAL(24,14) NOT NULL,
+  hi          DECIMAL(24,14) NOT NULL,
+  INDEX (franja, pool)
+);
+INSERT INTO a5_dist (franja, pool, producto_id, lo, hi)
+SELECT franja, pool, producto_id, (acum - w) / NULLIF(total, 0), acum / NULLIF(total, 0)
+  FROM (
+    SELECT y.*,
+           SUM(w) OVER (PARTITION BY franja, pool ORDER BY producto_id) AS acum,
+           SUM(w) OVER (PARTITION BY franja, pool) AS total
+      FROM (
+        SELECT f.franja, COALESCE(k.pool, 'comida') AS pool, p.id AS producto_id,
+               COALESCE(pp.pop, 0.600 + 0.350 * (p.id MOD 5))
+                 * CASE f.franja
+                     WHEN 'desayuno' THEN COALESCE(k.f_desayuno, 0.30)
+                     WHEN 'comida'   THEN COALESCE(k.f_comida, 0.30)
+                     ELSE COALESCE(k.f_cena, 0.30)
+                   END AS w
+          FROM productos p
+          JOIN categorias c ON c.id = p.categoria_id AND c.activo = 1
+          LEFT JOIN a5_cat k ON k.categoria = c.nombre
+          LEFT JOIN a5_pop pp ON pp.nombre = p.nombre
+          JOIN (SELECT 'desayuno' AS franja UNION ALL SELECT 'comida' UNION ALL SELECT 'cena') f
+         WHERE p.activo = 1
+      ) y
+     WHERE w > 0
+  ) x;
+
+-- Mesas por tipo, numeradas por turno. Llevar y Caja son una fila cada una.
+CREATE TEMPORARY TABLE a5_mesa (
+  tipo    ENUM('mesa', 'barra', 'llevar', 'caja') NOT NULL,
+  rk      INT NOT NULL,
+  mesa_id INT NOT NULL,
+  PRIMARY KEY (tipo, rk)
+);
+INSERT INTO a5_mesa (tipo, rk, mesa_id)
+SELECT tipo, ROW_NUMBER() OVER (PARTITION BY tipo ORDER BY numero, id), id
+  FROM mesas
+ WHERE activo = 1 AND tipo IN ('mesa', 'barra');
+INSERT INTO a5_mesa (tipo, rk, mesa_id)
+SELECT 'llevar', 1, MIN(id) FROM mesas WHERE tipo = 'especial' AND nombre = 'Llevar' HAVING MIN(id) IS NOT NULL;
+INSERT INTO a5_mesa (tipo, rk, mesa_id)
+SELECT 'caja', 1, MIN(id) FROM mesas WHERE tipo = 'especial' AND nombre = 'Caja' HAVING MIN(id) IS NOT NULL;
+SET @A5_NMESAS  := (SELECT COUNT(*) FROM mesas WHERE activo = 1 AND tipo = 'mesa');
+SET @A5_NBARRAS := (SELECT COUNT(*) FROM mesas WHERE activo = 1 AND tipo = 'barra');
+
+-- ---------------------------------------------------------------------
+-- Tickets.
+-- ---------------------------------------------------------------------
+-- Primero el sorteo crudo: día, número y una hora de apertura que cae en la
+-- curva del día.
+CREATE TEMPORARY TABLE a5_tk0 (
+  d DATE NOT NULL, k INT NOT NULL, dow TINYINT NOT NULL, edad INT NOT NULL,
+  apertura DATETIME NOT NULL,
+  u3 DOUBLE, u4 DOUBLE, u5 DOUBLE, u6 DOUBLE, u7 DOUBLE, u8 DOUBLE, u9 DOUBLE, u10 DOUBLE,
+  PRIMARY KEY (d, k)
+);
+INSERT INTO a5_tk0 (d, k, dow, edad, apertura, u3, u4, u5, u6, u7, u8, u9, u10)
+SELECT t.d, t.k, t.dow, t.edad,
+       TIMESTAMP(t.d) + INTERVAL (f.h * 60 + f.mlo + FLOOR(t.u2 * (f.mhi - f.mlo + 1))) MINUTE,
+       t.u3, t.u4, t.u5, t.u6, t.u7, t.u8, t.u9, t.u10
+  FROM (
+    SELECT x.*,
+           CONV(SUBSTRING(x.h1, 1, 8), 16, 10) / 4294967296 AS u1,
+           CONV(SUBSTRING(x.h1, 9, 8), 16, 10) / 4294967296 AS u2,
+           CONV(SUBSTRING(x.h1, 17, 8), 16, 10) / 4294967296 AS u3,
+           CONV(SUBSTRING(x.h1, 25, 8), 16, 10) / 4294967296 AS u4,
+           CONV(SUBSTRING(x.h2, 1, 8), 16, 10) / 4294967296 AS u5,
+           CONV(SUBSTRING(x.h2, 9, 8), 16, 10) / 4294967296 AS u6,
+           CONV(SUBSTRING(x.h2, 17, 8), 16, 10) / 4294967296 AS u7,
+           CONV(SUBSTRING(x.h2, 25, 8), 16, 10) / 4294967296 AS u8,
+           CONV(SUBSTRING(x.h3, 1, 8), 16, 10) / 4294967296 AS u9,
+           CONV(SUBSTRING(x.h3, 9, 8), 16, 10) / 4294967296 AS u10
+      FROM (
+        SELECT dd.d, n.n AS k, dd.dow, dd.edad,
+               MD5(CONCAT('a5-tk1:', dd.d, ':', n.n)) AS h1,
+               MD5(CONCAT('a5-tk2:', dd.d, ':', n.n)) AS h2,
+               MD5(CONCAT('a5-tk3:', dd.d, ':', n.n)) AS h3
+          FROM a5_dia dd JOIN a5_num n ON n.n < dd.ntk
+      ) x
+  ) t
+  JOIN a5_franja f ON f.d = t.d AND t.u1 >= f.lo AND t.u1 < f.hi;
+
+-- Luego todo lo que se deriva del sorteo. El orden de los CASE importa:
+-- el tipo decide los comensales, y éstos los renglones y la estancia.
+--   u3 tipo · u4 comensales · u5 mesero · u6 estancia · u7 pago
+--   u8 propina · u9 renglones · u10 nombre de Llevar y pagadores
+CREATE TEMPORARY TABLE a5_tk (
+  id         INT NOT NULL PRIMARY KEY,
+  d          DATE NOT NULL,
+  k          INT NOT NULL,
+  apertura   DATETIME NOT NULL,
+  cierre     DATETIME NOT NULL,
+  dur        INT NOT NULL,
+  franja     ENUM('desayuno', 'comida', 'cena') NOT NULL,
+  tipo       ENUM('mesa', 'barra', 'llevar', 'caja') NOT NULL,
+  comensales INT NOT NULL,
+  lineas     INT NOT NULL,
+  mesero_id  INT NULL,
+  metodo     ENUM('efectivo', 'tarjeta', 'dividido') NOT NULL,
+  pct        DECIMAL(6,4) NOT NULL,
+  pagadores  INT NOT NULL,
+  nombre     VARCHAR(120) NULL,
+  mesa_rk    INT NULL,
+  mesa_rk2   INT NULL,
+  total      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  propina    DECIMAL(8,2) NOT NULL DEFAULT 0,
+  u10        DOUBLE
+);
+INSERT INTO a5_tk (id, d, k, apertura, cierre, dur, franja, tipo, comensales, lineas, mesero_id,
+                   metodo, pct, pagadores, nombre, mesa_rk, mesa_rk2, u10)
+SELECT 9999 + ROW_NUMBER() OVER (ORDER BY apertura, d, k),
+       d, k, apertura, cierre, dur, franja, tipo, comensales, lineas, mesero_id, metodo,
+       -- Propina: Llevar y Caja casi nunca; en el salón del 8 al 16 %, uno de
+       -- cada doce sin propina, y el mesero fuerte un punto y medio arriba.
+       CASE
+         WHEN tipo IN ('llevar', 'caja') THEN IF(u8 < 0.75, 0, 0.05 + 0.05 * u8)
+         WHEN u8 < 0.08 THEN 0
+         ELSE 0.08 + 0.08 * u8 + IF(mesero_id <=> @A5_CARLOS, 0.015, 0)
+       END,
+       IF(metodo = 'dividido', LEAST(comensales, 2 + FLOOR(u10 * 3)), 1),
+       IF(tipo = 'llevar',
+          ELT(1 + FLOOR(u10 * 12), 'Andrea', 'Luis', 'Mariana', 'Jorge', 'Sofía', 'Ricardo',
+              'Fernanda', 'Pablo', 'Daniela', 'Héctor', 'Valentina', 'Óscar'),
+          NULL),
+       CASE tipo
+         WHEN 'mesa'  THEN 1 + MOD(ROW_NUMBER() OVER (PARTITION BY d, tipo ORDER BY apertura, k) - 1 + TO_DAYS(d), @A5_NMESAS)
+         WHEN 'barra' THEN 1 + MOD(ROW_NUMBER() OVER (PARTITION BY d, tipo ORDER BY apertura, k) - 1 + TO_DAYS(d), @A5_NBARRAS)
+         ELSE 1
+       END,
+       NULL,
+       u10
+  FROM (
+    SELECT z.*, z.apertura + INTERVAL z.dur MINUTE AS cierre,
+           CASE
+             WHEN z.tipo = 'mesa' AND z.comensales >= 2 AND z.u7 < 0.09 THEN 'dividido'
+             WHEN z.u7 < IF(z.tipo IN ('llevar', 'caja'), 0.55, 0.66) THEN 'tarjeta'
+             ELSE 'efectivo'
+           END AS metodo
+      FROM (
+        SELECT w.*,
+               CASE w.tipo
+                 WHEN 'mesa'   THEN LEAST(6, GREATEST(2, w.comensales + FLOOR(w.u9 * 3)))
+                 WHEN 'barra'  THEN 2 + (w.u9 < 0.45)
+                 WHEN 'llevar' THEN 2 + (w.u9 < 0.35)
+                 ELSE 2
+               END AS lineas,
+               CASE w.tipo
+                 WHEN 'llevar' THEN 8 + FLOOR(w.u6 * 12)
+                 WHEN 'caja'   THEN 5 + FLOOR(w.u6 * 6)
+                 WHEN 'barra'  THEN 25 + FLOOR(w.u6 * 35)
+                 ELSE CASE w.franja
+                        WHEN 'desayuno' THEN 40 + FLOOR(w.u6 * 40)
+                        WHEN 'comida'   THEN 55 + FLOOR(w.u6 * 55)
+                        ELSE 65 + FLOOR(w.u6 * 65)
+                      END + 5 * GREATEST(0, w.comensales - 2)
+               END AS dur,
+               -- mesero_inactivo dejó la casa hace cinco semanas: hasta
+               -- entonces se llevaba su parte. mesero1 encabeza siempre.
+               CASE
+                 WHEN w.tipo = 'caja' THEN NULL
+                 WHEN w.edad > 35 THEN
+                   CASE WHEN w.u5 < 0.36 THEN @A5_CARLOS WHEN w.u5 < 0.62 THEN @A5_VALERIA
+                        WHEN w.u5 < 0.82 THEN @A5_EMILIO ELSE @A5_DANIEL END
+                 ELSE
+                   CASE WHEN w.u5 < 0.42 THEN @A5_CARLOS WHEN w.u5 < 0.74 THEN @A5_VALERIA
+                        ELSE @A5_EMILIO END
+               END AS mesero_id
+          FROM (
+            SELECT v.*,
+                   CASE v.tipo
+                     WHEN 'mesa' THEN CASE WHEN v.u4 < 0.12 THEN 1 WHEN v.u4 < 0.52 THEN 2 WHEN v.u4 < 0.66 THEN 3
+                                           WHEN v.u4 < 0.88 THEN 4 WHEN v.u4 < 0.95 THEN 5 ELSE 6 END
+                     WHEN 'barra' THEN 1 + (v.u4 >= 0.55)
+                     ELSE 1
+                   END AS comensales
+              FROM (
+                SELECT t0.*,
+                       CASE
+                         WHEN HOUR(t0.apertura) * 60 + MINUTE(t0.apertura) < 750 THEN 'desayuno'
+                         WHEN HOUR(t0.apertura) * 60 + MINUTE(t0.apertura) < 1080 THEN 'comida'
+                         ELSE 'cena'
+                       END AS franja,
+                       CASE
+                         WHEN t0.u3 < 0.78 THEN 'mesa'
+                         WHEN t0.u3 < 0.88 THEN 'barra'
+                         WHEN t0.u3 < 0.97 THEN 'llevar'
+                         ELSE 'caja'
+                       END AS tipo
+                  FROM a5_tk0 t0
+              ) v
+          ) w
+      ) z
+  ) q
+ -- HOY sólo lo que ya se cobró: nada en el futuro, nada abierto.
+ WHERE cierre <= @ASISTENTE_AHORA;
+
+-- Los grupos de 5-6 juntan la mesa de al lado.
+UPDATE a5_tk
+   SET mesa_rk2 = 1 + MOD(mesa_rk, @A5_NMESAS)
+ WHERE tipo = 'mesa' AND comensales >= 5 AND @A5_NMESAS > 1;
+
+-- ---------------------------------------------------------------------
+-- Renglones.
+-- ---------------------------------------------------------------------
+-- Comida y bebida se alternan (en barra empieza la bebida) y uno de cada
+-- siete renglones cambia de lado: dos cafés seguidos, una entrada de más.
+CREATE TEMPORARY TABLE a5_ln (
+  ticket_id INT NOT NULL,
+  linea     INT NOT NULL,
+  clave     VARCHAR(40) NOT NULL,
+  franja    ENUM('desayuno', 'comida', 'cena') NOT NULL,
+  pool      ENUM('comida', 'bebida') NOT NULL,
+  u_prod    DOUBLE NOT NULL,
+  u_cant    DOUBLE NOT NULL,
+  u_cancel  DOUBLE NOT NULL,
+  u_ronda   DOUBLE NOT NULL,
+  u_cx      DOUBLE NOT NULL,
+  u_nota    DOUBLE NOT NULL,
+  PRIMARY KEY (ticket_id, linea)
+);
+INSERT INTO a5_ln (ticket_id, linea, clave, franja, pool, u_prod, u_cant, u_cancel, u_ronda, u_cx, u_nota)
+SELECT ticket_id, linea, clave, franja,
+       IF((MOD(linea, 2) = IF(tipo = 'barra', 1, 0)) XOR (u_pool < 0.15), 'comida', 'bebida'),
+       u_prod, u_cant, u_cancel, u_ronda, u_cx, u_nota
+  FROM (
+    SELECT x.*,
+           CONV(SUBSTRING(x.h1, 1, 8), 16, 10) / 4294967296 AS u_pool,
+           CONV(SUBSTRING(x.h1, 9, 8), 16, 10) / 4294967296 AS u_prod,
+           CONV(SUBSTRING(x.h1, 17, 8), 16, 10) / 4294967296 AS u_cant,
+           CONV(SUBSTRING(x.h1, 25, 8), 16, 10) / 4294967296 AS u_cancel,
+           CONV(SUBSTRING(x.h2, 1, 8), 16, 10) / 4294967296 AS u_ronda,
+           CONV(SUBSTRING(x.h2, 9, 8), 16, 10) / 4294967296 AS u_cx,
+           CONV(SUBSTRING(x.h2, 17, 8), 16, 10) / 4294967296 AS u_nota
+      FROM (
+        SELECT t.id AS ticket_id, n.n AS linea, t.franja, t.tipo,
+               CONCAT(t.d, ':', t.k, ':', n.n) AS clave,
+               MD5(CONCAT('a5-ln1:', t.d, ':', t.k, ':', n.n)) AS h1,
+               MD5(CONCAT('a5-ln2:', t.d, ':', t.k, ':', n.n)) AS h2
+          FROM a5_tk t JOIN a5_num n ON n.n < t.lineas
+      ) x
+  ) y;
+
+-- El platillo de cada renglón, y lo que el POS escribiría en ticket_items.
+CREATE TEMPORARY TABLE a5_it (
+  item_id      INT UNSIGNED NOT NULL PRIMARY KEY,
+  ticket_id    INT NOT NULL,
+  linea        INT NOT NULL,
+  clave        VARCHAR(40) NOT NULL,
+  producto_id  INT UNSIGNED NOT NULL,
+  pool         ENUM('comida', 'bebida') NOT NULL,
+  u_cancel     DOUBLE NOT NULL,
+  u_ronda      DOUBLE NOT NULL,
+  u_cx         DOUBLE NOT NULL,
+  u_nota       DOUBLE NOT NULL,
+  cantidad     TINYINT UNSIGNED NOT NULL,
+  cancela      DECIMAL(5,4) NOT NULL,
+  precio       DECIMAL(8,2) NULL,
+  variante_ids VARCHAR(120) NULL,
+  variante     VARCHAR(160) NULL,
+  combo_id     INT NULL,
+  estado       ENUM('entregado', 'cancelado') NULL,
+  created_at   DATETIME NULL,
+  cancel_at    DATETIME NULL,
+  INDEX (producto_id),
+  INDEX (ticket_id)
+);
+INSERT INTO a5_it (item_id, ticket_id, linea, clave, producto_id, pool, u_cancel, u_ronda, u_cx, u_nota, cantidad, cancela)
+SELECT 99999 + ROW_NUMBER() OVER (ORDER BY l.ticket_id, l.linea),
+       l.ticket_id, l.linea, l.clave, ds.producto_id, l.pool, l.u_cancel, l.u_ronda, l.u_cx, l.u_nota,
+       CASE WHEN l.u_cant < 0.78 THEN 1 WHEN l.u_cant < 0.95 THEN 2 ELSE 3 END,
+       0.0300
+  FROM a5_ln l
+  JOIN a5_dist ds ON ds.franja = l.franja AND ds.pool = l.pool AND l.u_prod >= ds.lo AND l.u_prod < ds.hi;
+
+UPDATE a5_it i JOIN productos p ON p.id = i.producto_id JOIN a5_pop pp ON pp.nombre = p.nombre
+   SET i.cancela = pp.cancela;
+
+-- Precio, estado y hora de la comanda. Siete de cada diez renglones salen en
+-- la primera comanda; el resto, a media estancia. El primero de cada ticket
+-- no se cancela nunca: una cuenta cerrada con todo cancelado no existe, el
+-- POS la habría cancelado entera.
+UPDATE a5_it i
+  JOIN productos p ON p.id = i.producto_id
+  JOIN a5_tk t ON t.id = i.ticket_id
+   SET i.precio = p.precio,
+       i.estado = IF(i.linea > 0 AND i.u_cancel < i.cancela, 'cancelado', 'entregado'),
+       i.created_at = LEAST(
+         t.cierre - INTERVAL 3 MINUTE,
+         IF(i.linea < CEIL(t.lineas * 0.7),
+            t.apertura + INTERVAL (2 + FLOOR(i.u_ronda * 5)) MINUTE,
+            t.apertura + INTERVAL (FLOOR(t.dur * 0.4) + FLOOR(i.u_ronda * 8)) MINUTE));
+UPDATE a5_it i
+  JOIN a5_tk t ON t.id = i.ticket_id
+   SET i.cancel_at = GREATEST(i.created_at, LEAST(t.cierre - INTERVAL 1 MINUTE,
+                                                  i.created_at + INTERVAL (3 + FLOOR(i.u_cx * 10)) MINUTE))
+ WHERE i.estado = 'cancelado';
+
+-- ---------------------------------------------------------------------
+-- Variantes, como las resuelve Variantes::resolver(): una opción por grupo
+-- (sólo grupos de dos o más opciones activas); con predeterminada, ésa sale
+-- tres de cada cuatro veces y el resto se reparte; sin predeterminada —el
+-- término de un corte, la variedad del té— el mesero tiene que elegir, y el
+-- término medio es lo que más se pide.
+-- ---------------------------------------------------------------------
+CREATE TEMPORARY TABLE a5_opc (
+  producto_id INT UNSIGNED NOT NULL,
+  grupo       VARCHAR(40) NOT NULL,
+  orden_grupo SMALLINT UNSIGNED NOT NULL,
+  variante_id INT UNSIGNED NOT NULL,
+  nombre      VARCHAR(60) NOT NULL,
+  def         TINYINT NOT NULL,
+  delta       DECIMAL(8,2) NOT NULL,
+  orden       SMALLINT UNSIGNED NOT NULL,
+  lo          DECIMAL(24,14) NOT NULL,
+  hi          DECIMAL(24,14) NOT NULL,
+  INDEX (producto_id)
+);
+INSERT INTO a5_opc (producto_id, grupo, orden_grupo, variante_id, nombre, def, delta, orden, lo, hi)
+SELECT producto_id, grupo, orden_grupo, variante_id, nombre, def, delta, orden,
+       (acum - w) / NULLIF(total, 0), acum / NULLIF(total, 0)
+  FROM (
+    SELECT y.*,
+           SUM(w) OVER (PARTITION BY producto_id, grupo ORDER BY orden, variante_id) AS acum,
+           SUM(w) OVER (PARTITION BY producto_id, grupo) AS total
+      FROM (
+        SELECT v.producto_id, v.grupo, v.orden_grupo, v.id AS variante_id, v.nombre,
+               v.predeterminada AS def, v.precio_delta AS delta, v.orden,
+               CASE
+                 WHEN MAX(v.predeterminada) OVER g = 1
+                   THEN IF(v.predeterminada = 1, 75, 25 / NULLIF(COUNT(*) OVER g - 1, 0))
+                 ELSE CASE v.nombre WHEN 'Medio' THEN 3 WHEN 'Tres cuartos' THEN 2.4
+                                    WHEN 'Bien cocido' THEN 0.8 ELSE 1 END
+               END AS w,
+               COUNT(*) OVER g AS opciones
+          FROM producto_variantes v
+         WHERE v.activo = 1
+        WINDOW g AS (PARTITION BY v.producto_id, v.grupo)
+      ) y
+     WHERE opciones >= 2
+  ) x;
+
+CREATE TEMPORARY TABLE a5_elec (
+  item_id     INT UNSIGNED NOT NULL,
+  variante_id INT UNSIGNED NOT NULL,
+  orden_grupo SMALLINT UNSIGNED NOT NULL,
+  orden       SMALLINT UNSIGNED NOT NULL,
+  nombre      VARCHAR(60) NOT NULL,
+  def         TINYINT NOT NULL,
+  delta       DECIMAL(8,2) NOT NULL,
+  INDEX (item_id)
+);
+INSERT INTO a5_elec (item_id, variante_id, orden_grupo, orden, nombre, def, delta)
+SELECT i.item_id, o.variante_id, o.orden_grupo, o.orden, o.nombre, o.def, o.delta
+  FROM a5_it i
+  JOIN a5_opc o ON o.producto_id = i.producto_id
+ WHERE CONV(SUBSTRING(MD5(CONCAT('a5-var:', i.clave, ':', o.grupo)), 1, 8), 16, 10) / 4294967296 >= o.lo
+   AND CONV(SUBSTRING(MD5(CONCAT('a5-var:', i.clave, ':', o.grupo)), 1, 8), 16, 10) / 4294967296 < o.hi;
+
+-- ids ordenados y separados por coma; rótulo sin predeterminadas, en el
+-- orden de los grupos; el precio, base + ajustes, como lo cobra el servidor.
+UPDATE a5_it i
+  JOIN (SELECT item_id,
+               GROUP_CONCAT(variante_id ORDER BY variante_id SEPARATOR ',') AS ids,
+               GROUP_CONCAT(IF(def = 0, nombre, NULL) ORDER BY orden_grupo, orden SEPARATOR ' · ') AS rotulo,
+               SUM(delta) AS delta
+          FROM a5_elec GROUP BY item_id) e ON e.item_id = i.item_id
+   SET i.variante_ids = e.ids,
+       i.variante = e.rotulo,
+       i.precio = ROUND(i.precio + e.delta, 2);
+
+-- ---------------------------------------------------------------------
+-- La receta de cada combinación (platillo + opciones) explotada hasta
+-- ingredientes por unidad: Inventario::explotarReceta() en SQL.
+-- ---------------------------------------------------------------------
+CREATE TEMPORARY TABLE a5_cmb (
+  combo_id     INT AUTO_INCREMENT PRIMARY KEY,
+  producto_id  INT UNSIGNED NOT NULL,
+  variante_ids VARCHAR(120) NOT NULL,
+  UNIQUE KEY (producto_id, variante_ids)
+);
+INSERT INTO a5_cmb (producto_id, variante_ids)
+SELECT DISTINCT producto_id, COALESCE(variante_ids, '') FROM a5_it ORDER BY producto_id, COALESCE(variante_ids, '');
+UPDATE a5_it i JOIN a5_cmb c ON c.producto_id = i.producto_id AND c.variante_ids = COALESCE(i.variante_ids, '')
+   SET i.combo_id = c.combo_id;
+
+-- Cantidades a nivel de COMPONENTE: la receta base y lo que suman o restan
+-- las opciones de «agregar» y «quitar».
+CREATE TEMPORARY TABLE a5_cr (
+  combo_id INT NOT NULL, tipo VARCHAR(12) NOT NULL, ref_id INT UNSIGNED NOT NULL,
+  base DECIMAL(18,6) NOT NULL, mas DECIMAL(18,6) NOT NULL, menos DECIMAL(18,6) NOT NULL
+);
+INSERT INTO a5_cr (combo_id, tipo, ref_id, base, mas, menos)
+SELECT c.combo_id, pc.tipo, pc.ref_id, pc.cantidad, 0, 0
+  FROM a5_cmb c JOIN producto_componentes pc ON pc.producto_id = c.producto_id;
+INSERT INTO a5_cr (combo_id, tipo, ref_id, base, mas, menos)
+SELECT c.combo_id, va.tipo, va.ref_id, 0,
+       IF(va.accion = 'agregar', va.cantidad, 0), IF(va.accion = 'quitar', va.cantidad, 0)
+  FROM a5_cmb c
+  JOIN producto_variantes pv ON pv.producto_id = c.producto_id AND FIND_IN_SET(pv.id, c.variante_ids)
+  JOIN variante_ajustes va ON va.variante_id = pv.id AND va.accion IN ('agregar', 'quitar');
+
+CREATE TEMPORARY TABLE a5_cc (
+  combo_id INT NOT NULL, tipo VARCHAR(12) NOT NULL, ref_id INT UNSIGNED NOT NULL,
+  base DECIMAL(18,6) NOT NULL, mas DECIMAL(18,6) NOT NULL, menos DECIMAL(18,6) NOT NULL,
+  PRIMARY KEY (combo_id, tipo, ref_id)
+);
+INSERT INTO a5_cc (combo_id, tipo, ref_id, base, mas, menos)
+SELECT combo_id, tipo, ref_id, SUM(base), SUM(mas), SUM(menos) FROM a5_cr GROUP BY combo_id, tipo, ref_id;
+
+-- «Sustituir» es proporcional: sale la fracción cantidad ÷ (lo que la receta
+-- base lleva del componente) de lo que el platillo lleve tras agregar y
+-- quitar, y entra lo que sale × nueva ÷ cantidad. Si la base no lo lleva,
+-- la sustitución es literal.
+CREATE TEMPORARY TABLE a5_sust (
+  combo_id INT NOT NULL, tipo VARCHAR(12) NOT NULL, ref_id INT UNSIGNED NOT NULL,
+  cant DECIMAL(18,6) NOT NULL, nuevo_tipo VARCHAR(12) NOT NULL, nuevo_ref_id INT UNSIGNED NOT NULL,
+  nueva DECIMAL(18,6) NOT NULL, sale DECIMAL(18,6) NULL
+);
+INSERT INTO a5_sust (combo_id, tipo, ref_id, cant, nuevo_tipo, nuevo_ref_id, nueva)
+SELECT c.combo_id, va.tipo, va.ref_id, va.cantidad, va.nuevo_tipo, va.nuevo_ref_id, COALESCE(va.nueva_cantidad, va.cantidad)
+  FROM a5_cmb c
+  JOIN producto_variantes pv ON pv.producto_id = c.producto_id AND FIND_IN_SET(pv.id, c.variante_ids)
+  JOIN variante_ajustes va ON va.variante_id = pv.id AND va.accion = 'sustituir'
+ WHERE va.nuevo_tipo IS NOT NULL AND va.nuevo_ref_id > 0 AND va.cantidad > 0;
+UPDATE a5_sust s
+  LEFT JOIN a5_cc cc ON cc.combo_id = s.combo_id AND cc.tipo = s.tipo AND cc.ref_id = s.ref_id
+   SET s.sale = IF(COALESCE(cc.base, 0) > 0,
+                   GREATEST(0, cc.base + cc.mas - cc.menos) * LEAST(1, s.cant / NULLIF(cc.base, 0)),
+                   s.cant);
+
+-- Totales por componente: base ± agregar/quitar, menos lo que sale y más lo
+-- que entra por las sustituciones. Sin topar en cero todavía: igual que en
+-- PHP, el tope se aplica al final, por ingrediente.
+CREATE TEMPORARY TABLE a5_ct (
+  combo_id INT NOT NULL, tipo VARCHAR(12) NOT NULL, ref_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL
+);
+INSERT INTO a5_ct (combo_id, tipo, ref_id, q)
+SELECT combo_id, tipo, ref_id, base + mas - menos FROM a5_cc;
+INSERT INTO a5_ct (combo_id, tipo, ref_id, q)
+SELECT combo_id, tipo, ref_id, -sale FROM a5_sust WHERE sale > 0;
+INSERT INTO a5_ct (combo_id, tipo, ref_id, q)
+SELECT combo_id, nuevo_tipo, nuevo_ref_id, sale * nueva / cant FROM a5_sust WHERE sale > 0;
+
+-- A ingredientes: tal cual, o la subreceta escalada por cantidad ÷ rendimiento.
+CREATE TEMPORARY TABLE a5_ciraw (
+  combo_id INT NOT NULL, ingrediente_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL
+);
+INSERT INTO a5_ciraw (combo_id, ingrediente_id, q)
+SELECT combo_id, ref_id, q FROM a5_ct WHERE tipo = 'ingrediente';
+INSERT INTO a5_ciraw (combo_id, ingrediente_id, q)
+SELECT ct.combo_id, si.ingrediente_id, si.cantidad * ct.q / IF(s.rendimiento > 0, s.rendimiento, 1)
+  FROM a5_ct ct
+  JOIN subrecetas s ON s.id = ct.ref_id
+  JOIN subreceta_ingredientes si ON si.subreceta_id = s.id
+ WHERE ct.tipo = 'subreceta';
+
+CREATE TEMPORARY TABLE a5_ci (
+  combo_id INT NOT NULL, ingrediente_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL,
+  PRIMARY KEY (combo_id, ingrediente_id)
+);
+INSERT INTO a5_ci (combo_id, ingrediente_id, q)
+SELECT r.combo_id, r.ingrediente_id, SUM(r.q)
+  FROM a5_ciraw r JOIN ingredientes g ON g.id = r.ingrediente_id
+ GROUP BY r.combo_id, r.ingrediente_id
+HAVING SUM(r.q) > 0.0005;
+
+-- ---------------------------------------------------------------------
+-- Movimientos: venta por renglón, su reversión si se canceló, y mermas.
+-- ---------------------------------------------------------------------
+CREATE TEMPORARY TABLE a5_mv (
+  tipo           ENUM('venta', 'cancelacion', 'merma') NOT NULL,
+  ingrediente_id INT UNSIGNED NOT NULL,
+  cantidad       DECIMAL(12,3) NOT NULL,
+  motivo         VARCHAR(40) NULL,
+  nota           VARCHAR(255) NULL,
+  costo_unitario DECIMAL(10,4) NULL,
+  usuario_id     INT NULL,
+  ticket_item_id INT UNSIGNED NULL,
+  created_at     DATETIME NOT NULL
+);
+-- Venta: lo que aplicarVenta() descuenta al mandar la comanda, redondeado a
+-- milésimas como su num(). Sin usuario ni costo: las salidas por venta no
+-- los llevan.
+INSERT INTO a5_mv (tipo, ingrediente_id, cantidad, ticket_item_id, created_at)
+SELECT 'venta', ci.ingrediente_id, -ROUND(ci.q * i.cantidad, 3), i.item_id, i.created_at
+  FROM a5_it i JOIN a5_ci ci ON ci.combo_id = i.combo_id
+ WHERE ROUND(ci.q * i.cantidad, 3) <> 0;
+-- Cancelación: lo mismo con el signo cambiado, como Inventario::revertir().
+INSERT INTO a5_mv (tipo, ingrediente_id, cantidad, ticket_item_id, created_at)
+SELECT 'cancelacion', ci.ingrediente_id, ROUND(ci.q * i.cantidad, 3), i.item_id, i.cancel_at
+  FROM a5_it i JOIN a5_ci ci ON ci.combo_id = i.combo_id
+ WHERE i.estado = 'cancelado' AND ROUND(ci.q * i.cantidad, 3) <> 0;
+
+-- Mermas: cuatro de cada diez días, una del catálogo, con motivo de
+-- Inventario::MOTIVOS_MERMA, registradas por administración o por cocina.
+CREATE TEMPORARY TABLE a5_merma (
+  idx         INT PRIMARY KEY,
+  ingrediente VARCHAR(120) NOT NULL,
+  motivo      VARCHAR(40) NOT NULL,
+  cantidad    DECIMAL(10,3) NOT NULL,
+  nota        VARCHAR(255) NOT NULL
+);
+INSERT INTO a5_merma (idx, ingrediente, motivo, cantidad, nota) VALUES
+(0,  'Leche',              'caducidad',   1000, 'Lote vencido en la cámara'),
+(1,  'Fruta de temporada', 'caducidad',    600, 'Fruta pasada de punto'),
+(2,  'Fresa',              'caducidad',    400, 'Fresa golpeada del pedido del lunes'),
+(3,  'Aguacate',           'caducidad',    500, 'Aguacates negros por dentro'),
+(4,  'Pan brioche',        'caducidad',      3, 'Pan del día anterior'),
+(5,  'Masa de pizza',      'preparacion',    2, 'Masa sobrefermentada'),
+(6,  'Huevo',              'dano',           6, 'Charola golpeada en la entrega'),
+(7,  'Salmón fresco',      'caducidad',    250, 'No pasó la revisión de la mañana'),
+(8,  'Vino espumoso',      'derrame',      750, 'Botella rota en barra'),
+(9,  'Aperol',             'derrame',      200, 'Se cayó la botella abierta'),
+(10, 'Leche de almendra',  'caducidad',    500, 'Envase abierto de más de tres días'),
+(11, 'Queso mozzarella',   'preparacion',  300, 'Se quemó en el horno'),
+(12, 'Crema',              'caducidad',    500, 'Crema agria'),
+(13, 'Salsa verde',        'preparacion',  800, 'Lote quemado'),
+(14, 'Rib eye',            'preparacion',  450, 'Corte devuelto por término'),
+(15, 'Café molido',        'faltante',     250, 'Diferencia en el conteo semanal'),
+(16, 'Pollo deshebrado',   'caducidad',    700, 'Sobró del día y no se guardó a tiempo'),
+(17, 'Hielo',              'otro',        3000, 'Se descongeló la hielera de barra');
+SET @A5_NMERMA := (SELECT COUNT(*) FROM a5_merma);
+
+INSERT INTO a5_mv (tipo, ingrediente_id, cantidad, motivo, nota, costo_unitario, usuario_id, created_at)
+SELECT 'merma', g.id,
+       -GREATEST(1, ROUND(mc.cantidad * (0.6 + 0.8 * dd.um4), 0)),
+       mc.motivo, mc.nota, g.costo,
+       IF(dd.um3 < 0.5, @A5_ADMIN, @A5_COCINA),
+       TIMESTAMP(dd.d) + INTERVAL (dd.abre + 30 + FLOOR(dd.um3 * GREATEST(1, dd.cierra - dd.abre - 30))) MINUTE
+  FROM a5_dia dd
+  JOIN a5_merma mc ON mc.idx = FLOOR(dd.um2 * @A5_NMERMA)
+  JOIN ingredientes g ON g.nombre = mc.ingrediente
+ WHERE dd.um1 < 0.42
+   AND TIMESTAMP(dd.d) + INTERVAL (dd.abre + 30 + FLOOR(dd.um3 * GREATEST(1, dd.cierra - dd.abre - 30))) MINUTE <= @ASISTENTE_AHORA;
+
+-- ---------------------------------------------------------------------
+-- Totales y propina por ticket (la propina es del ticket, no del renglón).
+-- ---------------------------------------------------------------------
+CREATE TEMPORARY TABLE a5_tot (ticket_id INT PRIMARY KEY, total DECIMAL(10,2) NOT NULL);
+INSERT INTO a5_tot (ticket_id, total)
+SELECT ticket_id, SUM(precio * cantidad) FROM a5_it WHERE estado <> 'cancelado' GROUP BY ticket_id;
+-- Un ticket sin renglones vivos no existe en el POS.
+DELETE FROM a5_tk WHERE id NOT IN (SELECT ticket_id FROM a5_tot);
+UPDATE a5_tk t JOIN a5_tot tt ON tt.ticket_id = t.id
+   SET t.total = tt.total, t.propina = ROUND(tt.total * t.pct, 0);
+
+-- ---------------------------------------------------------------------
+-- Volcado a las tablas reales.
+-- ---------------------------------------------------------------------
+INSERT INTO tickets (id, comensales, nombre, hora_apertura, closed_at, hora_cierre, estado,
+                     metodo_pago, propina, reservacion_id, mesero_id)
+SELECT id, comensales, nombre, apertura, cierre, cierre, 'cerrado', metodo, propina, NULL, mesero_id
+  FROM a5_tk;
+
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden, created_at)
+SELECT t.id, m.mesa_id, 1, t.apertura
+  FROM a5_tk t JOIN a5_mesa m ON m.tipo = t.tipo AND m.rk = t.mesa_rk;
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden, created_at)
+SELECT t.id, m.mesa_id, 2, t.apertura
+  FROM a5_tk t JOIN a5_mesa m ON m.tipo = 'mesa' AND m.rk = t.mesa_rk2
+ WHERE t.mesa_rk2 IS NOT NULL AND t.mesa_rk2 <> t.mesa_rk;
+
+-- Cuenta dividida: entre dos y cuatro pagadores que cubren total + propina
+-- (el último absorbe los centavos), alternando tarjeta y efectivo.
+INSERT INTO ticket_pagos (ticket_id, comensal, metodo_pago, monto, created_at)
+SELECT t.id, n.n + 1,
+       IF(MOD(n.n + FLOOR(t.u10 * 2), 2) = 0, 'tarjeta', 'efectivo'),
+       IF(n.n < t.pagadores - 1,
+          TRUNCATE((t.total + t.propina) / t.pagadores, 2),
+          (t.total + t.propina) - TRUNCATE((t.total + t.propina) / t.pagadores, 2) * (t.pagadores - 1)),
+       t.cierre
+  FROM a5_tk t JOIN a5_num n ON n.n < t.pagadores
+ WHERE t.metodo = 'dividido';
+
+-- En una cuenta dividida cada renglón lleva su comensal; en las demás, nada,
+-- como el POS. Una nota de cocina en uno de cada veinticinco platillos.
+INSERT INTO ticket_items (id, ticket_id, nombre, precio, categoria, area_id, comensal, cantidad, nota,
+                          variante_ids, variante, estado, created_at)
+SELECT i.item_id, i.ticket_id, p.nombre, i.precio, c.nombre, p.area_id,
+       IF(t.metodo = 'dividido', 1 + MOD(i.linea, t.pagadores), NULL),
+       i.cantidad,
+       IF(i.pool = 'comida' AND i.u_nota < 0.04,
+          ELT(1 + FLOOR(i.u_nota * 125), 'Sin cebolla', 'Salsa aparte', 'Para compartir', 'Sin picante', 'Bien dorado'),
+          NULL),
+       i.variante_ids, i.variante, i.estado, i.created_at
+  FROM a5_it i
+  JOIN a5_tk t ON t.id = i.ticket_id
+  JOIN productos p ON p.id = i.producto_id
+  JOIN categorias c ON c.id = p.categoria_id;
+
+INSERT INTO movimientos_inventario (id, ingrediente_id, tipo, cantidad, motivo, nota, costo_unitario,
+                                    usuario_id, ticket_item_id, created_at)
+SELECT 999999 + ROW_NUMBER() OVER (ORDER BY m.created_at, COALESCE(m.ticket_item_id, 0), m.tipo, m.ingrediente_id),
+       m.ingrediente_id, m.tipo, m.cantidad, m.motivo, m.nota, m.costo_unitario, m.usuario_id,
+       m.ticket_item_id, m.created_at
+  FROM a5_mv m
+ WHERE m.ticket_item_id IS NULL OR m.ticket_item_id IN (SELECT item_id FROM a5_it i JOIN a5_tk t ON t.id = i.ticket_id);
+
+-- Lo que el POS cree a partir de ahora nace fuera de los rangos. InnoDB nunca
+-- baja el contador por debajo del id más alto, así que esto no pisa nada.
+ALTER TABLE tickets AUTO_INCREMENT = 20000;
+ALTER TABLE ticket_items AUTO_INCREMENT = 200000;
+ALTER TABLE movimientos_inventario AUTO_INCREMENT = 2000000;
+
+DROP TEMPORARY TABLE IF EXISTS a5_num, a5_dia, a5_hora_peso, a5_franja, a5_cat, a5_pop,
+  a5_dist, a5_mesa, a5_tk0, a5_tk, a5_ln, a5_it, a5_opc, a5_elec, a5_cmb, a5_cr, a5_cc,
+  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_merma, a5_mv, a5_tot;
+
+-- Fin del bloque 5

@@ -3,6 +3,9 @@
     $unidades = isset($unidades) && is_iterable($unidades) ? $unidades : ['g', 'kg', 'ml', 'l', 'pza'];
     $accion = $accion ?? 'Guardar';
     $ing = $ingrediente ?? null;
+    // Llega con ?pendiente= cuando se viene de una lista de pendientes: volver
+    // y cancelar regresan a esa lista, no al inventario sin filtro.
+    $volverUrl = (string) ($volverUrl ?? '/admin/inventario');
 ?>
 <section class="admin-inventario admin-page">
     <header class="admin-page__header">
@@ -11,7 +14,7 @@
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Ingrediente'); ?></h2>
             <p class="admin-page__subtitle">Define el ingrediente y sus existencias actuales.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/inventario">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
@@ -80,8 +83,11 @@
                 $proveedores = $proveedores ?? [];
                 $proveedoresAsignados = $proveedoresAsignados ?? [];
             ?>
-            <div class="admin-field admin-form-grid__full admin-proveedores" data-proveedores>
-                <span class="admin-field__label">Proveedores</span>
+            <?php /* id="proveedores": la lista de pendientes «Sin proveedor»
+                     enlaza aquí, y inventario.js abre una fila vacía si no hay
+                     ninguna. scroll-margin en inventario.scss, por la topbar. */ ?>
+            <div class="admin-field admin-form-grid__full admin-proveedores" id="proveedores" data-proveedores>
+                <span class="admin-field__label" id="proveedores-rotulo">Proveedores</span>
 
                 <?php if (empty($proveedores)) : ?>
                     <p class="admin-field__hint">
@@ -103,7 +109,10 @@
                             <?php foreach ($proveedoresAsignados as $indice => $asignado) : ?>
                                 <tr class="admin-proveedores__fila">
                                     <td>
-                                        <select name="proveedor_id[]">
+                                        <?php /* aria-label: la celda no tiene <label>, y sin
+                                                 nombre el selector se anunciaba sólo con su valor
+                                                 («Abarrotes El Puente») sin decir qué campo es. */ ?>
+                                        <select name="proveedor_id[]" aria-label="Proveedor">
                                             <?php foreach ($proveedores as $prov) : ?>
                                                 <option value="<?php echo (int) $prov->id; ?>"
                                                     <?php echo (int) $prov->id === (int) $asignado->proveedor_id ? 'selected' : ''; ?>>
@@ -112,12 +121,12 @@
                                             <?php endforeach; ?>
                                         </select>
                                     </td>
-                                    <td><input type="number" name="proveedor_costo[]" step="0.0001" min="0"
+                                    <td><input type="number" name="proveedor_costo[]" step="0.0001" min="0" aria-label="Costo del proveedor"
                                                value="<?php echo htmlspecialchars((string) $asignado->costo); ?>"></td>
-                                    <td><input type="text" name="proveedor_codigo[]" maxlength="60"
+                                    <td><input type="text" name="proveedor_codigo[]" maxlength="60" aria-label="Clave del proveedor"
                                                value="<?php echo htmlspecialchars((string) ($asignado->codigo ?? '')); ?>"></td>
                                     <td class="admin-table__num">
-                                        <input type="radio" name="proveedor_preferente" value="<?php echo (int) $indice; ?>"
+                                        <input type="radio" name="proveedor_preferente" value="<?php echo (int) $indice; ?>" aria-label="Preferente"
                                             <?php echo (int) $asignado->preferente === 1 ? 'checked' : ''; ?>>
                                     </td>
                                     <td class="admin-table__num">
@@ -138,15 +147,15 @@
                     <template data-proveedor-plantilla>
                         <tr class="admin-proveedores__fila">
                             <td>
-                                <select name="proveedor_id[]">
+                                <select name="proveedor_id[]" aria-label="Proveedor">
                                     <?php foreach ($proveedores as $prov) : ?>
                                         <option value="<?php echo (int) $prov->id; ?>"><?php echo htmlspecialchars($prov->nombre); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>
-                            <td><input type="number" name="proveedor_costo[]" step="0.0001" min="0" value="0"></td>
-                            <td><input type="text" name="proveedor_codigo[]" maxlength="60"></td>
-                            <td class="admin-table__num"><input type="radio" name="proveedor_preferente" value=""></td>
+                            <td><input type="number" name="proveedor_costo[]" step="0.0001" min="0" value="0" aria-label="Costo del proveedor"></td>
+                            <td><input type="text" name="proveedor_codigo[]" maxlength="60" aria-label="Clave del proveedor"></td>
+                            <td class="admin-table__num"><input type="radio" name="proveedor_preferente" value="" aria-label="Preferente"></td>
                             <td class="admin-table__num">
                                 <button type="button" class="admin-btn admin-btn--ghost" data-proveedor-quitar>Quitar</button>
                             </td>
@@ -168,7 +177,7 @@
 
             <div class="admin-form-grid__actions">
                 <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-                <a class="admin-btn admin-btn--secondary" href="/admin/inventario">Cancelar</a>
+                <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">Cancelar</a>
             </div>
         </form>
     </section>

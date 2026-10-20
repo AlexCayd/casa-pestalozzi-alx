@@ -123,6 +123,31 @@ grupos y ajustes, y tickets **900-999** de los últimos siete días con
 variantes, para que las consultas rápidas tengan qué responder. Es
 reidempotente y se puede correr suelto sobre una base existente.
 
+Después va un **bloque 5, «Uso del asistente»**: dos meses y medio de
+operación cerrada para que el Asistente IA conteste sus doce preguntas en
+todos sus periodos, comparación incluida. Usa tickets **10000-19999**,
+ticket_items **100000-199999** y movimientos_inventario **1000000-1999999**;
+ticket_mesas y ticket_pagos caen en cascada con su ticket. **No lleva ninguna
+fecha literal**: se ancla a `@ASISTENTE_AHORA := NOW()` y a su fecha, y la
+ventana va del día 1 de hace dos meses (o de hace 74 días, lo que quede antes)
+hasta la hora de la corrida; de HOY sólo trae lo ya cobrado, así que cada vez
+que se corre «hoy», «ayer», «esta semana» y «este mes» vuelven a tener datos.
+Siembra de 20 a 48 tickets por día con patrón semanal y la curva de
+`horarios_operacion`, unos pocos superventas y ocho platillos que nunca se
+venden, variantes como las resuelve `Variantes::resolver`, un ~3 % de
+renglones cancelados y un movimiento de `venta` por ingrediente con la misma
+cuenta de `aplicarVenta()`, más su `cancelacion` y unas tres mermas por
+semana. El azar sale de MD5 de la fecha, así que dos corridas el mismo día
+dejan lo mismo. Es reidempotente y se corre suelto (copiar del encabezado del
+bloque hasta «Fin del bloque 5»; tarda ~10 s). **No toca
+`ingredientes.stock`**, y sube el AUTO_INCREMENT de esas tres tablas al final
+de su rango para que lo que cree el POS después no caiga dentro; por eso los
+folios nuevos salen con cinco cifras. Va siempre después del 4: si se vuelve a
+correr el 4 (recrea las variantes con ids nuevos) o el 2 (borra los
+ingredientes 10-99 y, en cascada, sus movimientos), hay que correr otra vez el
+5. Para ver en qué fechas quedó: `SELECT DATE(MIN(hora_apertura)),
+MAX(hora_cierre), COUNT(*) FROM tickets WHERE id BETWEEN 10000 AND 19999;`
+
 Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
 pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
 pasada choca contra `tickets.PRIMARY`. Para rehacer el entorno, recrear la base.
@@ -202,6 +227,16 @@ Cosas que cargan peso y no son obvias:
     su carrito.
   Se editan en Menú → icono de deslizadores de cada platillo
   (`/admin/menu/variantes?id=`). El COGS de Finanzas agrupa por variante.
+  **En el POS** la tarjeta del platillo no lleva pastilla «Opciones»: todo
+  platillo con grupos abre la hoja al tocarlo, también si todos traen
+  predeterminada (nace marcada y con el foco en «Agregar»). El botón de la hoja
+  lleva verbo y precio separados (`.mmodal-opts__verbo` / `__precio`), con
+  «desde $X» si falta una elección obligatoria y «N × $X» al editar varias
+  unidades. No hay botón «Cambiar» en el pedido: la fila
+  (`.mmodal-cart-row--editable`) abre la hoja, el botón real es
+  `.mmodal-cart-name` (`data-editar-opciones`) y −/+, Nota y el campo de la
+  nota quedan fuera del toque por `closest()`. Sólo lo pendiente de enviar se
+  edita así.
 - `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.
 - `catas` es una tabla de **anuncio**, no de reservas. `catas.disponible`
   significa **una sola cosa: si quedan lugares**. No decide la visibilidad —eso
@@ -423,54 +458,72 @@ estado, badges, series de gráfica y `--admin-estado-*`. Es la regla que hace qu
 el conjunto se lea como un sistema y no como un arcoíris: si los bordes y los
 rellenos usaran color, un badge ámbar dejaría de significar «advertencia».
 
-La excepción, y es una lista cerrada: **los disparadores de acción**. Los tres
-botones del topbar (reportar, notificaciones, salir) y los secundarios de una
-barra de acciones de módulo («Categorías» en Menú, «Subrecetas» e «Inventario»
-en Recetas) llevan tono. Eran cajas idénticas donde sólo cambiaba
-la palabra y había que leerlas una por una para elegir. Tres condiciones:
+La excepción, y es una lista cerrada: **los disparadores de acción**. Los
+botones del topbar y los secundarios de una barra de acciones de módulo
+(«Categorías» en Menú, «Subrecetas» e «Inventario» en Recetas) llevan color.
+Eran cajas idénticas donde sólo cambiaba la palabra y había que leerlas una por
+una para elegir.
 
-- El color es un **tinte derivado** (`color-mix` sobre `--admin-surface`, 11-12%
-  en reposo y 20-22% en hover). El relleno sólido queda para
-  `.admin-btn--primary`, el conmutador de tema y **los dos avisos del topbar**,
-  que es lo que mantiene una sola acción principal por pantalla.
-- No toca bordes de tarjeta, filas de tabla ni tipografía.
-- Se consume por la clase `.admin-btn--tinted` más un `--tinted-{color}`
-  (`_buttons.scss`), o por el patrón `--tono` del topbar (`_topbar.scss`).
+**Los disparadores de acción llevan RELLENO SÓLIDO de la paleta funcional**,
+nunca un tinte: el tinte al 11-12 % se veía fosforescente en oscuro y el
+cliente lo retiró. `.admin-btn--tinted` + `--tinted-{color}` (`_buttons.scss`)
+elige la tinta por luminancia: ámbar y turquesa en relleno pleno con
+`--admin-ink`; índigo pleno con papel; azul y verde **oscurecidos hacia la
+tinta** (78 % y 72 %) hasta que el papel da 5.0:1. Un color nuevo se calcula, no
+se estima. La acción principal sigue siendo `.admin-btn--primary`, por
+jerarquía y no por color: es el único en la tinta del sistema, con icono, el
+último de la fila, con sombra, barrido y magnetismo; los de color van planos.
+Pintan con (0,3,0) y dejan las sombras en (0,1,0)/(0,2,0) para que gane el
+anillo de foco. No tocan bordes de tarjeta, filas de tabla ni tipografía.
 
-**Los dos avisos del topbar sí van en relleno sólido**, y son la única
-ampliación de esa lista: notificaciones en `--admin-c-azul` y reportar un
-problema en `--admin-c-ambar`, con la tinta encima declarada por botón
-(`--tono-tinta`: papel sobre el azul, `--admin-ink` sobre el ámbar, que tiene
-luminancia 0.52 y no admite texto claro). El tinte al 12% no resolvía lo que
-tenía que resolver: sobre el fondo casi negro del tema oscuro es
-indistinguible de gris, y los dos círculos volvían a leerse como «dos botones
-iguales». **Salir se queda en tinte a propósito** — terminar la sesión no debe
-ser lo más ruidoso del panel—, y por eso son dos y no cuatro.
+**Borrar es papel sobre rojo pleno** en todo el panel —`.admin-btn--danger` /
+`--danger-solid`, `.admin-icon-button--danger` y el diálogo destructivo—, con
+la misma caja que su homólogo de editar: el cliente lo pidió así aunque el
+contraste quede al borde (4.58:1). La tinta es `--admin-on-danger` (papel en los
+dos temas), nunca `--admin-text-inverse`/`--admin-on-accent`, que en oscuro
+valen tinta. El «×» que quita un renglón dentro de un editor (un ajuste de
+variante) no es un borrado y se queda discreto.
 
-Dos trampas de esa zona, las dos por cascada:
+**Topbar.** Los tres botones redondos (notificaciones, reportar y salir)
+comparten una caja en `_topbar.scss` y su color entra SÓLO por variables
+`--tb-fondo/-tinta/-borde/-fondo-hover/-canto/-halo/-relieve`; las reglas por
+botón no declaran propiedades (eso eliminó la trampa de cascada que dejaba el
+botón de reportar en gris). Notificaciones: **papel** si no hay nada por
+atender, **rojo sólido** (`has-action`) con al menos una tarjeta en «Por
+atender», papel con punto azul (`has-followup`) si sólo hay en espera; la
+prioridad alta sólo abre el halo. Reportar: ámbar sólido con tinta. Salir:
+neutro en reposo y rojo sólo al apuntar, para que el rojo fijo de la barra
+signifique únicamente «hay algo por atender». El conmutador de tema conserva el
+acento; su respuesta va en el icono, porque GSAP (magnético) reescribe el
+`transform` de la caja y absorbe `translate`/`scale`. Microinteracciones con las
+propiedades `translate`/`scale` (≤ 240 ms, sólo puntero fino); el vaivén de la
+campana (520 ms) sólo cuando SUBE el contador; con movimiento reducido se
+quita todo desplazamiento y queda el color. El contador va en papel con la
+cifra en tinta, su aro toma el color del botón, y lleva `&[hidden]` porque su
+`display: grid` le ganaba al atributo.
 
-- Las reglas de caja de `.admin-topbar__support`, `.admin-topbar__logout`
-  (`_topbar.scss`) y `.admin-topbar__inbox` (`_buzon.scss`) van **después** del
-  bloque de `--tono` y tienen su misma especificidad. No pueden declarar
-  `background`, `color` ni el atajo `border` —que reescribe `border-color` a
-  `currentcolor`—: sólo `border-width` + `border-style`. Es lo que dejaba el
-  botón de reportar en gris mientras el bloque de color parecía aplicarse.
-- El contador del buzón (`.admin-topbar__inbox-badge`) vive **encima** de un
-  relleno sólido, así que va invertido —papel con la cifra en tinta— y su aro
-  toma `--tono`: un aro del color de la página se perdería contra el fondo del
-  tema oscuro, y como el aro es `--tono`, la variante de prioridad alta lo
-  cambia sola. Los estados del buzón (`is-empty` / `has-items` /
-  `has-followup`) ya no tocan el relleno: lo que dice «hay algo» es el
-  contador, y `has-high-priority` es lo único que cambia de familia entera.
+**Los números del buzón salen de
+`Services\Reservations\ReservacionBuzonBandejaService`**, que cuenta las
+TARJETAS que pinta el cajón con el criterio de sus pestañas. Ni el topbar ni
+ningún endpoint deben usar `BuzonNotificacionesService::resumen()`, que cuenta
+filas y decía «1» con la pestaña vacía (la lista descarta avisos cuya fuente ya
+no aplica y agrupa varios por reservación). Los avisos son polimórficos y sin
+llave foránea: borrar una reservación los deja huérfanos, y la sincronización
+los cierra con `fuente_inexistente` (`cerrarHuerfanasEnTransaccion`).
 
 Lo que **no** es excepción, porque la regla siempre lo permitió: el badge de
 categoría de Menú (`.admin-badge--cat-0…9`, derivado de `categoria_id % 10`) y
 los tonos de serie de las tarjetas KPI (`.admin-stat-card--serie-*`). Ahí la
 identidad del dato *es* el color, como en las series de una dona. En las
-tarjetas, además, el tono de serie es un **filete lateral y el rótulo**, nunca
-el fondo ni la cifra: la cifra va en tinta normal para poder compararse en
-vertical, y el fondo queda libre para el tono de ESTADO (`--good`, `--bad`),
-que gana porque «la utilidad es negativa» importa más que «esto es la utilidad».
+tarjetas el tono de serie es un **punto delante del rótulo** (la clave de una
+leyenda), nunca el fondo ni la cifra, y el fondo queda libre para el tono de
+ESTADO (`--good`, `--bad`), que gana porque «la utilidad es negativa» importa
+más que «esto es la utilidad».
+
+**El panel no lleva filetes laterales de color**, en nada: el cliente los
+retiró de tarjetas, filas, avisos y del hover de `.admin-table` (que pintaba
+`inset 3px` en oro). El estado se dice con una pastilla, un punto, una forma o
+un fondo.
 
 **Ningún archivo fuera de esos dos contiene un hex ni un `rgba()` literal.** Ni
 el SCSS, ni el JS, ni las vistas. Cambiar la marca es editar la capa 1 y nada
@@ -546,9 +599,30 @@ La capa 3 se redeclara por ámbito; nunca se duplican reglas por tema:
   se fueron al sistema administrativo (`operation.css`, oscuro forzado con
   `[data-admin-theme="dark"]` y sin conmutador: son turnos completos en tablet).
   El feedback se fue al otro lado: es la ÚNICA pantalla de tablet que pertenece
-  a la marca, porque la abre un comensal al terminar de comer, así que va en
-  `[data-tono="crema"]` con The Seasons y los acentos de la landing. El
-  bloque se conserva por si vuelve a hacer falta un modo oscuro público.
+  a la marca —la abre el comensal en la tablet del mesero al cerrar la
+  cuenta—, así que conserva la paleta de la landing (`[data-tono="crema"]`,
+  crema/verde/oro) y vive en `app.css`. Pero habla con la VOZ y los PRINCIPIOS
+  del sistema administrativo: Satoshi para el texto y Expose sólo para el
+  titular (sus `@font-face` están en `feedback/_feedback.scss`, y como en
+  `app.css` sólo las nombra `.fb-page`, la landing no las descarga), rótulos en
+  versalitas, botones de relleno sólido (primario verde de marca, secundario
+  lino) y estados explícitos de carga, éxito y error. `.fb-page` redeclara
+  `--sans` y `--serif` hacia Satoshi para que lo compartido que vive dentro
+  (`AppNotice`) también la hable. El isologo NO usa la fuente (KudosKaps sólo
+  tiene versales: escrito en caja mixta salía «Cᴀsᴀ Pᴇsᴛᴀʟᴏᴢᴢɪ»): son los
+  trazos de `views/admin/menu/_isologo.svg` más el filete y el medallón del
+  hero (`views/feedback/_isologo.php`, con su medallón copiado de `_hero.php`:
+  si cambia uno, cambia el otro). Las caras son radios reales y su color sale
+  de la paleta funcional, con el trazo hundido al 62 % en `--verde-ink` para
+  pasar de 3:1. La encuesta funciona sin JS: el guardia del `<head>` pone
+  `fb-js`, `feedback.js` responde con `fb-listo`, y si no llega se ve el
+  formulario seguido, que `FeedbackController::guardar` recibe como POST normal
+  y redirige con 303. **Una encuesta con token se responde una sola vez**: el
+  token se aparta con `UPDATE … WHERE usado = 0` antes de insertar (se libera
+  si el INSERT falla), y un token usado o desconocido se rechaza en vez de
+  guardarse como anónima. Sin token es la encuesta abierta. El bloque de
+  `[data-modo="oscuro"]` se conserva por si vuelve a hacer falta un modo oscuro
+  público.
 - `[data-tono="crema|beige|oro|verde|foto"]` — ritmo de secciones de la landing
   (`cafe` y `vino` son alias de `oro`).
   Cada `<section>` lo declara y **todo lo que vive dentro se readapta solo**.
@@ -557,23 +631,61 @@ La capa 3 se redeclara por ámbito; nunca se duplican reglas por tema:
   sección (el hero dejó de ser una fotografía); se conserva por si vuelve.
 - `[data-admin-theme="light|dark"]` en el panel, sin cambios de estructura.
 
-#### Las dos transiciones del panel
+#### Las tres transiciones del sistema
 
-Las dos usan View Transitions y **conviven en `_finishes.scss`, bloques 4b y
-4c**. Si tocas una, comprueba la otra: es el error fácil de esta zona.
+Las tres usan View Transitions. Tema y módulo **conviven en `_finishes.scss`,
+bloques 4b y 4c**; la llegada vive en `_transitions.scss`. Si tocas una,
+comprueba las otras: es el error fácil de esta zona.
 
 - **Cambio de tema** (`core/theme.js`): un `clip-path` circular de 480 ms que se
   abre desde el conmutador. Va marcada con el tipo `'tema'`
   (`startViewTransition({update, types})`, con repliegue a la firma de callback
   para Chrome 111-124), y las reglas que apagan el fundido de raíz se acotan a
-  ese tipo. Sin acotarlas —como estaban— matarían también la de navegación.
-- **Cambio de módulo**: `@view-transition { navigation: auto }` más un keyframe
-  de entrada en `.admin-content` para los navegadores sin soporte. **Ningún
-  elemento lleva `view-transition-name`**, y no es un olvido: nombrar el topbar
-  o el sidebar les daría grupo propio en TODAS las transiciones del documento
-  —la del tema incluida— y sus instantáneas taparían el círculo mientras se
-  abre. Sin nombres, la raíz funde la página entera y el cromo, que es idéntico
-  entre módulos, funde píxeles iguales: no se nota.
+  ese tipo. Sin acotarlas matarían también la de navegación.
+- **Cambio de módulo (4c, tipo `modulo`)**: `@view-transition { navigation:
+  auto }` y **sólo se mueve el contenido**: el viejo sale en 150 ms y el nuevo
+  entra en 300 ms subiendo 10 px, con nombres DISTINTOS de salida y de entrada
+  (con el mismo nombre, un origen desplazado haría volar el contenido cientos
+  de píxeles). Topbar y sidebar quedan quietos, y el enlace activo viaja de su
+  fila a la nueva (`admin-nav-activo`, ≥993 px). Los nombres cuelgan de clases
+  que sólo existen mientras dura la navegación —`admin-vt-sale` (`pageswap`,
+  en `motion.js`) y `admin-vt-entra` (`pagereveal`, en el `<head>` del layout:
+  tiene que ser ahí)—, así que la transición del tema no se entera: nombrar
+  el topbar o el sidebar de forma permanente les daría grupo propio en TODAS
+  las transiciones y sus instantáneas taparían el círculo del tema. Lo que ya
+  está a la vista no se vuelve a revelar al llegar desde otro módulo.
+  Los enlaces del sidebar se **precargan** con Speculation Rules (`prefetch`,
+  eagerness `moderate`, sin el módulo activo) — prefetch y no prerender, porque
+  las páginas ejecutan consultas; el servidor reconoce la precarga por
+  `Sec-Purpose: prefetch`.
+- **Llegada tras el login (tipo `llegada`)**: `views/components/llegada.php` +
+  `src/js/components/llegada.js` (en `bundle.min.js` por el glob general y
+  en `paths.adminJs`) + `_transitions.scss`. El controlador marca
+  `Auth::anunciarLlegada()` al autenticar y el layout (o el shell del piso) la
+  gasta con `Auth::consumirLlegada()` en la PRIMERA página: un prefetch no la
+  gasta. El nombre (`cp-marca`, y cada palabra en `cp-marca-casa` /
+  `cp-marca-pestalozzi`) va del login al centro, se sostiene con el saludo y
+  vuela a la marca de destino mientras el velo —siempre tinta, porque usa las
+  anclas y no los roles— se cierra en círculo sobre ella: al nombre apilado del
+  sidebar, al monograma si está plegado, a la marca de la barra en el selector
+  de estación; en el POS y en el teléfono se apaga en su sitio. ≈1.4 s, se
+  salta con cualquier tecla o toque; sin JS o sin tipos de View Transition el
+  CSS sostiene el velo 1.3 s y lo funde; con movimiento reducido, un fundido de
+  240 ms. Ninguna de las dos marcas del login puede perder `data-login-marca`,
+  y si cambia la medida de la marca del sidebar o de la barra del piso hay que
+  revisar `.cp-llegada__marca`.
+
+- **Login** (`views/auth/login.php` + `auth/_login.scss`): a la izquierda la
+  casa (CASA sobre PESTALOZZI en KudosKaps 400 medido contra su columna,
+  `9.5cqi`), a la derecha la puerta (titular en Expose por rol, rótulos y
+  etiquetas en mono). El NIP se envía solo con el cuarto dígito y el teclado
+  físico funciona esté donde esté el foco. ⚠️ **En tablet nunca enfocar por JS
+  un campo `inputmode=numeric` dentro de un toque**: abre el teclado del
+  sistema encima del pad, que es lo que pasaba con cada tecla.
+
+⚠️ **Curvas literales** en todo lo que cuelga de `::view-transition-*`: los
+tokens (`var(--admin-ease-out)`) viven en `.admin-body` y esos pseudos cuelgan
+de `<html>`, así que ahí no resuelven y caían a `ease`.
 
 Y la razón de que el cambio de tema se trabara siempre en el mismo punto:
 `theme.js` pone `.admin-theme-switching` en `<html>` mientras dura el
@@ -625,6 +737,18 @@ los dos salieron para que el logo sea lo primero y casi lo único que se lee.
   retiran lo que sólo existe en movimiento: hojas, harina, chispas), y
   `initMesaViva()` pone `.hero--quieta` —bucles en pausa— mientras el hero no
   está en pantalla: transform sobre SVG no va al compositor.
+  En el plano del dibujo (no en `.hero-vivo`) viven además la vela vista desde
+  arriba (`.hero-vela`, escalada con un atributo `transform` sobre el pabilo:
+  sus `transform-origin` en px usan coordenadas locales), las ondas del vino
+  (`.hero-onda`), el destello del cuchillo (`.hero-filo` / `-chispa`), las
+  migas (`.hero-miga`) y el vapor del cuenco (`.hero-vapores--cuenco`), con
+  periodos que no son múltiplos entre sí. El vapor y la llama se apartan del
+  puntero y el vino se escora hacia él con las PROPIEDADES `translate`/`rotate`,
+  para componerse con las animaciones de `transform`. La pasta (`.hero-plato`)
+  gira con el scroll por un `view-timeline` (`--hero-salida` en `.hero`) y no
+  va en `.hero--quieta`, porque no depende del tiempo. **Al añadir un bucle hay
+  que sumarlo a las tres listas**: movimiento reducido, `.no-anim` y
+  `.hero--quieta`.
 - **La marca fija y el índice lateral se retiran mientras el HERO pasa bajo
   ellos** (`body.marca-en-hero`): el nombre saldría dos veces y el índice se
   montaba sobre el panel de la mesa. La clase **ya sale del marcado** en el
@@ -634,9 +758,8 @@ los dos salieron para que el logo sea lo primero y casi lo único que se lee.
   `.hero__boton`. En ≤600 px la barra desaparece y la rejilla arranca bajo el
   disco del menú (si no, PESTALOZZI pasaba por debajo del botón).
 - El botón de menú se mide con `--nav-toggle-top` y `--nav-toggle-size`
-  (`:root` de `_nav.scss`), que leen también el origen del círculo del menú, la
-  barra del hero y la colocación de los adornos de sección: si se mueve el
-  botón, se mueven todos.
+  (`:root` de `_nav.scss`), que leen también el origen del círculo del menú y
+  la barra del hero: si se mueve el botón, se mueven los tres.
 
 #### El menú de la landing
 
@@ -674,43 +797,40 @@ dos) donde antes había una foto del comedor.
   así que el observador la daría por visible con el menú cerrado. Se dibuja
   con `body.nav-open` y su bucle lo enciende `nav.js`.
 
-#### Los adornos vectoriales
+#### Sin adornos después del hero
 
-`views/components/ornamento.php` expone `ornamento($nombre, $clase)` (olivo,
-trigo, uvas, copa, albahaca, destellos, cubiertos, vela, ruta, guirnalda,
-filete); `components/_ornamentos.scss` los anima y `modules/ornamentos.js` los
-dispara. Son la familia de dibujo de la mesa del hero en pequeño: trazo de 1.6
-que se dibuja al entrar, relleno de oro que llega después y un bucle corto
-**sólo mientras están a la vista** (`orn--viva`). Sin JS salen dibujados y
-quietos.
+Hubo un sello vectorial animado por sección (catálogo
+`views/components/ornamento.php`, observador `modules/ornamentos.js`) y el
+cliente lo retiró: **después del hero la landing va sin adornos**. Los dibujos
+de línea que quedan son la mesa del hero y la casa del menú desplegado; las
+clases de dibujo de esta última (`.t`, `.r`, `.v`) y sus keyframes viven en
+`components/_ornamentos.scss`. Si vuelven los adornos, el formato era un SELLO
+montado sobre el corte entre bandas, y su lección sigue valiendo: ⚠️ **nunca
+insertar marcado en una etiqueta de apertura con un regex que corte en el
+primer `>`** — la de Reservar lleva `<?php ... ?>` dentro de un atributo, el
+adorno acabó dentro de `data-reservation-csrf` y toda reservación de la landing
+fallaba la validación CSRF.
 
-- **Color por rol**: trazo `--accent-text`, relleno `--accent`. El mismo adorno
-  se resuelve solo en crema, en verde y en la banda de oro.
-- **Uno por sección, como SELLO** (`ornamento($n, 'orn--seccion', true)`): un
-  disco opaco del color de la banda, una corona punteada que gira, un aro que se
-  traza, tres destellos y el dibujo grande dentro (`<svg>` anidado, con el trazo
-  compensado por la escala). Como iconos sueltos de 5 rem se perdían. Va
-  **montado sobre el corte** con la banda anterior —medio sello en cada una—,
-  a la derecha y corrido a la izquierda del botón de menú (a ras del borde
-  quedaba debajo del disco fijo cada vez que una sección llegaba arriba). Por
-  eso Chef y Especiales pasaron de `overflow: hidden` a `overflow-x: clip`.
-  Excepciones: el de Nosotros va en el hueco entre las dos columnas del hero
-  (`.orn--tras-hero`; a la derecha pisaba el panel de la mesa); donde la banda
-  de arriba es una insegna (sus letras de cartel quedaban tapadas), Menú entra
-  entero en su sección (`.orn--dentro`) —y su dibujo es una CARTA, no una
-  planta: una tarjeta con su cinta, el medallón y cuatro platillos con puntos
-  guía (`.t--puntos`, punteados y quietos)— y Catas
-  lleva su sello —la copa— en la cabecera de la carta de maridaje; Reservar lo
-  lleva junto al titular (`.reserva__vela`) porque el formulario arranca a la
-  altura del corte.
-- ⚠️ **Nunca insertar marcado en una etiqueta de apertura con un regex que
-  corte en el primer `>`**: la de Reservar lleva `<?php ... ?>` dentro de un
-  atributo, el adorno acabó dentro del valor de `data-reservation-csrf` y toda
-  reservación de la landing fallaba la validación CSRF.
-- Los `<g>` con bucle giran sobre su `transform-origin` en coordenadas del
-  viewBox (o sobre el 0 0 local, el punto donde el padre trasladó la pieza):
-  mismo patrón que `.hero-ramita`. Un `clipPath` dentro de un adorno lleva id
-  único por llamada (contador estático en la función).
+#### Rendimiento de la landing
+
+- **Fotos responsivas**: `gulp imagenesResponsivas` (con `sharp`, va en
+  `build`) genera `nombre-720.webp` de cada foto de `assets/images` más ancha de
+  ~830 px, y `srcsetImagen($ruta, $sizes)` (`includes/funciones.php`) añade
+  `srcset`/`sizes` SÓLO si la variante existe. Toda `<img>` nueva de la landing
+  lo lleva, más `decoding="async"` y `loading="lazy"` bajo el pliegue. En un
+  teléfono, las fotos de la portada bajaron de 2.7 MB a 1.7 MB.
+- **`app.css` sale comprimido** (`outputStyle: "compressed"`, con mapa): de 288
+  a 210 KB. Las hojas del panel siguen en `expanded`.
+- **Caché y compresión** en `public/.htaccess` (dentro de `<IfModule>`):
+  brotli/deflate para texto; un año `immutable` para todo `/build/` pedido con
+  `?v=`, 30 días para fuentes y 7 para fotos y vendor. Por eso app.css y
+  bundle.min.js se enlazan SIEMPRE con `recursoVersionado()` (fecha del
+  archivo), nunca con un `?v=` escrito a mano: con caché inmutable, una versión
+  olvidada dejaría la hoja vieja en el navegador.
+- **Nada de `will-change` permanente** en lo que sólo se anima una vez
+  (`[data-reveal]`, `.linea__in`): eran decenas de capas de composición toda la
+  visita. GSAP promueve el elemento mientras dura el tween. Sí lo conservan lo
+  que se mueve siempre (pista de la galería, insegna, fotos con parallax).
 
 #### SEO
 
@@ -738,10 +858,19 @@ quietos.
   comparten la landing y el POS): el hover del día lleva
   `:not(.selected)`. Sin él la regla suma (0,4,0), le gana a `.selected`
   (0,2,0) y el día elegido perdía su marca bajo el cursor.
-- **«Sin cupo»** de las catas: el título es flex y el sello se centra contra
-  la media entre la altura de x y la de mayúsculas (`top: 0.12rem`), no contra
-  la caja; dentro, `text-box: trim-both cap alphabetic` centra las versalitas
-  donde hay soporte y un relleno asimétrico donde no.
+- **«Sin cupo»** de las catas: centrarlo contra la caja de la línea (flex con
+  `align-items: center`, más un `top` a ojo) dependía del ascendente y el
+  descendente de la fuente que tocara, y con las de respaldo se descolgaba. Ahora
+  la referencia es la **línea base** —que no depende de métricas— más la unidad
+  `cap`, que el navegador mide sobre la fuente que de verdad pinta. Son dos
+  cajas con la misma jugada: `.cata__sello` (en la letra del título) es un
+  inline-flex cuyo único elemento alineado por base es un puntal vacío de
+  `½cap + ½alto` —una caja sin texto pone su base en el canto inferior—, y la
+  pastilla cuelga desde arriba con su centro a `½cap` del título sobre la base;
+  `.cata__sello-pastilla` repite el puntal por dentro con su propia letra para
+  centrar el rótulo. `--sello-alto` va en rem (lo único que las dos cajas leen
+  igual), el filete en `box-shadow` (un borde descuadra la cuenta) y el título
+  es bloque, para que el sello siga a la última palabra si parte en dos.
 - **La Cucina** es más baja que una banda normal (aire vertical reducido,
   retrato 1:1.05 acotado a `min(72vh, 600px)`): con el retrato a 4:5 en media
   columna pasaba de una pantalla para tres claves y una firma.
@@ -809,30 +938,53 @@ si algún día vuelve como decisión explícita.
 
 ### Tipografía del panel
 
-**Geist + Geist Mono, y ninguna serif.** No comparte una sola cara con la
-landing: el panel es otro producto. Locales igual que las de la landing
-(`gulp copyVendorFonts` desde `@fontsource-variable/geist*`), cero Google Fonts.
+**Satoshi + Expose + Geist Mono, y ninguna serif.** No comparte una sola cara
+con la landing: el panel es otro producto. Vale para todo el sistema
+administrativo —panel, POS, áreas y login, y también la encuesta de feedback,
+que lleva sus propias `@font-face` en `app.css`—, porque el piso resuelve sus caras
+a los mismos tokens (`--operational-font-*` → `--admin-font-sans`). Satoshi y
+Expose son de Fontshare (licencia ITF FFL, que permite alojarlas;
+`assets/fonts/LICENCIA-fontshare-FFL.txt`), van como variables en
+`assets/fonts/` y las publica `copyFonts`; Geist Mono sigue llegando de
+`@fontsource-variable/geist-mono` por `copyVendorFonts`. Cero Google Fonts.
 
 | Token | Familia | Para qué |
 |---|---|---|
-| `--admin-font-sans` | Geist Variable (100-900) | todo el texto |
-| `--admin-font-mono` | Geist Mono Variable | **cifras**, rótulos, código |
+| `--admin-font-sans` | Satoshi (variable 300-900, redonda e itálica) | todo el texto |
+| `--admin-font-titular` | Expose (variable 400-900) | **sólo** el titular de página: `h1`, `.admin-page__title` y el `h2` de `.admin-page-title-row`; en el piso, el título del KDS |
+| `--admin-font-cifra` | = `--admin-font-titular` (Expose 600) | la cifra de un **indicador**: tarjeta KPI (`.admin-stat-card__value`), totales grandes del POS, el veredicto de Finanzas, las respuestas del asistente |
+| `--admin-font-mono` | Geist Mono Variable | cifras de **columna**, rótulos, código |
 | `--admin-logo` | KudosKaps | sólo el wordmark |
 
-**La jerarquía la hace el par mono/sans, no un cambio de familia**: el rótulo va
-en mono, versalitas y `letter-spacing: .14em`, y el titular debajo en sans con el
-tracking cerrado (`-0.03em`). Es lo contrario de lo que pide la serif de alto
-contraste de la landing —apretada se empasta— y por eso las dos escalas no se
-pueden copiar la una de la otra.
+Expose es una display: va en el titular de página y en ningún sitio más. Por
+eso tiene token propio y no ocupa `--admin-font-heading`, que también lo
+piden encabezados de componente a 15-20 px (buzón, modales) donde una display
+no se lee. ⚠️ Se aplica por ROL con (0,2,0), nunca por etiqueta: con
+`.admin-body h2` (0,1,1) le ganaba a la clase de cada componente y salía en
+los títulos de modal, las tarjetas de Configuración y los encabezados de día
+de Grupos grandes, y el titular medía 51 px en una página y 36 en otra según
+fuera `h1` o `h2`. El titular va a un solo tamaño, `clamp(28px, 3vw, 36px)`,
+en Expose 600 con −0.01em: ya trae el espaciado de cartel. Satoshi va a `letter-spacing: 0` en cuerpo — es geométrica
+y apretada se le cierran los contadores.
+
+**La jerarquía de trabajo la hace el par mono/sans**: el rótulo va en mono,
+versalitas y `letter-spacing: .14em`, y el titular debajo en Expose. Es lo
+contrario de lo que pide la serif de alto contraste de la landing —apretada se
+empasta— y por eso las dos escalas no se pueden copiar la una de la otra.
 
 Toda cifra que se compare en vertical va en mono con `tabular-nums`: columnas
-numéricas de tabla, KPIs, importes, timestamps. Se marcan con `.admin-num`. Una
+numéricas de tabla, importes de un desglose, timestamps. Se marcan con
+`.admin-num`. La cifra de un INDICADOR —la que una tarjeta dice sola, a 26-46
+px— no es un dato de columna sino un cartel, y va en `--admin-font-cifra`
+(Expose 600). Expose no trae `tnum`: donde una cifra se anime contando, se le
+reserva el ancho con `min-width`. Una
 tabla entera en mono, en cambio, se lee como un volcado de terminal — el texto
 se queda en sans.
 
-Se envían las **cuatro** caras (redonda e itálica de cada familia) aunque el
-fichero sea variable: `font-style` no es un eje, y hay una regla que pide
-itálica. La casa no admite caras sintéticas.
+Se envían redonda e itálica de Satoshi y de Geist Mono aunque los ficheros
+sean variables: `font-style` no es un eje, y hay una regla que pide itálica. La
+casa no admite caras sintéticas (`font-synthesis-*: none` en `.admin-body`).
+Expose no tiene itálica y no debe pedirse.
 
 `--admin-font-body`, `--admin-font-heading`, `--admin-font-accent` y
 `--admin-font-display` se conservan como alias de `--admin-font-sans`.
@@ -1068,31 +1220,56 @@ finanzas, inventario y reservaciones. Dos cosas que no son evidentes:
   y Grupos grandes y Casos usan `RangoPeriodo::resolverProspectivo()`. Si un tablero sale vacío con datos en la base,
   ése es el primer sitio donde mirar.
 
-**El listado de reservaciones son TARJETAS, no una tabla**, y es el único
-módulo del panel que no usa `.admin-table`. Tenía seis columnas con
-`min-width: 960px`, así que en cualquier portátil el estado y las acciones
-—lo único accionable de la fila— quedaban fuera de vista tras un scroll
-horizontal: había que arrastrar para saber si una reserva estaba confirmada. El
-scroll no era un descuido de padding, era estructural.
+**La Agenda de reservaciones es una libreta, no una tabla ni una rejilla de
+tarjetas** (`views/admin/reservations/index.php` +
+`Services\Reservations\ReservacionListadoPresenter` + `reservations.scss`). Es
+la primera pestaña del módulo (Agenda · Grupos grandes · Casos; la clave
+interna sigue siendo `historico`) y abre en los próximos 30 días. Cada día es
+una hoja con cabecera fija («N reservaciones · N personas · N no llegaron»):
+el número del día en el margen, la hora escrita una vez por franja en el mismo
+margen, y de una línea vertical cuelgan las reservas con una MARCA cuya forma
+dice el estado (○ confirmada, ● en mesa, ✓ atendida, ⊘ no llegó, – cancelada,
+◐ apartada; ámbar macizo = tolerancia vencida). La etiqueta del estado va
+además en palabras: el color nunca dice nada solo. Las terminales se atenúan
+con contorno discontinuo y nunca en rojo, y la tolerancia vencida
+(`elegible_no_show`) es la única urgencia y la única acción que se resuelve ahí
+(«No llegó», también en días pasados; `lista.js` intercepta en captura antes
+que el diálogo genérico). En el día de hoy, una raya «Ahora · HH:MM» separa lo
+que ya debió llegar de lo que falta. La simplificación siguió a la del POS:
+salieron las cinco tarjetas de métricas (tres medían cosas que el modelo de
+tres estados ya no produce), «Más filtros» (estado → tira, asignación → Casos,
+origen → detalle), los chips, el conmutador lista/agenda y los botones de
+crear/abrir en el POS del encabezado (las altas son del POS; no se borró
+ninguna ruta).
 
-Una reservación tampoco es una fila de datos comparables columna a columna: es
-una ficha que se lee entera —quién viene, cuándo, con cuántos, en qué mesa— y
-sobre la que se actúa. En tarjeta el orden de lectura es la pregunta real del
-anfitrión, y nada se sale de la caja. Se conservan la agrupación por día (con
-cabecera `sticky`) y el orden cronológico; al no haber tabla, **`table-sort.js`
-no aplica aquí**.
-
-El filete izquierdo de la tarjeta es el ESTADO, y los dos estados terminales
-—cancelada y no-show— van en la línea neutra atenuada, no en rojo: una reserva
-cancelada no es una alerta que atender. Lo que sí gana al estado es
-`is-late`: la tolerancia vencida es lo único de esa pantalla que le dice al
-anfitrión que tiene algo que resolver ahora.
-
-⚠️ `.reservations-table__status--*` **sobrevive** al cambio y no es CSS muerto:
-lo consume el detalle (`show.php`). El listado ya no; usa `.admin-badge`, que es
-el vocabulario del panel. Lo que sí se retiró de ese badge es el
-`max-width: 104px`: con `nowrap` no recortaba con puntos suspensivos sino a
-hueso, y "Pendiente de verificación" salía cortado a media palabra.
+- Filas en columnas fijas desde 900 px de **contenedor** (`container:
+  agenda`), dos renglones por debajo: cada fila es su propia rejilla, y sólo
+  con anchos fijos se alinean personas, mesas y estado. La fila entera abre el
+  detalle (el `::after` del nombre la cubre); las acciones van por encima con
+  `pointer-events`.
+- La tira de estados es resumen y filtro a la vez, y deliberadamente NO es
+  `.admin-tabs--links`: `syncLinkTabs()` de reactive-filters marcaría «Todas»
+  activa junto a la elegida. Sus cifras ignoran el estado elegido (otra
+  consulta sólo si hay estado).
+- El estado y el periodo viajan en campos ocultos del formulario de búsqueda
+  (sin ellos buscar los perdía); el periodo sin `data-reactive-control`, para
+  que «Limpiar» no deje el selector diciendo un periodo y la lista enseñando
+  otro. La URL canónica (`urlListado`) omite el periodo por defecto.
+- Rótulo de mesas y estados en la voz del POS
+  (`ReservacionListadoPresenter::mesas()` ≡ `nombresMesas()` de
+  `pos-reserva-vista.js`: «Mesas 3 y 4», «Mesas 8 a 11»): si cambia uno, cambia
+  el otro. Casos y Grupos grandes lo usan también.
+- `reemplazada`, `pendiente_verificacion` y `expirada` no salen en «Todas»;
+  `?estado=` las sigue mostrando.
+- ⚠️ `_range-picker.php` deja definida una `$dias` (itera los presets y no la
+  limpia con `unset`): la vista usa `$diasAgenda`. Cualquier vista que incluya
+  el selector no debe llamar `$dias` a nada suyo.
+- `.reservations-table__status--*` sigue vivo para `show.php` (las terminales,
+  atenuadas); el cajón del POS tiene su propia copia en
+  `operation/_reservation-list.scss`.
+- Casos: el cuándo es el ancla en el margen, como en la Agenda; la severidad la
+  dice la etiqueta del caso principal, no un filete. Las pestañas de tipo con
+  cero casos se ocultan, salvo la elegida.
 
 Vocabulario de clases admin: `admin-page`, `admin-card`, `admin-panel`,
 `admin-btn--{primary,secondary,ghost,tinted}`, `admin-table`,
@@ -1141,21 +1318,93 @@ vacía `☆` de Feedback salía como un rectángulo en algunas caras. Al cambiar
 glifo por SVG hay que dar `display: inline-flex` + `gap` a su contenedor: el
 espacio que lo separaba del texto era el del carácter y deja de existir.
 
-**Las consultas rápidas** (`views/admin/partials/_consulta-rapida.php` +
-`core/consultas-rapidas.js`, en `admin.js` + `_consulta-rapida.scss` +
-`GET /admin/api/consultas` → `Services\Analytics\ConsultasRapidas`) son la
-barra de pregunta de Tickets, Análisis, Menú e Inventario. NO es un modelo de
-lenguaje: es un intérprete de reglas que reconoce periodo (hoy, ayer, antier,
-semana, mes, últimos N días), intención (ventas, almacén, lo más vendido,
-bajo stock, total) y la cosa —platillo, categoría o ingrediente— con
-coincidencia aproximada (acentos, plurales, sinónimos de piso como
-«capuchino», errores de dedo). Las palabras que sobran se buscan entre las
-opciones del platillo: «capuchinos con almendra» filtra por esa variante. Las
-ventas se cuentan como en el resto del panel (tickets cerrados, sin
-cancelados, por `COALESCE(hora_cierre, hora_apertura)`). `$crAmbito`
-(`ventas` | `productos`) sólo decide ejemplos y desempates. La conversación
-abierta, con IA de verdad, es el módulo **Asistente IA** (`/admin/ia`, vista
-lista para n8n; contrato en `docs/config.md`).
+**Las consultas rápidas** (`core/consultas-rapidas.js`, en `admin.js` +
+`_consulta-rapida.scss` + `GET /admin/api/consultas` →
+`Services\Analytics\ConsultasRapidas`) son el motor del **Asistente IA**, el
+ÚNICO sitio del panel donde se pregunta. Hubo una barra con campo de texto en
+Tickets, Análisis, Menú e Inventario; se retiró, y después el cliente retiró
+también el texto libre del asistente, así que el JS ya no tiene barra, ni «/»,
+ni «Preguntar por «…»». NO es un modelo de lenguaje: cada pregunta es una
+INTENCIÓN estructurada (`?intencion=&id=&opcion=&periodo=`) con su plantilla
+de huecos. Hay 12 (`ConsultasRapidas::INTENCIONES`, en este orden en
+`capacidades()`):
+
+- Ventas: `ventas_total`, `ventas_producto`, `ventas_categoria` («Ventas por
+  categoría»; nunca «familia» en pantalla), `top`, `ticket_promedio`,
+  `sin_venta`.
+- Equipo y servicio: `meseros`, `horas_pico`, `cancelaciones`.
+- Inventario: `stock`, `consumo`, `bajo_stock`.
+
+Las ventas se cuentan como en el resto del panel (tickets cerrados, sin
+renglones cancelados, por `COALESCE(hora_cierre, hora_apertura)`). Excepciones
+deliberadas: `horas_pico` agrupa por hora de APERTURA (llegada), y `consumo`
+suma los movimientos `venta` − `cancelacion` de `movimientos_inventario` por
+su fecha —la receta que explotó `Inventario::aplicarVenta()` al mandar la
+comanda, sin volver a explotarla—, así que cuadra con la existencia aunque la
+receta cambie (y en la base de desarrollo sale casi siempre en cero: los
+tickets de prueba no generan movimientos). El intérprete de frases
+(`responder()`, que entiende «familia» como sinónimo de categoría) se conserva
+sólo como contrato del texto canónico y para repetir preguntas de texto
+guardadas antes del cambio.
+
+- **La respuesta trae** `interpretacion`, `plantilla` (huecos) y `respuesta`. En
+  el desglose, `valor` numérico mide la barra y `valor_texto` es cómo se lee
+  (mono sólo si es cifra). La comparación lleva `tendencia` (la flecha) y
+  `lectura` (`bien` | `mal` | `igual`, el color): más cancelaciones o más
+  platillos sin venta suben y son malas, y el consumo es neutro. Las cifras de
+  respuesta van en `--admin-font-cifra`.
+- **Un hueco puede fijar su intención** (`intencion`): el de ingrediente de
+  `consumo` elige de la misma lista que la existencia, cuyas opciones traen
+  `stock`. `consultaDeOpcion(parte, op)` lo aplica.
+- **El selector de un hueco** es uno por página, portado a `<body>` y fijo
+  (z-index 130, como `.admin-select__list`). Con buscador es un `dialog` con
+  `combobox` + `aria-activedescendant`; sin él, el foco va al `listbox`.
+  Enter, Espacio o ↓ abren un hueco, y una letra lo abre filtrado
+  (`teclaDeHueco`, compartida con el compositor). Escape devuelve el foco al
+  hueco, Tab cierra y sigue desde él, y tras repintar el foco vuelve al hueco
+  del mismo CAMPO. `ancho` fija el ancho y deja el detalle en varios renglones
+  (la lista de preguntas base).
+- **No entendido es dato, no error**: hoy sólo ocurre con una cosa que ya no
+  existe. Llega con `entendida: false`, respuesta `sin_resultado` y plantilla
+  de rescate. Sólo una intención desconocida es 400.
+- **API** `window.ConsultasRapidas`: `consultar`, `montar(contenedor,
+  opciones)` (devuelve `{consultar, pintar, limpiar, destruir, ultima}`;
+  eventos `consulta-rapida:cambio` y `consulta-rapida:respuesta`; opciones
+  `ambito`, `alCambiar`, `alPintar`, `alOcupado`, `alLimpiar`, `anunciar`,
+  `enlace`, `nivelTitulo`), `capacidades()`, `catalogo()`, `elegir(boton,
+  parte, alElegir, filtro)`, `consultaDeOpcion`, `teclaDeHueco`,
+  `selectorAbierto()` y `cerrarSelector()`. Contrato comprobado por
+  `php scripts/tests/run-consultas-rapidas-db.php` (sólo lee).
+
+El módulo **Asistente IA** (`/admin/ia`) es una conversación sobre ESTE mismo
+motor, sin modelo de lenguaje (n8n se descartó) y **sin texto libre**. El
+compositor ES una pregunta armada con huecos («Ventas de [todo el restaurante
+▾] · [Hoy ▾]») y siempre hay una: nace con la primera del catálogo (el servidor
+la pinta en la primera impresión), se cambia desde el catálogo de la
+conversación nueva (familias Ventas / Equipo y servicio / Inventario; la
+armada lleva `aria-pressed`), desde el botón de la pregunta en la fila de
+abajo o con Ctrl/⌘+K, y tras enviar se queda con la pregunta contestada en la
+forma del motor, salvo que se tocara mientras se esperaba. **Cada vez que se
+arma una pregunta base sale con un ejemplo distinto**: `capacidades()` devuelve
+`ejemplos` (hasta 8 combinaciones REALES de cosa y periodo —los platillos y
+categorías que más salen, los ingredientes más justos o más consumidos—, con
+los periodos de `PERIODOS_DE_EJEMPLO`, que evitan tramos que suelen contestar
+en cero), `AdminIaController` hace un borrador por ejemplo (`data-ia-borradores`)
+y `ia.js` (`borradorAlAzar`) arma uno al azar, nunca el que ya está armado; la
+primera impresión la elige el servidor, también al azar. Teclado (sin pista
+escrita en la caja: el cliente la retiró; la anuncian los `aria-keyshortcuts`):
+Tab entre huecos, Enter/Espacio/↓ abren, Ctrl/⌘+Enter envía. Elegir una pregunta del
+catálogo la hace viajar al compositor con una View Transition de nombre
+PASAJERO (`ia-pregunta`, tipo `ia-armar`, que apaga el fundido de raíz); el
+repliegue es un destello de fondo. Cada respuesta es un `montar()`: un hueco
+la rehace en su sitio y un renglón abre una pregunta nueva. Las
+conversaciones viven en `localStorage` y se guardan sólo las **10 más
+recientes** (`AdminIaController::MAX_CONVERSACIONES`, que también dice el pie
+del historial): al abrir una más se borra la más antigua, y lo guardado de
+antes se recorta al cargar. El botón de borrar conversación es papel sobre
+rojo sólo al apuntarlo o enfocarlo; en reposo es el glifo neutro, como
+«Salir», porque diez rojos fijos en una tablet dirían «hay algo que atender».
+Ver `docs/config.md`.
 
 Dos piezas compartidas que conviene conocer antes de escribirlas otra vez:
 
@@ -1172,10 +1421,48 @@ Dos piezas compartidas que conviene conocer antes de escribirlas otra vez:
 - **Paginar** — `views/admin/partials/_pagination.php` (`$pagPagina`,
   `$pagTotal`, `$pagUrl` como callable, `$pagReactiva`). Ventana deslizante de
   cinco páginas con elipsis; el estilo es `.admin-pagination` en `_tables.scss`.
-  Lo usan Menú (10/página, reactivo) y Tickets (20/página, enlaces normales).
+  Lo usan Menú y Recetas (10/página, reactivo), Tickets (20/página) y los
+  cortes de caja de Finanzas (14 días por página, `?cortes=N#cortes`: los
+  enlaces reconstruyen `rango` o `desde/hasta` más `comparar`, y el `<tfoot>`
+  suma el periodo entero, no la página).
   **Al paginar, las métricas de cabecera necesitan consulta propia**: si se
   calculan recorriendo las filas traídas pasan a describir la página, no el
   total. Es lo que le pasaba a Tickets.
+- **Tarjetas-filtro y listas de pendientes** — `partials/_filtros-estado.php`,
+  `_tareas-completas.php` y `modules/_pendientes.scss` (incluido con `@use`
+  desde la hoja de cada módulo; también trae la fila de tarjetas + buscador,
+  `.admin-filtros-fila` / `.admin-filtro-buscar`). La tarjeta es un enlace con
+  `aria-current` y su filtro va en la URL: Menú `?pendiente=receta`, Recetas
+  `?estado=sin`, Inventario `?pendiente=stock|proveedor` (sólo ingredientes
+  activos). Elegirla convierte la lista en una lista de pendientes con su
+  acción directa por fila («Crear receta →», «Sumar», «Asignar proveedor →»).
+  Las tarjetas de tarea cuentan lo HECHO («30 de 107», con barra), no lo que
+  falta; sus cifras salen de consulta propia y el alcance es carta y
+  categoría, nunca la búsqueda. El acuse de lista completa es el único
+  movimiento de estas listas (y no sale si la lista se vació por buscar). El
+  enlace estirado a toda la fila (`.admin-tarea__enlace`) no puede llevar
+  `position`, `overflow` ni `transform` al pasar el cursor: cualquiera de los
+  tres encoge el área pulsable al botón. El editor de recetas acepta
+  `?volver=` limitado a `/admin/menu` y `/admin/recetas`
+  (`AdminRecetasController::volverSeguro`) y vuelve allí al guardar, con el
+  aviso en `$_SESSION['_admin_receta_guardada']`. ⚠️ `$alertas` es UNA lista
+  estática de ActiveRecord compartida por todos los modelos: juntar
+  `X::getAlertas()` con `Y::getAlertas()` duplica cada aviso.
+- **Tickets** (`/admin/tickets`, `Services\Pos\HistorialTickets`): las cuatro
+  tarjetas son el filtro de la lista (`?estado=abierto|cerrado|cancelado`, más
+  el selector de periodo) y su cifra sale de `totalFiltrado()`, del mismo
+  resumen que la paginación. «Abiertos» ignora el periodo a propósito (es la
+  cuenta viva y la que importa encontrar es la de hace dos semanas);
+  «Cerrados» enseña la venta, como Finanzas. `tickets.js` sólo sustituye
+  `_lista.php` (el controlador lo sirve suelto con `X-Requested-With`), con
+  `pushState`, y emite `admin:reactive-updated`.
+- **Impresoras**: el color de cada fila es el de su área
+  (`AdminPrintersController::areasProduccion()`, de `areas_produccion`), en
+  línea como `--prn-area`, y su tinta (`--prn-area-tinta` = `var(--admin-ink)`
+  o `var(--admin-paper)`) la elige el servidor por contraste WCAG. Rol y Área
+  son una sola columna, «Imprime»: en esa tabla el color significa sólo
+  «estación». «Imprimir prueba» es azul sólido y pide JSON
+  (`Accept: application/json`) para enseñar el resultado sin salir de la fila.
 
 En la landing, `.btn-line` es el único vocabulario de CTA: `--solid` para el
 principal de una sección (relleno de acento con `--on-accent` encima) y
@@ -1190,6 +1477,29 @@ tono.
 (`--solid`, verde sobre la banda de oro, copa): las distinguen el color, el
 icono, la etiqueta y el sitio. Menú NO enlaza al maridaje: cada carta vive en
 su sección.
+
+**Las pestañas de la carta desbordan a la vista.** El contenedor
+`.menu__pestanas` lleva los filetes y las flechas (fuera del `tablist`, con
+`aria-hidden` y `tabindex=-1`: son atajo de puntero; con teclado el propio
+grupo trae la pestaña a la vista). `menu.js` publica `.is-desborda-ini` /
+`.is-desborda-fin` y con ellas aparecen la máscara de borde (extremos con
+`@property`) y la flecha de ese lado; la flecha da un empujón la primera vez que
+la fila entra en pantalla. Arrastre con inercia, rueda vertical que mueve la
+fila sólo mientras le queda recorrido (y con enganche de 250 ms si el gesto
+empezó fuera), `data-lenis-prevent` puesto y quitado evento a evento, y
+`scroll-snap` **sólo** con puntero grueso: con ratón Chrome ajusta cada
+asignación de `scrollLeft` al anclaje y la fila da tirones.
+
+**El imán es UNA implementación**, `modules/magnetic.js`, para todo
+`[data-magnetic]` (los accesos del hero, «Reservar mesa», el botón ≡, las
+cartas en PDF): un muelle propio en un solo rAF que duerme en reposo, sin GSAP.
+Mueve la PROPIEDAD `translate`, que no pisa `transform` (la X del menú sigue
+funcionando); `data-magnetic="0.2"` cambia la fuerza; la etiqueta
+(`[data-magnetic-label]`, que debe ser `inline-block`: `translate` no se aplica
+a cajas en línea) va al 45 % con un muelle más blando. Sólo con `(hover:
+hover) and (pointer: fine)`, topado a 14 × 9 px, y apagado en caliente con
+movimiento reducido o `.no-anim`. Las barras del botón de menú viven en
+`.nav-toggle__barras`: el gap de 6 px de la cuenta de la X está ahí.
 
 **La carta** (`_menu.php` + `menu.js` + `_menu.scss`) pinta desde `/menu`
 (`Carta::publica`): pestañas ARIA con flechas, nombre en The Seasons, puntos
@@ -1259,6 +1569,19 @@ Y tres cosas de su caja que no se deducen del archivo:
   empiezan a competir con el texto del modal, y en el POS la legibilidad manda
   sobre el efecto. El `saturate` no es adorno: sin él, negro desenfocado sigue
   siendo negro y el cristal no se distingue de un plano opaco.
+- **Cursores del piso**: `.mapa-page :where(button, …) { cursor: pointer }`.
+  Nunca volver a `.mapa-page button { cursor: … }`: suma (0,1,1) y le gana a
+  toda clase de botón, que es por lo que los platillos salían con flecha.
+- **La voz tipográfica del POS** vive en `punto-de-venta/_voz.scss`: `rotulo`
+  (mono, 11 px, .12em, versalitas), `cifra-columna` (mono tabular),
+  `cifra-total` (`--admin-font-cifra`, sólo cifras que se leen solas: total del
+  pedido, «A cobrar», cambio, corte) y `control` (sans 600 sin tracking, con
+  `.admin-body &` por la trampa (0,1,1)). Expose como titular sólo en
+  `.mmodal-title`. El anillo de foco es el de `_finishes`
+  (`.admin-body :focus-visible`), que se emite al final de `operation.css`: no
+  hace falta declarar uno propio. Los `<p>` del piso con color o margen propio
+  van con un ancestro delante por `.admin-body p` (0,1,1): sin eso «Faltan» y
+  «Sobran» del reparto salían en gris.
 - **Ni un emoji.** Todo icono del POS sale de `SVG_PATHS` + `svgIcon(nombre,
   tamaño)` en `punto-de-venta.js`, y las etiquetas de botón de `btnLabel()`. Un
   emoji lo pinta la fuente del sistema: no hereda `currentColor`, cambia de
@@ -1389,9 +1712,41 @@ El `view-transition-name` del morfo se pone justo antes y se retira al terminar
 —dos elementos no pueden compartirlo a la vez— y mientras corre no se lanza el
 tween de GSAP, que produciría dos aperturas superpuestas.
 
+Lo que hace que el morfo salga de verdad, y que ya falló:
+
+- Se morfa la **caja que recorta la foto** (`cajaDeMorfo`), nunca el `<img>`:
+  el `<img>` va escalado al 122 % por la portada, desplazado por el parallax y
+  sin el arco. El nombre se pone en la pieza de ANTES y se pasa a la de
+  DESPUÉS dentro del cambio; sólo la transición vigente pone y limpia
+  (`soltarNombres`). Con los dos nombrados a la vez no había morfo.
+- El visor (`#lbVisor`, `.lightbox__img`) mide lo que la foto y su tamaño sale
+  de `--lb-ratio`, no de la resolución: se abre con la imagen que la miniatura
+  ya tenía (`currentSrc`) y se cambia a la del `src` al llegar sin mover nada.
+  Las vecinas se precargan. Pasar de foto desliza según el sentido (`lb-foto` +
+  `html[data-lb-sentido]`); `.lightbox--sola` oculta flechas y contador.
+- **Zoom**: `translate(x,y) scale(s)` con origen 0 0 sobre el `<img>`, SIN
+  `will-change` (con la capa fijada Chrome no re-rasteriza y la foto ampliada
+  se ve borrosa). Doble clic/toque, rueda, pellizco (también de trackpad),
+  arrastre con límites que nunca enseñan el fondo, barra − nivel + con
+  `aria-disabled` (no `disabled`) y región viva, teclas `+ − 0` y flechas para
+  recorrer la foto ampliada. La captura del puntero se pide sólo cuando el
+  gesto ya es un arrastre: capturado desde el principio, el clic de un toque
+  iría al visor y lo cerraría. Pasar de foto o cerrar restablece el zoom. Las
+  fotos originales miden ~800 px: al 400 % se ven blandas.
+- **El cursor de la casa** es invisible hasta el primer `mousemove`
+  (`body.cursor-vivo`; antes nacía quieto en el centro de la ventana) y se
+  oculta con `body.lightbox-abierto`: dentro del visor mandan los cursores del
+  sistema (zoom-in, grab, grabbing).
+
 `select.js` tampoco usa el `<select>` nativo visible. Excluye las vistas
 operativas (`.mapa-page`, `.area-page`), pero un
-select puede pedirlo dentro de ellas con `[data-enhance]`.
+select puede pedirlo dentro de ellas con `[data-enhance]`. El disparador es
+`role="combobox"` (con `aria-activedescendant`, que en un botón no es válido) y
+toma su nombre de la `<label>` o del `aria-label` del select. **Sólo mejora lo
+que encuentra al cargar**: un select que se inserte después (una fila desde un
+`<template>`, como los proveedores de un ingrediente) hay que mejorarlo con
+`AdminSelect.init(fila)`, o sale la lista nativa del sistema. Viaja también en
+`map.js`: tras tocarlo, recompilar `adminMapJs`.
 
 Trampas conocidas:
 
@@ -1469,7 +1824,7 @@ Trampas conocidas:
 
 Chart.js v4, vendorizado en `public/build/js/vendor/chart.umd.min.js`.
 La paleta vive en los tokens `--admin-chart-*` y `--admin-n1-*` de
-`_globals.scss`; `charts.js`, `nivel1.js` y `finanzas.js` la leen con
+`_globals.scss`; `charts.js` y `nivel1.js` la leen con
 `readToken()` y se re-renderizan con el evento `admin:themechange`. Los hex que
 quedan en esos archivos son sólo respaldo por si la hoja aún no ha pintado.
 
@@ -1502,6 +1857,25 @@ saber antes de tocarle la geometría:
   `auto`. Tenía sólo `overflow-x: auto`, así que pedir scroll horizontal
   encendía también el vertical, y el `svg.style.overflow = 'visible'` le daba
   algo que desplazar — una barra vertical sobre un diagrama que cabe entero.
+
+**Finanzas ya no carga Chart.js** (la dona de gastos fijos, 208 KB para un
+anillo, es ahora una barra en grises). Su cabecera es un **diagnóstico** armado
+por `Services\Finance\DiagnosticoFinanciero`, que recibe agregados y devuelve
+textos en «partes» (`t`/`fuerte`/`href`) que la vista escapa: ningún número
+del diagnóstico se formatea en la vista, y `DiagnosticoFinanciero::dinero()` es
+el formato del módulo (`−$1,234.56`, signo delante y menos tipográfico). Tres
+alturas: veredicto en una frase con su causa y el punto de equilibrio; el
+estado de resultados en **cascada** (radios `name="fin-paso"`: el detalle lo
+decide `:has()`, con respaldo `.is-activo` de `finanzas.js`; comparar con el
+periodo anterior es el checkbox `[data-fin-comparar]`, que sólo aparece si ese
+periodo tuvo ventas); y **signos vitales** contra referencias de la industria
+que viven en las constantes del servicio con su fuente (si cambian, cambia
+también el pie de la sección). El Sankey habla el código de color de la
+cascada —tinta para el dinero, gris para el consumo, verde o rojo sólo en el
+desenlace—, lee `--admin-text`, `--admin-faint`, `--admin-chart-ventas` y
+`--admin-chart-bajo`, y `AdminSankey.render()` devuelve `{resaltar(lista|null)}`
+y acepta `alFijar` y `opacidadCinta` (elegir un escalón de la cascada aísla su
+cadena en el Sankey). Prueba: `php scripts/tests/run-diagnostico-financiero.php`.
 
 Y como el ancho lo mide en runtime (`clientWidth`), lleva un `ResizeObserver`
 además del `resize` con debounce: **plegar el sidebar cambia el ancho sin que la

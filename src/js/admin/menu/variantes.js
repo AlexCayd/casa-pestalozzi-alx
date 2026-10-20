@@ -487,7 +487,7 @@
             // `title` devuelve la frase entera al pasar el puntero.
             '<button type="button" class="admin-vopcion__receta" aria-expanded="' + (abierto ? 'true' : 'false') + '" title="' + esc(resumen) + '" data-toggle-receta data-g="' + gi + '" data-o="' + oi + '">' +
             icono('variantes', 15) + '<span class="admin-vopcion__resumen">' + esc(resumen) + '</span></button>' +
-            '<button type="button" class="admin-icon-button admin-vopcion__borrar" data-borrar-opcion data-g="' + gi + '" data-o="' + oi + '" aria-label="Eliminar la opción ' + esc(o.nombre || '') + '">' + icono('basura', 16) + '</button>' +
+            '<button type="button" class="admin-icon-button admin-icon-button--danger admin-vopcion__borrar" data-borrar-opcion data-g="' + gi + '" data-o="' + oi + '" aria-label="Eliminar la opción ' + esc(o.nombre || '') + '">' + icono('basura', 16) + '</button>' +
             '</div>';
         if (abierto) {
             html += '<div class="admin-vopcion__panel">';

@@ -1,68 +1,128 @@
 @use "../abstracts/variables" as vars;
 @use "../abstracts/mixins" as mixins;
 
+/*
+ * ── El botón de notificaciones ───────────────────────────────
+ *
+ * La caja, la elevación y la pulsación son las de todos los botones redondos
+ * de la barra (_topbar.scss). Aquí sólo el COLOR, que es un estado:
+ *
+ *   · PAPEL — nada por atender. Campana en tinta. Es papel en los dos temas
+ *     (así lo pidió el cliente): en oscuro se despega solo; en claro, sobre
+ *     el cristal casi blanco de la barra, lo separan un aro gris opaco y la
+ *     sombra corta de la caja.
+ *   · ROJO —`.has-action`— al menos una tarjeta en «Por atender», que es
+ *     exactamente lo que cuenta el contador (mismo número que la pestaña: ver
+ *     ReservacionBuzonBandejaService). Papel encima, 4.58:1.
+ *   · Sólo «en espera» —`.has-followup`—: sigue en papel y lleva un punto
+ *     azul de información. No es rojo porque no hay nada que hacer, y no es
+ *     nada porque sí hay algo que leer.
+ *
+ * Fue azul fijo, con el rojo reservado a la prioridad alta, y el azul no
+ * distinguía «tienes trabajo» de «está vacío»: el botón se veía igual con
+ * cero que con cinco. El cambio papel→rojo se funde en 260 ms (la transición
+ * de color de la caja común), y el contador y la campana tienen su gesto
+ * propio cuando llega algo nuevo (abajo).
+ */
 .admin-topbar__inbox {
-  position: relative;
-  display: inline-grid;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  place-items: center;
-  padding: 0;
-  // Sólo la caja. El relleno sólido, la tinta y el hover salen del bloque de
-  // --tono de _topbar.scss, y el atajo `border` no puede usarse aquí: escribe
-  // border-color a currentcolor y, como este archivo carga DESPUÉS de topbar,
-  // ganaría por orden.
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
+  --tb-fondo: var(--admin-paper);
+  --tb-tinta: var(--admin-ink);
+  --tb-borde: color-mix(in srgb, var(--admin-ink) 22%, var(--admin-paper));
 
-  // 2.15 como los otros dos botones de la barra. Aquí estaba en 1.7 y los de
-  // reportar y salir en 1.8: tres círculos idénticos con el dibujo de uno
-  // ligeramente más fino que el de los demás, sin que la diferencia
-  // significara nada. El drop-shadow, igual que en support: el fondo es
-  // sólido, así que recorta el trazo en vez de emborronarlo.
-  svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2.15;
-    // El color del relieve lo decide --tono-relieve en _topbar.scss: aquí la
-    // tinta es papel, así que la sombra es oscura.
-    filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
+  &.has-action {
+    --tb-fondo: var(--admin-danger);
+    --tb-tinta: var(--admin-on-danger);
+    --tb-borde: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+    --tb-canto: color-mix(in srgb, var(--admin-paper) 30%, transparent);
+    --tb-halo: color-mix(in srgb, var(--admin-danger) 30%, transparent);
+    // Trazo claro sobre relleno oscuro: el relieve va en sombra, debajo.
+    --tb-relieve: color-mix(in srgb, var(--admin-ink) 26%, transparent);
   }
 
-  // Los ESTADOS ya no cambian el relleno, porque el relleno es el que identifica
-  // al botón: el buzón es azul haya o no mensajes, igual que el de reportar es
-  // ámbar. Lo que dice "hay algo" es el contador, y lo que dice "hay algo
-  // urgente" es el cambio de familia entero a rojo.
-  //
-  // El buzón vacío tampoco se atenúa: sobre un relleno sólido una opacidad baja
-  // se lee como un botón deshabilitado, no como "no hay nada nuevo".
-  &.is-empty,
-  &.has-items,
-  &.has-followup { box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent); }
+  // La prioridad alta ya no cambia de familia —el rojo es el estado normal de
+  // «hay algo»—: sólo abre el halo, para que en la misma pantalla se note
+  // cuál de los dos rojos aprieta más.
+  &.has-action.has-high-priority {
+    --tb-halo: color-mix(in srgb, var(--admin-danger) 44%, transparent);
+  }
 
-  // La prioridad alta es la única excepción al azul: cuando hay algo urgente
-  // el color deja de decir "notificaciones" y pasa a decir "atiende esto".
-  &.has-high-priority {
-    --tono: var(--admin-c-rojo);
-
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  // «En espera» sin nada por atender: un punto, sin cifra. La cifra la tiene
+  // el subtítulo del cajón; aquí sólo se dice que hay algo que leer.
+  &.has-followup:not(.has-action)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--admin-info);
+    box-shadow: 0 0 0 2px var(--admin-bg);
+    pointer-events: none;
   }
 }
 
-// El contador vive ENCIMA de un relleno sólido, así que ya no puede ser del
-// color del botón: sobre azul un chip azul desaparece. Se invierte —papel con
-// la cifra en tinta, 18:1— y el aro toma el tono del botón, que es lo que lo
-// separa tanto del relleno como de la barra: un aro del color de la página se
-// perdería contra el fondo casi negro del tema oscuro. Y como el aro es --tono,
-// la variante de prioridad alta lo cambia sola.
+/* ── La campana ────────────────────────────────────────────────
+ *
+ * Se mece desde el aro (12, 2 en el viewBox de 24) y el badajo la sigue a
+ * contratiempo: es lo que hace que el gesto se lea como campana y no como un
+ * icono que tiembla. Un vaivén corto al apuntar (240 ms) y uno más largo
+ * cuando sube el contador (520 ms, el único acuse «celebratorio» de la barra,
+ * y por eso es raro: sólo cuando llega algo nuevo).
+ */
+.admin-topbar__campana {
+  transform-origin: 12px 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-topbar__inbox:hover .admin-topbar__campana {
+    animation: admin-campana-mece 240ms var(--admin-ease-out);
+  }
+}
+
+.admin-topbar__inbox.is-llega .admin-topbar__campana {
+  animation: admin-campana-llega 520ms var(--admin-ease-out);
+}
+
+.admin-topbar__inbox.is-llega .admin-topbar__badajo {
+  animation: admin-badajo-llega 520ms var(--admin-ease-out);
+}
+
+@keyframes admin-campana-mece {
+  0% { transform: rotate(0); }
+  35% { transform: rotate(-14deg); }
+  70% { transform: rotate(8deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes admin-campana-llega {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(-18deg); }
+  35% { transform: rotate(14deg); }
+  55% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes admin-badajo-llega {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(1.6px); }
+  40% { transform: translateX(-1.4px); }
+  60% { transform: translateX(0.8px); }
+  80% { transform: translateX(-0.4px); }
+  100% { transform: translateX(0); }
+}
+
+/*
+ * El contador vive ENCIMA del relleno rojo, así que no puede ser rojo: se
+ * invierte —papel con la cifra en tinta, 18:1— y el aro toma el relleno del
+ * botón (--tb-fondo), que es lo que lo separa a la vez del botón y de la
+ * barra. Sólo existe con algo por atender, así que en la práctica el aro es
+ * siempre el rojo.
+ *
+ * Cuando la cifra cambia, salta: escala con un rebote corto (240 ms). Lo
+ * dispara buzon.js volviendo a poner `.is-pop`.
+ */
 .admin-topbar__inbox-badge {
   position: absolute;
   top: -5px;
@@ -72,7 +132,7 @@
   height: 20px;
   padding: 0 5px;
   place-items: center;
-  border: 2px solid var(--tono, var(--admin-bg));
+  border: 2px solid var(--tb-fondo, var(--admin-bg));
   border-radius: 999px;
   background: var(--admin-paper);
   color: var(--admin-ink);
@@ -81,6 +141,40 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition: border-color var(--admin-t-base) var(--admin-ease-out);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &.is-pop {
+    animation: admin-contador-salta 240ms var(--admin-ease-out) both;
+  }
+}
+
+@keyframes admin-contador-salta {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.18); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes admin-contador-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Reducido no es inmóvil: el contador aparece por fundido en vez de saltar y
+   la campana se queda quieta; el cambio de color del botón sigue diciendo que
+   algo cambió. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-topbar__inbox-badge.is-pop {
+    animation: admin-contador-aparece 200ms var(--admin-ease-out) both;
+  }
+
+  // (0,3,0), lo mismo que las reglas que lanzan los vaivenes, y después.
+  .admin-topbar__inbox:is(:hover, .is-llega) :is(.admin-topbar__campana, .admin-topbar__badajo) {
+    animation: none;
+  }
 }
 
 .admin-inbox {
@@ -166,8 +260,7 @@
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
-  // stroke-width 2 en la caja pequeña, igual que los otros dos (ver _topbar).
-  .admin-topbar__inbox { width: 34px; height: 34px; flex-basis: 34px; svg { width: 16px; height: 16px; stroke-width: 2; } }
+  // El botón encoge con los demás en el bloque móvil de _topbar.scss.
   .admin-inbox__drawer { width: min(100vw, 480px); }
   .admin-inbox__header { padding: 20px 16px 17px; }
   .admin-inbox__close { top: 16px; right: 16px; }

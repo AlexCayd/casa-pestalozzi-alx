@@ -152,6 +152,18 @@
   &:hover { background: var(--accent); }
   &:hover .bar { background: var(--on-accent); }
 
+  // La caja de las barras: el imán (magnetic.js) la mueve como etiqueta del
+  // botón, con menos recorrido que el disco. Va con su propio gap porque las
+  // barras ya no son hijas directas del botón; los 6px son los mismos de la
+  // cuenta de la X (más abajo).
+  .nav-toggle__barras {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+
   // 2px enteros, no 1.5. A densidad 1 el navegador redondeaba cada barra por su
   // cuenta según dónde cayera y las tres salían de grosores distintos.
   .bar {

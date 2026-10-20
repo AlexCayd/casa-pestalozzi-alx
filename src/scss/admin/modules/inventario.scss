@@ -1,8 +1,14 @@
 /*
  * Módulo Inventario (Ingredientes).
- * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí solo
- * viven las tarjetas de resumen (KPIs) propias del inventario.
+ * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí
+ * viven la tabla de existencias, las listas de pendientes (sus filas), la merma
+ * y la tabla de proveedores de la ficha.
  */
+@use "../shared/abstracts/variables" as vars;
+@use "../shared/abstracts/mixins" as mixins;
+// Tarjetas-filtro y listas de pendientes, compartidas con Menú: el mismo
+// lenguaje en los dos módulos para que se lean como un sistema.
+@use "pendientes";
 
 .admin-inventario {
   // El .admin-card compartido no trae padding: se lo damos aquí.
@@ -14,156 +20,260 @@
     margin-top: 4px;
   }
 
-  // Botón "Guardar" del ajuste rápido: dorado, más padding, fuente más chica.
-  // Los 38px igualan al input de su formulario y a los botones de icono de la
-  // celda contigua, para que las tres acciones de la fila queden a una altura.
+  // Botón "Guardar" del ajuste rápido. 38 px como los botones de icono de la
+  // celda contigua, para que la fila tenga una sola altura.
   .admin-inventario__save {
     white-space: nowrap;
     min-height: 38px;
-    padding-inline: 18px;
-    font-size: 11px;
-    letter-spacing: 0.02em;
+    padding-inline: 14px;
+    font-size: 12px;
   }
 
-  .admin-inline-form input {
-    min-height: 38px;
+  /* El campo del ajuste rápido a la misma altura que su botón. `!important`
+     acotado: la regla global de campos de _forms.scss suma (0,6,1) e impone
+     46 px, ancho completo y su relleno a cualquier input que no sea casilla o
+     radio (ver CLAUDE.md); con una clase sola no se llega. Es lo que dejaba
+     el campo más alto que «Guardar» en cada una de las setenta filas. */
+  .admin-inline-form input[type="number"] {
+    width: 104px !important;
+    min-height: 38px !important;
+    padding-block: 7px !important;
+    font-family: var(--admin-font-mono) !important;
+    font-size: 13px !important;
   }
 }
 
-/* Reabastecimiento rápido: tarjetas verticales de ingredientes bajo mínimo. */
-.admin-restock {
-  margin-bottom: 18px;
-  border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
+/* Un <button class="admin-btn"> salía a 16 px y un <a class="admin-btn"> a
+   13: `.admin-body button { font: inherit }` (0,1,1) le gana a la clase del
+   botón (pendiente conocido de _globals.scss, ver CLAUDE.md). En la ficha se
+   veía «Agregar proveedor» un cuerpo por encima de «Administrar proveedores»,
+   su vecino. Se corrige en el ámbito del módulo, no en el global. */
+.admin-body .admin-inventario button.admin-btn {
+  font-size: 13px;
+}
 
-  &__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
-    margin-top: 16px;
+.admin-body .admin-inventario button.admin-btn--small {
+  font-size: 12px;
+}
+
+// Las cifras del periodo y, debajo, las tarjetas-filtro pegadas a la lista:
+// el hueco grande separa los dos grupos y el pequeño une filtro y lista.
+.admin-inventario__cifras {
+  margin-bottom: 26px;
+}
+
+.admin-inventario__control {
+  margin-bottom: 12px;
+  scroll-margin-top: 90px;
+}
+
+.admin-inventario__lista {
+  margin-bottom: 26px;
+}
+
+// ── Tabla de existencias ──────────────────────────────────────────
+.admin-body .admin-inventario__tabla {
+  th,
+  td {
+    padding-block: 12px;
   }
 
-  &__card {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-md);
-    background: var(--admin-surface-soft);
+  // El nombre se lleva lo que sobra; las cifras, lo que miden.
+  th:first-child {
+    width: 100%;
   }
 
-  // Fila superior: nombre (con elipsis) + cuánto falta para el mínimo.
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    min-width: 0;
+  // Sin el filete lateral de _tables.scss al apuntar (lo retiró el cliente):
+  // el fondo basta, y con teclado un anillo completo.
+  tbody tr:hover {
+    box-shadow: none;
   }
 
-  &__name {
-    min-width: 0;
-    flex: 1 1 auto;
-    color: var(--admin-text);
-    font-size: 15px;
-    font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  tbody tr[data-row-href]:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
   }
 
-  // Par "Actual / Mínimo": lo que importa es comparar ambos de un vistazo.
-  &__levels {
-    display: flex;
-    align-items: baseline;
-    gap: 18px;
-    margin-top: -4px;
+  // El nombre al peso de las filas de Menú (600): el 900 compartido de
+  // __cell-main, en setenta filas seguidas, era una columna de titulares.
+  .admin-table__cell-main {
+    font-weight: 600;
   }
 
-  &__level {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  &__level-label {
-    color: var(--admin-faint);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  &__level-value {
+  // Inactivo: la fila entera un escalón más tenue, no un color.
+  tbody tr.is-inactivo td {
     color: var(--admin-muted);
-    font-size: 13px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+  }
+}
+
+.admin-body .admin-inventario__col-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// La unidad pegada a su cifra pero un paso por debajo: dice qué es, no cuánto.
+.admin-body .admin-inventario__u {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-body .admin-inventario__tenue {
+  color: var(--admin-muted);
+}
+
+// Sólo lo que falta lleva marca (figura sobre fondo): un punto delante de la
+// cifra y la cifra en tinta de estado. Ámbar en el mínimo, rojo agotado.
+.admin-body .admin-inventario__stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  &.is-bajo,
+  &.is-agotado {
+    font-weight: 600;
+
+    &::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
   }
 
-  &__level-value--now {
-    color: var(--admin-text);
-    font-size: 16px;
-    font-weight: 800;
+  &.is-bajo {
+    color: var(--admin-warning-text);
   }
 
-  // Barra de cobertura: qué porción del mínimo está cubierta hoy.
-  &__bar {
-    position: relative;
-    height: 5px;
-    border-radius: 999px;
-    background: var(--admin-border-soft);
-    overflow: hidden;
+  &.is-agotado {
+    color: var(--admin-danger-text);
   }
+}
 
-  &__bar-fill {
+// Editar y, tras un filete, borrar: lo que destruye va aparte.
+.admin-body .admin-inventario__accion-destructiva {
+  display: inline-flex;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--admin-border-soft);
+}
+
+// ── Filas de las listas de pendientes ─────────────────────────────
+//
+// La rejilla, la marca y el texto vienen de _pendientes.scss; aquí sólo lo
+// propio del inventario: el nivel contra el mínimo y la entrada en línea.
+.admin-body .admin-inventario__nivel {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  min-width: 150px;
+  color: var(--admin-text);
+}
+
+.admin-body .admin-inventario__nivel-barra {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--admin-border-soft);
+
+  span {
     display: block;
+    width: var(--avance, 0%);
     height: 100%;
     border-radius: inherit;
-    background: var(--admin-gold);
-    transition: width var(--admin-t-base) var(--admin-ease-out);
-
-    &.is-critical {
-      background: var(--admin-danger);
-    }
+    background-color: var(--admin-c-ambar);
   }
 
-  // Fila inferior: input de cantidad (ancho) + botón "Sumar".
-  &__form {
-    display: flex;
-    align-items: stretch;
-    gap: 8px;
+  // Por debajo de la mitad del mínimo, o agotado: rojo. Es la única fila que
+  // urge de verdad y la barra lo dice antes que la cifra.
+  span.is-critico {
+    background-color: var(--admin-c-rojo);
+  }
+}
+
+.admin-body .admin-inventario__entrada {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-body .admin-inventario__campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  // Mismo motivo que el ajuste rápido: la regla global de campos (0,6,1)
+  // impone ancho completo y 46 px; aquí el campo mide lo que su cifra.
+  input[type="number"] {
+    width: 112px !important;
+    min-height: 40px !important;
+    padding-block: 8px !important;
+    font-family: var(--admin-font-mono) !important;
+    font-size: 13px !important;
+  }
+}
+
+.admin-body .admin-inventario__unidad {
+  min-width: 2.2em;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+
+// El cuerpo se repite aquí porque `.admin-body button { font: inherit }`
+// (0,1,1) le gana al 13 px de .admin-btn y un <button> salía a 16 px junto a
+// los enlaces-botón de 13 (pendiente conocido de _globals.scss).
+.admin-body .admin-inventario__sumar {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+// En la fila de pendientes, apuntar al renglón enciende «Sumar» como figura,
+// igual que el enlace de las filas de Menú.
+.admin-body .admin-tarea:hover .admin-inventario__sumar,
+.admin-body .admin-inventario__entrada:focus-within .admin-inventario__sumar {
+  border-color: var(--admin-accent);
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+.admin-body .admin-inventario__aviso {
+  margin-top: 8px;
+  color: var(--admin-warning-text);
+  font-weight: 600;
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+// Con el dedo (la tablet de la bodega), campo y botón de la entrada al
+// estándar de 44 px.
+@media (pointer: coarse) {
+  .admin-body .admin-inventario__campo input[type="number"] {
+    min-height: 44px !important;
   }
 
-  &__input {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1 1 auto;
+  .admin-body .admin-inventario__sumar {
+    min-height: 44px;
+  }
+}
+
+@include mixins.down(640px) {
+  .admin-body .admin-inventario__nivel {
+    justify-items: start;
     min-width: 0;
-
-    input {
-      width: 100%;
-      min-height: 42px;
-      // El hueco se mide con la unidad real ("g" vs "pza"), no con un valor fijo.
-      padding-right: calc(24px + var(--restock-unit, 2ch));
-    }
   }
 
-  &__unit {
-    position: absolute;
-    right: 12px;
-    color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 800;
-    pointer-events: none;
+  .admin-body .admin-inventario__entrada {
+    flex-wrap: wrap;
   }
 
-  &__add {
-    flex: 0 0 auto;
-    white-space: nowrap;
+  .admin-body .admin-inventario__sumar {
+    min-height: 44px;
   }
 }
 
@@ -172,7 +282,6 @@
 // está perdiendo producto son la misma tarea, no dos pantallas.
 .admin-merma {
   margin-bottom: 18px;
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 26%, var(--admin-border));
 
   // scroll-margin para que el enlace "Registrar merma" de la barra no deje el
   // encabezado del panel debajo de la topbar fija.
@@ -239,11 +348,19 @@
     display: flex;
     align-items: end;
 
+    // 46 px: la altura con la que la regla global pinta los campos de al
+    // lado (la de 42 de arriba nunca llegaba a aplicarse, ver CLAUDE.md).
     .admin-btn {
       width: 100%;
-      min-height: 42px;
+      min-height: 46px;
       justify-content: center;
     }
+  }
+
+  // select.js sustituye los dos <select> por su disparador: se le da la letra
+  // del formulario, que el disparador traía a 15.5 px.
+  .admin-select__trigger {
+    font-size: 14px;
   }
 
   // Dónde se está perdiendo el producto, que es la pregunta que contesta el
@@ -304,6 +421,10 @@
  * comparar precios entre proveedores, y comparar cifras pide columnas.
  */
 .admin-proveedores {
+  // La lista de pendientes «Sin proveedor» enlaza a #proveedores: que el
+  // bloque no quede bajo la topbar fija al llegar.
+  scroll-margin-top: 110px;
+
   &__table {
     min-width: 0;
 
@@ -319,10 +440,28 @@
       padding: 10px 12px;
     }
 
+    // Sólo el ancho: la altura la pone la regla global de campos (46 px), que
+    // es también la del selector de la casa de al lado.
     input,
     select {
       width: 100%;
-      min-height: 38px;
+    }
+
+    // El selector de proveedor es el de la casa (select.js, portado a
+    // <body>): aquí sólo se iguala su letra a la de los campos de la fila.
+    .admin-select {
+      min-width: 190px;
+    }
+
+    .admin-select__trigger {
+      font-size: 14px;
+    }
+
+    // Sin el filete lateral de _tables.scss al apuntar: es un formulario, no
+    // un listado que se recorra, y el cliente lo retiró de estos módulos.
+    &.admin-table tbody tr:hover {
+      background: transparent;
+      box-shadow: none;
     }
   }
 
@@ -380,45 +519,51 @@
 /* ── Uso de un ingrediente en el diálogo de borrado ────────────
  *
  * Lo pinta inventario.js dentro de la ranura custom del ConfirmationModal, con
- * lo que devuelve /admin/api/inventario/uso. El diálogo es el componente
- * compartido de la casa y vive fuera del panel, así que estas reglas usan los
- * roles públicos (--txt, --line…), que son los que resuelven ahí dentro.
+ * lo que devuelve /admin/api/inventario/uso.
+ *
+ * Con los roles --confirmation-* del diálogo, que el panel declara en
+ * alias-admin-heredados. Antes pedía los nombres PÚBLICOS (--txt, --txt-faint):
+ * dentro de .admin-body no existen, así que el filete y el fondo de la caja no
+ * se pintaban y el texto caía a `inherit` (CLAUDE.md, «el error simétrico»).
+ * Bajo .admin-body porque los títulos son <p> y `.admin-body p` (0,1,1) le
+ * ganaba el color a la clase sola.
  */
-.admin-inventario__uso {
+.admin-body .admin-inventario__uso {
   display: grid;
   gap: 6px;
   max-height: 190px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 18%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  background: var(--confirmation-field-bg);
 }
 
-.admin-inventario__uso-titulo {
+.admin-body .admin-inventario__uso-titulo {
   margin: 0;
-  color: var(--txt-strong);
+  color: var(--confirmation-strong);
   font-size: 13px;
   font-weight: 700;
 }
 
-.admin-inventario__uso-lista {
+.admin-body .admin-inventario__uso-lista {
   margin: 0;
   padding-left: 18px;
-  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  color: var(--confirmation-text);
   font-size: 13px;
   line-height: 1.6;
 
   /* La vía —"vía Salsa de la casa"— es el dato secundario: dice dónde hay que
      ir a editarlo, no qué se rompe. */
   span {
-    color: var(--txt-faint);
+    color: var(--confirmation-faint);
     font-size: 12px;
   }
 }
 
-.admin-inventario__uso-aviso {
+.admin-body .admin-inventario__uso-aviso {
   margin: 0;
-  color: var(--txt-faint);
+  color: var(--confirmation-faint);
   font-size: 13px;
 }

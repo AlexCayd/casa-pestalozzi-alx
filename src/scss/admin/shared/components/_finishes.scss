@@ -324,13 +324,29 @@
  *    animación de entrada de (1) sobra —se duplicaría el fundido—, y por eso se
  *    anula dentro del @supports.
  *
- * NINGÚN elemento lleva `view-transition-name`, y no es un olvido. Nombrar el
- * topbar y el sidebar para que "se queden quietos" parece lo obvio, pero un
- * nombre les da grupo propio en TODAS las transiciones del documento, incluida
- * la del tema: sus instantáneas se apilarían por encima y taparían el círculo
- * justo mientras se abre. Sin nombres, la raíz funde la página entera, y como
- * el topbar y el sidebar son idénticos entre módulos, fundir píxeles iguales no
- * se ve: el efecto es exactamente el que se buscaba, y gratis.
+ * En (2) se mueve SÓLO el contenido: sale el viejo (150 ms, sube 6 px y se
+ * apaga) y entra el nuevo (300 ms, sube 10 px desde abajo). El cromo se queda:
+ * la raíz funde topbar y sidebar consigo mismos, y fundir píxeles iguales no
+ * se ve. Y el ENLACE ACTIVO del sidebar viaja de su fila vieja a la nueva: es
+ * el indicador del módulo, y que se desplace dice de dónde se viene.
+ *
+ * Los nombres se ponen SÓLO mientras dura la navegación, nunca en reposo. Un
+ * nombre fijo daría grupo propio al contenido y al enlace en TODAS las
+ * transiciones del documento, incluida la del tema: sus instantáneas se
+ * apilarían encima y taparían el círculo justo mientras se abre. Por eso van
+ * colgados de dos clases de <html> que viven lo que dura la transición:
+ *   · .admin-vt-sale  — la pone `pageswap` en el documento que se va
+ *                       (core/motion.js), sólo si el destino es otro módulo;
+ *   · .admin-vt-entra — la pone `pagereveal` en el que llega (script del
+ *                       <head> de views/admin/layout.php; tiene que ser ahí),
+ *                       sólo si se viene de otro módulo.
+ * Desde el login no entra ninguna de las dos: ahí manda la llegada
+ * (_transitions.scss).
+ *
+ * Contenido viejo y nuevo llevan nombres DISTINTOS, y no por gusto: con el
+ * mismo nombre el navegador interpolaría la caja vieja hacia la nueva, y si la
+ * página de origen estaba desplazada, el contenido volaría desde cientos de
+ * píxeles más arriba. Con dos nombres cada uno anima en su sitio.
  */
 .admin-anim-ready .admin-content {
   animation: admin-page-in 220ms var(--admin-ease-out) both;
@@ -358,11 +374,100 @@
 
   /* Sólo la navegación: la del tema entra por el bloque 4b, que le apaga la
      animación de raíz para dejar paso al círculo. 220 ms es lo que tarda en
-     leerse como un cambio y no como una espera. */
+     leerse como un cambio y no como una espera.
+
+     Las curvas van LITERALES en todo lo que cuelga de ::view-transition: esos
+     pseudo-elementos nacen de <html> y los tokens de movimiento se declaran
+     en .admin-body, así que `var(--admin-ease-out)` —que es lo que había— era
+     inválido y caía a `ease` sin avisar. */
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 220ms;
-    animation-timing-function: var(--admin-ease-out);
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .admin-vt-sale .admin-content {
+    view-transition-name: admin-contenido-sale;
+  }
+
+  .admin-vt-entra .admin-content {
+    view-transition-name: admin-contenido-entra;
+  }
+
+  /* El indicador sólo donde el sidebar es una columna fija. En el cajón del
+     móvil el enlace pulsado está a la vista en la página que se va y oculto en
+     la que llega: el grupo viajaría hacia fuera de la pantalla. */
+  @media (min-width: 993px) {
+    .admin-vt-sale .admin-sidebar__link.is-active,
+    .admin-vt-entra .admin-sidebar__link.is-active {
+      view-transition-name: admin-nav-activo;
+    }
+  }
+
+  :root:active-view-transition-type(modulo) {
+    /* La salida es más corta que la entrada (~50 %): lo que se va no tiene
+       que leerse, sólo dejar sitio. */
+    &::view-transition-old(admin-contenido-sale) {
+      animation: admin-contenido-sale 150ms cubic-bezier(0.4, 0, 1, 1) both;
+    }
+
+    &::view-transition-new(admin-contenido-entra) {
+      animation: admin-contenido-entra 300ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+    }
+
+    /* El enlace activo: la caja viaja con la curva de la casa (casi todo el
+       recorrido en el primer tercio) y la etiqueta se cambia en ese tramo,
+       con fundidos complementarios para que el relleno no parpadee. */
+    &::view-transition-group(admin-nav-activo) {
+      animation-duration: 320ms;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    &::view-transition-old(admin-nav-activo) {
+      animation: admin-nav-sale 320ms linear both;
+    }
+
+    &::view-transition-new(admin-nav-activo) {
+      animation: admin-nav-entra 320ms linear both;
+    }
+  }
+}
+
+@keyframes admin-contenido-sale {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes admin-contenido-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes admin-nav-sale {
+  0%,
+  10% {
+    opacity: 1;
+  }
+
+  45%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes admin-nav-entra {
+  0%,
+  10% {
+    opacity: 0;
+  }
+
+  45%,
+  100% {
+    opacity: 1;
   }
 }
 

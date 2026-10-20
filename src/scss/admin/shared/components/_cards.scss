@@ -211,14 +211,16 @@
     text-transform: uppercase;
   }
 
-  // tabular-nums para que las cifras de tarjetas contiguas alineen sus dígitos,
-  // y clamp + overflow-wrap para que una cifra larga encoja en vez de desbordar.
+  // La cifra va en la display del panel (--admin-font-cifra), como el titular:
+  // es lo que la tarjeta dice. clamp + overflow-wrap para que una cifra larga
+  // encoja en vez de desbordar.
   &__value {
     color: var(--admin-text);
-    font-family: var(--admin-font-sans);
-    font-size: clamp(24px, 2.2vw, 30px);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.05;
+    font-family: var(--admin-font-cifra);
+    font-size: clamp(26px, 2.4vw, 34px);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1;
     overflow-wrap: anywhere;
   }
 
@@ -285,32 +287,47 @@
    * rotación— eran cajas idénticas entre las que había que leer el rótulo
    * para orientarse.
    *
-   * Dos diferencias con los tonos de estado, y las dos importan:
+   * La señal es un PUNTO delante del rótulo, la clave de una leyenda: es el
+   * idioma con el que el panel ya dice «esta serie es ésta» en las gráficas.
+   * Fue un filete lateral de 3 px; el cliente retiró los filetes de color
+   * del panel.
    *
-   *  · El color va en un FILETE lateral y en el rótulo, no en el fondo ni en
-   *    la cifra. Siete fondos de color seguidos serían un arcoíris, y teñir el
-   *    número rompería la lectura en columna: la cifra va en tinta normal,
-   *    tabular, para poder compararla con la de al lado.
+   * Lo que no cambia:
+   *
+   *  · El color no va en el fondo ni en la cifra. Siete fondos de color
+   *    seguidos serían un arcoíris, y teñir el número rompería la lectura en
+   *    columna: la cifra va en tinta normal para compararla con la de al lado.
+   *    El rótulo tampoco se tiñe: el lima o el turquesa como texto sobre papel
+   *    no llegan al AA, y el punto ya da la identidad sin pedirle nada al
+   *    texto.
    *  · Un tono de estado GANA a uno de identidad, porque «la utilidad es
    *    negativa» importa más que «esto es la utilidad». Por eso los de estado
-   *    se declaran antes y estos no tocan `background` ni `__value`: puestos
-   *    juntos en el marcado, no se pisan.
+   *    se declaran antes y éstos no tocan `background` ni `__value`: puestos
+   *    juntos en el marcado, no se pisan — el fondo es del estado y el punto
+   *    de la serie.
    */
   &--serie {
     --tono: var(--admin-muted);
 
-    position: relative;
-    overflow: hidden;
-
-    &::before {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 3px;
-      background: var(--tono);
+    .admin-stat-card__label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .admin-stat-card__label { color: color-mix(in srgb, var(--tono) 76%, var(--admin-text)); }
+    // 8 px y no 6: a 11 px de rótulo, un punto más chico se confunde con un
+    // signo de puntuación. El aro claro lo despega cuando la tarjeta lleva
+    // además fondo de estado: un punto lima sobre el verde de --good, o uno
+    // rojo sobre --bad, se fundiría con él.
+    .admin-stat-card__label::before {
+      content: "";
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--tono);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-surface) 70%, transparent);
+    }
   }
 
   &--serie-verde { --tono: var(--admin-c-verde); }

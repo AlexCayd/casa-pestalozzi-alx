@@ -235,7 +235,8 @@ $detalleUrl = static fn (array $reserva): string => (string)$reserva['url_detall
                                 <?php foreach ($grupos as $reserva) : ?>
                                     <?php
                                     $nombre = (string)$reserva['nombre'];
-                                    $mesas = trim((string)($reserva['mesas'] ?? ''));
+                                    // «Mesas 8 a 11» y no cuatro «Mesa N» seguidos: es justo el bloque.
+                                    $mesas = \Services\Reservations\ReservacionListadoPresenter::mesas((string)($reserva['mesas'] ?? ''));
                                     $porConfirmar = (string)($reserva['estado'] ?? '') === 'pendiente_verificacion';
                                     ?>
                                     <li class="estrategia-grupo<?php echo !empty($reserva['grupo_grande']) ? ' estrategia-grupo--grande' : ''; ?>">

@@ -20,6 +20,7 @@ use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionListadoPresenter;
 use Services\Reservations\ReservacionService;
 use Services\Scheduling\HorarioOperacionImpactoService;
 
@@ -29,13 +30,35 @@ class AdminReservacionController
     private const RESERVATIONS_LIST_JS = '/build/js/admin/reservation-list.js';
     private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js';
 
+    /**
+     * GET /admin/reservaciones — la Agenda: quién viene y qué pasó, día por día.
+     *
+     * Es lectura y revisión. Sentar, mover mesas y dar de alta viven en el POS;
+     * aquí sólo queda lo que se resuelve sin el plano delante: buscar a un
+     * cliente, repasar cómo terminó un periodo, abrir el detalle y cerrar una
+     * ausencia que nadie registró.
+     */
     public static function index(Router $router): void
     {
         // Las ausencias vencidas se registran solas antes de listar.
         \Services\Reservations\ReservacionAusenciaAutomaticaService::procesarEnLectura();
         $filtros = self::leerFiltros();
-        $reservaciones = Reservacion::buscarAdmin($filtros);
-        $metricas = Reservacion::metricasAdmin($filtros);
+        $hoy = ReservacionConfig::fechaActual();
+        $reservaciones = ReservacionListadoPresenter::sinTecnicas(
+            Reservacion::buscarAdmin($filtros),
+            $filtros['estado']
+        );
+
+        // Los contadores del filtro de estado miran el periodo y la búsqueda,
+        // pero NO el estado elegido: son el atajo a cada estado y tienen que
+        // seguir valiendo con otro puesto. Sin estado elegido, la lista ya es
+        // ese universo y no hace falta una segunda consulta.
+        $universo = $filtros['estado'] === ''
+            ? $reservaciones
+            : ReservacionListadoPresenter::sinTecnicas(
+                Reservacion::buscarAdmin(array_merge($filtros, ['estado' => '']))
+            );
+
         $ticketsPorReservacion = [];
         foreach (TicketMesa::abiertosParaMapa() as $ticket) {
             $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
@@ -43,6 +66,8 @@ class AdminReservacionController
                 $ticketsPorReservacion[$reservacionId] = $ticket;
             }
         }
+        $urlListado = self::urlListado($filtros);
+        $filas = [];
         foreach ($reservaciones as $reservacion) {
             $vigencia = ReservacionService::clasificarVigencia(
                 $reservacion,
@@ -51,22 +76,30 @@ class AdminReservacionController
             foreach ($vigencia as $campo => $valor) {
                 $reservacion->{$campo} = $valor;
             }
-            $reservacion->ticket_id_abierto = (int)($ticketsPorReservacion[(int)($reservacion->id ?? 0)]['id'] ?? 0);
+            $filas[] = ReservacionListadoPresenter::fila($reservacion, $hoy, $urlListado);
         }
 
         $data = [
-            'title' => 'Reservaciones',
+            'title' => 'Agenda de reservaciones',
             'topbarSection' => 'Reservaciones',
             'scripts' => [self::RESERVATIONS_LIST_JS],
-            'reservaciones' => $reservaciones,
-            'metricas' => $metricas,
+            'diasAgenda' => ReservacionListadoPresenter::porDia($filas, $hoy),
+            'conteos' => ReservacionListadoPresenter::conteos($universo),
             'filtros' => $filtros,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'estadoLabels' => ReservacionService::estadoLabels(),
+            'periodoPorDefecto' => self::periodoEsPorDefecto($filtros),
+            'rango' => self::rangoDelPeriodo($filtros, $hoy),
+            'urlListado' => $urlListado,
+            'urlConEstado' => static fn(string $estado): string => self::urlListado(array_merge($filtros, ['estado' => $estado])),
+            'hoy' => $hoy,
+            'horaAhora' => ReservacionConfig::ahora()->format('H:i'),
+            'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => self::alertasResultado($_GET['resultado'] ?? ''),
-            'queryString' => http_build_query($filtros),
-            'partialUrl' => AdminController::filterUrl('/admin/reservaciones', $filtros),
-            'developmentTools' => ReservacionConfig::appEnvironment() === 'development',
+            // El reemplazo parcial publica esta URL como la canónica: sin el
+            // periodo cuando es el de por defecto, para que buscar o filtrar no
+            // lo congele en la dirección y un enlace copiado mañana siga
+            // abriendo «los próximos 30 días» y no los de hoy.
+            'partialUrl' => $urlListado,
         ];
 
         if (AdminController::isPartialRequest()) {
@@ -554,8 +587,21 @@ class AdminReservacionController
         $fechaInicio = (string)($_GET['fecha_inicio'] ?? '');
         $fechaFin = (string)($_GET['fecha_fin'] ?? '');
         $estado = (string)($_GET['estado'] ?? '');
-        $asignacion = (string)($_GET['asignacion'] ?? '');
-        $origen = (string)($_GET['origen'] ?? '');
+
+        // «Asignación» y «Origen» salieron de la Agenda. Sin mesa ya no existe
+        // —toda reservación confirmada se guarda con mesas, y la que queda
+        // de antes es un Caso— y el origen no cambia nada de lo que el
+        // anfitrión hace con una reserva (el detalle lo sigue diciendo). Una
+        // dirección vieja con esos parámetros abre la Agenda sin ellos.
+
+        // El botón «volver» del POS trae `?fecha=` del día que se estaba
+        // mirando: se abre ese día y no la ventana por defecto, que es lo que
+        // se esperaba encontrar al volver.
+        $fechaPos = (string)($_GET['fecha'] ?? '');
+        if ($fechaInicio === '' && $fechaFin === '' && self::fechaValida($fechaPos)) {
+            $fechaInicio = $fechaPos;
+            $fechaFin = $fechaPos;
+        }
 
         // Ventana por defecto: de hoy a treinta días vista.
         //
@@ -586,16 +632,11 @@ class AdminReservacionController
             [$fechaInicio, $fechaFin] = [$fechaFin, $fechaInicio];
         }
 
+        // Cualquier estado conocido se acepta por dirección —también los
+        // técnicos, para auditar una retención—, aunque la Agenda sólo ofrezca
+        // botones para los del negocio.
         if (!array_key_exists($estado, ReservacionService::estadoLabels())) {
             $estado = '';
-        }
-
-        if (!in_array($asignacion, ['', 'con_mesa', 'sin_mesa'], true)) {
-            $asignacion = '';
-        }
-
-        if (!in_array($origen, ['', 'landing', 'admin'], true)) {
-            $origen = '';
         }
 
         return [
@@ -603,8 +644,63 @@ class AdminReservacionController
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
             'estado' => $estado,
-            'asignacion' => $asignacion,
-            'origen' => $origen,
+        ];
+    }
+
+    private static function periodoEsPorDefecto(array $filtros): bool
+    {
+        $hoy = ReservacionConfig::fechaActual();
+
+        return (string)($filtros['fecha_inicio'] ?? '') === $hoy
+            && (string)($filtros['fecha_fin'] ?? '') === self::finDeVentanaPorDefecto($hoy);
+    }
+
+    /**
+     * Dirección canónica de la Agenda para unos filtros: sin los vacíos y sin
+     * el periodo cuando es el de por defecto. La usan el reemplazo parcial
+     * (X-Filter-URL), los botones de estado y el `return_url` del detalle.
+     */
+    private static function urlListado(array $filtros): string
+    {
+        $query = [
+            'q' => (string)($filtros['q'] ?? ''),
+            'estado' => (string)($filtros['estado'] ?? ''),
+        ];
+        if (!self::periodoEsPorDefecto($filtros)) {
+            $query['fecha_inicio'] = (string)($filtros['fecha_inicio'] ?? '');
+            $query['fecha_fin'] = (string)($filtros['fecha_fin'] ?? '');
+        }
+        $query = array_filter($query, static fn(string $valor): bool => $valor !== '');
+
+        return '/admin/reservaciones' . ($query ? '?' . http_build_query($query) : '');
+    }
+
+    /**
+     * El `$rango` que espera el selector de periodo. El rótulo dice qué se
+     * está mirando con palabras («Próximos 30 días», «Hoy») y no un «Periodo»
+     * genérico, que obligaba a leer las fechas de debajo para saberlo.
+     *
+     * @return array<string, mixed>
+     */
+    private static function rangoDelPeriodo(array $filtros, string $hoy): array
+    {
+        $inicio = (string)($filtros['fecha_inicio'] ?? $hoy);
+        $fin = (string)($filtros['fecha_fin'] ?? $hoy);
+        $etiqueta = 'Periodo elegido';
+        if (self::periodoEsPorDefecto($filtros)) {
+            $etiqueta = 'Próximos ' . self::VENTANA_POR_DEFECTO_DIAS . ' días';
+        } elseif ($inicio === $fin) {
+            $rotulo = ReservacionListadoPresenter::rotuloDia($inicio, $hoy);
+            $etiqueta = in_array($rotulo, ['Hoy', 'Mañana', 'Ayer'], true) ? $rotulo : 'Un día';
+        } elseif ($fin < $hoy) {
+            $etiqueta = 'Periodo pasado';
+        }
+
+        return [
+            'start' => $inicio,
+            'end' => $fin,
+            'preset' => 0,
+            'label' => $etiqueta,
         ];
     }
 
@@ -620,17 +716,16 @@ class AdminReservacionController
             : $hoy;
     }
 
+    /**
+     * Si hay algo que «Limpiar». El periodo no cuenta: vive en su selector,
+     * fuera del bloque que se repinta, y limpiarlo desde aquí dejaría el
+     * selector diciendo un periodo y la lista enseñando otro. Se cambia en el
+     * propio selector.
+     */
     private static function hayFiltrosActivos(array $filtros): bool
     {
-        $hoy = ReservacionConfig::fechaActual();
-        $finPorDefecto = self::finDeVentanaPorDefecto($hoy);
-
         return (string)($filtros['q'] ?? '') !== ''
-            || (string)($filtros['estado'] ?? '') !== ''
-            || (string)($filtros['asignacion'] ?? '') !== ''
-            || (string)($filtros['origen'] ?? '') !== ''
-            || (string)($filtros['fecha_inicio'] ?? '') !== $hoy
-            || (string)($filtros['fecha_fin'] ?? '') !== $finPorDefecto;
+            || (string)($filtros['estado'] ?? '') !== '';
     }
 
     private static function fechaValida(string $fecha): bool

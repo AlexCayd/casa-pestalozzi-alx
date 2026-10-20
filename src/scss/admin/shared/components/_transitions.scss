@@ -1,13 +1,32 @@
 /*
- * Infraestructura de reveals del panel admin.
- * Los reveals los dispara motion.js (GSAP/ScrollTrigger). Con reduced-motion
- * o sin JS todo queda visible. (Sin transición de cortina entre páginas.)
+ * Movimiento de ENTRADA del sistema administrativo. Va en los dos bundles
+ * (admin.css y operation.css), así que todo lo de aquí vale para el panel y
+ * para el piso.
+ *
+ *   1 · Reveals del panel: los dispara motion.js (GSAP/ScrollTrigger). Con
+ *       reduced-motion o sin JS todo queda visible.
+ *   2 · La llegada: el velo con el nombre de la casa que recibe a quien acaba
+ *       de iniciar sesión (views/components/llegada.php +
+ *       src/js/components/llegada.js).
+ *
+ * Las otras dos transiciones —cambio de tema y cambio de módulo— viven en
+ * _finishes.scss (4b y 4c). Las tres usan View Transitions y se distinguen por
+ * TIPO ('tema', 'modulo', 'llegada'): ninguna regla de una debe poder tocar a
+ * otra. Si se toca una, comprobar las otras dos.
  */
 
-/* ── Base de reveals (GSAP fija .is-in / limpia estilos) ───────── */
+/* ── 1 · Base de reveals (GSAP fija .is-in / limpia estilos) ───── */
 .admin-anim-ready [data-reveal] {
   opacity: 0;
   transform: translateY(24px);
+}
+
+/* `will-change` sólo mientras el elemento ESPERA su entrada. Estaba en la regla
+   de arriba sin condición, y como GSAP deja el estilo final en línea, cada
+   tarjeta del panel conservaba su capa de composición toda la sesión: decenas
+   en Análisis o Finanzas. GSAP pone `.is-in` al arrancar el tween y durante el
+   tween promueve él mismo (force3D), así que aquí ya no hace falta. */
+.admin-anim-ready [data-reveal]:not(.is-in) {
   will-change: opacity, transform;
 }
 
@@ -27,5 +46,307 @@
   .admin-anim-ready [data-reveal] {
     opacity: 1 !important;
     transform: none !important;
+  }
+}
+
+/* ── 2 · La llegada ────────────────────────────────────────────
+ *
+ * Tres tiempos (detalle en llegada.js): el nombre toma el centro, se sostiene
+ * y vuela a la marca de la pantalla mientras el velo se cierra sobre ella.
+ * Dura ~1.4 s, se salta con cualquier tecla o toque y sólo existe en la
+ * primera página tras el login.
+ *
+ * El velo es SIEMPRE tinta, también cuando el panel está en claro: es la tinta
+ * del login, así que el cambio de documento no parpadea, y la llegada se lee
+ * como una puerta que se abre a la sala iluminada. Por eso aquí se pide a las
+ * ANCLAS (--admin-ink / --admin-paper), que no cambian con el tema, y no a los
+ * roles (--admin-bg, --admin-muted), que en claro serían papel.
+ *
+ * Sin JS se retira solo: se sostiene 1.3 s y se funde. El JS anula esa salida
+ * (.is-js) cuando toma el mando, y si llega tarde la deja correr.
+ */
+.cp-llegada {
+  position: fixed;
+  inset: 0;
+  // Por encima de todo: grano y viñeta (1), cajón del sidebar (40), selects
+  // portados (130) y modales (200). Vive segundo y medio, antes de que nada
+  // de eso pueda estar abierto.
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 6vh 6vw;
+  background: var(--admin-ink);
+  color: var(--admin-paper);
+  // El retardo es la pausa del modo sin JS. llegada.js lo LEE de esta
+  // animación (getTiming().delay), así que cambiarlo aquí basta.
+  animation: cp-llegada-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+}
+
+.cp-llegada__centro {
+  display: grid;
+  justify-items: center;
+  gap: clamp(18px, 3.4vh, 30px);
+  animation: cp-llegada-centro-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+}
+
+/*
+ * El nombre. Apilado y centrado, que es el isologo del manual.
+ *
+ * Las cajas de las palabras se miden igual que en el destino: `fit-content`
+ * (cada caja es su palabra, no la columna entera) y el mismo interlineado
+ * 0.98 del sidebar. Así cada palabra tiene la MISMA proporción en el velo y en
+ * la marca, y el navegador puede escalar la una en la otra sin deformarla.
+ *
+ * El cuerpo: PESTALOZZI mide 7.59 em en KudosKaps (medido sobre el .otf), así
+ * que 8.4vw lo deja en dos tercios del ancho; la cota en vh es para pantallas
+ * apaisadas y bajas, y la de 6.75rem para monitores grandes.
+ */
+.cp-llegada .cp-llegada__marca {
+  --hcp-header-size: min(8.4vw, 11vh, 6.75rem);
+
+  align-items: center;
+  color: var(--admin-paper);
+  // Primer tiempo: con el mismo nombre que la marca del login, la transición
+  // de documento cruzado la trae hasta aquí. El JS lo cambia por los de las
+  // palabras antes del vuelo.
+  view-transition-name: cp-marca;
+
+  .hcp-header__nombre {
+    // KudosKaps tiene una sola cara: el componente ya lo declara, se repite
+    // por si este bloque llegara a heredar un peso.
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: 0;
+  }
+
+  .hcp-header__palabra {
+    width: fit-content;
+    margin-inline: auto;
+  }
+}
+
+.cp-llegada__filete {
+  display: block;
+  width: 56px;
+  height: 1px;
+  background: color-mix(in srgb, var(--admin-paper) 36%, transparent);
+  transform-origin: center;
+  animation: cp-llegada-filete 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+// `.cp-llegada` delante: es un <p>, y `.admin-body p` (0,1,1) le impondría el
+// color atenuado del tema activo —en claro, gris oscuro sobre la tinta—.
+.cp-llegada .cp-llegada__saludo {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin: 0;
+  font-family: var(--admin-font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  // Papel al 66 % sobre la tinta: 7.9:1. El rol --admin-muted no sirve aquí,
+  // que en el tema claro está calibrado contra papel.
+  color: color-mix(in srgb, var(--admin-paper) 66%, var(--admin-ink));
+  animation: cp-llegada-saludo 440ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+
+// Punto separador dibujado y no un «·» de la fuente: en mono el carácter cae
+// a la altura de la x de esa cara, no al centro de las versalitas.
+.cp-llegada__punto {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+// El JS toma el mando: sin salida CSS, el velo espera al vuelo.
+.cp-llegada.is-js,
+.cp-llegada.is-js .cp-llegada__centro {
+  animation: none;
+}
+
+/* Palabras de la barra del piso, envueltas sólo mientras dura el vuelo
+   (llegada.js): la marca de la barra es un nodo de texto, y un grupo de View
+   Transition necesita una caja por palabra. `inline-block` con el mismo
+   espacio entre ellas no mueve la línea. */
+.cp-llegada-palabra {
+  display: inline-block;
+}
+
+/* Lo mismo en el sidebar, sin tocar el marcado: las palabras apiladas son
+   bloques del ancho de PESTALOZZI, así que CASA medía el doble de lo que se ve
+   y su instantánea llegaba con hueco a la derecha. Sólo durante el vuelo; en
+   reposo alineadas a la izquierda se ven igual con o sin esto. */
+.cp-llegada-vuelo .admin-sidebar__brand-text .hcp-header__palabra {
+  width: fit-content;
+}
+
+@keyframes cp-llegada-fuera {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes cp-llegada-centro-fuera {
+  to {
+    transform: translateY(-12px) scale(0.98);
+  }
+}
+
+@keyframes cp-llegada-filete {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes cp-llegada-saludo {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Movimiento reducido: un fundido breve de la tinta al destino, que es la
+   señal de que se entró, y nada más. Sin pausa, sin vuelo y sin el nombre
+   viajando desde el login (el `@view-transition` ya está apagado ahí). */
+@media (prefers-reduced-motion: reduce) {
+  .cp-llegada {
+    animation: cp-llegada-fuera 240ms ease-out both;
+  }
+
+  .cp-llegada__centro,
+  .cp-llegada__filete,
+  .cp-llegada .cp-llegada__saludo {
+    animation: none;
+  }
+
+  .cp-llegada .cp-llegada__marca {
+    view-transition-name: none;
+  }
+}
+
+/*
+ * Las View Transitions de la llegada.
+ *
+ * Los valores van LITERALES: los tokens de movimiento se declaran en
+ * .admin-body y los pseudo-elementos de la transición cuelgan de <html>, así
+ * que un `var(--admin-ease)` aquí sería inválido y caería a `ease`.
+ */
+@supports (view-transition-name: none) {
+  /* Primer tiempo, documento cruzado: la marca del login hasta el centro. Sin
+     tipo, porque lo decide el documento nuevo y el nombre sólo existe aquí. */
+  ::view-transition-group(cp-marca) {
+    animation-duration: 460ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Tercer tiempo: el vuelo. */
+  :root:active-view-transition-type(llegada) {
+    /* El velo (la instantánea vieja) va ENCIMA y se cierra; el destino espera
+       entero debajo. El cierre en círculo lo pone llegada.js con WAAPI, porque
+       su centro es la marca de destino; este fundido es el respaldo cuando no
+       hay marca (POS) o el script no llega a animar, y WAAPI lo sustituye
+       cuando sí. */
+    &::view-transition-old(root) {
+      z-index: 2;
+      mix-blend-mode: normal;
+      animation: cp-vt-velo 820ms cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+
+    &::view-transition-new(root) {
+      z-index: 1;
+      mix-blend-mode: normal;
+      animation: none;
+    }
+
+    /* Las palabras llegan al 80 % del cierre (656 de 820 ms) con una curva de
+       ida y vuelta: despegan, viajan y se posan, y el velo las acompaña con la
+       misma curva. PESTALOZZI sale un instante después que CASA: el bloque se
+       despliega en vez de moverse en una pieza. */
+    &::view-transition-group(cp-marca),
+    &::view-transition-group(cp-marca-casa),
+    &::view-transition-group(cp-marca-pestalozzi) {
+      animation-duration: 656ms;
+      animation-timing-function: cubic-bezier(0.7, 0, 0.2, 1);
+    }
+
+    &::view-transition-group(cp-marca-pestalozzi) {
+      animation-delay: 36ms;
+    }
+
+    /* La tinta cambia AL FINAL, con el fundido del velo: el nombre vuela en
+       papel sobre tinta y se posa en el color de la marca de destino. Antes de
+       eso la instantánea nueva va ampliada desde la marca pequeña y se vería
+       borrosa. */
+    &::view-transition-old(cp-marca),
+    &::view-transition-old(cp-marca-casa),
+    &::view-transition-old(cp-marca-pestalozzi) {
+      mix-blend-mode: normal;
+      animation: cp-vt-tinta-sale 820ms linear both;
+    }
+
+    &::view-transition-new(cp-marca),
+    &::view-transition-new(cp-marca-casa),
+    &::view-transition-new(cp-marca-pestalozzi) {
+      mix-blend-mode: normal;
+      animation: cp-vt-tinta-entra 820ms linear both;
+    }
+
+    /* El monograma del sidebar plegado es cuadrado y el nombre apaisado: que
+       las dos instantáneas quepan sin deformarse en la caja que se transforma. */
+    &::view-transition-old(cp-marca),
+    &::view-transition-new(cp-marca) {
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Sin destino (POS, panel en móvil): el nombre se apaga en su sitio. */
+    &::view-transition-old(cp-marca):only-child {
+      animation: cp-vt-marca-apaga 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+  }
+}
+
+@keyframes cp-vt-velo {
+  0%,
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cp-vt-tinta-sale {
+  0%,
+  78% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cp-vt-tinta-entra {
+  0%,
+  78% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes cp-vt-marca-apaga {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
   }
 }

@@ -5,7 +5,7 @@
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : CategoriasMenu::CARTAS;
 ?>
 
-<section class="admin-menu admin-page">
+<section class="admin-menu admin-menu--modulo admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>

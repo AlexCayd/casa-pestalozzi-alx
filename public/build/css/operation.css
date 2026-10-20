@@ -119,6 +119,13 @@
   --admin-c-turquesa-border: color-mix(in srgb, var(--admin-c-turquesa) 42%, transparent);
   --admin-c-verde-bg: color-mix(in srgb, var(--admin-c-verde) 14%, var(--admin-surface));
   --admin-c-verde-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
+  /* Tinta sobre un relleno ROJO pleno: borrar, cancelar, el diálogo
+     destructivo y el botón de notificaciones con algo por atender. Papel en
+     los DOS temas, a propósito: --admin-c-rojo tiene luminancia 0.17 y con
+     papel da 4.58:1, con tinta 4.15:1. --admin-on-accent no sirve aquí — en
+     oscuro vale tinta, y era lo que dejaba la papelera de las tablas con el
+     icono negro sobre rojo. */
+  --admin-on-danger: var(--admin-paper);
   /* Estados de un platillo: mismos valores que --estado-* del sitio público
      (src/scss/layout/_reset.scss) para que POS y área no discrepen. */
   --admin-estado-enviado: var(--admin-muted);
@@ -407,7 +414,7 @@
   --confirmation-danger-text: var(--admin-danger-text);
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
-  --confirmation-on-danger: var(--admin-paper);
+  --confirmation-on-danger: var(--admin-on-danger);
   /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
      en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
      mensaje en Geist— y el estado sacado de los ROLES de estado, no de los
@@ -628,7 +635,7 @@
   --confirmation-danger-text: var(--admin-danger-text);
   /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
      --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
-  --confirmation-on-danger: var(--admin-paper);
+  --confirmation-on-danger: var(--admin-on-danger);
   /* Aviso transitorio (components/_app-notice.scss). Pareja de `roles-aviso`
      en _reset.scss: el mismo componente, con la voz del panel —rótulo en mono,
      mensaje en Geist— y el estado sacado de los ROLES de estado, no de los
@@ -884,13 +891,16 @@ html.lenis body {
  * Tipografía del sistema ADMINISTRATIVO.
  *
  * No comparte una sola cara con la landing, y es deliberado: el panel se diseña
- * para poder despegarse como producto propio, así que tiene su propia voz. Era
- * Fraunces + Space Grotesk por Google Fonts; ahora es Geist + Geist Mono,
- * vendorizadas desde node_modules por `gulp copyVendorFonts` igual que Bodoni y
- * Crimson en el sitio público. Cero peticiones a red.
+ * para poder despegarse como producto propio, así que tiene su propia voz. Fue
+ * Fraunces + Space Grotesk por Google Fonts, luego Geist; ahora es SATOSHI para
+ * todo el texto, EXPOSE para los titulares de página y Geist Mono para las
+ * cifras. Satoshi y Expose son de Fontshare (licencia ITF FFL, que permite
+ * alojarlas: assets/fonts/LICENCIA-fontshare-FFL.txt) y viven en assets/fonts;
+ * Geist Mono se sigue sembrando desde node_modules con `gulp copyVendorFonts`.
+ * Cero peticiones a red.
  *
- * La pareja es sans + mono, sin serif. La jerarquía NO la hace un cambio de
- * familia sino el contraste entre las dos:
+ * La pareja de trabajo es sans + mono, sin serif. La jerarquía NO la hace un
+ * cambio de familia sino el contraste entre las dos:
  *
  *   · el rótulo va en mono, versalitas y tracking abierto;
  *   · el titular debajo va en sans, grande y con el tracking cerrado.
@@ -911,25 +921,32 @@ html.lenis body {
   font-style: normal;
   font-display: swap;
 }
-/* Las dos caras variables cubren 100-900 en un solo fichero. El subconjunto
-   'latin' basta para el español —acentos y eñe viven en U+00C0-U+00FF— y pesa
-   la mitad que arrastrar también latin-ext.
-
-   La itálica no es un extra ni un eje de la variable: `font-style` es un eje
-   aparte y modules/analytics.scss pide italic. Sin fichero, el navegador
-   inclinaría la redonda por su cuenta. */
+/* Satoshi: la sans de todo el sistema, variable de 300 a 900 en un fichero.
+   La itálica no es un eje de la variable: `font-style` va aparte y
+   modules/analytics.scss pide italic. Sin su fichero, el navegador inclinaría
+   la redonda por su cuenta, y la casa no admite caras sintéticas. */
 @font-face {
-  font-family: "Geist Variable";
-  src: url("/build/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
-  font-weight: 100 900;
+  font-family: "Satoshi";
+  src: url("/build/fonts/satoshi-variable.woff2") format("woff2-variations");
+  font-weight: 300 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Geist Variable";
-  src: url("/build/fonts/geist-latin-wght-italic.woff2") format("woff2-variations");
-  font-weight: 100 900;
+  font-family: "Satoshi";
+  src: url("/build/fonts/satoshi-variable-italic.woff2") format("woff2-variations");
+  font-weight: 300 900;
   font-style: italic;
+  font-display: swap;
+}
+/* Expose: la cara de los titulares de página (h1 y h2). Es una display, sin
+   itálica y de 400 a 900: no va en cuerpo de texto ni en los encabezados chicos
+   de los componentes, que siguen en Satoshi. */
+@font-face {
+  font-family: "Expose";
+  src: url("/build/fonts/expose-variable.woff2") format("woff2-variations");
+  font-weight: 400 900;
+  font-style: normal;
   font-display: swap;
 }
 @font-face {
@@ -949,12 +966,14 @@ html.lenis body {
 .admin-body {
   /* ── Los dos tokens reales ─────────────────────────────────── */
   --admin-font-sans:
-    "Geist Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  --admin-font-titular: "Expose", var(--admin-font-sans);
+  --admin-font-cifra: var(--admin-font-titular);
   --admin-font-mono:
     "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Mono",
     "Consolas", monospace;
-  --admin-logo: "KudosKaps", "Geist Variable", sans-serif;
+  --admin-logo: "KudosKaps", "Satoshi", sans-serif;
   /* ── Alias heredados ───────────────────────────────────────── *
    * El sistema ya no tiene serif, pero cuatro archivos siguen pidiendo estos
    * nombres. Apuntan todos a la sans para no reescribirlos uno a uno.
@@ -971,9 +990,9 @@ html.lenis body {
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
-  /* Geist va bien apretada en cuerpo de texto, pero no tanto como una grotesca
-     clásica: su altura de x es alta y a -0.02em los contadores se cierran. */
-  letter-spacing: -0.006em;
+  /* Satoshi es geométrica y ya viene con el espaciado justo: apretarla cierra
+     los contadores de la a y la e. */
+  letter-spacing: 0;
   font-synthesis-weight: none;
   font-synthesis-style: none;
 }
@@ -998,24 +1017,39 @@ html.lenis body {
 }
 
 .admin-body h1 {
+  font-family: var(--admin-font-titular);
   font-size: clamp(2rem, 4vw, 3.2rem);
-  letter-spacing: -0.038em;
+  letter-spacing: -0.012em;
 }
 
 .admin-body h2 {
   font-size: clamp(1.55rem, 3vw, 2.2rem);
+  letter-spacing: -0.008em;
 }
 
 .admin-body h3 {
   font-size: clamp(1.2rem, 2vw, 1.55rem);
-  letter-spacing: -0.024em;
+  letter-spacing: -0.014em;
 }
 
 .admin-body h4 {
   font-size: 1.05rem;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.008em;
 }
 
+.admin-body .admin-page__title,
+.admin-body .admin-page-title-row h2 {
+  font-family: var(--admin-font-titular);
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 576px) {
+  .admin-body .admin-page__title,
+  .admin-body .admin-page-title-row h2 {
+    font-size: 27px;
+  }
+}
 .admin-body p {
   margin: 0;
   color: var(--admin-muted);
@@ -1198,65 +1232,147 @@ html.lenis body {
   color: var(--admin-text);
 }
 
+/* ── Destructivo ───────────────────────────────────────────────
+ *
+ * Papel sobre rojo PLENO, con la misma caja, tamaño y peso que cualquier otro
+ * .admin-btn: es el homólogo del botón de editar y sólo cambia el color. Fue
+ * un tinte con texto rojo, y al lado de un botón sólido se leía como
+ * deshabilitado — justo lo contrario de lo que tiene que decir.
+ *
+ * `--danger-solid` era la variante del modal de Usuarios y de «Salir sin
+ * guardar»; hoy son la misma cosa y se declaran juntas.
+ *
+ * El color se pinta con (0,3,0) —`.admin-body .admin-btn:is(…)`— porque hay
+ * tres reglas de (0,2,0) que lo pisaban según el orden de carga: el
+ * `.admin-body .admin-btn` de abajo, el hover neutro de _finishes.scss y el
+ * `.admin-modal .admin-btn--danger-solid` de _modal.scss, que pedía
+ * --admin-text-inverse y en oscuro escribía tinta sobre rojo. Las sombras se
+ * quedan en (0,1,0)/(0,2,0) para que el anillo de foco de _finishes.scss
+ * siga ganando.
+ */
 .admin-btn--danger,
+.admin-btn--danger-solid,
 .admin-menu__button--danger {
-  border-color: var(--admin-danger-border);
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
 }
-.admin-btn--danger:hover,
-.admin-menu__button--danger:hover {
-  border-color: var(--admin-danger);
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
-  filter: brightness(1.05);
+.admin-btn--danger:hover:where(:not(:disabled):not([aria-disabled=true])),
+.admin-btn--danger-solid:hover:where(:not(:disabled):not([aria-disabled=true])),
+.admin-menu__button--danger:hover:where(:not(:disabled):not([aria-disabled=true])) {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-danger) 32%, transparent);
 }
 
-/* ── Botones tintados de cabecera ──────────────────────────────
+.admin-body .admin-btn:is(.admin-btn--danger, .admin-btn--danger-solid),
+.admin-body .admin-menu__button.admin-menu__button--danger {
+  border-color: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+  background-color: var(--admin-danger);
+  color: var(--admin-on-danger);
+}
+.admin-body .admin-btn:is(.admin-btn--danger, .admin-btn--danger-solid):hover:not(:disabled):not([aria-disabled=true]),
+.admin-body .admin-menu__button.admin-menu__button--danger:hover:not(:disabled):not([aria-disabled=true]) {
+  border-color: color-mix(in srgb, var(--admin-danger) 70%, var(--admin-ink));
+  background-color: color-mix(in srgb, var(--admin-danger) 88%, var(--admin-ink));
+  color: var(--admin-on-danger);
+  filter: none;
+}
+.admin-body .admin-btn:is(.admin-btn--danger, .admin-btn--danger-solid):active:not(:disabled):not([aria-disabled=true]),
+.admin-body .admin-menu__button.admin-menu__button--danger:active:not(:disabled):not([aria-disabled=true]) {
+  background-color: color-mix(in srgb, var(--admin-danger) 80%, var(--admin-ink));
+}
+
+/* ── Botones de color de cabecera ──────────────────────────────
  *
- * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú,
- * «Subrecetas» e «Inventario» en Recetas. Eran todos --secondary, es decir
- * cuatro cajas idénticas donde sólo cambiaba la palabra, y para elegir había
- * que leerlas una por una. El tono les da forma reconocible.
+ * Para las barras de acciones de módulo: «Categorías» en Menú, «Subrecetas» e
+ * «Inventario» en Recetas, «Reanudar en Configuración» en Impresoras. Eran
+ * cajas idénticas donde sólo cambiaba la palabra; el color les da forma
+ * reconocible.
  *
- * Mismo patrón que los botones de acción del topbar: un TINTE derivado con
- * color-mix sobre --admin-surface, nunca un relleno sólido. El relleno sólido
- * sigue siendo exclusivo de --primary, que es lo que mantiene una sola acción
- * principal por pantalla. Ver la excepción anotada en CLAUDE.md.
+ * Fueron un TINTE translúcido con texto de color y el cliente lo rechazó: en
+ * tema oscuro el texto saturado sobre un velo del mismo tono se veía
+ * fosforescente. Ahora son RELLENO SÓLIDO de la paleta funcional, con la
+ * tinta que pide su luminancia —calculada, no estimada (WCAG, sobre las
+ * anclas del panel)—:
  *
- * El color se pasa en --tono; sin él, el botón se comporta como un secundario
- * neutro en vez de romperse.
+ *   · claros   (ámbar 0.52, turquesa 0.42): relleno pleno y tinta encima,
+ *              10.7:1 y 8.8:1;
+ *   · medios   (azul 0.25, verde 0.29): con papel no llegan (3.4 y 2.9:1),
+ *              así que el relleno se HUNDE hacia la tinta hasta que el papel
+ *              pasa — azul al 78 % (5.0:1), verde al 72 % (5.0:1). Es además
+ *              lo que los aparta del neón: un azul profundo se lee como
+ *              material, uno eléctrico como alarma;
+ *   · oscuros  (índigo 0.14): relleno pleno y papel encima, 5.4:1.
+ *
+ * El nombre `--tinted` se queda por el marcado de los módulos, que así no
+ * cambia.
+ *
+ * La acción principal de la pantalla sigue siendo .admin-btn--primary, y no
+ * por el color sino por jerarquía: es el único en la tinta del sistema —el
+ * extremo de contraste contra el fondo en los dos temas; estos rellenos
+ * quedan a medio camino—, el único con icono, el último de la fila y el único
+ * con sombra en reposo, barrido especular y magnetismo. Éstos van planos.
+ *
+ * Sin un `--tinted-{color}` el botón se pinta como un secundario neutro en vez
+ * de romperse.
  */
 .admin-btn--tinted {
-  --tono: var(--admin-muted);
-  border-color: color-mix(in srgb, var(--tono) 30%, var(--admin-border));
-  background: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
-  color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+  --tono-fondo: var(--admin-btn-secondary-bg);
+  --tono-tinta: var(--admin-text);
+  --tono-borde: var(--admin-border-strong);
+  box-shadow: none;
 }
-.admin-btn--tinted:hover {
-  border-color: color-mix(in srgb, var(--tono) 58%, transparent);
-  background: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
-  color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+.admin-btn--tinted:hover:where(:not(:disabled):not([aria-disabled=true])) {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--tono-fondo) 30%, transparent);
 }
 
 .admin-btn--tinted-ambar {
-  --tono: var(--admin-c-ambar);
-}
-
-.admin-btn--tinted-azul {
-  --tono: var(--admin-c-azul);
-}
-
-.admin-btn--tinted-verde {
-  --tono: var(--admin-c-verde);
-}
-
-.admin-btn--tinted-indigo {
-  --tono: var(--admin-c-indigo);
+  --tono-fondo: var(--admin-c-ambar);
+  --tono-tinta: var(--admin-ink);
 }
 
 .admin-btn--tinted-turquesa {
-  --tono: var(--admin-c-turquesa);
+  --tono-fondo: var(--admin-c-turquesa);
+  --tono-tinta: var(--admin-ink);
+}
+
+.admin-btn--tinted-azul {
+  --tono-fondo: color-mix(in srgb, var(--admin-c-azul) 78%, var(--admin-ink));
+  --tono-tinta: var(--admin-paper);
+}
+
+.admin-btn--tinted-verde {
+  --tono-fondo: color-mix(in srgb, var(--admin-c-verde) 72%, var(--admin-ink));
+  --tono-tinta: var(--admin-paper);
+}
+
+.admin-btn--tinted-indigo {
+  --tono-fondo: var(--admin-c-indigo);
+  --tono-tinta: var(--admin-paper);
+}
+
+/* El borde es el propio relleno un paso más hundido: un contorno neutro
+   alrededor de un sólido de color lo enmarca como si fuera una pegatina. */
+.admin-btn--tinted:is(.admin-btn--tinted-ambar,
+.admin-btn--tinted-turquesa,
+.admin-btn--tinted-azul,
+.admin-btn--tinted-verde,
+.admin-btn--tinted-indigo) {
+  --tono-borde: color-mix(in srgb, var(--tono-fondo) 82%, var(--admin-ink));
+}
+
+/* Pintado, con (0,3,0) por lo mismo que el destructivo de arriba. El hover
+   HUNDE el relleno hacia la tinta en vez de aclararlo: en los rellenos con
+   papel encima sube el contraste, y en el ámbar la tinta sigue a 8.4:1. */
+.admin-body .admin-btn.admin-btn--tinted {
+  border-color: var(--tono-borde);
+  background-color: var(--tono-fondo);
+  color: var(--tono-tinta);
+}
+.admin-body .admin-btn.admin-btn--tinted:hover:not(:disabled):not([aria-disabled=true]) {
+  border-color: var(--tono-borde);
+  background-color: color-mix(in srgb, var(--tono-fondo) 88%, var(--admin-ink));
+  color: var(--tono-tinta);
+}
+.admin-body .admin-btn.admin-btn--tinted:active:not(:disabled):not([aria-disabled=true]) {
+  background-color: color-mix(in srgb, var(--tono-fondo) 80%, var(--admin-ink));
 }
 
 .admin-btn--small,
@@ -1333,21 +1449,6 @@ html.lenis body {
 .admin-body .admin-btn--ghost {
   background-color: transparent;
   color: var(--admin-muted);
-}
-
-.admin-body .admin-btn--tinted {
-  background-color: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
-  color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
-}
-.admin-body .admin-btn--tinted:hover {
-  background-color: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
-  color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
-}
-
-.admin-body .admin-btn--danger,
-.admin-body .admin-menu__button--danger {
-  background-color: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
 }
 
 .admin-body .admin-btn--disabled,
@@ -1617,10 +1718,11 @@ html.lenis body {
 }
 .admin-stat-card__value {
   color: var(--admin-text);
-  font-family: var(--admin-font-sans);
-  font-size: clamp(24px, 2.2vw, 30px);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.05;
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(26px, 2.4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1;
   overflow-wrap: anywhere;
 }
 .admin-stat-card__sub {
@@ -1691,32 +1793,42 @@ html.lenis body {
    * rotación— eran cajas idénticas entre las que había que leer el rótulo
    * para orientarse.
    *
-   * Dos diferencias con los tonos de estado, y las dos importan:
+   * La señal es un PUNTO delante del rótulo, la clave de una leyenda: es el
+   * idioma con el que el panel ya dice «esta serie es ésta» en las gráficas.
+   * Fue un filete lateral de 3 px; el cliente retiró los filetes de color
+   * del panel.
    *
-   *  · El color va en un FILETE lateral y en el rótulo, no en el fondo ni en
-   *    la cifra. Siete fondos de color seguidos serían un arcoíris, y teñir el
-   *    número rompería la lectura en columna: la cifra va en tinta normal,
-   *    tabular, para poder compararla con la de al lado.
+   * Lo que no cambia:
+   *
+   *  · El color no va en el fondo ni en la cifra. Siete fondos de color
+   *    seguidos serían un arcoíris, y teñir el número rompería la lectura en
+   *    columna: la cifra va en tinta normal para compararla con la de al lado.
+   *    El rótulo tampoco se tiñe: el lima o el turquesa como texto sobre papel
+   *    no llegan al AA, y el punto ya da la identidad sin pedirle nada al
+   *    texto.
    *  · Un tono de estado GANA a uno de identidad, porque «la utilidad es
    *    negativa» importa más que «esto es la utilidad». Por eso los de estado
-   *    se declaran antes y estos no tocan `background` ni `__value`: puestos
-   *    juntos en el marcado, no se pisan.
+   *    se declaran antes y éstos no tocan `background` ni `__value`: puestos
+   *    juntos en el marcado, no se pisan — el fondo es del estado y el punto
+   *    de la serie.
    */
 }
 .admin-stat-card--serie {
   --tono: var(--admin-muted);
-  position: relative;
-  overflow: hidden;
-}
-.admin-stat-card--serie::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--tono);
 }
 .admin-stat-card--serie .admin-stat-card__label {
-  color: color-mix(in srgb, var(--tono) 76%, var(--admin-text));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-stat-card--serie .admin-stat-card__label::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tono);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-surface) 70%, transparent);
 }
 .admin-stat-card--serie-verde {
   --tono: var(--admin-c-verde);
@@ -1895,7 +2007,6 @@ html.lenis body {
 }
 .admin-table tbody tr:hover {
   background: var(--admin-surface-soft);
-  box-shadow: inset 3px 0 0 var(--admin-gold);
 }
 .admin-table {
   /* Fila que lleva a editar su registro (table-rows.js). El cursor solo cambia
@@ -1908,7 +2019,7 @@ html.lenis body {
 .admin-table tbody tr[data-row-href]:focus-visible {
   outline: 0;
   background: var(--admin-surface-soft);
-  box-shadow: inset 3px 0 0 var(--admin-gold), inset 0 0 0 2px var(--admin-gold);
+  box-shadow: inset 0 0 0 2px var(--admin-gold);
 }
 .admin-table td:last-child,
 .admin-table th:last-child {
@@ -2302,16 +2413,20 @@ html.lenis body {
   box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-ambar) 35%, transparent);
 }
 
+/* La tinta es --admin-on-danger (papel en los dos temas), no
+   --admin-text-inverse: ése es la tinta sobre el ACENTO y en oscuro vale
+   negro, así que la papelera salía con el icono negro sobre rojo mientras el
+   lápiz de al lado seguía legible. */
 .admin-icon-button--danger {
   border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
   background: var(--admin-c-rojo);
-  color: var(--admin-text-inverse);
+  color: var(--admin-on-danger);
   box-shadow: var(--admin-shadow-sm);
 }
 .admin-icon-button--danger:hover {
   border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
   background: color-mix(in srgb, var(--admin-c-rojo) 88%, white);
-  color: var(--admin-text-inverse);
+  color: var(--admin-on-danger);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
 }
 
@@ -3612,10 +3727,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 26px;
   height: 26px;
 }
-.admin-modal__title {
+.admin-modal .admin-modal__title {
   font-family: var(--admin-font-heading);
   font-size: 1.5rem;
   font-weight: 500;
+  line-height: 1.2;
   color: var(--admin-text);
 }
 .admin-modal__text {
@@ -3685,14 +3801,33 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 /*
- * Infraestructura de reveals del panel admin.
- * Los reveals los dispara motion.js (GSAP/ScrollTrigger). Con reduced-motion
- * o sin JS todo queda visible. (Sin transición de cortina entre páginas.)
+ * Movimiento de ENTRADA del sistema administrativo. Va en los dos bundles
+ * (admin.css y operation.css), así que todo lo de aquí vale para el panel y
+ * para el piso.
+ *
+ *   1 · Reveals del panel: los dispara motion.js (GSAP/ScrollTrigger). Con
+ *       reduced-motion o sin JS todo queda visible.
+ *   2 · La llegada: el velo con el nombre de la casa que recibe a quien acaba
+ *       de iniciar sesión (views/components/llegada.php +
+ *       src/js/components/llegada.js).
+ *
+ * Las otras dos transiciones —cambio de tema y cambio de módulo— viven en
+ * _finishes.scss (4b y 4c). Las tres usan View Transitions y se distinguen por
+ * TIPO ('tema', 'modulo', 'llegada'): ninguna regla de una debe poder tocar a
+ * otra. Si se toca una, comprobar las otras dos.
  */
-/* ── Base de reveals (GSAP fija .is-in / limpia estilos) ───────── */
+/* ── 1 · Base de reveals (GSAP fija .is-in / limpia estilos) ───── */
 .admin-anim-ready [data-reveal] {
   opacity: 0;
   transform: translateY(24px);
+}
+
+/* `will-change` sólo mientras el elemento ESPERA su entrada. Estaba en la regla
+   de arriba sin condición, y como GSAP deja el estilo final en línea, cada
+   tarjeta del panel conservaba su capa de composición toda la sesión: decenas
+   en Análisis o Finanzas. GSAP pone `.is-in` al arrancar el tween y durante el
+   tween promueve él mismo (force3D), así que aquí ya no hace falta. */
+.admin-anim-ready [data-reveal]:not(.is-in) {
   will-change: opacity, transform;
 }
 
@@ -3712,6 +3847,263 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .admin-anim-ready [data-reveal] {
     opacity: 1 !important;
     transform: none !important;
+  }
+}
+/* ── 2 · La llegada ────────────────────────────────────────────
+ *
+ * Tres tiempos (detalle en llegada.js): el nombre toma el centro, se sostiene
+ * y vuela a la marca de la pantalla mientras el velo se cierra sobre ella.
+ * Dura ~1.4 s, se salta con cualquier tecla o toque y sólo existe en la
+ * primera página tras el login.
+ *
+ * El velo es SIEMPRE tinta, también cuando el panel está en claro: es la tinta
+ * del login, así que el cambio de documento no parpadea, y la llegada se lee
+ * como una puerta que se abre a la sala iluminada. Por eso aquí se pide a las
+ * ANCLAS (--admin-ink / --admin-paper), que no cambian con el tema, y no a los
+ * roles (--admin-bg, --admin-muted), que en claro serían papel.
+ *
+ * Sin JS se retira solo: se sostiene 1.3 s y se funde. El JS anula esa salida
+ * (.is-js) cuando toma el mando, y si llega tarde la deja correr.
+ */
+.cp-llegada {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 6vh 6vw;
+  background: var(--admin-ink);
+  color: var(--admin-paper);
+  animation: cp-llegada-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+}
+
+.cp-llegada__centro {
+  display: grid;
+  justify-items: center;
+  gap: clamp(18px, 3.4vh, 30px);
+  animation: cp-llegada-centro-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+}
+
+/*
+ * El nombre. Apilado y centrado, que es el isologo del manual.
+ *
+ * Las cajas de las palabras se miden igual que en el destino: `fit-content`
+ * (cada caja es su palabra, no la columna entera) y el mismo interlineado
+ * 0.98 del sidebar. Así cada palabra tiene la MISMA proporción en el velo y en
+ * la marca, y el navegador puede escalar la una en la otra sin deformarla.
+ *
+ * El cuerpo: PESTALOZZI mide 7.59 em en KudosKaps (medido sobre el .otf), así
+ * que 8.4vw lo deja en dos tercios del ancho; la cota en vh es para pantallas
+ * apaisadas y bajas, y la de 6.75rem para monitores grandes.
+ */
+.cp-llegada .cp-llegada__marca {
+  --hcp-header-size: min(8.4vw, 11vh, 6.75rem);
+  align-items: center;
+  color: var(--admin-paper);
+  view-transition-name: cp-marca;
+}
+.cp-llegada .cp-llegada__marca .hcp-header__nombre {
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+.cp-llegada .cp-llegada__marca .hcp-header__palabra {
+  width: fit-content;
+  margin-inline: auto;
+}
+
+.cp-llegada__filete {
+  display: block;
+  width: 56px;
+  height: 1px;
+  background: color-mix(in srgb, var(--admin-paper) 36%, transparent);
+  transform-origin: center;
+  animation: cp-llegada-filete 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+.cp-llegada .cp-llegada__saludo {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin: 0;
+  font-family: var(--admin-font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--admin-paper) 66%, var(--admin-ink));
+  animation: cp-llegada-saludo 440ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+
+.cp-llegada__punto {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cp-llegada.is-js,
+.cp-llegada.is-js .cp-llegada__centro {
+  animation: none;
+}
+
+/* Palabras de la barra del piso, envueltas sólo mientras dura el vuelo
+   (llegada.js): la marca de la barra es un nodo de texto, y un grupo de View
+   Transition necesita una caja por palabra. `inline-block` con el mismo
+   espacio entre ellas no mueve la línea. */
+.cp-llegada-palabra {
+  display: inline-block;
+}
+
+/* Lo mismo en el sidebar, sin tocar el marcado: las palabras apiladas son
+   bloques del ancho de PESTALOZZI, así que CASA medía el doble de lo que se ve
+   y su instantánea llegaba con hueco a la derecha. Sólo durante el vuelo; en
+   reposo alineadas a la izquierda se ven igual con o sin esto. */
+.cp-llegada-vuelo .admin-sidebar__brand-text .hcp-header__palabra {
+  width: fit-content;
+}
+
+@keyframes cp-llegada-fuera {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes cp-llegada-centro-fuera {
+  to {
+    transform: translateY(-12px) scale(0.98);
+  }
+}
+@keyframes cp-llegada-filete {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes cp-llegada-saludo {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* Movimiento reducido: un fundido breve de la tinta al destino, que es la
+   señal de que se entró, y nada más. Sin pausa, sin vuelo y sin el nombre
+   viajando desde el login (el `@view-transition` ya está apagado ahí). */
+@media (prefers-reduced-motion: reduce) {
+  .cp-llegada {
+    animation: cp-llegada-fuera 240ms ease-out both;
+  }
+  .cp-llegada__centro,
+  .cp-llegada__filete,
+  .cp-llegada .cp-llegada__saludo {
+    animation: none;
+  }
+  .cp-llegada .cp-llegada__marca {
+    view-transition-name: none;
+  }
+}
+/*
+ * Las View Transitions de la llegada.
+ *
+ * Los valores van LITERALES: los tokens de movimiento se declaran en
+ * .admin-body y los pseudo-elementos de la transición cuelgan de <html>, así
+ * que un `var(--admin-ease)` aquí sería inválido y caería a `ease`.
+ */
+@supports (view-transition-name: none) {
+  /* Primer tiempo, documento cruzado: la marca del login hasta el centro. Sin
+     tipo, porque lo decide el documento nuevo y el nombre sólo existe aquí. */
+  ::view-transition-group(cp-marca) {
+    animation-duration: 460ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Tercer tiempo: el vuelo. */
+  :root:active-view-transition-type(llegada) {
+    /* El velo (la instantánea vieja) va ENCIMA y se cierra; el destino espera
+       entero debajo. El cierre en círculo lo pone llegada.js con WAAPI, porque
+       su centro es la marca de destino; este fundido es el respaldo cuando no
+       hay marca (POS) o el script no llega a animar, y WAAPI lo sustituye
+       cuando sí. */
+  }
+  :root:active-view-transition-type(llegada)::view-transition-old(root) {
+    z-index: 2;
+    mix-blend-mode: normal;
+    animation: cp-vt-velo 820ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  :root:active-view-transition-type(llegada)::view-transition-new(root) {
+    z-index: 1;
+    mix-blend-mode: normal;
+    animation: none;
+  }
+  :root:active-view-transition-type(llegada) {
+    /* Las palabras llegan al 80 % del cierre (656 de 820 ms) con una curva de
+       ida y vuelta: despegan, viajan y se posan, y el velo las acompaña con la
+       misma curva. PESTALOZZI sale un instante después que CASA: el bloque se
+       despliega en vez de moverse en una pieza. */
+  }
+  :root:active-view-transition-type(llegada)::view-transition-group(cp-marca), :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-pestalozzi) {
+    animation-duration: 656ms;
+    animation-timing-function: cubic-bezier(0.7, 0, 0.2, 1);
+  }
+  :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-pestalozzi) {
+    animation-delay: 36ms;
+  }
+  :root:active-view-transition-type(llegada) {
+    /* La tinta cambia AL FINAL, con el fundido del velo: el nombre vuela en
+       papel sobre tinta y se posa en el color de la marca de destino. Antes de
+       eso la instantánea nueva va ampliada desde la marca pequeña y se vería
+       borrosa. */
+  }
+  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca), :root:active-view-transition-type(llegada)::view-transition-old(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-old(cp-marca-pestalozzi) {
+    mix-blend-mode: normal;
+    animation: cp-vt-tinta-sale 820ms linear both;
+  }
+  :root:active-view-transition-type(llegada)::view-transition-new(cp-marca), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca-pestalozzi) {
+    mix-blend-mode: normal;
+    animation: cp-vt-tinta-entra 820ms linear both;
+  }
+  :root:active-view-transition-type(llegada) {
+    /* El monograma del sidebar plegado es cuadrado y el nombre apaisado: que
+       las dos instantáneas quepan sin deformarse en la caja que se transforma. */
+  }
+  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca) {
+    height: 100%;
+    object-fit: contain;
+  }
+  :root:active-view-transition-type(llegada) {
+    /* Sin destino (POS, panel en móvil): el nombre se apaga en su sitio. */
+  }
+  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca):only-child {
+    animation: cp-vt-marca-apaga 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+}
+@keyframes cp-vt-velo {
+  0%, 30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cp-vt-tinta-sale {
+  0%, 78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cp-vt-tinta-entra {
+  0%, 78% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes cp-vt-marca-apaga {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
   }
 }
 /*
@@ -4567,7 +4959,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
   flex-direction: column;
   color: var(--admin-gold);
-  font-family: var(--logo, var(--operational-font-brand));
+  font-family: var(--operational-font-brand);
   font-size: clamp(1.15rem, 1.5vw, 1.5rem);
   font-weight: 400;
   line-height: 1;
@@ -4594,7 +4986,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   word-spacing: 0;
 }
 
-.operational-header__module {
+.operational-header .operational-header__module {
   max-width: min(34vw, 360px);
   margin: 0;
   overflow: hidden;
@@ -4612,7 +5004,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: clamp(20px, 2.4vw, 28px);
   letter-spacing: -0.01em;
   line-height: 1.1;
-  letter-spacing: -0.025em;
+  font-family: var(--admin-font-titular);
+  letter-spacing: -0.012em;
   font-weight: var(--operational-weight-bold);
 }
 
@@ -8914,7 +9307,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     max-height: 88dvh;
   }
 }
-:is(.pos-ficha, .operational-drawer__pie, .pos-alta) .mmodal-btn {
+.admin-body :is(.pos-ficha, .operational-drawer__pie, .pos-alta) .mmodal-btn {
   font-family: var(--admin-font-sans);
   font-size: 14px;
   font-weight: 600;
@@ -9229,24 +9622,35 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-height: 48px;
 }
 
-.pdv-page,
-.pdv-page button,
-.pdv-page input,
-.pdv-page select,
-.pdv-page a,
-.mapa-page,
-.mapa-page button,
-.mapa-page input,
-.mapa-page select,
-.mapa-page a {
+/*
+ * El POS es una aplicación: flecha sobre lo que no se toca y mano sobre todo
+ * lo que se pulsa.
+ *
+ * Aquí había un `.mapa-page button { cursor: default }` (0,1,1) que nació para
+ * tapar el `cursor: none` del cursor propio de la landing —bundle.min.js lo
+ * pone en <html> en cualquier página— y que le ganaba a CADA clase de botón
+ * del piso (0,1,0): las tarjetas de platillo, las categorías, los botones del
+ * modal… todos con flecha aunque su regla pidiera la mano. Su pareja
+ * `.pdv-page button { cursor: pointer }` apuntaba a una clase que ya no existe.
+ *
+ * Ahora con `:where()`, que no suma: la mano por defecto vale (0,1,0) y
+ * cualquier componente que quiera otra cosa —el pedido activo de Llevar, que
+ * es «dónde estoy» y no se pulsa— la cambia con su propia clase.
+ */
+.mapa-page {
   cursor: default;
 }
 
-.pdv-page button,
-.pdv-page input[type=range],
-.pdv-page .mesa-pin[data-reservable="1"],
-.pdv-page .mesa-pin[data-ticketable="1"] {
+.mapa-page :where(button, a[href], summary, select, label[for], [role=button]) {
   cursor: pointer;
+}
+
+.mapa-page :where(input:not([type=checkbox], [type=radio], [type=range], [type=button], [type=submit]), textarea) {
+  cursor: text;
+}
+
+.mapa-page :where(button:disabled, [aria-disabled=true]) {
+  cursor: not-allowed;
 }
 
 .pdv-shell {
@@ -9270,7 +9674,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .pdv-logo {
-  font-family: var(--logo);
+  font-family: var(--admin-logo);
   color: var(--accent-text);
   font-size: 1.05rem;
   text-decoration: none;
@@ -9285,7 +9689,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .pdv-title {
-  font-family: var(--serif);
+  font-family: var(--admin-font-sans);
   font-size: 1rem;
   font-weight: 400;
   letter-spacing: 0.1em;
@@ -9320,7 +9724,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: none;
   outline: none;
   color: var(--txt);
-  font-family: var(--sans);
+  font-family: var(--admin-font-sans);
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -9415,7 +9819,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  font-family: var(--sans);
+  font-family: var(--admin-font-sans);
 }
 .pdv-cal__day:hover:not(.pdv-cal__day--empty) {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -9730,7 +10134,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--sans);
+  font-family: var(--admin-font-sans);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -10107,13 +10511,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 1rem;
 }
 .mmodal-excedente__label {
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 .mmodal-excedente__val {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 1.1rem;
+  font-weight: 600;
 }
 .mmodal-excedente__btns {
   display: flex;
@@ -10123,14 +10533,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-excedente__btn {
   flex: 1 1 auto;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 0.6rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
   color: inherit;
-  font-size: 0.8rem;
   cursor: pointer;
+}
+.admin-body .mmodal-excedente__btn {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-excedente__btn.is-on {
   border-color: var(--accent);
@@ -10333,29 +10749,31 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * la fila. Sin `nowrap` un nombre de cliente largo no empujaba —el título ya
  * encoge— pero SÍ partía en dos renglones, y con eso el encabezado crecía de
  * alto y la × se quedaba alineada con la primera línea en vez de con la fila. */
+/* Sin cursiva: la raya y la itálica eran el gesto editorial de la landing, y
+ * aquí el complemento del título (el cliente, la fecha del corte, «Ticket
+ * cerrado») es un dato secundario. Lo dice el tono atenuado, en la sans. */
 .mmodal-title-cliente {
   min-width: 0;
   overflow: hidden;
-  color: var(--gold-soft);
-  font-family: var(--serif);
-  font-size: 0.9rem;
-  font-style: italic;
-  opacity: 0.85;
+  color: var(--txt-mute);
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-section);
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /*
- * ⚠ `--serif` aquí NO es una serif: en el piso lo resuelve
- * `puente-tokens-publicos`, que lo mapea a `--admin-font-sans` (Geist). El
- * token es el correcto —el componente lo comparten landing y piso— pero
- * conviene saber qué se pinta de verdad al elegir peso y cuerpo.
+ * El titular del modal, en Expose: es el ÚNICO sitio del POS que lleva la
+ * display del panel como titular. El modal de mesa es la pantalla de trabajo
+ * del mesero —cuatro columnas, un turno entero— y el nombre de la mesa es su
+ * titular de página, igual que `.admin-page__title` en un módulo del panel.
+ * Los encabezados de las piezas de dentro (la hoja de opciones, los ajustes,
+ * las alertas) siguen en Satoshi: a 16-18 px una display no se lee.
  *
- * Peso y cuerpo declarados, y no heredados: el <span> no declaraba ninguno, así
- * que salía a 400 y 18.4 px justo al lado del importe del cobro (mono, 800,
- * 20 px). El título del modal parecía el pie de la cifra en vez de decir de qué
- * mesa se está hablando. A 600/20 px el par sans/mono es el que describe
- * CLAUDE.md: la jerarquía la hace el contraste de familia y peso, no el tamaño.
+ * 24 px y no los 28-36 del titular de página: la fila está atada a la esquina
+ * (ver abajo) y el nombre comparte renglón con el chip de estado. Expose es
+ * condensada, así que a 24 px pesa como Satoshi a 20 y ocupa menos ancho.
  */
 /* Y encoge con puntos suspensivos en vez de empujar.
  *
@@ -10375,16 +10793,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * posición no depende de la fila, y ésa era la desalineación.
  *
  * El valor es el de la esquina y no un número: si un día cambia
- * `--mmodal-corner-size`, la fila y el título cambian con él. 28/20 = 1.4, de
- * sobra para una línea de Geist sin cortar descendentes —y no hay segunda
+ * `--mmodal-corner-size`, la fila y el título cambian con él. Con Expose a
+ * 24 px la caja de línea sigue siendo la de la esquina (28/24 ≈ 1.17): Expose
+ * tiene descendentes cortos y la «j» de «Barra Roja» cabe sin que el
+ * `overflow: hidden` la muerda —medido en el navegador—. No hay segunda
  * línea, que es lo que impide `white-space: nowrap`. */
 .mmodal-title {
   min-width: 0;
   overflow: hidden;
   color: var(--txt);
-  font-family: var(--serif);
-  font-size: 1.25rem;
+  font-family: var(--admin-font-titular);
+  font-size: 24px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: var(--mmodal-corner-size);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -10397,18 +10818,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.5rem;
 }
 .mmodal-header-aside__label {
-  color: color-mix(in srgb, var(--txt) 58%, transparent);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: var(--txt-mute);
 }
 .mmodal-header-aside__val {
+  font-family: var(--admin-font-cifra);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
   color: var(--txt);
-  font-family: var(--admin-font-mono);
-  font-size: 1.25rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  line-height: var(--mmodal-corner-size);
 }
 
 .mmodal-cerrar-confirm {
@@ -10425,20 +10850,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.7;
 }
 
-.mmodal-cerrar-confirm__msg {
-  font-size: 0.95rem;
-  color: var(--txt);
-  line-height: 1.5;
+.admin-body .mmodal-cerrar-confirm__msg {
   margin: 0;
+  color: var(--txt);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
 }
-.mmodal-cerrar-confirm__msg strong {
+.admin-body .mmodal-cerrar-confirm__msg strong {
   color: var(--gold-soft);
 }
 
-.mmodal-cerrar-confirm__sub {
-  font-size: 0.75rem;
-  color: var(--txt-faint);
+.admin-body .mmodal-cerrar-confirm__sub {
   margin: -0.5rem 0 0;
+  color: var(--txt-faint);
+  font-size: 0.8125rem;
 }
 
 .mmodal-cerrar-confirm__btns {
@@ -10449,10 +10875,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-cap {
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  color: var(--txt-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: var(--txt-faint);
 }
 
 .mmodal-header-estado {
@@ -10511,10 +10940,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 0 0 auto;
   align-items: center;
   height: var(--mmodal-corner-size);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  font-weight: 600;
   line-height: 1;
   padding: 0 0.7rem;
   border-radius: 999px;
@@ -10593,17 +11025,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.18rem;
 }
 .mmodal-reservation__identity span {
-  color: var(--txt-faint);
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.11em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: var(--txt-faint);
 }
 .mmodal-reservation__identity strong {
   color: var(--txt);
-  font-family: var(--serif);
-  font-size: clamp(1.25rem, 4vw, 1.65rem);
-  font-weight: 500;
+  font-family: var(--admin-font-sans);
+  font-size: clamp(1.2rem, 3.2vw, 1.5rem);
+  font-weight: 600;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -10627,12 +11061,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-top: 1px solid var(--line-soft);
 }
 .mmodal-reservation__facts dt {
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
   margin-bottom: 0.28rem;
   color: var(--txt-faint);
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 .mmodal-reservation__facts dd {
   display: grid;
@@ -10667,11 +11103,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-mute);
 }
 .mmodal-reserva-nota__label {
-  font-size: 0.52rem;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--gold-soft);
-  font-weight: 700;
 }
 
 .mmodal-reservation__waiter .mmodal-name-wrap {
@@ -10821,10 +11259,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1.35;
 }
 .mmodal-ticket-reservation-alert strong {
-  color: var(--map-table-reservation-text);
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: var(--map-table-reservation-text);
 }
 .mmodal-ticket-reservation-alert span {
   color: var(--txt-mute);
@@ -10859,7 +11300,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
-  font-family: var(--sans);
+  font-family: var(--admin-font-sans);
   font-size: 0.85rem;
   color: var(--txt);
   outline: none;
@@ -10904,8 +11345,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid var(--gold-soft);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent-text);
-  font-size: 0.9rem;
   cursor: pointer;
+}
+.admin-body .mmodal-nombre-save {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.mmodal-nombre-save {
   transition: background 0.15s;
   line-height: 1;
 }
@@ -10914,10 +11363,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-llevar-count {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  font-weight: 600;
   color: var(--accent-text);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
@@ -10979,12 +11431,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-llevar-row__folio {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   min-width: 3.4rem;
   color: var(--txt);
-  font-family: var(--admin-font-mono);
   font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
@@ -11065,12 +11517,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 8px;
   background: transparent;
   color: var(--txt-mute);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.admin-body .mmodal-llevar-switch__todos,
+.admin-body .mmodal-llevar-chip {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-llevar-switch__todos:hover,
 .mmodal-llevar-chip:hover {
@@ -11089,8 +11546,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 999px;
   background: var(--line-soft);
   font-family: var(--admin-font-mono);
-  font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
   text-align: center;
 }
 
@@ -11132,8 +11589,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-label {
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--txt-faint);
   margin-bottom: 0.5rem;
@@ -11172,8 +11632,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-step-val {
-  font-family: var(--serif);
-  font-size: 1.9rem;
+  font-family: var(--admin-font-cifra);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
+  font-size: 2rem;
   color: var(--accent-text);
   flex: 1;
   text-align: center;
@@ -11214,15 +11677,28 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-height: 44px;
   padding: 0.9rem 1rem;
   border-radius: 8px;
-  font-family: var(--sans);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   border: 1.5px solid transparent;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
+  /*
+   * La voz, con (0,2,0) y en un solo sitio.
+   *
+   * Pedía versalitas sans a 700 con .09em, pero `.admin-body button` (0,1,1)
+   * le gana a la clase sola con `font: inherit` + `text-transform: none`: lo
+   * que se pintaba era Satoshi a 400, en caja normal y CON el tracking de las
+   * versalitas — «Confirmar y enviar» y «Cerrar ticket» deshilachados, más
+   * flojos que el texto de alrededor. Ahora es la voz de control del sistema
+   * administrativo: sans a 600, sin tracking, a 15 px (la ficha y el cajón,
+   * que son columnas angostas, bajan a 14: ver _ficha.scss).
+   */
+}
+.admin-body .mmodal-btn {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-section);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-btn:active {
   transform: scale(0.98);
@@ -11399,12 +11875,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-section-label {
-  font-size: 0.6rem;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
   letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+}
+.admin-body .mmodal-section-label {
+  margin: 0 0 0.5rem;
   color: var(--txt-faint);
-  font-weight: 700;
-  margin-bottom: 0.4rem;
 }
 
 /*
@@ -11482,12 +11962,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   min-height: 44px;
   padding: 0.4rem 0.55rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   text-align: center;
-  line-height: 1.25;
+  line-height: 1.2;
   border-radius: 8px;
   border: 1.5px solid var(--line-soft);
   background: var(--surface-2);
@@ -11495,6 +11971,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   -webkit-tap-highlight-color: transparent;
+}
+.admin-body .mmodal-cat-block {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-cat-block:hover {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -11515,6 +11998,28 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   scrollbar-width: thin;
 }
 
+/*
+ * La tarjeta de platillo: el control que más se pulsa del POS.
+ *
+ * Vista Lista (y base de la Cuadrícula): un renglón por platillo. La tarjeta
+ * entera es el botón de agregar, así que el objetivo táctil es toda la fila.
+ * Contenido centrado y sin altura fija: el nombre del platillo se lee entero
+ * aunque ocupe tres renglones. Truncarlo obligaba a adivinar entre "Baguette
+ * de Jamón..." y "Baguette de Magret...", que son platillos distintos.
+ *
+ * Tres estados de algo pulsable, y los tres distintos:
+ * - hover (sólo con puntero fino: en tablet el hover se queda pegado tras el
+ *   toque y la tarjeta parecería elegida): se aclara el fondo.
+ * - active: se hunde un 3 % —transform, no layout— y se oscurece. Es la
+ *   confirmación de que el toque llegó, antes de que el pedido de al lado
+ *   cambie o se abra la hoja de opciones.
+ * - focus-visible: el anillo doble de la casa (_finishes, `.admin-body
+ *   :focus-visible`), que va en box-shadow y no lo recorta el radio. No se
+ *   declara aquí: esa regla se emite al final del bundle y ganaría igual.
+ *
+ * La mano viene de la regla de cursores del principio del archivo; aquí se
+ * repite para que la tarjeta no dependa del orden de esa regla.
+ */
 .mmodal-dish-row {
   display: flex;
   flex-direction: column;
@@ -11528,24 +12033,24 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-bottom: 1px solid var(--line-soft);
   border-radius: 0;
   background: none;
-  font-family: inherit;
+  color: var(--txt);
   text-align: center;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s ease-out;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .mmodal-dish-row:last-child {
   border-bottom: none;
 }
-.mmodal-dish-row:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .mmodal-dish-row:hover {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
 }
 .mmodal-dish-row:active {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-.mmodal-dish-row:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: -2px;
+  transform: scale(0.97);
 }
 .mmodal-dish-row.is-active {
   background: var(--gold);
@@ -11563,17 +12068,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mmodal-dish-name {
   min-width: 0;
-  font-size: 0.78rem;
+  max-width: 100%;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--txt);
   line-height: 1.22;
-  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 .mmodal-dish-price {
-  font-size: 0.7rem;
-  color: var(--txt-mute);
+  font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--txt-mute);
 }
 
 .mmodal-cart {
@@ -11594,57 +12103,154 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 0.4rem 0;
 }
 
+/*
+ * Una línea del pedido en preparación (lo que todavía NO se envía).
+ *
+ * Rejilla y no flex con salto: el flex repartía nombre, comensal, cantidad,
+ * subtotal y nota según cupieran, y en la columna de 210 px de una tablet el
+ * subtotal y la nota caían a un segundo renglón suelto, cada fila de una forma.
+ * Ahora son dos pisos fijos: arriba lo que se lee —el platillo, su opción y lo
+ * que cuesta—, abajo lo que se toca —para quién, cuántos, la nota—.
+ */
 .mmodal-cart-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.3rem 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "nombre subtotal" "meta   meta" "nota   nota";
+  align-items: start;
+  gap: 0.45rem 0.6rem;
+  padding: 0.6rem 0.45rem;
   border-bottom: 1px solid var(--line-soft);
+  border-radius: 8px;
+  transition: background 0.15s;
 }
 .mmodal-cart-row:last-child {
   border-bottom: none;
 }
 
-.mmodal-cart-name {
-  flex: 1;
-  font-size: 0.73rem;
-  color: var(--txt-mute);
+/*
+ * Las líneas con opciones se abren tocándolas. La fila entera es el objetivo
+ * —por eso la mano y el hover van en la fila— y el botón real es el nombre,
+ * que es lo que recibe el foco del teclado (con el anillo de la casa).
+ */
+.mmodal-cart-row--editable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .mmodal-cart-row--editable:hover:not(:has(.mmodal-cart-meta button:hover, .mmodal-cart-nota-wrap:hover)) {
+    background: color-mix(in srgb, var(--txt) 5%, transparent);
+  }
+  .mmodal-cart-row--editable:hover:not(:has(.mmodal-cart-meta button:hover, .mmodal-cart-nota-wrap:hover)) .mmodal-cart-name__pista {
+    color: var(--txt);
+  }
+}
+.mmodal-cart-row--editable:active:not(:has(.mmodal-cart-meta :active, .mmodal-cart-nota-wrap :active)) {
+  background: color-mix(in srgb, var(--txt) 9%, transparent);
 }
 
+.mmodal-cart-row .mmodal-cart-name {
+  grid-area: nombre;
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--txt);
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  text-transform: none;
+  overflow-wrap: break-word;
+}
+
+.mmodal-cart-name__pista {
+  display: inline-flex;
+  margin-left: 0.35rem;
+  color: var(--txt-faint);
+  vertical-align: -0.1em;
+  transition: color 0.15s;
+}
+
+.mmodal-cart-subtotal {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  grid-area: subtotal;
+  color: var(--txt);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.mmodal-cart-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.mmodal-cart-meta .mmodal-cart-nota-btn {
+  margin-left: auto;
+}
+
+.mmodal-cart-nota-wrap {
+  grid-area: nota;
+}
+
+/*
+ * − / +: 32 px de dibujo y 44 de objetivo. Medían 22, la mitad del mínimo de
+ * la casa, en el control que más se toca después de las tarjetas. El área
+ * extra es un ::before que no cambia el layout; la cifra en medio deja los
+ * dos objetivos sin solaparse.
+ */
 .mmodal-cart-controls {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.73rem;
+  gap: 0.4rem;
   color: var(--txt);
 }
 .mmodal-cart-controls button {
-  width: 22px;
-  height: 22px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--txt-mute);
-  font-size: 0.9rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   line-height: 1;
-  padding: 0;
-  transition: background 0.15s;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.mmodal-cart-controls button::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
 }
 .mmodal-cart-controls button:hover {
   color: var(--txt);
+  border-color: var(--line-strong);
+}
+.mmodal-cart-controls button:active {
+  transform: scale(0.92);
 }
 
-.mmodal-cart-subtotal {
-  font-size: 0.72rem;
-  color: var(--txt-faint);
-  min-width: 40px;
-  text-align: right;
+.mmodal-cart-qty {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.4em;
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  text-align: center;
 }
 
 .mmodal-total-row {
@@ -11659,25 +12265,30 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-total-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--txt-faint);
 }
 
-/* Importe: mono con cifras de ancho fijo.
+/* El total de la cuenta: cifra de cartel.
  *
- * Desde que el piso adoptó Geist, --serif y --sans son la MISMA cara, así que
- * los importes se pintaban con la tipografía del texto corriente y sin más
- * jerarquía que el cuerpo. En el sistema administrativo la jerarquía la hace
- * el par mono/sans, y el dinero es justo lo que va en mono: aquí el total
- * cambia con cada platillo que se añade, y con cifras proporcionales saltaba
- * de ancho a cada pulsación. */
+ * Fue mono para que no saltara de ancho a cada platillo que se añade. Pero el
+ * total es UNA cifra sola, alineada a la derecha de su caja, y lo que se mueve
+ * al cambiar es su borde izquierdo contra aire; lo que importa es que se lea
+ * desde lejos. Es el mismo criterio que la cifra de una tarjeta KPI del panel
+ * (--admin-font-cifra). Las cifras que se comparan en columna —el desglose del
+ * cobro— siguen en mono: ver .mmodal-cobro__col--resumen en _pago-modal. */
 .mmodal-total-amount {
-  font-family: var(--admin-font-mono);
-  font-size: 1.2rem;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--admin-font-cifra);
   font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
+  font-size: 1.4rem;
+  line-height: 1.1;
   color: var(--accent-text);
 }
 
@@ -11689,12 +12300,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mmodal-tab {
   flex: 1;
+  min-height: 44px;
   padding: 0.55rem 0;
-  font-family: var(--sans);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   background: none;
   border: none;
   color: var(--txt-faint);
@@ -11703,18 +12310,27 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transition: color 0.18s, border-color 0.18s;
   position: relative;
 }
+.admin-body .mmodal-tab {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 .mmodal-tab--active {
   color: var(--accent-text);
   border-bottom-color: var(--gold);
 }
 
 .mmodal-tab-badge {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   display: inline-block;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent-text);
   border-radius: 999px;
-  font-size: 0.57rem;
-  padding: 0.05rem 0.32rem;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
   margin-left: 0.28rem;
   vertical-align: middle;
 }
@@ -11738,10 +12354,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   height: 48px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   border-radius: 8px;
   border: 1.5px solid var(--line-soft);
   background: var(--surface-2);
@@ -11749,6 +12361,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
   transition: background 0.14s, color 0.14s, border-color 0.14s;
   -webkit-tap-highlight-color: transparent;
+}
+.admin-body .mmodal-comensal-block {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-comensal-block:hover {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -11761,11 +12380,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-area-badge {
-  display: inline-block;
-  font-size: 0.53rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  display: inline-block;
   padding: 0.06rem 0.36rem;
   border-radius: 3px;
   border: 1px solid transparent;
@@ -11774,17 +12395,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-cart-comensal {
-  display: inline-block;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
-  color: var(--txt-faint);
+  display: inline-block;
+  color: var(--txt-mute);
   background: var(--surface);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
-  padding: 0.06rem 0.32rem;
+  border-radius: 4px;
+  padding: 0.12rem 0.36rem;
   flex-shrink: 0;
+  letter-spacing: 0.06em;
 }
 
 .mmodal-confirm-overlay {
@@ -11812,11 +12436,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-confirm-back {
-  font-family: var(--sans);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--txt-mute);
   background: none;
   border: none;
@@ -11824,51 +12443,93 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 0.4rem 0;
   transition: color 0.15s;
 }
+.admin-body .mmodal-confirm-back {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 .mmodal-confirm-back:hover {
   color: var(--txt);
 }
 
 .mmodal-confirm-area-header {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--txt-mute);
   border-left: 3px solid;
   padding-left: 0.55rem;
-  margin: 0.65rem 0 0.3rem;
+  margin: 0.75rem 0 0.3rem;
 }
 
+/*
+ * Lo ya enviado: una línea por platillo, en rejilla.
+ *
+ * Era una fila flex sin salto —punto, nombre, cantidad, precio, «×» y
+ * «Entregar»— y en la columna de 210 px de una tablet a 1024 el nombre se
+ * partía en tres renglones y «Entregar» se salía por la derecha, recortado
+ * contra el canto de la columna. Ahora las acciones bajan a su propio piso,
+ * alineadas a la derecha, y el nombre tiene el ancho que le queda a la cifra.
+ */
 .mmodal-confirm-item {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.28rem 0;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  grid-template-areas: "punto nombre cantidad precio" ".     acciones acciones acciones";
+  align-items: baseline;
+  gap: 0.3rem 0.5rem;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 0.77rem;
+  font-size: var(--operational-text-sm);
 }
 .mmodal-confirm-item:last-child {
   border-bottom: none;
 }
+.mmodal-confirm-item > .mmodal-status-dot {
+  grid-area: punto;
+  align-self: center;
+}
 
 .mmodal-confirm-item-name {
-  flex: 1;
-  color: var(--txt-mute);
+  grid-area: nombre;
   min-width: 0;
+  color: var(--txt);
+  font-weight: 500;
+  overflow-wrap: break-word;
+}
+.mmodal-confirm-item-name .mmodal-cart-comensal {
+  margin-left: 0.2rem;
+  vertical-align: 0.08em;
 }
 
 .mmodal-confirm-item-qty {
-  font-size: 0.7rem;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  grid-area: cantidad;
+  font-size: var(--operational-text-xs);
   color: var(--txt-faint);
-  flex-shrink: 0;
 }
 
 .mmodal-confirm-item-price {
-  color: var(--txt-faint);
-  font-size: 0.72rem;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  grid-area: precio;
   min-width: 38px;
+  color: var(--txt-mute);
+  font-size: var(--operational-text-sm);
   text-align: right;
-  flex-shrink: 0;
+}
+
+.mmodal-confirm-item-acciones {
+  grid-area: acciones;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .mmodal-status-dot {
@@ -11922,11 +12583,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-panel-label {
-  display: none;
-  font-size: 0.58rem;
-  font-weight: 700;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  display: none;
   color: var(--txt-faint);
   padding-bottom: 0.45rem;
   margin-bottom: 0.6rem;
@@ -11935,22 +12598,29 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-entregar-btn {
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  padding: 0.18rem 0.5rem;
-  border-radius: 3px;
-  border: 1px solid color-mix(in srgb, var(--feedback-info) 50%, transparent);
-  background: color-mix(in srgb, var(--feedback-info) 10%, transparent);
+  min-height: 32px;
+  padding: 0 0.65rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--feedback-info) 55%, transparent);
+  background: color-mix(in srgb, var(--feedback-info) 14%, transparent);
   color: var(--feedback-info);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.14s;
+  transition: background 0.14s, transform 0.1s;
   white-space: nowrap;
 }
+.admin-body .mmodal-entregar-btn {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 .mmodal-entregar-btn:hover {
-  background: color-mix(in srgb, var(--feedback-info) 22%, transparent);
+  background: color-mix(in srgb, var(--feedback-info) 24%, transparent);
+}
+.mmodal-entregar-btn:active {
+  transform: scale(0.96);
 }
 
 .mmodal-col-empty {
@@ -12164,12 +12834,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: none;
 }
 .mmodal-prefs__group h4 {
-  margin: 0 0 0.5rem;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  margin: 0 0 0.6rem;
+  color: var(--muted);
 }
 .mmodal-prefs__row {
   display: flex;
@@ -12191,22 +12863,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 8px;
   background: var(--surface);
 }
-.mmodal-prefs__opt {
-  padding: 0.28rem 0.55rem;
+.mmodal-prefs .mmodal-prefs__opt {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  min-height: 32px;
+  padding: 0 0.6rem;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
-.mmodal-prefs__opt:hover {
+.mmodal-prefs .mmodal-prefs__opt:hover {
   color: var(--text);
 }
-.mmodal-prefs__opt.is-active {
+.mmodal-prefs .mmodal-prefs__opt.is-active {
   background: var(--admin-gold);
   color: var(--on-accent);
 }
@@ -12251,17 +12926,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding-top: 0.6rem;
   border-top: 1px solid var(--line-soft);
 }
-.mmodal-prefs__reset {
+.mmodal-prefs .mmodal-prefs__reset {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   border: 0;
   background: none;
   color: var(--muted);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
 }
-.mmodal-prefs__reset:hover {
+.mmodal-prefs .mmodal-prefs__reset:hover {
   color: var(--text);
 }
 
@@ -12273,22 +12950,26 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-cart-nota-btn {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--txt-faint);
+  min-height: 32px;
+  color: var(--txt-mute);
   background: none;
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
-  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 0.55rem;
   cursor: pointer;
   flex-shrink: 0;
   transition: color 0.14s, border-color 0.14s;
 }
+.admin-body .mmodal-cart-nota-btn {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 .mmodal-cart-nota-btn:hover {
-  color: var(--txt-mute);
-  border-color: var(--line);
+  color: var(--txt);
+  border-color: var(--line-strong);
 }
 .mmodal-cart-nota-btn--active {
   color: var(--accent-text);
@@ -12308,15 +12989,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   padding: 0.45rem 0.6rem;
-  font-family: var(--sans);
-  font-size: 0.72rem;
+  font-family: var(--admin-font-sans);
+  font-size: 0.8125rem;
   color: var(--txt);
   resize: vertical;
   outline: none;
 }
 .mmodal-cart-nota-input::placeholder {
   color: var(--txt-faint);
-  font-style: italic;
 }
 .mmodal-cart-nota-input:focus {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -12324,9 +13004,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mmodal-resumen-nota {
   display: block;
-  font-size: 0.68rem;
-  color: var(--txt-faint);
-  font-style: italic;
+  font-size: var(--operational-text-xs);
+  color: var(--txt-mute);
   margin-top: 0.15rem;
   line-height: 1.35;
   white-space: normal;
@@ -12344,14 +13023,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-cancel-btn {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 35%, transparent);
-  background: color-mix(in srgb, var(--feedback-danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--feedback-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
   color: var(--feedback-danger);
-  font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -12413,7 +13091,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-cancel-confirm__btns .mmodal-btn {
   flex: 1;
   padding: 0.7rem 0.4rem;
-  font-size: 0.66rem;
 }
 .mmodal-cancel-confirm--absence {
   max-width: 360px;
@@ -12569,8 +13246,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-sug-price {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent-text);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
@@ -12580,17 +13259,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-sug-area {
-  font-size: 0.6rem;
-  color: var(--txt-faint);
-  letter-spacing: 0.07em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: var(--txt-faint);
   margin-bottom: 0.85rem;
 }
 
 .mmodal-etapa {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   border-radius: 4px;
   padding: 0.15rem 0.5rem;
@@ -12631,9 +13315,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-sug-question {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--txt-mute);
   margin-bottom: 0.65rem;
@@ -12650,10 +13336,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   height: 52px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   border-radius: 8px;
   border: 1.5px solid var(--line-soft);
   background: var(--surface);
@@ -12661,6 +13343,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
   transition: background 0.14s, color 0.14s, border-color 0.14s;
   -webkit-tap-highlight-color: transparent;
+}
+.admin-body .mmodal-sug-chip {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-sug-chip:hover:not(.mmodal-sug-chip--on) {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -12683,12 +13372,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   gap: 0.4rem;
   width: 100%;
+  min-height: 44px;
   padding: 0.75rem 1rem;
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--txt-mute);
   background: var(--surface);
   border: 1.5px solid var(--line);
@@ -12696,6 +13381,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
   text-align: center;
   transition: color 0.14s, border-color 0.14s, background 0.14s;
+}
+.admin-body .mmodal-sug-swap {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-sug-swap:hover {
   color: var(--txt);
@@ -12813,15 +13505,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: min(560px, 94vw);
 }
 
-.pos-prefs--alertas .pos-prefs__close svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
 .pos-print-alerts__heading {
   display: flex;
   flex-direction: column;
@@ -12890,14 +13573,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin: 0;
 }
 
-.pos-print-alert__title {
+.pos-print-alert .pos-print-alert__title {
   color: var(--txt);
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.3;
 }
 
-.pos-print-alert__msg {
+.pos-print-alert .pos-print-alert__msg {
   color: var(--txt);
   font-size: 0.8rem;
 }
@@ -13001,24 +13684,34 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--line-soft);
 }
-.pos-prefs__title {
+.pos-prefs .pos-prefs__title {
   margin: 0;
   color: var(--text);
-  font-size: 1rem;
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-subtitle);
   font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
 }
 .pos-prefs__close {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
-  font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
+}
+.pos-prefs__close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 .pos-prefs__close:hover {
   color: var(--text);
@@ -13230,22 +13923,26 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: var(--surface-2);
 }
 .mmodal-caja-kpi__label {
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--txt-faint);
-  font-weight: 700;
 }
 .mmodal-caja-kpi {
-  /* Cuatro KPIs en dos columnas: las cifras de una misma columna se comparan
-     en vertical, así que van en mono y tabulares. Es además lo que las pone de
-     acuerdo con el ranking que tienen justo debajo, que ya se escribía así. */
+  /* La cifra de un INDICADOR, como la de una tarjeta KPI del panel: la display
+     (--admin-font-cifra). Fueron mono por comparar en vertical, pero las cuatro
+     miden cosas distintas —ventas, propinas, tickets, promedio— y no forman
+     columna; lo que sí es columna, el ranking de abajo, sigue en mono. */
 }
 .mmodal-caja-kpi__value {
-  font-family: var(--admin-font-mono);
-  font-size: 1.25rem;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--admin-font-cifra);
   font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
+  font-size: 1.4rem;
   color: var(--txt);
   line-height: 1;
 }
@@ -13273,10 +13970,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: color-mix(in srgb, var(--on-accent) 78%, transparent);
 }
 .mmodal-caja-total__amount {
-  font-family: var(--admin-font-mono);
-  font-size: 1.4rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-family: var(--admin-font-cifra);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
+  font-size: 1.75rem;
+  line-height: 1;
 }
 
 .mmodal-caja-section {
@@ -13313,10 +14012,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-mute);
 }
 .mmodal-caja-method strong {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   margin-left: auto;
   color: var(--txt);
-  font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 600;
 }
 .mmodal-caja-method__dot {
   width: 9px;
@@ -13348,8 +14048,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-top: 1px solid var(--line-soft);
 }
 .mmodal-caja-list__qty {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--accent-text);
   min-width: 30px;
 }
@@ -13362,6 +14064,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   white-space: nowrap;
 }
 .mmodal-caja-list__val {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
   color: var(--txt-faint);
   white-space: nowrap;
@@ -13477,28 +14181,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-variant-numeric: tabular-nums;
 }
 
-.mmodal-dish-opts {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.1rem 0.45rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--txt-mute);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.mmodal-dish-opts svg {
-  width: 12px;
-  height: 12px;
-}
-
-.mmodal-dish-row.is-active .mmodal-dish-opts {
-  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
-  color: var(--on-accent);
-}
-
 .mmodal-opts {
   position: absolute;
   inset: 0;
@@ -13548,21 +14230,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 1.1rem 1.1rem 0.6rem 1.25rem;
 }
 .mmodal-opts .mmodal-opts__eyebrow {
-  margin: 0 0 0.2rem;
-  color: var(--txt-faint);
-  font-family: var(--operational-font-ui);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  margin: 0 0 0.3rem;
+  color: var(--txt-faint);
 }
 .mmodal-opts .mmodal-opts__titulo {
   margin: 0;
   color: var(--txt);
-  font-family: var(--operational-font-ui);
-  font-size: 1.15rem;
+  font-family: var(--admin-font-sans);
+  font-size: 1.2rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 .mmodal-opts .mmodal-opts__cerrar {
@@ -13606,23 +14289,27 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.5rem;
 }
 .mmodal-opts .mmodal-opts__grupo-nombre {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0;
   color: var(--txt-mute);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 .mmodal-opts__req {
-  padding: 0.1rem 0.45rem;
+  padding: 0.12rem 0.5rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--txt) 8%, transparent);
   color: var(--txt-mute);
-  font-size: 0.64rem;
-  letter-spacing: 0.02em;
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
   text-transform: none;
 }
 .mmodal-opts__grupo.is-falta .mmodal-opts__req {
@@ -13644,11 +14331,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 12px;
   background: transparent;
   color: var(--txt);
-  font-family: var(--operational-font-ui);
-  font-size: 0.85rem;
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.14s, border-color 0.14s, color 0.14s;
+  transition: background 0.14s, border-color 0.14s, color 0.14s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
 .mmodal-opts .mmodal-opts__pill:hover {
@@ -13667,10 +14354,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--on-accent);
 }
 .mmodal-opts__pill-delta {
-  font-family: var(--admin-font-mono, monospace);
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 500;
   opacity: 0.8;
 }
 .mmodal-opts__pie {
@@ -13692,6 +14379,37 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__acciones .mmodal-btn {
   width: 100%;
   min-height: 48px;
+}
+.mmodal-opts {
+  /*
+   * «Agregar» y el precio, en los dos extremos del botón.
+   *
+   * El precio es la respuesta a «¿cuánto va a costar con esto?», y se lee de
+   * un vistazo porque siempre está en el mismo sitio: a la derecha, en mono
+   * tabular —los mismos dígitos que el «+$15» de cada opción, que es de donde
+   * sale la suma—. Cambia en vivo con cada opción que se toca; el servidor lo
+   * vuelve a calcular al enviar. Mientras falta un grupo obligatorio el botón
+   * se apaga, pero el precio se queda («desde $X» si la opción que falta
+   * mueve el importe).
+   */
+}
+.mmodal-opts .mmodal-opts__confirmar {
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-inline: 1.1rem;
+}
+.mmodal-opts__verbo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mmodal-opts__precio {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 @media (max-width: 639px) {
@@ -13717,45 +14435,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-resumen-variante {
   display: block;
   margin-top: 0.15rem;
-  color: var(--txt);
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.mmodal-cart-row .mmodal-cart-cambiar {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  min-height: 32px;
-  margin-top: 0.25rem;
-  padding: 0 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
   color: var(--txt-mute);
-  font-family: inherit;
-  font-size: 0.66rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.mmodal-cart-row .mmodal-cart-cambiar svg {
-  width: 12px;
-  height: 12px;
-}
-.mmodal-cart-row .mmodal-cart-cambiar::after {
-  content: "";
-  position: absolute;
-  inset: -6px -2px;
-}
-.mmodal-cart-row .mmodal-cart-cambiar:hover {
-  border-color: var(--line-strong);
-  color: var(--txt);
-}
-.mmodal-cart-row .mmodal-cart-cambiar:focus-visible {
-  outline: 2px solid var(--focus, var(--txt));
-  outline-offset: 2px;
+  font-size: var(--operational-text-xs);
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .mmodal-pago-btns {
@@ -13792,10 +14475,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-pago-btn__label {
   min-width: 0;
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-subtitle);
+  font-weight: 700;
 }
 .mmodal-pago-btn:hover {
   border-color: var(--accent);
@@ -13809,6 +14491,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-pago-badge {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   display: inline-block;
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
@@ -13862,14 +14546,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--accent-text);
 }
 .mmodal-tipo-card__title {
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-subtitle);
+  font-weight: 700;
 }
 .mmodal-tipo-card__desc {
-  font-size: 0.72rem;
-  color: color-mix(in srgb, var(--txt) 55%, transparent);
-  line-height: 1.3;
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--txt) 62%, transparent);
+  line-height: 1.35;
 }
 .mmodal-tipo-card:hover {
   border-color: var(--accent);
@@ -13903,18 +14587,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-split-mode {
+  min-height: 44px;
   padding: 0.5rem 0.35rem;
   border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--txt) 3%, transparent);
   color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-family: var(--sans);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
   line-height: 1.2;
-  text-transform: uppercase;
   cursor: pointer;
+}
+.admin-body .mmodal-split-mode {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.mmodal-split-mode {
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .mmodal-split-mode:hover {
@@ -13946,12 +14635,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-top: 1px solid color-mix(in srgb, var(--txt) 6%, transparent);
 }
 .mmodal-split-row--head {
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--txt) 50%, transparent);
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  color: color-mix(in srgb, var(--txt) 58%, transparent);
 }
 
 .mmodal-split-name {
@@ -13985,6 +14676,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-split-monto {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -13996,13 +14689,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin: 0.7rem 0 0;
 }
 .mmodal-propina__label {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
   display: block;
   margin-bottom: 0.45rem;
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: color-mix(in srgb, var(--txt) 62%, transparent);
 }
 .mmodal-propina__btns {
   display: flex;
@@ -14010,19 +14705,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-wrap: wrap;
 }
 .mmodal-propina__btn {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.45rem 0.7rem;
   flex: 1 1 auto;
   border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--txt) 4%, transparent);
   color: color-mix(in srgb, var(--txt) 75%, transparent);
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.admin-body .mmodal-propina__btn {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
 }
 .mmodal-propina__btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -14065,10 +14764,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 9px;
   background: none;
   color: var(--accent-text);
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 700;
   cursor: pointer;
+}
+.admin-body .mmodal-propina__quedese {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-propina__quedese:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -14121,10 +14824,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: none !important;
   box-shadow: none !important;
   color: var(--txt);
-  font-family: var(--admin-font-mono);
+  font-family: var(--admin-font-mono) !important;
   font-size: 1.6rem !important;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums !important;
   line-height: 1.2;
   outline: none;
   -moz-appearance: textfield;
@@ -14164,13 +14867,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: none;
 }
 .mmodal-recibido__label {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
   display: block;
   margin-bottom: 0.4rem;
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: color-mix(in srgb, var(--txt) 62%, transparent);
 }
 
 .mmodal-cambio {
@@ -14188,18 +14893,37 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: none;
 }
 .mmodal-cambio__label {
-  color: color-mix(in srgb, var(--txt) 72%, transparent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
+  color: color-mix(in srgb, var(--txt) 72%, transparent);
 }
 .mmodal-cambio__val {
+  font-family: var(--admin-font-cifra);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: normal;
   color: var(--accent-text);
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+/*
+ * El desglose del cobro («Total de la cuenta», «Propina», «A cobrar»; en la
+ * dividida, «Pagado») es una COLUMNA de importes que se suman: va en mono y
+ * tabular, para que las unidades caigan una bajo otra. Sólo el renglón fuerte
+ * —lo que se cobra— vuelve a la cifra de cartel de .mmodal-total-amount.
+ */
+.mmodal-cobro .mmodal-total-row:not(.mmodal-total-row--fuerte) .mmodal-total-amount,
+.mmodal-split .mmodal-total-row:not(.mmodal-total-row--fuerte) .mmodal-total-amount {
   font-family: var(--admin-font-mono);
-  font-size: 1.4rem;
-  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .mmodal-total-row--fuerte {
@@ -14210,24 +14934,26 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: color-mix(in srgb, var(--txt) 85%, transparent);
 }
 .mmodal-total-row--fuerte .mmodal-total-amount {
-  font-size: 1.05rem;
-  font-weight: 800;
+  font-size: 1.6rem;
 }
 
 .mmodal-monto-exacto {
   flex-shrink: 0;
-  padding: 0.42rem 0.6rem;
+  min-height: 36px;
+  padding: 0 0.7rem;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 8px;
   background: none;
   color: var(--accent-text);
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s;
+}
+.admin-body .mmodal-monto-exacto {
+  font-family: var(--admin-font-sans);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .mmodal-monto-exacto:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -14241,8 +14967,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 8px;
   background: color-mix(in srgb, var(--txt) 5%, transparent);
   color: var(--txt);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-family: var(--admin-font-mono) !important;
+  font-size: 0.95rem;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
   text-align: right;
   -moz-appearance: textfield;
 }
@@ -14261,19 +14989,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: left;
 }
 
-.mmodal-split-diff {
+.admin-body .mmodal-split-diff {
   justify-content: flex-end;
   margin: 0.4rem 0 0;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
-.mmodal-split-diff--ok {
+.admin-body .mmodal-split-diff--ok {
   color: var(--feedback-ok);
 }
-.mmodal-split-diff--falta {
+.admin-body .mmodal-split-diff--falta {
   color: var(--feedback-warn);
 }
-.mmodal-split-diff--sobra {
+.admin-body .mmodal-split-diff--sobra {
   color: var(--feedback-danger);
 }
 
@@ -14288,12 +15016,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 1rem 0 0.5rem;
   text-align: center;
 }
-.mmodal-feedback-encuesta__title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+.mmodal-feedback-encuesta .mmodal-feedback-encuesta__title {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
+  color: color-mix(in srgb, var(--txt) 62%, transparent);
   margin: 0 0 1.25rem;
 }
 
@@ -15001,9 +15731,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg);
-  color: var(--txt);
-  cursor: auto;
+  background: var(--admin-bg);
+  color: var(--admin-text);
   overflow: hidden;
 }
 
@@ -15025,46 +15754,72 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 100dvh;
 }
 
+.login-page .login-marca {
+  align-items: center;
+  color: var(--admin-text);
+  text-align: center;
+}
+.login-page .login-marca .hcp-header__nombre {
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+.login-page .login-marca .hcp-header__palabra {
+  width: fit-content;
+  margin-inline: auto;
+}
+
 .login-aside {
   position: relative;
+  container-type: inline-size;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: clamp(1.5rem, 4.5vh, 3rem) clamp(1.5rem, 4vw, 3.5rem);
   overflow: hidden;
-  background: radial-gradient(120% 120% at 20% 10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%), linear-gradient(160deg, var(--surface), var(--surface));
-  border-right: 1px solid var(--line);
+  background: radial-gradient(60% 46% at 50% 47%, color-mix(in srgb, var(--admin-paper) 7%, transparent), transparent 72%), var(--admin-sidebar);
+  border-right: 1px solid var(--admin-sidebar-border);
 }
 
-.login-aside__overlay {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(80% 60% at 70% 90%, color-mix(in srgb, var(--accent-deep) 28%, transparent), transparent 60%), radial-gradient(60% 50% at 30% 20%, color-mix(in srgb, var(--feedback-ok) 16%, transparent), transparent 60%);
-  pointer-events: none;
+.login-aside__rotulo {
+  justify-self: start;
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--admin-faint);
 }
 
-.login-aside__content {
-  position: absolute;
-  left: clamp(2rem, 5vw, 5rem);
-  bottom: clamp(2.5rem, 6vh, 5rem);
-  right: clamp(2rem, 5vw, 5rem);
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
+.login-aside__centro {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(1.1rem, 2.8vh, 1.9rem);
+  text-align: center;
 }
 
-.login-aside__quote {
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: clamp(1.6rem, 3vw, 2.6rem);
-  line-height: 1.25;
-  color: var(--beige);
-  max-width: 18ch;
+.login-page .login-marca--aside {
+  --hcp-header-size: clamp(2.25rem, 9.5cqi, 6.25rem);
 }
 
-.login-aside__sign {
-  --hcp-header-size: 1.25rem;
-  color: var(--accent-text);
-  margin: 0.375rem 0;
+.login-aside__filete {
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: var(--admin-border-strong);
 }
-.login-aside__sign .hcp-header__nombre {
-  letter-spacing: 0.02em;
+
+.login-aside .login-aside__frase {
+  max-width: 24ch;
+  margin: 0;
+  font-family: var(--admin-font-sans);
+  font-size: clamp(1.05rem, 2.6cqi, 1.3rem);
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--admin-muted);
+  text-wrap: balance;
 }
 
 .login-panel {
@@ -15077,33 +15832,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 /*
- * La tarjeta lleva su propia escala de espaciado.
- *
- * Antes cada pieza declaraba su hueco con un clamp() distinto —uno bajo el
- * wordmark, otro bajo las pestañas, otro bajo el subtítulo, otro entre campos—
- * y los cuatro crecían a ritmos que no tenían nada que ver entre sí: a según
- * qué alturas de ventana el bloque se descompensaba. Dos pasos, y todo lo
- * demás sale de ellos: --md separa piezas de un mismo bloque (los campos de un
- * formulario) y --lg separa bloques (wordmark, pestañas, titular, formulario).
- * El par titular/subtítulo se queda fuera de la escala a propósito: es una
- * sola unidad de lectura y su hueco no debe crecer con la ventana.
- *
- * Había un tercer paso, --login-gap-sm, que no lo consumía nadie: se declaraba
- * aquí y se volvía a declarar en la media query de pantallas bajas.
- */
-/*
- * ⚠️ ESTA HOJA PIERDE CONTRA EL PANEL SI NO SE LE DA ESPECIFICIDAD.
- *
- * El login lleva `.admin-body`, y _typography / _forms / el reset del panel
- * declaran `.admin-body p { margin: 0 }`, `.admin-body h1 { font-size }` y
- * `.admin-body button { margin: 0; font: inherit; text-transform: none }`, que
- * suman (0,1,1) y ganan a cualquier clase suelta (0,1,0). Durante meses la
- * escala de huecos de abajo sólo llegó a la marca y a las pestañas: el
- * subtítulo, el pie, el aviso y el botón de entrar se quedaban a margen 0 —de
- * ahí el «se ve todo muy junto»— y el titular se pintaba al cuerpo de un h1 del
- * panel (51 px) en vez del suyo. Por eso esas reglas van con un ancestro
- * delante (`.login-card .login-sub`): no es anidado por costumbre, es lo que
- * las hace aplicarse. Comprobar en el CSS compilado, no en este archivo.
+ * La tarjeta lleva su propia escala de espaciado: --md separa piezas de un
+ * mismo bloque (los campos de un formulario) y --lg separa bloques (pestañas,
+ * titular, formulario). El par rótulo/titular/subtítulo se queda fuera a
+ * propósito: es una sola unidad de lectura y su hueco no crece con la ventana.
  */
 .login-card {
   --login-gap-md: clamp(0.72rem, 2.1vh, 1.6rem);
@@ -15118,52 +15850,26 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: center;
 }
 
+.login-page .login-marca--tarjeta {
+  display: none;
+  align-self: center;
+  margin-bottom: var(--login-gap-lg);
+}
+
 /*
- * Los dos paneles se APILAN en la misma celda.
- *
- * Eran hermanos en columna, así que la tarjeta medía lo que midiera el panel
- * visible: al pasar de NIP (teclado de doce teclas) a contraseña (dos campos)
- * el bloque entero se encogía de golpe y las pestañas daban un salto hacia
- * arriba de más de 200 px. Apilados, la altura la fija el más alto —el del
- * NIP— y el conmutador queda quieto, que es lo único que el usuario está
- * mirando cuando lo pulsa.
- *
- * Es también lo que hace posible la transición: dos paneles en la misma celda
- * pueden fundirse el uno sobre el otro; en columna sólo podían aparecer y
- * desaparecer.
+ * Los dos paneles se APILAN en la misma celda: la altura la fija el más alto
+ * —el del NIP— y el conmutador queda quieto al cambiar de pestaña, que es lo
+ * único que el usuario está mirando cuando lo pulsa. Arriba y no centrado:
+ * los dos titulares ocupan el mismo sitio y el fundido se lee como UNA
+ * superficie que cambia de contenido.
  */
 .login-card__panels {
   display: grid;
   min-height: 0;
-  /* ARRIBA, no centrado. La celda la mide el panel del NIP, así que el de
-     contraseña tiene altura de sobra, y dónde se reparte decide cómo se siente
-     el cambio de pestaña.
-
-     Estuvo en `safe center`, pero esa regla no tuvo efecto hasta que
-     `.login-tabpanel[hidden]` pasó a `display: block` —antes la celda medía el
-     panel mostrado y no sobraba nada—, así que el centrado nunca se llegó a
-     ver. Al verlo: «Inicia sesión» caía unos 120 px por debajo de donde estaba
-     «Ingresa tu NIP», con un hueco bajo las pestañas que sí se ve —la tarjeta
-     no tiene caja, el vacío de abajo no—, y el fundido cruzado juntaba dos
-     titulares en dos alturas distintas: el ojo tenía que ir a buscar el nuevo.
-     Arriba, los dos titulares ocupan el mismo sitio y el fundido se lee como
-     UNA superficie que cambia de contenido, que es lo que pedía «fluido». */
   align-items: start;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  /* Los 4 px de aire son para el anillo de foco, y el margen negativo los
-     devuelve: el anillo del panel es un box-shadow de 4 px (_finishes.scss) y
-     un contenedor con overflow recorta también el desbordamiento de tinta. Las
-     teclas del pad y el botón de entrar llegan al borde de esta caja, así que
-     sin la reserva el anillo salía cortado por los lados justo en la pantalla
-     donde más se navega con teclado físico.
-
-     Abajo son 8 y no 4: el panel que sale baja 6 px (el translateY de
-     .login-tabpanel), y cuando el que sale es el del NIP —el que llena la
-     celda— esos 6 px desbordaban 2 por debajo del relleno. En un contenedor
-     con `overflow-y: auto` eso son dos píxeles de scroll y, en Windows, una
-     barra que aparece al cambiar de pestaña y le roba ancho al formulario. */
   padding: 4px 4px 8px;
   margin: -4px -4px -8px;
 }
@@ -15173,43 +15879,24 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
 }
 
-.login-brand {
-  --hcp-header-size: clamp(1.45rem, 4vh, 2.15rem);
-  color: var(--accent-text);
-  margin-bottom: calc(var(--login-gap-lg) + 0.45rem);
-  align-items: center;
-  text-align: center;
-}
-.login-brand .hcp-header__nombre {
-  letter-spacing: 0.02em;
-}
-
 .login-tabs {
   position: relative;
   display: flex;
   gap: 0;
   margin-bottom: var(--login-gap-lg);
   padding: 0.32rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--admin-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--scrim) 55%, transparent);
+  background: var(--admin-surface);
 }
 
 /*
- * El relleno de la pestaña activa, como pieza que se DESLIZA.
+ * El relleno de la pestaña activa, como pieza que se DESLIZA (un transform, lo
+ * resuelve el compositor). Decoración pura: el estado lo dice aria-selected, y
+ * la posición inicial la emite PHP en [data-active].
  *
- * Estaba en `.login-tab.is-active { background }`, así que al conmutar el fondo
- * saltaba de una caja a la otra sin nada en medio: el gesto y su resultado no
- * se tocaban. Sacado a su propio elemento, lo que se mueve es un transform, que
- * resuelve el compositor.
- *
- * Es decoración pura: el estado lo dice `aria-selected` en cada botón, y la
- * posición inicial la emite PHP en `[data-active]` para que esté pintada antes
- * de que corra una línea de JS.
- *
- * El 50 % de un absoluto se resuelve contra la caja de RELLENO del contenedor,
- * y con gap 0 cada pestaña mide (100% − 0.64rem)/2 = 50% − 0.32rem: el mismo
- * ancho. Por eso el translateX(100%) la deja clavada en el canto interior.
+ * Con gap 0 cada pestaña mide (100% − 0.64rem)/2 = 50% − 0.32rem, el ancho de
+ * la píldora: por eso translateX(100%) la deja clavada en el canto interior.
  */
 .login-tabs__pill {
   position: absolute;
@@ -15217,8 +15904,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   inset: 0.32rem auto 0.32rem 0.32rem;
   width: calc(50% - 0.32rem);
   border-radius: 999px;
-  background: var(--gold);
-  transition: transform var(--login-slide) var(--ease);
+  background: var(--admin-accent);
+  transition: transform var(--login-slide) var(--admin-ease);
 }
 
 .login-tabs[data-active=admin] .login-tabs__pill {
@@ -15229,65 +15916,45 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 0.72rem 1rem;
+  min-height: 44px;
+  padding: 0.6rem 1rem;
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--txt-mute);
-  font-family: var(--sans);
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
-  cursor: pointer;
   /*
    * El color va EN PASO con la píldora: misma duración, misma curva, sin
-   * retardo.
-   *
-   * Estuvo con 90 ms de retardo «para cruzar a mitad del deslizamiento», pero
-   * --ease es una expo-out (0.16, 1, 0.3, 1): la píldora ya ha recorrido la
-   * mitad a los ~35 ms. Medido cuadro a cuadro, entre los 40 y los 180 ms la
-   * etiqueta entrante seguía gris sobre el relleno claro y la saliente seguía
-   * en tinta oscura sobre el fondo oscuro — las dos ilegibles a la vez, justo
-   * en el gesto que tenía que sentirse fluido. Con la misma función de tiempo,
-   * a cada cuadro la tinta ha avanzado lo mismo que el relleno que tiene
-   * debajo.
+   * retardo. Con un retardo, entre los 40 y los 180 ms las dos etiquetas
+   * quedaban ilegibles a la vez sobre el relleno que cruzaba.
    */
-  transition: color var(--login-slide) var(--ease);
+  transition: color var(--login-slide) var(--admin-ease);
 }
 .login-tabs .login-tab:hover {
-  color: var(--txt);
+  color: var(--admin-text);
 }
 .login-tabs .login-tab.is-active {
-  color: var(--on-accent);
-}
-.login-tabs .login-tab:focus-visible {
-  outline: 2px solid var(--gold-soft);
-  outline-offset: 2px;
+  color: var(--admin-on-accent);
 }
 
 /*
  * Cambio de pestaña: fundido cruzado, no un corte.
  *
- * Los dos paneles ocupan la misma celda de .login-card__panels, así que el que
- * sale y el que entra conviven durante la transición. El que no está activo se
- * saca del recorrido de foco con `visibility` —no basta con opacity: un campo
- * invisible al 0 % sigue siendo tabulable, y el usuario acabaría escribiendo la
- * contraseña en el NIP sin ver dónde—.
- *
- * `visibility` es de las pocas propiedades discretas que SÍ se interpolan: pasa
- * a `hidden` al final de la transición de salida, así que el panel se mantiene
- * visible mientras se desvanece y sólo entonces desaparece.
- *
- * El [hidden] de PHP sigue mandando en el primer render: hasta que el JS
- * arranca, la pestaña correcta está puesta sin depender de una clase.
+ * El que no está activo sale del recorrido de foco con `visibility` —con
+ * opacity sola un campo invisible sigue siendo tabulable— y de los punteros
+ * con `pointer-events`: mientras se desvanece sigue ENCIMA del que entra, y
+ * el primer toque sobre el 1 o el 2 no llegaba a la tecla.
  */
 .login-tabpanel {
   opacity: 0;
   transform: translateY(6px);
   visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--login-fade) var(--ease), transform var(--login-fade) var(--ease), visibility 0s linear var(--login-fade);
+  transition: opacity var(--login-fade) var(--admin-ease), transform var(--login-fade) var(--admin-ease), visibility 0s linear var(--login-fade);
 }
 .login-tabpanel.is-active {
   opacity: 1;
@@ -15297,60 +15964,83 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transition-delay: 0s;
 }
 
-/*
- * [hidden] ES EL ESTADO PREVIO AL JS, NO UNA SALIDA DEL FLUJO.
- *
- * Con el `display: none` de la hoja del navegador el panel inactivo no aportaba
- * nada a la celda del grid, así que la fila medía el panel MOSTRADO y no el más
- * alto — justo lo contrario de lo que dice el comentario de .login-card__panels.
- * Al conmutar, la tarjeta pegaba un salto de unos 250 px, y lo pegaba 220 ms
- * DESPUÉS del clic, cuando el temporizador del JS reponía el atributo: el peor
- * momento posible, con el fundido recién terminado y el ojo de vuelta en el
- * bloque. Apilados de verdad, la celda mide siempre lo del NIP y el conmutador
- * se queda quieto.
- *
- * Quien saca al panel del recorrido de foco y del árbol de accesibilidad es la
- * `visibility: hidden` de la regla de arriba, no este atributo.
- *
- * Como consecuencia, el JS ya no repone [hidden] y no necesita conocer la
- * duración del fundido: se fueron el setTimeout, la constante FUNDIDO duplicada
- * a mano y la guarda de reapertura (views/auth/login.php).
- */
 .login-tabpanel[hidden] {
   display: block;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .login-card {
-    --login-fade: 120ms;
-  }
-  .login-tabpanel {
-    transform: none;
-    transition: opacity var(--login-fade) var(--ease), visibility 0s linear var(--login-fade);
-  }
-  .login-tabpanel.is-active {
-    transform: none;
-  }
-  .login-tabs__pill,
-  .login-tabs .login-tab {
-    transition: none;
-  }
+.login-card .login-rotulo {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
 }
+
 .login-card .login-title {
-  font-family: var(--serif);
-  font-size: clamp(1.6rem, min(3.4vw, 4.4vh), 2.5rem);
+  margin-bottom: 0.55rem;
+  font-family: var(--admin-font-titular);
+  font-size: clamp(28px, min(3vw, 4.4vh), 36px);
+  font-weight: 600;
   line-height: 1.05;
-  color: var(--txt);
-  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+  color: var(--admin-text);
+  text-wrap: balance;
 }
 
 .login-card .login-sub {
-  color: var(--txt-mute);
-  font-size: 0.95rem;
-  line-height: 1.55;
   margin-bottom: var(--login-gap-lg);
+  font-family: var(--admin-font-sans);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--admin-muted);
+  text-wrap: pretty;
 }
 
+.login-card .login-alert {
+  --login-alert-tono: var(--admin-danger-text);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0 0 var(--login-gap-md);
+  padding: 0.8rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--login-alert-tono) 42%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--login-alert-tono) 12%, var(--admin-bg));
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  animation: login-aviso-entra 260ms var(--admin-ease) both;
+}
+.login-card .login-alert--aviso {
+  --login-alert-tono: var(--admin-warning-text);
+}
+
+.login-card .login-alert__icono {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--login-alert-tono);
+  stroke-width: 1.9;
+}
+
+.login-card .login-title + .login-alert {
+  margin-top: var(--login-gap-md);
+}
+
+@keyframes login-aviso-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
 .login-form {
   display: grid;
   gap: var(--login-gap-md);
@@ -15362,13 +16052,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.55rem;
 }
 
-.login-field__label {
-  font-family: var(--sans);
+.login-form .login-field__label {
+  font-family: var(--admin-font-mono);
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--txt-mute);
+  color: var(--admin-muted);
 }
 
 .login-field__control {
@@ -15377,122 +16067,84 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 /*
- * Los campos son los del panel, y aquí sólo se corrige lo que el panel no sabe.
- *
- * La regla global de _forms.scss (`.admin-body input:not(...)×5`, (0,6,1)) pone
- * borde, radio, fondo, foco, padding y un cuerpo de 14 px a todo input. De lo
- * que se escribía aquí —borde, fondo, radio, foco dorado, padding, cuerpo— sólo
- * llegaba el alto; el resto era letra muerta y se retira para que nadie la
- * vuelva a ajustar creyendo que se ve.
- *
- * Dos cosas sí hay que ganarlas, y con `!important` acotado porque igualar
- * (0,6,1) exige siete clases (la salida que ya documenta CLAUDE.md):
+ * Los campos son los del panel (_forms.scss, regla de (0,6,1)) y aquí sólo se
+ * gana lo que el panel no sabe, con `!important` acotado porque igualar esa
+ * especificidad exige siete clases:
  *   · el cuerpo a 16 px: por debajo, Safari de iPad hace zoom al enfocar, y en
- *     una pantalla que no se desplaza el zoom no tiene vuelta atrás a mano. Va
- *     también en el campo oculto del NIP, que recibe el foco en cada tecla.
- *   · el hueco del ojo: sin `padding-right` la contraseña se escribía por debajo
- *     del botón de mostrarla.
+ *     una pantalla que no se desplaza el zoom no tiene vuelta atrás a mano;
+ *   · el hueco del ojo: sin `padding-right` la contraseña se escribía por
+ *     debajo del botón de mostrarla.
+ * 52 px de alto: el objetivo táctil de las teclas del pad.
  */
 .login-form input[type=text],
-.login-form input[type=password] {
+.login-form input[type=password]:not(.login-nip-hidden) {
   width: 100%;
   height: 52px;
   font-size: 1rem !important;
 }
 
 .login-field__control input {
-  padding-right: 3rem !important;
+  padding-right: 3.4rem !important;
 }
 
 .login-form input::placeholder {
-  color: var(--txt-faint);
+  color: var(--admin-faint);
 }
 
-.login-eye {
+.login-field__control .login-eye {
   position: absolute;
   top: 50%;
-  right: 0.6rem;
-  transform: translateY(-50%);
+  right: 0.25rem;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--txt-mute);
-  cursor: pointer;
-  transition: color 0.25s var(--ease), background 0.25s var(--ease);
+  color: var(--admin-muted);
+  transform: translateY(-50%);
+  transition: color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.login-field__control .login-eye svg {
+  width: 20px;
+  height: 20px;
+}
+.login-field__control .login-eye:hover {
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
+}
+.login-field__control .login-eye.is-on {
+  color: var(--admin-text);
 }
 
-.login-eye svg {
-  width: 19px;
-  height: 19px;
-}
-
-.login-eye:hover {
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.login-eye.is-on {
-  color: var(--accent-text);
-}
-
-.login-card .login-alert {
-  --login-alert-color: var(--c-rojo);
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.8rem 1rem;
-  margin-bottom: var(--login-gap-md);
-  border: 1px solid color-mix(in srgb, var(--login-alert-color) 45%, transparent);
-  border-left: 3px solid var(--login-alert-color);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--login-alert-color) 13%, transparent);
-  color: var(--txt);
-  font-family: var(--sans);
-  font-size: 0.86rem;
-  line-height: 1.45;
-  text-align: left;
-  animation: login-alert-in 260ms var(--ease-out) both;
-}
-.login-card .login-alert svg {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  color: var(--login-alert-color);
-}
-.login-card .login-alert--aviso {
-  --login-alert-color: var(--c-ambar);
-}
-
-.login-card .login-title + .login-alert {
-  margin-top: var(--login-gap-md);
-}
-
-@keyframes login-alert-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .login-card .login-alert {
-    animation: none;
-  }
-}
 .login-nip-hidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px !important;
+  min-width: 0 !important;
+  max-width: 1px !important;
+  height: 1px;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(50%);
+  font-size: 1rem !important;
+}
+
+.login-page .login-sr {
   position: absolute;
   width: 1px;
   height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  font-size: 1rem !important;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .login-form--nip {
@@ -15502,83 +16154,200 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .login-nip-dots {
   display: flex;
-  gap: 0.85rem;
-  justify-content: center;
-  padding: 0.5rem 0 0.75rem;
+  justify-self: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem 0.85rem;
+  border-radius: 999px;
+}
+
+.login-form--nip:has(.login-nip-hidden:focus-visible) .login-nip-dots {
+  box-shadow: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
 }
 
 .login-nip-dot {
   width: 14px;
   height: 14px;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--admin-border-strong);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  background: transparent;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), transform 200ms var(--admin-ease);
 }
 .login-nip-dot.is-on {
-  background: var(--gold);
-  border-color: var(--gold);
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
   transform: scale(1.12);
 }
 
+.login-form--nip[data-error] .login-nip-dots {
+  animation: login-sacudida 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 140ms both;
+}
+
+@keyframes login-sacudida {
+  0%, 100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+.login-form--nip.is-enviando .login-nip-dot.is-on {
+  animation: login-latido 820ms ease-in-out infinite alternate;
+}
+
+@keyframes login-latido {
+  to {
+    opacity: 0.4;
+  }
+}
 .login-pad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: clamp(0.4rem, 1.2vh, 0.7rem);
+  gap: clamp(0.45rem, 1.2vh, 0.7rem);
   width: 100%;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
 }
 
-.login-pad__key {
-  height: clamp(46px, 7.2vh, 66px);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-  color: var(--txt);
-  font-family: var(--sans);
-  font-size: 1.3rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), transform 0.1s var(--ease);
+.login-form.is-enviando .login-pad {
+  opacity: 0.5;
+  pointer-events: none;
 }
-.login-pad__key:hover {
-  border-color: var(--gold);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.login-pad__key:active {
-  transform: scale(0.95);
-}
-.login-pad__key--aux {
-  color: var(--txt-mute);
-  font-size: 1.05rem;
-}
-.login-pad__key {
+
+.login-pad .login-pad__key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: clamp(50px, 7.4vh, 68px);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), transform 100ms var(--admin-ease-out);
 }
-.login-pad__key svg {
-  width: 22px;
-  height: 22px;
+@media (hover: hover) {
+  .login-pad .login-pad__key:hover {
+    border-color: var(--admin-border-strong);
+    background: var(--admin-surface-soft);
+  }
+}
+.login-pad .login-pad__key:active, .login-pad .login-pad__key.is-pulsada {
+  background: var(--admin-surface-strong);
+  transform: scale(0.96);
+}
+.login-pad .login-pad__key.login-pad__key--aux {
+  border-color: transparent;
+  background: transparent;
+  color: var(--admin-muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.login-pad .login-pad__key svg {
+  width: 24px;
+  height: 24px;
 }
 
 .login-form .login-submit {
   justify-content: center;
+  gap: 0.55rem;
   width: 100%;
+  min-height: 52px;
   margin-top: 0.5rem;
-  cursor: pointer;
+  font-family: var(--admin-font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 .login-form .login-submit:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.login-card .login-foot {
-  margin-top: var(--login-gap-md);
-  color: var(--txt-faint);
-  font-size: 0.82rem;
-  text-align: center;
+.login-submit .login-submit__icono {
+  stroke-width: 2;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
 }
 
+.login-submit:not(:disabled):hover .login-submit__icono {
+  transform: translateX(2px);
+}
+
+.login-submit .login-submit__giro {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+}
+
+.login-form.is-enviando .login-submit {
+  cursor: progress;
+}
+
+.login-form.is-enviando .login-submit__icono {
+  display: none;
+}
+
+.login-form.is-enviando .login-submit__giro {
+  display: block;
+  animation: login-giro 700ms linear infinite;
+}
+
+@keyframes login-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.login-card .login-foot {
+  margin-top: var(--login-gap-md);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--admin-faint);
+  text-align: center;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card {
+    --login-fade: 120ms;
+  }
+  .login-tabpanel,
+  .login-tabpanel.is-active {
+    transform: none;
+  }
+  .login-tabpanel {
+    transition: opacity var(--login-fade) var(--admin-ease), visibility 0s linear var(--login-fade);
+  }
+  .login-tabs__pill,
+  .login-tabs .login-tab {
+    transition: none;
+  }
+  .login-card .login-alert,
+  .login-form--nip[data-error] .login-nip-dots,
+  .login-form--nip.is-enviando .login-nip-dot.is-on,
+  .login-form.is-enviando .login-submit__giro {
+    animation: none;
+  }
+  .login-pad .login-pad__key:active,
+  .login-pad .login-pad__key.is-pulsada {
+    transform: none;
+  }
+}
 @media (max-width: 860px) {
   .login-shell {
     grid-template-columns: 1fr;
@@ -15586,17 +16355,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .login-aside {
     display: none;
   }
+  .login-card {
+    max-width: 440px;
+  }
+  .login-page .login-marca--tarjeta {
+    --hcp-header-size: clamp(1.6rem, 5.4vw, 2.25rem);
+    display: inline-flex;
+  }
 }
 /*
- * UNA escala continua, no dos. Aquí vivía un `@media (max-height: 860px)` que
- * redeclaraba los huecos, la marca, el titular, los puntos y el padding.
+ * UNA escala continua, no dos: todo lo que crece va en clamp() contra vh. Si
+ * se toca un paso, medir a 1000, 860, 764 y 721 px de alto con el aviso de
+ * error puesto.
  *
- * Con los márgenes aplicándose de verdad (ver el aviso sobre .login-card), ese
- * corte partía la pantalla en dos: a 861 px la escala ancha dejaba 31 px libres
- * —la tarjeta a 41 px del borde, el punto MÁS apretado de todo el rango— y un
- * píxel más abajo la compacta dejaba 122. Todo lo que crece ya va en clamp()
- * contra vh, así que la curva se ajusta sola sin umbral intermedio. Si se toca
- * un paso, medir a 1000, 860, 764 y 721 px con el aviso de error puesto.
+ * Muy bajas (720 px o menos: un portátil de 768 con barras): el pie es lo
+ * primero que sobra y el subtítulo del NIP lo segundo.
  */
 @media (max-height: 720px) {
   .login-form--nip ~ .login-foot {
@@ -15604,6 +16377,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   #login-tab-nip .login-sub {
     display: none;
+  }
+}
+@media (max-width: 860px) and (max-height: 760px) {
+  .login-page .login-marca--tarjeta {
+    --hcp-header-size: clamp(1.3rem, 4.2vh, 1.9rem);
   }
 }
 /*
@@ -15993,13 +16771,29 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *    animación de entrada de (1) sobra —se duplicaría el fundido—, y por eso se
  *    anula dentro del @supports.
  *
- * NINGÚN elemento lleva `view-transition-name`, y no es un olvido. Nombrar el
- * topbar y el sidebar para que "se queden quietos" parece lo obvio, pero un
- * nombre les da grupo propio en TODAS las transiciones del documento, incluida
- * la del tema: sus instantáneas se apilarían por encima y taparían el círculo
- * justo mientras se abre. Sin nombres, la raíz funde la página entera, y como
- * el topbar y el sidebar son idénticos entre módulos, fundir píxeles iguales no
- * se ve: el efecto es exactamente el que se buscaba, y gratis.
+ * En (2) se mueve SÓLO el contenido: sale el viejo (150 ms, sube 6 px y se
+ * apaga) y entra el nuevo (300 ms, sube 10 px desde abajo). El cromo se queda:
+ * la raíz funde topbar y sidebar consigo mismos, y fundir píxeles iguales no
+ * se ve. Y el ENLACE ACTIVO del sidebar viaja de su fila vieja a la nueva: es
+ * el indicador del módulo, y que se desplace dice de dónde se viene.
+ *
+ * Los nombres se ponen SÓLO mientras dura la navegación, nunca en reposo. Un
+ * nombre fijo daría grupo propio al contenido y al enlace en TODAS las
+ * transiciones del documento, incluida la del tema: sus instantáneas se
+ * apilarían encima y taparían el círculo justo mientras se abre. Por eso van
+ * colgados de dos clases de <html> que viven lo que dura la transición:
+ *   · .admin-vt-sale  — la pone `pageswap` en el documento que se va
+ *                       (core/motion.js), sólo si el destino es otro módulo;
+ *   · .admin-vt-entra — la pone `pagereveal` en el que llega (script del
+ *                       <head> de views/admin/layout.php; tiene que ser ahí),
+ *                       sólo si se viene de otro módulo.
+ * Desde el login no entra ninguna de las dos: ahí manda la llegada
+ * (_transitions.scss).
+ *
+ * Contenido viejo y nuevo llevan nombres DISTINTOS, y no por gusto: con el
+ * mismo nombre el navegador interpolaría la caja vieja hacia la nueva, y si la
+ * página de origen estaba desplazada, el contenido volaría desde cientos de
+ * píxeles más arriba. Con dos nombres cada uno anima en su sitio.
  */
 .admin-anim-ready .admin-content {
   animation: admin-page-in 220ms var(--admin-ease-out) both;
@@ -16026,11 +16820,84 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   /* Sólo la navegación: la del tema entra por el bloque 4b, que le apaga la
      animación de raíz para dejar paso al círculo. 220 ms es lo que tarda en
-     leerse como un cambio y no como una espera. */
+     leerse como un cambio y no como una espera.
+
+     Las curvas van LITERALES en todo lo que cuelga de ::view-transition: esos
+     pseudo-elementos nacen de <html> y los tokens de movimiento se declaran
+     en .admin-body, así que `var(--admin-ease-out)` —que es lo que había— era
+     inválido y caía a `ease` sin avisar. */
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 220ms;
-    animation-timing-function: var(--admin-ease-out);
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .admin-vt-sale .admin-content {
+    view-transition-name: admin-contenido-sale;
+  }
+  .admin-vt-entra .admin-content {
+    view-transition-name: admin-contenido-entra;
+  }
+  /* El indicador sólo donde el sidebar es una columna fija. En el cajón del
+     móvil el enlace pulsado está a la vista en la página que se va y oculto en
+     la que llega: el grupo viajaría hacia fuera de la pantalla. */
+  @media (min-width: 993px) {
+    .admin-vt-sale .admin-sidebar__link.is-active,
+    .admin-vt-entra .admin-sidebar__link.is-active {
+      view-transition-name: admin-nav-activo;
+    }
+  }
+  :root:active-view-transition-type(modulo) {
+    /* La salida es más corta que la entrada (~50 %): lo que se va no tiene
+       que leerse, sólo dejar sitio. */
+  }
+  :root:active-view-transition-type(modulo)::view-transition-old(admin-contenido-sale) {
+    animation: admin-contenido-sale 150ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+  :root:active-view-transition-type(modulo)::view-transition-new(admin-contenido-entra) {
+    animation: admin-contenido-entra 300ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+  }
+  :root:active-view-transition-type(modulo) {
+    /* El enlace activo: la caja viaja con la curva de la casa (casi todo el
+       recorrido en el primer tercio) y la etiqueta se cambia en ese tramo,
+       con fundidos complementarios para que el relleno no parpadee. */
+  }
+  :root:active-view-transition-type(modulo)::view-transition-group(admin-nav-activo) {
+    animation-duration: 320ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  :root:active-view-transition-type(modulo)::view-transition-old(admin-nav-activo) {
+    animation: admin-nav-sale 320ms linear both;
+  }
+  :root:active-view-transition-type(modulo)::view-transition-new(admin-nav-activo) {
+    animation: admin-nav-entra 320ms linear both;
+  }
+}
+@keyframes admin-contenido-sale {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes admin-contenido-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes admin-nav-sale {
+  0%, 10% {
+    opacity: 1;
+  }
+  45%, 100% {
+    opacity: 0;
+  }
+}
+@keyframes admin-nav-entra {
+  0%, 10% {
+    opacity: 0;
+  }
+  45%, 100% {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

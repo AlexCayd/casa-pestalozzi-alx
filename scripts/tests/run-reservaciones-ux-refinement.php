@@ -87,7 +87,12 @@ $reservationsIndex = $read('views/admin/reservations/index.php');
 assertUxRefinement(str_contains($reservationsIndex, "\$rangeStartParam = 'fecha_inicio'") && str_contains($reservationsIndex, "\$rangeEndParam = 'fecha_fin'"), 'listado configura nombres fecha_inicio/fecha_fin');
 assertUxRefinement(str_contains($reservationsIndex, '$rangeAllowFuture = true'), 'listado permite periodos futuros');
 assertUxRefinement(str_contains($reservationsIndex, '$rangePreserveQuery = true'), 'listado preserva filtros al aplicar rango');
-assertUxRefinement(str_contains($reservationsIndex, 'aria-label="Vista de lista"'), 'vista lista tiene nombre accesible');
-assertUxRefinement(str_contains($reservationsIndex, 'aria-label="Vista de agenda"'), 'vista agenda tiene nombre accesible');
+// La vista de agenda por horas se retiró: la Agenda escribe la hora una vez
+// por franja y es a la vez lista y reparto del servicio. El estado se filtra
+// con la tira de cifras, que tiene nombre accesible y viaja en un campo del
+// formulario para que buscar no lo pierda.
+assertUxRefinement(str_contains($reservationsIndex, 'aria-label="Filtrar por estado"'), 'la tira de estados tiene nombre accesible');
+assertUxRefinement(str_contains($reservationsIndex, 'name="estado"') && str_contains($reservationsIndex, 'data-reactive-page'), 'el estado viaja con la búsqueda y la tira repinta sin recargar');
+assertUxRefinement(!str_contains($reservationsIndex, 'data-reservations-view'), 'ya no hay conmutador lista/agenda');
 
 fwrite(STDOUT, "Reservaciones: contrato de refinamiento UX/UI OK\n");

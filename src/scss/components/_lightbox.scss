@@ -23,7 +23,25 @@
   visibility: hidden;
   transition: opacity 0.4s, visibility 0s linear 0.4s;
   padding: clamp(1rem, 4vw, 3rem);
+  // Arriba, el alto de la barra (contador, acercamiento y cerrar) más un
+  // respiro: con una foto vertical el visor llegaba hasta el borde y la barra
+  // de acercamiento se montaba sobre la foto.
+  padding-top: calc(clamp(1rem, 3vw, 2rem) + 44px + 0.75rem);
   isolation: isolate;
+  // Los gestos del visor son todos propios (lightbox.js): pellizco, arrastre,
+  // doble toque y barrido. Con el valor por defecto el navegador se quedaba el
+  // pellizco para ampliar la PÁGINA entera, visor incluido.
+  touch-action: none;
+  // Cursores del sistema. El de la casa se retira encima del visor
+  // (_cursor.scss): aquí el puntero tiene que decir «acercar», «agarrar» o
+  // «pulsar», y un círculo que sigue al ratón no dice ninguna de las tres —
+  // en la foto ampliada se quedaba como un aro suelto a media pantalla—.
+  // `cursor` se hereda, así que con declararlo aquí basta para tapar el
+  // `cursor: none` que el reset pone en <html>, <body> y los botones.
+  cursor: default;
+
+  button { cursor: pointer; }
+  button[aria-disabled="true"] { cursor: default; }
 
   &.open {
     opacity: 1;
@@ -58,19 +76,67 @@
   }
 }
 
+// La escena: visor, pista y pie, en columna y centrados.
+.lightbox__escena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// El visor. Mide lo que mide la FOTO en pantalla, ni un píxel más, y su tamaño
+// sale de la proporción (--lb-ratio, que pone lightbox.js con la de la foto) y
+// no de la resolución del archivo: el visor abre con la variante de 720 px que
+// la miniatura ya tenía en memoria y cambia a la original cuando llega, y con
+// el tamaño atado a la resolución la foto habría pegado un salto.
+//
+// Ajustado a la foto por dos motivos: es la pieza que hace el morfo con la
+// miniatura (con bandas vacías alrededor, la miniatura crecería hacia un
+// rectángulo que no es la foto) y es el marco que recorta la foto ampliada.
+//
+// El filete va en sombra y no en borde: un borde comería dos píxeles de la
+// proporción.
 .lightbox__img {
-  max-width: min(90vw, 920px);
-  max-height: 78vh;
+  --lb-ratio: 1.5;
+  --lb-ancho: min(90vw, 920px);
+  // El alto que deja la barra de arriba, la pista y el pie (≈16rem en total).
+  --lb-alto: min(70vh, 100vh - 16rem);
+
   position: relative;
+  width: min(var(--lb-ancho), calc(var(--lb-alto) * var(--lb-ratio)));
+  aspect-ratio: var(--lb-ratio);
+  overflow: hidden;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--line);
+  background: color-mix(in srgb, var(--brand-crema) 4%, transparent);
+  cursor: zoom-in;
 
   img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    max-height: 78vh;
+    max-width: none;
     object-fit: contain;
-    border: 1px solid var(--line);
-    border-radius: 4px;
+    // translate(x, y) scale(s) desde la esquina: un punto p de la foto cae en
+    // x + s·p, que es la cuenta que hace lightbox.js para acercar sin que se
+    // mueva lo que está bajo el puntero.
+    transform-origin: 0 0;
+    user-select: none;
+    -webkit-user-drag: none;
   }
+
+  // Saltos (botones, teclas, doble toque): se ve el camino. La rueda va en
+  // pasos cortos y seguidos: transición breve que los encadena. Arrastre y
+  // pellizco van sin transición, pegados al dedo.
+  &.is-animando img { transition: transform 0.34s var(--ease); }
+  &.is-suave img { transition: transform 0.14s var(--ease-out); }
+
+  &.is-ampliada { cursor: grab; }
+  &.is-moviendo { cursor: grabbing; }
+}
+
+@supports (height: 1svh) {
+  .lightbox__img { --lb-alto: min(70svh, 100svh - 16rem); }
 }
 
 .lightbox__cap {
@@ -145,22 +211,104 @@
   &.next { right: clamp(0.8rem, 3vw, 2.5rem); }
 }
 
+// La pista cambia con el estado: sin ampliar dice cómo navegar y acercar;
+// ampliada, cómo recorrer y volver. Sin la opacidad que tenía (0.75): bajaba
+// el texto tenue por debajo de AA sobre el fondo del visor.
+// Una sola foto en el grupo (el retrato de la cocina): sin flechas ni
+// contador, que prometían un «siguiente» que no existe.
+.lightbox--sola {
+  .lightbox__nav,
+  .lightbox__counter { display: none; }
+}
+
 .lightbox__hint {
   text-align: center;
-  margin: 0.5rem 0 0;
+  margin: 0.7rem 0 0;
   font-size: 0.6rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--txt-mute);
-  opacity: 0.75;
+}
+
+.lightbox__hint-ampliada { display: none; }
+.lightbox.is-ampliada {
+  .lightbox__hint-reposo { display: none; }
+  .lightbox__hint-ampliada { display: inline; }
+}
+
+// Sin teclado a la vista (tablet, teléfono) la pista de teclas no sirve.
+@media (hover: none) {
+  .lightbox__hint { display: none; }
+}
+
+// ── Acercamiento ─────────────────────────────────────────────
+//
+// Arriba al centro, entre el contador y el botón de cerrar: es la barra de
+// herramientas del visor. Las dos lupas en disco, como cerrar y las flechas;
+// en medio, el nivel, que además devuelve la foto a su tamaño. En reposo los
+// extremos que no aplican se apagan, no desaparecen: la barra no cambia de
+// ancho al usarla.
+.lightbox__zoom {
+  position: absolute;
+  top: clamp(1rem, 3vw, 2rem);
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.lightbox__zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--txt-strong);
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+
+  &:hover:not([aria-disabled="true"]) {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  &[aria-disabled="true"] { opacity: 0.45; }
+}
+
+// El nivel: cifra tabular en la sans de la casa, para que «100 %» y «250 %»
+// ocupen lo mismo y la barra no baile al graduar.
+.lightbox__zoom-nivel {
+  min-width: 4.6rem;
+  padding: 0 0.8rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
 }
 
 @media (max-width: 620px) {
   .lightbox__nav { width: 46px; height: 46px; font-size: 1.6rem; }
   .lightbox__nav.prev { left: 0.6rem; }
   .lightbox__nav.next { right: 0.6rem; }
-  .lightbox__img { max-width: 94vw; }
+  // Sin pista (es de teclado): el pie es lo único que queda debajo.
+  .lightbox__img { --lb-ancho: 94vw; --lb-alto: min(66vh, 100vh - 13rem); }
   .lightbox__hint { display: none; }
+  .lightbox__zoom { gap: 2px; }
+  .lightbox__zoom-nivel { min-width: 4rem; padding: 0 0.5rem; }
+}
+
+@supports (height: 1svh) {
+  @media (max-width: 620px) {
+    .lightbox__img { --lb-alto: min(66svh, 100svh - 13rem); }
+  }
 }
 
 // ── View Transitions ──────────────────────────────────────────
@@ -195,9 +343,56 @@
   overflow: clip;
 }
 
+// Pasar de foto (conDeslizado en lightbox.js). El visor lleva `lb-foto` en
+// las dos capturas, así que el grupo anima solo el cambio de tamaño entre una
+// proporción y otra; dentro, la foto que se va sale hacia el lado contrario y
+// la nueva entra desde el lado al que se avanza. El sentido lo publica el JS en
+// <html data-lb-sentido> mientras dura.
+::view-transition-group(lb-foto) {
+  animation-duration: 0.46s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(lb-foto),
+::view-transition-new(lb-foto) {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  overflow: clip;
+  animation-duration: 0.46s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+html[data-lb-sentido="sig"]::view-transition-old(lb-foto) { animation-name: lb-sale-izquierda; }
+html[data-lb-sentido="sig"]::view-transition-new(lb-foto) { animation-name: lb-entra-derecha; }
+html[data-lb-sentido="ant"]::view-transition-old(lb-foto) { animation-name: lb-sale-derecha; }
+html[data-lb-sentido="ant"]::view-transition-new(lb-foto) { animation-name: lb-entra-izquierda; }
+
+// La salida dura menos que la entrada (60 % del recorrido): la foto nueva
+// manda en cuanto aparece.
+@keyframes lb-sale-izquierda {
+  60%, 100% { opacity: 0; transform: translateX(-7%); }
+}
+
+@keyframes lb-sale-derecha {
+  60%, 100% { opacity: 0; transform: translateX(7%); }
+}
+
+@keyframes lb-entra-derecha {
+  from { opacity: 0; transform: translateX(9%); }
+}
+
+@keyframes lb-entra-izquierda {
+  from { opacity: 0; transform: translateX(-9%); }
+}
+
 // Con movimiento reducido el JS ni siquiera arranca la transición, pero si el
 // navegador la disparara por su cuenta hay que dejarla en nada.
 @media (prefers-reduced-motion: reduce) {
+  // El acercamiento salta al nivel pedido, sin recorrido.
+  .lightbox__img img { transition: none !important; }
+
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {

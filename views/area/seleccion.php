@@ -30,9 +30,9 @@ $esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
   <link rel="apple-touch-icon" href="/build/images/logo.svg" />
   <meta name="robots" content="noindex, nofollow" />
   <?php /* Geist locales: el piso funciona sin red. */ ?>
-  <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
+  <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
 <body class="admin-body area-page area-select-page operational-page" data-page="area-seleccion" data-operation-module="area">
 
@@ -87,7 +87,7 @@ include __DIR__ . '/../operation/partials/shell.php';
   <script>
     window.CP_TWEAKS = { hero: 'cinema', accent: 'oro', cursor: false, smooth: false, anim: false };
   </script>
-  <script src="/build/js/bundle.min.js"></script>
+  <script src="<?= $h(recursoVersionado('/build/js/bundle.min.js')) ?>"></script>
 
 </body>
 </html>

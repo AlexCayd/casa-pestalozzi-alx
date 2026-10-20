@@ -1,20 +1,35 @@
 <?php /* Menú — La carta (pestañas y lista las pinta menu.js desde /menu) */ ?>
 <section class="section menu" id="menu" data-tono="verde" data-screen-label="Menú">
-  <?php echo ornamento('carta', 'orn--seccion orn--dentro', true); ?>
   <div class="wrap">
     <div class="menu__head">
       <div>
         <span class="eyebrow" data-reveal>02 — Il menù</span>
         <h2 class="menu__title" data-lineas>Il nostro <em class="accent-italic">menù</em></h2>
-        <?php echo ornamento('filete', 'menu__filete'); ?>
       </div>
       <p class="body menu__intro" data-reveal>Antipasti, pasta fresca, pizza de horno de leña y postres de la casa. Precios en pesos mexicanos.</p>
     </div>
 
     <?php /* Pestañas de verdad (role="tab" con flechas, en menu.js): antes eran
              botones sueltos y el lector de pantalla no sabía que elegían qué
-             lista se ve debajo. */ ?>
-    <div class="menu__tabs" id="menuTabs" role="tablist" aria-label="Secciones de la carta" data-reveal></div>
+             lista se ve debajo.
+
+             La fila desborda en horizontal casi siempre (nueve secciones), y
+             antes nada lo decía: la última pestaña salía cortada contra el
+             borde. Ahora el lado donde queda carta se desvanece y lleva una
+             flecha. Las flechas van FUERA del tablist —dentro, un botón que no
+             es pestaña rompería el patrón ARIA— y fuera del recorrido de
+             teclado y del lector: con teclado las flechas del propio grupo ya
+             llevan la pestaña elegida a la vista, y son sólo un atajo de
+             puntero para desplazar. */ ?>
+    <div class="menu__pestanas" id="menuPestanas" data-reveal>
+      <button type="button" class="menu__desliza menu__desliza--ant" data-desliza="-1" tabindex="-1" aria-hidden="true">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.5 4 6.5 10l6 6"/></svg>
+      </button>
+      <div class="menu__tabs" id="menuTabs" role="tablist" aria-label="Secciones de la carta"></div>
+      <button type="button" class="menu__desliza menu__desliza--sig" data-desliza="1" tabindex="-1" aria-hidden="true">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.5 4l6 6-6 6"/></svg>
+      </button>
+    </div>
 
     <div class="menu__layout">
       <?php /* Sin aria-live: con pestañas el cambio de panel ya lo anuncia la
@@ -36,7 +51,6 @@
       */ ?>
       <aside class="menu__preview" aria-hidden="true">
         <div class="menu__preview-frame" id="previewFrame">
-          <?php echo ornamento('olivo', 'menu__preview-orn'); ?>
           <div class="menu__preview-hueco" id="previewHueco" data-zoom>
             <div class="menu__preview-cap">
               <div class="pc-cat" id="pcCat"></div>

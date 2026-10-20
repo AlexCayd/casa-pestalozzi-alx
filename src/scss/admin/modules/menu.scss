@@ -4,6 +4,11 @@
  */
 @use "../shared/abstracts/variables" as vars;
 @use "../shared/abstracts/mixins" as mixins;
+// Tarjetas-filtro y lista de pendientes («Con receta»), compartidas con
+// Inventario. Esta hoja la cargan también Usuarios, Impresoras, Feedback y
+// Configuración: las reglas del parcial van todas por clase propia, así que
+// ahí no alcanzan nada.
+@use "pendientes";
 
 .admin-menu {
   min-width: 0;
@@ -234,8 +239,106 @@
     }
   }
 
+  // 760 y no 980: la descripción dejó de tener columna propia y se lee bajo
+  // el nombre, así que la tabla cabe sin scroll en un portátil con el
+  // sidebar abierto.
   &__table--items {
-    min-width: 980px;
+    min-width: 760px;
+
+    th,
+    td {
+      padding-block: 12px;
+    }
+
+    // El nombre se lleva todo lo que sobre: es lo que se busca al recorrer.
+    th:first-child {
+      width: 100%;
+    }
+  }
+
+  // Precio: mono y a la derecha, para comparar cifras en vertical. Va pegado
+  // al nombre porque es lo segundo que se lee de un platillo.
+  &__col-precio,
+  &__precio {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  &__precio {
+    color: var(--admin-text);
+  }
+
+  &__col-visible {
+    text-align: center;
+  }
+
+  // La fila de la tabla resalta con el fondo y nada más: el filete lateral
+  // que pone _tables.scss al apuntar es justo lo que el cliente pidió retirar.
+  // Con foco de teclado, un anillo completo en vez del filete.
+  &__table--items tbody tr:hover {
+    box-shadow: none;
+  }
+
+  &__table--items tbody tr[data-row-href]:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
+  }
+
+  // ── Celda del platillo ──────────────────────────────────────────
+  // Nombre y, en la misma línea, el contador de opciones; debajo, una sola
+  // línea de descripción. Los dos renglones miden lo mismo que la miniatura,
+  // así que la fila queda a la altura de la foto y no de un párrafo.
+  &__nombre {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+  }
+
+  &__nombre-texto {
+    color: var(--admin-text);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  // `width: 0` + `min-width: 100%`: en una tabla de ancho automático un texto
+  // sin cortes pide su ancho entero como mínimo de columna y empujaba la tabla
+  // a scroll horizontal; así no aporta nada al mínimo y luego llena la celda
+  // que le toque, con puntos suspensivos.
+  &__descripcion {
+    display: block;
+    width: 0;
+    min-width: 100%;
+    margin-top: 3px;
+    overflow: hidden;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__descripcion--falta {
+    color: var(--admin-warning-text);
+    font-weight: 600;
+  }
+
+  // Categoría y, debajo, el área que lo prepara: las dos dicen «dónde vive»
+  // el platillo y por eso comparten celda (proximidad).
+  &__area {
+    margin-top: 6px;
+    white-space: nowrap;
+  }
+
+  // ── Acciones ────────────────────────────────────────────────────
+  // Variantes y editar juntas; borrar aparte, tras un filete fino. Es la
+  // única separación de la fila y por eso se ve.
+  &__accion-destructiva {
+    display: inline-flex;
+    margin-left: 4px;
+    padding-left: 12px;
+    border-left: 1px solid var(--admin-border-soft);
   }
 
   &__description {
@@ -409,6 +512,8 @@
 
     strong {
       color: var(--admin-terra);
+      font-family: var(--admin-font-cifra);
+      font-weight: 600;
       font-size: clamp(34px, 4vw, 48px);
       line-height: 1;
     }
@@ -762,6 +867,20 @@
     background 160ms ease;
 }
 
+/* Mismo remedio que en inventario.scss: `.admin-body button { font: inherit }`
+   (0,1,1) dejaba los <button class="admin-btn"> a 16 px junto a los enlaces
+   con la misma clase a 13 (pendiente conocido de _globals.scss). Acotado a
+   `.admin-menu--modulo`, que sólo llevan las cuatro vistas de Menú: Usuarios
+   e Impresoras también abren con `.admin-menu` y cargan esta hoja, y ahí no
+   se toca nada sin su dueño. */
+.admin-body .admin-menu--modulo button.admin-btn {
+  font-size: 13px;
+}
+
+.admin-body .admin-menu--modulo button.admin-btn--small {
+  font-size: 12px;
+}
+
 @include mixins.down(vars.$breakpoint-tablet) {
   .admin-menu {
     &__header,
@@ -849,88 +968,6 @@
   }
 }
 
-/* ── Estaciones de impresión ───────────────────────────────────
- *
- * La página de impresoras carga menu.css por la estructura compartida de
- * tabla y formulario, así que lo suyo vive aquí.
- *
- * Los dos roles son una categoría, no un estado, y por eso salen de la serie
- * categórica de la paleta y no de la familia success/warning/danger: la
- * impresora de la cuenta y las de comanda son dos cosas distintas, ninguna es
- * "peor" que la otra. Índigo y turquesa se separan por luminosidad, así que
- * siguen distinguiéndose bajo deuteranopia.
- */
-.admin-tag--cuenta { --admin-tag-tono: var(--admin-c-indigo); }
-.admin-tag--comanda { --admin-tag-tono: var(--admin-c-turquesa); }
-
-/* La IP y el puerto bajan a su propia línea: pegados a la etiqueta de conexión
-   se leían como una sola cosa. En mono porque es una dirección, y con el
-   tamaño un punto por debajo del cuerpo — es un dato de configuración, no lo
-   que se busca al recorrer la tabla. */
-.admin-printers__destino {
-  display: block;
-  margin-top: 4px;
-  color: var(--admin-muted);
-  font-size: 12px;
-}
-
-/* ── Interruptor del servicio de impresión ─────────────────────
- *
- * El panel va arriba del listado porque responde la pregunta con la que se
- * entra al módulo cuando algo va mal —«¿por qué no sale el papel?»— antes de
- * que haya que deducirla recorriendo cinco filas.
- *
- * Pausado lleva ámbar, no rojo: nada se rompió y nada se perdió. La
- * configuración de cada estación sigue intacta, los pedidos se guardan y el
- * tablero de producción los recibe igual; lo único que no ocurre es la
- * impresión. El rojo aquí haría que un ajuste deliberado se leyera como una
- * avería.
- */
-/* Aviso de servicio pausado. Sustituye al panel del interruptor, que se fue a
-   Configuración > POS: aquí ya no se cambia el estado, sólo se advierte de él y
-   se enlaza a donde se cambia.
-
-   Sólo se pinta cuando el servicio está pausado, así que no necesita variante:
-   si está en pantalla, es que hay algo que decir. */
-.admin-printers__paused {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px 24px;
-
-  /* El ritmo vertical del módulo lo pone `.admin-menu__panel`, y esto no lo es;
-     sin el margen quedaba pegado a la tarjeta de la tabla y los dos bordes se
-     leían como una sola caja partida. */
-  margin-bottom: 24px;
-
-  /* Filete lateral y no fondo tintado: el color de estado en el panel es de
-     señal, no de cromo (ver CLAUDE.md). Al 100 % porque un filete de 3px que se
-     mezcle con la superficie deja de verse. */
-  border-left: 3px solid var(--admin-c-ambar);
-
-  div {
-    flex: 1 1 420px;
-    min-width: 0;
-  }
-
-  h3 {
-    margin: 0 0 8px;
-  }
-
-  p {
-    margin: 0;
-    color: var(--admin-muted);
-    font-size: 13px;
-    line-height: 1.55;
-  }
-
-  /* Que el enlace no se estire al ancho de la columna al envolver. */
-  .admin-btn {
-    flex: 0 0 auto;
-  }
-}
-
 /* ── Variantes en el listado ──────────────────────────────────────
  *
  * El contador bajo el nombre y la acción de la fila. Vivían en variantes.scss,
@@ -942,13 +979,17 @@
  * especificidad; el contador va con la tabla como ancestro para no depender
  * del orden de carga entre admin.css y esta hoja. */
 .admin-table .admin-menu__variantes-sub {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 
   svg {
     flex: 0 0 auto;
+    stroke-width: 2;
   }
 }
 
@@ -1245,14 +1286,16 @@
 
 .admin-table .admin-menu__platillo-texto {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
-.admin-table .admin-menu__foto {
+// `.admin-menu` y no `.admin-table`: la misma miniatura va en la lista de
+// pendientes, que no es una tabla.
+.admin-menu .admin-menu__foto {
   display: grid;
   width: 40px;
   height: 40px;
   flex: 0 0 40px;
-  order: -1;
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--admin-border-soft);
@@ -1282,4 +1325,11 @@
     filter: grayscale(1);
     opacity: 0.55;
   }
+}
+
+// Sólo en la tabla: ahí la miniatura va después del nombre en el DOM y el
+// `order` la pone delante. En la lista de pendientes es un subgrid y un
+// `order` negativo la colocaría antes de la marca, en otra columna.
+.admin-table .admin-menu__foto {
+  order: -1;
 }

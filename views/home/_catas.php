@@ -81,24 +81,24 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
       */ ?>
       <div class="maridaje__galeria" data-reveal>
         <div class="mg arco" data-portada data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="Coctelería de autor">
-          <img src="/build/images/drink-3.webp" alt="Cóctel de autor servido en barra" loading="lazy" />
+          <img src="/build/images/drink-3.webp"<?php echo srcsetImagen('/build/images/drink-3.webp'); ?> decoding="async" alt="Cóctel de autor servido en barra" loading="lazy" />
         </div>
         <div class="mg" data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="Aperitivo de la casa">
-          <img src="/build/images/drink-1.webp" alt="Aperitivo de la casa con hielo y cítrico" loading="lazy" />
+          <img src="/build/images/drink-1.webp"<?php echo srcsetImagen('/build/images/drink-1.webp'); ?> decoding="async" alt="Aperitivo de la casa con hielo y cítrico" loading="lazy" />
         </div>
         <div class="mg" data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="Copa de la carta">
-          <img src="/build/images/drink-2.webp" alt="Copa servida de la carta de vinos" loading="lazy" />
+          <img src="/build/images/drink-2.webp"<?php echo srcsetImagen('/build/images/drink-2.webp'); ?> decoding="async" alt="Copa servida de la carta de vinos" loading="lazy" />
         </div>
         <?php /* La otra jamba: la foto de las botellas es vertical, así que le
                  toca la celda alta. Estuvo en la ancha y el recorte se quedaba
                  en una franja de cristal negro sin nada reconocible. */ ?>
         <div class="mg arco" data-portada data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="Cerveza artesanal">
-          <img src="/build/images/drink-5.webp" alt="Botellas de cerveza artesanal de la casa" loading="lazy" />
+          <img src="/build/images/drink-5.webp"<?php echo srcsetImagen('/build/images/drink-5.webp'); ?> decoding="async" alt="Botellas de cerveza artesanal de la casa" loading="lazy" />
         </div>
         <?php /* Va la última porque es la única apaisada del grupo y le toca la
                  celda ancha que cierra el mosaico. */ ?>
         <div class="mg" data-parallax-img data-zoom data-zoom-cat="Maridaje" data-zoom-name="La barra">
-          <img src="/build/images/drink-4.webp" alt="La barra de Casa Pestalozzi durante el servicio" loading="lazy" />
+          <img src="/build/images/drink-4.webp"<?php echo srcsetImagen('/build/images/drink-4.webp'); ?> decoding="async" alt="La barra de Casa Pestalozzi durante el servicio" loading="lazy" />
         </div>
       </div>
 
@@ -118,11 +118,6 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
       */ ?>
       <div class="maridaje__carta" data-maridaje data-reveal>
         <div class="maridaje__cabeza">
-          <?php /* El sello de Catas vive aquí, en la carta de maridaje, y no sobre
-                   el corte de arriba como en las demás secciones: arriba está la
-                   insegna (sus letras de cartel quedaban tapadas) y a la derecha
-                   de la cabecera, la entradilla. */ ?>
-          <?php echo ornamento('copa', 'maridaje__copa', true); ?>
           <div>
             <h3 class="maridaje__titulo">La carta de <em class="accent-italic">maridaje</em></h3>
             <p class="maridaje__bajada">Vinos, coctelería y barra, todos los días.</p>
@@ -223,10 +218,15 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
             </div>
 
             <div class="cata__cuerpo">
+              <?php /* El sello son DOS cajas a propósito: la de fuera habla con la
+                       letra del título (mide su altura de mayúsculas) y la de
+                       dentro es la pastilla, con la suya. Así cada una se
+                       centra con su propia fuente, sea la real o la de
+                       respaldo (ver .cata__sello en _catas.scss). */ ?>
               <h3 class="cata__titulo">
                 <?php echo $h($cata['titulo']); ?>
                 <?php if (!$hayCupo) : ?>
-                  <span class="cata__sello">Sin cupo</span>
+                  <span class="cata__sello"><span class="cata__sello-pastilla">Sin cupo</span></span>
                 <?php endif; ?>
               </h3>
               <?php if (!empty($cata['descripcion'])) : ?>

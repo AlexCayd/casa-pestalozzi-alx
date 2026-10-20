@@ -89,12 +89,20 @@
                             <span class="admin-pill__hint">Sólo para rol Cuenta</span>
                         </span>
                     </label>
-                    <?php foreach ($areas as $areaId => $areaNombre) : ?>
-                        <label class="admin-pill">
+                    <?php /* Cada área con su punto de color: el mismo que tiñe
+                             su fila en el listado y corona su tablero KDS. Llega
+                             de areas_produccion.color, validado en el
+                             controlador, como custom property en línea. */ ?>
+                    <?php foreach ($areas as $areaId => $area) : ?>
+                        <?php $areaColor = $area['color'] ?? null; ?>
+                        <label class="admin-pill prn-pill-area"<?php echo $areaColor ? ' style="--prn-area: ' . htmlspecialchars($areaColor, ENT_QUOTES) . '"' : ''; ?>>
                             <input type="radio" name="area_id" value="<?php echo (int) $areaId; ?>"
                                    <?php echo $areaActual === (int) $areaId ? 'checked' : ''; ?>>
                             <span class="admin-pill__body">
-                                <span class="admin-pill__title"><?php echo htmlspecialchars($areaNombre); ?></span>
+                                <span class="admin-pill__title">
+                                    <?php if ($areaColor) : ?><span class="prn-imprime__punto" aria-hidden="true"></span><?php endif; ?>
+                                    <?php echo htmlspecialchars((string) ($area['nombre'] ?? '')); ?>
+                                </span>
                             </span>
                         </label>
                     <?php endforeach; ?>
@@ -165,40 +173,5 @@
     </section>
 </section>
 
-<script>
-    // Muestra sólo los campos del tipo de conexión seleccionado (red / windows).
-    // Los inputs de los bloques ocultos se deshabilitan para que NO se envíen
-    // (evita que el host de 'red' o el dispositivo de 'windows' arrastren valores
-    // del modo no elegido).
-    //
-    // El tipo de conexión dejó de ser un <select> y es un grupo de radios, así
-    // que el valor se lee del radio marcado y el listener va delegado en el
-    // fieldset: 'change' burbujea desde cada radio, y con la delegación da
-    // igual cuántas opciones haya.
-    (function () {
-        var grupo = document.getElementById('conexion');
-        if (!grupo) return;
-
-        var bloques = document.querySelectorAll('.admin-menu__conexion');
-
-        function valorActual() {
-            var marcado = grupo.querySelector('input[name="conexion"]:checked');
-            return marcado ? marcado.value : '';
-        }
-
-        function actualizar() {
-            var valor = valorActual();
-
-            bloques.forEach(function (bloque) {
-                var visible = bloque.dataset.conexion.split(' ').indexOf(valor) !== -1;
-                bloque.hidden = !visible;
-                bloque.querySelectorAll('input, select').forEach(function (campo) {
-                    campo.disabled = !visible;
-                });
-            });
-        }
-
-        grupo.addEventListener('change', actualizar);
-        actualizar();
-    })();
-</script>
+<?php /* El script que muestra sólo los campos del tipo de conexión elegido
+         vivía aquí en línea; está en src/js/admin/impresoras/impresoras.js. */ ?>

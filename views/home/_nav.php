@@ -74,10 +74,13 @@ include __DIR__ . '/../templates/header-casa-pestalozzi.php';
 ?>
 
 <?php /* aria-expanded y aria-controls los mantiene nav.js: sin ellos el lector
-         de pantalla anunciaba «Abrir menú» también con el menú abierto. */ ?>
+         de pantalla anunciaba «Abrir menú» también con el menú abierto.
+         Las barras van en su propia caja para el imán (magnetic.js): la caja
+         se desplaza como etiqueta del botón, y las barras conservan su
+         transform para dibujar la X del menú abierto. */ ?>
 <button class="nav-toggle" id="navToggle" type="button" aria-label="Abrir menú"
         aria-expanded="false" aria-controls="navOverlay" data-magnetic>
-  <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+  <span class="nav-toggle__barras" data-magnetic-label><span class="bar"></span><span class="bar"></span><span class="bar"></span></span>
 </button>
 
 <?php /* Papel crema y no verde: la portada es clara, y abrir el menú no debería

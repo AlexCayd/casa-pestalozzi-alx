@@ -21,9 +21,25 @@ function initCursor() {
   // 300ms de la transición. Justo el tirón que se notaba al entrar en un enlace.
   var escala = 1, escalaFin = 1;
 
+  // El cursor no existe hasta que el ratón se mueve: arrancaba pintado en el
+  // centro de la ventana, y si la visita llegaba con el puntero quieto, con el
+  // teclado o a una foto ampliada, se quedaba ahí como un círculo suelto a
+  // media pantalla que no seguía a nada. Aparece en el primer movimiento —ya
+  // en su sitio, sin volar desde el centro— y se retira cuando el ratón sale
+  // de la ventana. La clase la lee _cursor.scss.
+  var vivo = false;
   window.addEventListener("mousemove", function(e) {
     mx = e.clientX; my = e.clientY;
+    if (!vivo) {
+      vivo = true;
+      rx = mx; ry = my;
+      body.classList.add("cursor-vivo");
+    }
   }, { passive: true });
+  document.documentElement.addEventListener("mouseleave", function() {
+    vivo = false;
+    body.classList.remove("cursor-vivo");
+  });
 
   var anterior = 0;
 

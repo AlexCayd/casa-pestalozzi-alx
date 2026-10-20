@@ -629,95 +629,64 @@ class AdminController
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    /** Tickets por página en el histórico. */
-    private const TICKETS_POR_PAGINA = 20;
-
+    /**
+     * Histórico de tickets: franja de cuatro filtros con sus cifras y la lista
+     * paginada de 20 en 20. Los datos los arma Services\Pos\HistorialTickets;
+     * aquí sólo se resuelven periodo, estado y página.
+     *
+     * Con X-Requested-With responde SÓLO el bloque de la lista: las tarjetas
+     * son filtros, y tickets.js cambia de estado sin recargar la página (las
+     * cifras no dependen del estado elegido, así que no hay que repintarlas).
+     */
     public static function tickets(Router $router): void
     {
-        $rows = [];
-        $stats = ['total' => 0, 'abiertos' => 0, 'cerrados' => 0, 'cancelados' => 0, 'ventas' => 0.0];
+        $rango = RangoPeriodo::resolver($_GET, 30);
+        $estado = \Services\Pos\HistorialTickets::estado($_GET['estado'] ?? '');
+        $resumen = null;
+        $filas = [];
+        $total = 0;
         $paginaActual = 1;
         $totalPaginas = 1;
 
         try {
-            /*
-             * Las métricas van en SU PROPIA consulta, agregada sobre la tabla
-             * entera.
-             *
-             * Antes se calculaban en PHP recorriendo las filas traídas, que eran
-             * las 100 más recientes: ya entonces mentían en cuanto había más de
-             * cien tickets, y paginando de veinte en veinte pasarían a describir
-             * únicamente la página que se está mirando. La franja de arriba dice
-             * "cuántos tickets llevamos", no "cuántos hay en pantalla".
-             */
-            $resumen = \Model\Ticket::ejecutarSQL(
-                "SELECT
-                    COUNT(*) AS total,
-                    COALESCE(SUM(t.estado = 'abierto'), 0) AS abiertos,
-                    COALESCE(SUM(t.estado = 'cerrado'), 0) AS cerrados,
-                    COALESCE(SUM(t.estado = 'cancelado'), 0) AS cancelados,
-                    COALESCE((
-                        SELECT SUM(ti.precio * ti.cantidad)
-                          FROM ticket_items ti
-                          JOIN tickets tc ON tc.id = ti.ticket_id
-                         WHERE tc.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                    ), 0) AS ventas
-                   FROM tickets t"
-            );
-
-            if ($resumen && ($fila = $resumen->fetch_assoc())) {
-                $stats = [
-                    'total' => (int) $fila['total'],
-                    'abiertos' => (int) $fila['abiertos'],
-                    'cerrados' => (int) $fila['cerrados'],
-                    'cancelados' => (int) $fila['cancelados'],
-                    'ventas' => (float) $fila['ventas'],
-                ];
-            }
-
-            $totalPaginas = max(1, (int) ceil($stats['total'] / self::TICKETS_POR_PAGINA));
+            $resumen = \Services\Pos\HistorialTickets::resumen($rango);
+            $total = \Services\Pos\HistorialTickets::totalFiltrado($resumen, $estado);
+            $totalPaginas = max(1, (int) ceil($total / \Services\Pos\HistorialTickets::POR_PAGINA));
 
             $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!$paginaActual || $paginaActual > $totalPaginas) {
                 $paginaActual = 1;
             }
 
-            $offset = ($paginaActual - 1) * self::TICKETS_POR_PAGINA;
-            $limite = self::TICKETS_POR_PAGINA;
-
-            $result = \Model\Ticket::ejecutarSQL(
-                "SELECT t.id, t.nombre, t.comensales, t.estado, t.metodo_pago, t.propina, t.hora_apertura,
-                        m.numero AS mesa_numero, m.nombre AS mesa_nombre,
-                        COALESCE(SUM(ti.precio * ti.cantidad), 0) AS total,
-                        COUNT(ti.id) AS num_items
-                   FROM tickets t
-                   LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
-                   LEFT JOIN mesas m ON m.id = tm.mesa_id
-                   LEFT JOIN ticket_items ti ON ti.ticket_id = t.id AND ti.estado <> 'cancelado'
-                  GROUP BY t.id
-                  ORDER BY t.hora_apertura DESC
-                  LIMIT {$limite} OFFSET {$offset}"
-            );
-
-            if ($result) {
-                while ($row = $result->fetch_assoc()) {
-                    $rows[] = $row;
-                }
-            }
+            $filas = \Services\Pos\HistorialTickets::pagina($rango, $estado, $paginaActual);
         } catch (\Throwable $e) {
             // La tabla tickets puede no existir todavía: se muestra el estado vacío.
+            error_log('AdminController::tickets - ' . $e->getMessage());
         }
 
-        self::render('tickets/index', [
-            'activeModule' => 'tickets',
-            'title' => 'Tickets',
-            'ticketRows' => $rows,
-            'ticketStats' => $stats,
+        $datos = [
+            'rango' => $rango,
+            'estado' => $estado,
+            'resumen' => $resumen,
+            'ticketRows' => $filas,
+            'totalFiltrado' => $total,
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
-            'porPagina' => self::TICKETS_POR_PAGINA,
-            'styles' => ['/build/css/admin/menu.css'],
-            'scripts' => []
+            'porPagina' => \Services\Pos\HistorialTickets::POR_PAGINA,
+        ];
+
+        if (self::isPartialRequest()) {
+            self::renderPartial('tickets/_lista', $datos);
+            return;
+        }
+
+        self::render('tickets/index', $datos + [
+            'activeModule' => 'tickets',
+            'title' => 'Tickets',
+            // Ya no carga menu.css: la vista dejó de tomar prestada la
+            // estructura de Menú y tiene hoja propia.
+            'styles' => ['/build/css/admin/tickets.css'],
+            'scripts' => ['/build/js/admin/tickets.js'],
         ]);
     }
 

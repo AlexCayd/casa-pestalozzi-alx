@@ -35,13 +35,15 @@
     <?php /* Accesos directos de escritorio: lo que más se busca, dicho como lo
              buscaría el visitante. La navegación completa sigue en el botón de
              menú. «Reservar mesa» y no «Reservar» a secas: dice qué se reserva. */ ?>
+    <?php /* Magnéticos (magnetic.js): el enlace se acerca al puntero y su
+             palabra, en su propio <span>, le sigue con menos recorrido. */ ?>
     <nav class="hero__nav" aria-label="Accesos rápidos">
       <ul class="hero__nav-lista">
-        <li><a class="hero__nav-enlace" href="#menu">La carta</a></li>
-        <li><a class="hero__nav-enlace" href="#catas">Catas y vinos</a></li>
-        <li><a class="hero__nav-enlace" href="#catering">Eventos</a></li>
-        <li><a class="hero__nav-enlace" href="#ubicacion">Cómo llegar</a></li>
-        <li><a class="hero__nav-enlace hero__nav-enlace--reservar" href="#reserva">Reservar mesa</a></li>
+        <li><a class="hero__nav-enlace" href="#menu" data-magnetic><span class="hero__nav-texto" data-magnetic-label>La carta</span></a></li>
+        <li><a class="hero__nav-enlace" href="#catas" data-magnetic><span class="hero__nav-texto" data-magnetic-label>Catas y vinos</span></a></li>
+        <li><a class="hero__nav-enlace" href="#catering" data-magnetic><span class="hero__nav-texto" data-magnetic-label>Eventos</span></a></li>
+        <li><a class="hero__nav-enlace" href="#ubicacion" data-magnetic><span class="hero__nav-texto" data-magnetic-label>Cómo llegar</span></a></li>
+        <li><a class="hero__nav-enlace hero__nav-enlace--reservar" href="#reserva" data-magnetic><span class="hero__nav-texto" data-magnetic-label>Reservar mesa</span></a></li>
       </ul>
     </nav>
   </div>
@@ -126,6 +128,8 @@
             <clipPath id="hero-c-nest"><path d="M234 392 A86 86 0 1 0 406 392 A86 86 0 1 0 234 392 Z"/></clipPath>
             <clipPath id="hero-c-nest-sh"><path clip-rule="evenodd" d="M222 378 A86 86 0 1 0 394 378 A86 86 0 1 0 222 378 Z M234 392 A86 86 0 1 0 406 392 A86 86 0 1 0 234 392 Z"/></clipPath>
             <clipPath id="hero-c-boule-sh"><path clip-rule="evenodd" d="M106 587 A48 48 0 1 0 202 587 A48 48 0 1 0 106 587 Z M115 598 A48 48 0 1 0 211 598 A48 48 0 1 0 115 598 Z"/></clipPath>
+            <clipPath id="hero-c-filo"><path d="M69.5 350 V246 Q69.5 231 76.5 231 Q81.5 233 81.5 250 V350 Z"/></clipPath>
+            <clipPath id="hero-c-vela-sh"><path clip-rule="evenodd" d="M565 357 A22 22 0 1 0 609 357 A22 22 0 1 0 565 357 Z M558 350 A22 22 0 1 0 602 350 A22 22 0 1 0 558 350 Z"/></clipPath>
           </defs>
 
           <g class="hero-fundido" style="animation-delay:.05s">
@@ -158,6 +162,12 @@
               <path d="M68.5 350 H82.5 V359 H68.5 Z" pathLength="1" style="fill:var(--hero-oro-papel)"/>
               <path d="M69 359 H82 L83 452 Q75.5 466 68 452 Z" pathLength="1" style="fill:var(--hero-oro-papel)"/>
             </g>
+            <?php /* El destello del cuchillo: una franja de luz que recorre la hoja
+                     (recortada por su silueta) y una chispa en la punta. */ ?>
+            <g clip-path="url(#hero-c-filo)">
+              <path class="hero-filo" d="M62 262 L90 244" stroke-width="6" stroke-linecap="round" style="stroke:var(--hero-oro)"/>
+            </g>
+            <g transform="translate(76 234)"><path class="hero-filo-chispa" d="M0 -8 C1 -2 2 -1 8 0 C2 1 1 2 0 8 C-1 2 -2 1 -8 0 C-2 -1 -1 -2 0 -8 Z" style="fill:var(--hero-oro)"/></g>
             <g class="hero-fundido" style="animation-delay:1.5s">
               <path d="M46 216 H104 V494 H46 Z" stroke-width="1" style="stroke-dasharray:2.5 3.5;stroke:var(--hero-verde)" opacity=".55"/>
               <circle cx="75.5" cy="386" r="1.9" style="fill:var(--hero-verde)"/>
@@ -210,6 +220,12 @@
           <g class="hero-fundido" style="animation-delay:1.5s">
             <g clip-path="url(#hero-c-nest)"><path d="M136.2 391L321 206.2M138.4 393.3L323.3 208.4M140.7 395.5L325.5 210.7M143 397.8L327.8 213M145.2 400.1L330.1 215.2M147.5 402.3L332.3 217.5M149.7 404.6L334.6 219.7M152 406.8L336.8 222M154.3 409.1L339.1 224.3M156.5 411.4L341.4 226.5M158.8 413.6L343.6 228.8M161.1 415.9L345.9 231.1M163.3 418.2L348.2 233.3M165.6 420.4L350.4 235.6M167.8 422.7L352.7 237.8M170.1 424.9L354.9 240.1M172.4 427.2L357.2 242.4M174.6 429.5L359.5 244.6M176.9 431.7L361.7 246.9M179.2 434L364 249.2M181.4 436.3L366.3 251.4M183.7 438.5L368.5 253.7M186 440.8L370.8 256M188.2 443L373 258.2M190.5 445.3L375.3 260.5M192.7 447.6L377.6 262.7M195 449.8L379.8 265M197.3 452.1L382.1 267.3M199.5 454.4L384.4 269.5M201.8 456.6L386.6 271.8M204.1 458.9L388.9 274.1M206.3 461.1L391.1 276.3M208.6 463.4L393.4 278.6M210.8 465.7L395.7 280.8M213.1 467.9L397.9 283.1M215.4 470.2L400.2 285.4M217.6 472.5L402.5 287.6M219.9 474.7L404.7 289.9M222.2 477L407 292.2M224.4 479.2L409.2 294.4M226.7 481.5L411.5 296.7M228.9 483.8L413.8 298.9M231.2 486L416 301.2M233.5 488.3L418.3 303.5M235.7 490.6L420.6 305.7M238 492.8L422.8 308M240.3 495.1L425.1 310.3M242.5 497.3L427.3 312.5M244.8 499.6L429.6 314.8M247 501.9L431.9 317M249.3 504.1L434.1 319.3M251.6 506.4L436.4 321.6M253.8 508.7L438.7 323.8M256.1 510.9L440.9 326.1M258.4 513.2L443.2 328.4M260.6 515.5L445.5 330.6M262.9 517.7L447.7 332.9M265.1 520L450 335.1M267.4 522.2L452.2 337.4M269.7 524.5L454.5 339.7M271.9 526.8L456.8 341.9M274.2 529L459 344.2M276.5 531.3L461.3 346.5M278.7 533.6L463.6 348.7M281 535.8L465.8 351M283.2 538.1L468.1 353.2M285.5 540.3L470.3 355.5M287.8 542.6L472.6 357.8M290 544.9L474.9 360M292.3 547.1L477.1 362.3M294.6 549.4L479.4 364.6M296.8 551.7L481.7 366.8M299.1 553.9L483.9 369.1M301.4 556.2L486.2 371.4M303.6 558.4L488.4 373.6M305.9 560.7L490.7 375.9M308.1 563L493 378.1M310.4 565.2L495.2 380.4M312.7 567.5L497.5 382.7M314.9 569.8L499.8 384.9M317.2 572L502 387.2M319.5 574.3L504.3 389.5" stroke-width=".8" stroke-opacity=".28" style="stroke:var(--hero-verde)"/><g clip-path="url(#hero-c-nest-sh)"><path d="M321 206.2L505.8 391M318.7 208.4L503.6 393.3M316.5 210.7L501.3 395.5M314.2 213L499 397.8M311.9 215.2L496.8 400.1M309.7 217.5L494.5 402.3M307.4 219.7L492.3 404.6M305.2 222L490 406.8M302.9 224.3L487.7 409.1M300.6 226.5L485.5 411.4M298.4 228.8L483.2 413.6M296.1 231.1L480.9 415.9M293.8 233.3L478.7 418.2M291.6 235.6L476.4 420.4M289.3 237.8L474.2 422.7M287.1 240.1L471.9 424.9M284.8 242.4L469.6 427.2M282.5 244.6L467.4 429.5M280.3 246.9L465.1 431.7M278 249.2L462.8 434M275.7 251.4L460.6 436.3M273.5 253.7L458.3 438.5M271.2 256L456 440.8M269 258.2L453.8 443M266.7 260.5L451.5 445.3M264.4 262.7L449.3 447.6M262.2 265L447 449.8M259.9 267.3L444.7 452.1M257.6 269.5L442.5 454.4M255.4 271.8L440.2 456.6M253.1 274.1L437.9 458.9M250.9 276.3L435.7 461.1M248.6 278.6L433.4 463.4M246.3 280.8L431.2 465.7M244.1 283.1L428.9 467.9M241.8 285.4L426.6 470.2M239.5 287.6L424.4 472.5M237.3 289.9L422.1 474.7M235 292.2L419.8 477M232.8 294.4L417.6 479.2M230.5 296.7L415.3 481.5M228.2 298.9L413.1 483.8M226 301.2L410.8 486M223.7 303.5L408.5 488.3M221.4 305.7L406.3 490.6M219.2 308L404 492.8M216.9 310.3L401.7 495.1M214.7 312.5L399.5 497.3M212.4 314.8L397.2 499.6M210.1 317L395 501.9M207.9 319.3L392.7 504.1M205.6 321.6L390.4 506.4M203.3 323.8L388.2 508.7M201.1 326.1L385.9 510.9M198.8 328.4L383.6 513.2M196.5 330.6L381.4 515.5M194.3 332.9L379.1 517.7M192 335.1L376.9 520M189.8 337.4L374.6 522.2M187.5 339.7L372.3 524.5M185.2 341.9L370.1 526.8M183 344.2L367.8 529M180.7 346.5L365.5 531.3M178.4 348.7L363.3 533.6M176.2 351L361 535.8M173.9 353.2L358.8 538.1M171.7 355.5L356.5 540.3M169.4 357.8L354.2 542.6M167.1 360L352 544.9M164.9 362.3L349.7 547.1M162.6 364.6L347.4 549.4M160.3 366.8L345.2 551.7M158.1 369.1L342.9 553.9M155.8 371.4L340.6 556.2M153.6 373.6L338.4 558.4M151.3 375.9L336.1 560.7M149 378.1L333.9 563M146.8 380.4L331.6 565.2M144.5 382.7L329.3 567.5M142.2 384.9L327.1 569.8M140 387.2L324.8 572M137.7 389.5L322.5 574.3" stroke-width=".8" stroke-opacity=".45" style="stroke:var(--hero-verde)"/></g></g>
           </g>
+          <?php /* La pasta y lo que lleva encima giran con el scroll mientras el
+                   hero sale (scroll-driven en _hero.scss): el plato se queda,
+                   su sombra también; sólo da la vuelta lo que hay dentro. Y con
+                   el puntero se desplaza un poco más que la mesa: está más
+                   alto que el plato. */ ?>
+          <g class="hero-plato">
           <g class="hero-dibujo" style="animation-delay:.45s;stroke:var(--hero-verde)" stroke-width="1">
             <path d="M326.7 393.7 L327.2 394.4 L327.7 395.3 L328.4 396.4 L328.7 397.4 L328.7 398.4 L328.5 399.4 L328.3 400.4 L328.1 401.7 L328 403.3 L327.8 405.2 L327.4 407.3 L326.7 409.3 L325.6 410.9 L324.2 412.3 L322.7 413.3 L320.9 413.8 L319.1 414.1 L317.2 414.4 L315.3 414.4 L313.5 414.1 L311.8 413.3 L310.3 412.1 L309 410.6 L307.9 409.3 L306.6 408.1 L305.2 407.1 L303.6 406.3 L302 405.4 L300.4 404.2 L299.1 402.9 L298 401.3 L297.2 399.6 L296.3 397.9 L295.4 396.1 L294.5 394.3 L293.7 392.3 L293.3 390.2 L293.3 388.1 L293.6 386 L294.2 384 L294.7 382 L295.1 379.8 L295.4 377.4 L295.6 374.8 L296.1 372.1 L297 369.5 L298.3 367.1 L300.1 365 L302.1 363.2 L304.3 361.5 L306.7 359.9 L309.2 358.5 L311.9 357.4 L314.8 356.8 L317.7 356.8 L320.6 357.3 L323.4 358.1 L326.1 358.9 L328.8 359.6 L331.5 360.2 L334.3 360.8 L337.1 361.5 L339.8 362.6 L342.2 364 L344.5 365.9 L346.5 367.9 L348.5 370 L350.4 372.1 L352.3 374.3 L354 376.7 L355.4 379.3 L356.4 382.1 L357 385 L357.4 387.9 L357.9 390.8 L358.6 393.8 L359.4 396.9 L360.3 400.2 L360.8 403.7 L360.9 407.3 L360.4 410.8 L359.3 414.2 L357.9 417.5 L356.1 420.8 L354.2 424 L351.9 427 L349.2 429.8 L346.1 432.1 L342.7 433.9 L339 435.2 L335.3 436.2 L331.5 437 L327.8 437.8 L324.1 438.7 L320.2 439.5 L316.2 439.9 L312.3 439.8 L308.3 439.1 L304.6 437.9 L300.9 436.3 L297.4 434.6 L293.9 432.7 L290.6 430.7 L287.4 428.4 L284.5 425.7 L282 422.7 L279.9 419.5 L277.9 416.2 L275.9 412.9 L273.7 409.7 L271.3 406.3 L269 402.8 L266.9 399 L265.4 394.9 L264.5 390.6 L264.1 386.3 L264.2 381.8 L264.5 377.4 L265.1 372.8 L266.2 368.3 L267.7 363.9 L269.9 359.8 L272.7 355.9 L275.9 352.5 L279.4 349.3 L282.9 346.2 L286.6 343.1 L290.3 340 L294.4 337.1 L298.7 334.6 L303.4 332.8 L308.3 331.6 L313.4 331.1 L318.4 331 L323.4 331.2 L328.4 331.7 L333.3 332.5 L338.2 333.7 L342.8 335.6 L347.2 337.9 L351.4 340.5 L355.3 343.4 L359.3 346.2 L363.4 349 L367.5 351.8 L371.6 355 L375.5 358.5 L378.8 362.5 L381.6 367 L383.9 371.7 L385.9 376.6 L387.5 381.7 L388.9 386.9 L389.8 392.2 L390.2 397.7 L389.8 403.2 L388.8 408.6 L387.2 413.9 L385.3 419.1 L383.2 424.2 L381 429.4 L378.5 434.6 L375.6 439.7 L372.1 444.5 L367.9 448.7 L363.2 452.4 L358 455.4 L352.6 458.1 L347.1 460.3 L341.4 462.3 L335.5 463.8 L329.6 464.7 L323.5 465 L317.5 464.6 L311.6 463.8 L305.8 462.7 L300 461.5 L294.1 460.3 L288.1 459 L282.2 457.2 L276.4 454.8 L271 451.7 L266 448 L261.4 443.8 L257 439.2 L253 434.4 L249.2 429.4 L245.8 424 L242.9 418.3 L240.8 412.3 L239.3 406.1 L238.3 399.8 L237.8 393.4 L237.4 387 L237.5 380.5 L237.9 374 L238.9 367.5 L240.7 361.1 L243.4 355 L246.9 349.3 L251 344 L255.5 339.1 L260.3 334.5 L265.4 330.2 L270.9 326.4 L276.6 323.1 L282.7 320.5 L289 318.5 L295.4 317 L301.7 315.8 L308.1 314.7 L314.4 313.6 L320.9 312.7 L327.5 312 L334.3 312 L334.1 312.9 L327.5 312.9 L320.9 313.6 L314.5 314.8 L308.3 316.2 L302.2 317.6 L296.1 319.2 L290 320.9 L284.1 323.1 L278.3 325.8 L273 329.2 L268 333.1 L263.3 337.3 L258.9 341.8 L254.8 346.6 L251.1 351.7 L248 357.2 L245.7 363 L244.3 369.1 L243.6 375.3 L243.5 381.4 L243.8 387.4 L244.2 393.3 L244.7 399.2 L245.6 405 L247 410.7 L249 416.2 L251.7 421.4 L255 426.3 L258.6 430.9 L262.4 435.2 L266.4 439.3 L270.8 443 L275.4 446.3 L280.5 448.9 L285.8 450.9 L291.3 452.3 L296.7 453.4 L302 454.3 L307.3 455.3 L312.5 456.2 L317.8 456.9 L323.2 457.3 L328.6 457 L333.9 456.2 L339.1 454.8 L344.2 453.1 L349.2 451.1 L354.1 448.8 L358.7 446.1 L363 442.9 L366.8 439.2 L370 434.9 L372.6 430.3 L374.9 425.7 L376.9 421 L378.9 416.4 L380.7 411.8 L382.2 407 L383.3 402.1 L383.6 397.2 L383.3 392.2 L382.4 387.4 L381.2 382.6 L379.7 378 L377.9 373.6 L375.7 369.4 L373.1 365.4 L369.9 361.8 L366.3 358.8 L362.5 356.1 L358.7 353.6 L354.9 351.3 L351.3 348.9 L347.8 346.5 L344.1 344.2 L340.2 342.2 L336 340.7 L331.7 339.7 L327.4 339.1 L323 338.8 L318.6 338.6 L314.2 338.8 L309.8 339.3 L305.5 340.3 L301.5 342 L297.7 344.2 L294.2 346.8 L291 349.5 L287.8 352.2 L284.7 354.9 L281.6 357.6 L278.7 360.5 L276.2 363.8 L274.2 367.4 L272.8 371.3 L271.9 375.2 L271.3 379.2 L271 383.1 L270.9 387 L271.2 390.8 L272 394.6 L273.4 398.1 L275.3 401.5 L277.5 404.5 L279.6 407.4 L281.6 410.2 L283.4 413 L285.1 415.9 L287 418.7 L289.2 421.3 L291.7 423.6 L294.5 425.5 L297.5 427.1 L300.6 428.6 L303.6 430 L306.8 431.2 L310 432.2 L313.4 432.7 L316.8 432.6 L320.2 432.1 L323.4 431.2 L326.5 430.3 L329.6 429.5 L332.7 428.8 L335.9 428.1 L339 427 L341.8 425.5 L344.4 423.6 L346.6 421.2 L348.5 418.6 L350.1 415.9 L351.5 413.2 L352.7 410.5 L353.6 407.6 L354 404.7 L353.8 401.7 L353.2 398.8 L352.4 396 L351.6 393.4 L351 391 L350.7 388.6 L350.5 386.2 L350.1 383.8 L349.3 381.5 L348.2 379.3 L346.7 377.4 L345.1 375.6 L343.5 373.8 L341.8 372.1 L340.1 370.5 L338.3 369.1 L336.2 367.9 L333.9 367.2 L331.5 366.8 L329.2 366.5 L327 366.2 L324.9 365.7 L322.7 365.1 L320.5 364.4 L318.2 364.1 L315.9 364.1 L313.7 364.7 L311.6 365.8 L309.7 367 L307.9 368.4 L306.2 369.8 L304.7 371.4 L303.5 373.1 L302.6 375 L302.2 377.2 L302 379.3 L302.1 381.4 L302.1 383.2 L301.9 384.8 L301.4 386.3 L300.9 387.7 L300.5 389.2 L300.5 390.7 L300.9 392.2 L301.5 393.7 L302.2 395 L302.9 396.3 L303.5 397.5 L304.1 398.7 L304.8 399.9 L305.8 400.8 L307.1 401.6 L308.4 402.1 L309.6 402.6 L310.6 403.3 L311.5 404.1 L312.2 405.2 L313.1 406.3 L314.1 407.2 L315.3 407.8 L316.7 407.9 L318.1 407.7 L319.4 407.3 L320.6 406.8 L321.8 406.3 L322.9 405.7 L323.8 404.8 L324.5 403.7 L325 402.3 L325.2 400.8 L325.3 399.5 L325.4 398.5 L325.7 397.8 L326.1 397.3 L326.6 396.9 L326.9 396.3 L327 395.6 L326.8 394.9 L326.3 394.1 L325.8 393.4 Z" pathLength="1" style="fill:var(--hero-oro-papel)"/>
             <path d="M316.2 395.8 L315.5 395.8 L314.4 396 L312.8 396.4 L311 396.5 L309.2 396.4 L307.8 395.9 L306.7 395.1 L305.9 394.2 L305.2 393.1 L304.4 392 L303.4 390.7 L302.3 389.2 L301.2 387.5 L300.4 385.6 L300.1 383.8 L300.4 382 L301 380.3 L301.5 378.6 L302.1 376.7 L302.9 374.8 L303.9 372.9 L305.2 371.4 L307 370.3 L309 369.7 L311.1 369.6 L313.2 369.7 L315.2 369.7 L317 369.7 L318.9 369.5 L320.7 369.4 L322.6 369.4 L324.5 369.6 L326.3 370.1 L328.1 370.5 L330 370.9 L332.1 371.1 L334.3 371.3 L336.6 371.8 L338.7 372.6 L340.6 373.8 L342.2 375.3 L343.4 377.1 L344.6 379 L345.9 380.8 L347.4 382.6 L349 384.6 L350.5 386.7 L351.7 388.9 L352.6 391.4 L353.2 394 L353.6 396.6 L353.9 399.4 L354.1 402.3 L354.2 405.3 L353.8 408.3 L352.8 411.1 L351.2 413.7 L349 415.8 L346.5 417.6 L344 419.1 L341.5 420.6 L339 422.1 L336.5 423.6 L334 425 L331.2 426.1 L328.4 426.8 L325.5 427.3 L322.6 427.7 L319.6 428.1 L316.6 428.5 L313.5 428.8 L310.3 428.9 L307.1 428.4 L304.1 427.4 L301.3 425.9 L298.8 424.2 L296.2 422.3 L293.6 420.6 L290.9 418.9 L288.1 417.1 L285.4 415 L282.8 412.7 L280.6 410 L278.6 407.1 L276.8 404.1 L275 400.9 L273.3 397.5 L271.9 393.9 L271 390.1 L270.7 386.3 L271.3 382.4 L272.5 378.7 L274.1 375.3 L276 371.9 L277.8 368.6 L279.7 365.3 L281.8 362 L284.1 358.9 L286.8 356 L289.8 353.5 L293 351.2 L296.4 349.1 L299.8 347.1 L303.4 345.2 L307.2 343.4 L311.1 342.1 L315.2 341.3 L319.4 341.2 L323.6 341.7 L327.6 342.5 L331.7 343.4 L335.7 344.2 L339.8 345.1 L344 346.1 L348.1 347.4 L352.2 349.1 L356 351.2 L359.7 353.8 L363.2 356.5 L366.7 359.5 L370.1 362.7 L373.3 366.2 L376 370.1 L378.1 374.4 L379.3 379 L379.9 383.7 L380 388.4 L379.9 393 L379.8 397.7 L379.5 402.4 L379 407.1 L378 411.8 L376.5 416.4 L374.5 420.8 L372.1 425 L369.4 429.1 L366.5 433.1 L363.4 437 L360 440.7 L356.1 444.1 L351.8 446.8 L347.1 448.9 L342.2 450.5 L337.2 451.7 L332.2 452.7 L327.2 453.8 L322.1 454.8 L316.9 455.6 L311.6 456 L306.2 455.8 L300.8 455.1 L295.5 453.9 L290.2 452.4 L284.9 450.6 L279.6 448.5 L274.5 445.8 L269.7 442.6 L265.5 438.7 L262 434.3 L259 429.4 L256.5 424.4 L254.1 419.3 L251.9 414.2 L249.8 408.9 L248.1 403.5 L246.9 397.9 L246.3 392.3 L246.3 386.5 L246.8 380.8 L247.7 375.1 L248.9 369.4 L250.5 363.7 L252.5 358.2 L255.2 352.9 L258.6 348 L262.7 343.5 L267.1 339.5 L271.8 335.8 L276.5 332.2 L281.4 328.6 L286.3 325.1 L291.6 321.8 L297.2 319 L303.1 316.7 L309.3 315 L315.6 313.8 L322.1 313 L328.7 312.5 L335.3 312.8 L341.9 313.8 L348.4 315.5 L354.5 318.1 L360.2 321.4 L365.5 325.3 L370.5 329.5 L375.3 333.9 L379.9 338.3 L384.3 343 L388.4 348 L392 353.3 L394.9 359.1 L397.2 365 L399 371.2 L400.3 377.4 L401.3 383.7 L401.9 390 L402 396.4 L401.4 402.7 L400.6 402.6 L401.2 396.3 L401 390 L400.1 383.8 L398.9 377.7 L397.2 371.6 L395.2 365.7 L392.7 360 L389.6 354.7 L385.8 349.7 L381.6 345.1 L377 340.9 L372.4 336.9 L367.6 333.1 L362.7 329.5 L357.5 326.2 L352 323.4 L346.2 321.4 L340.1 320.3 L333.9 319.9 L327.9 320.1 L321.9 320.7 L316.1 321.5 L310.4 322.7 L304.8 324.3 L299.5 326.5 L294.5 329.1 L289.9 332.1 L285.4 335.2 L281.1 338.4 L276.8 341.6 L272.5 344.8 L268.4 348.3 L264.6 352.3 L261.4 356.6 L258.9 361.4 L257 366.4 L255.5 371.5 L254.4 376.7 L253.5 381.8 L252.9 387 L252.8 392.2 L253.3 397.4 L254.4 402.5 L256.1 407.4 L258 412.2 L260 416.9 L262.1 421.5 L264.5 426.1 L267.2 430.5 L270.5 434.5 L274.4 437.9 L278.8 440.7 L283.5 443 L288.4 444.7 L293.3 446.1 L298.1 447.3 L302.9 448.2 L307.7 448.7 L312.5 448.6 L317.3 448.1 L321.9 447.2 L326.3 446.2 L330.7 445.1 L335 444.2 L339.4 443.1 L343.7 441.8 L347.8 440 L351.6 437.6 L355 434.7 L358 431.4 L360.8 428 L363.3 424.5 L365.7 421 L367.9 417.3 L369.8 413.5 L371.2 409.5 L372.1 405.3 L372.6 401.2 L372.9 397.1 L373.2 392.9 L373.4 388.8 L373.4 384.6 L373 380.4 L371.9 376.3 L370.1 372.5 L367.6 369 L364.7 365.9 L361.5 363.1 L358.3 360.6 L355.1 358.2 L351.7 356.1 L348.2 354.3 L344.6 352.9 L340.9 352 L337.2 351.4 L333.5 350.8 L330 350.2 L326.6 349.5 L323.1 348.9 L319.5 348.6 L315.9 348.7 L312.4 349.5 L309.1 350.8 L306 352.5 L303 354.2 L300.2 356 L297.4 357.8 L294.6 359.7 L292.1 361.8 L289.9 364.2 L287.9 366.8 L286.2 369.6 L284.6 372.3 L282.9 375 L281.2 377.8 L279.6 380.7 L278.4 383.8 L277.8 387.1 L278 390.4 L278.8 393.6 L280.1 396.7 L281.6 399.6 L283.1 402.3 L284.7 404.9 L286.4 407.4 L288.4 409.6 L290.6 411.5 L293.1 413.2 L295.6 414.6 L297.9 415.9 L300.1 417.3 L302.3 418.8 L304.5 420.2 L306.8 421.4 L309.3 422.2 L312 422.4 L314.7 422.1 L317.2 421.6 L319.7 421 L322 420.5 L324.4 420.1 L326.6 419.6 L328.9 418.9 L331 418 L333 416.8 L334.8 415.5 L336.8 414.3 L338.8 413.2 L340.8 412.1 L342.9 410.8 L344.7 409.2 L346 407.2 L346.7 404.9 L346.9 402.5 L346.8 400.1 L346.5 397.8 L346.2 395.6 L345.9 393.5 L345.4 391.5 L344.7 389.6 L343.6 387.9 L342.4 386.3 L341.1 384.8 L339.9 383.4 L338.9 382 L338 380.6 L337.1 379.2 L335.9 378 L334.4 377.1 L332.6 376.6 L330.7 376.5 L328.9 376.6 L327.3 376.6 L325.9 376.5 L324.5 376.3 L323.2 376.1 L321.8 376 L320.5 376.2 L319.2 376.4 L318 376.7 L316.7 376.8 L315.3 376.7 L313.8 376.5 L312.3 376.5 L310.9 376.8 L309.7 377.7 L308.9 378.9 L308.4 380.4 L308.2 381.9 L308 383.3 L307.8 384.5 L307.5 385.7 L307.4 386.8 L307.5 388 L307.9 389.1 L308.5 390.2 L309.1 391.1 L309.5 392 L309.8 392.8 L309.9 393.6 L310 394.3 L310.5 395 L311.4 395.5 L312.6 395.7 L313.9 395.7 L315.1 395.5 L316.1 395.3 L316.7 395.3 Z" pathLength="1" style="fill:var(--hero-oro-papel)"/>
@@ -234,11 +250,16 @@
           <g class="hero-fundido" style="animation-delay:1.8s">
             <g style="fill:var(--hero-verde)"><circle cx="262.1" cy="373" r="1.3"/><circle cx="363.7" cy="396.5" r="1.4"/><circle cx="314.8" cy="444.1" r="1.4"/><circle cx="355.7" cy="383.4" r="1.4"/><circle cx="329.5" cy="456.8" r="1.4"/><circle cx="284.6" cy="355.2" r="1"/><circle cx="349.7" cy="408.5" r="1.4"/><circle cx="327.3" cy="451.9" r="1.2"/><circle cx="269.2" cy="373.4" r="1.4"/><circle cx="300" cy="354.5" r="1.3"/><circle cx="361.8" cy="351.1" r="1.1"/><circle cx="373.5" cy="351.5" r="1.2"/><circle cx="297" cy="381" r="1.1"/><circle cx="324.9" cy="439.8" r="1.4"/><circle cx="360" cy="450.6" r="1.4"/><circle cx="365.2" cy="363.7" r="1.4"/></g>
           </g>
+          </g>
 
-          <g stroke-width="1.4" stroke-opacity=".5" style="stroke:var(--hero-verde)">
+          <g class="hero-vapores" stroke-width="1.4" stroke-opacity=".5" style="stroke:var(--hero-verde)">
             <path class="hero-vapor" style="animation-delay:2.2s" d="M298 338 C290 326 306 316 298 302 S290 280 298 268"/>
             <path class="hero-vapor" style="animation-delay:3.9s" d="M322 330 C314 316 330 306 322 290 S314 268 322 254"/>
             <path class="hero-vapor" style="animation-delay:5.6s" d="M346 338 C338 326 354 316 346 302 S338 280 346 268"/>
+          </g>
+          <g class="hero-vapores hero-vapores--cuenco" stroke-width="1.2" stroke-opacity=".45" style="stroke:var(--hero-verde)">
+            <path class="hero-vapor" style="animation-delay:2.9s;animation-duration:6.3s" d="M492 596 C486 588 498 580 492 570 S486 552 492 544"/>
+            <path class="hero-vapor" style="animation-delay:5.1s;animation-duration:5.7s" d="M510 600 C504 592 516 584 510 574 S504 556 510 548"/>
           </g>
 
           <g transform="translate(320 392)">
@@ -263,6 +284,13 @@
             <g class="hero-dibujo" style="animation-delay:1.1s;stroke:var(--hero-verde)" stroke-width="1">
               <path d="M493 150 A35 35 0 1 0 563 150 A35 35 0 1 0 493 150 Z" pathLength="1" style="fill:var(--hero-oro)"/>
               <path d="M498 150 A30 30 0 1 0 558 150 A30 30 0 1 0 498 150 Z" pathLength="1" style="stroke:var(--hero-oro-papel)"/>
+            </g>
+            <?php /* Ondas en el vino: un anillo que se abre desde el centro de la
+                     copa cada pocos segundos, como si alguien la hubiera
+                     dejado sobre la mesa. */ ?>
+            <g fill="none" stroke-width="1.2" style="stroke:var(--hero-oro-papel)">
+              <circle class="hero-onda" cx="528" cy="150" r="7" vector-effect="non-scaling-stroke"/>
+              <circle class="hero-onda" cx="528" cy="150" r="7" vector-effect="non-scaling-stroke" style="animation-delay:4.9s"/>
             </g>
             <g class="hero-fundido" style="animation-delay:2s">
               <path d="M507 140 A23 23 0 0 1 521 128" stroke-width="2.4" style="stroke:var(--hero-crema)"/>
@@ -306,6 +334,45 @@
             <g transform="translate(338 646) rotate(-14) scale(1)"><path d="M-2 0 C-6 0 -10 -3 -13 -8" pathLength="1"/><path d="M5 -5 C16 -7.5 32 -6.5 46 .5 C34 3.5 18 5.5 5 5 Q2 0 5 -5 Z" pathLength="1" style="fill:var(--hero-verde)"/><path d="M5 -5 Q-1 -6 -2 0 Q-1 6 5 5 Q7 0 5 -5 Z" stroke-width="1" pathLength="1" style="fill:var(--hero-oro-papel)"/><path d="M11 -2.4 C20 -3.6 30 -3 38 -.8" stroke-width="1.2" pathLength="1" style="stroke:var(--hero-crema)"/></g>
             <g transform="translate(366 668) rotate(6) scale(0.86)"><path d="M-2 0 C-6 0 -10 -3 -13 -8" pathLength="1"/><path d="M5 -5 C16 -7.5 32 -6.5 46 .5 C34 3.5 18 5.5 5 5 Q2 0 5 -5 Z" pathLength="1" style="fill:var(--hero-verde)"/><path d="M5 -5 Q-1 -6 -2 0 Q-1 6 5 5 Q7 0 5 -5 Z" stroke-width="1" pathLength="1" style="fill:var(--hero-oro-papel)"/><path d="M11 -2.4 C20 -3.6 30 -3 38 -.8" stroke-width="1.2" pathLength="1" style="stroke:var(--hero-crema)"/></g>
           </g>
+          <?php /* La vela. Un portavelas visto desde arriba, con su llama y dos
+                   halos punteados (el mismo punteado de la corona del medallón
+                   y de las órbitas): la llama tiembla con un ritmo irregular,
+                   los halos respiran desfasados y la llama se inclina lejos
+                   del puntero (--hero-px), como si el aire que mueve la mano
+                   la empujara. */ ?>
+          <?php /* Escalada sobre el pabilo (580, 350): dibujada a la medida de las
+                   demás piezas se perdía junto al plato. */ ?>
+          <g class="hero-vela" transform="translate(580 350) scale(1.3) translate(-580 -350)">
+            <g class="hero-fundido" style="animation-delay:1.6s">
+              <g clip-path="url(#hero-c-vela-sh)"><path d="M500.0 328.0L560.0 388.0M505.9 328.0L565.9 388.0M511.9 328.0L571.9 388.0M517.8 328.0L577.8 388.0M523.8 328.0L583.8 388.0M529.7 328.0L589.7 388.0M535.6 328.0L595.6 388.0M541.6 328.0L601.6 388.0M547.5 328.0L607.5 388.0M553.5 328.0L613.5 388.0M559.4 328.0L619.4 388.0M565.3 328.0L625.3 388.0M571.3 328.0L631.3 388.0M577.2 328.0L637.2 388.0M583.2 328.0L643.2 388.0M589.1 328.0L649.1 388.0M595.0 328.0L655.0 388.0M601.0 328.0L661.0 388.0M606.9 328.0L666.9 388.0M612.9 328.0L672.9 388.0" stroke-width="1" stroke-opacity="0.42" style="stroke:var(--hero-verde)"/></g>
+            </g>
+            <g class="hero-dibujo" style="animation-delay:1.25s;stroke:var(--hero-verde)" stroke-width="1.8">
+              <path d="M558 350 A22 22 0 1 0 602 350 A22 22 0 1 0 558 350 Z" pathLength="1" style="fill:var(--hero-crema)"/>
+              <path d="M563.5 350 A16.5 16.5 0 1 0 596.5 350 A16.5 16.5 0 1 0 563.5 350 Z" stroke-width="1" pathLength="1" style="fill:var(--hero-lino);stroke:var(--hero-oro)"/>
+            </g>
+            <g class="hero-fundido" style="animation-delay:1.9s">
+              <g fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke:var(--hero-oro)">
+                <circle class="hero-halo" cx="580" cy="338" r="31" stroke-dasharray="0.5 7"/>
+                <circle class="hero-halo hero-halo--lejos" cx="580" cy="338" r="43" stroke-dasharray="0.5 9"/>
+              </g>
+              <g class="hero-llama-eje">
+                <g class="hero-llama">
+                  <path d="M580 350 C573 345 574 335 580 324 C586 335 587 345 580 350 Z" stroke-width="1" style="fill:var(--hero-oro);stroke:var(--hero-verde)"/>
+                  <path d="M580 347.5 C576.8 344.5 577 340 580 334 C583 340 583.2 344.5 580 347.5 Z" style="fill:var(--hero-crema)"/>
+                </g>
+              </g>
+              <circle cx="580" cy="350" r="1.8" style="fill:var(--hero-tinta)"/>
+            </g>
+          </g>
+
+          <?php /* Migas junto al pan: dan un saltito de vez en cuando, cada una a
+                   su ritmo. */ ?>
+          <g class="hero-fundido" style="animation-delay:2s;fill:var(--hero-oro)">
+            <circle class="hero-miga" cx="248" cy="579" r="1.8"/>
+            <circle class="hero-miga" cx="270" cy="643" r="1.5" style="animation-duration:8.9s;animation-delay:-3.3s"/>
+            <circle class="hero-miga" cx="232" cy="694" r="1.4" style="animation-duration:6.7s;animation-delay:-5.2s"/>
+          </g>
+
           <?php /* La capa viva. Va encima de la mesa y es lo único del dibujo que
                    no está quieto después de la entrada: hojas de albahaca que
                    cruzan el panel, harina que sube del pan, dos órbitas punteadas

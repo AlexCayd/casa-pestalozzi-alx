@@ -86,7 +86,16 @@ final class BuzonNotificacionesService
         return $id;
     }
 
-    /** @return array{cantidad:int,cantidad_accionable:int,cantidad_seguimiento:int,prioridad_maxima:?string,prioridad_maxima_accionable:?string} */
+    /**
+     * Cuenta FILAS abiertas de la tabla, sin mirar si su fuente sigue viva.
+     *
+     * NO es el número del buzón: el cajón pinta tarjetas por reservación y
+     * descarta los avisos cuya fuente ya no pide nada, así que esta cuenta
+     * puede decir «1» con la pestaña vacía. Para el contador, el subtítulo y
+     * la API usa Services\Reservations\ReservacionBuzonBandejaService::resumen().
+     *
+     * @return array{cantidad:int,cantidad_accionable:int,cantidad_seguimiento:int,prioridad_maxima:?string,prioridad_maxima_accionable:?string}
+     */
     public static function resumen(): array
     {
         try {

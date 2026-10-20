@@ -17,7 +17,6 @@ protege los secretos fuera del repositorio.
 | `N8N_RESERVATIONS_CALLBACK_SECRET` | Autentica callbacks n8n → PHP; debe diferir del secreto anterior. |
 | `RESERVATION_PUBLIC_BASE_URL` | Base pública HTTPS que se incluye en enlaces de reservación. |
 | `N8N_WEBHOOK_SUGERENCIAS_URL`, `N8N_WEBHOOK_AREAS_MEJORA_URL`, `N8N_SECRET` | Webhooks y autenticación que conservan sugerencias, analíticas/áreas y feedback. |
-| `IA_N8N_WEBHOOK_URL` | Webhook del flujo n8n del Asistente IA (`/admin/ia`). Vacía por omisión: el módulo se ve, avisa que no está conectado y no hace peticiones. La llama el navegador, no PHP (ver [Asistente IA](#asistente-ia)). |
 | `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. |
 | `RESERVAS_TELEFONO_VISIBLE`, `RESERVAS_TELEFONO_TEL` | Teléfono público del restaurante, tal como se lee y para `tel:`. |
 | `RESERVAS_WHATSAPP` | Respaldo del WhatsApp de reservaciones y catas: sólo se usa si el panel no tiene número guardado. |
@@ -28,54 +27,64 @@ credenciales y configuración de workflows.
 
 ### Asistente IA
 
-`/admin/ia` es, por ahora, sólo la vista. Con `IA_N8N_WEBHOOK_URL` vacía —o con
-algo que no sea una URL `http(s)` válida sin credenciales incrustadas— el panel
-no hace ninguna petición: la cabecera dice «Vista previa · El asistente aún no
-está conectado» y cada pregunta recibe un mensaje de estado, nunca una
-respuesta inventada.
+`/admin/ia` no lleva configuración propia. Responde con el **motor de consultas
+rápidas** (`Services\Analytics\ConsultasRapidas`), no con un modelo de
+lenguaje: cada pregunta es un `GET /admin/api/consultas` estructurado
+(`?intencion=&id=&opcion=&periodo=`) contra la base. La integración con n8n que
+se previó al principio (`IA_N8N_WEBHOOK_URL`) **se descartó**: esa variable ya
+no se lee.
 
-Con la URL configurada, el **navegador** del administrador llama al webhook; no
-hay proxy en PHP. El único punto de contacto es `enviarMensaje()` en
-`src/js/admin/ia/ia.js`:
+**No hay texto libre.** El compositor es una pregunta ARMADA: una de las
+preguntas base del motor con sus variables como huecos que se eligen de listas
+(«Ventas de [todo el restaurante ▾] · [Hoy ▾]»). Nace con la primera del
+catálogo; se cambia de pregunta desde el catálogo de la conversación nueva, el
+botón de la pregunta (fila de abajo del compositor) o Ctrl/⌘+K; y tras enviar se
+queda con la que se contestó, lista para cambiarle un valor. Teclado: Tab
+recorre los huecos, Enter, Espacio o ↓ abren su lista, y Ctrl/⌘+Enter envía.
 
-```text
-POST <IA_N8N_WEBHOOK_URL>
-Content-Type: application/json
+Las preguntas base (`ConsultasRapidas::capacidades()`), por familia:
 
-{
-  "conversation_id": "c-3f9a51d07b2e4c8a",
-  "message": "¿Cuántos capuchinos se vendieron ayer?",
-  "history": [
-    { "role": "user", "content": "…" },
-    { "role": "assistant", "content": "…" }
-  ]
-}
-```
+| Familia | Pregunta | Qué cuenta |
+| --- | --- | --- |
+| Ventas | Ventas totales | importe, tickets y ticket promedio |
+| | Ventas de un platillo | unidades, importe y tickets, con desglose por opción |
+| | Ventas por categoría | lo vendido de una categoría y sus platillos más pedidos |
+| | Lo más vendido | los cinco platillos con más unidades |
+| | Ticket promedio y comensales | promedio por cuenta y por comensal, comensales por mesa |
+| | Platillos sin venta | platillos activos de categorías activas que nadie pidió |
+| Equipo y servicio | Ventas por mesero | importe, tickets y propinas por mesero |
+| | Horas pico | tickets por hora de **apertura** (llegada) |
+| | Cancelaciones | renglones cancelados en cuentas cerradas |
+| Inventario | Existencia de un ingrediente | stock, mínimo, valor y días de cobertura |
+| | Consumo de un ingrediente | lo descontado por ventas (movimientos `venta` − `cancelacion`), merma y platillos que lo usaron |
+| | Lo que está por agotarse | ingredientes bajo su mínimo |
 
-- `conversation_id` es estable durante toda la conversación y aleatorio: no
-  identifica al usuario ni viaja la sesión (`credentials: 'omit'`).
-- `history` son los turnos anteriores a `message`, los 20 más recientes. Los
-  avisos que escribe el propio panel (conexión pendiente, error, detenida) no
-  se envían.
-- Respuesta esperada (2xx): `{ "reply": "<markdown>" }`. También se aceptan una
-  lista con ese objeto (lo que devuelve «Respond to Webhook» con todos los
-  ítems), la clave `output` del nodo AI Agent y un cuerpo `text/plain`.
-- El markdown se pinta escapando primero el HTML: párrafos, negritas,
-  cursivas, listas, código, citas, encabezados, tablas simples y enlaces sólo
-  `https://` o a rutas del panel. Las cifras salen en mono tabular.
-- La espera se corta a los 90 s; el botón Detener aborta la petición. Un error
-  HTTP, de red o de formato se muestra en el hilo con «Reintentar».
+Las ventas se cuentan como en el resto del panel: tickets cerrados, sin
+renglones cancelados, por `COALESCE(hora_cierre, hora_apertura)`. Cada cifra
+llega comparada con el periodo anterior de la misma duración; la flecha dice
+hacia dónde y el color qué significa (más cancelaciones o más platillos sin
+venta es peor; más consumo no es ni mejor ni peor). El consumo NO vuelve a
+explotar recetas: suma los movimientos que dejó `Inventario::aplicarVenta()`
+—la receta explotada al mandar la comanda—, así cuadra con la existencia
+aunque la receta cambie después; por eso su periodo va por la fecha del
+movimiento y no por la del cobro.
 
-Que llame el navegador tiene dos consecuencias. n8n debe permitir **CORS** para
-el origen del panel (opción «Allowed Origins» del nodo Webhook) y contestar el
-`OPTIONS` previo que dispara el JSON. Y la URL queda impresa en el HTML de
-`/admin/ia`, que sólo abre un admin pero no es un secreto: si el flujo tiene que
-autenticarse, el paso siguiente es un proxy bajo `/admin/api/ia` —protegido por
-el prefijo— que añada el secreto del lado del servidor.
+- La respuesta se pinta con la tarjeta del motor (`window.ConsultasRapidas.montar`,
+  en `admin.js`): cambiar un hueco rehace esa respuesta en su sitio; un renglón
+  abre una pregunta nueva.
+- Lo que el motor no puede contestar (un platillo o ingrediente que ya no existe)
+  se dice, con el catálogo debajo.
+- La espera se corta a los 20 s; Detener aparece si pasa de 1.2 s. Un error de
+  red, de sesión o de formato se muestra en el hilo con «Repetir».
 
 Las conversaciones se guardan en `localStorage` del navegador
 (`cp-admin-ia-conversaciones-v1`), no en la base: no se comparten entre equipos
-ni entran en ningún respaldo, y «Borrar» las elimina sólo de ese navegador.
+ni entran en ningún respaldo, y «Borrar» las elimina sólo de ese navegador. Se
+guardan **las 10 más recientes** (`AdminIaController::MAX_CONVERSACIONES`): al
+abrir una más se borra la más antigua, lo guardado de antes se recorta al
+cargar, y el pie del historial lo dice. Las preguntas de texto guardadas antes
+de retirar el texto libre se pueden seguir repitiendo: van al intérprete del
+motor (`?q=`), que se conserva para eso.
 
 ## Comportamiento por entorno
 

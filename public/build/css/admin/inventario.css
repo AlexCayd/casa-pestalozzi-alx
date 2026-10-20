@@ -1,9 +1,553 @@
 @charset "UTF-8";
 /*
  * Módulo Inventario (Ingredientes).
- * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí solo
- * viven las tarjetas de resumen (KPIs) propias del inventario.
+ * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí
+ * viven la tabla de existencias, las listas de pendientes (sus filas), la merma
+ * y la tabla de proveedores de la ficha.
  */
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+/*
+ * Mixins compartidos del SCSS administrativo.
+ * Encapsula media queries y preferencias de movimiento del módulo admin.
+ */
+/*
+ * Módulo Inventario (Ingredientes).
+ * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí
+ * viven la tabla de existencias, las listas de pendientes (sus filas), la merma
+ * y la tabla de proveedores de la ficha.
+ */
+/*
+ * Tarjetas-filtro y listas de pendientes.
+ *
+ * Lo comparten Menú («Con receta») e Inventario («Sobre el mínimo», «Con
+ * proveedor»): la misma tarjeta resume cuánto falta y, al pulsarla, el listado
+ * de debajo se vuelve una lista de tareas con su acción directa. Es un parcial
+ * y no un componente de admin.css porque sólo lo cargan esas dos hojas de
+ * módulo (cada una lo incluye con @use; gulp-sass no compila los `_*.scss`).
+ *
+ * Marcado: views/admin/partials/_filtros-estado.php y _tareas-completas.php;
+ * las filas las pinta cada vista.
+ *
+ * Todo cuelga de `.admin-body` (0,2,0): las tarjetas son <a> y el reset del
+ * panel (`.admin-body a`, (0,1,1)) les quitaría el fondo y el color; y los
+ * párrafos del acuse pierden contra `.admin-body p` con una clase sola.
+ *
+ * Fondos SÓLIDOS a propósito, ni vidrio ni tinte: es lo que el cliente pidió
+ * para el panel, y una tarjeta que se pulsa necesita un borde nítido que la
+ * separe del fondo. Sin filetes laterales de color: el estado lo dice el
+ * sello («77 sin receta») y la selección, el contorno en tinta.
+ */
+.admin-body .admin-filtros-estado {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) repeat(var(--fe-tareas, 1), minmax(240px, 1.35fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-body .admin-filtro-estado {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px 18px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  color: var(--admin-text);
+  text-decoration: none;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-filtro-estado:hover {
+  border-color: var(--admin-border-strong);
+  background-color: var(--admin-surface-strong);
+  box-shadow: var(--admin-shadow-md);
+}
+.admin-body .admin-filtro-estado:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+.admin-body .admin-filtro-estado[aria-current=true], .admin-body .admin-filtro-estado[aria-current=true]:hover {
+  border-color: var(--admin-accent);
+  background-color: var(--admin-surface);
+  box-shadow: inset 0 0 0 1px var(--admin-accent), var(--admin-shadow-md);
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__cabeza {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__rotulo {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__pct {
+  flex: 0 0 auto;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__cifra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(26px, 2.3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__de {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__nota {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__barra {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--admin-border-soft);
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__relleno {
+  display: block;
+  width: var(--avance, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--admin-accent);
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-top: auto;
+  padding-top: 2px;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--admin-text);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__accion svg {
+  flex: 0 0 auto;
+  stroke-width: 2.2;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-filtro-estado .admin-filtro-estado__accion--volver {
+  margin-left: 0;
+  color: var(--admin-muted);
+}
+.admin-body .admin-filtro-estado:hover .admin-filtro-estado__accion svg {
+  transform: translateX(3px);
+}
+.admin-body .admin-filtro-estado:hover .admin-filtro-estado__accion--volver svg {
+  transform: translateX(-3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-filtro-estado {
+    transition: none;
+  }
+  .admin-body .admin-filtro-estado .admin-filtro-estado__accion svg {
+    transition: none;
+  }
+  .admin-body .admin-filtro-estado:hover .admin-filtro-estado__accion svg {
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-body .admin-filtros-estado {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+@media (pointer: coarse) {
+  .admin-body .admin-filtro-estado {
+    padding-block: 16px;
+  }
+}
+.admin-body .admin-filtros-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(250px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-block: 16px 18px;
+}
+
+@media (max-width: 1100px) {
+  .admin-body .admin-filtros-fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.admin-body .admin-filtro-buscar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 15px 18px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+}
+.admin-body .admin-filtro-buscar .admin-filters__search {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-body .admin-filtro-buscar label {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.admin-body .admin-filtro-buscar.is-reactive .admin-filters__actions {
+  display: none;
+}
+
+.admin-body .admin-filtro-buscar__nota {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.admin-body .admin-tareas-cabeza {
+  margin-bottom: 14px;
+}
+.admin-body .admin-tareas-cabeza .admin-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+}
+.admin-body .admin-tareas-cabeza p {
+  max-width: 64ch;
+}
+
+.admin-body .admin-tareas-cabeza__volver {
+  flex: 0 0 auto;
+}
+
+.admin-body .admin-tareas-cuenta {
+  margin: 0 0 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-tareas-cuenta .admin-num {
+  color: var(--admin-text);
+}
+
+.admin-body .admin-tareas {
+  --tareas-cols: auto minmax(0, 1fr) auto auto;
+  display: grid;
+  grid-template-columns: var(--tareas-cols);
+  column-gap: 16px;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--admin-border-soft);
+  list-style: none;
+}
+
+.admin-body .admin-tareas--con-foto {
+  --tareas-cols: auto auto minmax(0, 1fr) auto auto;
+}
+
+.admin-body .admin-tarea {
+  position: relative;
+  display: grid;
+  grid-column: 1/-1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-tarea:hover, .admin-body .admin-tarea:focus-within {
+  background-color: var(--admin-surface-soft);
+}
+
+@supports not (grid-template-columns: subgrid) {
+  .admin-body .admin-tarea {
+    grid-template-columns: var(--tareas-cols);
+    column-gap: 16px;
+  }
+}
+.admin-body .admin-tarea__marca {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 1.5px dashed var(--admin-border-strong);
+  border-radius: 50%;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-body .admin-tarea:hover .admin-tarea__marca,
+.admin-body .admin-tarea:focus-within .admin-tarea__marca {
+  border-color: var(--admin-accent);
+}
+
+.admin-body .admin-tarea__texto {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-body .admin-tarea__nombre {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-body .admin-tarea__detalle {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-body .admin-tarea__aviso {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+.admin-body .admin-tarea__aviso--grave {
+  color: var(--admin-danger-text);
+}
+
+.admin-body .admin-tarea__dato {
+  color: var(--admin-muted);
+  font-size: 13.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-body .admin-tarea__accion {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-body .admin-tarea__enlace {
+  position: static;
+  overflow: visible;
+}
+.admin-body .admin-tarea__enlace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.admin-body .admin-tarea__enlace:hover, .admin-body .admin-tarea__enlace:active {
+  transform: none;
+}
+
+.admin-body .admin-tarea:hover .admin-tarea__enlace,
+.admin-body .admin-tarea__enlace:focus-visible {
+  border-color: var(--admin-accent);
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+.admin-body .admin-tarea__enlace .admin-btn__icon {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-body .admin-tarea:hover .admin-tarea__enlace .admin-btn__icon {
+  transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-tarea,
+  .admin-body .admin-tarea__marca,
+  .admin-body .admin-tarea__enlace .admin-btn__icon {
+    transition: none;
+  }
+  .admin-body .admin-tarea:hover .admin-tarea__enlace .admin-btn__icon {
+    transform: none;
+  }
+}
+@media (max-width: 640px) {
+  .admin-body .admin-tareas {
+    display: block;
+  }
+  .admin-body .admin-tarea {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 8px;
+    padding-inline: 4px;
+  }
+  .admin-body .admin-tarea__marca {
+    align-self: start;
+    margin-top: 2px;
+  }
+  .admin-body .admin-tarea .admin-tarea__foto {
+    display: none;
+  }
+  .admin-body .admin-tarea__dato,
+  .admin-body .admin-tarea__accion {
+    grid-column: 2;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .admin-body .admin-tarea__accion .admin-btn {
+    min-height: 44px;
+  }
+}
+.admin-body .admin-tareas-fin {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: clamp(32px, 6vw, 56px) 20px;
+  border-radius: var(--admin-radius-md);
+  background-color: var(--admin-surface-soft);
+  text-align: center;
+}
+
+.admin-body .admin-tareas-fin__sello {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  place-items: center;
+  border-radius: 50%;
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+  animation: admin-tareas-sello 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.admin-body .admin-tareas-fin__sello svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 2.6;
+}
+.admin-body .admin-tareas-fin__sello svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 0;
+  animation: admin-tareas-visto 320ms 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.admin-body .admin-tareas-fin__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.admin-body .admin-tareas-fin__texto {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.admin-body .admin-tareas-fin__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-body .admin-tareas-fin--parcial .admin-tareas-fin__sello {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--admin-accent);
+  background-color: var(--admin-surface);
+  color: var(--admin-accent);
+  animation-name: admin-tareas-aparece;
+  animation-duration: 240ms;
+  animation-timing-function: var(--admin-ease-out);
+}
+.admin-body .admin-tareas-fin--parcial .admin-tareas-fin__sello svg {
+  width: 24px;
+  height: 24px;
+}
+
+@keyframes admin-tareas-sello {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes admin-tareas-aparece {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes admin-tareas-visto {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-tareas-fin__sello,
+  .admin-body .admin-tareas-fin__sello svg path {
+    animation: none;
+  }
+}
 .admin-inventario .admin-card {
   padding: clamp(18px, 2.4vw, 26px);
 }
@@ -13,132 +557,211 @@
 .admin-inventario .admin-inventario__save {
   white-space: nowrap;
   min-height: 38px;
-  padding-inline: 18px;
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  padding-inline: 14px;
+  font-size: 12px;
 }
-.admin-inventario .admin-inline-form input {
-  min-height: 38px;
+.admin-inventario {
+  /* El campo del ajuste rápido a la misma altura que su botón. `!important`
+     acotado: la regla global de campos de _forms.scss suma (0,6,1) e impone
+     46 px, ancho completo y su relleno a cualquier input que no sea casilla o
+     radio (ver CLAUDE.md); con una clase sola no se llega. Es lo que dejaba
+     el campo más alto que «Guardar» en cada una de las setenta filas. */
+}
+.admin-inventario .admin-inline-form input[type=number] {
+  width: 104px !important;
+  min-height: 38px !important;
+  padding-block: 7px !important;
+  font-family: var(--admin-font-mono) !important;
+  font-size: 13px !important;
 }
 
-/* Reabastecimiento rápido: tarjetas verticales de ingredientes bajo mínimo. */
-.admin-restock {
-  margin-bottom: 18px;
-  border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
-}
-.admin-restock__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-  margin-top: 16px;
-}
-.admin-restock__card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface-soft);
-}
-.admin-restock__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-.admin-restock__name {
-  min-width: 0;
-  flex: 1 1 auto;
-  color: var(--admin-text);
-  font-size: 15px;
-  font-weight: 800;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.admin-restock__levels {
-  display: flex;
-  align-items: baseline;
-  gap: 18px;
-  margin-top: -4px;
-}
-.admin-restock__level {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-.admin-restock__level-label {
-  color: var(--admin-faint);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.admin-restock__level-value {
-  color: var(--admin-muted);
+/* Un <button class="admin-btn"> salía a 16 px y un <a class="admin-btn"> a
+   13: `.admin-body button { font: inherit }` (0,1,1) le gana a la clase del
+   botón (pendiente conocido de _globals.scss, ver CLAUDE.md). En la ficha se
+   veía «Agregar proveedor» un cuerpo por encima de «Administrar proveedores»,
+   su vecino. Se corrige en el ámbito del módulo, no en el global. */
+.admin-body .admin-inventario button.admin-btn {
   font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+}
+
+.admin-body .admin-inventario button.admin-btn--small {
+  font-size: 12px;
+}
+
+.admin-inventario__cifras {
+  margin-bottom: 26px;
+}
+
+.admin-inventario__control {
+  margin-bottom: 12px;
+  scroll-margin-top: 90px;
+}
+
+.admin-inventario__lista {
+  margin-bottom: 26px;
+}
+
+.admin-body .admin-inventario__tabla th,
+.admin-body .admin-inventario__tabla td {
+  padding-block: 12px;
+}
+.admin-body .admin-inventario__tabla th:first-child {
+  width: 100%;
+}
+.admin-body .admin-inventario__tabla tbody tr:hover {
+  box-shadow: none;
+}
+.admin-body .admin-inventario__tabla tbody tr[data-row-href]:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--admin-accent);
+}
+.admin-body .admin-inventario__tabla .admin-table__cell-main {
+  font-weight: 600;
+}
+.admin-body .admin-inventario__tabla tbody tr.is-inactivo td {
+  color: var(--admin-muted);
+}
+
+.admin-body .admin-inventario__col-num {
+  text-align: right;
   white-space: nowrap;
 }
-.admin-restock__level-value--now {
+
+.admin-body .admin-inventario__u {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-body .admin-inventario__tenue {
+  color: var(--admin-muted);
+}
+
+.admin-body .admin-inventario__stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-body .admin-inventario__stock.is-bajo, .admin-body .admin-inventario__stock.is-agotado {
+  font-weight: 600;
+}
+.admin-body .admin-inventario__stock.is-bajo::before, .admin-body .admin-inventario__stock.is-agotado::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+.admin-body .admin-inventario__stock.is-bajo {
+  color: var(--admin-warning-text);
+}
+.admin-body .admin-inventario__stock.is-agotado {
+  color: var(--admin-danger-text);
+}
+
+.admin-body .admin-inventario__accion-destructiva {
+  display: inline-flex;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--admin-border-soft);
+}
+
+.admin-body .admin-inventario__nivel {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  min-width: 150px;
   color: var(--admin-text);
-  font-size: 16px;
-  font-weight: 800;
 }
-.admin-restock__bar {
-  position: relative;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--admin-border-soft);
-  overflow: hidden;
-}
-.admin-restock__bar-fill {
+
+.admin-body .admin-inventario__nivel-barra {
   display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--admin-border-soft);
+}
+.admin-body .admin-inventario__nivel-barra span {
+  display: block;
+  width: var(--avance, 0%);
   height: 100%;
   border-radius: inherit;
-  background: var(--admin-gold);
-  transition: width var(--admin-t-base) var(--admin-ease-out);
+  background-color: var(--admin-c-ambar);
 }
-.admin-restock__bar-fill.is-critical {
-  background: var(--admin-danger);
-}
-.admin-restock__form {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-.admin-restock__input {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.admin-restock__input input {
-  width: 100%;
-  min-height: 42px;
-  padding-right: calc(24px + var(--restock-unit, 2ch));
-}
-.admin-restock__unit {
-  position: absolute;
-  right: 12px;
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
-  pointer-events: none;
-}
-.admin-restock__add {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.admin-body .admin-inventario__nivel-barra span.is-critico {
+  background-color: var(--admin-c-rojo);
 }
 
+.admin-body .admin-inventario__entrada {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-body .admin-inventario__campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-body .admin-inventario__campo input[type=number] {
+  width: 112px !important;
+  min-height: 40px !important;
+  padding-block: 8px !important;
+  font-family: var(--admin-font-mono) !important;
+  font-size: 13px !important;
+}
+
+.admin-body .admin-inventario__unidad {
+  min-width: 2.2em;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+
+.admin-body .admin-inventario__sumar {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.admin-body .admin-tarea:hover .admin-inventario__sumar,
+.admin-body .admin-inventario__entrada:focus-within .admin-inventario__sumar {
+  border-color: var(--admin-accent);
+  background-color: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+.admin-body .admin-inventario__aviso {
+  margin-top: 8px;
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+.admin-body .admin-inventario__aviso a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .admin-body .admin-inventario__campo input[type=number] {
+    min-height: 44px !important;
+  }
+  .admin-body .admin-inventario__sumar {
+    min-height: 44px;
+  }
+}
+@media (max-width: 640px) {
+  .admin-body .admin-inventario__nivel {
+    justify-items: start;
+    min-width: 0;
+  }
+  .admin-body .admin-inventario__entrada {
+    flex-wrap: wrap;
+  }
+  .admin-body .admin-inventario__sumar {
+    min-height: 44px;
+  }
+}
 .admin-merma {
   margin-bottom: 18px;
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 26%, var(--admin-border));
   scroll-margin-top: 90px;
 }
 .admin-merma__form {
@@ -198,8 +821,11 @@
 }
 .admin-merma__actions .admin-btn {
   width: 100%;
-  min-height: 42px;
+  min-height: 46px;
   justify-content: center;
+}
+.admin-merma .admin-select__trigger {
+  font-size: 14px;
 }
 .admin-merma__motivos {
   display: flex;
@@ -246,6 +872,9 @@
  * Es una tabla y no una lista de tarjetas porque lo que se hace aquí es
  * comparar precios entre proveedores, y comparar cifras pide columnas.
  */
+.admin-proveedores {
+  scroll-margin-top: 110px;
+}
 .admin-proveedores__table {
   min-width: 0;
 }
@@ -259,7 +888,16 @@
 .admin-proveedores__table input,
 .admin-proveedores__table select {
   width: 100%;
-  min-height: 38px;
+}
+.admin-proveedores__table .admin-select {
+  min-width: 190px;
+}
+.admin-proveedores__table .admin-select__trigger {
+  font-size: 14px;
+}
+.admin-proveedores__table.admin-table tbody tr:hover {
+  background: transparent;
+  box-shadow: none;
 }
 .admin-proveedores__acciones {
   display: flex;
@@ -307,44 +945,50 @@
 /* ── Uso de un ingrediente en el diálogo de borrado ────────────
  *
  * Lo pinta inventario.js dentro de la ranura custom del ConfirmationModal, con
- * lo que devuelve /admin/api/inventario/uso. El diálogo es el componente
- * compartido de la casa y vive fuera del panel, así que estas reglas usan los
- * roles públicos (--txt, --line…), que son los que resuelven ahí dentro.
+ * lo que devuelve /admin/api/inventario/uso.
+ *
+ * Con los roles --confirmation-* del diálogo, que el panel declara en
+ * alias-admin-heredados. Antes pedía los nombres PÚBLICOS (--txt, --txt-faint):
+ * dentro de .admin-body no existen, así que el filete y el fondo de la caja no
+ * se pintaban y el texto caía a `inherit` (CLAUDE.md, «el error simétrico»).
+ * Bajo .admin-body porque los títulos son <p> y `.admin-body p` (0,1,1) le
+ * ganaba el color a la clase sola.
  */
-.admin-inventario__uso {
+.admin-body .admin-inventario__uso {
   display: grid;
   gap: 6px;
   max-height: 190px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 18%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  background: var(--confirmation-field-bg);
 }
 
-.admin-inventario__uso-titulo {
+.admin-body .admin-inventario__uso-titulo {
   margin: 0;
-  color: var(--txt-strong);
+  color: var(--confirmation-strong);
   font-size: 13px;
   font-weight: 700;
 }
 
-.admin-inventario__uso-lista {
+.admin-body .admin-inventario__uso-lista {
   margin: 0;
   padding-left: 18px;
-  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  color: var(--confirmation-text);
   font-size: 13px;
   line-height: 1.6;
   /* La vía —"vía Salsa de la casa"— es el dato secundario: dice dónde hay que
      ir a editarlo, no qué se rompe. */
 }
-.admin-inventario__uso-lista span {
-  color: var(--txt-faint);
+.admin-body .admin-inventario__uso-lista span {
+  color: var(--confirmation-faint);
   font-size: 12px;
 }
 
-.admin-inventario__uso-aviso {
+.admin-body .admin-inventario__uso-aviso {
   margin: 0;
-  color: var(--txt-faint);
+  color: var(--confirmation-faint);
   font-size: 13px;
 }

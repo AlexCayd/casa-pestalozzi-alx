@@ -399,6 +399,13 @@ class Producto extends ActiveRecord {
             $condiciones[] = "activo = {$visible}";
         }
 
+        // Lista de pendientes de Menú (?pendiente=receta). Misma definición que
+        // el «Falta receta» de Recetas —ninguna fila en producto_componentes—
+        // para que los dos módulos den la misma cifra del mismo catálogo.
+        if ((string) ($filtros['pendiente'] ?? '') === 'receta') {
+            $condiciones[] = "NOT EXISTS (SELECT 1 FROM producto_componentes pc WHERE pc.producto_id = productos.id)";
+        }
+
         return $condiciones;
     }
 

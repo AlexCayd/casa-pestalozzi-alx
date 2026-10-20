@@ -170,13 +170,12 @@
       text-transform: uppercase;
     }
 
-    // Cifra grande: figuras proporcionales (tabular-nums abre demasiado los
-    // dígitos a este tamaño) y la tipografía editorial de la marca. El techo
-    // bajó de 76px porque a ese tamaño la cifra desbordaba su caja y volvía a
-    // desalinear la línea base.
+    // Cifra grande: la de un indicador, en la display del panel como todas las
+    // tarjetas KPI (--admin-font-cifra). El techo bajó de 76px porque a ese
+    // tamaño la cifra desbordaba su caja y volvía a desalinear la línea base.
     &__value {
       color: var(--admin-text);
-      font-family: var(--admin-font-sans);
+      font-family: var(--admin-font-cifra);
       font-size: clamp(40px, 4.4vw, 62px);
       font-weight: 600;
       line-height: 1;
@@ -286,14 +285,12 @@
       text-transform: uppercase;
     }
 
-    // Serif y cifras tabulares, igual que las tarjetas de arriba: la columna de
-    // números se lee alineada aunque cambien de magnitud.
+    // La cifra del chip es un indicador: misma display que las tarjetas.
     &__value {
       color: var(--admin-text);
-      font-family: var(--admin-font-heading);
+      font-family: var(--admin-font-cifra);
       font-size: 26px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
+      font-weight: 600;
       line-height: 1.1;
     }
 
@@ -337,7 +334,7 @@
       margin-top: auto;
       padding-top: 14px;
       color: var(--admin-text);
-      font-family: var(--admin-font-sans);
+      font-family: var(--admin-font-cifra);
       font-weight: 600;
       font-size: clamp(26px, 2.3vw, 34px);
       line-height: 1.02;
@@ -918,11 +915,8 @@
     }
   }
 
-  // Con muchos pares la tabla se desplaza en lugar de estirar la fila.
-  [data-n1-asociacion] .admin-table-wrap {
-    max-height: 460px;
-    overflow-y: auto;
-  }
+  // Sin tope de alto ni scroll propio: las reglas van paginadas de 8 en 8
+  // (nivel1.js) y un scroll interno cortaba la última fila de la página.
 
   // Los paneles se apilan: §3.1 no lleva .admin-nivel1-panel, así que la
   // separación se define sobre el panel base para cubrir los tres.
@@ -1026,6 +1020,34 @@
 .admin-nivel1-lift {
   font-weight: 700;
   color: var(--admin-sage-deep);
+}
+
+/* El par de una regla de asociación: los dos platillos al mismo peso y el «+»
+   apartado y atenuado entre ellos. Sin estas reglas los tres spans iban
+   pegados («Margarita+Margaritas»). Envuelve si el par no cabe. */
+.admin-nivel1-pair {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.admin-nivel1-pair__plus {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-weight: 500;
+}
+
+/* Paginación de las reglas (la pinta nivel1.js con botones). Va dentro del
+   panel, así que lleva el aire del panel y no el de una página. Los botones
+   se igualan a los enlaces de _pagination.php: `.admin-body button` (0,1,1)
+   los dejaba a 16 px junto a los 12 de un enlace. */
+.admin-nivel1-paginacion {
+  margin-top: 14px;
+}
+
+.admin-body .admin-nivel1-paginacion .admin-btn {
+  font-size: 12px;
 }
 
 /*

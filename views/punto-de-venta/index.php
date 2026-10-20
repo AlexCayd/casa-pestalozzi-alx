@@ -32,7 +32,7 @@ $usuarioJson = json_encode([
   <title>Punto de Venta · Casa Pestalozzi</title>
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
   <?php /* Geist locales: el piso funciona sin red. */ ?>
-  <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <?php /* El `?v=` es el mtime: una tablet con la hoja vieja en caché la renueva sola. */ ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">

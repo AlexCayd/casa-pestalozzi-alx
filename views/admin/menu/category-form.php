@@ -9,7 +9,7 @@
     $cartaActual = CategoriasMenu::normalizarCarta($categoria->carta ?? null);
 ?>
 
-<section class="admin-menu admin-menu--form admin-page">
+<section class="admin-menu admin-menu--modulo admin-menu--form admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Categorías</span>

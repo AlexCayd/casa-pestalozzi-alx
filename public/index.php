@@ -137,6 +137,8 @@ $router->post('/admin/menu/toggle',             [AdminMenuController::class, 'to
 $router->get('/admin/menu/variantes',           [AdminMenuController::class, 'variantes']);
 $router->post('/admin/api/menu/variantes',      [AdminMenuController::class, 'guardarVariantes']);
 $router->get('/admin/api/consultas',            [AdminConsultasController::class, 'consultar']);
+$router->get('/admin/api/consultas/catalogo',   [AdminConsultasController::class, 'catalogo']);
+$router->get('/admin/api/consultas/capacidades', [AdminConsultasController::class, 'capacidades']);
 $router->get('/admin/menu/categorias',          [AdminMenuController::class, 'categories']);
 $router->post('/admin/menu/categorias/create',  [AdminMenuController::class, 'categoryCreate']);
 $router->get('/admin/menu/categorias/edit',     [AdminMenuController::class, 'categoryEdit']);

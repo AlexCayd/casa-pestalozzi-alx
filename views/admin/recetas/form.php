@@ -6,6 +6,11 @@
     $subrecetas = isset($subrecetas) && is_iterable($subrecetas) ? $subrecetas : [];
     $componentes = isset($componentes) && is_iterable($componentes) ? $componentes : [];
     $categoriasMap = is_array($categoriasMap ?? null) ? $categoriasMap : [];
+    // Si se vino desde una lista de pendientes (?volver=, validado en el
+    // controlador), «Volver» y «Cancelar» regresan allí. El formulario no
+    // lleva `action`: se envía a esta misma URL, con su `volver`, y al guardar
+    // el controlador redirige a esa lista.
+    $volverUrl = (string) ($volverUrl ?? '/admin/recetas');
 
     // Catálogo de opciones para el buscador de componentes (ingredientes + subrecetas).
     $opciones = [];
@@ -39,7 +44,7 @@
             <h2 class="admin-page__title"><?php echo htmlspecialchars($prod->nombre ?? 'Receta'); ?></h2>
             <p class="admin-page__subtitle">Lo que se descuenta del inventario cada vez que se vende una unidad de este platillo.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
@@ -143,7 +148,7 @@
 
         <div class="admin-form-grid__actions admin-recipe__actions">
             <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Cancelar</a>
+            <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">Cancelar</a>
         </div>
     </form>
 </section>

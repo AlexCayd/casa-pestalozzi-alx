@@ -1,9 +1,9 @@
 <?php
 /**
- * Sub-navegación del módulo de reservaciones: Histórico · Grupos grandes · Casos.
+ * Sub-navegación del módulo de reservaciones: Agenda · Grupos grandes · Casos.
  *
- * Son tres lecturas del mismo dato con tres preguntas distintas —qué hubo y
- * qué hay (histórico), dónde cabe un grupo (grupos grandes), qué tengo que
+ * Son tres lecturas del mismo dato con tres preguntas distintas —quién viene
+ * y qué pasó (agenda), dónde cabe un grupo (grupos grandes), qué tengo que
  * resolver (casos)—, así que comparten entrada en el sidebar y se separan aquí.
  *
  * Va ARRIBA del encabezado de cada pantalla, no debajo: los tres encabezados
@@ -21,7 +21,11 @@
  */
 $subnavActiva = (string)($subnavActiva ?? 'historico');
 $subnavDestinos = [
-    'historico' => ['url' => '/admin/reservaciones', 'etiqueta' => 'Histórico'],
+    // «Agenda» y no «Histórico»: abre en los próximos 30 días, y quien
+    // buscaba las reservas de esta noche no las iba a buscar en un histórico.
+    // La clave interna sigue siendo 'historico' (la usan las vistas y su
+    // prueba estática).
+    'historico' => ['url' => '/admin/reservaciones', 'etiqueta' => 'Agenda'],
     'grupos' => ['url' => '/admin/reservaciones/grupos-grandes', 'etiqueta' => 'Grupos grandes'],
     'casos' => ['url' => '/admin/reservaciones/casos', 'etiqueta' => 'Casos'],
 ];

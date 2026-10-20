@@ -48,6 +48,10 @@ const paths = {
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
     "src/js/admin/core/theme.js",
+    // La llegada tras el login. Vive en components/ porque también la necesitan
+    // el POS y los tableros, que la reciben por bundle.min.js (glob general);
+    // aquí hay que nombrarla. Sin su marcado sale en la primera línea.
+    "src/js/components/llegada.js",
     "src/js/admin/core/motion.js",
     "src/js/admin/core/reactive-filters.js",
     "src/js/admin/core/select.js",
@@ -126,6 +130,13 @@ const paths = {
   adminIaJs: ["src/js/admin/ia/ia.js"],
   // Editor de variantes de platillo (Menú → Variantes).
   adminVariantesJs: ["src/js/admin/menu/variantes.js"],
+  // Tickets: la franja de filtros cambia la lista sin recargar. Sin él la
+  // franja es un formulario GET y funciona igual.
+  adminTicketsJs: ["src/js/admin/tickets/tickets.js"],
+  // Estaciones de impresión: «Imprimir prueba» con sus estados y los campos
+  // por tipo de conexión del formulario (antes un <script> en la vista).
+  // AppNotice ya llega en admin.js.
+  adminImpresorasJs: ["src/js/admin/impresoras/impresoras.js"],
   imagenes: "src/img/**/*",
   // sankey.js va PRIMERO: define window.AdminSankey, que finanzas.js consume
   // al arrancar. Es un concat en scope global, no un módulo, así que el orden
@@ -158,20 +169,11 @@ const paths = {
   // assets/fonts/marca/ — de ahí las publica copyFonts. Ver
   // src/scss/layout/_caras-de-marca.scss.
   //
-  // Geist y Geist Mono son la voz del sistema ADMINISTRATIVO, que no comparte
-  // tipografía con la landing: el panel se diseña para poder despegarse como
-  // producto propio. Llegaban por Google Fonts (Fraunces + Space Grotesk) en
-  // dos peticiones bloqueantes; vendorizarlas deja el panel funcionando sin red
-  // y fija la versión aquí, igual que las caras del sitio público.
-  //
-  // Van las CUATRO caras y no sólo las redondas: los dos ficheros son
-  // variables (eje wght 100-900), pero el estilo no es un eje — hay una regla
-  // que pide `font-style: italic` (modules/analytics.scss) y sin fichero el
-  // navegador inclinaría la redonda por su cuenta. La casa no admite caras
-  // sintéticas (ver CLAUDE.md).
+  // Geist Mono es la cara de las CIFRAS del sistema administrativo (redonda e
+  // itálica: el estilo no es un eje de la variable). La sans del panel ya no
+  // es Geist sino Satoshi, y los titulares van en Expose: las dos son de
+  // Fontshare, viven en assets/fonts/ y las publica copyFonts.
   vendorFonts: [
-    "node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2",
-    "node_modules/@fontsource-variable/geist/files/geist-latin-wght-italic.woff2",
     "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2",
     "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-italic.woff2",
   ],
@@ -195,10 +197,13 @@ function limpiarSalidaFormularioReservacion() {
   ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
 }
 
+// Comprimido: es la hoja de la landing, la que paga el visitante en el
+// teléfono, y en «expanded» arrastraba sangrías y comentarios /* */ de todos
+// los parciales. El mapa de fuentes sigue saliendo para depurar.
 function css() {
   return src(paths.scss)
     .pipe(sourcemaps.init())
-    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(sass({ outputStyle: "compressed" }))
     .pipe(sourcemaps.write("."))
     .pipe(dest("public/build/css")) // auth views
     .pipe(dest("assets/css")); // home view + index.html estatico
@@ -372,6 +377,24 @@ function adminVariantesJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminTicketsJavascript() {
+  return src(paths.adminTicketsJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("tickets.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminImpresorasJavascript() {
+  return src(paths.adminImpresorasJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("impresoras.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function copyChartJs() {
   return src(paths.chartJs).pipe(dest("public/build/js/vendor"));
 }
@@ -425,6 +448,32 @@ function copyFonts() {
 // Copia imagenes a public/build/images/ (necesario cuando public/ es el webroot)
 function copyImages() {
   return src("assets/images/**/*").pipe(dest("public/build/images"));
+}
+
+// Variantes de 720 px de las fotos grandes, para el `srcset` de la landing
+// (srcsetImagen() en includes/funciones.php, que sólo lo emite si la variante
+// existe). Las fotos vienen a ~1170 px: bien para un escritorio retina, pero un
+// teléfono descargaba el doble de lo que pinta. 720 cubre una foto a media
+// columna en un teléfono de densidad 3 y a ancho completo en uno de densidad 2.
+//
+// Sólo regenera lo que cambió (fecha del original contra la de la variante) y
+// no toca las fotos que ya miden poco más que eso. Van directo a
+// public/build/images porque son producto del build, no fuentes.
+const ANCHO_MOVIL = 720;
+function imagenesResponsivas() {
+  const sharp = require("sharp");
+  const path = require("path");
+  const origen = "assets/images";
+  const fotos = fs.readdirSync(origen).filter((f) => /\.webp$/i.test(f) && !/-\d+\.webp$/i.test(f));
+
+  return Promise.all(fotos.map(async (foto) => {
+    const desde = path.join(origen, foto);
+    const hacia = path.join("public/build/images", foto.replace(/\.webp$/i, "-" + ANCHO_MOVIL + ".webp"));
+    const meta = await sharp(desde).metadata();
+    if (!meta.width || meta.width <= ANCHO_MOVIL * 1.15) return;
+    if (fs.existsSync(hacia) && fs.statSync(hacia).mtimeMs >= fs.statSync(desde).mtimeMs) return;
+    await sharp(desde).resize({ width: ANCHO_MOVIL }).webp({ quality: 74 }).toFile(hacia);
+  }));
 }
 
 function devWatch(done) {
@@ -487,6 +536,8 @@ function devWatch(done) {
   );
   watch("src/js/admin/ia/**/*.js", adminIaJavascript);
   watch("src/js/admin/menu/**/*.js", adminVariantesJavascript);
+  watch("src/js/admin/tickets/**/*.js", adminTicketsJavascript);
+  watch("src/js/admin/impresoras/**/*.js", adminImpresorasJavascript);
   watch(paths.chartJs, copyChartJs);
   watch(paths.vendorJs, copyVendorJs);
   watch(paths.vendorFonts, copyVendorFonts);
@@ -518,6 +569,8 @@ exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.adminIaJs = adminIaJavascript;
 exports.adminVariantesJs = adminVariantesJavascript;
+exports.adminTicketsJs = adminTicketsJavascript;
+exports.adminImpresorasJs = adminImpresorasJavascript;
 exports.copyChartJs = copyChartJs;
 exports.copyVendorJs = copyVendorJs;
 exports.copyVendorFonts = copyVendorFonts;
@@ -526,6 +579,7 @@ exports.versionWebp = versionWebp;
 exports.versionAvif = versionAvif;
 exports.copyFonts = copyFonts;
 exports.copyImages = copyImages;
+exports.imagenesResponsivas = imagenesResponsivas;
 exports.dev = parallel(
   css,
   adminCss,
@@ -553,6 +607,8 @@ exports.dev = parallel(
   adminConfigurationJavascript,
   adminIaJavascript,
   adminVariantesJavascript,
+  adminTicketsJavascript,
+  adminImpresorasJavascript,
   copyChartJs,
   copyVendorJs,
   copyVendorFonts,
@@ -587,6 +643,8 @@ exports.build = series(
   adminConfigurationJavascript,
   adminIaJavascript,
   adminVariantesJavascript,
+  adminTicketsJavascript,
+  adminImpresorasJavascript,
   // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas
   // cargan desde /build/js/vendor.
   copyChartJs,
@@ -597,4 +655,5 @@ exports.build = series(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  imagenesResponsivas,
 );

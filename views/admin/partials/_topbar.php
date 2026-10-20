@@ -13,9 +13,12 @@ $authPalabras = preg_split('/\s+/', $authNombre) ?: [];
 $authIniciales = strtoupper(
     mb_substr($authPalabras[0] ?? 'A', 0, 1) . mb_substr($authPalabras[1] ?? '', 0, 1)
 );
+// El mismo resumen que la API y que la lista del cajón (cuenta tarjetas, no
+// filas): el número del botón no puede contradecir a la pestaña que abre.
+// _buzon.php, que se incluye después, lee estas mismas variables.
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
 try {
-    $buzonResumen = \Services\Notifications\BuzonNotificacionesService::resumen();
+    $buzonResumen = \Services\Reservations\ReservacionBuzonBandejaService::resumen();
 } catch (Throwable $e) {
     error_log('Buzón administrativo no disponible: ' . $e->getMessage());
 }
@@ -23,6 +26,31 @@ $buzonCantidadAccionable = (int)($buzonResumen['cantidad_accionable'] ?? 0);
 $buzonCantidadSeguimiento = (int)($buzonResumen['cantidad_seguimiento'] ?? 0);
 $buzonCantidadTotal = $buzonCantidadAccionable + $buzonCantidadSeguimiento;
 $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'] ?? '');
+
+// Estado del botón. `has-action` es el que lo pinta de rojo: hay al menos una
+// tarjeta en «Por atender», que es lo que cuenta el contador. Sólo «en espera»
+// lo deja en papel con un punto (`has-followup`). Mismas reglas que
+// updateCount() en src/js/admin/buzon.js.
+$buzonClasesBoton = ['admin-topbar__inbox', $buzonCantidadTotal > 0 ? 'has-items' : 'is-empty'];
+if ($buzonCantidadAccionable > 0) {
+    $buzonClasesBoton[] = 'has-action';
+}
+if ($buzonCantidadSeguimiento > 0 && $buzonCantidadAccionable === 0) {
+    $buzonClasesBoton[] = 'has-followup';
+}
+if ($buzonPrioridadAccionable === 'alta') {
+    $buzonClasesBoton[] = 'has-high-priority';
+}
+// La cifra tiene que llegar también al lector de pantalla: aria-label pisa el
+// contenido del botón, así que el «1» del contador no se anunciaba.
+$buzonEtiqueta = 'Notificaciones';
+if ($buzonCantidadAccionable > 0) {
+    $buzonEtiqueta .= ': ' . $buzonCantidadAccionable . ' por atender';
+} elseif ($buzonCantidadSeguimiento > 0) {
+    $buzonEtiqueta .= ': ' . $buzonCantidadSeguimiento . ' en espera';
+} else {
+    $buzonEtiqueta .= ': todo al día';
+}
 ?>
 <header class="admin-topbar">
     <button
@@ -46,16 +74,25 @@ $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'
 
     <div class="admin-topbar__actions">
         <button
-            class="admin-topbar__inbox<?php echo $buzonCantidadTotal > 0 ? ' has-items' : ' is-empty'; ?><?php echo $buzonCantidadSeguimiento > 0 && $buzonCantidadAccionable === 0 ? ' has-followup' : ''; ?><?php echo $buzonPrioridadAccionable === 'alta' ? ' has-high-priority' : ''; ?>"
+            class="<?php echo htmlspecialchars(implode(' ', $buzonClasesBoton), ENT_QUOTES, 'UTF-8'); ?>"
             type="button"
-            aria-label="Abrir notificaciones administrativas"
+            aria-label="<?php echo htmlspecialchars($buzonEtiqueta, ENT_QUOTES, 'UTF-8'); ?>"
+            title="Notificaciones"
             aria-controls="admin-inbox-drawer"
             aria-expanded="false"
             data-inbox-open
         >
+            <?php /* La campana y su badajo van en grupos separados: el cuerpo se
+                     mece desde el aro y el badajo lo sigue con retraso, que es lo
+                     que hace que el gesto se lea como campana y no como icono
+                     que tiembla (ver _buzon.scss). */ ?>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
-                <path d="M10 21h4"/>
+                <g class="admin-topbar__campana">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
+                </g>
+                <g class="admin-topbar__badajo">
+                    <path d="M10 21h4"/>
+                </g>
             </svg>
             <span class="admin-topbar__inbox-badge" data-inbox-count<?php echo $buzonCantidadAccionable > 0 ? '' : ' hidden'; ?>><?php echo $buzonCantidadAccionable; ?></span>
         </button>
@@ -100,10 +137,14 @@ $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'
 
         <form method="POST" action="/logout" class="admin-topbar__logout-form">
             <button class="admin-topbar__logout" type="submit" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <?php /* La flecha va en su propio grupo para poder salir por la
+                         puerta al apuntar sin mover el marco (_topbar.scss). */ ?>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <path d="m16 17 5-5-5-5"/>
-                    <path d="M21 12H9"/>
+                    <g class="admin-topbar__salida">
+                        <path d="m16 17 5-5-5-5"/>
+                        <path d="M21 12H9"/>
+                    </g>
                 </svg>
             </button>
         </form>

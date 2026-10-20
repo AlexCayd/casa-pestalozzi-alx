@@ -165,7 +165,10 @@ $siteSchema = [
   <?php echo precargaFuente('/build/fonts/marca/the-seasons-regular.woff2'); ?>
   <?php echo precargaFuente('/build/fonts/marca/tt-wellingtons-regular.woff2'); ?>
 
-  <link rel="stylesheet" href="/build/css/app.css?v=diseno-v3" />
+  <?php /* Versión por fecha del archivo (recursoVersionado), no a mano: el
+           .htaccess los sirve con caché larga e inmutable, así que una
+           versión olvidada dejaría la hoja vieja en el navegador. */ ?>
+  <link rel="stylesheet" href="<?php echo s(recursoVersionado('/build/css/app.css')); ?>" />
   <?php /* La paleta que se edita en Configuración → Paleta de la landing.
            Redeclara la capa 1 de _reset.scss y va DESPUÉS de app.css: misma
            especificidad que su :root, así que gana por orden. Sin cambios
@@ -180,7 +183,6 @@ $siteSchema = [
          (hero.js) la quita cuando el hero termina de pasar bajo la marca. */ ?>
 <body class="reveal-ready marca-en-hero" data-hero="cinema" data-page="home">
 
-  <?php include_once __DIR__ . '/../components/ornamento.php'; ?>
   <?php include_once __DIR__ . '/_cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
 
@@ -269,7 +271,7 @@ $siteSchema = [
            CSS, y la landing ya no pide nada a un CDN. */ ?>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
-  <script defer src="/build/js/bundle.min.js?v=diseno-v3"></script>
+  <script defer src="<?php echo s(recursoVersionado('/build/js/bundle.min.js')); ?>"></script>
 
 </body>
 </html>

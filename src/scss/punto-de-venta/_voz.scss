@@ -1,0 +1,58 @@
+// ── La voz tipográfica del piso ──────────────────────────────
+//
+// El POS habla con las caras del sistema administrativo, no con las de la
+// landing: Satoshi (--admin-font-sans) para las palabras, Geist Mono para los
+// rótulos y las cifras que se comparan en columna, y Expose (--admin-font-cifra
+// / --admin-font-titular) sólo para lo que es cartel —el nombre de la mesa y
+// los totales que se leen de lejos—. Ver «Tipografía del panel» en CLAUDE.md.
+//
+// Antes cada hoja de piso pedía `var(--sans)` y `var(--serif)`: el puente los
+// resolvía a Satoshi, así que no se pintaba ninguna cara vieja, pero el
+// marcado seguía hablando el idioma de la landing y cada componente inventaba
+// su propio rótulo (9, 9.3, 9.6, 10.4 px; 600, 700; .07em, .1em, .12em).
+//
+// Mixins y no placeholders: un `@extend` emite el selector en el sitio del
+// placeholder, y con la misma especificidad eso cambia quién gana por orden
+// (ya pasó con %mmodal-corner, ver _punto-de-venta.scss). Un mixin copia las
+// declaraciones donde se incluye y no mueve nada.
+
+// El rótulo: mono, versalitas y tracking abierto. Es la mitad mono del par que
+// da la jerarquía en el panel (.admin-eyebrow). 11 px y no los 9 que tenían
+// muchos: a un brazo de la tablet, una versalita de 9 px no se lee.
+@mixin rotulo($tamano: 11px) {
+  font-family: var(--admin-font-mono);
+  font-size: $tamano;
+  font-weight: 500;
+  letter-spacing: .12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+// Cifra de columna: precios de una lista, cantidades, subtotales. Ancho fijo
+// por dígito para que las unidades caigan en la misma vertical.
+@mixin cifra-columna {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+// Cifra de cartel: el total de la cuenta, el corte, el cambio a devolver. La
+// display del panel; Expose no trae `tnum`, así que sólo va donde la cifra se
+// lee SOLA y no en una columna que haya que comparar.
+@mixin cifra-total {
+  font-family: var(--admin-font-cifra);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  font-variant-numeric: normal;
+}
+
+// La voz de un control: sans a 600, en caja normal y sin tracking. Las
+// versalitas abiertas eran la voz de los botones de la landing; en Satoshi a
+// 400 y en caja baja —que es lo que dejaba `.admin-body button`— el tracking
+// las deshilachaba.
+@mixin control($tamano: var(--operational-text-base)) {
+  font-family: var(--admin-font-sans);
+  font-size: $tamano;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}

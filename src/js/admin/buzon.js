@@ -120,6 +120,26 @@
       return actionable + ' por atender · ' + followup + ' en espera';
     }
 
+    // Lo que el servidor pintó en el topbar es el punto de partida: así la
+    // primera sincronización no confunde «ya había 1» con «acaba de llegar 1».
+    var lastActionable = count && !count.hidden ? Number(count.textContent) || 0 : 0;
+
+    // Reinicia una animación CSS de un solo disparo. Quitar y volver a poner la
+    // clase en el mismo fotograma no la relanza: leer offsetWidth entre medias
+    // obliga al navegador a asentar el estado sin la clase.
+    function replay(element, className) {
+      if (!element) return;
+      element.classList.remove(className);
+      void element.offsetWidth;
+      element.classList.add(className);
+    }
+
+    function triggerLabel(actionable, followup) {
+      if (actionable > 0) return 'Notificaciones: ' + actionable + ' por atender';
+      if (followup > 0) return 'Notificaciones: ' + followup + ' en espera';
+      return 'Notificaciones: todo al día';
+    }
+
     function updateCount(data) {
       var actionable = Number(data && data.cantidad_accionable);
       var followup = Number(data && data.cantidad_seguimiento);
@@ -133,11 +153,37 @@
       root.classList.toggle('has-high-priority', high);
       trigger.classList.toggle('is-empty', total === 0);
       trigger.classList.toggle('has-items', total > 0);
+      // El rojo del botón lo decide esta clase y sólo ésta: hay algo en «Por
+      // atender», que es exactamente lo que dice el contador.
+      trigger.classList.toggle('has-action', actionable > 0);
       trigger.classList.toggle('has-followup', followup > 0 && actionable === 0);
       trigger.classList.toggle('has-high-priority', high);
-      if (count) { count.textContent = String(actionable); count.hidden = actionable === 0; }
+      trigger.setAttribute('aria-label', triggerLabel(actionable, followup));
+      if (count) {
+        count.textContent = String(actionable);
+        count.hidden = actionable === 0;
+        // El contador «salta» cuando cambia la cifra; la campana sólo se mece
+        // cuando SUBE, que es cuando hay algo nuevo que atender. Con
+        // movimiento reducido el CSS cambia el salto por un fundido y deja la
+        // campana quieta.
+        if (actionable > 0 && actionable !== lastActionable) replay(count, 'is-pop');
+        if (actionable > lastActionable) replay(trigger, 'is-llega');
+      }
+      lastActionable = actionable;
       if (summary && view === 'list') summary.textContent = summaryText(actionable, followup);
     }
+
+    // Se filtra por nombre porque animationend BURBUJEA: el salto del
+    // contador, que vive dentro del botón, acabaría el vaivén de la campana a
+    // medias si cualquier fin de animación quitara la clase.
+    if (count) {
+      count.addEventListener('animationend', function (event) {
+        if (event.animationName === 'admin-contador-salta' || event.animationName === 'admin-contador-aparece') count.classList.remove('is-pop');
+      });
+    }
+    trigger.addEventListener('animationend', function (event) {
+      if (event.animationName === 'admin-campana-llega') trigger.classList.remove('is-llega');
+    });
 
     function refreshSummary() { return request('/admin/api/buzon/resumen').then(updateCount); }
 
@@ -298,6 +344,19 @@
         var emptyCopy = document.createElement('span');
         emptyCopy.textContent = activeFilter === 'followup' ? 'Las notificaciones informativas aparecerán aquí mientras el cliente responde.' : 'No hay reservaciones por atender.';
         empty.append(emptyMark, emptyTitle, emptyCopy);
+        // «Por atender» vacío con algo en espera: el botón del topbar enseña
+        // un punto y el subtítulo dice «1 en espera», así que esta pestaña no
+        // puede quedarse en un «Todo al día» sin salida. Se cuenta sobre las
+        // mismas tarjetas que pintaría la otra pestaña.
+        var waiting = activeFilter === 'action'
+          ? items.filter(function (item) { return !itemRequiresAction(item); }).length
+          : 0;
+        if (waiting > 0) {
+          emptyCopy.textContent = waiting === 1
+            ? 'Hay 1 reservación en espera de respuesta.'
+            : 'Hay ' + waiting + ' reservaciones en espera de respuesta.';
+          empty.appendChild(button('Ver en espera', 'show-followup', {}, false, true));
+        }
         list.appendChild(empty);
         return;
       }
@@ -574,6 +633,14 @@
     function handleAction(control) {
       var action = control.getAttribute('data-inbox-action');
       if (action === 'close-detail') { setView('list'); return; }
+      if (action === 'show-followup') {
+        selectFilter('followup');
+        // El botón que se pulsó desaparece al repintar: el foco pasa a la
+        // pestaña elegida para no caer al <body>.
+        var tab = root.querySelector('[data-inbox-filter="followup"]');
+        if (tab) tab.focus();
+        return;
+      }
       if (action === 'retry') { loadList(); return; }
       if (action === 'review') {
         var reviewed = items.find(function (item) { return Number(item.reservacion_id) === Number(control.getAttribute('data-reservation-id')); });
@@ -638,12 +705,14 @@
 
     list.addEventListener('click', function (event) { var control = event.target.closest('[data-inbox-action]'); if (control) handleAction(control); });
     context.addEventListener('click', function (event) { var control = event.target.closest('[data-inbox-action]'); if (control) handleAction(control); });
+    function selectFilter(name) {
+      activeFilter = name || 'action';
+      root.querySelectorAll('[data-inbox-filter]').forEach(function (other) { var selected = other.getAttribute('data-inbox-filter') === activeFilter; other.classList.toggle('is-active', selected); other.setAttribute('aria-selected', selected ? 'true' : 'false'); });
+      render();
+    }
+
     root.querySelectorAll('[data-inbox-filter]').forEach(function (filter) {
-      filter.addEventListener('click', function () {
-        activeFilter = filter.getAttribute('data-inbox-filter') || 'action';
-        root.querySelectorAll('[data-inbox-filter]').forEach(function (other) { var selected = other === filter; other.classList.toggle('is-active', selected); other.setAttribute('aria-selected', selected ? 'true' : 'false'); });
-        render();
-      });
+      filter.addEventListener('click', function () { selectFilter(filter.getAttribute('data-inbox-filter')); });
     });
     trigger.addEventListener('click', open);
     closeButtons.forEach(function (buttonElement) { buttonElement.addEventListener('click', close); });

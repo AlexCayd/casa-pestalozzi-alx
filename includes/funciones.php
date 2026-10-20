@@ -59,6 +59,35 @@ function recursoVersionado(string $ruta) : string {
 }
 
 /**
+ * ` srcset="… 720w, … NNNw" sizes="…"` de una foto de /build/images, o nada.
+ *
+ * La variante de 720 px la genera `gulp imagenesResponsivas`. Sólo se anuncia
+ * si existe en disco y si el original es más ancho: un srcset que apunte a un
+ * archivo que no está deja la foto rota en el teléfono, que es justo donde se
+ * elegiría. `$sizes` dice cuánto ocupa la foto en pantalla; el de por defecto
+ * es el de los mosaicos de la landing (media columna en el teléfono, un cuarto
+ * de página en escritorio).
+ */
+function srcsetImagen(string $ruta, string $sizes = '(max-width: 760px) 50vw, 25vw') : string {
+    static $anchos = [];
+
+    $publico = dirname(__DIR__) . '/public';
+    $variante = preg_replace('/\.webp$/i', '-720.webp', $ruta);
+    if ($variante === null || $variante === $ruta || !is_file($publico . $variante) || !is_file($publico . $ruta)) {
+        return '';
+    }
+    if (!isset($anchos[$ruta])) {
+        $info = @getimagesize($publico . $ruta);
+        $anchos[$ruta] = $info ? (int) $info[0] : 0;
+    }
+    if ($anchos[$ruta] <= 720) {
+        return '';
+    }
+
+    return ' srcset="' . s($variante) . ' 720w, ' . s($ruta) . ' ' . $anchos[$ruta] . 'w" sizes="' . s($sizes) . '"';
+}
+
+/**
  * `<link rel="preload">` de una fuente de /build/fonts, o nada si el archivo no
  * está.
  *

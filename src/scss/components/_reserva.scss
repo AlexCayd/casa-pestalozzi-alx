@@ -779,16 +779,6 @@
   }
 }
 
-// La vela del titular (ver _reserva.php). Arriba a la derecha de la columna del
-// intro, a la altura del rótulo: el titular ocupa dos líneas cortas y deja ese
-// rincón libre, y el formulario de al lado ya no la tiene encima.
-.reserva__vela {
-  --orn-ancho: clamp(2.4rem, 3.4vw, 3.2rem);
-  position: absolute;
-  top: -0.4rem;
-  right: 0;
-}
-
 .reserva__form-wrap {
   grid-area: form;
   min-width: 0;

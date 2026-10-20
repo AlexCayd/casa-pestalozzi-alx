@@ -6,6 +6,13 @@
 // feedback era tocar el cobro, que es la operación que menos puede romperse.
 //
 // Se separa al mover el POS a su propio bundle: aquí es donde pertenece.
+//
+// Tipografía: la voz del piso (_voz.scss). Rótulos en mono, importes de la
+// cuenta en mono si forman columna y en la display si son EL total, controles
+// en sans a 600. Los <button> y los <p> llevan `.admin-body` delante donde
+// declaran cuerpo, peso o color: `.admin-body button` y `.admin-body p`
+// (0,1,1) le ganan a una clase sola.
+@use 'voz' as *;
 
 // ── Botones de pago en el modal del mapa ─────────────────────
 // minmax(0, 1fr) y no 1fr: con `1fr` la pista no baja de su min-content, y dos
@@ -41,12 +48,12 @@
     line-height: 1;
   }
 
+  // «Efectivo» / «Tarjeta»: palabras en la sans, no versalitas.
   &__label {
     min-width: 0;
-    font-size: .85rem;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
+    font-family: var(--admin-font-sans);
+    font-size: var(--operational-text-subtitle);
+    font-weight: 700;
   }
 
   &:hover {
@@ -61,6 +68,7 @@
 }
 
 .mmodal-pago-badge {
+  @include cifra-columna;
   display: inline-block;
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
@@ -105,8 +113,8 @@
   transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
 
   &__icon  { display: flex; line-height: 1; color: var(--accent-text); }
-  &__title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; }
-  &__desc  { font-size: .72rem; color: color-mix(in srgb, var(--txt) 55%, transparent); line-height: 1.3; }
+  &__title { font-family: var(--admin-font-sans); font-size: var(--operational-text-subtitle); font-weight: 700; }
+  &__desc  { font-size: .8rem; color: color-mix(in srgb, var(--txt) 62%, transparent); line-height: 1.35; }
 
   &:hover {
     border-color: var(--accent);
@@ -142,18 +150,18 @@
 }
 
 .mmodal-split-mode {
+  min-height: 44px;
   padding: .5rem .35rem;
   border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--txt) 3%, transparent);
   color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-family: var(--sans);
-  font-size: .66rem;
-  font-weight: 700;
-  letter-spacing: .04em;
   line-height: 1.2;
-  text-transform: uppercase;
   cursor: pointer;
+
+  // Pedía versalitas de 10.5 px; con `.admin-body button` delante salían en el
+  // cuerpo de texto. Sans a 600, en caja normal.
+  .admin-body & { @include control(var(--operational-text-sm)); }
   transition: color .15s ease, border-color .15s ease, background .15s ease;
 
   &:hover {
@@ -186,12 +194,9 @@
   & + & { border-top: 1px solid color-mix(in srgb, var(--txt) 6%, transparent); }
 
   &--head {
+    @include rotulo(10px);
     background: color-mix(in srgb, var(--txt) 4%, transparent);
-    font-size: .58rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: color-mix(in srgb, var(--txt) 50%, transparent);
+    color: color-mix(in srgb, var(--txt) 58%, transparent);
   }
 }
 
@@ -227,6 +232,7 @@
 }
 
 .mmodal-split-monto {
+  @include cifra-columna;
   display: flex;
   align-items: center;
   gap: .3rem;
@@ -241,13 +247,10 @@
   margin: .7rem 0 0;
 
   &__label {
+    @include rotulo;
     display: block;
     margin-bottom: .45rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+    color: color-mix(in srgb, var(--txt) 62%, transparent);
   }
 
   &__btns {
@@ -257,19 +260,21 @@
   }
 
   &__btn {
-    min-height: 40px;
+    min-height: 44px;
     padding: .45rem .7rem;
     flex: 1 1 auto;
     border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
     border-radius: 9px;
     background: color-mix(in srgb, var(--txt) 4%, transparent);
     color: color-mix(in srgb, var(--txt) 75%, transparent);
-    font-family: inherit;
-    font-size: .78rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
     cursor: pointer;
     transition: border-color .15s, background .15s, color .15s;
+
+    // «10 %», «15 %»… son cifras que se comparan entre botones: tabulares.
+    .admin-body & {
+      @include control(var(--operational-text-base));
+      font-variant-numeric: tabular-nums;
+    }
 
     &:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 
@@ -318,10 +323,9 @@
     border-radius: 9px;
     background: none;
     color: var(--accent-text);
-    font-family: inherit;
-    font-size: .75rem;
-    font-weight: 700;
     cursor: pointer;
+
+    .admin-body & { @include control(var(--operational-text-sm)); }
 
     &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   }
@@ -368,6 +372,10 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
 
+  // La familia, el peso y las cifras tabulares también con !important: la
+  // regla global de campos trae `font: inherit`, que los devolvía a Satoshi
+  // a 400, y el monto que se teclea contando billetes salía con dígitos
+  // proporcionales que bailaban a cada pulsación.
   input {
     width: 100% !important;
     min-width: 0;
@@ -377,10 +385,10 @@
     background: none !important;
     box-shadow: none !important;
     color: var(--txt);
-    font-family: var(--admin-font-mono);
+    font-family: var(--admin-font-mono) !important;
     font-size: 1.6rem !important;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums !important;
     line-height: 1.2;
     outline: none;
     -moz-appearance: textfield;
@@ -425,13 +433,10 @@
   &[hidden] { display: none; }
 
   &__label {
+    @include rotulo;
     display: block;
     margin-bottom: .4rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+    color: color-mix(in srgb, var(--txt) 62%, transparent);
   }
 }
 
@@ -450,22 +455,32 @@
   &[hidden] { display: none; }
 
   &__label {
+    @include rotulo;
     color: color-mix(in srgb, var(--txt) 72%, transparent);
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
   }
 
-  // Mono, como el monto recibido que tiene justo encima y como los totales:
-  // en el cobro, todo lo que es dinero se escribe con la misma voz.
+  // EL número que el mesero le dice al cliente: cifra de cartel, sola en su
+  // caja. Va en <strong>, así que el peso lo fija también `.admin-body strong`.
   &__val {
+    @include cifra-total;
     color: var(--accent-text);
-    font-family: var(--admin-font-mono);
-    font-size: 1.4rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
+    font-size: 1.75rem;
+    line-height: 1;
   }
+}
+
+/*
+ * El desglose del cobro («Total de la cuenta», «Propina», «A cobrar»; en la
+ * dividida, «Pagado») es una COLUMNA de importes que se suman: va en mono y
+ * tabular, para que las unidades caigan una bajo otra. Sólo el renglón fuerte
+ * —lo que se cobra— vuelve a la cifra de cartel de .mmodal-total-amount.
+ */
+.mmodal-cobro .mmodal-total-row:not(.mmodal-total-row--fuerte) .mmodal-total-amount,
+.mmodal-split .mmodal-total-row:not(.mmodal-total-row--fuerte) .mmodal-total-amount {
+  @include cifra-columna;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .mmodal-total-row--fuerte {
@@ -475,8 +490,7 @@
   .mmodal-total-label { color: color-mix(in srgb, var(--txt) 85%, transparent); }
 
   .mmodal-total-amount {
-    font-size: 1.05rem;
-    font-weight: 800;
+    font-size: 1.6rem;
   }
 }
 
@@ -485,18 +499,16 @@
 // confirmado antes de cerrar la cuenta.
 .mmodal-monto-exacto {
   flex-shrink: 0;
-  padding: .42rem .6rem;
+  min-height: 36px;
+  padding: 0 .7rem;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 8px;
   background: none;
   color: var(--accent-text);
-  font-family: inherit;
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background .15s;
+
+  .admin-body & { @include control(var(--operational-text-sm)); }
 
   &:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 }
@@ -509,8 +521,13 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--txt) 5%, transparent);
   color: var(--txt);
-  font-size: .9rem;
-  font-weight: 600;
+  // Con !important por la regla global de campos (0,6,1), como el campo de
+  // dinero: un importe por comensal que se compara con el de arriba y el de
+  // abajo va en mono tabular.
+  font-family: var(--admin-font-mono) !important;
+  font-size: .95rem;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
   text-align: right;
   -moz-appearance: textfield;
 
@@ -535,10 +552,14 @@
 // flex con justify-content:flex-end, no text-align:right: el ✓ pasó a ser un
 // SVG con su <span> al lado, y sobre una caja flex el text-align ya no coloca
 // nada. El resultado visible es el mismo, la línea sigue pegada a la derecha.
-.mmodal-split-diff {
+//
+// ⚠ Es un <p>, y `.admin-body p` (0,1,1) le imponía margen 0 y el gris de
+// texto secundario: «Faltan $120» y «Sobran $40» salían del mismo gris que
+// «Cuadra». El color ES el mensaje aquí, así que va con `.admin-body` delante.
+.admin-body .mmodal-split-diff {
   justify-content: flex-end;
   margin: .4rem 0 0;
-  font-size: .78rem;
+  font-size: .85rem;
   font-weight: 700;
 
   &--ok    { color: var(--feedback-ok); }
@@ -561,12 +582,10 @@
   padding: 1rem 0 .5rem;
   text-align: center;
 
-  &__title {
-    font-size: .82rem;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
+  // <p>: con el bloque delante para que `.admin-body p` no le quite el margen.
+  & &__title {
+    @include rotulo;
+    color: color-mix(in srgb, var(--txt) 62%, transparent);
     margin: 0 0 1.25rem;
   }
 }

@@ -1,39 +1,61 @@
 <?php
 require_once __DIR__ . '/../partials/_icons.php';
+
+use Services\Finance\DiagnosticoFinanciero;
+
     $rango = is_array($rango ?? null) ? $rango : [];
     $periodoLabel = (string) ($rango['label'] ?? 'Últimos 30 días');
     $ingresos = (float) ($ingresos ?? 0);
     $propinas = (float) ($propinas ?? 0);
-    $tickets = (int) ($tickets ?? 0);
-    $ticketPromedio = (float) ($ticketPromedio ?? 0);
     $cogs = (float) ($cogs ?? 0);
     $merma = (float) ($merma ?? 0);
-    $deltaMerma = isset($deltaMerma) ? $deltaMerma : null;
     $utilidadBruta = (float) ($utilidadBruta ?? 0);
-    $margenBruto = (float) ($margenBruto ?? 0);
     $totalGastos = (float) ($totalGastos ?? 0);
     $utilidadNeta = (float) ($utilidadNeta ?? 0);
-    $margenNeto = (float) ($margenNeto ?? 0);
-    $deltaIngresos = isset($deltaIngresos) ? $deltaIngresos : null;
-    $deltaUtilidadBruta = isset($deltaUtilidadBruta) ? $deltaUtilidadBruta : null;
-    $deltaCogs = isset($deltaCogs) ? $deltaCogs : null;
-    $deltaUtilidadNeta = isset($deltaUtilidadNeta) ? $deltaUtilidadNeta : null;
-    $comparando = (bool) ($comparando ?? false);
-    // Cifras del periodo anterior, para que el porcentaje diga desde dónde.
-    $previoCifras = is_array($previo ?? null) ? $previo : [];
-    $previoCifras += [
-        'ingresos' => 0.0, 'cogs' => 0.0, 'merma' => 0.0,
-        'utilidadBruta' => 0.0, 'utilidadNeta' => 0.0,
-    ];
-    $inventarioValor = (float) ($inventarioValor ?? 0);
-    $rotacion = isset($rotacion) ? $rotacion : null;
-    $diasInventario = isset($diasInventario) ? $diasInventario : null;
     $gastos = isset($gastos) && is_iterable($gastos) ? $gastos : [];
     $gastosPorCategoria = is_array($gastosPorCategoria ?? null) ? $gastosPorCategoria : [];
+    $gastosMensuales = is_array($gastosMensuales ?? null) ? $gastosMensuales : [];
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : ['renta', 'servicios', 'nomina', 'insumos', 'otros'];
     $rentabilidad = isset($rentabilidad) && is_iterable($rentabilidad) ? $rentabilidad : [];
     $cortes = isset($cortes) && is_iterable($cortes) ? $cortes : [];
-    $money = static fn($v): string => '$' . number_format((float) $v, 2);
+    $totalesCortes = is_array($totalesCortes ?? null) ? $totalesCortes : [];
+    $totalesCortes += ['dias' => 0, 'tickets' => 0, 'ventas' => 0.0, 'propinas' => 0.0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'total' => 0.0];
+    $cortesPagina = max(1, (int) ($cortesPagina ?? 1));
+    $cortesPaginas = max(1, (int) ($cortesPaginas ?? 1));
+    $cortesDesde = max(0, (int) ($cortesDesde ?? 0));
+    $diagnostico = is_array($diagnostico ?? null) ? $diagnostico : DiagnosticoFinanciero::armar([]);
+
+    $e = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
+    // Un solo formato de dinero para toda la pantalla: el signo va DELANTE
+    // del símbolo y es el menos tipográfico («−$216,738.95», no «$-216,738.95»).
+    $money = static fn ($v): string => DiagnosticoFinanciero::dinero((float) $v, 2);
+
+    /*
+     * Pinta las «partes» de texto que arma el servicio: cada trozo se escapa
+     * por separado y sólo aquí se decide qué va en negrita o enlazado. Así
+     * ningún número del diagnóstico se formatea en la vista.
+     */
+    $partes = static function (?array $lista) use ($e): string {
+        $html = '';
+        foreach ($lista ?? [] as $parte) {
+            $texto = $e($parte['t'] ?? '');
+            if (!empty($parte['href'])) {
+                $texto = '<a class="fin-enlace fin-enlace--linea" href="' . $e($parte['href']) . '">' . $texto . '</a>';
+            } elseif (!empty($parte['fuerte'])) {
+                $texto = '<strong>' . $texto . '</strong>';
+            }
+            $html .= $texto;
+        }
+        return $html;
+    };
+
+    // El estado lo dicen el icono y la palabra; el color sólo lo confirma.
+    $iconoEstado = static fn (string $tono): string => admin_icon(
+        $tono === 'good' ? 'check' : ($tono === 'neutral' ? 'info' : 'alerta'),
+        14,
+        'fin-estado__icono'
+    );
+
     $etiquetaCat = [
         'renta' => 'Renta', 'servicios' => 'Servicios', 'nomina' => 'Nómina',
         'insumos' => 'Insumos', 'otros' => 'Otros',
@@ -48,10 +70,6 @@ require_once __DIR__ . '/../partials/_icons.php';
         return ucfirst($diasSemana[(int) date('w', $ts)]) . ' ' . (int) date('j', $ts) . ' ' . $mesesCortos[(int) date('n', $ts)];
     };
     $hoyIso = date('Y-m-d');
-    $rangoCortes = is_array($rangoCortes ?? null) ? $rangoCortes : ['start' => date('Y-m-d', strtotime('-6 days')), 'end' => $hoyIso];
-
-    // El badge de variación lo arma ahora views/admin/partials/_stat-card.php,
-    // que además lleva la flecha y la cifra del periodo anterior.
 
     // Descomposición para el Sankey: de dónde viene el dinero y en qué se va.
     //
@@ -91,18 +109,33 @@ require_once __DIR__ . '/../partials/_icons.php';
             }
         }
     }
-
-    $gastosChart = ['labels' => [], 'values' => []];
-    foreach ($gastosPorCategoria as $cat => $monto) {
-        $gastosChart['labels'][] = $etiquetaCat[$cat] ?? (string) $cat;
-        $gastosChart['values'][] = round((float) $monto, 2);
+    // Los nodos que de verdad se dibujan: un escalón de la cascada sólo ofrece
+    // «Ver en el flujo» si tiene algo que resaltar allí.
+    $nodosSankey = [];
+    foreach ($sankey as $flujo) {
+        $nodosSankey[$flujo['from']] = true;
+        $nodosSankey[$flujo['to']] = true;
     }
+
+    $veredicto = $diagnostico['veredicto'];
+    $cascada = $diagnostico['cascada'];
+    $signos = $diagnostico['signos'];
+    $seleccion = (string) $cascada['seleccion'];
+    $comparable = !empty($cascada['hayPrevio']);
+
+    // Los parámetros del periodo viajan en cada enlace de página: sin ellos,
+    // pasar a la página 2 de los cortes devolvía la pantalla a 30 días.
+    $consultaRango = ((int) ($rango['preset'] ?? 0)) > 0
+        ? ['rango' => (int) $rango['preset']]
+        : ['desde' => (string) ($rango['start'] ?? ''), 'hasta' => (string) ($rango['end'] ?? '')];
+    $consultaRango['comparar'] = '1';
+    $cortesUrl = static fn (int $pagina): string => '/admin/finanzas?'
+        . http_build_query($consultaRango + ($pagina > 1 ? ['cortes' => $pagina] : []))
+        . '#cortes';
 ?>
 <script>
     window.AdminFinanzasData = <?php echo json_encode([
         'sankey' => $sankey,
-        'gastos' => $gastosChart,
-        'utilidadNetaNegativa' => $utilidadNeta < 0,
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 </script>
 <section class="admin-finanzas admin-page">
@@ -110,11 +143,14 @@ require_once __DIR__ . '/../partials/_icons.php';
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Finanzas</span>
             <h2 class="admin-page__title">Situación financiera</h2>
-            <p class="admin-page__subtitle"><?php echo htmlspecialchars($periodoLabel); ?>: ingresos por ventas, costo de insumos (según recetas), merma, gastos fijos y utilidad neta.</p>
+            <p class="admin-page__subtitle"><?php echo $e($periodoLabel); ?>: qué tal va el negocio, por qué, y qué indicador se sale de lo sano.</p>
         </div>
         <?php /* El selector de periodo se queda solo en el encabezado: mide 82px
-                 contra los 44 de un botón y, compartiendo fila, se los comía.
-                 Las acciones bajan a su propia barra, ya a tamaño completo. */ ?>
+                 contra los 44 de un botón y, compartiendo fila, se los comía. Los
+                 accesos a Inventario y Recetas, que vivían en una barra aparte,
+                 están ahora DENTRO del diagnóstico, junto al indicador que manda
+                 a cada uno: «revisar recetas» bajo el costo de insumos, «ver
+                 inventario» bajo la merma y los días de existencias. */ ?>
         <div class="admin-actions">
             <?php include __DIR__ . '/../partials/_range-picker.php'; ?>
         </div>
@@ -122,140 +158,320 @@ require_once __DIR__ . '/../partials/_icons.php';
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-    <div class="admin-toolbar admin-finanzas__toolbar">
-        <a class="admin-btn admin-btn--secondary" href="/admin/inventario">
-            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></svg>
-            Inventario
-        </a>
-        <a class="admin-btn admin-btn--secondary" href="/admin/recetas">
-            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            Recetas
-        </a>
-    </div>
+    <?php /*
+      ── DIAGNÓSTICO ──────────────────────────────────────────────────────
+      Sustituye a las siete tarjetas de KPI. Se lee en tres alturas: el
+      veredicto en una frase (5 segundos), la cascada del estado de resultados
+      (qué se comió el dinero) y el detalle del escalón elegido (por qué, contra
+      qué referencia y dónde actuar).
 
-    <div class="admin-stat-strip">
-        <?php
-            // La utilidad neta abre la franja y a doble ancho: es la cifra que
-            // contesta «¿cómo vamos?» y antes quedaba huérfana en la segunda fila.
-            $statLabel = 'Utilidad neta estimada';
-            $statValue = $money($utilidadNeta);
-            $statSub = 'Margen ' . number_format($margenNeto, 1) . '% · ingresos menos insumos, merma y gastos fijos';
-            $statDelta = $deltaUtilidadNeta ?? null;
-            $statPrev = $comparando ? $money($previoCifras['utilidadNeta']) : '';
-            $statTone = $utilidadNeta >= 0 ? 'good' : 'bad';
-            $statLead = true;
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            $statLabel = 'Ingresos del periodo';
-            $statValue = $money($ingresos);
-            $statSub = $tickets . ' tickets · prom. ' . $money($ticketPromedio);
-            $statDelta = $deltaIngresos ?? null;
-            $statPrev = $comparando ? $money($previoCifras['ingresos']) : '';
-            $statSerie = 'verde';
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            $statLabel = 'Costo de insumos';
-            $statValue = $money($cogs);
-            $statSub = 'Según recetas vendidas';
-            $statDelta = $deltaCogs ?? null;
-            $statPrev = $comparando ? $money($previoCifras['cogs']) : '';
-            $statSerie = 'naranja';
-            // Que el costo suba no es una buena noticia aunque suba la venta.
-            $statInverso = true;
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            $statLabel = 'Merma';
-            $statValue = $money($merma);
-            $statSub = 'Insumos pagados que no se vendieron'
-                . ($ingresos > 0 ? ' · ' . number_format(($merma / $ingresos) * 100, 1) . '% del ingreso' : '');
-            $statDelta = $deltaMerma ?? null;
-            $statPrev = $comparando ? $money($previoCifras['merma']) : '';
-            $statSerie = 'rojo';
-            $statTone = $merma > 0 ? 'bad' : '';
-            $statInverso = true;
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            $statLabel = 'Utilidad bruta';
-            $statValue = $money($utilidadBruta);
-            $statSub = 'Margen ' . number_format($margenBruto, 1) . '%';
-            $statDelta = $deltaUtilidadBruta ?? null;
-            $statPrev = $comparando ? $money($previoCifras['utilidadBruta']) : '';
-            $statSerie = 'lima';
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            // Sin comparativo a propósito: gastos_fijos no guarda fecha, así que
-            // el periodo anterior devuelve exactamente el mismo prorrateo.
-            $statLabel = 'Gastos fijos';
-            $statValue = $money($totalGastos);
-            $statSub = 'Montos mensuales prorrateados al periodo · no se comparan entre periodos';
-            $statSerie = 'indigo';
-            include __DIR__ . '/../partials/_stat-card.php';
-
-            // Denominador puntual: no hay histórico de stock del que sacar un
-            // inventario promedio, y decirlo evita que se lea como el ratio
-            // contable estricto.
-            $statLabel = 'Rotación de inventarios';
-            $statValue = $rotacion === null ? '—' : number_format($rotacion, 2) . '×';
-            $statSub = $rotacion === null
-                ? 'Sin inventario valorizado'
-                : number_format((float) $diasInventario, 0) . ' días de inventario · insumos vendidos y mermados sobre existencias de hoy (' . $money($inventarioValor) . ')';
-            $statSerie = 'turquesa';
-            include __DIR__ . '/../partials/_stat-card.php';
-        ?>
-    </div>
-
-    <div class="admin-finanzas__grid">
-        <!-- Cascada de resultados -->
-        <section class="admin-panel admin-card">
-            <div class="admin-panel-head"><div><h3>Estado de resultados</h3><p><?php echo htmlspecialchars($periodoLabel); ?></p></div></div>
-            <ul class="admin-pnl">
-                <li class="admin-pnl__row"><span>Ingresos por ventas</span><strong class="is-pos"><?php echo $money($ingresos); ?></strong></li>
-                <li class="admin-pnl__row"><span>(−) Costo de insumos</span><strong class="is-neg">-<?php echo $money($cogs); ?></strong></li>
-                <li class="admin-pnl__row"><span>(−) Merma</span><strong class="is-neg">-<?php echo $money($merma); ?></strong></li>
-                <li class="admin-pnl__row admin-pnl__row--total">
-                    <span>= Utilidad bruta <small class="admin-pnl__margen">margen <?php echo number_format($margenBruto, 1); ?>%</small></span>
-                    <strong><?php echo $money($utilidadBruta); ?></strong>
-                </li>
-                <li class="admin-pnl__row"><span>(−) Gastos fijos</span><strong class="is-neg">-<?php echo $money($totalGastos); ?></strong></li>
-                <li class="admin-pnl__row admin-pnl__row--grand <?php echo $utilidadNeta >= 0 ? 'is-pos' : 'is-neg'; ?>">
-                    <span>= Utilidad neta <small class="admin-pnl__margen">margen <?php echo number_format($margenNeto, 1); ?>%</small></span>
-                    <strong><?php echo $money($utilidadNeta); ?></strong>
-                </li>
-            </ul>
-            <p class="admin-finanzas__note">
-                Las propinas del periodo (<?php echo $money($propinas); ?>) no se incluyen en la utilidad; corresponden al personal.
-                La merma se valoriza al costo que tenía el ingrediente el día en que se registró.
-                Los gastos fijos son montos mensuales, prorrateados a los días del periodo.
-            </p>
-        </section>
-
-        <!-- Gastos fijos por categoría -->
-        <section class="admin-panel admin-card">
-            <div class="admin-panel-head"><div><h3>Gastos por categoría</h3><p>Reparto del gasto fijo del periodo</p></div></div>
-            <?php if (empty($gastosPorCategoria)) : ?>
-                <p class="admin-empty">Sin gastos registrados.</p>
-            <?php else : ?>
-                <?php /* Dona más tabla: el color identifica la categoría, pero
-                         una dona no comunica montos exactos y aquí sí importan. */ ?>
-                <div class="admin-finanzas__donut-wrap">
-                    <div class="admin-finanzas__donut"><canvas id="gastosCategoriaChart"></canvas></div>
-                    <ul class="admin-finanzas__donut-list">
-                        <?php foreach ($gastosPorCategoria as $cat => $monto) : ?>
-                            <?php $pct = $totalGastos > 0 ? ($monto / $totalGastos) * 100 : 0; ?>
-                            <li>
-                                <span class="admin-finanzas__donut-label"><?php echo htmlspecialchars($etiquetaCat[$cat] ?? $cat); ?></span>
-                                <span class="admin-finanzas__donut-val"><?php echo $money($monto); ?></span>
-                                <span class="admin-finanzas__donut-pct"><?php echo number_format($pct, 1); ?>%</span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
+      Los escalones son radios de verdad, como .admin-pill: funcionan sin JS
+      (el detalle visible lo decide :has() en finanzas.scss), se recorren con
+      las flechas y cada uno anuncia su explicación por aria-describedby, que sí
+      se lee aunque el panel esté oculto. El JS sólo añade el resaltado en el
+      Sankey y el respaldo para motores sin :has().
+    */ ?>
+    <section class="admin-panel fin-diag fin-diag--<?php echo $e($veredicto['tono']); ?>"
+             aria-labelledby="fin-diag-titular" data-fin-diag>
+        <div class="fin-diag__veredicto">
+            <div class="fin-diag__principal">
+                <div class="fin-diag__arriba">
+                    <span class="admin-eyebrow">Diagnóstico · <?php echo $e($periodoLabel); ?></span>
+                    <?php if ($veredicto['estado'] !== '') : ?>
+                        <span class="fin-estado fin-estado--<?php echo $e($veredicto['tono']); ?>">
+                            <?php echo $iconoEstado($veredicto['tono']); ?><?php echo $e($veredicto['estado']); ?>
+                        </span>
+                    <?php endif; ?>
                 </div>
+                <h3 class="fin-diag__titular" id="fin-diag-titular">
+                    <span class="fin-diag__antes"><?php echo $e($veredicto['antes']); ?></span>
+                    <?php if ($veredicto['cifra'] !== '') : ?>
+                        <span class="fin-diag__cifra"><?php echo $e($veredicto['cifra']); ?></span>
+                    <?php endif; ?>
+                </h3>
+                <?php if (!empty($veredicto['razon'])) : ?>
+                    <p class="fin-diag__razon"><?php echo $partes($veredicto['razon']); ?></p>
+                <?php endif; ?>
+            </div>
+
+            <?php if (!empty($veredicto['palanca']) || !empty($veredicto['comparativo'])) : ?>
+                <dl class="fin-diag__claves">
+                    <?php if (!empty($veredicto['palanca'])) : ?>
+                        <div class="fin-diag__clave">
+                            <dt><?php echo $e($veredicto['palancaRotulo'] ?? 'Punto de equilibrio'); ?></dt>
+                            <dd><?php echo $partes($veredicto['palanca']); ?></dd>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($veredicto['comparativo'])) : ?>
+                        <div class="fin-diag__clave">
+                            <dt>Contra el periodo anterior</dt>
+                            <dd><?php echo $partes($veredicto['comparativo']); ?></dd>
+                        </div>
+                    <?php endif; ?>
+                </dl>
             <?php endif; ?>
-        </section>
-    </div>
+        </div>
+
+        <div class="fin-diag__cuerpo">
+            <div class="fin-cascada<?php echo $cascada['hayNegativo'] ? ' fin-cascada--bajo-cero' : ''; ?>"
+                 style="--cero: <?php echo $e($cascada['cero']); ?>%">
+                <div class="fin-cascada__cabeza">
+                    <h4 class="fin-cascada__titulo" id="fin-cascada-titulo">Estado de resultados</h4>
+                    <?php if ($comparable) : ?>
+                        <?php /* Un checkbox real: compara sin JS (:has() en el
+                                 SCSS) y se opera con la barra espaciadora. No
+                                 es .admin-switch: ése pinta el «apagado» en rojo
+                                 de peligro, que aquí sería mentir —no comparar
+                                 no es un error, es la vista por defecto—. */ ?>
+                        <label class="fin-interruptor">
+                            <input type="checkbox" data-fin-comparar>
+                            <span class="fin-interruptor__pista" aria-hidden="true"></span>
+                            <span class="fin-interruptor__texto">Comparar con el periodo anterior</span>
+                        </label>
+                    <?php endif; ?>
+                </div>
+                <p class="fin-cascada__ayuda" id="fin-cascada-ayuda">
+                    Elige un renglón para ver qué es, contra qué se compara y dónde actuar.
+                </p>
+
+                <div class="fin-cascada__pasos" role="radiogroup"
+                     aria-labelledby="fin-cascada-titulo" aria-describedby="fin-cascada-ayuda">
+                    <?php foreach ($cascada['pasos'] as $paso) : ?>
+                        <?php
+                            $clave = (string) $paso['clave'];
+                            $nodos = array_values(array_filter(
+                                (array) $paso['nodos'],
+                                static fn ($n): bool => isset($nodosSankey[$n])
+                            ));
+                            $estilo = '--i: ' . (int) $paso['indice']
+                                . '; --ini: ' . $paso['ini'] . '%; --fin: ' . $paso['fin'] . '%'
+                                . '; --ini-prev: ' . $paso['iniPrev'] . '%; --fin-prev: ' . $paso['finPrev'] . '%'
+                                . '; --origen: ' . $paso['origen']
+                                . ($paso['enlace'] !== null ? '; --enlace: ' . $paso['enlace'] . '%' : '');
+                            $cambio = $paso['cambio'];
+                            $clasesPaso = 'fin-paso fin-paso--' . $paso['tipo'] . ' fin-paso--' . $paso['tono']
+                                . ($paso['enlace'] !== null ? ' fin-paso--enlazado' : '')
+                                . ($clave === $seleccion ? ' is-elegido' : '');
+                        ?>
+                        <label class="<?php echo $e($clasesPaso); ?>" style="<?php echo $e($estilo); ?>">
+                            <input type="radio" name="fin-paso" value="<?php echo $e($clave); ?>"
+                                   id="fin-paso-<?php echo $e($clave); ?>"
+                                   aria-describedby="fin-detalle-<?php echo $e($clave); ?>-lead"
+                                   data-nodos="<?php echo $e(json_encode($nodos, JSON_UNESCAPED_UNICODE)); ?>"
+                                   <?php echo $clave === $seleccion ? 'checked' : ''; ?>>
+                            <span class="fin-paso__rotulo">
+                                <span class="fin-paso__op" aria-hidden="true"><?php echo $e($paso['op']); ?></span>
+                                <span class="fin-paso__nombre"><?php echo $e($paso['rotulo']); ?></span>
+                            </span>
+                            <span class="fin-paso__pista" aria-hidden="true">
+                                <?php if (!$paso['vacioPrev']) : ?><span class="fin-paso__fantasma"></span><?php endif; ?>
+                                <?php if (!$paso['vacio']) : ?><span class="fin-paso__barra"></span><?php endif; ?>
+                            </span>
+                            <span class="fin-paso__cifras">
+                                <span class="fin-paso__monto"><?php echo $e($paso['montoTexto']); ?></span>
+                                <span class="fin-paso__pct"><?php echo $e($paso['secundario']); ?></span>
+                                <?php if ($comparable) : ?>
+                                    <?php if ($cambio !== null) : ?>
+                                        <span class="fin-paso__cambio fin-delta fin-delta--<?php echo $cambio['bueno'] === null ? 'igual' : ($cambio['bueno'] ? 'bueno' : 'malo'); ?>">
+                                            <?php if ($cambio['bueno'] !== null) : ?>
+                                                <?php echo admin_icon($cambio['sube'] ? 'sube' : 'baja', 13, 'fin-delta__icono'); ?>
+                                            <?php endif; ?>
+                                            <?php echo $e($cambio['texto']); ?>
+                                            <span class="admin-visually-hidden"> contra el periodo anterior</span>
+                                        </span>
+                                    <?php else : ?>
+                                        <span class="fin-paso__cambio fin-delta fin-delta--igual">no se compara</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </span>
+                        </label>
+                    <?php endforeach; ?>
+
+                    <?php if ($cascada['hayNegativo']) : ?>
+                        <?php /* El cero sólo se rotula cuando hay algo debajo de
+                                 él: a la izquierda de esa línea, el periodo
+                                 pierde. Va dentro de la rejilla de los renglones
+                                 para caer exactamente bajo la columna de barras. */ ?>
+                        <div class="fin-cascada__eje" aria-hidden="true">
+                            <span class="fin-cascada__eje-pista"><span class="fin-cascada__cero">$0</span></span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php if ($comparable) : ?>
+                    <p class="fin-cascada__leyenda">
+                        <span class="fin-cascada__muestra" aria-hidden="true"></span>
+                        Periodo anterior, <?php echo $e(mb_strtolower(mb_substr((string) $cascada['etiquetaAnterior'], 0, 1)) . mb_substr((string) $cascada['etiquetaAnterior'], 1)); ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+
+            <div class="fin-detalle">
+                <?php foreach ($cascada['pasos'] as $paso) : ?>
+                    <?php
+                        $clave = (string) $paso['clave'];
+                        $nodos = array_values(array_filter(
+                            (array) $paso['nodos'],
+                            static fn ($n): bool => isset($nodosSankey[$n])
+                        ));
+                        $cambio = $paso['cambio'];
+                    ?>
+                    <article class="fin-detalle__panel<?php echo $clave === $seleccion ? ' is-activo' : ''; ?>"
+                             id="fin-detalle-<?php echo $e($clave); ?>" data-paso="<?php echo $e($clave); ?>"
+                             aria-labelledby="fin-detalle-<?php echo $e($clave); ?>-titulo">
+                        <p class="fin-detalle__papel"><?php echo $e($paso['papel']); ?></p>
+                        <h4 class="fin-detalle__titulo" id="fin-detalle-<?php echo $e($clave); ?>-titulo"><?php echo $e($paso['rotulo']); ?></h4>
+                        <p class="fin-detalle__cifra fin-detalle__cifra--<?php echo $e($paso['tono']); ?>"><?php echo $e($paso['montoTexto']); ?></p>
+                        <p class="fin-detalle__lead" id="fin-detalle-<?php echo $e($clave); ?>-lead"><?php echo $e($paso['lead']); ?></p>
+                        <?php if (!empty($paso['texto'])) : ?>
+                            <p class="fin-detalle__texto"><?php echo $partes($paso['texto']); ?></p>
+                        <?php endif; ?>
+
+                        <?php if (!empty($paso['reparto'])) : ?>
+                            <?php /* En qué se van los fijos. Un solo tono: aquí la
+                                     magnitud es el dato, no la identidad. */ ?>
+                            <ul class="fin-desglose" role="list" aria-label="Gastos fijos por categoría">
+                                <?php foreach ($paso['reparto'] as $parte) : ?>
+                                    <li class="fin-desglose__fila" style="--parte: <?php echo $e($parte['pct']); ?>%">
+                                        <span class="fin-desglose__nombre"><?php echo $e($parte['nombre']); ?></span>
+                                        <span class="fin-desglose__barra" aria-hidden="true"></span>
+                                        <span class="fin-desglose__monto admin-num"><?php echo $e($parte['monto']); ?></span>
+                                        <span class="fin-desglose__pct admin-num"><?php echo $e($parte['pctTexto']); ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+
+                        <?php if (!empty($paso['hechos'])) : ?>
+                            <dl class="fin-detalle__hechos">
+                                <?php foreach ($paso['hechos'] as [$rotulo, $valor]) : ?>
+                                    <div>
+                                        <dt><?php echo $e($rotulo); ?></dt>
+                                        <dd class="admin-num"><?php echo $e($valor); ?></dd>
+                                    </div>
+                                <?php endforeach; ?>
+                            </dl>
+                        <?php endif; ?>
+
+                        <?php if ($cambio !== null) : ?>
+                            <p class="fin-detalle__antes">
+                                Periodo anterior: <strong class="admin-num"><?php echo $e($cambio['antes']); ?></strong>
+                                <span class="fin-delta fin-delta--<?php echo $cambio['bueno'] === null ? 'igual' : ($cambio['bueno'] ? 'bueno' : 'malo'); ?>">
+                                    <?php if ($cambio['bueno'] !== null) : ?>
+                                        <?php echo admin_icon($cambio['sube'] ? 'sube' : 'baja', 13, 'fin-delta__icono'); ?>
+                                    <?php endif; ?>
+                                    <?php if ($cambio['bueno'] === null) : ?>
+                                        sin cambio
+                                    <?php else : ?>
+                                        <?php echo $e($cambio['diferencia']); ?><?php echo $cambio['pct'] !== null && $clave !== 'neta' ? ' (' . $e($cambio['pct']) . ')' : ''; ?>
+                                    <?php endif; ?>
+                                </span>
+                            </p>
+                        <?php endif; ?>
+
+                        <?php if (!empty($paso['nota'])) : ?>
+                            <p class="fin-detalle__nota"><?php echo $e($paso['nota']); ?></p>
+                        <?php endif; ?>
+
+                        <?php if (!empty($paso['acciones']) || !empty($nodos)) : ?>
+                            <div class="fin-detalle__acciones">
+                                <?php foreach ((array) $paso['acciones'] as [$texto, $href]) : ?>
+                                    <a class="fin-enlace" href="<?php echo $e($href); ?>">
+                                        <?php echo $e($texto); ?><?php echo admin_icon('flecha-derecha', 15, 'fin-enlace__icono'); ?>
+                                    </a>
+                                <?php endforeach; ?>
+                                <?php if (!empty($nodos)) : ?>
+                                    <a class="fin-enlace" href="#fin-flujo" data-fin-ver-flujo="<?php echo $e($clave); ?>">
+                                        Ver en el flujo<?php echo admin_icon('flecha-abajo', 15, 'fin-enlace__icono'); ?>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <?php /*
+      ── SIGNOS VITALES ───────────────────────────────────────────────────
+      Cuatro indicadores contra una referencia de la industria, cada uno con su
+      semáforo (icono + palabra + color, nunca sólo color), una escala que
+      enseña dónde cae la cifra respecto a lo sano y el sitio donde se corrige.
+      La escala es decorativa para el lector de pantalla: lo que dibuja ya lo
+      dicen la cifra, el estado y la frase.
+    */ ?>
+    <section class="admin-panel fin-signos" aria-labelledby="fin-signos-titulo">
+        <div class="fin-signos__cabeza">
+            <h3 class="fin-signos__titulo" id="fin-signos-titulo">Signos vitales</h3>
+            <p class="fin-signos__bajada">Cada indicador contra la referencia de la industria restaurantera.</p>
+        </div>
+        <ul class="fin-signos__lista" role="list">
+            <?php foreach ($signos as $signo) : ?>
+                <?php $medidor = $signo['medidor']; ?>
+                <li class="fin-signo fin-signo--<?php echo $e($signo['estado']); ?>">
+                    <div class="fin-signo__cabeza">
+                        <h4 class="fin-signo__rotulo"><?php echo $e($signo['rotulo']); ?></h4>
+                        <span class="fin-estado fin-estado--<?php echo $e($signo['estado']); ?>">
+                            <?php echo $iconoEstado($signo['estado']); ?><?php echo $e($signo['estadoTexto']); ?>
+                        </span>
+                    </div>
+                    <p class="fin-signo__valor">
+                        <span class="fin-signo__cifra"><?php echo $e($signo['valor']); ?></span>
+                        <?php if ($signo['unidad'] !== '') : ?>
+                            <span class="fin-signo__unidad"><?php echo $e($signo['unidad']); ?></span>
+                        <?php endif; ?>
+                    </p>
+                    <?php if (is_array($medidor)) : ?>
+                        <?php
+                            $estiloMedidor = '--valor: ' . $medidor['valor'] . '%';
+                            if (!empty($medidor['banda'])) {
+                                $estiloMedidor .= '; --banda-ini: ' . $medidor['banda'][0] . '%; --banda-fin: ' . $medidor['banda'][1] . '%';
+                            }
+                            if (isset($medidor['meta'])) {
+                                $estiloMedidor .= '; --meta: ' . $medidor['meta'] . '%';
+                            }
+                        ?>
+                        <div class="fin-medidor fin-medidor--<?php echo $e($medidor['tipo']); ?><?php echo !empty($medidor['desborda']) ? ' is-desborda' : ''; ?>"
+                             style="<?php echo $e($estiloMedidor); ?>" aria-hidden="true">
+                            <span class="fin-medidor__pista">
+                                <?php if ($medidor['tipo'] === 'rango') : ?>
+                                    <span class="fin-medidor__banda"></span>
+                                <?php else : ?>
+                                    <span class="fin-medidor__relleno"></span>
+                                    <span class="fin-medidor__meta"></span>
+                                <?php endif; ?>
+                                <span class="fin-medidor__marca"></span>
+                            </span>
+                            <span class="fin-medidor__rotulos">
+                                <span class="fin-medidor__rotulo">
+                                    <?php echo $e($medidor['tipo'] === 'rango' ? ($medidor['bandaRotulo'] ?? '') : ($medidor['metaRotulo'] ?? '')); ?>
+                                </span>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($signo['frase'])) : ?>
+                        <p class="fin-signo__frase"><?php echo $partes($signo['frase']); ?></p>
+                    <?php endif; ?>
+                    <p class="fin-signo__ref"><?php echo $e($signo['referencia']); ?></p>
+                    <?php if (!empty($signo['accion'])) : ?>
+                        <a class="fin-enlace fin-signo__accion" href="<?php echo $e($signo['accion'][1]); ?>">
+                            <?php echo $e($signo['accion'][0]); ?><?php echo admin_icon('flecha-derecha', 15, 'fin-enlace__icono'); ?>
+                        </a>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+        <p class="fin-signos__fuentes">
+            Referencias orientativas para un restaurante de servicio completo: costo de insumos de 28% a 35% de la
+            venta, margen neto de 3% a 6%, nómina sana hasta el 33% y costo primo de 55% o menos (TouchBistro);
+            merma de 5% a 15% de lo comprado (LeanPath); existencias para una o dos semanas (práctica habitual
+            del sector). El costo de insumos sale de las recetas, no de las compras, y los días de inventario
+            usan las existencias de hoy porque no hay histórico de almacén.
+        </p>
+    </section>
 
     <!-- Descomposición del ingreso -->
-    <section class="admin-panel admin-card admin-finanzas__sankey-panel">
+    <section class="admin-panel admin-card admin-finanzas__sankey-panel" id="fin-flujo">
         <div class="admin-panel-head">
             <div>
                 <h3>A dónde va cada peso</h3>
@@ -266,13 +482,14 @@ require_once __DIR__ . '/../partials/_icons.php';
             <p class="admin-empty">Sin ingresos en el periodo para descomponer.</p>
         <?php else : ?>
             <p class="admin-finanzas__note admin-finanzas__note--ayuda">
-                Pasa por encima de un nodo para seguir su cadena; pulsa para aislarla.
+                Pasa por encima de un nodo para seguir su cadena; pulsa para aislarla. Elegir un renglón del
+                estado de resultados también la aísla aquí.
             </p>
             <div class="admin-finanzas__sankey" id="flujoFinanciero"></div>
 
             <?php if ($utilidadNeta < 0) : ?>
                 <p class="admin-finanzas__note">
-                    La utilidad neta es negativa (<?php echo $money($utilidadNeta); ?>): los gastos fijos
+                    La utilidad neta es negativa (<?php echo $e($money($utilidadNeta)); ?>): los gastos fijos
                     superan a la utilidad bruta. El diagrama lo dibuja como «Faltante».
                 </p>
             <?php endif; ?>
@@ -289,9 +506,9 @@ require_once __DIR__ . '/../partials/_icons.php';
                 <tbody>
                     <?php foreach ($sankey as $flujo) : ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($flujo['from'], ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td><?php echo htmlspecialchars($flujo['to'], ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td><?php echo $money($flujo['flow']); ?></td>
+                            <td><?php echo $e($flujo['from']); ?></td>
+                            <td><?php echo $e($flujo['to']); ?></td>
+                            <td><?php echo $e($money($flujo['flow'])); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -300,12 +517,21 @@ require_once __DIR__ . '/../partials/_icons.php';
     </section>
 
     <!-- Cortes de caja por día -->
-    <section class="admin-panel admin-card admin-cortes">
+    <section class="admin-panel admin-card admin-cortes" id="cortes">
         <div class="admin-panel-head">
             <?php /* Ya no lleva su propio formulario de fechas: el selector de
                      periodo del encabezado manda sobre toda la pantalla, y dos
                      rangos distintos en la misma página se contradecían. */ ?>
             <div><h3>Cortes de caja</h3><p>Resumen diario de tickets cerrados en el periodo seleccionado.</p></div>
+            <?php if ((int) $totalesCortes['dias'] > 0) : ?>
+                <p class="admin-cortes__conteo">
+                    <?php if ($cortesPaginas > 1) : ?>
+                        Días <?php echo $cortesDesde + 1; ?>–<?php echo $cortesDesde + count($cortes); ?> de <?php echo (int) $totalesCortes['dias']; ?>
+                    <?php else : ?>
+                        <?php echo (int) $totalesCortes['dias']; ?> <?php echo (int) $totalesCortes['dias'] === 1 ? 'día' : 'días'; ?> con venta
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
         </div>
         <?php if (empty($cortes)) : ?>
             <p class="admin-empty">Sin ventas cerradas en el rango seleccionado.</p>
@@ -314,13 +540,13 @@ require_once __DIR__ . '/../partials/_icons.php';
                 <table class="admin-table admin-cortes__table">
                     <thead>
                         <tr>
-                            <th>Día</th>
-                            <th>Tickets</th>
-                            <th>Ventas</th>
-                            <th>Propinas</th>
-                            <th>Efectivo</th>
-                            <th>Tarjeta</th>
-                            <th>Total recibido</th>
+                            <th scope="col">Día</th>
+                            <th scope="col" class="admin-num">Tickets</th>
+                            <th scope="col" class="admin-num">Ventas</th>
+                            <th scope="col" class="admin-num">Propinas</th>
+                            <th scope="col" class="admin-num">Efectivo</th>
+                            <th scope="col" class="admin-num">Tarjeta</th>
+                            <th scope="col" class="admin-num">Total recibido</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -328,33 +554,99 @@ require_once __DIR__ . '/../partials/_icons.php';
                             <tr<?php echo $c['fecha'] === $hoyIso ? ' class="is-today"' : ''; ?>>
                                 <td>
                                     <div class="admin-cortes__day">
-                                        <span class="admin-table__cell-main"><?php echo htmlspecialchars($fechaBonita($c['fecha'])); ?></span>
-                                        <?php if ($c['fecha'] === $hoyIso) : ?><span class="admin-badge admin-badge--success">Hoy</span><?php endif; ?>
+                                        <span class="admin-table__cell-main"><?php echo $e($fechaBonita($c['fecha'])); ?></span>
+                                        <?php if ($c['fecha'] === $hoyIso) : ?><span class="admin-badge admin-badge--neutral">Hoy</span><?php endif; ?>
                                     </div>
                                 </td>
-                                <td><span class="admin-table__cell-sub"><?php echo (int) $c['tickets']; ?></span></td>
-                                <td><?php echo $money($c['ventas']); ?></td>
-                                <td><?php echo $money($c['propinas']); ?></td>
-                                <td><?php echo $money($c['efectivo']); ?></td>
-                                <td><?php echo $money($c['tarjeta']); ?></td>
-                                <td><strong class="admin-cortes__total"><?php echo $money($c['total']); ?></strong></td>
+                                <td class="admin-num"><?php echo (int) $c['tickets']; ?></td>
+                                <td class="admin-num"><?php echo $e($money($c['ventas'])); ?></td>
+                                <td class="admin-num"><?php echo $e($money($c['propinas'])); ?></td>
+                                <td class="admin-num"><?php echo $e($money($c['efectivo'])); ?></td>
+                                <td class="admin-num"><?php echo $e($money($c['tarjeta'])); ?></td>
+                                <td class="admin-num"><strong class="admin-cortes__total"><?php echo $e($money($c['total'])); ?></strong></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    <?php /* El total es del PERIODO, no de la página: se suma en
+                             el controlador antes de recortar las filas. Va en
+                             <tfoot> en todas las páginas y lo dice el rótulo. */ ?>
+                    <tfoot>
+                        <tr>
+                            <th scope="row">
+                                Todo el periodo
+                                <span class="admin-cortes__dias"><?php echo (int) $totalesCortes['dias']; ?> <?php echo (int) $totalesCortes['dias'] === 1 ? 'día' : 'días'; ?></span>
+                            </th>
+                            <td class="admin-num"><?php echo (int) $totalesCortes['tickets']; ?></td>
+                            <td class="admin-num"><?php echo $e($money($totalesCortes['ventas'])); ?></td>
+                            <td class="admin-num"><?php echo $e($money($totalesCortes['propinas'])); ?></td>
+                            <td class="admin-num"><?php echo $e($money($totalesCortes['efectivo'])); ?></td>
+                            <td class="admin-num"><?php echo $e($money($totalesCortes['tarjeta'])); ?></td>
+                            <td class="admin-num"><strong class="admin-cortes__total"><?php echo $e($money($totalesCortes['total'])); ?></strong></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
+            <?php
+                $pagPagina = $cortesPagina;
+                $pagTotal = $cortesPaginas;
+                $pagUrl = $cortesUrl;
+                $pagEtiqueta = 'Páginas de cortes de caja';
+                include __DIR__ . '/../partials/_pagination.php';
+            ?>
         <?php endif; ?>
     </section>
 
-    <!-- Gastos fijos: administración -->
-    <section class="admin-panel admin-card">
+    <!-- Gastos fijos: reparto y administración -->
+    <section class="admin-panel admin-card fin-gastos" id="gastos-fijos">
         <div class="admin-panel-head"><div><h3>Gastos fijos</h3><p>Renta, servicios, nómina y demás costos mensuales.</p></div></div>
+
+        <?php if (!empty($gastosMensuales)) : ?>
+            <?php
+                /*
+                 * El reparto del gasto fijo. Antes era una dona de Chart.js en
+                 * su propio panel, a 208 KB de librería y con el total del
+                 * centro en Georgia. Ahora es una barra junto a la lista que lo
+                 * produce, en MESES —la unidad en la que se captura cada gasto—
+                 * y en grises: la identidad de cada categoría la dice su
+                 * nombre, y el panel no pinta de colores lo que no es estado.
+                 */
+                $totalMensual = array_sum($gastosMensuales);
+                $tono = 0;
+            ?>
+            <div class="fin-reparto">
+                <p class="fin-reparto__total">
+                    <span class="fin-reparto__cifra"><?php echo $e(DiagnosticoFinanciero::dinero($totalMensual)); ?></span>
+                    <span class="fin-reparto__unidad">al mes en gastos fijos activos</span>
+                </p>
+                <div class="fin-reparto__barra" aria-hidden="true">
+                    <?php foreach ($gastosMensuales as $cat => $monto) : ?>
+                        <?php $tono++; ?>
+                        <?php /* --peso sin unidades: es el flex-grow del tramo,
+                                 así el reparto suma 100% descontando los huecos. */ ?>
+                        <span class="fin-reparto__seg fin-reparto__seg--<?php echo min($tono, 5); ?>"
+                              style="--peso: <?php echo $e($totalMensual > 0 ? round($monto / $totalMensual * 1000) : 1); ?>"></span>
+                    <?php endforeach; ?>
+                </div>
+                <ul class="fin-reparto__lista" role="list" aria-label="Gastos fijos al mes por categoría">
+                    <?php $tono = 0; ?>
+                    <?php foreach ($gastosMensuales as $cat => $monto) : ?>
+                        <?php $tono++; ?>
+                        <li class="fin-reparto__item">
+                            <span class="fin-reparto__muestra fin-reparto__seg--<?php echo min($tono, 5); ?>" aria-hidden="true"></span>
+                            <span class="fin-reparto__nombre"><?php echo $e($etiquetaCat[$cat] ?? $cat); ?></span>
+                            <span class="fin-reparto__monto admin-num"><?php echo $e(DiagnosticoFinanciero::dinero((float) $monto)); ?></span>
+                            <span class="fin-reparto__pct admin-num"><?php echo $e($totalMensual > 0 ? DiagnosticoFinanciero::porcentaje($monto / $totalMensual * 100, 0) : '0%'); ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
 
         <form class="admin-finanzas__add" method="POST" action="/admin/finanzas/gasto/guardar">
             <input type="text" name="nombre" placeholder="Nombre del gasto" maxlength="120" required aria-label="Nombre del gasto">
             <select name="categoria" aria-label="Categoría">
                 <?php foreach ($categorias as $c) : ?>
-                    <option value="<?php echo htmlspecialchars($c); ?>"><?php echo htmlspecialchars($etiquetaCat[$c] ?? $c); ?></option>
+                    <option value="<?php echo $e($c); ?>"><?php echo $e($etiquetaCat[$c] ?? $c); ?></option>
                 <?php endforeach; ?>
             </select>
             <?php /* Mismo envoltorio que el input de edición: sin él, el gasto
@@ -376,13 +668,13 @@ require_once __DIR__ . '/../partials/_icons.php';
                             <input type="hidden" name="id" value="<?php echo (int) $g->id; ?>">
                             <div class="admin-gasto-card__field admin-gasto-card__field--name">
                                 <label class="admin-gasto-card__label">Gasto</label>
-                                <input type="text" name="nombre" value="<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>" maxlength="120" required aria-label="Nombre del gasto">
+                                <input type="text" name="nombre" value="<?php echo $e($g->nombre); ?>" maxlength="120" required aria-label="Nombre del gasto">
                             </div>
                             <div class="admin-gasto-card__field">
                                 <label class="admin-gasto-card__label">Categoría</label>
                                 <select name="categoria" aria-label="Categoría">
                                     <?php foreach ($categorias as $c) : ?>
-                                        <option value="<?php echo htmlspecialchars($c); ?>" <?php echo $g->categoria === $c ? 'selected' : ''; ?>><?php echo htmlspecialchars($etiquetaCat[$c] ?? $c); ?></option>
+                                        <option value="<?php echo $e($c); ?>" <?php echo $g->categoria === $c ? 'selected' : ''; ?>><?php echo $e($etiquetaCat[$c] ?? $c); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -390,7 +682,7 @@ require_once __DIR__ . '/../partials/_icons.php';
                                 <label class="admin-gasto-card__label">Monto mensual</label>
                                 <div class="admin-finanzas__money">
                                     <span>$</span>
-                                    <input type="number" name="monto" step="0.01" min="0" value="<?php echo htmlspecialchars((string) $g->monto, ENT_QUOTES); ?>" required aria-label="Monto mensual">
+                                    <input type="number" name="monto" step="0.01" min="0" value="<?php echo $e((string) $g->monto); ?>" required aria-label="Monto mensual">
                                 </div>
                             </div>
                             <label class="admin-switch admin-gasto-card__switch">
@@ -418,7 +710,7 @@ require_once __DIR__ . '/../partials/_icons.php';
                                 */ ?>
                                 <button type="submit" form="gasto-eliminar-<?php echo (int) $g->id; ?>"
                                         class="admin-icon-button admin-icon-button--danger admin-gasto-card__trash"
-                                        title="Eliminar" aria-label="Eliminar gasto «<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>»">
+                                        title="Eliminar" aria-label="Eliminar gasto «<?php echo $e($g->nombre); ?>»">
                                     <?php echo admin_icon('basura', 17); ?>
                                 </button>
                                 <button type="submit" class="admin-btn admin-btn--primary admin-btn--small">
@@ -432,8 +724,8 @@ require_once __DIR__ . '/../partials/_icons.php';
                               id="gasto-eliminar-<?php echo (int) $g->id; ?>"
                               data-confirm-delete
                               data-confirm-eyebrow="Eliminar gasto fijo"
-                              data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>»?"
-                              data-confirm-require="<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>"
+                              data-confirm-title="¿Eliminar «<?php echo $e($g->nombre); ?>»?"
+                              data-confirm-require="<?php echo $e($g->nombre); ?>"
                               data-confirm-description="Dejará de restarse de la utilidad neta en todos los periodos."
                               data-confirm-consequence="Esta acción no se puede deshacer.">
                             <input type="hidden" name="id" value="<?php echo (int) $g->id; ?>">
@@ -445,24 +737,24 @@ require_once __DIR__ . '/../partials/_icons.php';
     </section>
 
     <!-- Rentabilidad por producto -->
-    <section class="admin-panel admin-card">
+    <section class="admin-panel admin-card" id="rentabilidad">
         <div class="admin-panel-head"><div><h3>Rentabilidad por producto</h3><p>Precio de venta vs. costo de insumos de cada producto con receta.</p></div></div>
         <?php if (empty($rentabilidad)) : ?>
             <p class="admin-empty">Aún no hay productos con receta. Define recetas en Productos para ver su margen.</p>
         <?php else : ?>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Producto</th><th>Precio</th><th>Costo insumos</th><th>Margen</th><th>Margen %</th></tr></thead>
+                    <thead><tr><th>Producto</th><th class="admin-num">Precio</th><th class="admin-num">Costo insumos</th><th class="admin-num">Margen</th><th class="admin-num">Margen %</th></tr></thead>
                     <tbody>
                         <?php foreach ($rentabilidad as $r) : ?>
                             <tr>
-                                <td><span class="admin-table__cell-main"><?php echo htmlspecialchars($r['nombre']); ?></span></td>
-                                <td><?php echo $money($r['precio']); ?></td>
-                                <td><?php echo $money($r['costo']); ?></td>
-                                <td><?php echo $money($r['margen']); ?></td>
-                                <td>
+                                <td><span class="admin-table__cell-main"><?php echo $e($r['nombre']); ?></span></td>
+                                <td class="admin-num"><?php echo $e($money($r['precio'])); ?></td>
+                                <td class="admin-num"><?php echo $e($money($r['costo'])); ?></td>
+                                <td class="admin-num"><?php echo $e($money($r['margen'])); ?></td>
+                                <td class="admin-num">
                                     <span class="admin-badge admin-badge--<?php echo $r['margen_pct'] >= 65 ? 'success' : ($r['margen_pct'] >= 40 ? 'warning' : 'danger'); ?>">
-                                        <?php echo number_format($r['margen_pct'], 1); ?>%
+                                        <?php echo $e(DiagnosticoFinanciero::porcentaje((float) $r['margen_pct'])); ?>
                                     </span>
                                 </td>
                             </tr>

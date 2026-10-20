@@ -116,6 +116,15 @@
             .replace(/"/g, '&quot;');
     }
 
+    // Escapa texto que va como CONTENIDO de un elemento (los nombres de
+    // platillo entran por innerHTML).
+    function texto(valor) {
+        return String(valor == null ? '' : valor)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
     // ── §3.1 Ingeniería de menú ──────────────────────────────────────────
     function renderMenu(pal) {
         var menu = data.ingenieria || {};
@@ -607,16 +616,34 @@
     }
 
     // ── §3.4 Reglas de asociación ────────────────────────────────────────
-    function renderAsociacion() {
+    // Las reglas llegan todas en el JSON (ordenadas por relevancia) y la tabla
+    // crecía sin tope; se paginan aquí, en el navegador, con el mismo cromo que
+    // el parcial _pagination.php del servidor.
+    var ASOCIACION_POR_PAGINA = 8;
+    var paginaAsociacion = 1;
+
+    function renderAsociacion(enfocarPaginacion) {
         var a = data.asociacion || {};
-        var items = a.items || [];
+        var todos = a.items || [];
+        var nav = document.querySelector('[data-n1-asociacion-paginas]');
 
         setText('[data-n1-asociacion-tickets]', (a.tickets || 0) + ' tickets analizados');
 
-        if (!items.length) {
+        if (!todos.length) {
             emptyRow('[data-n1-asociacion-table]', 3, 'No hay pares con afinidad significativa (lift > 1) en el periodo.');
+            if (nav) {
+                nav.hidden = true;
+                nav.innerHTML = '';
+            }
             return;
         }
+
+        var paginas = Math.ceil(todos.length / ASOCIACION_POR_PAGINA);
+        paginaAsociacion = Math.min(Math.max(1, paginaAsociacion), paginas);
+        var desde = (paginaAsociacion - 1) * ASOCIACION_POR_PAGINA;
+        var items = todos.slice(desde, desde + ASOCIACION_POR_PAGINA);
+
+        pintarPaginasAsociacion(nav, paginas, enfocarPaginacion);
 
         var tbody = document.querySelector('[data-n1-asociacion-table]');
         if (tbody) {
@@ -629,9 +656,10 @@
             tbody.innerHTML = items.map(function (it) {
                 return '<tr>' +
                     '<td><span class="admin-nivel1-pair">' +
-                        '<span class="admin-nivel1-pair__item">' + it.a + '</span>' +
+                        '<span class="admin-nivel1-pair__item">' + texto(it.a) + '</span>' +
                         '<span class="admin-nivel1-pair__plus" aria-hidden="true">+</span>' +
-                        '<span class="admin-nivel1-pair__item">' + it.b + '</span>' +
+                        '<span class="admin-visually-hidden"> con </span>' +
+                        '<span class="admin-nivel1-pair__item">' + texto(it.b) + '</span>' +
                     '</span></td>' +
                     '<td class="admin-table__num">' + it.coocurrencias + '</td>' +
                     '<td class="admin-table__num">' +
@@ -640,6 +668,78 @@
                     '</td>' +
                     '</tr>';
             }).join('');
+        }
+    }
+
+    /*
+     * Ventana de cinco páginas con los extremos siempre a mano, como
+     * _pagination.php. Son botones y no enlaces porque no hay URL a la que ir:
+     * la página vive sólo en esta vista.
+     */
+    function pintarPaginasAsociacion(nav, paginas, enfocar) {
+        if (!nav) {
+            return;
+        }
+        if (paginas < 2) {
+            nav.hidden = true;
+            nav.innerHTML = '';
+            return;
+        }
+
+        var actual = paginaAsociacion;
+        var radio = 2;
+        var desde = Math.max(1, actual - radio);
+        var hasta = Math.min(paginas, actual + radio);
+        if (actual - radio < 1) {
+            hasta = Math.min(paginas, hasta + (1 - (actual - radio)));
+        }
+        if (actual + radio > paginas) {
+            desde = Math.max(1, desde - ((actual + radio) - paginas));
+        }
+
+        function boton(pagina, etiqueta, extra) {
+            return '<button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-n1-pagina="' + pagina + '"' + (extra || '') + '>' + etiqueta + '</button>';
+        }
+        function hueco() {
+            return '<span class="admin-pagination__gap" aria-hidden="true">…</span>';
+        }
+
+        var html = actual > 1
+            ? boton(actual - 1, 'Anterior', ' aria-label="Página anterior"')
+            : '<span class="admin-btn admin-btn--disabled admin-btn--small">Anterior</span>';
+
+        if (desde > 1) {
+            html += boton(1, '1');
+            if (desde > 2) {
+                html += hueco();
+            }
+        }
+        for (var p = desde; p <= hasta; p++) {
+            html += p === actual
+                ? '<span class="admin-btn admin-btn--primary admin-btn--small" aria-current="page" tabindex="-1" data-n1-pagina-actual>' + p + '</span>'
+                : boton(p, String(p), ' aria-label="Página ' + p + '"');
+        }
+        if (hasta < paginas) {
+            if (hasta < paginas - 1) {
+                html += hueco();
+            }
+            html += boton(paginas, String(paginas), ' aria-label="Página ' + paginas + '"');
+        }
+
+        html += actual < paginas
+            ? boton(actual + 1, 'Siguiente', ' aria-label="Página siguiente"')
+            : '<span class="admin-btn admin-btn--disabled admin-btn--small">Siguiente</span>';
+
+        nav.innerHTML = html;
+        nav.hidden = false;
+
+        // Al repintar, el botón pulsado desaparece: el foco se queda en la
+        // página vigente para que el teclado no vuelva al principio del documento.
+        if (enfocar) {
+            var vigente = nav.querySelector('[data-n1-pagina-actual]');
+            if (vigente) {
+                vigente.focus({ preventScroll: true });
+            }
         }
     }
 
@@ -658,6 +758,18 @@
         }
         data = window.AdminAnalyticsMock.nivel1;
         renderAll();
+
+        var navAsociacion = document.querySelector('[data-n1-asociacion-paginas]');
+        if (navAsociacion) {
+            navAsociacion.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-n1-pagina]');
+                if (!b) {
+                    return;
+                }
+                paginaAsociacion = parseInt(b.getAttribute('data-n1-pagina'), 10) || 1;
+                renderAsociacion(true);
+            });
+        }
 
         // Re-dibuja las gráficas con la paleta del nuevo tema.
         window.addEventListener('admin:themechange', function () {

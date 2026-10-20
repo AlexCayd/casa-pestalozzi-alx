@@ -17,9 +17,14 @@
  * --admin-* con readToken(), igual que el resto de las gráficas, y se vuelve a
  * dibujar en `admin:themechange`.
  *
- * API: window.AdminSankey.render(contenedor, flujos, opciones)
+ * API: window.AdminSankey.render(contenedor, flujos, opciones) -> control | null
  *   flujos   [{from, to, flow}]
- *   opciones { color(nombre) -> css, texto, muted, tooltipBg, moneda(n) -> str }
+ *   opciones { color(nombre) -> css, texto, moneda(n) -> str,
+ *              opacidadCinta (0-1, 0.62 por omisión),
+ *              alFijar(lista|null): avisa cuando el usuario fija o suelta nodos }
+ *   control  { resaltar(lista|null) }: fija desde fuera la cadena de uno o
+ *              varios nodos. Lo usa la cascada del diagnóstico de finanzas:
+ *              elegir «Gastos fijos» allí aísla aquí todas sus categorías.
  */
 (function () {
     var NS = 'http://www.w3.org/2000/svg';
@@ -172,16 +177,18 @@
     }
 
     function render(contenedor, flujos, opciones) {
-        if (!contenedor) return;
+        if (!contenedor) return null;
         contenedor.innerHTML = '';
-        if (!flujos || !flujos.length) return;
+        if (!flujos || !flujos.length) return null;
 
         var opts = opciones || {};
         var moneda = opts.moneda || function (n) { return String(n); };
         var colorDe = opts.color || function () { return 'currentColor'; };
+        var opacidadCinta = typeof opts.opacidadCinta === 'number' ? opts.opacidadCinta : 0.62;
+        var alFijar = typeof opts.alFijar === 'function' ? opts.alFijar : function () {};
 
         var ancho = contenedor.clientWidth || 900;
-        if (ancho < 80) return;
+        if (ancho < 80) return null;
 
         var nombres = [];
         flujos.forEach(function (f) {
@@ -495,6 +502,11 @@
             });
             var p1 = crear('stop', { offset: '0', 'stop-color': colorDe(f.from) });
             var p2 = crear('stop', { offset: '1', 'stop-color': colorDe(f.to) });
+            // También como estilo: los tokens del panel llegan a veces como
+            // color-mix(), y el estilo se interpreta con el analizador de CSS
+            // en todos los motores; el atributo de presentación, no siempre.
+            p1.style.stopColor = colorDe(f.from);
+            p2.style.stopColor = colorDe(f.to);
             grad.appendChild(p1);
             grad.appendChild(p2);
             defs.appendChild(grad);
@@ -502,7 +514,7 @@
             var path = crear('path', {
                 d: cinta(x1, y1, y1 + grosor, x2, y2, y2 + grosor),
                 fill: 'url(#' + id + ')',
-                'fill-opacity': '0.62'
+                'fill-opacity': String(opacidadCinta)
             });
             path.classList.add('admin-sankey__cinta');
             path.dataset.from = f.from;
@@ -524,8 +536,10 @@
                 fill: colorDe(n),
                 tabindex: '0',
                 role: 'button',
+                'aria-pressed': 'false',
                 'aria-label': etiqueta[n] + '. Pulsa para aislar sus flujos.'
             });
+            rect.style.fill = colorDe(n);
             rect.classList.add('admin-sankey__nodo');
             rect.dataset.nombre = n;
 
@@ -608,8 +622,7 @@
         // de él, recursivamente: en un Sankey de descomposición eso responde a
         // "¿de dónde salió este dinero y a dónde acabó yendo?", que es la única
         // pregunta que la gente le hace al diagrama.
-        function cadena(inicio) {
-            var vistos = {};
+        function cadena(inicio, vistos) {
             function recorrer(n, direccion) {
                 if (vistos[n + direccion]) return;
                 vistos[n + direccion] = true;
@@ -621,10 +634,27 @@
             return vistos;
         }
 
+        /*
+         * Lo fijado es una LISTA de nodos, no uno solo. Con un clic aquí es
+         * uno, pero la cascada del diagnóstico fija varios a la vez —los gastos
+         * fijos son cuatro o cinco categorías— y la cadena que se enseña es la
+         * unión de las de todos. Los nombres que el diagrama no dibuja (una
+         * merma en cero no tiene nodo) se ignoran.
+         */
         var fijado = null;
 
-        function pintar(activo) {
-            var conjunto = activo ? cadena(activo) : null;
+        function soloDibujados(lista) {
+            if (!lista || !lista.length) return null;
+            var validos = lista.filter(function (n) { return !!vecinos[n]; });
+            return validos.length ? validos : null;
+        }
+
+        function pintar(lista) {
+            var conjunto = null;
+            if (lista) {
+                conjunto = {};
+                lista.forEach(function (n) { cadena(n, conjunto); });
+            }
             cintas.forEach(function (c) {
                 var dentro = !conjunto || (conjunto[c.from] && conjunto[c.to]);
                 c.nodo.style.opacity = dentro ? '1' : '0.14';
@@ -632,11 +662,18 @@
             rects.forEach(function (r) {
                 var dentro = !conjunto || conjunto[r.nombre];
                 r.grupo.style.opacity = dentro ? '1' : '0.22';
+                r.rect.setAttribute('aria-pressed', fijado && fijado.indexOf(r.nombre) !== -1 ? 'true' : 'false');
             });
         }
 
+        function fijar(lista, avisar) {
+            fijado = soloDibujados(lista);
+            pintar(fijado);
+            if (avisar) alFijar(fijado ? fijado.slice() : null);
+        }
+
         rects.forEach(function (r) {
-            function entrar() { if (!fijado) pintar(r.nombre); }
+            function entrar() { if (!fijado) pintar([r.nombre]); }
             function salir() { if (!fijado) pintar(null); ocultarTip(); }
 
             r.rect.addEventListener('mousemove', function (evento) {
@@ -649,21 +686,21 @@
 
             function alternar(evento) {
                 evento.preventDefault();
-                fijado = fijado === r.nombre ? null : r.nombre;
-                pintar(fijado);
+                var soloEste = fijado && fijado.length === 1 && fijado[0] === r.nombre;
+                fijar(soloEste ? null : [r.nombre], true);
             }
             r.rect.addEventListener('click', alternar);
             r.rect.addEventListener('keydown', function (evento) {
                 if (evento.key === 'Enter' || evento.key === ' ') alternar(evento);
                 // Escape suelta el nodo fijado sin tener que buscarlo otra vez.
-                if (evento.key === 'Escape' && fijado) { fijado = null; pintar(null); }
+                if (evento.key === 'Escape' && fijado) fijar(null, true);
             });
         });
 
         // Un clic en el hueco suelta el nodo fijado. Sin esto hay que acertar
         // otra vez sobre una barra de 14px para volver a ver el diagrama entero.
         svg.addEventListener('click', function (evento) {
-            if (evento.target === svg && fijado) { fijado = null; pintar(null); }
+            if (evento.target === svg && fijado) fijar(null, true);
         });
 
         // ── Entrada ─────────────────────────────────────────────────
@@ -672,6 +709,10 @@
             capaCintas.style.transition = 'opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1)';
             requestAnimationFrame(function () { capaCintas.style.opacity = '1'; });
         }
+
+        return {
+            resaltar: function (lista) { fijar(lista, false); }
+        };
     }
 
     window.AdminSankey = { render: render };

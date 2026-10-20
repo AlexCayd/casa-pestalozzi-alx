@@ -17,11 +17,12 @@
  * - $statTone     (string)  ESTADO de la cifra: '', 'alert', 'good', 'bad' o
  *                           'gold'. Tiñe el fondo y el número.
  * - $statSerie    (string)  IDENTIDAD de la cifra: 'verde', 'naranja', 'rojo',
- *                           'lima', 'indigo', 'turquesa' o 'azul'. Es un filete
- *                           lateral y el rótulo teñido, para distinguir siete
- *                           tarjetas seguidas sin repintarlas. Compatible con
- *                           $statTone: si la cifra además va mal, el estado se
- *                           lee encima porque ocupa el fondo y el filete no.
+ *                           'lima', 'indigo', 'turquesa' o 'azul'. Es un punto
+ *                           de color delante del rótulo —la clave de una
+ *                           leyenda—, para distinguir siete tarjetas seguidas
+ *                           sin repintarlas. Compatible con $statTone: si la
+ *                           cifra además va mal, el estado se lee encima
+ *                           porque ocupa el fondo y el punto no.
  * - $statInverso  (bool)    true cuando subir es malo (merma, costos): invierte
  *                           el color del badge sin invertir la flecha, que
  *                           sigue describiendo la dirección real.

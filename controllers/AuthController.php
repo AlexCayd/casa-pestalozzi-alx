@@ -53,6 +53,9 @@ class AuthController {
                 if ($usuario) {
                     self::limpiarFallosNip();
                     Auth::login($usuario);
+                    // La primera página que se pinte lleva la llegada
+                    // (views/components/llegada.php).
+                    Auth::anunciarLlegada();
                     header('Location: ' . Auth::destinoPorRol($usuario->rol));
                     exit;
                 }
@@ -128,6 +131,7 @@ class AuthController {
 
             if ($usuario && $usuario->rol === 'admin') {
                 Auth::login($usuario);
+                Auth::anunciarLlegada();
                 header('Location: /admin');
                 exit;
             }

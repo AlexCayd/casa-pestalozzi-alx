@@ -1,7 +1,12 @@
 /*
  * Módulo Recetas (recetas y subrecetas).
- * El bloque de receta principal se destaca visualmente con un borde dorado.
  */
+@use "../shared/abstracts/variables" as vars;
+@use "../shared/abstracts/mixins" as mixins;
+// Tarjetas-filtro, buscador en la misma fila y lista de pendientes: el mismo
+// componente que Menú e Inventario, para que «Sin receta» se lea igual en los
+// dos sitios donde se trabaja.
+@use "pendientes";
 
 .admin-recetas {
   // El .admin-card compartido no trae padding: se lo damos aquí.
@@ -54,108 +59,104 @@
   }
 }
 
-/*
- * Barra de filtros del listado.
- *
- * .admin-filters no trae caja propia: cada módulo la arma (menu.scss,
- * reservations.scss). Aquí son dos controles —el buscador y el estado de la
- * receta— y el buscador manda, así que es el único que crece.
- */
-.admin-recetas__filters {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-  padding: 14px;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
+// ── Listado ───────────────────────────────────────────────────────
+//
+// La barra de filtros vieja (buscador + pastillas Todas / Sin receta / Con
+// receta) se fue: el estado lo eligen las tarjetas-filtro y el buscador vive
+// en la misma fila (`.admin-filtros-fila` + `.admin-filtro-buscar`, en
+// _pendientes.scss).
+.admin-recetas__lista {
+  margin-bottom: 24px;
+}
 
-  .admin-filters__search {
-    flex: 1 1 320px;
-    min-width: 0;
+.admin-body .admin-recetas__tabla {
+  th,
+  td {
+    padding-block: 12px;
   }
 
-  .admin-field__label {
-    margin-bottom: 7px;
+  // El nombre se lleva lo que sobra; precio, receta y acciones, lo que miden.
+  th:first-child {
+    width: 100%;
   }
 
-  /*
-   * ⚠ EL CAMPO NO SE RE-ESTILA AQUÍ, y no es un olvido.
-   *
-   * Aquí había un bloque `input:not([type="radio"])` con su propia caja (42px,
-   * 13px, borde suave y anillo de foco). No pintaba NADA: _forms.scss declara
-   * `.admin-body input:not([type=checkbox])…:not([type=button])`, que suma
-   * (0,6,1) —cada `:not()` aporta la especificidad de su argumento— contra los
-   * (0,2,1) de una regla de módulo. Gana el global, pase lo que pase con el
-   * orden de las hojas. Lo que se ve es el campo del sistema: 46px, 14px y el
-   * anillo de foco de la casa, que además es lo que queremos.
-   *
-   * Es la misma trampa que CLAUDE.md documenta para la lupa del POS. Si alguna
-   * vez hace falta de verdad salirse, se iguala con `!important` acotado o se
-   * mueve el borde al CONTENEDOR — no con una clase más.
-   *
-   * Y si vuelve a escribirse una regla por elemento, `:not([type="radio"])`
-   * NO es opcional: los radios de .admin-pill son controles reales recortados
-   * con clip-path (no display:none, que los sacaría del teclado) y una regla
-   * de caja los convierte en rectángulos dentro de cada pastilla.
-   */
-
-  // La ayuda explica que el buscador entra en la receta, así que va pegada al
-  // campo y no al pie del bloque: el valor por defecto del rol (12px) la
-  // separaba tanto que parecía el rótulo del control de al lado.
-  .admin-field__hint {
-    margin-top: 7px;
+  // Sin el filete lateral de _tables.scss al apuntar (lo retiró el cliente):
+  // el fondo basta, y con teclado un anillo completo.
+  tbody tr:hover {
+    box-shadow: none;
   }
 
-  /* Con JS el listado se actualiza al teclear, así que el botón sobra — y con
-     él su columna: dejarlo sólo oculto mantenía el hueco del `gap` a la
-     derecha de las pastillas. Sin JS, el bloque entero sigue ahí. */
-  &.is-reactive .admin-filters__actions {
-    display: none;
+  tbody tr[data-row-href]:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
   }
 }
 
-.admin-recetas__estado {
+// Nombre al peso de las filas de Menú e Inventario (600), no al 900 de
+// __cell-main: en diez filas seguidas eso era una columna de titulares.
+.admin-body .admin-recetas__nombre {
+  display: block;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.admin-body .admin-recetas__oculto {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+
+.admin-body .admin-recetas__col-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Estado de la receta. Con receta: un visto y la composición en tinta. Sin
+// ella: el mismo círculo discontinuo de la lista de pendientes y el texto
+// tenue — no en ámbar: son tres de cada cuatro filas, y una columna entera en
+// color de aviso deja de avisar. El trabajo pendiente lo cuenta la tarjeta.
+.admin-body .admin-recetas__receta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--admin-text);
+  font-size: 13px;
+  white-space: nowrap;
+
+  &.is-falta {
+    color: var(--admin-muted);
+  }
+}
+
+.admin-body .admin-recetas__receta-icono {
   flex: 0 0 auto;
-
-  /*
-   * La pastilla del sistema está medida para un formulario —título, ayuda
-   * debajo y 150px de ancho mínimo— y aquí cada opción son dos palabras. Sin
-   * apretarla, tres opciones excluyentes ocupaban más que el buscador y la
-   * barra se leía como tres tarjetas. Se conserva todo lo demás: el radio
-   * real, el recorrido de teclado y la marca dibujada con :has().
-   */
-  .admin-pill {
-    min-width: 0;
-    // La misma altura que el campo de al lado. El input de la casa sale de la
-    // regla global de _forms.scss (46px), y con la pastilla en 37 la fila
-    // quedaba escalonada por abajo: dos controles hermanos de una barra de
-    // filtros no pueden acabar a alturas distintas. El relleno se conserva
-    // para el ancho; el alto lo pone el mínimo y `align-items: center` lo
-    // reparte.
-    min-height: 46px;
-    align-items: center;
-    padding: 9px 13px;
-
-    &::before {
-      margin-top: 0;
-    }
-  }
-
-  .admin-pill__title {
-    font-size: 13px;
-    white-space: nowrap;
-  }
+  stroke-width: 2.4;
 }
 
-.admin-recipe {
-  border-color: color-mix(in srgb, var(--admin-gold) 32%, transparent);
-  box-shadow:
-    inset 3px 0 0 var(--admin-gold),
-    var(--admin-shadow-sm);
+.admin-body .admin-recetas__receta-marca {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border: 1.5px dashed var(--admin-border-strong);
+  border-radius: 50%;
+}
 
+/* Un <button class="admin-btn"> salía a 16 px junto a los enlaces con la
+   misma clase a 13: `.admin-body button { font: inherit }` (0,1,1) gana a la
+   clase (pendiente conocido de _globals.scss). Acotado al módulo. */
+.admin-body .admin-recetas button.admin-btn {
+  font-size: 13px;
+}
+
+.admin-body .admin-recetas button.admin-btn--small {
+  font-size: 12px;
+}
+
+// El filete lateral dorado que llevaba el bloque de la receta se retiró (el
+// cliente no quiere filetes laterales de color); de todos modos el canto de
+// .admin-card en _finishes.scss lo pisaba.
+.admin-recipe {
   &__head {
     margin-bottom: 16px;
 
@@ -223,9 +224,12 @@
     align-items: center;
     min-width: 0;
 
+    // `!important` acotado: la regla global de campos (0,6,1) imponía su
+    // relleno de 14 px y la unidad de la derecha se montaba sobre la cifra
+    // larga (la trampa de la lupa del POS, CLAUDE.md).
     input {
       width: 100%;
-      padding-right: 44px;
+      padding-right: 44px !important;
     }
   }
 

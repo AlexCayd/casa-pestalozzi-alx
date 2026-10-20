@@ -1,458 +1,1103 @@
 /*
- * Panel principal de administracion de reservaciones.
- * Extiende los patrones del modulo de usuarios sin tocar el mapa operativo.
+ * Reservaciones del panel: la Agenda (index.php), el detalle (show.php), el
+ * alta (create.php) y las herramientas de desarrollo.
+ *
+ * Grupos grandes y Casos cargan reservations-estrategia.scss; las dos hojas
+ * comparten la sub-navegación (reservations/_subnav.scss).
  */
 @use "../shared/abstracts/variables" as vars;
 @use "../shared/abstracts/mixins" as mixins;
 @use "../../shared/reservation-form-controls";
-// Histórico · Grupos grandes · Casos: la comparte con reservations-estrategia.scss.
+// Agenda · Grupos grandes · Casos: la comparte con reservations-estrategia.scss.
 @use "reservations/subnav";
 
-.admin-filters {
+/* ── Avisos de resultado ──────────────────────────────────────────
+ *
+ * Lo que vuelve de un POST («Se registró la ausencia», «No se pudo…»). Sin
+ * filete lateral: el tono va en un punto macizo delante del rótulo, y la caja
+ * es una superficie sólida como el resto del panel. El rojo sólo toca el
+ * borde del error, que es el único que pide releer algo.
+ */
+.admin-reservations .admin-alert {
+  --alerta-tono: var(--admin-muted);
+
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 220px)) auto;
-  align-items: end;
-  gap: 12px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 10px;
   margin-bottom: 18px;
-  padding: 14px;
+  padding: 12px 16px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
+  font-size: 14px;
+  line-height: 1.45;
 
-  label {
-    display: block;
-    margin-bottom: 7px;
-    color: var(--admin-muted);
+  &::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    align-self: center;
+    border-radius: 50%;
+    background: var(--alerta-tono);
+  }
+
+  strong {
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
     font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
-  input,
-  select {
-    width: 100%;
-    min-height: 42px;
-    padding: 10px 12px;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-    color: var(--admin-text);
-    font: inherit;
-    font-size: 13px;
-
-    &:focus {
-      border-color: var(--admin-gold);
-      outline: 0;
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
-    }
-  }
-
-  &__search,
-  &__group {
-    min-width: 0;
-  }
-
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
+  span {
+    color: var(--admin-muted);
   }
 }
-.admin-reservations {
-  min-width: 0;
 
-  .admin-alert {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
-    padding: 14px 16px;
-    border: 1px solid var(--admin-border-soft);
-    border-left-width: 4px;
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface);
-    font-size: 14px;
-    line-height: 1.45;
+.admin-reservations .admin-alert--success { --alerta-tono: var(--admin-success); }
+.admin-reservations .admin-alert--warning { --alerta-tono: var(--admin-warning); }
 
-    strong {
-      color: var(--admin-text);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
+.admin-reservations .admin-alert--error {
+  --alerta-tono: var(--admin-danger);
 
-    span {
-      color: var(--admin-muted);
-    }
+  border-color: var(--admin-danger-border);
+}
+
+/* ═══ AGENDA ═══════════════════════════════════════════════════════
+ *
+ * La lista es una libreta de reservaciones. Cada día es una hoja; en su
+ * margen izquierdo van el número del día y, debajo, las horas —escritas una
+ * vez por franja—; junto al margen corre la línea del día, y de ella cuelga
+ * cada reserva con una marca cuya FORMA dice su estado. A la derecha, en
+ * columnas fijas para que se puedan comparar de un vistazo: quién, cuántos,
+ * dónde, en qué quedó y qué hacer.
+ *
+ * Sustituye a la rejilla de tarjetas (hora y estado arriba, nombre, un par
+ * rótulo/valor para personas y mesas, nota, pie con origen y dos botones):
+ * cada reserva era una caja con borde y el estado en un filete de color, y
+ * treinta cajas iguales se leían como un catálogo, no como un servicio.
+ *
+ * Todo selector va bajo .reservations-agenda-page o .admin-reservations:
+ * `.admin-body h2 / p / a` pesan (0,1,1) y le ganan a una clase suelta.
+ */
+.reservations-agenda-page {
+  // La geometría de la libreta. Cabecera de día y filas cuelgan de las
+  // mismas dos columnas, así el número del día cae sobre las horas.
+  --agenda-margen: 4.5rem;
+  --agenda-carril: 2.25rem;
+  --agenda-linea: var(--admin-border-strong);
+  // El eje vertical de cada fila: el centro del primer renglón. La marca,
+  // el arranque de la línea y la hora se alinean contra él.
+  --fila-pad: 13px;
+  --fila-renglon: 22px;
+  --fila-eje: calc(var(--fila-pad) + var(--fila-renglon) / 2);
+}
+
+/* ── Controles del encabezado: buscar + periodo ─────────────────── */
+// En una fila y sin envolver: apilados, el buscador quedaba suelto encima
+// del periodo y el bloque medía el doble que el título de al lado. Lo que
+// cede es la bajada del título, que puede partirse en dos renglones.
+.reservations-agenda-page .admin-page__intro {
+  flex: 1 1 auto;
+}
+
+.reservations-agenda-page .reservations-controles {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .reservations-agenda-page .reservations-controles {
+    flex-wrap: wrap;
   }
+}
 
-  .admin-alert--success {
-    border-left-color: var(--admin-success);
-    background: color-mix(in srgb, var(--admin-c-verde) 8%, transparent);
-  }
+.admin-reservations .reservations-buscador {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 300px;
+  gap: 6px;
+  min-width: 250px;
+  margin: 0;
+}
 
-  .admin-alert--warning {
-    border-left-color: var(--admin-warning);
-    background: color-mix(in srgb, var(--admin-gold) 9%, transparent);
-  }
+// El mismo rótulo que el del selector de periodo, que va al lado.
+.admin-reservations .reservations-buscador__rotulo {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
-  .admin-alert--error {
-    border-left-color: var(--admin-danger);
-    background: color-mix(in srgb, var(--admin-c-rojo) 8%, transparent);
-  }
+.admin-reservations .reservations-buscador__fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
-  &__metrics {
-    margin-bottom: 18px;
-  }
-
-  &__metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 12px;
-  }
-
-  // Cada métrica lleva al filtro que la produce, así que las que son enlace se
-  // comportan como tal: cursor, hover y foco visible.
-  &__metric {
-    position: relative;
-    display: grid;
-    min-height: 96px;
-    align-content: space-between;
+  input[type="search"] {
+    flex: 1 1 auto;
     min-width: 0;
-    padding: 12px 14px 11px 16px;
-    border: 1px solid var(--admin-border);
-    border-radius: var(--admin-radius-md);
-    background: var(--admin-surface);
-    color: inherit;
-    text-decoration: none;
-    overflow: hidden;
-    transition:
-      border-color var(--admin-t-fast) ease,
-      transform var(--admin-t-fast) ease;
+  }
+}
+
+// Mismo alto que el campo: comparten renglón.
+.reservations-agenda-page .reservations-buscador__limpiar {
+  min-height: 46px;
+  flex: none;
+}
+
+// El selector no cede ancho: encogido, el chevrón se montaba sobre el rótulo.
+.reservations-agenda-page .reservations-controles .admin-range {
+  flex: none;
+}
+
+// El disparador del periodo baja a la altura del buscador (46 px): a 58
+// junto a un campo de 46 la fila quedaba escalonada y los dos rótulos de
+// encima, a alturas distintas.
+.reservations-agenda-page .admin-range__trigger {
+  box-sizing: border-box;
+  height: 46px;
+  min-height: 46px;
+  padding-block: 4px;
+}
+
+/* ── Resultados ─────────────────────────────────────────────────── */
+// Contenedor de consulta: la libreta y la tira cambian de forma por el ancho
+// de ESTA caja, no por el de la ventana. Plegar el sidebar cambia el ancho sin
+// que el viewport se entere, y una media query no lo vería.
+.reservations-agenda-page .reservations-resultados {
+  container: agenda / inline-size;
+}
+
+/* ── La tira de estados: resumen que filtra ─────────────────────────
+ *
+ * Seis cifras en una sola pieza. Separadas por una retícula de un píxel (el
+ * fondo de la caja asoma por el `gap`), así se dividen igual en una fila de
+ * seis que en dos de tres. La elegida va maciza, en la tinta del panel.
+ */
+.reservations-agenda-page .reservations-estados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 24px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-border-soft);
+
+  &:focus {
+    outline: 0;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+@container agenda (min-width: 420px) {
+  .reservations-agenda-page .reservations-estados {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container agenda (min-width: 760px) {
+  .reservations-agenda-page .reservations-estados {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.reservations-agenda-page .reservations-estados__opcion {
+  // Las marcas rellenan con el fondo de su pieza (ver .reservations-marca).
+  --fila-fondo: var(--admin-surface);
+
+  // En el teléfono, cifra y etiqueta en un renglón: tres filas de piezas
+  // de 74 px empujaban la primera reserva fuera de la pantalla.
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  text-decoration: none;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    --fila-fondo: var(--admin-surface-soft);
+
+    background: var(--admin-surface-soft);
+  }
+
+  // Por dentro: la caja recorta lo que salga, y el anillo de fuera se
+  // perdería.
+  &:focus-visible {
+    outline: 0;
+    box-shadow:
+      inset 0 0 0 2px var(--admin-accent),
+      inset 0 0 0 4px var(--admin-surface);
+  }
+
+  // Un estado sin reservas sigue en la tira —saber que no hubo ausencias
+  // también es información— y baja de peso, no de opacidad.
+  &.is-empty .reservations-estados__cifra {
+    color: var(--admin-faint);
+  }
+
+  &.is-active {
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+
+    .reservations-estados__etiqueta {
+      color: var(--admin-on-accent);
+    }
+
+    // Las marcas se dibujan en tinta y relleno de superficie: sobre la
+    // pieza maciza se invierten para seguir viéndose.
+    .reservations-marca {
+      --marca-tinta: var(--admin-on-accent);
+      --marca-fondo: var(--admin-accent);
+    }
+
+    &:focus-visible {
+      box-shadow:
+        inset 0 0 0 2px var(--admin-on-accent),
+        inset 0 0 0 4px var(--admin-accent);
+    }
+  }
+}
+
+// La cifra de un indicador va en la display del panel; Expose sin `tnum`
+// no importa aquí porque las cifras no se animan.
+.reservations-agenda-page .reservations-estados__cifra {
+  font-family: var(--admin-font-cifra);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+@container agenda (min-width: 420px) {
+  .reservations-agenda-page .reservations-estados__opcion {
+    min-height: 74px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 12px 16px;
+  }
+
+  .reservations-agenda-page .reservations-estados__cifra {
+    font-size: 26px;
+  }
+}
+
+.reservations-agenda-page .reservations-estados__etiqueta {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ── Las marcas de estado ───────────────────────────────────────────
+ *
+ * Una forma por estado, y la misma en la línea del día y en la tira (que así
+ * hace de leyenda). Se distinguen en escala de grises; el único color es el
+ * ámbar de «Tolerancia vencida», que es la única urgencia de la pantalla.
+ *
+ *   ○  Confirmada   aro: todavía no llega
+ *   ●  En mesa      disco macizo: está aquí
+ *   ✓  Atendida     visto: terminó como se esperaba
+ *   ⊘  No llegó     aro tenue cruzado
+ *   –  Cancelada    raya: ya no va a pasar
+ *   ◐  Apartada     medio disco: la landing la retiene mientras confirma
+ *   ●  Tolerancia   disco ámbar: venció la tolerancia y nadie la cerró
+ *
+ * Tinta y relleno van en variables para que la tira los invierta sobre la
+ * opción elegida.
+ */
+.reservations-marca {
+  --marca-tinta: var(--admin-text);
+  --marca-tenue: var(--admin-faint);
+  --marca-fondo: var(--fila-fondo, var(--admin-surface));
+
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+
+  &::before {
+    content: "";
+    position: absolute;
+  }
+
+  &--esperada {
+    background: var(--marca-fondo);
+    box-shadow: inset 0 0 0 2px var(--marca-tinta);
+  }
+
+  &--en-mesa {
+    background: var(--marca-tinta);
+  }
+
+  &--atendida {
+    border-radius: 0;
+    background: var(--marca-fondo);
 
     &::before {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 3px;
-      background: var(--admin-border);
-    }
-
-    span {
-      display: block;
-      color: var(--admin-muted);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    strong {
-      display: block;
-      margin-top: 8px;
-      color: var(--admin-text);
-      font-size: clamp(24px, 1.9vw, 30px);
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-    }
-
-    small {
-      display: block;
-      margin-top: 6px;
-      color: var(--admin-faint);
-      font-size: 11.5px;
-      line-height: 1.35;
+      top: 0;
+      left: 3.5px;
+      width: 4px;
+      height: 8px;
+      border: solid var(--marca-tinta);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
     }
   }
 
-  a#{&}__metric {
-    cursor: pointer;
+  &--no-llego {
+    background: var(--marca-fondo);
+    box-shadow: inset 0 0 0 1.5px var(--marca-tenue);
 
-    &:hover {
-      border-color: var(--admin-gold);
-      transform: translateY(-2px);
-    }
-
-    &:focus-visible {
-      outline: 0;
-      box-shadow: var(--admin-focus-ring);
-    }
-  }
-
-  &__metric--pending {
-    border-color: color-mix(in srgb, var(--admin-gold) 28%, transparent);
-    background: var(--admin-surface);
-
-    &::before { background: color-mix(in srgb, var(--admin-gold) 72%, transparent); }
-  }
-
-  &__metric--needs {
-    border-color: color-mix(in srgb, var(--admin-c-rojo) 22%, transparent);
-    background: var(--admin-surface);
-
-    &::before { background: color-mix(in srgb, var(--admin-c-rojo) 58%, transparent); }
-  }
-
-  // Tolerancia vencida: ámbar, el mismo tono que el estado "en preparación" del
-  // POS. No es un error todavía, pero pide una decisión.
-  &__metric--late {
-    border-color: color-mix(in srgb, var(--admin-c-ambar) 34%, transparent);
-
-    &::before { background: var(--admin-c-ambar); }
-  }
-
-  /* Filtros aplicados: cada chip se quita pulsándolo. */
-  &__chips {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  &__chips-label {
-    color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  &__chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px 6px 12px;
-    border: 1px solid var(--admin-border);
-    border-radius: 999px;
-    background: var(--admin-surface-soft);
-    color: var(--admin-text);
-    font-size: 12px;
-    font-weight: 700;
-    text-decoration: none;
-
-    &:hover {
-      border-color: var(--admin-c-rojo);
-      color: var(--admin-danger-text);
-    }
-
-    &:focus-visible {
-      outline: 0;
-      box-shadow: var(--admin-focus-ring);
+    &::before {
+      top: 5.25px;
+      left: 1px;
+      width: 10px;
+      height: 1.5px;
+      background: var(--marca-tenue);
+      transform: rotate(-45deg);
     }
   }
 
-  // El chip del periodo cuando aún es la ventana por defecto: dice qué se está
-  // mirando, pero no hay nada que quitar. Sin la × y sin el hover en rojo, que
-  // prometía una acción inexistente.
-  &__chip--fijo {
-    padding-right: 12px;
-    border-style: dashed;
-    color: var(--admin-muted);
-    cursor: default;
+  &--cancelada,
+  &--sin-efecto {
+    border-radius: 0;
+    background: var(--marca-fondo);
 
-    &:hover {
-      border-color: var(--admin-border);
-      color: var(--admin-muted);
+    &::before {
+      top: 5px;
+      left: 1px;
+      width: 10px;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--marca-tenue);
     }
   }
 
-  &__chip-x {
-    font-size: 15px;
-    line-height: 1;
-    opacity: 0.65;
+  &--apartada {
+    background: linear-gradient(90deg, var(--marca-tinta) 50%, var(--marca-fondo) 50%);
+    box-shadow: inset 0 0 0 2px var(--marca-tinta);
   }
 
-  // La rejilla de "otros estados" desapareció con el rediseño: eran cuatro
-  // contadores que no llevaban a ninguna parte. Los que sí accionan algo son
-  // ahora tarjetas enlazadas de la misma franja.
-  &__metric--other {
-    &::before { background: var(--admin-border); }
+  &--tarde {
+    background: var(--admin-c-ambar);
+    box-shadow: 0 0 0 2px var(--marca-fondo);
   }
-
-  &__filters {
-    grid-template-columns: minmax(220px, 1.3fr) minmax(280px, 1fr) auto;
-    align-items: end;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 14px;
-  }
-
-  &__filters input,
-  &__filters select {
-    min-height: 42px;
-  }
-
-  &__filters .admin-filters__range {
-    min-width: 0;
-
-    .admin-range__trigger {
-      min-height: 42px;
-      padding-block: 7px;
-    }
-  }
-
-  &__filters .admin-filters__actions {
-    align-items: center;
-    justify-content: flex-end;
-    align-self: end;
-    flex-wrap: wrap;
-    min-width: 0;
-
-    .admin-btn,
-    .admin-menu__button {
-      min-height: 42px;
-      min-width: 86px;
-    }
-  }
-
-  /*
-   * Filtros secundarios plegados. Estado, asignación y origen se tocan poco y
-   * entre los seis campos el bloque ocupaba un tercio de la pantalla antes de
-   * enseñar la primera reservación.
-   */
-  .admin-filters__more {
-    grid-column: 1 / -1;
-    min-width: 0;
-
-    summary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      padding: 7px 12px;
-      border: 1px solid var(--admin-border-soft);
-      border-radius: 999px;
-      color: var(--admin-muted);
-      font-size: 12px;
-      font-weight: 800;
-      cursor: pointer;
-      list-style: none;
-      user-select: none;
-
-      &::-webkit-details-marker { display: none; }
-
-      &:hover {
-        border-color: var(--admin-gold);
-        color: var(--admin-text);
-      }
-
-      &:focus-visible {
-        outline: 0;
-        box-shadow: var(--admin-focus-ring);
-      }
-
-      svg {
-        width: 14px;
-        height: 14px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2;
-        stroke-linecap: round;
-      }
-    }
-
-    &[open] summary {
-      border-color: var(--admin-gold);
-      color: var(--admin-text);
-    }
-  }
-
-  .admin-filters__more-grid {
-    display: grid;
-    // 190 de mínimo porque lo que ocupa el hueco no es el <select> nativo sino
-    // el .admin-select de select.js, que arranca en 150px.
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 12px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--admin-border-soft);
-  }
-
-  &__header-action {
-    box-sizing: border-box;
-    flex: 0 0 auto;
-    gap: 8px;
-    min-height: 42px;
-    padding: 0 15px;
-    line-height: 1;
-    white-space: nowrap;
-
-    .admin-btn__icon {
-      width: 16px;
-      height: 16px;
-      flex: 0 0 16px;
-      color: currentColor;
-      fill: none;
-      stroke: currentColor;
-    }
-
-    span {
-      display: inline-flex;
-      align-items: center;
-      line-height: 1;
-    }
-  }
-
 }
 
-.reservations-table-card {
-  box-sizing: border-box;
-  max-width: 100%;
-  min-width: 0;
-  margin-bottom: 24px;
-  padding: 20px;
-  /* `clip` y no el `hidden` que trae .admin-card: los dos recortan igual, pero
-     `hidden` convierte la tarjeta en contenedor de scroll, y un `sticky` se
-     pega al contenedor de scroll más cercano. Con `hidden` la cabecera de día
-     se pegaba a una caja que nunca se desplaza, es decir, no se pegaba nunca.
-     Un navegador sin `clip` descarta la línea y se queda con el `hidden`: la
-     cabecera deja de pegarse y nada más. */
-  overflow: clip;
+// En la opción elegida de la tira, lo tenue también se invierte.
+.reservations-agenda-page .reservations-estados__opcion.is-active .reservations-marca {
+  --marca-tenue: var(--admin-on-accent);
 }
 
-.reservations-table-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin-bottom: 18px;
-
-  // h2 y no h3: la vista emite h2 y estos estilos apuntaban al nivel
-  // equivocado, así que el título del resultado salía sin formato.
-  h2,
-  h3 {
-    margin: 0;
-    color: var(--admin-text);
-    font-size: 22px;
-    line-height: 1.15;
-  }
+/* ── Vacío ──────────────────────────────────────────────────────── */
+.reservations-agenda-page .reservations-vacio {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 48px 20px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: var(--admin-radius-md);
+  text-align: center;
 
   p {
-    margin: 5px 0 0;
+    max-width: 52ch;
+    margin: 0;
     color: var(--admin-muted);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  strong {
+    color: var(--admin-text);
+  }
+
+  .admin-btn {
+    margin-top: 10px;
+  }
+}
+
+.reservations-agenda-page .reservations-vacio__icono {
+  margin-bottom: 6px;
+  color: var(--admin-faint);
+  stroke-width: 1.6;
+}
+
+/* ── La libreta: una hoja por día ─────────────────────────────────── */
+.reservations-agenda-page .reservations-libreta {
+  display: grid;
+  gap: 16px;
+}
+
+.reservations-agenda-page .reservations-dia {
+  // Fuera de pantalla no se maqueta: un periodo de treinta días puede
+  // traer cientos de filas. El tamaño de reserva evita que la barra de
+  // desplazamiento salte al entrar cada hoja.
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}
+
+/*
+ * Cabecera de la hoja. Pegajosa: en un periodo largo se pierde de vista de
+ * qué día es lo que se está leyendo. Va por debajo del topbar (sticky, 56 px,
+ * z-index 10) y con fondo macizo, porque las filas pasan por debajo.
+ */
+.reservations-agenda-page .reservations-dia__cabecera {
+  position: sticky;
+  top: 56px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 14px 18px 12px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md) var(--admin-radius-md) 0 0;
+  background: var(--admin-surface);
+}
+
+.reservations-agenda-page .reservations-dia__titulo {
+  display: grid;
+  grid-template-columns: var(--agenda-margen) var(--agenda-carril) auto;
+  align-items: center;
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+// El número del día ocupa el margen de las horas y va en su misma voz, más
+// grande: es la cifra con la que se recorre la libreta de hoja en hoja.
+.reservations-agenda-page .reservations-dia__fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  // El mismo canto derecho que las horas de debajo.
+  padding-right: 4px;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.reservations-agenda-page .reservations-dia__numero {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.reservations-agenda-page .reservations-dia__mes {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.reservations-agenda-page .reservations-dia__nombre {
+  display: flex;
+  flex-direction: column;
+  grid-column: 3;
+  gap: 2px;
+}
+
+// «Hoy», «Mañana», «Ayer»: rótulo del panel, mono en versalitas.
+.reservations-agenda-page .reservations-dia__relativo {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.reservations-agenda-page .reservations-dia.is-hoy .reservations-dia__relativo {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 7px 2px;
+  border-radius: 4px;
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+.reservations-agenda-page .reservations-dia__resumen {
+  margin: 0 0 0 calc(var(--agenda-margen) + var(--agenda-carril));
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+
+  .admin-num {
+    color: var(--admin-text);
+    font-weight: 600;
+  }
+}
+
+// En una hoja ancha el resumen se va a la derecha del título.
+@container agenda (min-width: 620px) {
+  .reservations-agenda-page .reservations-dia__resumen {
+    margin-left: 0;
+  }
+}
+
+.reservations-agenda-page .reservations-dia__filas {
+  margin: 0;
+  padding: 6px 0 10px;
+  list-style: none;
+}
+
+/* ── Una reserva ────────────────────────────────────────────────────
+ *
+ * Por defecto (hoja estrecha: tablet, teléfono) en dos renglones:
+ *
+ *   20:30  ○  Mariana López                       ▦  ›
+ *             4 personas · Mesa 3 · Confirmada
+ *
+ * Con sitio, en columnas fijas (ver el @container de abajo).
+ */
+.reservations-agenda-page .reservations-fila {
+  --fila-fondo: var(--admin-surface);
+
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: var(--agenda-margen) var(--agenda-carril) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "hora marca quien acciones"
+    "hora marca datos acciones";
+  align-items: start;
+  column-gap: 0;
+  row-gap: 3px;
+  padding: var(--fila-pad) 12px var(--fila-pad) 0;
+
+  // El fondo al apuntar, detrás del contenido. Arranca un píxel abajo para
+  // no tapar el filete de cambio de franja.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 1px 6px 0;
+    z-index: -1;
+    border-radius: var(--admin-radius-sm);
+    background: var(--fila-fondo);
+    transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // El tramo de la línea del día que cruza esta fila. Arranca en la marca
+  // de la primera y termina en la de la última.
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--agenda-margen) + var(--agenda-carril) / 2 - 0.5px);
+    z-index: -1;
+    width: 1px;
+    background: var(--agenda-linea);
+  }
+
+  &:first-child::after {
+    top: var(--fila-eje);
+  }
+
+  &:last-child::after {
+    bottom: calc(100% - var(--fila-eje));
+  }
+
+  &:only-child::after {
+    display: none;
+  }
+
+  // Cambio de franja: un filete fino a todo lo ancho, como las rayas de
+  // hora de una agenda impresa. Las reservas que comparten hora no lo
+  // llevan: cuelgan juntas de la misma.
+  &.is-inicio-franja:not(:first-child) {
+    box-shadow: inset 0 1px 0 var(--admin-border-soft);
+  }
+
+  &:hover {
+    --fila-fondo: var(--admin-surface-soft);
+  }
+}
+
+// Justo bajo la raya de «ahora» el filete de franja sobra: serían dos rayas.
+.reservations-agenda-page .reservations-ahora + .reservations-fila.is-inicio-franja {
+  box-shadow: none;
+}
+
+.reservations-agenda-page .reservations-fila__hora {
+  grid-area: hora;
+  padding-right: 4px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: var(--fila-renglon);
+  text-align: right;
+}
+
+.reservations-agenda-page .reservations-fila__marca {
+  grid-area: marca;
+  justify-self: center;
+  margin-top: calc(var(--fila-renglon) / 2 - 6px);
+}
+
+.reservations-agenda-page .reservations-fila__quien {
+  display: flex;
+  min-width: 0;
+  grid-area: quien;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/*
+ * El nombre es el enlace al detalle y su ::after cubre la fila entera: toda
+ * ella es objetivo de toque, sin anidar un enlace dentro de otro. Las
+ * acciones de la derecha van por encima (z-index 1).
+ */
+.reservations-agenda-page .reservations-fila__nombre {
+  display: block;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: var(--fila-renglon);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0 6px;
+    border-radius: var(--admin-radius-sm);
+  }
+
+  &:focus {
+    outline: 0;
+  }
+
+  &:focus-visible::after {
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
+  }
+}
+
+.reservations-agenda-page .reservations-fila__nota {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.reservations-agenda-page .reservations-fila__nota-icono {
+  flex: none;
+  stroke-width: 1.8;
+}
+
+// Personas · mesas · estado. En la hoja estrecha, un renglón que envuelve;
+// en la ancha, `display: contents` y cada dato a su columna.
+.reservations-agenda-page .reservations-fila__datos {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  grid-area: datos;
+  align-items: center;
+  gap: 4px 14px;
+  color: var(--admin-text);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.reservations-agenda-page .reservations-fila__personas {
+  white-space: nowrap;
+
+  .admin-num {
+    font-weight: 600;
+  }
+}
+
+.reservations-agenda-page .reservations-fila__mesas {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  // Una reserva viva sin mesas no debería existir (se guardan con ellas):
+  // si aparece, se dice en la voz de advertencia, no en gris.
+  &.is-aviso {
+    color: var(--admin-warning-text);
+    font-weight: 600;
+  }
+
+  // En una que ya terminó, sin mesa es sólo lo que quedó registrado.
+  &.is-vacio {
+    color: var(--admin-muted);
   }
 }
 
 /*
- * Insignia de estado de una reservación.
+ * La etiqueta del estado: una pastilla maciza y callada. Las dos que ya no
+ * van a pasar se vacían y su contorno se vuelve discontinuo; la única que
+ * pide algo, «Tolerancia vencida», va en ámbar macizo con tinta oscura (el ámbar
+ * tiene luminancia 0.52 y no admite texto claro).
+ */
+.reservations-agenda-page .reservations-fila__estado {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.reservations-agenda-page .reservations-fila.is-sin-efecto {
+  .reservations-fila__hora,
+  .reservations-fila__nombre,
+  .reservations-fila__datos {
+    color: var(--admin-muted);
+  }
+
+  .reservations-fila__nombre {
+    font-weight: 500;
+  }
+
+  .reservations-fila__estado {
+    border-color: var(--admin-border-strong);
+    border-style: dashed;
+    background: transparent;
+    color: var(--admin-muted);
+  }
+}
+
+.reservations-agenda-page .reservations-fila.is-late .reservations-fila__estado {
+  border-color: var(--admin-c-ambar);
+  background: var(--admin-c-ambar);
+  color: var(--admin-ink);
+}
+
+/* Acciones: por encima del enlace que cubre la fila. El contenedor deja
+   pasar el clic (al detalle) y sólo los controles lo capturan. */
+.reservations-agenda-page .reservations-fila__acciones {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  grid-area: acciones;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-left: 10px;
+  pointer-events: none;
+
+  > a,
+  > form {
+    pointer-events: auto;
+  }
+}
+
+.reservations-agenda-page .reservations-fila__form {
+  margin: 0;
+}
+
+// `.admin-body button` declara `font: inherit` con (0,1,1) y le gana a
+// .admin-btn--small: «No llegó» salía al cuerpo de la página.
+.reservations-agenda-page .reservations-fila__accion {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reservations-agenda-page .reservations-fila__pos {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  transition:
+    color var(--admin-t-fast) var(--admin-ease-out),
+    border-color var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    stroke-width: 1.8;
+  }
+
+  &:hover {
+    border-color: var(--admin-border-strong);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+.reservations-agenda-page .reservations-fila__ir {
+  display: grid;
+  width: 18px;
+  place-items: center;
+  color: var(--admin-faint);
+  transition:
+    color var(--admin-t-fast) var(--admin-ease-out),
+    transform var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    stroke-width: 2;
+  }
+}
+
+.reservations-agenda-page .reservations-fila:hover .reservations-fila__ir {
+  color: var(--admin-text);
+  transform: translateX(2px);
+}
+
+// En pantalla táctil, 44 px para el pulgar: es donde se actúa.
+@media (pointer: coarse) {
+  .reservations-agenda-page .reservations-fila__pos {
+    width: 44px;
+    height: 44px;
+  }
+
+  .reservations-agenda-page .reservations-fila__accion {
+    min-height: 44px;
+  }
+}
+
+/* ── Hoja ancha: columnas ───────────────────────────────────────────
  *
- * La consumen el detalle (show.php), la operación de reservaciones y la tarjeta
- * del cajón operativo. El listado del panel ya no: usa .admin-badge, que es el
- * vocabulario del panel.
+ *   20:30  ○  Mariana López      4 personas   Mesa 3        Confirmada   ▦ ›
  *
- * Se quitan el `width: 100%` y el `max-width: 104px` que tenía: con `nowrap`,
- * ese tope no recortaba con puntos suspensivos —lo hacía a hueso—, así que
- * "Pendiente de verificación" salía cortado a media palabra. Un badge mide lo
- * que mide su texto; si hace falta acotarlo, se acota la caja que lo contiene.
+ * Anchos fijos salvo el del nombre: cada fila es su propia rejilla, y sólo
+ * con columnas fijas caen las personas de una debajo de las de otra.
+ */
+@container agenda (min-width: 900px) {
+  .reservations-agenda-page .reservations-fila {
+    grid-template-columns:
+      var(--agenda-margen) var(--agenda-carril)
+      minmax(0, 1fr) 7rem minmax(0, 12rem) 8.5rem 8.5rem;
+    grid-template-areas: "hora marca quien personas mesas estado acciones";
+    column-gap: 0;
+  }
+
+  .reservations-agenda-page .reservations-fila__quien {
+    padding-right: 16px;
+  }
+
+  .reservations-agenda-page .reservations-fila__datos {
+    display: contents;
+  }
+
+  .reservations-agenda-page .reservations-fila__personas,
+  .reservations-agenda-page .reservations-fila__mesas,
+  .reservations-agenda-page .reservations-fila__estado {
+    align-self: start;
+    margin-top: 1px;
+    font-size: 13.5px;
+    line-height: calc(var(--fila-renglon) - 2px);
+  }
+
+  .reservations-agenda-page .reservations-fila__personas { grid-area: personas; }
+
+  .reservations-agenda-page .reservations-fila__mesas {
+    grid-area: mesas;
+    padding-right: 12px;
+  }
+
+  // Contra el canto derecho de su columna, junto a las acciones: alineada a
+  // la izquierda dejaba un hueco entre la etiqueta y el botón que la
+  // separaba de lo que se puede hacer con ella.
+  .reservations-agenda-page .reservations-fila__estado {
+    grid-area: estado;
+    justify-self: end;
+    margin-top: 0;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+}
+
+/* ── Ahora ──────────────────────────────────────────────────────────
+ *
+ * En la hoja de hoy, la raya que separa lo que ya debió llegar de lo que
+ * falta. La hora va en una pastilla maciza en el margen, la marca encima de
+ * la línea del día y la raya cruza la hoja.
+ */
+.reservations-agenda-page .reservations-ahora {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--agenda-margen) var(--agenda-carril) minmax(0, 1fr);
+  align-items: center;
+  height: 22px;
+  margin: 2px 0;
+
+  // La línea del día sigue por aquí si hay reservas antes y después.
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--agenda-margen) + var(--agenda-carril) / 2 - 0.5px);
+    width: 1px;
+    background: var(--agenda-linea);
+  }
+
+  // Primera o última de la hoja: la línea llega hasta su marca y no la pasa.
+  &:first-child::before {
+    top: 50%;
+  }
+
+  &:last-child::before {
+    bottom: 50%;
+  }
+
+  &:only-child::before {
+    display: none;
+  }
+
+  // La raya, desde la marca hasta el canto de la hoja.
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 18px;
+    left: calc(var(--agenda-margen) + var(--agenda-carril) / 2);
+    height: 1px;
+    background: var(--admin-accent);
+  }
+}
+
+.reservations-agenda-page .reservations-ahora__hora {
+  justify-self: end;
+  margin-right: 2px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  font-family: var(--admin-font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.reservations-agenda-page .reservations-ahora__marca {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--admin-accent);
+}
+
+.reservations-agenda-page .reservations-ahora__rotulo {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  margin-left: 6px;
+  padding-inline: 6px 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── Estados de carga ───────────────────────────────────────────── */
+.reservations-agenda-page .reservations-resultados[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+
+@include mixins.reduced-motion {
+  .reservations-agenda-page .reservations-fila::before,
+  .reservations-agenda-page .reservations-fila__ir,
+  .reservations-agenda-page .reservations-estados__opcion,
+  .reservations-agenda-page .reservations-resultados[aria-busy="true"] {
+    transition: none;
+  }
+
+  .reservations-agenda-page .reservations-fila:hover .reservations-fila__ir {
+    transform: none;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .reservations-agenda-page {
+    --agenda-margen: 3.6rem;
+    --agenda-carril: 1.75rem;
+  }
+
+  .admin-reservations .reservations-buscador {
+    flex: 1 1 100%;
+  }
+
+  .reservations-agenda-page .reservations-fila__hora {
+    font-size: 15px;
+  }
+
+  .reservations-agenda-page .reservations-dia__cabecera {
+    padding-right: 12px;
+  }
+}
+
+/* ── Insignia de estado del DETALLE ─────────────────────────────────
+ *
+ * La consume show.php (y no la Agenda, que pinta su propia etiqueta). Mismo
+ * criterio que la lista: lo vivo en pastilla sólida y callada, los dos
+ * estados que ya no van a pasar vaciados y con contorno discontinuo —no en
+ * rojo: una reservación cancelada no es una alerta que atender—.
+ *
+ * Sin `max-width`: con `nowrap` el tope recortaba a hueso, y «Pendiente de
+ * verificación» salía cortado a media palabra.
  */
 .reservations-table__status {
   display: inline-flex;
@@ -461,620 +1106,46 @@
   align-items: center;
   justify-content: center;
   padding: 0 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 800;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 11.5px;
+  font-weight: 700;
   line-height: 1;
   white-space: nowrap;
 }
 
 .reservations-table__status--pendiente_verificacion {
-  border: 1px solid var(--admin-warning-border);
+  border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);
 }
 
 .reservations-table__status--confirmada {
-  border: 1px solid var(--admin-success-border);
+  border-color: var(--admin-success-border);
   background: var(--admin-success-bg);
   color: var(--admin-success-text);
 }
 
+.reservations-table__status--en_curso {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
 .reservations-table__status--completada {
-  border: 1px solid var(--admin-info-border);
-  background: var(--admin-info-bg);
-  color: var(--admin-info-text);
+  border-color: var(--admin-border);
 }
 
 .reservations-table__status--cancelada,
-.reservations-table__status--no_show {
-  border: 1px solid var(--admin-danger-border);
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
-}
-
-/* ── Listado de reservaciones ───────────────────────────────────
- *
- * Sustituye a la tabla de seis columnas, que tenía `min-width: 960px` y por
- * tanto scroll horizontal permanente en cualquier portátil: el estado y las
- * acciones —lo único accionable de la fila— quedaban fuera de vista y había
- * que arrastrar para verlos.
- *
- * Las tarjetas se reparten en una rejilla que se adapta sola: tres columnas en
- * un monitor, dos en un portátil, una en tablet. En ningún caso desborda, que
- * es la mitad del arreglo; la otra mitad es que la información se ordena por
- * lo que se pregunta —cuándo, quién, cuántos, dónde, qué hacer— en vez de por
- * lo que cabía en una columna.
- */
-.reservations-list {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 22px;
-
-  /* Obligatorio, no defensivo: `lista.js` alterna lista y agenda poniendo
-     `[hidden]`, y el `display: none` que eso trae viene de la hoja del
-     NAVEGADOR — cualquier `display` de autor le gana. La envoltura anterior de
-     la tabla no declaraba `display`, así que se ocultaba sola; esta es flex y
-     sin esta regla la lista no se iría nunca al pasar a la agenda. Es el mismo
-     bloque que ya tiene .reservations-agenda, y por lo mismo. */
-  &[hidden] {
-    display: none;
-  }
-}
-
-.reservations-list__day {
-  min-width: 0;
-
-  /* La cabecera del día es pegajosa: en un rango largo el listado ocupa varias
-     pantallas y sin ella se pierde de vista a qué día pertenece lo que se está
-     leyendo. Era una fila de <thead> y hacía lo mismo. */
-  &-head {
-    position: sticky;
-    /* Por debajo del topbar, que también es sticky (56 px de alto mínimo) y
-       tiene z-index 10: con `top: 0` la cabecera se escondía detrás de él
-       justo en el momento en que tenía que aparecer. */
-    top: 64px;
-    z-index: 2;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin: 0 0 10px;
-    padding: 9px 12px;
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-    color: var(--admin-text);
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-
-    small {
-      color: var(--admin-muted);
-      font-family: var(--admin-font-mono);
-      font-size: 11.5px;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      letter-spacing: 0;
-    }
-  }
-}
-
-/* Las tarjetas del día se reparten en columnas a CUALQUIER ancho. Iba detrás
-   de un `min-width: 1100px`, y entre 700 y 1100 px —un portátil con el sidebar
-   abierto— salía una sola columna de tarjetas de 800 px con el nombre a un
-   lado y los botones al otro, que es la tabla de antes sin encabezados. El
-   `min(100%, …)` es lo que deja caer a una columna en el teléfono sin media
-   query. 300 px es el ancho por debajo del cual el nombre del cliente y la
-   lista de mesas empiezan a partirse en dos líneas. */
-.reservations-list__day {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  align-items: start;
-  gap: 10px;
-}
-
-.reservations-list__day-head { grid-column: 1 / -1; }
-
-.reservations-card {
-  /* --estado es el color del filete izquierdo. Se declara por variante abajo y
-     nace neutro, que es lo seguro para un estado que no conozcamos. */
-  --estado: var(--admin-border);
-
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 10px;
-  padding: 13px 15px;
-  border: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--estado);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
-  transition:
-    border-color var(--admin-t-fast) var(--admin-ease-out),
-    box-shadow var(--admin-t-fast) var(--admin-ease-out);
-
-  &:hover {
-    border-color: var(--admin-border);
-    border-left-color: var(--estado);
-    box-shadow: var(--admin-shadow-sm, 0 2px 8px color-mix(in srgb, var(--admin-sombra) 18%, transparent));
-  }
-
-  &--pendiente_verificacion { --estado: var(--admin-c-ambar); }
-  &--confirmada { --estado: var(--admin-c-verde); }
-  &--completada { --estado: var(--admin-c-azul); }
-
-  /* Los dos estados terminales van en la línea neutra y no en rojo: una
-     reservación cancelada no es una alerta que atender, es una fila que ya no
-     va a pasar. El rojo se reserva para lo que pide acción.
-
-     Se retiran de la vista por la CAJA —sin fondo, contorno discontinuo, hora
-     y nombre en gris— y no con `opacity`, que era lo que había: al 72 % se
-     llevaba el texto por delante, y los rótulos en --admin-faint, que ya están
-     en el 4.5:1 justo, bajaban a menos de 3:1. Atenuar no puede costar leer. */
-  &--cancelada,
-  &--no_show {
-    --estado: var(--admin-border);
-
-    border-style: dashed;
-    border-left-style: solid;
-    background: transparent;
-
-    .reservations-card__time,
-    .reservations-card__name { color: var(--admin-muted); }
-  }
-
-  /* La tolerancia vencida SÍ pide acción, así que gana al estado: es lo único
-     de esta pantalla que le dice al anfitrión que tiene algo que resolver
-     ahora. Misma familia ámbar que la métrica «Tolerancia vencida» de arriba,
-     que es la que le da nombre. */
-  &.is-late {
-    --estado: var(--admin-c-ambar);
-  }
-
-  &__head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  &__when {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-    margin: 0;
-  }
-
-  /* La hora es el dato con el que se recorre el listado, así que es lo más
-     grande de la tarjeta después del nombre, y va en mono con cifras de ancho
-     fijo: en una rejilla de tarjetas las horas caen unas debajo de otras y sin
-     tabular-nums no alinean los dos puntos. */
-  &__time {
-    color: var(--admin-text);
-    font-family: var(--admin-font-mono);
-    font-size: 17px;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1;
-  }
-
-  &__late {
-    color: var(--admin-warning-text);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  &__status { flex: 0 0 auto; }
-
-  &__customer {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  &__name {
-    overflow: hidden;
-    color: var(--admin-text);
-    font-size: 15px;
-    font-weight: 700;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__contact {
-    overflow: hidden;
-    color: var(--admin-muted);
-    font-size: 12px;
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* Personas y mesas, como pares rótulo/valor. Fuera de una tabla el
-     encabezado de columna desaparece, y "13" o "Mesa 1, Mesa 2" a secas no
-     dicen de qué son. */
-  &__facts {
-    display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-    gap: 4px 16px;
-    margin: 0;
-    padding: 9px 0 0;
-    border-top: 1px solid var(--admin-border-soft);
-  }
-
-  &__fact {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-
-    /* Rótulo en la voz del panel: mono, versalitas y tracking abierto. A
-       9.5 px en sans pesada no llegaba a leerse como texto. */
-    dt {
-      color: var(--admin-faint);
-      font-family: var(--admin-font-mono);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    dd {
-      min-width: 0;
-      overflow: hidden;
-      margin: 0;
-      color: var(--admin-text);
-      font-size: 13px;
-      line-height: 1.3;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    // Sin mesa asignada es una tarea pendiente, no un dato: se dice en la voz
-    // de advertencia para que se distinga al recorrer la rejilla.
-    &--pendiente dd {
-      color: var(--admin-warning-text);
-      font-weight: 700;
-    }
-  }
-
-  // La nota, a dos líneas como mucho: es contexto, no el contenido de la ficha.
-  &__note {
-    display: -webkit-box;
-    overflow: hidden;
-    margin: 0;
-    color: var(--admin-muted);
-    font-size: 12px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  &__foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: auto;
-    padding-top: 9px;
-    border-top: 1px solid var(--admin-border-soft);
-  }
-
-  &__origin { flex: 0 0 auto; }
-
-  &__actions {
-    display: flex;
-    flex: 0 0 auto;
-    gap: 6px;
-  }
-
-  &__operate .admin-btn__icon {
-    width: 13px;
-    height: 13px;
-  }
-
-  /* En pantalla táctil los 34 px del botón pequeño se quedan cortos para el
-     pulgar: la tarjeta es donde se actúa, no sólo donde se lee. */
-  @media (pointer: coarse) {
-    &__actions .admin-btn { min-height: 44px; }
-  }
-}
-
-/*
- * Vista de agenda: el mismo listado repartido por franja horaria.
- *
- * La tabla responde «qué reservaciones hay»; la agenda responde «cómo se
- * reparte el servicio», que es la pregunta con la que se decide personal y
- * cocina. Se alimenta de los mismos datos, sin consulta adicional.
- */
-.reservations-views {
-  flex: 0 0 auto;
-  min-width: 0;
-  margin: 0;
-
-  .admin-tabs__tab {
-    flex: 0 0 44px;
-    width: 44px;
-    min-height: 40px;
-
-    span {
-      display: grid;
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      place-items: center;
-    }
-
-    svg {
-      width: 18px;
-      height: 18px;
-      fill: none;
-      stroke: currentColor;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-width: 1.8;
-    }
-  }
-
-  > legend.admin-visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-  }
-}
-
-.reservations-agenda {
-  display: grid;
-  gap: 22px;
-  max-height: 620px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-
-  &::-webkit-scrollbar { width: 8px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: var(--admin-border);
-  }
-
-  &[hidden] {
-    display: none;
-  }
-
-  &__day-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--admin-border);
-
-    h3 {
-      margin: 0;
-      color: var(--admin-text);
-      font-size: 15px;
-      font-weight: 800;
-    }
-
-    span {
-      color: var(--admin-muted);
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-
-  &__slot {
-    display: grid;
-    grid-template-columns: 74px minmax(0, 1fr);
-    gap: 14px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--admin-border-soft);
-
-    &:last-child {
-      border-bottom: 0;
-    }
-
-    @media (max-width: 576px) {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 8px;
-    }
-  }
-
-  &__hour {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-
-    strong {
-      color: var(--admin-gold);
-      font-size: 15px;
-      font-weight: 900;
-      font-variant-numeric: tabular-nums;
-    }
-
-    small {
-      color: var(--admin-faint);
-      font-size: 11px;
-    }
-  }
-
-  &__list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    margin: 0;
-    padding: 0;
-    gap: 8px;
-    list-style: none;
-  }
-
-  &__card {
-    display: grid;
-    gap: 2px;
-    padding: 10px 12px;
-    // Borde izquierdo del color del estado: es la codificación que ya usa la
-    // tabla, así que las dos vistas se leen igual.
-    border: 1px solid var(--admin-border-soft);
-    border-left: 3px solid var(--admin-border);
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-    color: inherit;
-    text-decoration: none;
-    transition: border-color var(--admin-t-fast) ease, transform var(--admin-t-fast) ease;
-
-    &:hover {
-      border-color: var(--admin-gold);
-      transform: translateY(-1px);
-    }
-
-    &:focus-visible {
-      outline: 0;
-      box-shadow: var(--admin-focus-ring);
-    }
-
-    strong {
-      color: var(--admin-text);
-      font-size: 13px;
-      font-weight: 800;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    span {
-      color: var(--admin-muted);
-      font-size: 11.5px;
-    }
-
-    small {
-      color: var(--admin-faint);
-      font-size: 11px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    &--confirmada { border-left-color: var(--admin-c-verde); }
-    &--pendiente_verificacion { border-left-color: var(--admin-c-ambar); }
-    &--en_curso { border-left-color: var(--admin-c-azul); }
-    &--completada { border-left-color: var(--admin-border); }
-    &--cancelada,
-    &--no_show { border-left-color: var(--admin-c-rojo); }
-  }
-}
-
-.reservations-table__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  justify-items: end;
-  width: 100%;
-  min-width: max-content;
-  gap: 6px;
-  white-space: nowrap;
-
-  form {
-    margin: 0;
-    min-width: 0;
-  }
-
-  .admin-btn {
-    flex-shrink: 0;
-    min-height: 42px;
-    min-width: 64px;
-    padding-inline: 12px;
-    border-radius: var(--admin-radius-sm);
-    font-size: 11.5px;
-    line-height: 1.2;
-    letter-spacing: 0;
-  }
-}
-
-.reservations-table__operate-action {
-  gap: 5px;
+.reservations-table__status--no_show,
+.reservations-table__status--expirada,
+.reservations-table__status--reemplazada {
+  border-color: var(--admin-border-strong);
+  border-style: dashed;
+  background: transparent;
   color: var(--admin-muted);
-
-  &:hover,
-  &:active,
-  &:focus-visible {
-    color: var(--admin-text);
-  }
-
-  &[aria-disabled="true"] {
-    color: var(--admin-faint);
-  }
-
-  .admin-btn__icon {
-    width: 13px;
-    height: 13px;
-    flex-basis: 13px;
-    color: currentColor;
-    fill: none;
-    stroke: currentColor;
-  }
-}
-
-.reservations-table__actions-primary,
-.reservations-table__actions-secondary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.reservations-table__actions-primary {
-  padding-bottom: 7px;
-  border-bottom: 1px solid var(--admin-border-soft);
-
-  .admin-btn--primary,
-  .admin-btn--disabled {
-    min-width: 112px;
-  }
-}
-
-.reservations-table__actions-secondary {
-  row-gap: 6px;
-
-  .admin-btn {
-    min-width: 66px;
-    color: var(--admin-text);
-  }
-
-  .admin-btn--danger {
-    color: var(--admin-danger-text);
-  }
-}
-
-.reservations-table__actions-empty {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  padding-inline: 8px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  color: var(--admin-muted);
-  font-size: 10.5px;
-  font-weight: 800;
-  line-height: 1;
 }
 
 .admin-reservation-detail {
@@ -1120,11 +1191,11 @@
   align-items: center;
   margin-bottom: 16px;
   padding: 20px 22px;
-  border-top: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--admin-accent);
-  /* Sin la rampa: entre --admin-surface y --admin-surface-soft hay un escalón
-     de gris, y en diagonal se leía como una mancha. El filete de la izquierda
-     ya dice que el bloque es distinto. */
+  /* Sin filete lateral (el cliente los retiró del módulo): lo que dice que
+     el bloque es distinto es el contorno de control —el único 3:1 de la
+     escala de líneas— sobre una superficie maciza, y su sitio, encima de
+     todo lo demás. */
+  border: 1px solid var(--admin-border-strong);
   background: var(--admin-surface-soft);
   box-shadow: inset 0 1px 0 var(--admin-glass-edge);
 
@@ -1932,122 +2003,26 @@
 }
 
 @include mixins.down(vars.$breakpoint-wide) {
-  .admin-reservations {
-    &__metrics-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    &__filters {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-
-      .admin-filters__search,
-      .admin-filters__actions {
-        grid-column: 1 / -1;
-      }
-
-      .admin-filters__actions {
-        justify-content: flex-start;
-      }
-    }
-  }
-
   .reservation-detail-layout {
     grid-template-columns: 1fr;
   }
 }
 
-@include mixins.down(vars.$breakpoint-drawer) {
-  .reservations-table-card {
-    padding: 18px;
-  }
-
-  .reservations-table__actions,
-  .reservations-table__actions-primary,
-  .reservations-table__actions-secondary {
-    justify-content: flex-start;
-  }
-}
-
 @include mixins.down(vars.$breakpoint-tablet) {
-  .admin-reservations {
-    &__filters {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-
-      .admin-filters__search,
-      .admin-filters__actions {
-        grid-column: 1 / -1;
-      }
-
-      .admin-filters__actions {
-        justify-content: flex-start;
-        min-width: 0;
-      }
-    }
-  }
-
   .reservation-development-tools {
     .admin-config-grid,
     .admin-form__grid {
       grid-template-columns: 1fr;
     }
   }
-
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
-  .reservations-table-card {
-    padding: 16px;
-  }
+  .admin-reservations .admin-alert {
+    grid-template-columns: auto minmax(0, 1fr);
 
-  .reservations-table-card__header {
-    display: grid;
-    gap: 8px;
-  }
-
-  .admin-reservations {
-    &__filters {
-      grid-template-columns: 1fr;
-      padding: 14px;
-
-      .admin-filters__search,
-      .admin-filters__actions {
-        grid-column: auto;
-      }
-
-      .admin-filters__actions {
-        flex-wrap: wrap;
-      }
-    }
-
-    &__metrics {
-      margin-bottom: 16px;
-    }
-
-    &__metrics-grid {
-      grid-template-columns: 1fr;
-      gap: 9px;
-    }
-
-    &__metric {
-      min-height: 76px;
-    }
-
-    &__metric--other {
-      min-height: 90px;
-    }
-
-    .admin-menu__actions {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
-
-    &__header-action {
-      width: 100%;
-      justify-content: center;
-    }
-
-    .admin-alert {
-      grid-template-columns: 1fr;
+    span {
+      grid-column: 1 / -1;
     }
   }
 

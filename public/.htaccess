@@ -5,3 +5,38 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)$ index.php/$1 [L,QSA]
+
+# ── Rendimiento ──────────────────────────────────────────────
+#
+# Todo va dentro de <IfModule>: si el servidor no tiene el módulo, la regla
+# no se aplica y el sitio sigue funcionando igual, sólo que más lento.
+
+# Compresión del texto (HTML, CSS, JS, JSON, SVG, XML). La portada pesa ~210 KB
+# de HTML —la mesa del hero es un SVG en línea— y la hoja ~200 KB: comprimidos
+# bajan a una fracción. Brotli donde esté; deflate como respaldo.
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/css text/plain text/xml application/javascript application/json application/xml image/svg+xml
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# Caché de los estáticos de /build.
+#
+# Lo que la página pide con `?v=` (app.css, bundle.min.js, los CSS y JS de
+# módulo: recursoVersionado() les pone la fecha del archivo) es inmutable un
+# año: si cambia el archivo cambia la URL. Lo que va sin versión —fotos,
+# fuentes, librerías de vendor— se guarda menos tiempo, porque reemplazarlo en
+# su sitio no cambia la URL. El HTML no se toca: HomeController ya lo manda
+# con no-store, y es lo que tiene que estar siempre al día.
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#^/build/# && %{QUERY_STRING} =~ /(^|&)v=/">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+  <ElseIf "%{REQUEST_URI} =~ m#^/build/fonts/#">
+    Header set Cache-Control "public, max-age=2592000"
+  </ElseIf>
+  <ElseIf "%{REQUEST_URI} =~ m#^/build/(images|js/vendor)/#">
+    Header set Cache-Control "public, max-age=604800"
+  </ElseIf>
+</IfModule>

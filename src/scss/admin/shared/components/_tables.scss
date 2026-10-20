@@ -92,9 +92,10 @@
       box-shadow var(--admin-t-fast) var(--admin-ease-out);
   }
 
+  // Sin filete lateral: el cliente retiró los filetes de color del panel. El
+  // resalte de lectura es sólo el fondo.
   tbody tr:hover {
     background: var(--admin-surface-soft);
-    box-shadow: inset 3px 0 0 var(--admin-gold);
   }
 
   /* Fila que lleva a editar su registro (table-rows.js). El cursor solo cambia
@@ -106,9 +107,7 @@
     &:focus-visible {
       outline: 0;
       background: var(--admin-surface-soft);
-      box-shadow:
-        inset 3px 0 0 var(--admin-gold),
-        inset 0 0 0 2px var(--admin-gold);
+      box-shadow: inset 0 0 0 2px var(--admin-gold);
     }
   }
 
@@ -493,16 +492,20 @@
   }
 }
 
+/* La tinta es --admin-on-danger (papel en los dos temas), no
+   --admin-text-inverse: ése es la tinta sobre el ACENTO y en oscuro vale
+   negro, así que la papelera salía con el icono negro sobre rojo mientras el
+   lápiz de al lado seguía legible. */
 .admin-icon-button--danger {
   border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
   background: var(--admin-c-rojo);
-  color: var(--admin-text-inverse);
+  color: var(--admin-on-danger);
   box-shadow: var(--admin-shadow-sm);
 
   &:hover {
     border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
     background: color-mix(in srgb, var(--admin-c-rojo) 88%, white);
-    color: var(--admin-text-inverse);
+    color: var(--admin-on-danger);
     box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
   }
 }

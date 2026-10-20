@@ -2,13 +2,16 @@
  * Tipografía del sistema ADMINISTRATIVO.
  *
  * No comparte una sola cara con la landing, y es deliberado: el panel se diseña
- * para poder despegarse como producto propio, así que tiene su propia voz. Era
- * Fraunces + Space Grotesk por Google Fonts; ahora es Geist + Geist Mono,
- * vendorizadas desde node_modules por `gulp copyVendorFonts` igual que Bodoni y
- * Crimson en el sitio público. Cero peticiones a red.
+ * para poder despegarse como producto propio, así que tiene su propia voz. Fue
+ * Fraunces + Space Grotesk por Google Fonts, luego Geist; ahora es SATOSHI para
+ * todo el texto, EXPOSE para los titulares de página y Geist Mono para las
+ * cifras. Satoshi y Expose son de Fontshare (licencia ITF FFL, que permite
+ * alojarlas: assets/fonts/LICENCIA-fontshare-FFL.txt) y viven en assets/fonts;
+ * Geist Mono se sigue sembrando desde node_modules con `gulp copyVendorFonts`.
+ * Cero peticiones a red.
  *
- * La pareja es sans + mono, sin serif. La jerarquía NO la hace un cambio de
- * familia sino el contraste entre las dos:
+ * La pareja de trabajo es sans + mono, sin serif. La jerarquía NO la hace un
+ * cambio de familia sino el contraste entre las dos:
  *
  *   · el rótulo va en mono, versalitas y tracking abierto;
  *   · el titular debajo va en sans, grande y con el tracking cerrado.
@@ -31,26 +34,34 @@
   font-display: swap;
 }
 
-/* Las dos caras variables cubren 100-900 en un solo fichero. El subconjunto
-   'latin' basta para el español —acentos y eñe viven en U+00C0-U+00FF— y pesa
-   la mitad que arrastrar también latin-ext.
-
-   La itálica no es un extra ni un eje de la variable: `font-style` es un eje
-   aparte y modules/analytics.scss pide italic. Sin fichero, el navegador
-   inclinaría la redonda por su cuenta. */
+/* Satoshi: la sans de todo el sistema, variable de 300 a 900 en un fichero.
+   La itálica no es un eje de la variable: `font-style` va aparte y
+   modules/analytics.scss pide italic. Sin su fichero, el navegador inclinaría
+   la redonda por su cuenta, y la casa no admite caras sintéticas. */
 @font-face {
-  font-family: "Geist Variable";
-  src: url("/build/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
-  font-weight: 100 900;
+  font-family: "Satoshi";
+  src: url("/build/fonts/satoshi-variable.woff2") format("woff2-variations");
+  font-weight: 300 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Geist Variable";
-  src: url("/build/fonts/geist-latin-wght-italic.woff2") format("woff2-variations");
-  font-weight: 100 900;
+  font-family: "Satoshi";
+  src: url("/build/fonts/satoshi-variable-italic.woff2") format("woff2-variations");
+  font-weight: 300 900;
   font-style: italic;
+  font-display: swap;
+}
+
+/* Expose: la cara de los titulares de página (h1 y h2). Es una display, sin
+   itálica y de 400 a 900: no va en cuerpo de texto ni en los encabezados chicos
+   de los componentes, que siguen en Satoshi. */
+@font-face {
+  font-family: "Expose";
+  src: url("/build/fonts/expose-variable.woff2") format("woff2-variations");
+  font-weight: 400 900;
+  font-style: normal;
   font-display: swap;
 }
 
@@ -73,12 +84,21 @@
 .admin-body {
   /* ── Los dos tokens reales ─────────────────────────────────── */
   --admin-font-sans:
-    "Geist Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  // Sólo para los titulares de página (h1 y h2 del panel). Token aparte y no
+  // --admin-font-heading, que también lo piden encabezados de componente a
+  // 15-20 px (buzón, modales), donde una display no se lee.
+  --admin-font-titular: "Expose", var(--admin-font-sans);
+  // La cifra de un INDICADOR (tarjeta KPI, total de cabecera): la misma display
+  // que el titular, porque a 28-46 px es un cartel y no un dato de tabla. Las
+  // columnas numéricas siguen en mono (`.admin-num`). Expose no trae `tnum`:
+  // donde una cifra se anime contando, reservarle el ancho con `min-width`.
+  --admin-font-cifra: var(--admin-font-titular);
   --admin-font-mono:
     "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Mono",
     "Consolas", monospace;
-  --admin-logo: "KudosKaps", "Geist Variable", sans-serif;
+  --admin-logo: "KudosKaps", "Satoshi", sans-serif;
 
   /* ── Alias heredados ───────────────────────────────────────── *
    * El sistema ya no tiene serif, pero cuatro archivos siguen pidiendo estos
@@ -97,9 +117,9 @@
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
-  /* Geist va bien apretada en cuerpo de texto, pero no tanto como una grotesca
-     clásica: su altura de x es alta y a -0.02em los contadores se cierran. */
-  letter-spacing: -0.006em;
+  /* Satoshi es geométrica y ya viene con el espaciado justo: apretarla cierra
+     los contadores de la a y la e. */
+  letter-spacing: 0;
   font-synthesis-weight: none;
   font-synthesis-style: none;
 }
@@ -124,22 +144,58 @@
 }
 
 .admin-body h1 {
+  font-family: var(--admin-font-titular);
   font-size: clamp(2rem, 4vw, 3.2rem);
-  letter-spacing: -0.038em;
+  letter-spacing: -0.012em;
 }
 
+// El h2 se queda en la SANS. Expose iba aquí por etiqueta, y `.admin-body h2`
+// suma (0,1,1): le gana a cualquier clase de componente (0,1,0), así que la
+// display se colaba en todo h2 del sistema que no fuera titular — el título
+// de los modales (35 px en vez de los 24 que pide .admin-modal__title), las
+// seis tarjetas de Configuración compitiendo con el titular de la página, el
+// recuento de resultados de Reservaciones, el «Nueva reservación» del POS y
+// los treinta encabezados de día de Grupos grandes a 16 px, donde una display
+// condensada no se lee. Expose va por ROL, abajo: el titular de página.
 .admin-body h2 {
   font-size: clamp(1.55rem, 3vw, 2.2rem);
+  letter-spacing: -0.008em;
 }
 
+// Satoshi ya trae el espaciado justo; los −0.024 / −0.018 eran los de Geist y
+// a 20-25 px le cerraban los contadores de la e y la a en la negrita.
 .admin-body h3 {
   font-size: clamp(1.2rem, 2vw, 1.55rem);
-  letter-spacing: -0.024em;
+  letter-spacing: -0.014em;
 }
 
 .admin-body h4 {
   font-size: 1.05rem;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.008em;
+}
+
+// ── El titular de página ─────────────────────────────────────
+//
+// Expose, y UN solo cuerpo en todos los módulos. `.admin-page__title`
+// (_cards.scss) ya pedía 28-36 px, pero perdía contra `.admin-body h1`, así
+// que el titular medía 51 px en los módulos que lo escriben en <h1>
+// (Reservaciones, Configuración, Grupos grandes…) y 36 en los que lo escriben
+// en <h2> (Tickets, Menú, Inventario…): el mismo elemento a dos escalas según
+// la etiqueta. Con (0,2,0) gana a las dos reglas de etiqueta.
+//
+// `.admin-page-title-row h2` es el titular de Análisis, que no lleva la clase.
+.admin-body .admin-page__title,
+.admin-body .admin-page-title-row h2 {
+  font-family: var(--admin-font-titular);
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 576px) {
+  .admin-body .admin-page__title,
+  .admin-body .admin-page-title-row h2 {
+    font-size: 27px;
+  }
 }
 
 .admin-body p {

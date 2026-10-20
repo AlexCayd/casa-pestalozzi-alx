@@ -281,7 +281,10 @@ include __DIR__ . '/../../operation/partials/drawer.php';
   <div class="pos-prefs__dialog" role="dialog" aria-modal="true" aria-labelledby="pos-prefs-title">
     <header class="pos-prefs__head">
       <h3 class="pos-prefs__title" id="pos-prefs-title">Ajustes de la vista</h3>
-      <button type="button" class="pos-prefs__close" id="pos-prefs-close" aria-label="Cerrar ajustes">×</button>
+      <?php /* El aspa en SVG, igual que el cierre de las alertas: el carácter «×» lo pintaba la fuente, fuera del centro de su caja. */ ?>
+      <button type="button" class="pos-prefs__close" id="pos-prefs-close" aria-label="Cerrar ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
     </header>
     <div class="pos-prefs__body mmodal-prefs" id="pos-prefs-panel"></div>
   </div>

@@ -923,9 +923,11 @@ h4 em,
   padding-block: 0.12em;
   margin-block: -0.12em;
 }
+// Sin `will-change`: lo tenía cada línea de cada título, todo el tiempo, y
+// eso es una capa de composición por línea aunque ya no se mueva. GSAP la
+// promueve sola mientras dura la entrada.
 .linea__in {
   display: block;
-  will-change: transform;
 }
 .no-anim .linea__in {
   transform: none !important;
@@ -984,9 +986,9 @@ p.body {
   opacity: 0;
   transform: translateY(34px);
 }
-.reveal-ready [data-reveal] {
-  will-change: opacity, transform;
-}
+// Sin `will-change` permanente: decenas de elementos con capa propia toda la
+// visita, que en un teléfono es memoria de GPU y rasterizado para nada. El
+// tween de GSAP la pide sólo mientras anima.
 .no-anim [data-reveal] {
   opacity: 1 !important;
   transform: none !important;

@@ -172,10 +172,14 @@
 
   &__icon svg { width: 26px; height: 26px; }
 
-  &__title {
+  // `& &__title` (0,2,0) y no la clase sola: el título es un <h2>, y
+  // `.admin-body h2` (0,1,1) le imponía su cuerpo de 35 px y su 600 — el título
+  // de un diálogo medía lo mismo que el titular de la página que tapa.
+  & &__title {
     font-family: var(--admin-font-heading);
     font-size: 1.5rem;
     font-weight: 500;
+    line-height: 1.2;
     color: var(--admin-text);
   }
 

@@ -381,10 +381,12 @@
 // button` (0,1,1) le gana con `font: inherit` + `text-transform: none`: lo que
 // quedaba era Geist a 400 en caja normal CON el tracking de .09em de las
 // versalitas — «Llegó» y «Nueva reservación» se leían deshilachados y más
-// flojos que el texto de la ficha. Aquí se fija la voz del sistema
-// administrativo: sans 600, sin tracking. Sólo en la ficha, el pie del cajón y
-// el alta; el modal de mesa tiene el mismo síntoma y es otra revisión.
-:is(.pos-ficha, .operational-drawer__pie, .pos-alta) .mmodal-btn {
+// flojos que el texto de la ficha. La voz del sistema administrativo (sans
+// 600, sin tracking) la fija ya `.admin-body .mmodal-btn` en _punto-de-venta
+// para todo el POS, a 15 px; aquí sólo se baja a 14, porque la ficha, el pie
+// del cajón y el alta son columnas angostas. Con `.admin-body` delante (0,3,0):
+// esta hoja se emite ANTES que la del modal y con (0,2,0) perdería por orden.
+.admin-body :is(.pos-ficha, .operational-drawer__pie, .pos-alta) .mmodal-btn {
   font-family: var(--admin-font-sans);
   font-size: 14px;
   font-weight: 600;

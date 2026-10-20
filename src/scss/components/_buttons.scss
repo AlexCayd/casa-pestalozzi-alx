@@ -113,3 +113,24 @@
 
   &:hover::after { transform: scaleX(1); opacity: 1; }
 }
+
+// ── En un teléfono ───────────────────────────────────────────
+//
+// El tracking de 0.24em es de escritorio. A 360-390 px partía etiquetas
+// cortas en dos renglones con la flecha colgando aparte —«APARTAR / LUGAR»,
+// «CARTA DE MARIDAJE EN / PDF»—, y un botón partido se lee como dos cosas.
+// Con el tracking y el relleno algo más cerrados, las cortas vuelven a un
+// renglón; las largas («Cómo llegar a la panadería») parten en dos mitades
+// parecidas y centradas, no con una palabra sola abajo.
+@media (max-width: 600px) {
+  .btn-line {
+    gap: 0.7rem;
+    padding-inline: 1.5rem;
+    letter-spacing: 0.15em;
+    text-align: center;
+
+    > span:not(.arrow):not(.btn-line__formato) {
+      text-wrap: balance;
+    }
+  }
+}

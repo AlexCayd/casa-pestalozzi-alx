@@ -241,3 +241,12 @@
 @media (pointer: coarse) {
   .zoom-badge { opacity: 0.92; transform: translate(-50%, 0); }
 }
+
+// Mientras la foto viaja al visor (o vuelve de él) la chapa no va con ella: la
+// captura del morfo es la caja entera, y una etiqueta «Ampliar» creciendo a
+// pantalla completa se leía como parte de la foto. Apagada en seco, sin su
+// fundido, porque la captura se toma en el fotograma siguiente.
+[data-zoom].is-morfo .zoom-badge {
+  opacity: 0;
+  transition: none;
+}

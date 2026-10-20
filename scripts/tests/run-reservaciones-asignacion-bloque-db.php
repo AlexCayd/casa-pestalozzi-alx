@@ -103,7 +103,9 @@ $aviso = $db->query(
 )->fetch_assoc();
 $assert($aviso !== null && (int)$aviso['requiere_accion'] === 0 && $aviso['cerrada_at'] === null,
     'La reubicación no dejó un aviso informativo abierto en el buzón.');
-$fuente = (new ReflectionMethod(\Controllers\AdminBuzonController::class, 'fuenteReubicacion'))->invoke(null, (int)$bitacora[$pareja]['id']);
+// La resolución contra la fuente salió del controlador a la bandeja del buzón,
+// que es la que cuenta y lista con el mismo criterio.
+$fuente = \Services\Reservations\ReservacionBuzonBandejaService::fuenteReubicacion((int)$bitacora[$pareja]['id']);
 $assert(($fuente['etiqueta'] ?? '') === 'Reubicada' && str_contains((string)$fuente['descripcion'], 'Mesa 9'),
     'El buzón no presenta la reubicación con su «de… a…»: ' . json_encode($fuente));
 

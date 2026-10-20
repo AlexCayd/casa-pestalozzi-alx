@@ -1,0 +1,583 @@
+/*
+ * Módulo Tickets: la franja de cuatro filtros y la lista.
+ *
+ * Hoja propia desde que la vista dejó de cargar menu.css para tomarle
+ * prestados el panel y la cabecera, y desde que el <style> que vivía en la
+ * vista salió de ahí (CSS embebido en una vista con src/ compilado).
+ *
+ * Todo va bajo `.admin-body`: `.admin-body button { font: inherit }` y
+ * `.admin-body h3 / p` suman (0,1,1) y le ganan a una clase sola. Las tarjetas
+ * son <button> y la cabecera de la lista lleva <h3> y <p>.
+ */
+
+.admin-body {
+
+  /* ── La franja de filtros ──────────────────────────────────────
+   *
+   * Cuatro botones de alternancia (aria-pressed) con exactamente uno pulsado:
+   * se comportan como un control segmentado, y por eso «Todos» es una tarjeta
+   * más y no un enlace aparte.
+   */
+  .tk-filtros {
+    margin: 0 0 20px;
+  }
+
+  .tk-filtros__grupo {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  /*
+   * Tres roles de color por tarjeta, todos de la paleta funcional o del
+   * acento, ninguno escrito a mano:
+   *   --tk-tono   el relleno: la pastilla en reposo, la tarjeta entera pulsada;
+   *   --tk-tinta  lo que va ENCIMA del relleno, elegido por luminancia
+   *               (ámbar 0.52 y verde 0.29 no admiten texto claro; el rojo,
+   *               0.17, no admite tinta: papel encima da 4.6:1);
+   *   --tk-texto  el tono legible como TEXTO o trazo sobre la superficie
+   *               (la mini-tendencia y el aro de la marca al apuntar).
+   * «Todos» es la tinta del panel: el acento ES la tinta, y así la tarjeta
+   * neutra se lee como neutra y no como un quinto color.
+   */
+  .tk-filtro {
+    --tk-tono: var(--admin-accent);
+    --tk-tinta: var(--admin-on-accent);
+    --tk-texto: var(--admin-text);
+
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 158px;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 15px 16px 13px 18px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow-sm);
+    color: var(--admin-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    // La tarjeta es el contenedor de sus piezas: la cifra se mide contra su
+    // ancho (cqi) y el pie se recorta cuando la tarjeta es estrecha, que no
+    // coincide con el viewport —en móvil van dos por fila—.
+    container-type: inline-size;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      transform var(--admin-t-fast) var(--admin-ease-out),
+      box-shadow var(--admin-t-base) var(--admin-ease-out),
+      border-color var(--admin-t-fast) var(--admin-ease-out),
+      background-color 200ms var(--admin-ease-out),
+      color 200ms var(--admin-ease-out);
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--tk-tono) 55%, var(--admin-border));
+      box-shadow: var(--admin-shadow-md);
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      box-shadow: var(--admin-shadow-sm);
+      transform: translateY(0) scale(0.99);
+    }
+
+    /* El anillo de foco del panel (_finishes.scss) va en box-shadow, y el
+       hover también: sin repetirlo aquí, apuntar con el ratón a la tarjeta
+       enfocada se comería el anillo. */
+    &:focus-visible {
+      outline: none;
+      box-shadow:
+        0 0 0 2px var(--admin-bg),
+        0 0 0 4px var(--admin-accent),
+        var(--admin-shadow-md);
+    }
+  }
+
+  .tk-filtro--abierto {
+    --tk-tono: var(--admin-c-ambar);
+    --tk-tinta: var(--admin-ink);
+    --tk-texto: var(--admin-warning-text);
+  }
+
+  .tk-filtro--cerrado {
+    --tk-tono: var(--admin-c-verde);
+    --tk-tinta: var(--admin-ink);
+    --tk-texto: var(--admin-success-text);
+  }
+
+  .tk-filtro--cancelado {
+    --tk-tono: var(--admin-c-rojo);
+    --tk-tinta: var(--admin-paper);
+    --tk-texto: var(--admin-danger-text);
+  }
+
+  .tk-filtro__cabeza {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  /* El rótulo es una pastilla SÓLIDA del color del estado: es la leyenda que
+     une la tarjeta con el badge de cada fila de la tabla. En mono y versalitas,
+     como todo rótulo del panel. */
+  // El espacio entre «Abiertos» y «ahora» lo pone el gap: en un flex el
+  // espacio al principio de un elemento hijo se recorta y salía «ABIERTOSAHORA».
+  .tk-filtro__rotulo {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--tk-tono);
+    color: var(--tk-tinta);
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition:
+      background-color 200ms var(--admin-ease-out),
+      color 200ms var(--admin-ease-out);
+  }
+
+  /* La marca: un aro vacío en reposo —dice «esto se elige», como un radio— y
+     una paloma al pulsar. Es la señal de estado que no depende del color. */
+  .tk-filtro__marca {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    place-items: center;
+    border: 1.5px solid var(--admin-border-strong);
+    border-radius: 50%;
+    color: var(--tk-tono);
+    transition:
+      border-color var(--admin-t-fast) var(--admin-ease-out),
+      background-color 200ms var(--admin-ease-out);
+
+    svg {
+      stroke-width: 3.2;
+      opacity: 0;
+      transform: scale(0.5);
+      transition:
+        opacity 160ms var(--admin-ease-out),
+        transform 220ms var(--admin-ease);
+    }
+  }
+
+  .tk-filtro:hover .tk-filtro__marca {
+    border-color: var(--tk-texto);
+  }
+
+  .tk-filtro__cuerpo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin-top: 6px;
+  }
+
+  // La cifra en la display del panel, como el valor de cualquier indicador.
+  // Primero en vw y luego en cqi: un motor sin unidades de contenedor descarta
+  // la segunda declaración entera y se queda con la primera.
+  .tk-filtro__cifra {
+    min-width: 0;
+    font-family: var(--admin-font-cifra);
+    font-size: clamp(28px, 2.4vw, 38px);
+    font-size: clamp(26px, 15cqi, 40px);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .tk-serie {
+    display: block;
+    width: 76px;
+    height: 30px;
+    flex: 0 0 auto;
+    margin-bottom: 3px;
+    overflow: visible;
+    color: var(--tk-texto);
+    transition: color 200ms var(--admin-ease-out);
+  }
+
+  .tk-serie__area {
+    fill: currentColor;
+    opacity: 0.14;
+  }
+
+  .tk-serie__linea {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.75;
+  }
+
+  .tk-filtro__contexto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 0;
+    color: var(--admin-muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  // Separador dibujado y no escrito: un «·» de texto se lee en voz alta.
+  .tk-filtro__dato + .tk-filtro__dato::before {
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    margin: 0 7px 0 8px;
+    border-radius: 50%;
+    background: currentColor;
+    vertical-align: middle;
+    content: "";
+    opacity: 0.6;
+  }
+
+  .tk-filtro__aviso {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--admin-warning-text);
+    font-weight: 700;
+
+    svg {
+      flex: 0 0 auto;
+      stroke-width: 2.2;
+    }
+  }
+
+  .tk-filtro__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--admin-border-soft);
+    transition: border-color 200ms var(--admin-ease-out);
+  }
+
+  .tk-filtro__compara {
+    color: var(--admin-faint);
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.3;
+
+    &--icono {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+
+      svg {
+        flex: 0 0 auto;
+        stroke-width: 2.2;
+      }
+    }
+  }
+
+  /* Variación. El color dice si es bueno o malo; el signo y la flecha, hacia
+     dónde se movió — en «Cancelados» las dos lecturas se separan. Sale de los
+     -text de estado y no de los hex de la paleta: el verde pleno como texto
+     sobre blanco no llega a 3:1. */
+  .tk-delta {
+    display: inline-flex;
+    min-height: 20px;
+    align-items: center;
+    gap: 3px;
+    padding: 0 7px 0 5px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
+
+    svg {
+      flex: 0 0 auto;
+      stroke-width: 2.6;
+    }
+
+    &--bueno {
+      border-color: var(--admin-success-border);
+      background: var(--admin-success-bg);
+      color: var(--admin-success-text);
+    }
+
+    &--malo {
+      border-color: var(--admin-danger-border);
+      background: var(--admin-danger-bg);
+      color: var(--admin-danger-text);
+    }
+  }
+
+  /* ── Pulsada ───────────────────────────────────────────────────
+   *
+   * La tarjeta entera se rellena con su tono y todo lo de dentro pasa a la
+   * tinta de ese tono: en un relleno sólido no hay grises intermedios que
+   * aguanten el contraste —una tinta al 70 % sobre el rojo baja de 4.5:1—, así
+   * que la jerarquía la hacen el tamaño y el peso. La pastilla y la marca se
+   * invierten (tinta de fondo, tono encima) para seguir viéndose sobre su
+   * propio color.
+   */
+  .tk-filtro[aria-pressed="true"] {
+    border-color: var(--tk-tono);
+    background-color: var(--tk-tono);
+    box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--tk-tono) 70%, transparent);
+    color: var(--tk-tinta);
+
+    &:hover {
+      box-shadow: 0 16px 34px -12px color-mix(in srgb, var(--tk-tono) 80%, transparent);
+    }
+
+    &:focus-visible {
+      box-shadow:
+        0 0 0 2px var(--admin-bg),
+        0 0 0 4px var(--admin-accent),
+        0 16px 34px -12px color-mix(in srgb, var(--tk-tono) 80%, transparent);
+    }
+
+    .tk-filtro__rotulo {
+      background: var(--tk-tinta);
+      color: var(--tk-tono);
+    }
+
+    .tk-filtro__marca {
+      border-color: var(--tk-tinta);
+      background: var(--tk-tinta);
+
+      svg {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .tk-serie,
+    .tk-filtro__contexto,
+    .tk-filtro__aviso,
+    .tk-filtro__compara {
+      color: var(--tk-tinta);
+    }
+
+    .tk-filtro__pie {
+      border-top-color: color-mix(in srgb, var(--tk-tinta) 24%, transparent);
+    }
+
+    // En contorno: un fondo de tinta al 14 % sobre el rojo deja el papel de
+    // encima en 4.1:1. Sin relleno, la cifra conserva el contraste del tono.
+    .tk-delta {
+      border-color: color-mix(in srgb, var(--tk-tinta) 50%, transparent);
+      background: transparent;
+      color: var(--tk-tinta);
+    }
+  }
+
+  // Tarjeta estrecha (dos por fila en un teléfono): la frase del comparativo
+  // cede su sitio y la variación se queda; la tendencia encoge.
+  @container (max-width: 200px) {
+    .tk-filtro__pie .tk-delta + .tk-filtro__compara {
+      display: none;
+    }
+
+    .tk-filtro__rotulo {
+      letter-spacing: 0.08em;
+    }
+
+    // Recortado y no display:none: deja de ocupar sitio en la pastilla pero
+    // el nombre accesible de la tarjeta sigue diciendo «Abiertos ahora».
+    .tk-filtro__rotulo-extra {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .tk-serie {
+      width: 56px;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .tk-filtros__grupo {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 420px) {
+    .tk-filtros__grupo {
+      gap: 10px;
+    }
+
+    .tk-filtro {
+      min-height: 0;
+      padding: 13px 13px 11px 14px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tk-filtro,
+    .tk-filtro:hover,
+    .tk-filtro:active {
+      transform: none;
+    }
+
+    .tk-filtro__marca svg {
+      transform: none;
+      transition: opacity 120ms linear;
+    }
+  }
+
+  /* ── La lista ──────────────────────────────────────────────────
+   *
+   * .admin-panel a secas, no .admin-card: la tarjeta compartida sube 3 px al
+   * apuntarla, y una tabla de veinte filas que se mueve bajo el cursor mientras
+   * se lee es un estorbo. El panel sólo pone borde, radio y fondo.
+   */
+  .tk-panel {
+    padding: clamp(18px, 2.4vw, 26px);
+  }
+
+  .tk-panel__cabeza {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px 18px;
+    margin-bottom: 18px;
+  }
+
+  .tk-panel__intro {
+    min-width: 0;
+  }
+
+  .tk-panel__titulo {
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+
+    // Recibe el foco tras paginar (tickets.js) para que el teclado siga desde
+    // arriba de la lista nueva; no es un control y no lleva anillo.
+    &:focus {
+      outline: none;
+      box-shadow: none;
+    }
+  }
+
+  .tk-panel__resumen {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .tk-panel__quitar {
+    flex: 0 0 auto;
+  }
+
+  /* Mientras llega la lista nueva: se atenúa la vieja en vez de vaciarla, así
+     la altura no salta y la página no se mueve bajo el cursor. */
+  .tk-lista {
+    transition: opacity 120ms var(--admin-ease-out);
+
+    &[aria-busy="true"] {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    &.is-entrando > * {
+      animation: tk-entra 220ms var(--admin-ease-out) both;
+    }
+  }
+
+  .tk-vacio {
+    margin: 0;
+  }
+
+  .tk-tabla {
+    min-width: 960px;
+  }
+
+  // Columnas numéricas a la derecha, para comparar en vertical.
+  .tk-tabla th.tk-tabla__num,
+  .tk-tabla td.tk-tabla__num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .tk-tabla__folio {
+    color: var(--admin-muted);
+    white-space: nowrap;
+  }
+
+  // Con td delante: `.admin-body .admin-table td.admin-num` (0,3,1) fija el
+  // peso de toda celda numérica en 500, y el total es la que se busca.
+  .tk-tabla td.tk-tabla__total {
+    color: var(--admin-text);
+    font-weight: 600;
+  }
+
+  .tk-tabla__nada {
+    color: var(--admin-faint);
+  }
+
+  .tk-tabla__fecha {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tk-tabla__antiguedad {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 4px;
+    color: var(--admin-warning-text);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+
+    svg {
+      flex: 0 0 auto;
+      stroke-width: 2.2;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tk-lista.is-entrando > * {
+      animation-name: tk-entra-quieta;
+    }
+  }
+}
+
+@keyframes tk-entra {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+// Reducido no es inmóvil: sin desplazamiento, pero el fundido sigue diciendo
+// que la lista cambió.
+@keyframes tk-entra-quieta {
+  from {
+    opacity: 0;
+  }
+}

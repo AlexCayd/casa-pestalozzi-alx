@@ -33,16 +33,43 @@ class AdminInventarioController
             Ingrediente::setAlerta('error', 'No se pudo cargar el inventario. ¿Ya corriste la migración de la BD?');
         }
 
-        $bajoStock = 0;
+        $pendiente = self::leerPendiente();
+
+        /*
+         * Las tarjetas-filtro cuentan sólo lo ACTIVO: un ingrediente dado de
+         * baja no se compra ni se surte, y meterlo en «bajo el mínimo» o en
+         * «sin proveedor» llenaría la lista de pendientes de tareas que nadie
+         * va a hacer. El valor del inventario sí suma todo lo que hay en el
+         * almacén, activo o no.
+         */
+        $activos = 0;
         $bajos = [];
         $valorInventario = 0.0;
+        $sinProveedorIds = self::idsSinProveedor();
+        $sinProveedor = [];
         foreach ($ingredientes as $ing) {
+            $valorInventario += (float) $ing->stock * (float) $ing->costo;
+            if (!(int) $ing->activo) {
+                continue;
+            }
+            $activos++;
             if ((float) $ing->stock <= (float) $ing->stock_minimo) {
-                $bajoStock++;
                 $bajos[] = $ing;
             }
-            $valorInventario += (float) $ing->stock * (float) $ing->costo;
+            if (isset($sinProveedorIds[(int) $ing->id])) {
+                $sinProveedor[] = $ing;
+            }
         }
+
+        // Lo más urgente primero: la menor parte del mínimo cubierta (un
+        // agotado o un negativo encabezan la lista), y a igualdad, por nombre.
+        usort($bajos, static function ($a, $b): int {
+            $cobertura = static function ($ing): float {
+                $min = (float) $ing->stock_minimo;
+                return $min > 0 ? (float) $ing->stock / $min : ((float) $ing->stock > 0 ? 1.0 : 0.0);
+            };
+            return [$cobertura($a), (string) $a->nombre] <=> [$cobertura($b), (string) $b->nombre];
+        });
 
         $consumo = self::consumo((string) $rango['start'], (string) $rango['end']);
         $consumoPrev = !empty($rango['comparar'])
@@ -56,8 +83,12 @@ class AdminInventarioController
             'rango' => $rango,
             'ingredientes' => $ingredientes,
             'ingredientesBajos' => $bajos,
+            'ingredientesSinProveedor' => $sinProveedor,
             'totalIngredientes' => count($ingredientes),
-            'bajoStock' => $bajoStock,
+            'ingredientesActivos' => $activos,
+            'pendiente' => $pendiente,
+            'consultaActual' => self::consultaActual($pendiente),
+            'hayProveedores' => self::hayProveedoresActivos(),
             'valorInventario' => $valorInventario,
             'consumo' => $consumo,
             'consumoPrev' => $consumoPrev,
@@ -77,6 +108,94 @@ class AdminInventarioController
             'mermaPorMotivo' => $mermas['porMotivo'],
             'alertas' => Ingrediente::getAlertas(),
         ]);
+    }
+
+    /**
+     * Listas de pendientes de Existencias (?pendiente=): `stock` es lo que está
+     * en su mínimo o por debajo y `proveedor` lo que no tiene a quién pedirse.
+     * Un valor fuera de la lista vuelve a «todos».
+     */
+    private const PENDIENTES = ['stock', 'proveedor'];
+
+    /** Parámetros del selector de periodo que hay que conservar al filtrar. */
+    private const PARAMS_RANGO = ['rango', 'desde', 'hasta', 'comparar'];
+
+    private static function leerPendiente(): string
+    {
+        $pendiente = $_GET['pendiente'] ?? '';
+
+        return is_string($pendiente) && in_array($pendiente, self::PENDIENTES, true) ? $pendiente : '';
+    }
+
+    /**
+     * La query de lo que se está viendo —periodo y pendiente—, para que los
+     * formularios de la página (entrada, ajuste, merma, borrar) devuelvan al
+     * mismo sitio: estos controladores pintan el listado leyendo $_GET tras el
+     * POST, así que basta con que la acción del formulario la lleve.
+     *
+     * @return array<string, string>
+     */
+    private static function consultaActual(string $pendiente): array
+    {
+        $consulta = [];
+        foreach (self::PARAMS_RANGO as $clave) {
+            $valor = $_GET[$clave] ?? '';
+            if (is_scalar($valor) && (string) $valor !== '') {
+                $consulta[$clave] = substr((string) $valor, 0, 20);
+            }
+        }
+        if ($pendiente !== '') {
+            $consulta['pendiente'] = $pendiente;
+        }
+
+        return $consulta;
+    }
+
+    /** URL del listado conservando periodo y pendiente (Volver/Cancelar de la ficha). */
+    private static function urlListado(): string
+    {
+        $consulta = self::consultaActual(self::leerPendiente());
+
+        return self::PATH . (empty($consulta) ? '' : '?' . http_build_query($consulta));
+    }
+
+    /**
+     * Ingredientes activos sin ningún proveedor asignado, indexados por id.
+     * Consulta propia: la ficha de cada uno ya sabe los suyos, pero el
+     * listado no carga las asignaciones.
+     *
+     * @return array<int, true>
+     */
+    private static function idsSinProveedor(): array
+    {
+        $ids = [];
+        try {
+            $res = Ingrediente::getDB()->query(
+                "SELECT i.id FROM ingredientes i
+                  WHERE i.activo = 1
+                    AND NOT EXISTS (SELECT 1 FROM ingrediente_proveedores ip WHERE ip.ingrediente_id = i.id)"
+            );
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $ids[(int) $row['id']] = true;
+                }
+                $res->free();
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminInventarioController::idsSinProveedor - ' . $e->getMessage());
+        }
+
+        return $ids;
+    }
+
+    /** Sin proveedores dados de alta, «Asignar proveedor» no tendría qué ofrecer. */
+    private static function hayProveedoresActivos(): bool
+    {
+        try {
+            return count(Proveedor::activos()) > 0;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -648,6 +767,11 @@ class AdminInventarioController
             'accion' => $accion,
             'proveedores' => Proveedor::activos(),
             'proveedoresAsignados' => Proveedores::deIngrediente((int) ($ingrediente->id ?? 0)),
+            // Se llega desde una lista de pendientes con su ?pendiente= y el
+            // periodo: «Volver» y «Cancelar» regresan a esa misma lista, y el
+            // formulario —sin `action`— se envía a esta URL, así que al guardar
+            // el listado se pinta con el mismo filtro y la fila ya resuelta sale.
+            'volverUrl' => self::urlListado(),
         ]);
     }
 

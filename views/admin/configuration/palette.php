@@ -192,7 +192,7 @@ if ($bajosContraste === 0) {
                     <div class="admin-palette-preview__band admin-palette-preview__band--<?php echo $h($tono); ?>">
                         <span class="admin-palette-preview__eyebrow"><?php echo $h($banda['eyebrow']); ?></span>
                         <span class="admin-palette-preview__title"><?php echo $h($banda['titulo']); ?></span>
-                        <span class="admin-palette-preview__text">Cocina mediterránea con corazón mexicano.</span>
+                        <span class="admin-palette-preview__text">Una mesa italiana con alma mexicana.</span>
                         <span class="admin-palette-preview__faint">Martes a domingo · 13:00 a 23:00</span>
                         <span class="admin-palette-preview__rule"></span>
                         <span class="admin-palette-preview__cta"><?php echo $h($banda['cta']); ?></span>
