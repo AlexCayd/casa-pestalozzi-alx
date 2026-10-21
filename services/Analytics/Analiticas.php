@@ -52,8 +52,77 @@ class Analiticas
         return [
             'ingenieria'  => self::ingenieriaMenu($start, $end),
             'revpash'     => self::revpash($start, $end),
+            'porHora'     => self::ventasPorHora($start, $end),
             'asociacion'  => self::reglasAsociacion($start, $end),
         ];
+    }
+
+    private const TOP_POR_HORA = 3;
+
+    /**
+     * §3.5 — Qué se vende a cada hora: TODAS las ventas cerradas de las fechas
+     * elegidas, sin separar por canal ni por estación. Fecha y hora son las del
+     * PEDIDO (ticket_items.created_at), no la apertura del ticket: el postre de
+     * una mesa abierta a las 20:10 se vende a las 21:00, y el día elegido es el
+     * día en que se pidió.
+     *
+     * Pública porque el panel la vuelve a pedir al cambiar las fechas
+     * (GET /admin/api/analytics/venta-por-hora).
+     */
+    public static function ventasPorHora(string $start, string $end): array
+    {
+        // Las fechas se interpolan: sólo YYYY-MM-DD.
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        if (!preg_match($re, $start) || !preg_match($re, $end)) {
+            return [];
+        }
+        try {
+            $db = Ticket::getDB();
+            if (!$db) {
+                return [];
+            }
+            $res = $db->query(
+                "SELECT HOUR(ti.created_at) AS h, ti.nombre, SUM(ti.cantidad) AS u
+                   FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                    AND ti.created_at >= '{$start} 00:00:00' AND ti.created_at <= '{$end} 23:59:59'
+                  GROUP BY h, ti.nombre"
+            );
+
+            return self::agregarPorHora($res ? $res->fetch_all(MYSQLI_ASSOC) : []);
+        } catch (\Throwable $e) {
+            error_log('Analiticas::ventasPorHora - ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Una fila por hora con venta: el total de unidades y los tres platillos
+     * que más salieron. Pura, para probarla sin base.
+     *
+     * @param list<array{h: int|string, nombre: string, u: int|string}> $hechos
+     * @return list<array{hora: string, total: int, top: list<array{n: string, u: int}>}>
+     */
+    public static function agregarPorHora(array $hechos): array
+    {
+        $unidades = [];   // [h][nombre] => unidades
+        foreach ($hechos as $f) {
+            $unidades[(int) $f['h']][$f['nombre']] = ($unidades[(int) $f['h']][$f['nombre']] ?? 0) + (int) $f['u'];
+        }
+        ksort($unidades);
+
+        $filas = [];
+        foreach ($unidades as $h => $porPlatillo) {
+            arsort($porPlatillo);
+            $top = array_slice($porPlatillo, 0, self::TOP_POR_HORA, true);
+            $filas[] = [
+                'hora'  => sprintf('%02d:00', $h),
+                'total' => array_sum($porPlatillo),
+                'top'   => array_map(static fn ($n, $u) => ['n' => (string) $n, 'u' => $u], array_keys($top), $top),
+            ];
+        }
+
+        return $filas;
     }
 
     /**

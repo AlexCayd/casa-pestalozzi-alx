@@ -872,6 +872,19 @@
     }
   }
 
+  /* ── Venta por hora (§3.5) ───────────────────────────────────────── */
+  .admin-n1-horas__filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 24px;
+    margin-top: 14px;
+  }
+
+  .admin-n1-horas__titulo {
+    margin: 20px 0 8px;
+  }
+
   /* ── RevPASH por día completo ──────────────────────────────────────
      Segunda gráfica del panel de §3.2, no una fusión con el mapa: mide lo
      mismo con otro denominador. Ocupa todo el ancho del panel y se separa

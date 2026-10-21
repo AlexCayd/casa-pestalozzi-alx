@@ -265,6 +265,66 @@ $hoyIso = date('Y-m-d');
             </section>
         </article>
 
+        <!-- §3.5 · Qué se vende a cada hora: todas las ventas de las fechas
+             elegidas. Arranca con el periodo de la página; al cambiar las
+             fechas nivel1.js pide la tabla a /admin/api/analytics/venta-por-hora. -->
+        <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-horas>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.5 · Venta por hora</p>
+                    <h3>Qué se vende a cada hora</h3>
+                    <p class="admin-nivel1-sub">
+                        Unidades vendidas, según la hora en que se pidió cada platillo
+                    </p>
+                </div>
+                <div class="admin-nivel1-headside">
+                    <button
+                        type="button"
+                        class="admin-nivel1-info admin-nivel1-info--icon"
+                        data-admin-modal-open="n1-horas-info"
+                        title="Cómo leer la venta por hora"
+                        aria-label="Cómo leer la venta por hora"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="admin-n1-horas__filtros">
+                <label class="admin-field">
+                    <span class="admin-field__label">Desde</span>
+                    <input type="date" data-n1-horas-desde value="<?php echo $rango['start']; ?>" max="<?php echo date('Y-m-d'); ?>">
+                </label>
+                <label class="admin-field">
+                    <span class="admin-field__label">Hasta</span>
+                    <input type="date" data-n1-horas-hasta value="<?php echo $rango['end']; ?>" max="<?php echo date('Y-m-d'); ?>">
+                </label>
+                <p class="admin-field__hint">Para un solo día, pon la misma fecha en las dos.</p>
+            </div>
+
+            <h4 class="admin-n1-horas__titulo">Los tres más vendidos de cada hora</h4>
+            <div class="admin-table-wrap" data-scrollable>
+                <table class="admin-table admin-table--compact" data-n1-horas-tabla>
+                    <thead>
+                        <tr>
+                            <th scope="col">Hora</th>
+                            <th scope="col">1.º</th>
+                            <th scope="col">2.º</th>
+                            <th scope="col">3.º</th>
+                            <th scope="col" class="admin-table__num">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody data-n1-horas-top></tbody>
+                </table>
+            </div>
+            <p class="admin-nivel1-note" data-n1-horas-note aria-live="polite"></p>
+        </article>
+
         <!-- §3.4 · Reglas de asociación con lift -->
         <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
             <header>
@@ -731,6 +791,79 @@ $hoyIso = date('Y-m-d');
                     El lift mide coincidencia, <strong>no causa</strong>. Un par puede aparecer
                     porque ambos platillos pertenecen al mismo momento del día o al mismo tipo de
                     mesa, no porque uno arrastre al otro.
+                </li>
+            </ul>
+        </section>
+
+        <div class="admin-modal__actions">
+            <button type="button" class="admin-btn admin-btn--primary" data-admin-modal-close>Entendido</button>
+        </div>
+    </div>
+</div>
+<!-- ===== Guía de lectura de la venta por hora (§3.5) ===== -->
+<div class="admin-modal" id="n1-horas-info" data-admin-modal hidden>
+    <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
+    <div
+        class="admin-modal__dialog admin-modal__dialog--wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="n1-horas-info-title"
+        tabindex="-1"
+        data-admin-modal-dialog
+    >
+        <div class="admin-modal__head">
+            <div>
+                <span class="admin-modal__eyebrow">3.5 · Venta por hora</span>
+                <h2 class="admin-modal__title" id="n1-horas-info-title">Cómo leer esta analítica</h2>
+                <p class="admin-modal__text">
+                    Dice <strong>qué se vende a cada hora</strong> en un día o en un periodo. Sirve
+                    para preparar antes del pico, planear al personal y decidir horarios de carta o
+                    promociones.
+                </p>
+            </div>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
+        </div>
+
+        <section class="admin-n1-guide">
+            <p class="admin-n1-guide__formula">
+                unidades = todo lo que se pidió a esa hora en las fechas elegidas
+            </p>
+
+            <h3 class="admin-n1-guide__title">De dónde sale cada parte</h3>
+            <dl class="admin-n1-guide__list">
+                <div class="admin-n1-guide__item">
+                    <dt>La hora <span>cuándo se pidió</span></dt>
+                    <dd>
+                        Es la hora en que el mesero <strong>envió el platillo a la comanda</strong>, no la
+                        apertura de la mesa: el café de sobremesa cuenta en su hora, no en la de llegada.
+                    </dd>
+                </div>
+                <div class="admin-n1-guide__item">
+                    <dt>Las fechas <span>un día o un periodo</span></dt>
+                    <dd>
+                        Arrancan en el periodo de la página y se cambian con «Desde» y «Hasta»; para un
+                        solo día, la misma fecha en las dos. Cuenta el día en que se pidió el platillo.
+                    </dd>
+                </div>
+                <div class="admin-n1-guide__item">
+                    <dt>Todas las ventas <span>sin separar</span></dt>
+                    <dd>
+                        Salón, barra y para llevar, de todas las estaciones. A diferencia del RevPASH,
+                        aquí <strong>sí</strong> cuenta lo que no ocupa un asiento.
+                    </dd>
+                </div>
+            </dl>
+
+            <h3 class="admin-n1-guide__title">Antes de tomar decisiones</h3>
+            <ul class="admin-n1-guide__notes">
+                <li>Solo entran <strong>tickets cerrados</strong> y renglones no cancelados.</li>
+                <li>«Total» son todas las unidades de esa hora, no sólo las de los tres.</li>
+                <li>
+                    Las variantes se suman al platillo: un «Latte con almendra» cuenta como Latte.
+                </li>
+                <li>
+                    En un periodo las cifras <strong>suman todos sus días</strong>: para comparar dos
+                    periodos, que duren lo mismo.
                 </li>
             </ul>
         </section>

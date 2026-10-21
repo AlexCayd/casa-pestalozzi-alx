@@ -178,6 +178,7 @@ final class Permisos
         '/admin/reservations/operation' => ['pdv'],
 
         '/admin/analytics' => ['analytics'],
+        '/admin/api/analytics' => ['analytics'],
         '/admin/ia' => ['ia'],
         '/admin/menu' => ['menu'],
         '/admin/api/menu' => ['menu'],

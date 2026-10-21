@@ -1204,7 +1204,11 @@ espacio que lo separaba del texto era el del carácter y deja de existir.
 `GET /admin/api/consultas` → `Services\Analytics\ConsultasRapidas`) son la
 barra de pregunta de Tickets, Análisis, Menú e Inventario. NO es un modelo de
 lenguaje: es un intérprete de reglas que reconoce periodo (hoy, ayer, antier,
-semana, mes, últimos N días), intención (ventas, almacén, lo más vendido,
+semana, mes, últimos N días), hora del pedido («a las 9»; de 1 a 7 sin am/pm se
+lee de la tarde), franja (mañana hasta 12:59, tarde 13-18:59, noche desde 19:00)
+y día de la semana («los sábados»; sin periodo dicho, mira las últimas 8
+semanas) —la hora filtra lo más vendido y las ventas de platillo o categoría;
+el total por hora se declina con un aviso—, intención (ventas, almacén, lo más vendido,
 bajo stock, total) y la cosa —platillo, categoría o ingrediente— con
 coincidencia aproximada (acentos, plurales, sinónimos de piso como
 «capuchino», errores de dedo). Las palabras que sobran se buscan entre las
