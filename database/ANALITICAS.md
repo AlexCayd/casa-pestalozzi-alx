@@ -210,6 +210,39 @@ repintar nada, y la matriz queda recorrible por lector de pantalla.
 
 ---
 
+### 3.5 Venta por hora — qué se vende a cada hora
+
+`Analiticas::ventasPorHora($desde, $hasta)` → `agregarPorHora()` (pura). Panel
+entre el RevPASH y las reglas de asociación: **una sola tabla**, una fila por
+hora con venta, con los tres platillos que más salieron y el total de unidades.
+
+```
+unidades(hora) = todo lo que se pidió a esa hora en las fechas elegidas
+```
+
+- **Todas las ventas**: tickets cerrados, renglones no cancelados, sin separar
+  por canal (salón, barra, para llevar) ni por estación del KDS.
+- **Fechas**: dos `<input type="date">` («Desde», «Hasta»); un solo día es la
+  misma fecha en las dos. Arrancan en el periodo del selector de la página y
+  vienen en el JSON inicial; al cambiarlas, `nivel1.js` pide
+  `GET /admin/api/analytics/venta-por-hora?desde=&hasta=` (permiso
+  `analytics`, validación de `RangoPeriodo::resolver`). En un periodo las
+  cifras son **totales**, no promedio por día.
+- **Hora y fecha del pedido** (`ticket_items.created_at`), no de la apertura
+  del ticket: el día elegido es el día en que se pidió el platillo.
+- Variantes sumadas al platillo (agrupa por `ticket_items.nombre`).
+- ⚠️ `created_at` es `TIMESTAMP`: se lee en la zona de la sesión. La app fija
+  `-06:00` (`includes/database.php`) y `development.sql` también; cualquier otro
+  cliente que lea esta tabla tiene que hacer lo mismo o verá las horas
+  corridas seis horas.
+- **Consultas rápidas por hora** (`ConsultasRapidas::horario()`): «lo más
+  vendido en la mañana», «capuchinos los sábados a las 10». Misma base de hora;
+  filtra lo más vendido y las ventas de platillo o categoría, no el total.
+
+Pruebas: `scripts/tests/run-venta-por-hora.php` y `run-consultas-por-hora.php`.
+
+---
+
 ### 3.4 Reglas de asociación con *lift*
 
 **Pregunta:** ¿qué se pide junto con qué, de verdad?

@@ -743,6 +743,87 @@
         }
     }
 
+    // ── §3.5 Venta por hora ──────────────────────────────────────────────
+    function esc(valor) {
+        return String(valor == null ? '' : valor)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /** La tabla de §3.5: una fila por hora con venta. */
+    function renderHoras(porHora) {
+        var tbody = document.querySelector('[data-n1-horas-top]');
+        if (!tbody) {
+            return;
+        }
+        if (!porHora || !porHora.length) {
+            emptyRow('[data-n1-horas-top]', 5, 'Sin ventas en estas fechas.');
+            setText('[data-n1-horas-note]', '');
+            return;
+        }
+
+        tbody.innerHTML = porHora.map(function (f) {
+            var celdas = [0, 1, 2].map(function (i) {
+                var p = f.top[i];
+                return '<td>' + (p
+                    ? '<span class="admin-table__cell-main">' + esc(p.n) + '</span>' +
+                      '<span class="admin-table__cell-sub">' + p.u + (p.u === 1 ? ' ud.' : ' uds.') + '</span>'
+                    : '—') + '</td>';
+            }).join('');
+            return '<tr><th scope="row">' + f.hora + '</th>' + celdas +
+                '<td class="admin-table__num">' + f.total + '</td></tr>';
+        }).join('');
+
+        var pico = porHora.reduce(function (a, b) { return b.total > a.total ? b : a; });
+        setText('[data-n1-horas-note]', 'Hora con más venta: ' + pico.hora + ' (' + pico.total + ' uds.)');
+    }
+
+    /** Cambio de fechas: se pide la tabla de nuevo; el resto de la página no se mueve. */
+    var horasPeticion = 0;
+    function cargarHoras() {
+        var desde = document.querySelector('[data-n1-horas-desde]');
+        var hasta = document.querySelector('[data-n1-horas-hasta]');
+        var tabla = document.querySelector('[data-n1-horas-tabla]');
+        if (!desde || !hasta || !desde.value || !hasta.value) {
+            return;
+        }
+        if (desde.value > hasta.value) {
+            setText('[data-n1-horas-note]', '«Desde» tiene que ser antes que «Hasta».');
+            return;
+        }
+
+        // Sólo la última respuesta pinta: con dos cambios seguidos, la lenta
+        // no debe pisar a la nueva.
+        var numero = ++horasPeticion;
+        if (tabla) {
+            tabla.setAttribute('aria-busy', 'true');
+        }
+        fetch('/admin/api/analytics/venta-por-hora?' + new URLSearchParams({ desde: desde.value, hasta: hasta.value }).toString(), {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+            .then(function (res) {
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                return res.json();
+            })
+            .then(function (r) {
+                if (numero === horasPeticion) {
+                    renderHoras(r.porHora);
+                }
+            })
+            .catch(function () {
+                if (numero === horasPeticion && window.AppNotice && typeof window.AppNotice.show === 'function') {
+                    window.AppNotice.show({ text: 'No se pudo cargar la venta por hora. Intenta de nuevo.', variant: 'error' });
+                }
+            })
+            .then(function () {
+                if (numero === horasPeticion && tabla) {
+                    tabla.removeAttribute('aria-busy');
+                }
+            });
+    }
+
     function renderAll() {
         var pal = palette();
         renderMenu(pal);
@@ -758,6 +839,15 @@
         }
         data = window.AdminAnalyticsMock.nivel1;
         renderAll();
+        // Fuera de renderAll(): la tabla no depende del tema, y repintarla al
+        // cambiarlo devolvería las fechas de la carga inicial.
+        renderHoras(data.porHora);
+
+        host.addEventListener('change', function (e) {
+            if (e.target.matches('[data-n1-horas-desde], [data-n1-horas-hasta]')) {
+                cargarHoras();
+            }
+        });
 
         var navAsociacion = document.querySelector('[data-n1-asociacion-paginas]');
         if (navAsociacion) {

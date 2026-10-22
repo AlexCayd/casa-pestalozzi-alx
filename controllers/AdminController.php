@@ -127,6 +127,26 @@ class AdminController
     }
 
     /**
+     * GET /admin/api/analytics/venta-por-hora?desde=&hasta=
+     * La tabla de §3.5 cuando el usuario cambia sus fechas; la primera carga
+     * ya viene en el JSON de la página con el periodo del selector.
+     */
+    public static function ventaPorHora(Router $router): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+
+        // Mismo contrato y validación que el selector de periodo.
+        $rango = RangoPeriodo::resolver($_GET);
+        echo json_encode([
+            'ok' => true,
+            'desde' => $rango['start'],
+            'hasta' => $rango['end'],
+            'porHora' => Analiticas::ventasPorHora($rango['start'], $rango['end']),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * Resuelve el rango de fechas del dashboard desde $_GET.
      * La lógica vive en Services\Shared\RangoPeriodo porque finanzas e inventario usan
      * exactamente el mismo contrato.

@@ -70,6 +70,20 @@ final class ConsultasRapidas
         'mes' => 'Meses', 'mes_pasado' => 'Meses', '30d' => 'Meses',
     ];
 
+    /** Franjas del día: [primera hora, última hora, cómo se dice]. */
+    private const FRANJAS = [
+        'manana' => [0, 12, 'en la mañana'],
+        'tarde' => [13, 18, 'en la tarde'],
+        'noche' => [19, 23, 'en la noche'],
+    ];
+
+    /** Día de la semana como se escribe ya normalizado → [DAYOFWEEK - 1, cómo se dice]. */
+    private const DIAS = [
+        'domingo' => [0, 'los domingos'], 'lunes' => [1, 'los lunes'], 'martes' => [2, 'los martes'],
+        'miercoles' => [3, 'los miércoles'], 'jueves' => [4, 'los jueves'], 'viernes' => [5, 'los viernes'],
+        'sabado' => [6, 'los sábados'],
+    ];
+
     /** Palabras que no aportan nada a la búsqueda de la cosa. */
     private const VACIAS = [
         'cuantos', 'cuantas', 'cuanto', 'cuanta', 'se', 'vendieron', 'vendio', 'vendimos', 'vendi', 'venta', 'ventas',
@@ -143,7 +157,19 @@ final class ConsultasRapidas
         $ambito = in_array($ambito, self::AMBITOS, true) ? $ambito : 'todo';
         $norma = self::normalizar($texto);
 
-        $periodo = self::periodoDesde($periodoForzado) ?? self::detectarPeriodo($norma);
+        // Hora, franja y día de la semana de la frase («lo más vendido en la
+        // noche», «capuchinos los sábados a las 10»). Con un día de la semana y
+        // sin periodo, «hoy» casi nunca es ese día: se mira un tramo que tenga
+        // varios. El filtro viaja en el periodo (hora_sql) hasta las consultas
+        // de ventas de platillo, de categoría y lo más vendido.
+        $horario = self::horario($norma);
+        $periodo = self::periodoDesde($periodoForzado)
+            ?? self::detectarPeriodo($norma, $horario !== null && $horario['dow'] !== null ? '8s' : 'hoy');
+        if ($horario !== null) {
+            $periodo['frase'] .= ' ' . $horario['frase'];
+            $periodo['hora_sql'] = ' AND ' . $horario['sql'];
+            $periodo['hora_q'] = ' ' . $horario['frase'];
+        }
 
         $quiereStock = (bool) preg_match('/\b(hay|queda|quedan|almacen|bodega|inventario|stock|existencia|existencias|tenemos)\b/u', $norma);
         $quiereVentas = (bool) preg_match('/\b(vend\w*|venta\w*|pidieron|pidio|salieron|cuantos|cuantas|llevamos)\b/u', $norma);
@@ -212,12 +238,14 @@ final class ConsultasRapidas
             return self::ejecutar('bajo_stock', null, null, $periodo, $base);
         }
         if (preg_match('/^(cuanto )?(vendimos|vendi|ventas|venta|facturamos|ingresos)( de| del| en)?( (hoy|ayer|antier|anteayer|esta semana|semana|este mes|mes|ultimos \d+ dias))?$/u', $norma)) {
-            return self::ejecutar('ventas_total', null, null, $periodo, $base);
+            return self::ventasTotalesOHora($horario, $periodo, $base);
         }
 
-        $termino = self::terminoDeBusqueda($norma);
+        $termino = self::terminoDeBusqueda($horario['resto'] ?? $norma);
         if ($termino === '') {
-            return self::ejecutar($quiereStock ? 'bajo_stock' : 'ventas_total', null, null, $periodo, $base);
+            return $quiereStock
+                ? self::ejecutar('bajo_stock', null, null, $periodo, $base)
+                : self::ventasTotalesOHora($horario, $periodo, $base);
         }
 
         $productos = self::coincidencias('productos', $termino);
@@ -640,6 +668,25 @@ final class ConsultasRapidas
      * plantilla de rescate deja elegir de la lista y las sugerencias dan por
      * dónde seguir.
      */
+    /**
+     * Ventas totales, salvo que la frase traiga hora, franja o día de la
+     * semana: el total no se separa por hora, y contestar el del periodo
+     * entero como si fuera el de esa franja engañaría.
+     */
+    private static function ventasTotalesOHora(?array $horario, array $periodo, array $base): array
+    {
+        if ($horario === null) {
+            return self::ejecutar('ventas_total', null, null, $periodo, $base);
+        }
+
+        return self::noEntendida(
+            'El total no se separa por hora',
+            'Por hora se consulta lo más vendido y las ventas de un platillo o de una categoría; por ejemplo, «lo más vendido en la noche».',
+            $periodo,
+            $base
+        );
+    }
+
     private static function noEntendida(string $titulo, string $frase, array $periodo, array $base, array $parecidos = []): array
     {
         $texto = $base['consulta'];
@@ -1058,14 +1105,14 @@ final class ConsultasRapidas
             $o = $db->real_escape_string($opcion);
             $filtroOpcion = " AND CONCAT(' · ', COALESCE(ti.variante, ''), ' · ') LIKE '% · {$o} · %'";
         }
-        $actual = self::sumaVentas($nombre, $periodo['desde'], $periodo['hasta'], $filtroOpcion);
-        $previo = self::sumaVentas($nombre, $periodo['previo_desde'], $periodo['previo_hasta'], $filtroOpcion);
+        $actual = self::sumaVentas($nombre, $periodo['desde'], $periodo['hasta'], $filtroOpcion . $periodo['hora_sql']);
+        $previo = self::sumaVentas($nombre, $periodo['previo_desde'], $periodo['previo_hasta'], $filtroOpcion . $periodo['hora_sql']);
 
         $detalle = [];
         $res = $db->query(
             "SELECT COALESCE(NULLIF(ti.variante, ''), '') AS variante, SUM(ti.cantidad) AS u
                FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
-              WHERE ti.nombre = '{$nombre}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtroOpcion}
+              WHERE ti.nombre = '{$nombre}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtroOpcion}{$periodo['hora_sql']}
                 AND " . self::filtroFecha($periodo['desde'], $periodo['hasta']) . "
               GROUP BY variante ORDER BY u DESC"
         );
@@ -1112,11 +1159,11 @@ final class ConsultasRapidas
     {
         $db = ActiveRecord::getDB();
         $cat = $db->real_escape_string($categoria);
-        $suma = static function (string $desde, string $hasta) use ($db, $cat): array {
+        $suma = static function (string $desde, string $hasta) use ($db, $cat, $periodo): array {
             $res = $db->query(
                 "SELECT COALESCE(SUM(ti.cantidad), 0) AS u, COALESCE(SUM(ti.precio * ti.cantidad), 0) AS importe
                    FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE ti.categoria = '{$cat}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                  WHERE ti.categoria = '{$cat}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado'{$periodo['hora_sql']}
                     AND " . self::filtroFecha($desde, $hasta)
             );
             $row = $res ? $res->fetch_assoc() : null;
@@ -1132,7 +1179,7 @@ final class ConsultasRapidas
             "SELECT ti.nombre, SUM(ti.cantidad) AS u, MAX(p.id) AS producto_id
                FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
                LEFT JOIN productos p ON p.nombre = ti.nombre
-              WHERE ti.categoria = '{$cat}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+              WHERE ti.categoria = '{$cat}' AND t.estado = 'cerrado' AND ti.estado <> 'cancelado'{$periodo['hora_sql']}
                 AND " . self::filtroFecha($periodo['desde'], $periodo['hasta']) . "
               GROUP BY ti.nombre ORDER BY u DESC LIMIT 6"
         );
@@ -1258,7 +1305,7 @@ final class ConsultasRapidas
             "SELECT ti.nombre, SUM(ti.cantidad) AS u, SUM(ti.precio * ti.cantidad) AS importe, MAX(p.id) AS producto_id
                FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
                LEFT JOIN productos p ON p.nombre = ti.nombre
-              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'{$periodo['hora_sql']}
                 AND " . self::filtroFecha($periodo['desde'], $periodo['hasta']) . "
               GROUP BY ti.nombre ORDER BY u DESC, importe DESC LIMIT 5"
         );
@@ -1787,7 +1834,7 @@ final class ConsultasRapidas
         return trim(preg_replace('/\s+/', ' ', $t) ?? '');
     }
 
-    private static function detectarPeriodo(string $norma): array
+    private static function detectarPeriodo(string $norma, string $porDefecto = 'hoy'): array
     {
         if (preg_match('/\bultim[oa]s? (\d{1,3}) dias?\b/u', $norma, $m)) {
             return self::periodoDias(max(1, min(365, (int) $m[1])));
@@ -1807,7 +1854,63 @@ final class ConsultasRapidas
             }
         }
 
-        return self::periodo('hoy');
+        return self::periodo($porDefecto);
+    }
+
+    /**
+     * Hora («a las 9», «a las 9 de la noche»), franja («en la mañana», «las
+     * noches») y día de la semana («los sábados») de la pregunta, o null.
+     * La hora es la del PEDIDO (ticket_items.created_at), como en §3.5 de
+     * analíticas; el periodo sigue mandando sobre qué fechas entran.
+     *
+     * @return array{desde: ?int, hasta: ?int, dow: ?int, frase: string, sql: string, resto: string}|null
+     */
+    public static function horario(string $norma): ?array
+    {
+        $desde = $hasta = $dow = null;
+        $frases = [];
+        $resto = $norma;
+
+        if (preg_match('/\b(?:el |los )?(domingo|lunes|martes|miercoles|jueves|viernes|sabado)s?\b/u', $resto, $m)) {
+            [$dow, $frases[]] = self::DIAS[$m[1]];
+            $resto = str_replace($m[0], ' ', $resto);
+        }
+        if (preg_match('/\ba las? (\d{1,2})(?: \d{2})?(?: (am|pm|de la (?:manana|tarde|noche)))?\b/u', $resto, $m) && (int) $m[1] <= 23) {
+            $h = (int) $m[1];
+            $tarde = isset($m[2]) && in_array($m[2], ['pm', 'de la tarde', 'de la noche'], true);
+            // shortcut: sin «am/pm», de 1 a 7 se lee como de la tarde porque la
+            // casa abre a las 8; si algún día abre de madrugada, hay que pedirlo.
+            if ($h < 12 && ($tarde || (!isset($m[2]) && $h >= 1 && $h <= 7))) {
+                $h += 12;
+            }
+            $desde = $hasta = $h;
+            $frases[] = ($h === 1 ? 'a la ' : 'a las ') . $h . ':00';
+            $resto = str_replace($m[0], ' ', $resto);
+        } elseif (preg_match('/\b(?:(?:en|por|de) )?las? (manana|tarde|noche)s?\b/u', $resto, $m)) {
+            [$desde, $hasta, $frases[]] = self::FRANJAS[$m[1]];
+            $resto = str_replace($m[0], ' ', $resto);
+        }
+
+        if ($desde === null && $dow === null) {
+            return null;
+        }
+
+        $sql = [];
+        if ($desde !== null) {
+            $sql[] = "HOUR(ti.created_at) BETWEEN {$desde} AND {$hasta}";
+        }
+        if ($dow !== null) {
+            $sql[] = 'DAYOFWEEK(ti.created_at) = ' . ($dow + 1);
+        }
+
+        return [
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'dow' => $dow,
+            'frase' => implode(' ', $frases),
+            'sql' => implode(' AND ', $sql),
+            'resto' => trim(preg_replace('/\s+/', ' ', $resto) ?? $resto),
+        ];
     }
 
     /**
@@ -1858,6 +1961,9 @@ final class ConsultasRapidas
             case 'mes_pasado':
                 $ini = $hoy->modify('first day of last month');
                 return self::armar('mes_pasado', 'Mes pasado', 'El mes pasado', $f($ini), $f($ini->modify('last day of this month')), $f($ini->modify('-1 month')), $f($ini->modify('-1 day')), 'el mes anterior');
+            case '8s':
+                $ini = $hoy->modify('-55 day');
+                return self::armar('8s', 'Últimas 8 semanas', 'En las últimas 8 semanas', $f($ini), $f($hoy), $f($ini->modify('-56 day')), $f($ini->modify('-1 day')), 'las 8 semanas anteriores');
             case '7d':
                 return self::periodoDias(7);
             case '30d':
@@ -1888,6 +1994,9 @@ final class ConsultasRapidas
             'previo_desde' => $pDesde,
             'previo_hasta' => $pHasta,
             'previo_etiqueta' => $pEtiqueta,
+            // Filtro de hora de la pregunta; vacío salvo que responder() lo ponga.
+            'hora_sql' => '',
+            'hora_q' => '',
         ];
     }
 

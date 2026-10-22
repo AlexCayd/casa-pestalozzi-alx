@@ -669,6 +669,19 @@
   background: linear-gradient(to right, rgba(var(--n1-heat-rgb), 0.05), rgba(var(--n1-heat-rgb), 1));
 }
 .admin-nivel1 {
+  /* ── Venta por hora (§3.5) ───────────────────────────────────────── */
+}
+.admin-nivel1 .admin-n1-horas__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin-top: 14px;
+}
+.admin-nivel1 .admin-n1-horas__titulo {
+  margin: 20px 0 8px;
+}
+.admin-nivel1 {
   /* ── RevPASH por día completo ──────────────────────────────────────
      Segunda gráfica del panel de §3.2, no una fusión con el mapa: mide lo
      mismo con otro denominador. Ocupa todo el ancho del panel y se separa

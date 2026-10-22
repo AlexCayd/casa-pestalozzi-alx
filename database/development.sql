@@ -60,6 +60,10 @@
 -- No usar este archivo como semilla de producción.
 --
 SET NAMES utf8mb4;
+-- La zona de la app (includes/database.php), también para el bloque 1: sin
+-- ella sus TIMESTAMP (ticket_items.created_at) se guardaban en UTC y el panel
+-- los leía seis horas antes que la apertura de su ticket.
+SET time_zone = '-06:00';
 SET @HOY := CURDATE();
 
 -- El catálogo base —áreas, categorías, mesas, productos, productos_semilla y
@@ -1128,6 +1132,14 @@ SET hora_apertura = TIMESTAMP(
     )
 WHERE estado = 'cerrado'
   AND reservacion_id IS NULL;
+
+-- Los renglones viajan con su ticket: la venta por hora (§3.5) fecha cada
+-- platillo por su created_at, y sin esto quedaban en la fecha original.
+UPDATE ticket_items ti
+  JOIN tickets t ON t.id = ti.ticket_id
+   SET ti.created_at = TIMESTAMP(DATE(t.hora_apertura), TIME(ti.created_at))
+ WHERE t.estado = 'cerrado'
+   AND t.reservacion_id IS NULL;
 
 -- -------------------------------------------------------
 -- INVENTARIO / RECETAS (datos de prueba)

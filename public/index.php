@@ -86,6 +86,7 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
 // Sólo la vista: el navegador habla directo con n8n (IA_N8N_WEBHOOK_URL).
 $router->get('/admin/ia', [AdminIaController::class, 'index']);
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);

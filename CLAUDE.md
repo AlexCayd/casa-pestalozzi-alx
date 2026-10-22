@@ -1406,8 +1406,17 @@ comanda, sin volver a explotarla—, así que cuadra con la existencia aunque la
 receta cambie (y en la base de desarrollo sale casi siempre en cero: los
 tickets de prueba no generan movimientos). El intérprete de frases
 (`responder()`, que entiende «familia» como sinónimo de categoría) se conserva
-sólo como contrato del texto canónico y para repetir preguntas de texto
-guardadas antes del cambio.
+como contrato del texto canónico y para repetir preguntas de texto guardadas
+antes del cambio. Además lee **hora, franja y día de la semana**
+(`ConsultasRapidas::horario()`, prueba `run-consultas-por-hora.php`): «a las
+9» (de 1 a 7 sin am/pm se lee de la tarde: la casa abre a las 8), mañana hasta
+las 12:59, tarde 13-18:59, noche desde las 19:00 y «los sábados» —sin periodo
+dicho, un día de la semana mira las últimas 8 semanas (periodo `8s`, fuera de
+`PERIODOS`: no es un hueco)—. La hora es la del PEDIDO (`ticket_items.created_at`)
+y viaja en el periodo como `hora_sql`, que filtran las ventas de platillo y de
+categoría y lo más vendido; el total del restaurante no se separa por hora
+(`ventasTotalesOHora()` lo dice en vez de contestar el del periodo entero). Es
+sólo del intérprete: las consultas estructuradas de los huecos no llevan hora.
 
 - **La respuesta trae** `interpretacion`, `plantilla` (huecos) y `respuesta`. En
   el desglose, `valor` numérico mide la barra y `valor_texto` es cómo se lee
