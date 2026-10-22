@@ -172,6 +172,10 @@ final class Permisos
      * Un prefijo casa con la ruta exacta y con todo lo que cuelga de `prefijo/`.
      */
     private const RUTAS = [
+        '/admin/panaderia/menu' => ['menu'],
+        '/admin/panaderia/recetas' => ['productos'],
+        '/admin/panaderia/inventario' => ['inventario'],
+        '/admin/global' => ['configuration'],
         // Las direcciones de la antigua Operación de reservaciones redirigen
         // al POS: se abren con el permiso del POS, como hasta ahora.
         '/admin/reservaciones/operacion' => ['pdv'],
@@ -281,7 +285,7 @@ final class Permisos
 
         // /admin a secas es compartida; los demás prefijos compartidos, con
         // todo lo que cuelga de ellos.
-        if ($url === '/admin') {
+        if (in_array($url, ['/admin', '/admin/contexto', '/admin/panaderia'], true)) {
             return ['tipo' => 'compartida', 'modulos' => []];
         }
         foreach (self::COMPARTIDAS as $prefijo) {

@@ -15,7 +15,9 @@ $authIniciales = strtoupper(
 );
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
 try {
-    $buzonResumen = \Services\Notifications\BuzonNotificacionesService::resumen();
+    if ($contextoActivo === 'restaurante') {
+        $buzonResumen = \Services\Notifications\BuzonNotificacionesService::resumen();
+    }
 } catch (Throwable $e) {
     error_log('Buzón administrativo no disponible: ' . $e->getMessage());
 }
@@ -40,11 +42,13 @@ $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'
 
     <div class="admin-topbar__heading">
         <p class="admin-topbar__module">
+            <span class="admin-context-name"><?php echo \Services\Security\Contextos::NOMBRES[$contextoActivo]; ?> <span aria-hidden="true">/</span></span>
             <?php echo htmlspecialchars($currentModuleTitle, ENT_QUOTES, 'UTF-8'); ?>
         </p>
     </div>
 
     <div class="admin-topbar__actions">
+        <?php if ($contextoActivo === 'restaurante'): ?>
         <button
             class="admin-topbar__inbox<?php echo $buzonCantidadTotal > 0 ? ' has-items' : ' is-empty'; ?><?php echo $buzonCantidadSeguimiento > 0 && $buzonCantidadAccionable === 0 ? ' has-followup' : ''; ?><?php echo $buzonPrioridadAccionable === 'alta' ? ' has-high-priority' : ''; ?>"
             type="button"
@@ -76,6 +80,7 @@ $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'
             </svg>
         </button>
 
+        <?php endif; ?>
         <button
             class="admin-theme-toggle"
             type="button"

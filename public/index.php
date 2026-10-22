@@ -84,6 +84,16 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 // agenda de catas se imprime en el servidor y el catering se cotiza conversando.
 
 // Admin
+$router->get('/admin/contexto', [\Controllers\AdminContextosController::class, 'cambiar']);
+$router->get('/admin/global', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/catalogo', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/inventario', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/configuracion', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/usuarios', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/menu', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/inventario', [\Controllers\AdminContextosController::class, 'pagina']);
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);

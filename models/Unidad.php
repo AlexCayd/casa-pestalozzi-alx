@@ -5,9 +5,9 @@ namespace Model;
 /**
  * Unidades de negocio (Restaurante, Panadería).
  *
- * Hoy sólo se asignan a las cuentas de administrador desde Usuarios y no
- * restringen nada: son la base de la futura integración multiempresa, donde
- * un admin verá sólo los módulos y datos de su unidad.
+ * Se asignan a administradores desde Usuarios. Auth y Contextos aplican la
+ * frontera de acceso: Restaurante operativo o Panadería en demostración.
+ * El esquema de datos operativos por unidad pertenece a una etapa posterior.
  */
 class Unidad extends ActiveRecord
 {

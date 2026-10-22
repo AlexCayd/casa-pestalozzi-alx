@@ -287,7 +287,11 @@ Cosas que cargan peso y no son obvias:
     un ticket, desempeño) siguen siendo sólo el rol `waiter`.
   - **Unidades** (`unidades`: Restaurante, Panadería; `usuarios.unidad_id`):
     sólo se asignan a cuentas con rol `admin`, sólo las asigna el super admin y
-    **hoy no restringen nada**: son la base de la integración multiempresa.
+    **restringen el contexto desde Etapa 1** mediante `Auth` y
+    `Services\Security\Contextos`: un admin requiere una unidad válida;
+    Panadería solo tiene demostraciones en desarrollo/pruebas y no abre
+    operaciones de Restaurante. Datos multiempresa reales, pendientes.
+    Contrato y validación en `docs/panaderia/etapa-1.md`.
 
 ## Design system
 

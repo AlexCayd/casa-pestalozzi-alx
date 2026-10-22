@@ -11,7 +11,7 @@ Lectura previa: [Usuarios y acceso](usuarios.md) (credenciales, NIP y contraseñ
 - La guardia central decide cada petición **antes del ruteo**: `ver` abre las peticiones GET/HEAD; `editar`, todo lo demás.
 - La **vía de acceso** (contraseña o NIP) no se elige: se deduce de los módulos del rol.
 - Hay dos roles de **sistema** (super admin y administrador) que lo tienen todo; dos **predefinidos** (Mesero y Cocinero) editables; y los **personalizados** que se crean en el panel.
-- Las **unidades** de negocio (Restaurante, Panadería) ya existen y se asignan a los administradores, pero **hoy no restringen nada**: son el punto de partida de la integración multiempresa.
+- Las **unidades** de negocio (Restaurante, Panadería) se asignan a los administradores y restringen sus contextos desde Etapa 1. Panadería solo ofrece consultas de demostración; los datos operativos por unidad siguen pendientes.
 
 ## Modelo de datos
 
@@ -192,12 +192,12 @@ Ordenada por lo que más estorbaría a la integración multiempresa.
 
 ## Integración multiempresa
 
-Esta sección es el plan. Nada de esto está implementado; lo que sí existe es el gancho: la tabla `unidades`, `usuarios.unidad_id` y la separación entre roles de sistema y el resto.
+Esta sección conserva el plan de datos multiempresa. La frontera inicial de navegación y acceso ya está implementada: consulta [Contextos de negocio: Etapa 1](#contextos-de-negocio-etapa-1). El resto del plan continúa pendiente.
 
 ### Estado de hoy
 
 - **Super admin** ve todo el sistema y es el único que asigna unidades y gestiona cuentas de administrador.
-- **Administrador** ve todos los módulos y todos los datos. Su `unidad_id` se guarda, pero no filtra nada.
+- **Administrador** opera Restaurante únicamente si tiene esa unidad asignada; con Panadería solo abre su entorno de demostración. Las consultas operativas todavía no tienen filtrado multiempresa: la separación inicial bloquea las rutas del otro negocio.
 - **Los datos son un solo conjunto**: ninguna tabla de negocio tiene unidad.
 
 ### Decisiones que hay que tomar antes de empezar
@@ -270,6 +270,15 @@ Cada paso deja el sistema funcionando con una sola unidad, que es la manera de m
 - **No** decidir la unidad en cada controlador con su propia lógica: una sola fuente (`Contexto`), o en seis meses habrá seis maneras distintas.
 - **No** reutilizar `usuarios.unidad_id` como «unidad activa»: es la asignación del administrador, no el contexto de la petición.
 - **No** abrir rutas como compartidas para resolver un problema de unidad: compartida significa «del cromo del panel», no «sin dueño».
+
+## Contextos de negocio: Etapa 1
+
+La frontera de acceso por `usuarios.unidad_id` ya se aplica en `Auth` junto a
+`Services\Security\Contextos`. Global es exclusivo de `super_admin`; `admin`
+requiere unidad válida. Panadería ofrece únicamente consultas de demostración
+en desarrollo/pruebas y no abre operaciones de Restaurante. El plan futuro de
+datos por unidad descrito arriba continúa pendiente. El contrato vigente,
+rutas y limitaciones están en [Panadería · Etapa 1](../panaderia/etapa-1.md).
 
 ## Referencias de código
 

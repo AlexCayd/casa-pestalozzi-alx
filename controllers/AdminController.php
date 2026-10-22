@@ -88,6 +88,10 @@ class AdminController
 
     public static function index(Router $router): void
     {
+        if (!in_array('restaurante', Auth::contextos(), true)) {
+            header('Location: ' . Auth::destinoPorRol(), true, 302);
+            exit;
+        }
         // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
         // que sí tenga, en vez de en una pantalla que no puede ver.
         if (!Auth::puede('analytics')) {
@@ -790,6 +794,10 @@ class AdminController
         foreach ($data as $key => $value) {
             $$key = $value;
         }
+
+        $contextoActivo = \Services\Security\Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
+        $contextosDisponibles = Auth::contextos();
+        $modules = AdminContextosController::navegacion($contextoActivo, $modules);
 
         ob_start();
         include_once __DIR__ . "/../views/admin/{$view}.php";

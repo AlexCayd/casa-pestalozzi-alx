@@ -5,6 +5,7 @@ namespace Classes;
 use Model\Rol;
 use Model\Usuario;
 use Services\Security\Permisos;
+use Services\Security\Contextos;
 
 /**
  * Sesión y protección de rutas del personal.
@@ -59,11 +60,13 @@ class Auth {
         self::start();
         // Evitar fijación de sesión: id nuevo al autenticarse
         session_regenerate_id(true);
+        self::$rolCache = null;
         $_SESSION['login']    = true;
         $_SESSION['id']       = (int) $usuario->id;
         $_SESSION['nombre']   = $usuario->nombre;
         $_SESSION['username'] = $usuario->username;
         $_SESSION['rol']      = $usuario->rol;
+        self::cargarUnidad($usuario->unidad_id);
     }
 
     public static function logout(): void {
@@ -221,6 +224,14 @@ class Auth {
     public static function destinoPorRol(?string $rol = null): string {
         $resuelto = $rol === null ? self::rolActual() : self::resolverRol($rol);
 
+        $contextos = self::contextos();
+        if ($contextos === []) {
+            return '/login?resultado=sin_contexto';
+        }
+        if (!in_array('restaurante', $contextos, true) || $resuelto['slug'] === Permisos::SUPER_ADMIN) {
+            return Contextos::inicio($contextos[0]);
+        }
+
         return Permisos::destino($resuelto['sistema'], $resuelto['permisos']);
     }
 
@@ -247,6 +258,18 @@ class Auth {
         }
 
         $decision = Permisos::decidir($url, $metodo, $rol);
+
+        // Se aplica también a roles de sistema y a TODAS las APIs protegidas.
+        if ($rol !== null && !Contextos::permite($url, self::rol(), $_SESSION['unidad_slug'] ?? null)) {
+            if ($esApi) {
+                self::negarJson(403, 'No tienes acceso a este contexto de trabajo.');
+            }
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            $destinoContexto = self::destinoPorRol();
+            require __DIR__ . '/../views/auth/contexto-denegado.php';
+            exit;
+        }
 
         if ($decision['resultado'] === 'libre' || $decision['resultado'] === 'permitir') {
             return;
@@ -309,16 +332,18 @@ class Auth {
      * siguiente petición y no desde el siguiente login. Si la cuenta ya no
      * existe o está inactiva, se cierra la sesión.
      *
-     * Tolerante: si la base no responde se conserva la sesión tal cual, como
-     * antes de que existiera esta comprobación.
+     * Si la base no responde se conserva la sesión, pero la unidad queda sin
+     * verificar y no autoriza operaciones de negocio.
      */
     private static function refrescarSesion(): bool {
+        // Sin revalidación de la unidad no se reutiliza una asignación antigua.
+        $_SESSION['unidad_slug'] = 'invalida';
         try {
             $db = Usuario::getDB();
             if (!$db) {
                 return true;
             }
-            $stmt = $db->prepare('SELECT rol, activo FROM usuarios WHERE id = ? LIMIT 1');
+            $stmt = $db->prepare('SELECT u.rol, u.activo, u.unidad_id, n.slug AS unidad_slug FROM usuarios u LEFT JOIN unidades n ON n.id = u.unidad_id WHERE u.id = ? LIMIT 1');
             if (!$stmt) {
                 return true;
             }
@@ -345,7 +370,30 @@ class Auth {
             self::$rolCache = null;
         }
 
+        $_SESSION['unidad_slug'] = $fila['unidad_id'] === null ? null : ($fila['unidad_slug'] ?? 'invalida');
+
         return true;
+    }
+
+    public static function contextos(): array {
+        $contextos = Contextos::permitidos(self::rol(), $_SESSION['unidad_slug'] ?? null);
+        // El piso de Panadería aún no existe: una asignación futura no abre el panel.
+        if (!self::tienePanel()) {
+            return array_values(array_intersect($contextos, ['restaurante']));
+        }
+        return $contextos;
+    }
+
+    private static function cargarUnidad($id): void {
+        $_SESSION['unidad_slug'] = $id === null ? null : 'invalida';
+        if ($id !== null) {
+            try {
+                $unidad = \Model\Unidad::find((int) $id);
+                $_SESSION['unidad_slug'] = $unidad ? (string) $unidad->slug : 'invalida';
+            } catch (\Throwable $e) {
+                error_log('Auth::cargarUnidad - no se pudo resolver la unidad');
+            }
+        }
     }
 
     /**

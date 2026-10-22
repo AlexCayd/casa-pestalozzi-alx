@@ -39,6 +39,8 @@ if (!function_exists('admin_icon_paths')) {
         }
 
         $iconos = [
+            'inicio' => '<path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-8h6v8"/>',
+            'transferencias' => '<path d="M3 7h17l-4-4M21 17H4l4 4"/><path d="m20 7-4 4M4 17l4-4"/>',
             // ── Módulos del panel (los consume el sidebar) ────────────
             'analytics' => '<path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 3-4 3 2 4-6"/>',
             // Destello: el asistente IA. Una estrella de cuatro puntas de lados

@@ -84,13 +84,16 @@
             <?php include_once __DIR__ . '/partials/_topbar.php'; ?>
 
             <main class="admin-content">
+                <?php include __DIR__ . '/partials/_contexto.php'; ?>
                 <?php echo $content; ?>
             </main>
         </div>
     </div>
 
-    <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
-    <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php if ($contextoActivo === 'restaurante'): ?>
+        <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
+        <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php endif; ?>
 
     <?php /*
         Vendorizados en /build/js/vendor por `gulp copyVendorJs`, igual que en la
