@@ -42,8 +42,7 @@ $buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'
 
     <div class="admin-topbar__heading">
         <p class="admin-topbar__module">
-            <span class="admin-context-name"><?php echo \Services\Security\Contextos::NOMBRES[$contextoActivo]; ?> <span aria-hidden="true">/</span></span>
-            <?php echo htmlspecialchars($currentModuleTitle, ENT_QUOTES, 'UTF-8'); ?>
+            <span class="admin-context-name"><?php echo \Services\Security\Contextos::NOMBRES[$contextoActivo]; ?></span>
         </p>
     </div>
 

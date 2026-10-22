@@ -47,6 +47,7 @@ const paths = {
     // dependencia — igual que con sankey.js y finanzas.js.
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
+    "src/js/admin/core/contextos.js",
     "src/js/admin/core/theme.js",
     "src/js/admin/core/motion.js",
     "src/js/admin/core/reactive-filters.js",

@@ -53,6 +53,11 @@ final class AdminContextosController
         $modulos = self::navegacion($contexto, []);
         $demo = $contexto === 'panaderia' && Contextos::demoHabilitada();
         $fixture = $demo ? require __DIR__ . '/../database/fixtures/panaderia.php' : null;
+        $q = trim(is_string($_GET['q'] ?? '') ? ($_GET['q'] ?? '') : '');
+        if ($fixture && $q !== '') {
+            $coleccion = $clave === 'menu' ? 'productos' : ($clave === 'productos' ? 'recetas' : 'articulos');
+            $fixture[$coleccion] = array_filter($fixture[$coleccion], static fn($fila) => mb_stripos($fila['nombre'], $q) !== false);
+        }
         AdminController::render('contextos/index', [
             'activeModule' => $clave,
             'title' => $modulos[$clave]['title'] ?? 'Inicio',
@@ -60,6 +65,8 @@ final class AdminContextosController
             'seccion' => $clave,
             'demo' => $demo,
             'fixture' => $fixture,
+            'q' => $q,
+            'styles' => ['/build/css/admin/' . ($clave === 'productos' ? 'recetas' : ($clave === 'menu' ? 'menu' : 'inventario')) . '.css'],
         ]);
     }
 }

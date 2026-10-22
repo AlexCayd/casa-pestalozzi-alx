@@ -53,6 +53,7 @@ $sidebarIconoModulo = static function (string $clave): string {
             data-admin-sidebar-close><?php echo admin_icon('cerrar', 18); ?></button>
     </div>
 
+    <?php include __DIR__ . '/_contexto.php'; ?>
     <nav class="admin-sidebar__nav">
         <?php foreach ($modules as $moduleKey => $module): ?>
             <?php if (!empty($module['pendiente'])): ?>

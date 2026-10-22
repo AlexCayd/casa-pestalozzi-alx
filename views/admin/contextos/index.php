@@ -3,10 +3,12 @@ $esc = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES
 $cantidad = static fn($valor): string => rtrim(rtrim(number_format((float) $valor, 3, '.', ','), '0'), '.');
 $nombreContexto = \Services\Security\Contextos::NOMBRES[$contexto];
 ?>
-<section class="admin-context-page" aria-labelledby="context-page-title">
-    <header class="admin-context-page__header">
-        <h1 id="context-page-title"><?php echo $esc($seccion === 'inicio' ? ($contexto === 'global' ? 'Administración global' : 'Panadería') : $title); ?></h1>
-        <p><?php echo $contexto === 'global' ? 'Supervisa los negocios de Casa Pestalozzi desde un mismo lugar.' : 'Consulta el catálogo, las recetas y las existencias de demostración de Panadería.'; ?></p>
+<section class="admin-context-page admin-page <?php echo $seccion === 'productos' ? 'admin-recetas' : ($seccion === 'menu' ? 'admin-menu' : 'admin-inventario'); ?>" aria-labelledby="context-page-title">
+    <header class="admin-page__header">
+      <div class="admin-page__intro">
+        <h1 class="admin-page__title" id="context-page-title"><?php echo $esc($seccion === 'inicio' ? ($contexto === 'global' ? 'Administración global' : 'Panadería') : $title); ?></h1>
+        <p class="admin-page__subtitle"><?php echo $contexto === 'global' ? 'Supervisa los negocios de Casa Pestalozzi desde un mismo lugar.' : 'Consulta el catálogo, las recetas y las existencias de demostración de Panadería.'; ?></p>
+      </div>
     </header>
 
     <?php if ($contexto === 'panaderia'): ?>
@@ -14,6 +16,14 @@ $nombreContexto = \Services\Security\Contextos::NOMBRES[$contexto];
             <strong><?php echo $demo ? 'Datos de prueba · Solo consulta' : 'Demostración no disponible'; ?></strong>
             <p><?php echo $demo ? 'Las cantidades y los precios son ilustrativos. Esta información no registra ventas ni modifica el inventario del Restaurante.' : 'Los datos de prueba solo están disponibles en entornos de desarrollo o pruebas. La operación de Panadería todavía no está habilitada.'; ?></p>
         </div>
+    <?php endif; ?>
+
+    <?php if ($demo && in_array($seccion, ['menu', 'productos', 'inventario'], true)): ?>
+        <form class="admin-filters" method="get" role="search">
+            <div class="admin-field"><label for="demo-busqueda">Buscar <?php echo $seccion === 'productos' ? 'recetas' : ($seccion === 'menu' ? 'productos' : 'artículos'); ?></label><input id="demo-busqueda" name="q" type="search" value="<?php echo $esc($q ?? ''); ?>" placeholder="Buscar por nombre"></div>
+            <button class="admin-btn admin-btn--secondary" type="submit">Buscar</button>
+            <?php if (($q ?? '') !== ''): ?><a href="<?php echo $esc(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH)); ?>" class="admin-btn admin-btn--ghost">Limpiar</a><?php endif; ?>
+        </form>
     <?php endif; ?>
 
     <?php if ($contexto === 'global' && $seccion === 'inicio'): ?>
@@ -58,12 +68,20 @@ $nombreContexto = \Services\Security\Contextos::NOMBRES[$contexto];
             <?php endforeach; ?></tbody>
         </table></div></div>
     <?php elseif ($demo && $seccion === 'productos'): ?>
+        <div class="admin-card"><div class="admin-table-wrap" tabindex="0" role="region" aria-label="Recetas de prueba"><table class="admin-table">
+          <thead><tr><th scope="col">Preparación</th><th scope="col">Rendimiento</th><th scope="col">Composición de la receta</th></tr></thead><tbody>
         <?php foreach ($fixture['recetas'] as $id => $receta): ?>
-            <details id="receta-<?php echo $esc($id); ?>" class="admin-card admin-context-page__recipe" open>
-                <summary><strong><?php echo $esc($receta['nombre']); ?></strong><span>Rendimiento: <?php echo $cantidad($receta['rendimiento']['cantidad']) . ' ' . $esc($receta['rendimiento']['unidad']); ?></span></summary>
+            <tr><th scope="row"><?php echo $esc($receta['nombre']); ?></th><td><?php echo $cantidad($receta['rendimiento']['cantidad']) . ' ' . $esc($receta['rendimiento']['unidad']); ?></td><td>
+            <details id="receta-<?php echo $esc($id); ?>" class="admin-context-page__recipe" <?php echo ($_GET['receta'] ?? '') === $id ? 'open' : ''; ?>>
+                <summary>Consultar ingredientes</summary>
                 <p><?php echo $esc($receta['detalle']); ?></p>
-                <ul><?php foreach ($receta['ingredientes'] as $ingrediente): ?><li><?php echo $esc($fixture['articulos'][$ingrediente['articulo']]['nombre']) . ': ' . $cantidad($ingrediente['cantidad']) . ' ' . $esc($ingrediente['unidad']); ?><?php if (isset($ingrediente['receta'])): ?> <a href="#receta-<?php echo $esc($ingrediente['receta']); ?>">Ver preparación intermedia</a><?php endif; ?></li><?php endforeach; ?></ul>
+                <ul><?php foreach ($receta['ingredientes'] as $ingrediente): ?><li><?php echo $esc($fixture['articulos'][$ingrediente['articulo']]['nombre']) . ': ' . $cantidad($ingrediente['cantidad']) . ' ' . $esc($ingrediente['unidad']); ?><?php if (isset($ingrediente['receta'])): ?> <a href="?receta=<?php echo $esc($ingrediente['receta']); ?>#receta-<?php echo $esc($ingrediente['receta']); ?>">Ver preparación intermedia</a><?php endif; ?></li><?php endforeach; ?></ul>
             </details>
+            </td></tr>
         <?php endforeach; ?>
+          </tbody></table></div></div>
+    <?php endif; ?>
+    <?php if ($demo && in_array($seccion, ['menu', 'productos', 'inventario'], true) && empty($fixture[$seccion === 'menu' ? 'productos' : ($seccion === 'productos' ? 'recetas' : 'articulos')])): ?>
+        <div class="admin-card admin-context-page__empty"><h2>No hay resultados</h2><p>Prueba con otro nombre o limpia la búsqueda para ver todos los datos de prueba.</p></div>
     <?php endif; ?>
 </section>

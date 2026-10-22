@@ -84,7 +84,6 @@
             <?php include_once __DIR__ . '/partials/_topbar.php'; ?>
 
             <main class="admin-content">
-                <?php include __DIR__ . '/partials/_contexto.php'; ?>
                 <?php echo $content; ?>
             </main>
         </div>
