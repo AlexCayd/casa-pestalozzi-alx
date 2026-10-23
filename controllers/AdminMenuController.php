@@ -96,7 +96,7 @@ class AdminMenuController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::sincronizarPlatillo($platillo);
-            $alertas = $platillo->validar();
+            $alertas = self::validarConFoto($platillo);
 
             if (empty($alertas)) {
                 $resultado = $platillo->guardar();
@@ -107,6 +107,7 @@ class AdminMenuController
                     return;
                 }
 
+                self::descartarFoto($platillo, '');
                 Producto::setAlerta('error', 'No se pudo guardar el platillo. Revisa que el nombre no esté repetido.');
                 $alertas = Producto::getAlertas();
             }
@@ -127,18 +128,26 @@ class AdminMenuController
         }
 
         $alertas = [];
+        $imagenActual = (string) ($platillo->img ?? '');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::sincronizarPlatillo($platillo);
-            $alertas = $platillo->validar();
+            $alertas = self::validarConFoto($platillo);
 
             if (empty($alertas)) {
                 if ($platillo->guardar()) {
+                    // El archivo anterior se borra sólo ahora: si se borrara al
+                    // subir el nuevo y el guardado fallara, la fila apuntaría a
+                    // una foto que ya no existe.
+                    if ($platillo->img !== $imagenActual) {
+                        ImagenUploader::eliminar($imagenActual);
+                    }
                     Producto::setAlerta('exito', 'Platillo actualizado correctamente');
                     self::index($router);
                     return;
                 }
 
+                self::descartarFoto($platillo, $imagenActual);
                 Producto::setAlerta('error', 'No se pudo actualizar el platillo');
                 $alertas = Producto::getAlertas();
             }
@@ -163,6 +172,7 @@ class AdminMenuController
         }
 
         if ($platillo->eliminar()) {
+            ImagenUploader::eliminar($platillo->img);
             Producto::setAlerta('exito', 'Platillo eliminado correctamente');
         } else {
             Producto::setAlerta('error', 'No se pudo eliminar: el platillo tiene una receta o ventas asociadas.');
@@ -356,8 +366,59 @@ class AdminMenuController
 
     private static function sincronizarPlatillo(Producto $platillo): void
     {
+        // sincronizar() copia cualquier clave del POST que sea propiedad del
+        // modelo: sin esto, un campo `img` a mano apuntaría el platillo a
+        // cualquier archivo, y al reemplazarlo ImagenUploader::eliminar() lo
+        // borraría. La foto sólo cambia por el uploader.
+        $imagen = (string) ($platillo->img ?? '');
         $platillo->sincronizar($_POST);
+        $platillo->img = $imagen;
         $platillo->activo = isset($_POST['activo']) ? 1 : 0;
+    }
+
+    /**
+     * Valida el platillo y, si pasa, procesa su foto. La foto es opcional —hoy
+     * sólo la pinta la vitrina de especiales de temporada, y sin ella el
+     * especial toma la de su categoría (Carta::especiales())—, así que no se
+     * sube nada mientras el resto del formulario tenga errores.
+     */
+    private static function validarConFoto(Producto $platillo): array
+    {
+        $alertas = $platillo->validar();
+
+        if (!empty($alertas)) {
+            return $alertas;
+        }
+
+        $imagen = $_FILES['imagen'] ?? null;
+
+        if (ImagenUploader::seEnvioArchivo($imagen)) {
+            $uploader = new ImagenUploader();
+            $ruta = $uploader->procesar($imagen);
+
+            if ($ruta) {
+                $platillo->img = $ruta;
+            } else {
+                foreach ($uploader->getErrores() as $error) {
+                    $alertas['error'][] = $error;
+                }
+            }
+        } elseif (isset($_POST['quitar_imagen'])) {
+            $platillo->img = '';
+        }
+
+        return $alertas;
+    }
+
+    /** Si el guardado falla, la foto recién subida no se queda huérfana en disco. */
+    private static function descartarFoto(Producto $platillo, string $imagenActual): void
+    {
+        if ($platillo->img !== $imagenActual) {
+            if ($platillo->img !== '') {
+                ImagenUploader::eliminar($platillo->img);
+            }
+            $platillo->img = $imagenActual;
+        }
     }
 
     private static function renderForm(string $titulo, string $accion, Producto $platillo, array $alertas): void

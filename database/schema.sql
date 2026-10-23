@@ -48,10 +48,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- `carta` parte el catálogo en las dos piezas impresas: la carta de comida y
 -- la de maridaje (barra). Vive en la categoría porque la carta es una
 -- decisión de SECCIÓN: "Cocktails" entero es maridaje.
+--
+-- 'temporada' no es papel: es la vitrina «Especiales de temporada» de la
+-- landing. Sus platillos cambian cada semana y se dan de alta en Menú como
+-- cualquier otro; no salen en la sección de menú ni en ningún PDF. seed.sql
+-- siembra la categoría «Especiales de temporada».
 CREATE TABLE IF NOT EXISTS categorias (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(40) NOT NULL,
-  carta  ENUM('comida','maridaje') NOT NULL DEFAULT 'comida',
+  carta  ENUM('comida','maridaje','temporada') NOT NULL DEFAULT 'comida',
   img    VARCHAR(200),
   activo TINYINT(1) NOT NULL DEFAULT 1,
   KEY idx_categorias_carta (carta, id)
@@ -63,6 +68,9 @@ CREATE TABLE IF NOT EXISTS productos (
   -- La validación de Producto la exige en altas nuevas; permanece nullable
   -- para aceptar catálogos históricos durante la transición.
   descripcion  TEXT NULL,
+  -- Foto opcional del platillo. Hoy sólo la pinta la vitrina de especiales de
+  -- temporada; sin ella, el especial toma la de su categoría.
+  img          VARCHAR(200) NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,

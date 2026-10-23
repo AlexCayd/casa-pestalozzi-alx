@@ -10,7 +10,7 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Categorías</h2>
-            <p class="admin-page__subtitle">Administra las categorías de las dos cartas: la de comida y la de maridaje.</p>
+            <p class="admin-page__subtitle">Administra las categorías de las dos cartas —la de comida y la de maridaje— y las de los especiales de temporada.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu">

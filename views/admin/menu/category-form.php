@@ -14,7 +14,7 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Categorías</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Categoría'); ?></h2>
-            <p class="admin-page__subtitle">Una categoría agrupa platillos y decide en cuál de las dos cartas se imprimen.</p>
+            <p class="admin-page__subtitle">Una categoría agrupa platillos y decide dónde se publican: en una de las dos cartas o en los especiales de temporada.</p>
         </div>
         <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu/categorias">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -48,7 +48,7 @@
             <input type="text" id="nombre" name="nombre" maxlength="40"
                    value="<?php echo htmlspecialchars($categoria->nombre ?? ''); ?>" required>
 
-            <?php /* Dos opciones excluyentes y el catálogo entero cabe en pantalla:
+            <?php /* Tres opciones excluyentes y el catálogo entero cabe en pantalla:
                      es justo el caso de admin-pills, no el de un <select>. El radio es
                      real, así que conserva el envío, el teclado y el estado tras un
                      POST fallido sin una línea de JS. */ ?>

@@ -93,7 +93,9 @@ Tres bundles administrativos y no uno: `admin.css` (panel), `operation.css`
 Una base del sistema anterior se lleva a este esquema con
 `database/migrations/001_simplificar_esquema.sql` (re-ejecutable; respaldar
 antes: el DDL de MySQL no es transaccional) y después
-`002_paleta_landing.sql`, que sólo crea `configuracion_paleta`.
+`002_paleta_landing.sql`, que sólo crea `configuracion_paleta`, y
+`003_especiales_temporada.sql` (`temporada` en `categorias.carta`,
+`productos.img` y la categoría de especiales).
 
 `schema.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
 agregar una tabla, añade su `DROP` al bloque correspondiente.
@@ -109,8 +111,8 @@ Cosas que cargan peso y no son obvias:
 
 - `productos` es la **única** fuente de platillos. `productos.nombre` es UNIQUE:
   dos platillos homónimos en la carta no se distinguirían.
-- `categorias.carta` (`comida` | `maridaje`) parte el catálogo en las **dos
-  piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
+- `categorias.carta` (`comida` | `maridaje` | `temporada`) parte el catálogo en las **dos
+  piezas impresas** (y la vitrina de especiales, ver abajo): la carta de comida y la de maridaje (barra). Vive en la
   categoría y no en el producto porque la carta es una decisión de SECCIÓN —
   «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
   Menú**: pastillas en el alta rápida del tab «+» y en la edición de la
@@ -148,9 +150,26 @@ Cosas que cargan peso y no son obvias:
   Las catas escriben al WhatsApp del restaurante
   (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering,
   al de eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
-- **Platillos de temporada** («Especiales de temporada», `views/home/_firma.php`)
-  salen todavía de un arreglo fijo en `src/js/modules/gallery.js`; no hay tabla
-  ni CRUD.
+- **Especiales de temporada** son el tercer valor de `categorias.carta`
+  (`temporada`), y no un módulo: la vitrina de la landing
+  (`views/home/_firma.php`) pinta los platillos activos de esas categorías
+  desde `Carta::especiales()`, impresos en el servidor. `seed.sql` siembra la
+  categoría «Especiales de temporada» (id 15) con cinco de muestra; la cocina
+  los da de alta en Menú y los apaga con el interruptor de visibilidad. Antes
+  eran un arreglo fijo en `src/js/modules/gallery.js`, que ahora sólo engancha
+  el clic y el avance con el scroll; las tarjetas usan el marcado y el SCSS de
+  siempre (`.gcard`, `_galeria.scss` sin cambios). Reglas: no salen en la
+  sección de menú ni en ningún PDF (`MenuPdf` cae a comida si se le pide
+  `temporada`; `CategoriasMenu::CARTAS_IMPRESAS` dice cuáles se imprimen); la
+  foto (`productos.img`) es **opcional** y hoy sólo la usa la vitrina —sin foto
+  propia el especial toma la de su categoría (`especiales-temporada.webp`,
+  archivo propio porque reemplazarla borra el anterior), y sin ninguna de las
+  dos no sale, porque la vitrina sólo pinta tarjetas de foto—; la foto sólo
+  cambia por el uploader (`sincronizarPlatillo()` descarta un `img` del POST);
+  una semana sin especiales deja la sección con una línea `.lead`, para no
+  mover su número ni su enlace del índice; y `run-especiales-temporada.php`
+  falla si el ENUM de `schema.sql` o de la migración 003 se separa de
+  `CategoriasMenu::CARTAS`.
 
 ## Design system
 

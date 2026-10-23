@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
+use Services\Menu\Carta;
 use Services\Menu\CataService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Security\ReservationClientSession;
@@ -21,6 +22,7 @@ class HomeController
         $horariosOperacionDisponibles = false;
         $anuncioPublico = null;
         $catasProximas = [];
+        $especialesTemporada = [];
         $reservationRequestToken = ReservacionService::generarRequestToken();
 
         // La agenda de catas se imprime en el servidor: la sección tiene que
@@ -30,6 +32,15 @@ class HomeController
             $catasProximas = CataService::agendaPublica();
         } catch (\Throwable $e) {
             error_log('HomeController::index catas - ' . $e->getMessage());
+        }
+
+        // Los especiales de temporada, también impresos en el servidor: la
+        // vitrina se lee sin JS y sin esperar a ninguna petición. Si la consulta
+        // falla, el parcial cae a su estado vacío en vez de tumbar la portada.
+        try {
+            $especialesTemporada = Carta::especiales();
+        } catch (\Throwable $e) {
+            error_log('HomeController::index especiales de temporada - ' . $e->getMessage());
         }
 
         try {

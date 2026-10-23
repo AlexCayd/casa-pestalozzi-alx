@@ -581,6 +581,46 @@ ON DUPLICATE KEY UPDATE
   precio       = VALUES(precio),
   categoria_id = VALUES(categoria_id);
 
+-- -------------------------------------------------------
+-- Especiales de temporada
+-- -------------------------------------------------------
+--
+-- La vitrina de la landing (views/home/_firma.php). La img de la categoría es
+-- la que toma un especial sin foto propia (Carta::especiales()); es un archivo
+-- propio y no una foto compartida porque reemplazarla desde Categorías borra
+-- el archivo anterior.
+INSERT INTO categorias (id, nombre, carta, img) VALUES
+(15, 'Especiales de temporada', 'temporada', 'build/images/especiales-temporada.webp')
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+
+-- Platillos de muestra: cambian cada semana y los da de alta la cocina desde
+-- Menú. Tres llevan foto propia y dos no, para ver el respaldo de la
+-- categoría. Las fotos son las que antes estaban fijas en gallery.js y ningún
+-- otro registro usa: ImagenUploader::eliminar() borra el archivo anterior al
+-- reemplazar la foto de un platillo, y una foto compartida con una categoría
+-- la dejaría sin imagen.
+INSERT INTO productos (nombre, descripcion, img, categoria_id, precio) VALUES
+('Camarones a la Brasa',
+ 'Camarón U15 a las brasas con mantequilla de ajo ahumado, limón amarillo y perejil.',
+ 'build/images/mejor-5.webp', 15, 345.00),
+('Tostas de Otoño',
+ 'Pan de masa madre con calabaza asada, ricotta batida, nuez tostada y miel de agave.',
+ 'build/images/mejor-3.webp', 15, 210.00),
+('Aceitunas Tibias con Naranja',
+ 'Aceitunas mixtas tibias con cáscara de naranja, romero y aceite de oliva.',
+ 'build/images/mejor-1.webp', 15, 120.00),
+('Crema de Calabaza Asada',
+ 'Calabaza de Castilla asada, pepita tostada y un hilo de crema de rancho.',
+ NULL, 15, 165.00),
+('Pan de Muerto con Nata',
+ 'Pan de muerto de la casa relleno de nata y azahar. Sólo durante la temporada.',
+ NULL, 15, 95.00)
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  img          = VALUES(img),
+  precio       = VALUES(precio),
+  categoria_id = VALUES(categoria_id);
+
 COMMIT;
 
 -- -------------------------------------------------------

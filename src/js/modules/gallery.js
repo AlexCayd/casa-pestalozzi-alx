@@ -1,4 +1,4 @@
-/* Galería "Lo mejor de la casa" — la vetrina que avanza con el scroll
+/* Especiales de temporada — la vetrina que avanza con el scroll
    ------------------------------------------------------------------
    La tira ya no se arrastra ni tiene scroll propio: se desplaza con GSAP sobre
    `x` mientras la sección cruza la pantalla. Es un solo dueño del eje, que es
@@ -6,41 +6,25 @@
    scroll-art.js escribía el mismo valor por su cuenta— y lo que convertía el
    gesto en una pelea.
 
-   Sin arrastre, la tarjeta sólo hace una cosa al tocarla: ampliar. */
-var GALLERY = [
-  { img: "/build/images/mejor-2.webp", n: "Tagliatelle al Limón", t: "Pasta" },
-  { img: "/build/images/mejor-5.webp", n: "Camarones a la Brasa", t: "Mariscos" },
-  { img: "/build/images/pizza-3.webp", n: "Pizza al Horno de Piedra", t: "Pizzas" },
-  { img: "/build/images/mejor-3.webp", n: "Tostas de la Casa", t: "Para Picar" },
-  { img: "/build/images/mejor-4.webp", n: "Espresso Martini", t: "Coctelería" },
-  { img: "/build/images/mejor-6.webp", n: "Rib Eye 400 gr", t: "Cortes" },
-  { img: "/build/images/mejor-1.webp", n: "Aceitunas Temperadas", t: "Aperitivo" }
-];
+   Las tarjetas ya no se construyen aquí: las imprime el servidor desde la base
+   (views/home/_firma.php, platillos de la carta 'temporada'). Antes salían de
+   un arreglo fijo en este archivo y cambiar un especial era tocar código.
 
+   Sin arrastre, la tarjeta sólo hace una cosa al tocarla: ampliar. Todas
+   llevan foto: sin la propia, el servidor pone la de su categoría
+   (Carta::especiales()). */
 function initGallery() {
   var track = $("#galleryTrack");
-  GALLERY.forEach(function(g) {
-    var c = document.createElement("div");
-    c.className = "gcard";
-    c.setAttribute("data-cursor", "Ampliar");
-    c.setAttribute("data-zoom", "");
-    c.setAttribute("data-zoom-name", g.n);
-    c.setAttribute("data-zoom-cat", g.t);
-    // La foto y todo lo que va encima viven dentro del hueco; la tarjeta en sí
-    // es el cartón del marco (ver .gcard en _galeria.scss).
-    c.innerHTML = '<div class="gcard__hueco"><img src="' + g.img + '" alt="' + g.n + '" loading="lazy" draggable="false" /><div class="gcard__cap"><div class="t">' + g.t + '</div><div class="n">' + g.n + '</div></div></div>';
+  if (!track) return;
 
-    // El clic va directo en la tarjeta y no por delegación: el lightbox también
-    // escucha en document, y con el arrastre había un pointer capture de por
-    // medio que se comía el evento.
-    (function(card) {
-      card.addEventListener("click", function(e) {
-        e.stopPropagation();
-        if (window.__openZoom) window.__openZoom(card);
-      });
-    })(c);
-
-    track.appendChild(c);
+  // El clic va directo en la tarjeta y no por delegación: el lightbox también
+  // escucha en document, y con el arrastre había un pointer capture de por
+  // medio que se comía el evento.
+  $$(".gcard[data-zoom]", track).forEach(function(card) {
+    card.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (window.__openZoom) window.__openZoom(card);
+    });
   });
 
   vetrinaConScroll(track);

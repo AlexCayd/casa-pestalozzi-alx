@@ -14,12 +14,14 @@ namespace Model;
 class Producto extends ActiveRecord {
     protected static $tabla = 'productos';
     protected static $columnasDB = [
-        'id', 'nombre', 'descripcion', 'categoria_id', 'precio', 'activo'
+        'id', 'nombre', 'descripcion', 'img', 'categoria_id', 'precio', 'activo'
     ];
 
     public $id;
     public $nombre;
     public $descripcion;
+    /** Foto opcional; hoy sólo la pinta la vitrina de especiales de temporada. */
+    public $img;
     public $categoria_id;
     public $precio;
     public $activo = 1;

@@ -16,7 +16,7 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Platillo'); ?></h2>
-            <p class="admin-page__subtitle">Este platillo se publica en la carta y en el PDF, y es el mismo que el mesero toca en el punto de venta.</p>
+            <p class="admin-page__subtitle">Dónde se publica lo decide su categoría: en la carta y su PDF, o en «Especiales de temporada» de la landing.</p>
         </div>
         <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/menu">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
@@ -24,7 +24,7 @@
         </a>
     </header>
 
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         <section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
@@ -59,6 +59,29 @@
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
                     <input type="number" id="precio" name="precio" step="0.01" min="0" required
                            value="<?php echo htmlspecialchars((string) ($platillo->precio ?? '')); ?>">
+                </div>
+
+                <?php /* La foto sólo la pinta la vitrina de especiales de temporada
+                         (Carta::especiales()); la carta y los PDF no llevan foto de
+                         platillo. Por eso es opcional y la ayuda lo dice en vez de
+                         cambiar de rótulo según la categoría elegida. */ ?>
+                <div class="admin-field admin-form-grid__full">
+                    <label class="admin-field__label" for="imagen">Foto del platillo (opcional)</label>
+                    <?php if (!empty($platillo->img)) : ?>
+                        <div class="admin-menu__current-image">
+                            <img src="/<?php echo htmlspecialchars(ltrim((string) $platillo->img, '/'), ENT_QUOTES, 'UTF-8'); ?>"
+                                 alt="Foto actual del platillo">
+                            <span>Foto actual. Sube una nueva para reemplazarla.</span>
+                        </div>
+                    <?php endif; ?>
+                    <input type="file" id="imagen" name="imagen" accept="image/*">
+                    <p class="admin-field__hint">Sólo la usan los especiales de temporada: es la foto con la que salen en la landing. Sin ella, el especial toma la de su categoría, y si la categoría tampoco tiene, no sale. JPG, PNG, WebP, GIF o AVIF, hasta 5 MB.</p>
+                    <?php if (!empty($platillo->img)) : ?>
+                        <div class="admin-menu__check">
+                            <input type="checkbox" id="quitar_imagen" name="quitar_imagen" value="1">
+                            <label for="quitar_imagen">Quitar la foto al guardar</label>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <label class="admin-switch admin-form-grid__full">
