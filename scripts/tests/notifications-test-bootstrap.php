@@ -10,4 +10,3 @@ $_ENV['DB_NAME'] = $notificationTestDb;
 $_ENV['APP_ENV'] = 'test';
 $_ENV['N8N_BASE_URL'] = 'http://n8n.invalid';
 $_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = '';
-$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = '';

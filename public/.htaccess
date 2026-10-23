@@ -2,6 +2,16 @@ Options -MultiViews
 DirectoryIndex index.php
 
 RewriteEngine On
+
+# Las integraciones de n8n se autentican con `Authorization: Bearer <jwt>`, y
+# Apache con FastCGI descarta ese header antes de PHP. Se pasa como variable
+# (llega como REDIRECT_HTTP_AUTHORIZATION tras reescribir a index.php; ver
+# JwtIntegracion::tokenDeLaPeticion). No se usa `CGIPassAuth On`: en .htaccess
+# exige AllowOverride AuthConfig y, sin él, tumba el sitio entero con un 500.
+# En nginx: fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)$ index.php/$1 [L,QSA]

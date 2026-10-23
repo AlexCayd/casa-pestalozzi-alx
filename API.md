@@ -89,16 +89,18 @@ las de `gestionar`; se conservan por los enlaces ya enviados a clientes.
 
 | Método | Ruta | Controlador::acción | Acceso |
 |---|---|---|---|
-| POST | `/api/integraciones/n8n/reservaciones/recordatorios/preparar` | `N8nReservationsController::prepararRecordatorios` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/integraciones/n8n/reservaciones/recordatorios/reclamar` | `N8nReservationsController::reclamarRecordatorio` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/integraciones/n8n/reservaciones/notificacion-resultado` | `N8nReservationsController::notificacionResultado` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/feedback-n8n` | `FeedbackController::recibirN8n` | secreto: `X-N8N-Secret` (**opcional**, ver nota) |
+| POST | `/api/integraciones/n8n/reservaciones/recordatorios/preparar` | `N8nReservationsController::prepararRecordatorios` | JWT, `aud: reservaciones.recordatorios.preparar` |
+| POST | `/api/integraciones/n8n/reservaciones/recordatorios/reclamar` | `N8nReservationsController::reclamarRecordatorio` | JWT, `aud: reservaciones.recordatorios.reclamar` |
+| POST | `/api/integraciones/n8n/reservaciones/notificacion-resultado` | `N8nReservationsController::notificacionResultado` | JWT, `aud: reservaciones.notificacion-resultado` |
+| POST | `/api/integraciones/n8n/feedback/areas-mejora` | `FeedbackController::recibirN8n` | JWT, `aud: feedback.areas-mejora` |
 
-- Las tres de reservaciones **rechazan** la llamada si el secreto
-  (`NotificationConfig::n8nCallbackSecret()`) está vacío.
-- ⚠️ `/api/feedback-n8n` **sólo exige el secreto si `N8N_SECRET` está
-  configurado** (`AreasMejora::secret()`). Con la variable vacía, cualquiera
-  puede escribir ahí. Conviene confirmar que en producción esté definida.
+- Las cuatro exigen `Authorization: Bearer <jwt>` firmado por n8n con
+  `JWT_N8N_ENTRADA_SECRET` (§9.2). Lo verifica `Auth::proteger()` antes del
+  ruteo; ya no se acepta `X-N8N-Callback-Secret` ni `X-N8N-Secret`.
+- Toda ruta bajo `/api/integraciones/` deniega por defecto: una que no esté
+  en `Permisos::INTEGRACIONES` responde 401 con cualquier token.
+- `/api/feedback-n8n` (secreto opcional) se retiró; áreas de mejora vive en
+  la ruta de arriba.
 
 ### Saliente: Asistente IA
 
@@ -241,7 +243,8 @@ etc.) y no se documentan aquí.
   está en `/api/configuracion/...` y otra parte en `/admin/configuracion/...`.
   Funciona porque `/api/configuracion/*` está en `Permisos::APIS`; si se añade
   una ruta nueva ahí y no se anota, queda **pública**.
-- **`/api/feedback-n8n` sin secreto obligatorio** (ver §2).
+- ~~`/api/feedback-n8n` sin secreto obligatorio~~: resuelto, ahora exige JWT
+  bajo `/api/integraciones/` (ver §2).
 - Al agregar un endpoint: regístralo en `public/index.php`, añádelo a
   `Permisos::APIS` (si es `/api/`) o comprueba que su prefijo esté en
   `Permisos::RUTAS` (si es `/admin/api/`), y actualiza este archivo.

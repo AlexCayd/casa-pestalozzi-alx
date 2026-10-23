@@ -14,7 +14,7 @@ protege los secretos fuera del repositorio.
 | `NIP_LOOKUP_SECRET` | Secreto para localizar NIP mediante HMAC; no es una contraseña de usuario. |
 | `N8N_BASE_URL` | Base de la instancia n8n que recibe webhooks desde PHP. |
 | `N8N_RESERVATIONS_WEBHOOK_SECRET` | Autentica los webhooks PHP → n8n. |
-| `N8N_RESERVATIONS_CALLBACK_SECRET` | Autentica callbacks n8n → PHP; debe diferir del secreto anterior. |
+| `JWT_N8N_ENTRADA_SECRET` | Llave HS256 (≥ 32 bytes aleatorios) con la que n8n firma el JWT de toda llamada a `/api/integraciones/*`. Obligatoria: sin ella esas rutas responden 500. Distinta de cualquier otro secreto. |
 | `RESERVATION_PUBLIC_BASE_URL` | Base pública HTTPS que se incluye en enlaces de reservación. |
 | `N8N_WEBHOOK_SUGERENCIAS_URL`, `N8N_WEBHOOK_AREAS_MEJORA_URL`, `N8N_SECRET` | Webhooks y autenticación que conservan sugerencias, analíticas/áreas y feedback. |
 | `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. |

@@ -111,8 +111,9 @@ Templates: `reservation_confirmation_code`, `reservation_reminder` y
 producción, Template aprobado. Email conserva el mismo contrato funcional.
 
 PHP → n8n usa `N8N_RESERVATIONS_WEBHOOK_SECRET` con header `X-N8N-Secret`.
-n8n → PHP usa el secreto independiente `N8N_RESERVATIONS_CALLBACK_SECRET` con
-`X-N8N-Callback-Secret`. Configurarlos iguales falla cerrado. Los callbacks se
+n8n → PHP firma un JWT HS256 con `JWT_N8N_ENTRADA_SECRET` y lo envía como
+`Authorization: Bearer`: `iss: n8n`, el `aud` del endpoint, `iat`, `exp` (vida
+≤ 300 s) y `jti`. Lo verifica `Auth::proteger()` antes del ruteo. Los callbacks se
 reciben en `POST /api/integraciones/n8n/reservaciones/notificacion-resultado` y
 contienen `event`, `source_id`, `attempt`, `channel` y estado `accepted|failed`;
 sólo recordatorios pueden incluir `retryable`.

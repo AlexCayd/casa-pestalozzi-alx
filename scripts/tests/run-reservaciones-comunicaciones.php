@@ -7,6 +7,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 use Controllers\N8nReservationsController;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
+use Services\Security\Permisos;
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 use Services\Reservations\ReservacionErrorCatalog;
@@ -27,7 +28,6 @@ function communicationsAssert(bool $condition, string $message): void
 $root = dirname(__DIR__, 2);
 $previousEnvironment = $_ENV['APP_ENV'] ?? null;
 $previousBaseUrl = $_ENV['N8N_BASE_URL'] ?? null;
-$previousSecret = $_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] ?? null;
 
 foreach ([
     'development' => [false, true, true, 'text'],
@@ -160,27 +160,13 @@ ini_set('session.save_path', sys_get_temp_dir());
 communicationsAssert(AdminCsrfService::validar('fixture-csrf-invalido') === false, 'admin rechaza CSRF inválido');
 
 $previousMethod = $_SERVER['REQUEST_METHOD'] ?? null;
-$previousHeader = $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] ?? null;
-$previousWebhookSecret = $_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] ?? null;
-$_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = 'fixture-outgoing-secret';
-$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-independent-secret';
-$auth = new ReflectionMethod(N8nReservationsController::class, 'secretValido');
-foreach (['' => false, 'fixture-outgoing-secret' => false, 'fixture-independent-secret' => true] as $header => $valid) {
-    $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = $header;
-    communicationsAssert($auth->invoke(null) === $valid, 'autenticación separa direcciones y rechaza header ausente');
+// La autenticación de estos endpoints es el JWT que exige Auth::proteger()
+// antes del ruteo (run-jwt-integraciones.php); cada uno tiene su audiencia.
+foreach (['/recordatorios/preparar', '/recordatorios/reclamar', '/notificacion-resultado'] as $sufijo) {
+    $clase = Permisos::clasificar('/api/integraciones/n8n/reservaciones' . $sufijo);
+    communicationsAssert($clase['tipo'] === 'integracion' && is_string($clase['audiencia'] ?? null), "callback {$sufijo} exige JWT");
 }
-$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-outgoing-secret';
-$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-outgoing-secret';
-communicationsAssert($auth->invoke(null) === false, 'secretos iguales fallan cerrado');
-if ($previousWebhookSecret === null) unset($_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET']); else $_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = $previousWebhookSecret;
-$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-independent-secret';
 $_SERVER['REQUEST_METHOD'] = 'POST';
-$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-wrong-secret';
-ob_start();
-N8nReservationsController::prepararRecordatorios(new Router());
-$wrongSecretOutput = json_decode((string)ob_get_clean(), true);
-communicationsAssert(http_response_code() === 403 && ($wrongSecretOutput['codigo'] ?? '') === 'N8N_SECRET_INVALIDO', 'endpoint rechaza secret incorrecto');
-$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-independent-secret';
 ob_start();
 N8nReservationsController::notificacionResultado(new Router());
 $invalidPayloadOutput = json_decode((string)ob_get_clean(), true);
@@ -232,8 +218,6 @@ communicationsAssert(str_contains((string)$exporter, 'delete limpio.credentials'
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousBaseUrl === null) unset($_ENV['N8N_BASE_URL']); else $_ENV['N8N_BASE_URL'] = $previousBaseUrl;
-if ($previousSecret === null) unset($_ENV['N8N_RESERVATIONS_CALLBACK_SECRET']); else $_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = $previousSecret;
 if ($previousMethod === null) unset($_SERVER['REQUEST_METHOD']); else $_SERVER['REQUEST_METHOD'] = $previousMethod;
-if ($previousHeader === null) unset($_SERVER['HTTP_X_N8N_CALLBACK_SECRET']); else $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = $previousHeader;
 
 fwrite(STDOUT, "Reservaciones: configuración, contrato y tres workflows n8n OK\n");

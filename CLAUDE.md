@@ -28,7 +28,11 @@ componentes. Lo que parezca "convención de framework" aquí es código propio.
   rol y responde. Ver «Roles y permisos» abajo. Dos reglas que no perdonan:
   **una ruta `/admin/*` sin módulo en `Permisos::RUTAS` sólo la abren los roles
   de sistema** (y `run-roles-permisos.php` la delata), y **una ruta `/api/...`
-  que no esté en `Permisos::APIS` queda pública**.
+  que no esté en `Permisos::APIS` queda pública**. La excepción, y tercera regla:
+  **toda ruta bajo `/api/integraciones/` exige JWT y deniega por defecto**
+  (`Permisos::INTEGRACIONES` → audiencia; `Services\Security\JwtIntegracion`,
+  HS256 con `JWT_N8N_ENTRADA_SECRET`, sin headers heredados). Una integración
+  nueva va bajo ese prefijo y se anota ahí; ver API.md §9.
 
 ### Rutas y convenciones
 
