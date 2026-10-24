@@ -1,8 +1,9 @@
 # Procedimiento reproducible de conservación del menú
 
-Estado: especificación para implementación posterior. No existen aún nuevas
-herramientas de exportación/importación como resultado de esta entrega.
-No se ejecuta respaldo, exportación ni reconstrucción en este trabajo.
+Estado actualizado: exportación/verificación/respaldo implementados y ensayados
+en [Etapa 2](etapa-2-menu.md). El [formato v1](formato-menu-v1.md) es el contrato
+del futuro importador, que se completará con el DDL multinegocio aprobado.
+No se reconstruye la base de desarrollo en esta etapa.
 Política: [plan maestro](plan-maestro.md).
 
 ## 1. Entradas, responsables y salidas
@@ -29,7 +30,7 @@ Salidas futuras, en una carpeta de ejecución con ID único:
 | `validacion.json` | Igualdad de datos, hashes, conteos y errores; destino identificado y resultado de importación |
 | evidencia visual | Capturas admin/público, PDFs y comprobación del catálogo POS sobre destino nuevo |
 
-Estos nombres definen el paquete, no rutas de archivos creados hoy. Cada ejecución
+Estos nombres definen el paquete y los resultados de Etapa 2. Cada ejecución
 es inmutable; no sobrescribe una exportación aceptada. El respaldo completo se
 retiene aunque solo se importe el menú. No versionar dumps, credenciales ni datos
 personales de desarrollo en Git.

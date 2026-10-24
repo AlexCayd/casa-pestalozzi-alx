@@ -8,6 +8,8 @@
     "build": "gulp build",
     "test:contextos": "php scripts/tests/run-contextos.php",
     "test:contextos:db": "php scripts/tests/run-contextos-isolated.php",
+    "test:menu-preservacion": "php scripts/tests/run-menu-preservacion.php",
+    "test:menu-preservacion:db": "php scripts/tests/run-menu-preservacion-db.php",
     "test:menu-pdf": "php scripts/tests/run-notifications-isolated.php run-reservaciones-menu-pdf.php",
     "test:pos-print-alerts": "php scripts/tests/run-notifications-isolated.php run-pos-print-alerts-db.php",
     "test:pos-llevar": "php scripts/tests/run-notifications-isolated.php run-pos-llevar-multiples-db.php",

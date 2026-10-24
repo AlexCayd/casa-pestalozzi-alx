@@ -36,6 +36,7 @@ const expectedDocs = [
   'arquitectura.md',
   'config.md',
   'correcciones_pendientes_arquitectura.md',
+  'migracion',
   'operacion.md',
   'panaderia',
   'privacidad',

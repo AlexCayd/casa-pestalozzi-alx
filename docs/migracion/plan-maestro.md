@@ -1,6 +1,6 @@
 # Casa Pestalozzi — Plan maestro multinegocio
 
-Versión 1.1 · 2026-10-24 · Plan para revisión; implementación pendiente.
+Versión 1.2 · 2026-10-24 · Etapa 2 implementada; esquema multinegocio pendiente.
 
 ## 1. Política vigente y alcance de esta entrega
 
@@ -10,9 +10,9 @@ y las dependencias necesarias para reconstruir sus fichas, presentación y venta
 La [actualización recibida](actualizacion-obligatoria-desarrollo.md) prevalece
 sobre toda exigencia anterior de conservar información histórica de prueba.
 
-Esta entrega actualiza el plan y contratos. **No autoriza ejecutar ahora la
-reconstrucción ni comenzar módulos adicionales.** No se modifica el esquema,
-se exportan datos ni se crean herramientas de reconstrucción en esta entrega.
+La [Etapa 2](etapa-2-menu.md) implementa y valida preservación del menú y respaldo
+con restauración aislada. **No autoriza reconstruir desarrollo ni comenzar la
+Etapa 3.** El esquema multinegocio y sus módulos siguen pendientes.
 
 Se mantienen los requisitos funcionales del [documento original](../panaderia/documento-maestro-multinegocio.md):
 Global, Restaurante y Panadería; almacenes físicos con dueño único; catálogo
@@ -98,8 +98,8 @@ aceptación antes de la siguiente. Sin integración a main previa a aceptación.
 
 | Etapa | Entrega | Dependencia y aceptación |
 | --- | --- | --- |
-| 1. Plan, actual | Política revisada, contrato único y protocolo de menú | Aprobación de decisiones; no cambios operativos |
-| 2. Preservación y ensayo | Herramientas reproducibles de respaldo/exportación/verificación e importación; paquete del menú | Contra origen explícitamente identificado, lectura sin modificar catálogo; checksums y restauración ensayados; todavía sin reconstruir la BD activa |
+| 1. Plan | Política revisada, contrato único y protocolo de menú | Referencia para etapas posteriores; no cambios operativos |
+| 2. Preservación y ensayo, actual | Herramientas de respaldo/exportación/verificación; paquete del menú y contrato de importación | Origen identificado, solo lectura; checksums y restauración aislada; importador definitivo diferido al DDL aprobado |
 | 3. Base definitiva | DDL/seeds, membresías y permisos, identidad comercial/ofertas, almacenes/existencias/movimientos, identidad de negocio en tickets y finanzas; adaptar consumidores existentes y runners | Crear desde cero e importar en BD desechable; login y rutas seguras; contrato SQL único, ningún escritor al saldo antiguo |
 | 4. Funcionalidad Restaurante | Completar servicios de inventario, recetas, venta/cancelación, administración, consultas, finanzas y herramientas locales existentes sobre la nueva base | Flujos vigentes con fixtures nuevos; atomicidad/concurrencia; datos del menú idénticos; sin consultas sin ámbito |
 | 5. Multinegocio administrativo | Catálogo Global, almacenes múltiples, usuarios por ámbito, menú/recetas/inventario Panadería y consulta consolidada | Aislamiento HTTP/SQL y delegación; fixtures Panadería independientes; componentes compartidos |
@@ -114,7 +114,8 @@ oferta y negocio se definen desde el inicio; ya no dependen de migrar historia.
 
 No hace falta esperar una migración financiera para preparar ofertas, recetas o
 usuarios. El trabajo entre áreas solo puede dividirse después de aprobar claves,
-tipos y servicios comunes. No se delega trabajo de implementación en esta entrega.
+tipos y servicios comunes. En Etapa 2 se delegaron exportación/verificación con
+formato compartido y revisión central, sin iniciar módulos de Etapa 3.
 
 ## 6. Criterios y pruebas de aceptación
 
