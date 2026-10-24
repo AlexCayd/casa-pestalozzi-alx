@@ -10,7 +10,8 @@ BD configurada: los consumidores actuales se adaptarán en 3B y siguientes.
 erDiagram
     unidades ||--o{ usuario_unidades : autoriza
     usuarios ||--o{ usuario_unidades : participa
-    roles ||--o{ usuario_unidades : asigna
+    roles |o--o{ usuario_unidades : metadata
+    usuario_unidades ||--o{ usuario_unidad_permisos : autoriza
     roles ||--o{ rol_permisos : permite
     usuario_unidades ||--o{ usuario_unidad_facultades : delega
     unidades ||--o{ almacenes : posee
@@ -67,10 +68,13 @@ No representa permisos de servidor ni implementa servicios operativos.
 - Raíces con hijos por ámbito tienen UNIQUE(id,unidad_id). La redundancia de
   unidad en hijos permite FK compuesta: no es otra fuente de propietario.
 - `roles.unidad_id` nullable: NULL indica plantilla compartida/sistema, valor
-  indica rol local. Membresía PK(usuario_id,unidad_id), FK rol_id. Triggers de
+  indica rol local. Membresía PK(usuario_id,unidad_id), FK rol_id nullable y
+  sin permisos implícitos desde 3B. Triggers de
   integridad rechazan rol local ajeno y cambio de dueño con membresías incompatibles.
   `usuarios` conserva username/password_hash/nip_hash/nip_lookup/activo; se retiran
-  rol y unidad únicos. `rol_permisos` conserva claves y niveles ver/editar.
+  rol y unidad únicos; agrega es_superadmin como excepción protegida.
+  `rol_permisos` conserva metadata. `usuario_unidad_permisos` tiene PK triple,
+  FK a membresía y ver/editar para panel u operar para piso Restaurante.
 - `facultades` es catálogo de claves y solo_global; `usuario_unidad_facultades`
   PK(usuario_id,unidad_id,facultad), FK membresía y catálogo; rechaza facultades
   solo_global en negocios. Delegación, límites del actor y autorización van en 3B.
@@ -198,6 +202,7 @@ identidad. `almacenes.id` es BIGINT UNSIGNED y sus FK coinciden. Se restauraron
 los atributos funcionales de proveedores y sus costos/códigos/preferencias, y
 timestamps de subrecetas. No se impone unicidad por nombre a productos o categorías
 que fusione identidades conservadas. NIP hash/lookup se validan como par, y triggers
-impiden combinar roles de sistema con NIP; roles personalizados de panel seguirán
-requiriendo la evaluación de Permisos/Auth. La sustitución de variantes exige
+impiden combinar permisos directos de panel o excepción superadmin con NIP.
+El [contrato 3B](contrato-autorizacion-3b.md) sustituye la inferencia por roles.
+La sustitución de variantes exige
 cantidad nueva explícita: CHECK no puede dar por rechazado un resultado UNKNOWN.

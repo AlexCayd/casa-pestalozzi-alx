@@ -12,6 +12,9 @@ Sustituye las obligaciones anteriores de conservar registros históricos de prue
 - [Etapa 3A](etapa-3a.md): DDL, seeds, importador y validación aislada.
 - [Modelo relacional y diagrama](modelo-relacional-3a.md): contrato físico revisado.
 - [Dependencias de adaptación](dependencias-3b.md): consumidores pendientes antes de activar.
+- [Contrato de autorización 3B](contrato-autorizacion-3b.md): permisos directos, autenticación y delegación.
+- [Núcleo 3B.1](etapa-3b-1.md): primer commit y comprobaciones aisladas.
+- [Usuarios 3B.2](etapa-3b-2.md): interfaz, pruebas, auditoría y límites de activación.
 
 La Etapa 2 preserva el menú y su respaldo restaurable. La Etapa 3A implementa
 el esquema definitivo y su importador, probados solo en bases desechables.

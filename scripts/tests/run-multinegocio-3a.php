@@ -209,11 +209,13 @@ function multinegocioPruebasIntegridad(mysqli $db, int &$total): void
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO usuario_unidad_facultades(usuario_id,unidad_id,facultad) VALUES ($user,2,'catalogo.editar')"), [1644], 'Facultad solo_global en negocio', $total);
     $db->query("INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id) VALUES ($user,3,$rolePan)");
     $db->query("INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id) VALUES ($user,1,2)");
-    multinegocioSqlFail($db, static fn() => $db->query("UPDATE usuarios SET nip_hash='fixture-no-autenticable',nip_lookup=REPEAT('a',64) WHERE id=$user"), [1644], 'NIP denegado a cuenta con membresía de sistema', $total);
-    $db->query("DELETE FROM usuario_unidades WHERE usuario_id=$user AND unidad_id=1");
+    // En 3B la metadata de rol no concede panel; el permiso directo sí.
+    $db->query("INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES ($user,1,'users','ver')");
+    multinegocioSqlFail($db, static fn() => $db->query("UPDATE usuarios SET nip_hash='fixture-no-autenticable',nip_lookup=REPEAT('a',64) WHERE id=$user"), [1644], 'NIP denegado a cuenta con permiso administrativo directo', $total);
+    $db->query("DELETE FROM usuario_unidad_permisos WHERE usuario_id=$user AND unidad_id=1");
     $db->query("UPDATE usuarios SET nip_hash='fixture-no-autenticable',nip_lookup=REPEAT('a',64) WHERE id=$user");
-    multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id) VALUES ($user,1,2)"), [1644], 'Asignación de sistema denegada a cuenta con NIP', $total);
-    multinegocioSqlFail($db, static fn() => $db->query("UPDATE roles SET tipo='sistema',unidad_id=NULL WHERE id=$roleRest"), [1644], 'Conversión de rol a sistema con NIP existente denegada', $total);
+    multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES ($user,1,'users','ver')"), [1644], 'Permiso directo de panel denegado a cuenta con NIP', $total);
+    multinegocioSqlFail($db, static fn() => $db->query("UPDATE usuarios SET es_superadmin=1 WHERE id=$user"), [1644,3819], 'Excepción superadministrador denegada a cuenta con NIP', $total);
     $db->query("UPDATE usuarios SET nip_hash=NULL,nip_lookup=NULL WHERE id=$user");
     multinegocioSqlFail($db, static fn() => $db->query("UPDATE usuarios SET nip_lookup=REPEAT('a',64) WHERE id=$user"), [3819], 'NIP hash y lookup deben existir juntos', $total);
     $db->query("INSERT INTO rol_permisos(rol_id,modulo,nivel) VALUES ($roleRest,'qa','ver')");

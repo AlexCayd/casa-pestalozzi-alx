@@ -23,6 +23,13 @@ final class AdminContextosController
 
     public static function navegacion(string $contexto, array $restaurante): array
     {
+        if (Auth::multinegocio()) {
+            if (!Auth::puede('users', 'ver', $contexto)) {
+                return [];
+            }
+            $path = $contexto === 'restaurante' ? '/admin/usuarios' : '/admin/' . $contexto . '/usuarios';
+            return ['users' => ['title' => 'Usuarios', 'path' => $path]];
+        }
         if ($contexto === 'restaurante') {
             return $restaurante;
         }
@@ -45,6 +52,10 @@ final class AdminContextosController
 
     public static function pagina(Router $router): void
     {
+        if (Auth::multinegocio()) {
+            self::inicioSeguro();
+            return;
+        }
         header('Cache-Control: private, no-store');
         $ruta = $_SERVER['PATH_INFO'] ?? '';
         $contexto = Contextos::deRuta($ruta);
@@ -67,6 +78,16 @@ final class AdminContextosController
             'fixture' => $fixture,
             'q' => $q,
             'styles' => ['/build/css/admin/' . ($clave === 'productos' ? 'recetas' : ($clave === 'menu' ? 'menu' : 'inventario')) . '.css'],
+        ]);
+    }
+
+    public static function inicioSeguro(): void
+    {
+        header('Cache-Control: no-store, private');
+        AdminController::render('__inicio-multinegocio', [
+            'activeModule' => 'inicio',
+            'title' => 'Inicio',
+            'topbarSection' => 'Inicio',
         ]);
     }
 }

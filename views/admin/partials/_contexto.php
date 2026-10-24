@@ -1,7 +1,7 @@
 <?php
 use Services\Security\Contextos;
 ?>
-<form class="admin-context-switch" action="/admin/contexto" method="get">
+<form class="admin-context-switch" action="/admin/contexto" method="get" data-context-scope="<?php echo htmlspecialchars((string) $contextoActivo, ENT_QUOTES, 'UTF-8'); ?>">
     <label for="admin-contexto">Contexto de trabajo</label>
     <div class="admin-context-switch__controls">
         <select data-native data-context-select id="admin-contexto" name="contexto" title="Contexto de trabajo: <?php echo Contextos::NOMBRES[$contextoActivo]; ?>" <?php echo count($contextosDisponibles) < 2 ? 'disabled' : ''; ?>>

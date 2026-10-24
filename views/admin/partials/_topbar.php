@@ -17,7 +17,7 @@ $authIniciales = strtoupper(
 // filas): el número del botón no puede contradecir a la pestaña que abre.
 // _buzon.php, que se incluye después, lee estas mismas variables.
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
-if (($contextoActivo ?? 'restaurante') === 'restaurante') {
+if (($contextoActivo ?? 'restaurante') === 'restaurante' && empty($modoMultinegocio)) {
     try {
         $buzonResumen = \Services\Reservations\ReservacionBuzonBandejaService::resumen();
     } catch (Throwable $e) {
@@ -75,7 +75,7 @@ if ($buzonCantidadAccionable > 0) {
     </div>
 
     <div class="admin-topbar__actions">
-        <?php if ($contextoActivo === 'restaurante'): ?>
+        <?php if ($contextoActivo === 'restaurante' && empty($modoMultinegocio)): ?>
         <button
             class="<?php echo htmlspecialchars(implode(' ', $buzonClasesBoton), ENT_QUOTES, 'UTF-8'); ?>"
             type="button"

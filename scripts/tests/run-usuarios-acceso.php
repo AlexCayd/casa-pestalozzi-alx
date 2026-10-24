@@ -58,7 +58,12 @@ $usuariosDocs = file_get_contents($root . '/docs/usuarios/usuarios.md');
 
 comprobar(str_contains($ddl, 'nip_lookup'), 'El DDL no define nip_lookup.');
 comprobar(str_contains($ddl, 'uq_usuarios_nip_lookup'), 'Falta la restricción UNIQUE de nip_lookup.');
-comprobar(str_contains($ddl, 'trg_usuarios_admin_sin_nip_update') && substr_count($ddl, "MESSAGE_TEXT='Rol de sistema no admite NIP'") === 2, 'Falta la regla de BD para NIP de administradores al cambiar cuentas o membresías.');
+// 3B deriva el panel de permisos directos; rol_id ya no concede administración.
+comprobar(str_contains($ddl, 'trg_usuarios_admin_sin_nip_update')
+    && str_contains($ddl, 'trg_permiso_directo_insert') && str_contains($ddl, 'trg_permiso_directo_update')
+    && str_contains($ddl, 'chk_superadmin_sin_nip')
+    && substr_count($ddl, "MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'") === 2,
+    'Falta la regla de BD para NIP al cambiar cuenta o permisos administrativos directos.');
 comprobar(!str_contains($modelo, 'fecha_nacimiento'), 'El modelo aún contiene el campo retirado.');
 comprobar(!str_contains($formulario, 'name="nip"'), 'El formulario administrativo acepta NIP manual.');
 comprobar(!str_contains($formulario, 'nip_confirm'), 'El formulario administrativo conserva confirmación manual.');

@@ -5,6 +5,8 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
+use Services\Security\IntentosAcceso;
+use Services\Security\AdminCsrfService;
 
 class AuthController {
     /**
@@ -61,7 +63,9 @@ class AuthController {
             $tabActiva = 'nip';
             $nip = trim((string) ($_POST['nip'] ?? ''));
 
-            if (!self::nipLoginPermitido()) {
+            if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+                $alertas['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+            } elseif (!self::nipLoginPermitido()) {
                 $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
             } elseif (!preg_match('/^\d{4}$/', $nip)) {
                 self::registrarFalloNip();
@@ -91,6 +95,7 @@ class AuthController {
     private static function nipLoginPermitido(): bool
     {
         Auth::start();
+        if (!IntentosAcceso::admitir('nip', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) return false;
         $ahora = time();
         $ip = hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
         $estado = $_SESSION['_nip_login_rate'] ?? null;
@@ -147,7 +152,11 @@ class AuthController {
         $username = trim((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
-        if ($username === '' || $password === '') {
+        if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+            $alertasAdmin['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+        } elseif (!IntentosAcceso::admitir('contrasena', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) {
+            $alertasAdmin['error'][] = 'Credenciales incorrectas';
+        } elseif ($username === '' || $password === '') {
             $alertasAdmin['error'][] = 'Ingresa tu usuario y contraseña';
         } else {
             $usuario = Usuario::porCredenciales($username, $password);

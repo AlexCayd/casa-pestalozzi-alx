@@ -88,6 +88,10 @@ class AdminController
 
     public static function index(Router $router): void
     {
+        if (Auth::multinegocio()) {
+            AdminContextosController::inicioSeguro();
+            return;
+        }
         if (!in_array('restaurante', Auth::contextos(), true)) {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
@@ -766,13 +770,36 @@ class AdminController
 
         $contextoActivo = \Services\Security\Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
         $contextosDisponibles = Auth::contextos();
+        $modoMultinegocio = Auth::multinegocio();
         $modules = AdminContextosController::navegacion($contextoActivo, $modules);
 
-        ob_start();
-        include_once __DIR__ . "/../views/admin/{$view}.php";
-        $content = ob_get_clean();
+        if ($view === '__inicio-multinegocio') {
+            $content = self::inicioMultinegocio($contextosDisponibles);
+        } else {
+            ob_start();
+            include_once __DIR__ . "/../views/admin/{$view}.php";
+            $content = ob_get_clean();
+        }
 
         include_once __DIR__ . '/../views/admin/layout.php';
+    }
+
+    private static function inicioMultinegocio(array $contextos): string
+    {
+        $links = [];
+        foreach ($contextos as $contexto) {
+            if (!Auth::puede('users', 'ver', (string) $contexto)) continue;
+            $nombre = \Services\Security\Contextos::NOMBRES[$contexto] ?? $contexto;
+            $path = $contexto === 'restaurante' ? '/admin/usuarios' : '/admin/' . $contexto . '/usuarios';
+            $links[] = '<div class="admin-context-page__business"><div><h3>'
+                . htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8')
+                . '</h3><p>Gestiona cuentas y permisos directos de este ámbito.</p></div><a class="admin-btn admin-btn--secondary" href="'
+                . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '">Abrir usuarios</a></div>';
+        }
+        $body = $links === []
+            ? '<div class="admin-card admin-context-page__empty"><h2>Acceso administrativo no disponible</h2><p>No tienes permiso para abrir Usuarios en los ámbitos disponibles. Cambia al contexto que tengas autorizado.</p></div>'
+            : '<div class="admin-card admin-context-page__businesses"><h2>Usuarios</h2>' . implode('', $links) . '</div>';
+        return '<section class="admin-context-page admin-page" aria-labelledby="multinegocio-home-title"><header class="admin-page__header"><div class="admin-page__intro"><h1 class="admin-page__title" id="multinegocio-home-title">Inicio</h1><p class="admin-page__subtitle">Abre la gestión de usuarios en un ámbito que tengas autorizado.</p></div></header>' . $body . '</section>';
     }
 
     /**

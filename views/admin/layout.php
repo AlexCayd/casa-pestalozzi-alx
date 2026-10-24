@@ -170,8 +170,10 @@ $llegadaPendiente = \Classes\Auth::consumirLlegada();
     </div>
 
     <?php if ($contextoActivo === 'restaurante'): ?>
-        <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
-        <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+        <?php if (empty($modoMultinegocio)) : ?>
+            <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
+            <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+        <?php endif; ?>
     <?php endif; ?>
 
     <?php /*

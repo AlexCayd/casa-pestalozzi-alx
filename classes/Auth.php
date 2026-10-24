@@ -35,7 +35,8 @@ class Auth {
         $db = Usuario::getDB();
         if (!$db) return false;
         try {
-            return (bool)$db->query("SELECT version FROM esquema_versiones WHERE version='multinegocio-3b-v1'")->fetch_row();
+            if ($db->query("SELECT version FROM esquema_versiones WHERE version='multinegocio-3b-v1'")->fetch_row()) return true;
+            throw new \RuntimeException('El esquema requiere completar la autorización 3B antes de utilizarlo.');
         } catch (\mysqli_sql_exception $e) {
             if ($e->getCode() === 1146) return false;
             throw new \RuntimeException('No se pudo verificar el esquema de autenticación.');
@@ -343,6 +344,7 @@ class Auth {
      * vuelve a la pantalla de donde salió con el aviso de sólo consulta.
      */
     public static function proteger(string $url): void {
+        if (!Usuario::getDB()) self::negarJson(503,'No fue posible verificar el acceso.');
         try { $directo=self::multinegocio(); }
         catch (\Throwable) { self::negarJson(503,'No fue posible verificar el acceso.'); }
         if ($directo) { self::protegerDirecto($url); return; }
@@ -528,7 +530,16 @@ class Auth {
         http_response_code($status);
         $url=$_SERVER['PATH_INFO']??'';
         if (str_contains($url,'/api/')) { header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'codigo'=>$codigo,'mensaje'=>$mensaje],JSON_UNESCAPED_UNICODE); }
-        else { header('Content-Type: text/html; charset=utf-8'); echo '<!doctype html><html lang="es"><meta charset="utf-8"><title>Acceso</title><body><h1>'.htmlspecialchars($mensaje,ENT_QUOTES,'UTF-8').'</h1><a href="/login?tab=admin&resultado=reauth">Iniciar sesión</a></body></html>'; }
+        else {
+            header('Content-Type: text/html; charset=utf-8');
+            $mensajeAcceso=$mensaje;
+            $tituloAcceso=$status===503?'Módulo pendiente':'Acceso denegado';
+            $destinoContexto=$status===401?'/login?tab=admin&resultado=reauth':self::destinoPorRol();
+            // Un módulo pendiente puede ser el destino operativo de la cuenta.
+            if ($status===503) $destinoContexto='/login?tab=admin';
+            $textoDestino=$status===401||$status===503?'Iniciar sesión':'Volver a mi espacio';
+            require __DIR__.'/../views/auth/contexto-denegado.php';
+        }
         exit;
     }
 

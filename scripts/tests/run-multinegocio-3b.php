@@ -242,6 +242,7 @@ function test3bCore(mysqli $db, int &$count): array
 function test3bGestion(mysqli $db, array $fixtures, int &$count): void
 {
     $actorId = (int)$fixtures['global']['id'];
+    $validPassword = 'ValidPass3B';
     ActiveRecord::setDB($db);
     $onlyRest = FixtureAutorizacion3B::usuario($db, 'local_manager', [
         'restaurante' => ['permisos' => ['users' => 'editar', 'menu' => 'editar', 'pdv' => 'operar'], 'facultades' => ['usuarios.gestionar','permisos.delegar']],
@@ -257,9 +258,10 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
     test3bAssert(!array_key_exists('password_hash', $own['usuario'] ?? []) && !array_key_exists('nip_hash', $own['usuario'] ?? []), 'Detalle nunca expone hashes de credenciales.', $count);
 
     $newUsername = 'qa3b_shared_' . bin2hex(random_bytes(3));
+    $sharedPassword = ' ValidPass3B ';
     $created = UsuarioService::guardarDirecto($actorId, 'global', null, [
         'username' => $newUsername, 'nombre' => 'Cuenta compartida de prueba', 'activo' => true,
-        'password' => 'fixture-password-3b', 'password_confirm' => 'fixture-password-3b',
+        'password' => $sharedPassword, 'password_confirm' => $sharedPassword,
         'ambitos' => [
             'global' => ['activo' => true, 'permisos' => ['users' => 'ver', 'menu' => 'ver'], 'facultades' => []],
             'restaurante' => ['activo' => true, 'permisos' => ['menu' => 'editar'], 'facultades' => []],
@@ -275,8 +277,52 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
         && ($createdProfile['ambitos']['global']['permisos']['menu'] ?? '') === 'ver', 'Los permisos Global se mantienen limitados a los módulos concedidos.', $count);
     test3bAssert(($createdProfile['ambitos']['restaurante']['permisos']['menu'] ?? '') === 'editar'
         && ($createdProfile['ambitos']['panaderia']['permisos']['menu'] ?? '') === 'ver', 'Los permisos se guardan separados por negocio.', $count);
-    test3bAssert(Usuario::porCredenciales($newUsername, 'fixture-password-3b') !== null, 'La credencial administrativa creada permite inicio de sesión.', $count);
+    test3bAssert(Usuario::porCredenciales($newUsername, $sharedPassword) !== null, 'La credencial administrativa creada permite inicio de sesión.', $count);
     $beforeCredential = $db->query("SELECT password_hash,nip_hash,nip_lookup FROM usuarios WHERE id=$createdId")->fetch_assoc();
+    test3bAssert(password_verify($sharedPassword, (string)$beforeCredential['password_hash'])
+        && !password_verify(trim($sharedPassword), (string)$beforeCredential['password_hash']), 'La contraseña válida conserva sus espacios iniciales y finales.', $count);
+
+    $panOnlyName = 'qa3b_gpan_' . bin2hex(random_bytes(3));
+    $panOnly = UsuarioService::guardarDirecto($actorId, 'global', null, [
+        'username' => $panOnlyName, 'nombre' => 'Acceso exclusivo Panadería', 'activo' => true,
+        'password' => $validPassword, 'password_confirm' => $validPassword,
+        'ambitos' => ['panaderia' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
+    ]);
+    test3bAssert(($panOnly['ok'] ?? false) === true, 'Global puede crear una cuenta solo de Panadería.', $count);
+    $panOnlyProfile = PermisosUsuario::cargar((int)($panOnly['usuario']['id'] ?? 0), $db);
+    test3bAssert(isset($panOnlyProfile['ambitos']['panaderia']) && !isset($panOnlyProfile['ambitos']['global'], $panOnlyProfile['ambitos']['restaurante']), 'La cuenta creada solo tiene membresía Panadería.', $count);
+
+    $restOnlyName = 'qa3b_grest_' . bin2hex(random_bytes(3));
+    $restOnly = UsuarioService::guardarDirecto($actorId, 'global', null, [
+        'username' => $restOnlyName, 'nombre' => 'Acceso exclusivo Restaurante', 'activo' => true,
+        'password' => $validPassword, 'password_confirm' => $validPassword,
+        'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
+    ]);
+    test3bAssert(($restOnly['ok'] ?? false) === true, 'Global puede crear una cuenta solo de Restaurante.', $count);
+    $restOnlyProfile = PermisosUsuario::cargar((int)($restOnly['usuario']['id'] ?? 0), $db);
+    test3bAssert(isset($restOnlyProfile['ambitos']['restaurante']) && !isset($restOnlyProfile['ambitos']['global'], $restOnlyProfile['ambitos']['panaderia']), 'La cuenta creada solo tiene membresía Restaurante.', $count);
+
+    $noScopeName = 'qa3b_sin_' . bin2hex(random_bytes(3));
+    $noScope = UsuarioService::guardarDirecto($actorId, 'global', null, [
+        'username' => $noScopeName, 'nombre' => 'Cuenta sin ámbito activo', 'activo' => true,
+        'password' => $validPassword, 'password_confirm' => $validPassword,
+        'ambitos' => [
+            'global' => ['activo' => false, 'permisos' => [], 'facultades' => []],
+            'restaurante' => ['activo' => false, 'permisos' => [], 'facultades' => []],
+            'panaderia' => ['activo' => false, 'permisos' => [], 'facultades' => []],
+        ],
+    ]);
+    test3bAssert(($noScope['ok'] ?? true) === false, 'Global no puede crear una cuenta sin ámbito activo.', $count);
+    test3bAssert((int)$db->query("SELECT COUNT(*) FROM usuarios WHERE username='" . $db->real_escape_string($noScopeName) . "'")->fetch_row()[0] === 0, 'El rechazo sin ámbito activo no crea identidad.', $count);
+
+    $weakName = 'qa3b_weak_' . bin2hex(random_bytes(3));
+    $weakPassword = UsuarioService::guardarDirecto($actorId, 'global', null, [
+        'username' => $weakName, 'nombre' => 'Contraseña débil', 'activo' => true,
+        'password' => 'password', 'password_confirm' => 'password',
+        'ambitos' => ['global' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
+    ]);
+    test3bAssert(($weakPassword['ok'] ?? true) === false && isset($weakPassword['errores']['password']), 'Se rechaza una contraseña de ocho caracteres sin mayúscula ni número.', $count);
+    test3bAssert((int)$db->query("SELECT COUNT(*) FROM usuarios WHERE username='" . $db->real_escape_string($weakName) . "'")->fetch_row()[0] === 0, 'La contraseña débil no crea identidad.', $count);
 
     $localUpdate = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $createdId, [
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
@@ -318,7 +364,7 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
 
     $forbidden = UsuarioService::guardarDirecto($onlyRest['id'], 'restaurante', null, [
         'username' => 'qa3b_local_escape', 'nombre' => 'Escape local', 'activo' => true,
-        'password' => 'fixture-password', 'password_confirm' => 'fixture-password',
+        'password' => $validPassword, 'password_confirm' => $validPassword,
         'ambitos' => ['panaderia' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($forbidden['ok'] ?? true) === false, 'Administrador local no puede crear acceso Panadería.', $count);
@@ -327,7 +373,7 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
     $panUserName = 'qa3b_pan_read_' . bin2hex(random_bytes(3));
     $panCreated = UsuarioService::guardarDirecto((int)$onlyPan['id'], 'panaderia', null, [
         'username' => $panUserName, 'nombre' => 'Solo lectura Panadería', 'activo' => true,
-        'password' => 'fixture-password-pan', 'password_confirm' => 'fixture-password-pan',
+        'password' => $validPassword, 'password_confirm' => $validPassword,
         'ambitos' => ['panaderia' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($panCreated['ok'] ?? false) === true, 'Panadería puede crear usuarios con permisos de su propio ámbito.', $count);
@@ -353,48 +399,52 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
     test3bAssert($nipBefore === $db->query("SELECT nip_hash,nip_lookup FROM usuarios WHERE id=$floorId")->fetch_assoc(), 'La edición sin cambios conserva el NIP existente.', $count);
 
     $floorPromotion = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $floorId, [
-        'password' => 'promoted-password', 'password_confirm' => 'promoted-password', 'admin_password' => 'fixture-pass-3b',
+        'password' => 'PromotedPass3B', 'password_confirm' => 'PromotedPass3B', 'admin_password' => 'fixture-pass-3b',
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($floorPromotion['ok'] ?? false) === true, 'Promover una cuenta NIP a panel exige y acepta contraseña nueva con reautenticación.', $count);
     test3bAssert($db->query("SELECT nip_hash FROM usuarios WHERE id=$floorId")->fetch_row()[0] === null, 'La promoción elimina la credencial PIN anterior.', $count);
-    test3bAssert(Usuario::porCredenciales($floorName, 'promoted-password') !== null && Usuario::porNip((string)$floorCreated['nip']) === null, 'La cuenta promovida solo conserva login administrativo.', $count);
+    test3bAssert(Usuario::porCredenciales($floorName, 'PromotedPass3B') !== null && Usuario::porNip((string)$floorCreated['nip']) === null, 'La cuenta promovida solo conserva login administrativo.', $count);
+    $promotedHash = (string)$db->query("SELECT password_hash FROM usuarios WHERE id=$floorId")->fetch_row()[0];
+    test3bAssert(password_verify('PromotedPass3B', $promotedHash), 'La contraseña nueva de promoción cumple la política y queda guardada intacta.', $count);
 
     $localAdminName = 'qa3b_admin_' . bin2hex(random_bytes(3));
     $localAdmin = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', null, [
         'username' => $localAdminName, 'nombre' => 'Admin de prueba local', 'activo' => true,
-        'password' => 'initial-local-password', 'password_confirm' => 'initial-local-password',
+        'password' => 'InitialPass3B', 'password_confirm' => 'InitialPass3B',
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($localAdmin['ok'] ?? false) === true, 'Restaurante puede crear una cuenta administrativa de su propio ámbito.', $count);
     $localAdminId = (int)($localAdmin['usuario']['id'] ?? 0);
     $passwordNoReauth = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $localAdminId, [
-        'password' => 'changed-local-password', 'password_confirm' => 'changed-local-password',
+        'password' => 'ChangedPass3B', 'password_confirm' => 'ChangedPass3B',
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($passwordNoReauth['ok'] ?? true) === false, 'Cambiar contraseña local requiere reautenticación.', $count);
     $passwordWrongReauth = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $localAdminId, [
-        'password' => 'changed-local-password', 'password_confirm' => 'changed-local-password', 'admin_password' => 'incorrect-password',
+        'password' => 'ChangedPass3B', 'password_confirm' => 'ChangedPass3B', 'admin_password' => 'incorrect-password',
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($passwordWrongReauth['ok'] ?? true) === false, 'Una contraseña de actor incorrecta no autoriza el cambio de credencial.', $count);
     $passwordWithReauth = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $localAdminId, [
-        'password' => 'changed-local-password', 'password_confirm' => 'changed-local-password', 'admin_password' => 'fixture-pass-3b',
+        'password' => 'ChangedPass3B', 'password_confirm' => 'ChangedPass3B', 'admin_password' => 'fixture-pass-3b',
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($passwordWithReauth['ok'] ?? false) === true, 'La contraseña se cambia con reautenticación válida del actor.', $count);
-    test3bAssert(Usuario::porCredenciales($localAdminName, 'changed-local-password') !== null, 'La credencial actualizada permite login.', $count);
+    test3bAssert(Usuario::porCredenciales($localAdminName, 'ChangedPass3B') !== null, 'La credencial actualizada permite login.', $count);
+    $localAdminHash = (string)$db->query("SELECT password_hash FROM usuarios WHERE id=$localAdminId")->fetch_row()[0];
+    test3bAssert(password_verify('ChangedPass3B', $localAdminHash), 'La contraseña local actualizada queda guardada intacta.', $count);
     $localDegrade = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', $localAdminId, [
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['pdv' => 'operar'], 'facultades' => []]],
     ]);
     test3bAssert(($localDegrade['ok'] ?? false) === true && isset($localDegrade['nip']), 'Degradar de panel a POS genera un NIP nuevo.', $count);
     test3bAssert($db->query("SELECT nip_hash FROM usuarios WHERE id=$localAdminId")->fetch_row()[0] !== null
-        && Usuario::porCredenciales($localAdminName, 'changed-local-password') === null
+        && Usuario::porCredenciales($localAdminName, 'ChangedPass3B') === null
         && Usuario::porNip((string)$localDegrade['nip']) !== null, 'La degradación retira el login por contraseña y habilita solo el PIN.', $count);
 
     $passwordChangeNoReauth = UsuarioService::guardarDirecto($actorId, 'global', $createdId, [
         'username' => $newUsername, 'nombre' => 'Cuenta compartida de prueba', 'activo' => true,
-        'password' => 'another-password', 'password_confirm' => 'another-password',
+        'password' => 'AnotherPass3B', 'password_confirm' => 'AnotherPass3B',
         'ambitos' => [
             'global' => ['activo' => true, 'permisos' => ['users' => 'ver', 'menu' => 'ver'], 'facultades' => []],
             'restaurante' => ['activo' => true, 'permisos' => ['menu' => 'editar'], 'facultades' => []],
@@ -404,7 +454,7 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
     test3bAssert(($passwordChangeNoReauth['ok'] ?? true) === false, 'Cambiar contraseña requiere reautenticación del actor.', $count);
     $passwordWrongReauthGlobal = UsuarioService::guardarDirecto($actorId, 'global', $createdId, [
         'username' => $newUsername, 'nombre' => 'Cuenta compartida de prueba', 'activo' => true,
-        'password' => 'another-password', 'password_confirm' => 'another-password', 'admin_password' => 'incorrect-password',
+        'password' => 'AnotherPass3B', 'password_confirm' => 'AnotherPass3B', 'admin_password' => 'incorrect-password',
         'ambitos' => [
             'global' => ['activo' => true, 'permisos' => ['users' => 'ver', 'menu' => 'ver'], 'facultades' => []],
             'restaurante' => ['activo' => true, 'permisos' => ['menu' => 'editar'], 'facultades' => []],
@@ -414,7 +464,7 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
     test3bAssert(($passwordWrongReauthGlobal['ok'] ?? true) === false, 'La reautenticación Global exige contraseña válida del actor.', $count);
     $passwordChange = UsuarioService::guardarDirecto($actorId, 'global', $createdId, [
         'username' => $newUsername, 'nombre' => 'Cuenta compartida de prueba', 'activo' => true,
-        'password' => 'another-password', 'password_confirm' => 'another-password', 'admin_password' => 'fixture-pass-3b',
+        'password' => 'AnotherPass3B', 'password_confirm' => 'AnotherPass3B', 'admin_password' => 'fixture-pass-3b',
         'ambitos' => [
             'global' => ['activo' => true, 'permisos' => ['users' => 'ver', 'menu' => 'ver'], 'facultades' => []],
             'restaurante' => ['activo' => true, 'permisos' => ['menu' => 'editar'], 'facultades' => []],
@@ -422,22 +472,25 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
         ],
     ]);
     test3bAssert(($passwordChange['ok'] ?? false) === true, 'Global puede cambiar credenciales con reautenticación.', $count);
-    test3bAssert(Usuario::porCredenciales($newUsername, 'another-password') !== null, 'La contraseña actualizada queda activa.', $count);
+    test3bAssert(Usuario::porCredenciales($newUsername, 'AnotherPass3B') !== null, 'La contraseña actualizada queda activa.', $count);
+    $globalUpdatedHash = (string)$db->query("SELECT password_hash FROM usuarios WHERE id=$createdId")->fetch_row()[0];
+    test3bAssert(password_verify('AnotherPass3B', $globalUpdatedHash), 'La contraseña actualizada desde Global queda guardada intacta.', $count);
 
     $escalationFields = UsuarioService::guardarDirecto((int)$onlyRest['id'], 'restaurante', null, [
         'username' => 'qa3b_super_forgery', 'nombre' => 'Forged super flag', 'activo' => true,
-        'password' => 'fixture-password', 'password_confirm' => 'fixture-password', 'es_superadmin' => true,
+        'password' => $validPassword, 'password_confirm' => $validPassword, 'es_superadmin' => true,
         'ambitos' => ['restaurante' => ['activo' => true, 'permisos' => ['menu' => 'ver'], 'facultades' => []]],
     ]);
     test3bAssert(($escalationFields['ok'] ?? true) === false, 'El CRUD rechaza campos de superadministrador enviados por cliente.', $count);
     test3bAssert((int)$db->query("SELECT COUNT(*) FROM usuarios WHERE username='qa3b_super_forgery'")->fetch_row()[0] === 0, 'Un intento de fijar es_superadmin no crea cuenta.', $count);
 
-    $lastSuper = UsuarioService::estadoDirecto($actorId, 'global', (int)$fixtures['super']['id'], false);
+    $superId = (int)$fixtures['super']['id'];
+    $lastSuper = UsuarioService::estadoDirecto($superId, 'global', $superId, false);
     test3bAssert(($lastSuper['ok'] ?? true) === false && ($lastSuper['codigo'] ?? '') === 'ADMIN_ACTIVO_REQUERIDO', 'No se puede desactivar el último superadministrador activo.', $count);
-    test3bAssert((int)$db->query("SELECT activo FROM usuarios WHERE id=" . (int)$fixtures['super']['id'])->fetch_row()[0] === 1, 'El último superadministrador sigue activo después del rechazo.', $count);
-    $deleteLastSuper = UsuarioService::eliminarDirecto($actorId, 'global', (int)$fixtures['super']['id']);
+    test3bAssert((int)$db->query("SELECT activo FROM usuarios WHERE id=$superId")->fetch_row()[0] === 1, 'El último superadministrador sigue activo después del rechazo.', $count);
+    $deleteLastSuper = UsuarioService::eliminarDirecto($superId, 'global', $superId);
     test3bAssert(($deleteLastSuper['ok'] ?? true) === false, 'No se puede eliminar el último superadministrador activo.', $count);
-    test3bAssert((int)$db->query("SELECT COUNT(*) FROM usuarios WHERE id=" . (int)$fixtures['super']['id'])->fetch_row()[0] === 1, 'El último superadministrador sigue presente después del rechazo.', $count);
+    test3bAssert((int)$db->query("SELECT COUNT(*) FROM usuarios WHERE id=$superId")->fetch_row()[0] === 1, 'El último superadministrador sigue presente después del rechazo.', $count);
 
     if (class_exists(NipService::class)) {
         test3bAssert(NipService::secretoConfigurado(), 'Runner configura HMAC aleatorio solo para fixtures temporales.', $count);
@@ -447,6 +500,17 @@ function test3bGestion(mysqli $db, array $fixtures, int &$count): void
 function test3bAuth(mysqli $db, array $fixtures, int &$count): void
 {
     test3bAssert(Auth::multinegocio(), 'Auth selecciona el flujo directo por versión del esquema 3B.', $count);
+    $db->query("DELETE FROM esquema_versiones WHERE version='multinegocio-3b-v1'");
+    $rechazadoSin3B = false;
+    try {
+        Auth::multinegocio();
+    } catch (RuntimeException $e) {
+        $rechazadoSin3B = str_contains($e->getMessage(), '3B');
+    } finally {
+        $db->query("INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3b-v1')");
+    }
+    test3bAssert($rechazadoSin3B, 'El esquema con marcador 3A pero sin 3B falla cerrado.', $count);
+    test3bAssert(Auth::multinegocio(), 'Auth reanuda la autorización tras restaurar el marcador 3B.', $count);
     $kds = $fixtures['floorOnlyKds'];
     $nipUser = Usuario::porNip((string)$kds['nip']);
     test3bAssert($nipUser !== null && (int)$nipUser->id === (int)$kds['id'], 'El login por NIP encuentra una cuenta operativa.', $count);

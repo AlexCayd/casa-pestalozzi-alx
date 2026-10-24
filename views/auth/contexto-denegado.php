@@ -9,9 +9,9 @@
 </head>
 <body class="admin-body">
     <main class="admin-context-denied">
-        <h1>Acceso denegado</h1>
-        <p>Tu cuenta no tiene acceso a este contexto de trabajo. Vuelve a tu espacio o solicita al superadministrador que revise tu unidad asignada.</p>
-        <a class="admin-btn admin-btn--primary" href="<?php echo htmlspecialchars($destinoContexto, ENT_QUOTES, 'UTF-8'); ?>">Volver a mi espacio</a>
+        <h1><?php echo htmlspecialchars($tituloAcceso ?? 'Acceso denegado', ENT_QUOTES, 'UTF-8'); ?></h1>
+        <p><?php echo htmlspecialchars($mensajeAcceso ?? 'Tu cuenta no tiene acceso a este contexto de trabajo. Vuelve a tu espacio o solicita al superadministrador que revise tu unidad asignada.', ENT_QUOTES, 'UTF-8'); ?></p>
+        <a class="admin-btn admin-btn--primary" href="<?php echo htmlspecialchars($destinoContexto, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($textoDestino ?? 'Volver a mi espacio', ENT_QUOTES, 'UTF-8'); ?></a>
     </main>
 </body>
 </html>

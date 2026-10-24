@@ -1,6 +1,6 @@
 # Contrato técnico compartido multinegocio
 
-Versión 1.2 · 2026-10-24 · Estructura concretada en Etapa 3A; servicios pendientes.
+Versión 1.3 · 2026-10-24 · Usuarios y autorización concretados en Etapa 3B.
 Rige el [plan maestro](plan-maestro.md) y la [política de desarrollo](actualizacion-obligatoria-desarrollo.md).
 El [modelo relacional 3A](modelo-relacional-3a.md) concreta las tablas/relaciones
 implementadas y las diferencias del borrador. Los métodos operativos siguientes
@@ -21,18 +21,17 @@ no vendedor. Restaurante y Panadería son unidades vendedoras. Resolver por slug
 no asumir IDs de producción. Tipos/signos de claves deben coincidir en todo DDL.
 
 `usuario_unidades(usuario_id, unidad_id, rol_id, activo)` tiene clave única por
-usuario/unidad. Cada membresía usa un rol del catálogo existente; diferentes
-roles por ámbito permiten lectura en uno y edición en otro. La membresía será
-la única fuente de asignación, sin sumar permisos de `usuarios.unidad_id`.
+usuario/unidad. `rol_id` es metadata nullable, sin permisos efectivos.
+`usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel)` referencia esa
+membresía y es la única fuente de permisos; no suma `rol_permisos` ni
+`usuarios.unidad_id`. Panel usa ver/editar; pdv/area/reservations_map usan operar.
 Al reconstruir, reemplazar esa asignación única por las membresías nuevas.
 No se migran asignaciones ni respaldos de usuarios descartados.
 
-Roles personalizados pueden tener unidad propietaria; plantillas compartidas y
-roles de sistema se reservan a gestión Global. Un administrador local edita
-solo sus roles propios; no una plantilla compartida que afecte a otros negocios.
-`super_admin` conserva su privilegio explícito organizacional; `admin` tiene
-sus módulos completos solo dentro de membresías autorizadas, nunca Global por
-omisión. Mantener la protección del último superadmin activo con seeds nuevos.
+Roles conservados son infraestructura interna. No hay plantillas ni editor de
+roles en 3B. `usuarios.es_superadmin` expresa la excepción organizacional protegida;
+el resto requiere asignaciones directas. Global no implica acceso local ni acceso
+a todos los módulos. Véase el [contrato efectivo 3B](contrato-autorizacion-3b.md).
 
 `usuario_unidad_facultades` referencia una membresía con unicidad por facultad:
 `usuarios.gestionar`, `permisos.delegar`, `almacenes.crear`, `catalogo.editar`,
@@ -49,7 +48,7 @@ activa y membresías por petición; fallo de BD deniega acceso. El selector solo
 navega; no modifica autorización ni contexto de otra pestaña.
 
 Registrar cada API de personal en `Permisos::APIS`, incluidas las nuevas: hoy
-las APIs no registradas pueden quedar públicas. CSRF en mutaciones y nada de
+la clasificación 3B deniega las APIs desconocidas y enumera las públicas. CSRF en mutaciones y nada de
 mutaciones mediante GET. Revalidar permisos y pertenencia dentro de escrituras;
 revocación y operaciones bloquean filas de membresía en el mismo orden.
 
@@ -57,17 +56,18 @@ Global con consulta consolidada puede leer todo el módulo concedido. Operar
 almacenes ajenos exige membresía local autorizada o superadmin; Global opera
 centrales propios con permisos Global. Supervisar no equivale a recibir por otro.
 
-Delegación: `users/editar` y `permisos.delegar`, más `roles/editar` si cambia un
-rol. El conjunto concedido de módulos/niveles/facultades debe ser subconjunto
-del efectivo del actor en ese ámbito. Un local no crea Global, no asigna superadmin
+Delegación: `users/editar`, `usuarios.gestionar` y `permisos.delegar`.
+El conjunto concedido debe quedar dentro del techo del actor en el destino,
+o su techo Global al delegar desde Global. Un local no crea Global, no asigna superadmin
 ni concede admin por encima de sus privilegios. Auditar actor y antes/después.
 Una cuenta multiunidad admite edición local de su membresía; credenciales,
 desactivación global y borrado de identidad se gestionan desde Global. Cuentas
 exclusivamente locales se gestionan según facultades delegadas sin salir del ámbito.
 
 Conservar contraseñas/NIP y HMAC como mecanismos de autenticación, con usuarios
-nuevos. El modo de acceso usa `Permisos::acceso` sobre unión de módulos activos:
-un módulo de panel exige contraseña; no admite NIP residual. No crear otro login.
+nuevos. El modo usa `PermisosUsuario::tipoAcceso` sobre unión de módulos activos:
+un módulo de panel exige contraseña; no admite NIP residual. La sesión registra
+auth_nivel y exige reautenticación al promover una sesión PIN. No crear otro login.
 Responsables: Auth/Contextos/Permisos y servicios de usuarios/roles existentes.
 Pruebas: matriz multiunidad, revocación, IDs ajenos, fallo BD, escalamiento,
 edición de cuenta compartida y acceso NIP/contraseña con fixtures nuevos.
