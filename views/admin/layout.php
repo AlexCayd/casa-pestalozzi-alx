@@ -169,8 +169,10 @@ $llegadaPendiente = \Classes\Auth::consumirLlegada();
         </div>
     </div>
 
-    <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
-    <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php if ($contextoActivo === 'restaurante'): ?>
+        <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
+        <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php endif; ?>
 
     <?php /*
         Vendorizados en /build/js/vendor por `gulp copyVendorJs`, igual que en la

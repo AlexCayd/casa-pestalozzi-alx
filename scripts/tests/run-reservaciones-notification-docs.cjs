@@ -37,6 +37,7 @@ const expectedDocs = [
   'config.md',
   'correcciones_pendientes_arquitectura.md',
   'operacion.md',
+  'panaderia',
   'privacidad',
   'reservaciones',
   'usuarios'

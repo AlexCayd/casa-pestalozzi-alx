@@ -47,6 +47,7 @@ const paths = {
     // dependencia — igual que con sankey.js y finanzas.js.
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
+    "src/js/admin/core/contextos.js",
     "src/js/admin/core/theme.js",
     // La llegada tras el login. Vive en components/ porque también la necesitan
     // el POS y los tableros, que la reciben por bundle.min.js (glob general);

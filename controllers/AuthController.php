@@ -23,6 +23,11 @@ class AuthController {
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
         if (Auth::check()) {
+            if (Auth::contextos() === []) {
+                Auth::logout();
+                header('Location: /login?resultado=sin_contexto');
+                exit;
+            }
             header('Location: ' . Auth::destinoPorRol());
             exit;
         }
@@ -30,6 +35,10 @@ class AuthController {
         $alertas = [];
         $alertasAdmin = [];
         $tabActiva = ($_GET['tab'] ?? '') === 'admin' ? 'admin' : 'nip';
+        if (($_GET['resultado'] ?? '') === 'sin_contexto') {
+            $tabActiva = 'admin';
+            $alertasAdmin['error'][] = 'Tu cuenta no tiene una unidad de negocio válida. Pide al superadministrador que revise su asignación.';
+        }
 
         // El aviso vive en la pestaña de contraseña, así que se abre ahí: sin
         // esto el mensaje se renderiza en un panel oculto y nadie lo lee.

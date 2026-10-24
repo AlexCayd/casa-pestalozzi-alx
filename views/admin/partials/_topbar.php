@@ -17,10 +17,12 @@ $authIniciales = strtoupper(
 // filas): el número del botón no puede contradecir a la pestaña que abre.
 // _buzon.php, que se incluye después, lee estas mismas variables.
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
-try {
-    $buzonResumen = \Services\Reservations\ReservacionBuzonBandejaService::resumen();
-} catch (Throwable $e) {
-    error_log('Buzón administrativo no disponible: ' . $e->getMessage());
+if (($contextoActivo ?? 'restaurante') === 'restaurante') {
+    try {
+        $buzonResumen = \Services\Reservations\ReservacionBuzonBandejaService::resumen();
+    } catch (Throwable $e) {
+        error_log('Buzón administrativo no disponible: ' . $e->getMessage());
+    }
 }
 $buzonCantidadAccionable = (int)($buzonResumen['cantidad_accionable'] ?? 0);
 $buzonCantidadSeguimiento = (int)($buzonResumen['cantidad_seguimiento'] ?? 0);
@@ -68,11 +70,12 @@ if ($buzonCantidadAccionable > 0) {
 
     <div class="admin-topbar__heading">
         <p class="admin-topbar__module">
-            <?php echo htmlspecialchars($currentModuleTitle, ENT_QUOTES, 'UTF-8'); ?>
+            <span class="admin-context-name"><?php echo \Services\Security\Contextos::NOMBRES[$contextoActivo]; ?></span>
         </p>
     </div>
 
     <div class="admin-topbar__actions">
+        <?php if ($contextoActivo === 'restaurante'): ?>
         <button
             class="<?php echo htmlspecialchars(implode(' ', $buzonClasesBoton), ENT_QUOTES, 'UTF-8'); ?>"
             type="button"
@@ -113,6 +116,7 @@ if ($buzonCantidadAccionable > 0) {
             </svg>
         </button>
 
+        <?php endif; ?>
         <button
             class="admin-theme-toggle"
             type="button"
