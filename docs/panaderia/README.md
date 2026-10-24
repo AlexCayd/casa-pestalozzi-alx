@@ -1,13 +1,19 @@
 # Migración multinegocio
 
-La [referencia funcional v1.0](documento-maestro-multinegocio.md) es el documento
-maestro recibido para Restaurante, Panadería y Global, preservado sin cambios.
+La documentación vigente está en [docs/migracion/](../migracion/README.md):
+[plan maestro](../migracion/plan-maestro.md),
+[contrato compartido](../migracion/contratos-tecnicos.md) y
+[procedimiento de menú](../migracion/procedimiento-menu.md).
 
-La [Etapa 1 técnica](contratos-multinegocio-etapa-1.md) propone los contratos de
-datos, servicios, permisos, migración y aceptación sobre la base integrada.
-Está pendiente de aprobación; no habilita operaciones ni modifica el esquema.
-Su [validación](validacion-multinegocio-etapa-1.md) distingue resultados actuales
-de escenarios que deberán implementarse en entregas posteriores.
+La nueva política conserva únicamente el catálogo de Restaurante y sus
+dependencias; los demás datos de desarrollo se regeneran. Sustituye las
+obligaciones anteriores de migración histórica y retrocompatibilidad de esquema.
+No se ha reconstruido la base ni implementado nuevos módulos.
+
+La [referencia funcional v1.0](documento-maestro-multinegocio.md) se conserva como
+adjunto original sin modificar; sus exigencias de conservación histórica ya no
+rigen. La [validación de la propuesta anterior](validacion-multinegocio-etapa-1.md)
+es evidencia fechada, no aceptación del plan vigente.
 
 Antecedentes ya integrados:
 

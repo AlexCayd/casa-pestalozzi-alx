@@ -1,5 +1,9 @@
 # Evidencia de la Etapa 1 técnica
 
+> Evidencia de la propuesta inicial, conservada como antecedente. Sus exigencias
+> de migración histórica quedan sustituidas por el [plan vigente](../migracion/plan-maestro.md).
+> La evidencia de la actualización está en [validacion-plan.md](../migracion/validacion-plan.md).
+
 Fecha: 2026-10-24. Base: `main`, `1aa642a`.
 Alcance: documentación de contratos; sin cambios de código, esquema, rutas,
 fixtures, configuración o activos compilados. Esta evidencia no demuestra que
