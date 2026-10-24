@@ -22,6 +22,10 @@ class AuthController {
      */
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
+        if (Auth::check() && Auth::multinegocio()) {
+            $perfil=Auth::refrescar();
+            if (!$perfil || empty($perfil['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($perfil)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
             if (Auth::contextos() === []) {
                 Auth::logout();
@@ -67,7 +71,7 @@ class AuthController {
 
                 if ($usuario) {
                     self::limpiarFallosNip();
-                    Auth::login($usuario);
+                    Auth::login($usuario, 'nip');
                     // La primera página que se pinte lleva la llegada
                     // (views/components/llegada.php).
                     Auth::anunciarLlegada();
@@ -122,6 +126,10 @@ class AuthController {
      * para no romper marcadores ni POST antiguos.
      */
     public static function loginAdmin(Router $router) {
+        if (Auth::check() && Auth::multinegocio()) {
+            $p=Auth::refrescar();
+            if (!$p || empty($p['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($p)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
             header('Location: ' . Auth::destinoPorRol());
             exit;

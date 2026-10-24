@@ -5,6 +5,7 @@
 -- esquema completo; se restaura siempre al final.
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS usuario_unidad_permisos;
 DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -25,9 +26,11 @@ CREATE TABLE roles (
 CREATE TABLE usuarios (
  id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) NOT NULL UNIQUE, nombre VARCHAR(120) NOT NULL,
  password_hash VARCHAR(255) NOT NULL, nip_hash VARCHAR(255), nip_lookup CHAR(64), activo TINYINT(1) NOT NULL DEFAULT 1,
+ es_superadmin TINYINT(1) NOT NULL DEFAULT 0 CHECK(es_superadmin IN (0,1)),
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
  UNIQUE KEY uq_usuarios_nip_lookup(nip_lookup),
- CONSTRAINT chk_usuarios_nip_par CHECK ((nip_hash IS NULL) = (nip_lookup IS NULL))
+ CONSTRAINT chk_usuarios_nip_par CHECK ((nip_hash IS NULL) = (nip_lookup IS NULL)),
+ CONSTRAINT chk_superadmin_sin_nip CHECK (es_superadmin=0 OR nip_hash IS NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE facultades (
  clave VARCHAR(60) PRIMARY KEY, solo_global TINYINT(1) NOT NULL DEFAULT 0, descripcion VARCHAR(255) NOT NULL
@@ -37,7 +40,7 @@ CREATE TABLE rol_permisos (
  PRIMARY KEY(rol_id,modulo), FOREIGN KEY(rol_id) REFERENCES roles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE usuario_unidades (
- usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, rol_id INT NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1,
+ usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, rol_id INT NULL DEFAULT NULL, activo TINYINT(1) NOT NULL DEFAULT 1,
  PRIMARY KEY(usuario_id,unidad_id), KEY idx_uu_rol(rol_id,unidad_id),
  FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
  FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
@@ -49,27 +52,43 @@ CREATE TABLE usuario_unidad_facultades (
  FOREIGN KEY(usuario_id,unidad_id) REFERENCES usuario_unidades(usuario_id,unidad_id) ON DELETE CASCADE,
  FOREIGN KEY(facultad) REFERENCES facultades(clave) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Fuente efectiva única para cuentas 3B. rol_id es metadata sin permisos implícitos.
+CREATE TABLE usuario_unidad_permisos (
+ usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, modulo VARCHAR(40) NOT NULL,
+ nivel ENUM('ver','editar','operar') NOT NULL,
+ PRIMARY KEY(usuario_id,unidad_id,modulo),
+ FOREIGN KEY(usuario_id,unidad_id) REFERENCES usuario_unidades(usuario_id,unidad_id) ON DELETE CASCADE,
+ CHECK((modulo IN ('pdv','area','reservations_map') AND nivel='operar')
+    OR (modulo NOT IN ('pdv','area','reservations_map','roles') AND nivel IN ('ver','editar')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 DELIMITER //
 CREATE TRIGGER trg_membresia_rol_insert BEFORE INSERT ON usuario_unidades FOR EACH ROW
 BEGIN DECLARE v_unidad TINYINT UNSIGNED; SELECT unidad_id INTO v_unidad FROM roles WHERE id=NEW.rol_id;
  IF v_unidad IS NOT NULL AND v_unidad<>NEW.unidad_id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol local fuera de su unidad'; END IF;
- IF EXISTS(SELECT 1 FROM roles r JOIN usuarios u ON u.id=NEW.usuario_id WHERE r.id=NEW.rol_id AND r.tipo='sistema' AND (u.nip_hash IS NOT NULL OR u.nip_lookup IS NOT NULL)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol de sistema no admite NIP'; END IF;
 END//
 CREATE TRIGGER trg_membresia_rol_update BEFORE UPDATE ON usuario_unidades FOR EACH ROW
 BEGIN DECLARE v_unidad TINYINT UNSIGNED; SELECT unidad_id INTO v_unidad FROM roles WHERE id=NEW.rol_id;
  IF v_unidad IS NOT NULL AND v_unidad<>NEW.unidad_id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol local fuera de su unidad'; END IF;
- IF EXISTS(SELECT 1 FROM roles r JOIN usuarios u ON u.id=NEW.usuario_id WHERE r.id=NEW.rol_id AND r.tipo='sistema' AND (u.nip_hash IS NOT NULL OR u.nip_lookup IS NOT NULL)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol de sistema no admite NIP'; END IF;
 END//
 CREATE TRIGGER trg_usuarios_admin_sin_nip_update BEFORE UPDATE ON usuarios FOR EACH ROW
 BEGIN
- IF (NEW.nip_hash IS NOT NULL OR NEW.nip_lookup IS NOT NULL) AND EXISTS(SELECT 1 FROM usuario_unidades uu JOIN roles r ON r.id=uu.rol_id WHERE uu.usuario_id=OLD.id AND r.tipo='sistema') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Usuario con rol de sistema no admite NIP'; END IF;
+ IF NEW.nip_hash IS NOT NULL AND (NEW.es_superadmin=1 OR EXISTS(SELECT 1 FROM usuario_unidades uu JOIN usuario_unidad_permisos p ON p.usuario_id=uu.usuario_id AND p.unidad_id=uu.unidad_id WHERE uu.usuario_id=OLD.id AND uu.activo=1 AND p.nivel IN ('ver','editar'))) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Usuario administrativo no admite NIP'; END IF;
 END//
 CREATE TRIGGER trg_roles_unidad_update BEFORE UPDATE ON roles FOR EACH ROW
 BEGIN
- IF NEW.tipo='sistema' AND EXISTS(SELECT 1 FROM usuario_unidades uu JOIN usuarios u ON u.id=uu.usuario_id WHERE uu.rol_id=OLD.id AND (u.nip_hash IS NOT NULL OR u.nip_lookup IS NOT NULL)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol de sistema asignado a cuenta con NIP'; END IF;
  IF NOT (OLD.unidad_id <=> NEW.unidad_id) AND EXISTS (
    SELECT 1 FROM usuario_unidades uu WHERE uu.rol_id=OLD.id AND NEW.unidad_id IS NOT NULL AND uu.unidad_id<>NEW.unidad_id
  ) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='El rol tiene membresias incompatibles con el nuevo propietario'; END IF;
+END//
+CREATE TRIGGER trg_permiso_directo_insert BEFORE INSERT ON usuario_unidad_permisos FOR EACH ROW
+BEGIN
+ IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
+END//
+CREATE TRIGGER trg_permiso_directo_update BEFORE UPDATE ON usuario_unidad_permisos FOR EACH ROW
+BEGIN
+ IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
 END//
 CREATE TRIGGER trg_facultad_global_insert BEFORE INSERT ON usuario_unidad_facultades FOR EACH ROW
 BEGIN DECLARE v_global TINYINT; DECLARE v_tipo VARCHAR(16); SELECT solo_global INTO v_global FROM facultades WHERE clave=NEW.facultad; SELECT tipo INTO v_tipo FROM unidades WHERE id=NEW.unidad_id;

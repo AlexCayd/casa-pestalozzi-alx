@@ -312,6 +312,27 @@ final class Permisos
         return in_array(strtoupper($metodo), ['GET', 'HEAD'], true) ? self::VER : self::EDITAR;
     }
 
+    /** Catálogo de rutas 3B; no reutiliza una excepción de rol para conceder acceso. */
+    public static function clasificarDirecto(string $url): array
+    {
+        if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
+        $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
+        if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
+        if (preg_match('~^/admin/usuarios(?:/|$)~',$normal)) return ['tipo'=>'modulos','modulos'=>['users']];
+        if (preg_match('~^/admin/roles(?:/|$)~',$normal)) return ['tipo'=>'solo_sistema','modulos'=>[]];
+        if (in_array($normal,['/admin/reservaciones/operacion','/admin/reservations/operation'],true)) return ['tipo'=>'modulos','modulos'=>['reservations_map']];
+        if (str_starts_with($url,'/api/punto-de-venta/reservaciones')) return ['tipo'=>'modulos','modulos'=>['pdv','reservations_map']];
+        if (str_starts_with($normal,'/admin/area') || str_starts_with($normal,'/admin/punto-de-venta') || in_array($normal,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true)) return ['tipo'=>'modulos','modulos'=>['configuration']];
+        $clasificada=self::clasificar($normal);
+        if ($clasificada['tipo']==='publica' && str_starts_with($url,'/api/')) {
+            // Las APIs públicas actuales conservan sus guardias de token/integración.
+            $publicas=['/api/reservaciones/horarios','/api/reservaciones/disponibilidad','/api/reservaciones/retencion','/api/reservaciones/crear','/api/reservaciones/modificar','/api/reservaciones/confirmar-modificacion','/api/reservaciones/cancelar','/api/reservaciones/contacto/codigo','/api/reservaciones/contacto/estado','/api/reservaciones/contacto/verificar','/api/reservaciones/mis-reservaciones','/api/reservaciones/contacto/logout','/api/reservaciones/cambio-horario/disponibilidad','/api/reservaciones/cambio-horario/modificar','/api/reservaciones/cambio-horario/cancelar','/api/reservaciones/gestionar/disponibilidad','/api/reservaciones/gestionar/modificar','/api/reservaciones/gestionar/cancelar','/api/integraciones/n8n/reservaciones/recordatorios/preparar','/api/integraciones/n8n/reservaciones/recordatorios/reclamar','/api/integraciones/n8n/reservaciones/notificacion-resultado','/api/feedback','/api/feedback-n8n'];
+            if (in_array($url,$publicas,true)) return $clasificada;
+            return ['tipo'=>'solo_sistema','modulos'=>[]];
+        }
+        return $clasificada;
+    }
+
     /**
      * La decisión de la guardia central.
      *

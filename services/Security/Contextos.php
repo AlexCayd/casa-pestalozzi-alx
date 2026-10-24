@@ -7,6 +7,16 @@ final class Contextos
 {
     public const NOMBRES = ['global' => 'Global', 'restaurante' => 'Restaurante', 'panaderia' => 'Panadería'];
 
+    public static function permitidosDirectos(array $perfil): array
+    {
+        return !empty($perfil['activo']) ? array_values(array_intersect(array_keys($perfil['ambitos'] ?? []),array_keys(self::NOMBRES))) : [];
+    }
+
+    public static function permiteDirecto(string $ruta,array $perfil): bool
+    {
+        return in_array(self::deRuta($ruta),self::permitidosDirectos($perfil),true);
+    }
+
     public static function permitidos(string $rol, ?string $unidad): array
     {
         if ($rol === Permisos::SUPER_ADMIN) {

@@ -35,3 +35,4 @@ INSERT INTO horarios_operacion(unidad_id,dia_semana,abierto,hora_apertura,hora_c
 ON DUPLICATE KEY UPDATE abierto=VALUES(abierto),hora_apertura=VALUES(hora_apertura),hora_cierre=VALUES(hora_cierre);
 
 INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3a-v1') ON DUPLICATE KEY UPDATE version=VALUES(version);
+INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3b-v1') ON DUPLICATE KEY UPDATE version=VALUES(version);
