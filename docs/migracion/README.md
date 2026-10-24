@@ -9,10 +9,14 @@ Sustituye las obligaciones anteriores de conservar registros históricos de prue
 - [Validación de esta actualización](validacion-plan.md): alcance realizado y verificaciones pendientes.
 - [Etapa 2 de preservación](etapa-2-menu.md): herramientas, ejecución real y respaldo restaurado.
 - [Formato de menú v1](formato-menu-v1.md): contrato del importador posterior.
+- [Etapa 3A](etapa-3a.md): DDL, seeds, importador y validación aislada.
+- [Modelo relacional y diagrama](modelo-relacional-3a.md): contrato físico revisado.
+- [Dependencias de adaptación](dependencias-3b.md): consumidores pendientes antes de activar.
 
-La Etapa 2 implementa exportación, verificación y respaldo con ensayo aislado.
-No se ha reconstruido la base de desarrollo ni implementado el esquema
-multinegocio. El importador definitivo permanece pendiente del DDL aprobado.
+La Etapa 2 preserva el menú y su respaldo restaurable. La Etapa 3A implementa
+el esquema definitivo y su importador, probados solo en bases desechables.
+No se ha reconstruido ni sustituido la base de desarrollo. La adaptación de
+servicios y la activación permanecen fuera de esta subetapa.
 
 Antecedentes: [documento funcional original](../panaderia/documento-maestro-multinegocio.md)
 y [demo integrada de contextos](../panaderia/etapa-1.md). El original se mantiene

@@ -1,6 +1,6 @@
 # Casa Pestalozzi — Plan maestro multinegocio
 
-Versión 1.2 · 2026-10-24 · Etapa 2 implementada; esquema multinegocio pendiente.
+Versión 1.3 · 2026-10-24 · Etapa 3A aislada implementada; activación pendiente.
 
 ## 1. Política vigente y alcance de esta entrega
 
@@ -10,9 +10,10 @@ y las dependencias necesarias para reconstruir sus fichas, presentación y venta
 La [actualización recibida](actualizacion-obligatoria-desarrollo.md) prevalece
 sobre toda exigencia anterior de conservar información histórica de prueba.
 
-La [Etapa 2](etapa-2-menu.md) implementa y valida preservación del menú y respaldo
-con restauración aislada. **No autoriza reconstruir desarrollo ni comenzar la
-Etapa 3.** El esquema multinegocio y sus módulos siguen pendientes.
+La [Etapa 2](etapa-2-menu.md) preservó menú/respaldo. La [Etapa 3A](etapa-3a.md)
+implementa el esquema, seeds e importador sobre bases nuevas desechables.
+**No autoriza reconstruir desarrollo ni comenzar 3B.** Sus consumidores operativos
+y la activación conjunta siguen pendientes.
 
 Se mantienen los requisitos funcionales del [documento original](../panaderia/documento-maestro-multinegocio.md):
 Global, Restaurante y Panadería; almacenes físicos con dueño único; catálogo
@@ -100,7 +101,8 @@ aceptación antes de la siguiente. Sin integración a main previa a aceptación.
 | --- | --- | --- |
 | 1. Plan | Política revisada, contrato único y protocolo de menú | Referencia para etapas posteriores; no cambios operativos |
 | 2. Preservación y ensayo, actual | Herramientas de respaldo/exportación/verificación; paquete del menú y contrato de importación | Origen identificado, solo lectura; checksums y restauración aislada; importador definitivo diferido al DDL aprobado |
-| 3. Base definitiva | DDL/seeds, membresías y permisos, identidad comercial/ofertas, almacenes/existencias/movimientos, identidad de negocio en tickets y finanzas; adaptar consumidores existentes y runners | Crear desde cero e importar en BD desechable; login y rutas seguras; contrato SQL único, ningún escritor al saldo antiguo |
+| 3A. Esquema definitivo, actual | DDL/seeds, entidades multiunidad e importador; integridad y catálogo preservado | Dos bases nuevas reproducibles; importación fiel sin activar módulos ni usar la BD original |
+| 3B y siguientes, pendientes | Adaptar consumidores, seguridad y fixtures al esquema aprobado | Login/rutas, invariantes operativas y regresión Restaurante antes de cualquier activación |
 | 4. Funcionalidad Restaurante | Completar servicios de inventario, recetas, venta/cancelación, administración, consultas, finanzas y herramientas locales existentes sobre la nueva base | Flujos vigentes con fixtures nuevos; atomicidad/concurrencia; datos del menú idénticos; sin consultas sin ámbito |
 | 5. Multinegocio administrativo | Catálogo Global, almacenes múltiples, usuarios por ámbito, menú/recetas/inventario Panadería y consulta consolidada | Aislamiento HTTP/SQL y delegación; fixtures Panadería independientes; componentes compartidos |
 | 6. Transferencias | Primero internas; después interámbito al aprobar incidencias | Conservación de cantidades, tránsito separado, estados y doble recepción; sin cargos financieros |

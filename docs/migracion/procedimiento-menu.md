@@ -2,8 +2,8 @@
 
 Estado actualizado: exportación/verificación/respaldo implementados y ensayados
 en [Etapa 2](etapa-2-menu.md). El [formato v1](formato-menu-v1.md) es el contrato
-del futuro importador, que se completará con el DDL multinegocio aprobado.
-No se reconstruye la base de desarrollo en esta etapa.
+del importador concretado en [Etapa 3A](etapa-3a.md) sobre el DDL definitivo.
+Se ensaya solo en destinos desechables; no se reconstruye la base de desarrollo.
 Política: [plan maestro](plan-maestro.md).
 
 ## 1. Entradas, responsables y salidas

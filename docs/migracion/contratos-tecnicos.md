@@ -1,9 +1,10 @@
 # Contrato técnico compartido multinegocio
 
-Versión 1.1 · 2026-10-24 · Propuesta pendiente de aprobación.
+Versión 1.2 · 2026-10-24 · Estructura concretada en Etapa 3A; servicios pendientes.
 Rige el [plan maestro](plan-maestro.md) y la [política de desarrollo](actualizacion-obligatoria-desarrollo.md).
-No implementado por esta entrega documental. Los nombres de entidades/métodos
-son contratos propuestos que deberán concretarse en el DDL y servicios.
+El [modelo relacional 3A](modelo-relacional-3a.md) concreta las tablas/relaciones
+implementadas y las diferencias del borrador. Los métodos operativos siguientes
+continúan siendo contratos para la adaptación posterior; no están activados.
 
 **Regla común:** adoptar directamente un esquema definitivo. No migrar usuarios,
 recetas, variantes, stock, movimientos, tickets ni finanzas de prueba. Única

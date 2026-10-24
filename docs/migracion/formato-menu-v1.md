@@ -1,7 +1,8 @@
 # Contrato de preservación e importación: menú v1
 
-Estado: formato implementado de exportación/verificación. El importador definitivo
-se completará con el DDL multinegocio aprobado; no existe un importador provisional.
+Estado: formato implementado de exportación/verificación; el importador del DDL
+definitivo se implementa en [Etapa 3A](etapa-3a.md), solo sobre destinos desechables.
+No hay un esquema ni importador provisional.
 
 ## Paquete inmutable
 
