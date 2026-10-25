@@ -330,5 +330,74 @@ FROM cp_dev_serie s JOIN tickets t ON t.id=2000+s.n
 WHERE MOD(s.n,5)=0;
 DROP TEMPORARY TABLE cp_dev_lineas;
 DROP TEMPORARY TABLE cp_dev_serie;
+-- BLOQUE 3 · RevPASH explícito: semana completa, horarios válidos y mesas originales.
+-- Los IDs 4001..4026 representan 26 servicios de lunes a domingo; el hueco del
+-- lunes antes de las 13:00 y del domingo desde las 19:00 refleja el horario real.
+CREATE TEMPORARY TABLE cp_dev_revpash AS
+SELECT d.dia_idx,h.hora,
+       DATE_ADD(DATE_SUB(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY),INTERVAL d.dia_idx DAY) fecha,
+       CASE h.hora WHEN 9 THEN 0 WHEN 13 THEN 1 WHEN 17 THEN 2 ELSE 3 END slot_idx,
+       4000+d.dia_idx*4+CASE h.hora WHEN 9 THEN 0 WHEN 13 THEN 1 WHEN 17 THEN 2 ELSE 3 END ticket_id,
+       1+MOD(d.dia_idx*4+CASE h.hora WHEN 9 THEN 0 WHEN 13 THEN 1 WHEN 17 THEN 2 ELSE 3 END,11) mesa_id
+FROM (SELECT 0 dia_idx UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) d
+CROSS JOIN (SELECT 9 hora UNION ALL SELECT 13 UNION ALL SELECT 17 UNION ALL SELECT 20) h
+WHERE (d.dia_idx<>0 OR h.hora>=13) AND (d.dia_idx<>6 OR h.hora<19);
+ALTER TABLE cp_dev_revpash ADD PRIMARY KEY(ticket_id), ADD UNIQUE KEY uq_cp_dev_revpash_dia_hora(fecha,hora);
+INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado)
+SELECT 4101+r.dia_idx,2,CONCAT('[DEV] Reserva semanal ',DAYNAME(r.fecha)),'ninguno',NULL,r.fecha,'13:00:00',
+       CASE WHEN r.dia_idx=0 THEN 2 ELSE 2+MOD(r.dia_idx,3) END,
+       '[DEV] Caso de ocupación completada; sin contacto ni proveedor externo.','admin','completada'
+FROM (SELECT dia_idx,DATE_ADD(DATE_SUB(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY),INTERVAL dia_idx DAY) fecha
+      FROM (SELECT 0 dia_idx UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) dias) r;
+INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden)
+SELECT 2,4101+r.dia_idx,1+MOD(r.dia_idx*4+1,11),1
+FROM (SELECT dia_idx FROM (SELECT 0 dia_idx UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) dias) r;
+INSERT INTO tickets(id,unidad_id,unidad_tipo,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id)
+SELECT r.ticket_id,2,'negocio',
+       CASE WHEN r.dia_idx=0 THEN 1+MOD(r.ticket_id,2) WHEN r.dia_idx>=4 THEN 3+MOD(r.ticket_id,2) ELSE 2+MOD(r.ticket_id,3) END,
+       CONCAT('[DEV] RevPASH ',DAYNAME(r.fecha),' ',LPAD(r.hora,2,'0'),':00'),
+       TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),
+       DATE_ADD(TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),INTERVAL 45+MOD(r.ticket_id*11,40) MINUTE),
+       DATE_ADD(TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),INTERVAL 45+MOD(r.ticket_id*11,40) MINUTE),
+       'cerrado',CASE MOD(r.ticket_id,5) WHEN 0 THEN 'dividido' WHEN 1 THEN 'tarjeta' ELSE 'efectivo' END,
+       5.00+MOD(r.ticket_id,4)*5.00,IF(r.hora=13,4101+r.dia_idx,NULL),1002
+FROM cp_dev_revpash r;
+INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at)
+SELECT 2,r.ticket_id,o.id,o.producto_id,NULL,p.nombre,o.precio,c.nombre,c.id,o.area_id,a.nombre,
+       1+MOD(r.ticket_id+l.linea-1,5),IF(l.linea=1 AND r.dia_idx>=4,2,1),
+       IF(l.linea=3,'[DEV] Ítem de cortesía cancelado antes de producción.',NULL),NULL,NULL,NULL,
+       IF(l.linea=3 AND MOD(r.ticket_id,3)=0,'cancelado','entregado'),
+       DATE_ADD(t.hora_apertura,INTERVAL 5+l.linea*4 MINUTE)
+FROM cp_dev_revpash r JOIN tickets t ON t.id=r.ticket_id AND t.unidad_id=2
+CROSS JOIN (SELECT 1 linea UNION ALL SELECT 2 UNION ALL SELECT 3) l
+JOIN ofertas_producto o ON o.id=CASE
+  WHEN l.linea=1 AND r.dia_idx=5 AND r.hora=13 THEN 51
+  WHEN l.linea=1 AND r.hora=9 THEN 80
+  WHEN l.linea=1 AND r.hora=13 THEN 27
+  WHEN l.linea=1 AND r.hora=17 THEN 80
+  WHEN l.linea=1 AND r.hora=20 THEN 50
+  WHEN l.linea=2 AND r.dia_idx=5 AND r.hora=13 THEN 52
+  WHEN l.linea=2 AND r.hora=9 THEN 92
+  WHEN l.linea=2 AND r.hora=13 THEN 63
+  WHEN l.linea=2 AND r.hora=17 THEN 80
+  WHEN l.linea=2 AND r.hora=20 THEN 62
+  WHEN l.linea=3 AND r.hora=13 THEN 25 ELSE 80 END AND o.unidad_id=2
+JOIN productos p ON p.id=o.producto_id
+JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id
+JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id
+WHERE l.linea<=CASE WHEN r.dia_idx>=4 AND r.hora IN(13,20) THEN 3 ELSE 2 END;
+INSERT INTO ticket_mesas(unidad_id,ticket_id,mesa_id,orden)
+SELECT 2,r.ticket_id,r.mesa_id,1 FROM cp_dev_revpash r;
+-- La suma de pagos es exactamente la de partidas entregadas por ticket.
+INSERT INTO ticket_pagos(unidad_id,ticket_id,comensal,metodo_pago,monto,created_at)
+SELECT 2,t.id,1,IF(t.metodo_pago='tarjeta','tarjeta','efectivo'),
+       IF(t.metodo_pago='dividido',ROUND(SUM(i.precio*i.cantidad)/2,2),SUM(i.precio*i.cantidad)),t.hora_cierre
+FROM tickets t JOIN ticket_items i ON i.ticket_id=t.id AND i.unidad_id=t.unidad_id AND i.estado<>'cancelado'
+WHERE t.unidad_id=2 AND t.id BETWEEN 4001 AND 4026 GROUP BY t.id,t.metodo_pago,t.hora_cierre;
+INSERT INTO ticket_pagos(unidad_id,ticket_id,comensal,metodo_pago,monto,created_at)
+SELECT 2,t.id,2,'tarjeta',SUM(i.precio*i.cantidad)-ROUND(SUM(i.precio*i.cantidad)/2,2),t.hora_cierre
+FROM tickets t JOIN ticket_items i ON i.ticket_id=t.id AND i.unidad_id=t.unidad_id AND i.estado<>'cancelado'
+WHERE t.unidad_id=2 AND t.id BETWEEN 4001 AND 4026 AND t.metodo_pago='dividido' GROUP BY t.id,t.hora_cierre;
+DROP TEMPORARY TABLE cp_dev_revpash;
 INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v3');
 COMMIT;
