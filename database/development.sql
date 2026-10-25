@@ -2,7 +2,7 @@
 -- Requiere ddl.sql, deploy.sql y menu-restaurante.sql en una base nueva.
 -- Se ejecuta una sola vez: las PK y el marcador rechazan una segunda carga.
 -- Las cuentas de referencia permanecen inactivas, sin credenciales conocidas.
--- admin_demo se aprovisiona aparte con el bootstrap local seguro.
+-- admin_demo solo se inserta si el instalador CLI identificó development/test.
 SET NAMES utf8mb4;
 START TRANSACTION;
 SET @dev_ayer=DATE_SUB(CURDATE(), INTERVAL 1 DAY);
@@ -17,6 +17,14 @@ INSERT INTO usuarios(id,username,nombre,password_hash,activo,es_superadmin) VALU
  ('1005','dev_mesero_2','[DEV] Mesero 2','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
  ('1006','dev_mesero_3','[DEV] Mesero 3','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
  ('1007','dev_mesero_inactivo','[DEV] Mesero anterior','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0');
+-- Hash bcrypt de la credencial acordada para pruebas locales; nunca guardar el texto claro.
+-- Instalacion::ejecutar define la variable solo en su flujo CLI development/test.
+INSERT INTO usuarios(username,nombre,password_hash,activo,es_superadmin)
+SELECT 'admin_demo','Administrador de desarrollo','$2y$10$DQ66kBvQDeSLRs14KmPan.KzDcy770MUnjK4WqSY84ca/ffhjYx3W',1,1
+FROM DUAL WHERE COALESCE(@cp_dev_admin_demo_seed,0)=1;
+INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id,activo)
+SELECT u.id,un.id,NULL,1 FROM usuarios u JOIN unidades un ON un.slug IN ('global','restaurante','panaderia')
+WHERE u.username='admin_demo' AND COALESCE(@cp_dev_admin_demo_seed,0)=1;
 INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id,activo) VALUES
  ('1001','1',NULL,'1'),
  ('1002','2',NULL,'1'),
@@ -526,5 +534,5 @@ SELECT 30000+(a.ticket_id-10000),2,a.ticket_id,3+MOD(a.ticket_id,3),3+MOD(a.tick
 FROM cp_dev_asistente a JOIN tickets t ON t.id=a.ticket_id AND t.unidad_id=2 WHERE MOD(a.venta_no,5)=0;
 DROP TEMPORARY TABLE cp_dev_asistente;
 DROP TEMPORARY TABLE cp_dev_asistente_dias;
-INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v5');
+INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v6');
 COMMIT;

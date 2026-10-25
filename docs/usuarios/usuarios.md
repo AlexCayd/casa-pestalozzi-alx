@@ -57,9 +57,9 @@ ajenos cuando un administrador local revoca solo su membresía.
 
 ## Configuración y despliegue
 
-El [bootstrap de desarrollo](credenciales.md) provisiona `admin_demo` mediante
-configuración local segura. El DML estructural no crea automáticamente una cuenta
-con contraseña conocida. Consultar la [instalación](../desarrollo/instalacion.md)
+El [bootstrap de desarrollo](credenciales.md) valida la cuenta `admin_demo` que
+el DML de desarrollo agrega bajo guard CLI con hash bcrypt. El DML estructural de
+`deploy.sql` no activa esa cuenta. Consultar la [instalación](../desarrollo/instalacion.md)
 y las [pruebas](../desarrollo/pruebas.md).
 
 Los despliegues expuestos requieren sus propios secretos y revisión de accesos.

@@ -3,16 +3,20 @@
 ## Administrador demo
 
 La identidad de demostración es `admin_demo`, superadministradora organizacional,
-activa en una instalación de desarrollo identificada. La contraseña acordada se
-aporta localmente mediante `DEV_SUPERADMIN_PASSWORD`; no se versiona su valor.
-El SQL no crea automáticamente una credencial conocida ni permite login de
-superadministrador mediante NIP.
+activa en una instalación de desarrollo identificada. `database/development.sql`
+incluye solo su hash bcrypt, bajo el guard de sesión que activa el instalador
+CLI; no contiene la contraseña en texto claro. La configuración local
+`DEV_SUPERADMIN_PASSWORD` debe coincidir para que el bootstrap valide y marque la
+cuenta. `deploy.sql` no la crea ni permite login de superadministrador mediante
+NIP.
 
 Seguir el [procedimiento único de instalación](../desarrollo/instalacion.md).
-El comando [bootstrap-admin.php](../../scripts/desarrollo/bootstrap-admin.php) genera un hash seguro, crea las tres membresías y deja una marca
-que permite validar su reejecución sin duplicar o promover una cuenta homónima.
-La reejecución no restablece una contraseña cambiada; `--restablecer` expresa esa
-decisión solo en desarrollo/pruebas identificados.
+El seed SQL agrega las tres membresías solo cuando el instalador corre con la
+opción simulada en `development`/`test`. El comando
+[bootstrap-admin.php](../../scripts/desarrollo/bootstrap-admin.php) valida el
+hash frente al secreto local y deja una marca para impedir que se promueva una
+cuenta homónima ajena. La reejecución no restablece una contraseña cambiada;
+`--restablecer` expresa esa decisión solo en desarrollo/pruebas identificados.
 
 ## Usuarios de piso
 

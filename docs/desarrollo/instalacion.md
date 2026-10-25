@@ -48,10 +48,11 @@ DEV_SUPERADMIN_PASSWORD=<contraseña-local-de-desarrollo-acordada>
 NIP_LOOKUP_SECRET=<secreto-aleatorio-local-de-al-menos-32-bytes>
 ```
 
-Los valores entre `<...>` son marcadores, no credenciales para copiar. La
-contraseña acordada para la demostración se aporta por un canal local seguro;
-no se almacena en SQL, documentación versionada ni argumentos del comando.
-`NIP_LOOKUP_SECRET` debe permanecer estable dentro de la instalación: permite
+Los valores entre `<...>` son marcadores, no credenciales para copiar. El seed
+de desarrollo guarda únicamente el hash bcrypt de `admin_demo`; el instalador
+requiere que `DEV_SUPERADMIN_PASSWORD` local corresponda a ese hash para validar
+la cuenta. El texto claro no se almacena en SQL ni documentación versionada ni
+se pasa como argumento del comando. `NIP_LOOKUP_SECRET` debe permanecer estable dentro de la instalación: permite
 localizar NIP mediante HMAC y no es una contraseña de usuario.
 
 El nombre `DB_NAME` del ejemplo es una base nueva. El instalador exige que todavía
@@ -72,8 +73,11 @@ si el destino existe y crea únicamente una base nueva. Ejecuta en este orden:
 1. `database/ddl.sql`: estructura definitiva.
 2. `database/deploy.sql`: unidades, facultades y estructura mínima.
 3. `database/menu-restaurante.sql`: menú preservado de Restaurante.
-4. `database/development.sql`: fixtures sintéticos coherentes con ese esquema.
-5. Bootstrap `Services\Development\BootstrapDesarrollo`: cuenta `admin_demo`.
+4. `database/development.sql`: fixtures sintéticos y, solo cuando el instalador
+   CLI activa el guard `@cp_dev_admin_demo_seed` en `development`/`test`, la
+   cuenta `admin_demo` mediante hash y sus tres membresías.
+5. Bootstrap `Services\Development\BootstrapDesarrollo`: valida el hash frente
+   al secreto local y marca la identidad como propiedad de esta instalación.
 
 `--sin-simulados` omite solo el cuarto archivo; conserva estructura, menú y
 bootstrap. No ejecutar manualmente bloques sueltos como un segundo procedimiento.
@@ -89,9 +93,13 @@ necesario antes de cualquier limpieza explícita.
 ## 4. Cuenta de desarrollo
 
 La identidad es `admin_demo`, activa y superadministradora organizacional. El
-bootstrap calcula `password_hash` con el secreto local, y crea las membresías
-Global, Restaurante y Panadería. No tiene NIP ni existe una ruta pública para
-crear superadministradores.
+seed SQL contiene el hash bcrypt de la contraseña de desarrollo acordada; su
+inserción está condicionada a la variable de sesión que establece el instalador
+CLI identificado. El bootstrap valida la contraseña local contra ese hash y
+registra la propiedad de la cuenta. La cuenta tiene membresías Global,
+Restaurante y Panadería, no tiene NIP y no existe una ruta pública para crear
+superadministradores. Si se usa `--sin-simulados`, el bootstrap crea la cuenta
+con hash generado localmente en vez de cargar el seed.
 
 Para verificar nuevamente la cuenta en esa instalación:
 
@@ -103,8 +111,7 @@ La reejecución valida la identidad marcada, no duplica la cuenta, no promueve u
 cuenta homónima ajena y no restablece silenciosamente una contraseña cambiada.
 Si se necesita un restablecimiento deliberado en desarrollo, actualizar el secreto
 local y ejecutar el mismo comando con `--restablecer`. El mecanismo está bloqueado
-fuera de los entornos identificados y no activa automáticamente esta cuenta en
-un despliegue no autorizado.
+fuera de los entornos identificados y `deploy.sql` no activa esta cuenta.
 
 ## 5. Compilar e iniciar
 

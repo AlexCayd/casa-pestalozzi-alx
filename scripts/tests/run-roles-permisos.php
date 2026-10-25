@@ -119,6 +119,7 @@ foreach (['super_admin', 'admin', 'waiter', 'cook'] as $slug) {
     $assert(preg_match("/\\(\\d+,\\s*'{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
 }
 $assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cartas'), 'Los roles se siembran antes del catálogo por negocio.');
+$assert(!str_contains($deploy,'admin_demo'),'deploy.sql no activa la cuenta superadministradora de desarrollo.');
 $development=$leer('database/development.sql');
 $cuentasDevelopment=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
     ? preg_match_all("/\('\\d+','(dev_[^']+)','\\[DEV\\][^']+','[^']+','(\\d+)','(\\d+)'\)/i",$referencias[1],$filas,PREG_SET_ORDER)
@@ -130,7 +131,13 @@ $soloReferencias=$cuentasDevelopment===7 && $nombresCuentas===$cuentasEsperadas
 $assert($soloReferencias,'Development conserva las tres identidades de referencia y añade solo cuatro meseros históricos inactivos sin privilegios.');
 $bloqueMembresias=preg_match('/INSERT\s+INTO\s+usuario_unidades\([^;]+?VALUES\s*(.*?);/si',$development,$membresias)===1?$membresias[1]:'';
 $assert(substr_count($bloqueMembresias,'(')===3 && !preg_match('/\(\s*100[4-7]\s*,/',$bloqueMembresias),'Los meseros históricos no reciben membresías ni acceso a panel o POS.');
-$assert(!preg_match("/INSERT\\s+INTO\\s+usuarios[^;]*'admin_demo'/si",$development),'La cuenta conocida se aprovisiona mediante bootstrap y no mediante DML automático.');
+$adminSeed=preg_match("/INSERT\\s+INTO\\s+usuarios\\(username,nombre,password_hash,activo,es_superadmin\\)\\s+SELECT\\s+'admin_demo','Administrador de desarrollo','(\\$2y\\$10\\$[A-Za-z0-9.\/]{53})',1,1\\s+FROM DUAL WHERE COALESCE\\(@cp_dev_admin_demo_seed,0\\)=1/si",$development,$adminHash)===1;
+$adminHashBcrypt=isset($adminHash[1])&&str_starts_with($adminHash[1],'$2y$10$')&&strlen($adminHash[1])===60;
+$assert($adminSeed && $adminHashBcrypt,'admin_demo usa un hash bcrypt y su inserción SQL requiere el guard del instalador.');
+$assert(str_contains($development,"SELECT u.id,un.id,NULL,1 FROM usuarios u JOIN unidades un ON un.slug IN ('global','restaurante','panaderia')")&&str_contains($development,"WHERE u.username='admin_demo' AND COALESCE(@cp_dev_admin_demo_seed,0)=1"),'El seed asigna membresías de los tres ámbitos solo bajo el guard explícito.');
+$instalador=$leer('services/Development/Instalacion.php');
+$assert(str_contains($instalador,'SET @cp_dev_admin_demo_seed=1')&&str_contains($instalador,'SET @cp_dev_admin_demo_seed=NULL'),'Solo el instalador identificado habilita el seed SQL y borra el guard al terminar.');
+$assert(str_contains($instalador,'administrador_id) VALUES (1,?,?,?,(SELECT id FROM usuarios WHERE username=?))'),'La marca de instalación registra la identidad semillada para que bootstrap no promueva homónimos.');
 
 // 8 · Nadie decide permisos con el rol escrito a mano.
 foreach (['controllers/PuntoVentaController.php', 'controllers/PosReservacionController.php', 'views/punto-de-venta/partials/pos-alta.php', 'views/area/index.php'] as $archivo) {

@@ -3,6 +3,8 @@
 **Fecha:** 25 de octubre de 2026
 **Estado:** integración local validada; esta rama contiene el merge autorizado de 3E sobre origin/main. La publicación remota se registra en el historial de Git de la rama.
 
+> **Informe histórico:** refleja el estado de cierre de 3E anterior a la recuperación posterior de fixtures. Para el seed vigente de `admin_demo`, consultar [recuperación de fixtures](recuperacion-fixtures.md) y la [guía de instalación](instalacion.md).
+
 Este informe describe lo implementado y separa las pruebas ejecutadas de las limitaciones externas. La referencia de arquitectura vigente es [docs/arquitectura.md](../arquitectura.md). La guía de instalación es [docs/desarrollo/instalacion.md](instalacion.md); los datos y criterios de prueba están en database/ y docs/desarrollo/.
 
 ## Ramas, commits y comparación

@@ -7,7 +7,7 @@ function probarDatos3E(mysqli $db,string $root,int &$count): array
 {
     $menu=MenuVersionado3E::base($db,$root);$count+=(int)$menu['comprobaciones'];
     $assert=static function(bool $condition,string $message) use(&$count): void {if(!$condition)throw new RuntimeException($message);$count++;};
-    $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='datos-desarrollo-3e-v5'")->fetch_row()[0]===1,'Falta el marcador actualizado del DML de desarrollo.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='datos-desarrollo-3e-v6'")->fetch_row()[0]===1,'Falta el marcador actualizado del DML de desarrollo.');
     $assert((string)$db->query("SELECT CONCAT(COUNT(*),':',SUM(reservable=1),':',SUM(CASE WHEN reservable=1 THEN capacidad ELSE 0 END)) FROM mesas WHERE unidad_id=2 AND id BETWEEN 1 AND 16")->fetch_row()[0]==='16:11:44','El mapa debe conservar 16 superficies, 11 mesas y 44 asientos reservables.');
     $assert((int)$db->query("SELECT COUNT(*) FROM impresoras WHERE unidad_id=2 AND id BETWEEN 101 AND 105 AND activo=0 AND host='127.0.0.1'")->fetch_row()[0]===5,'Las estaciones de desarrollo deben quedar locales e inactivas.');
     $assert((int)$db->query('SELECT COUNT(*) FROM historial_precios WHERE id BETWEEN 1001 AND 1005')->fetch_row()[0]===5,'El fixture base debe conservar historial de precios de ofertas y artículos.');

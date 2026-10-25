@@ -28,13 +28,17 @@ final class Instalacion
         $stmt=$server->prepare('INSERT INTO _cp_instalacion_owner(token) VALUES (?)'); $stmt->execute([$token]); $stmt->close();
         if ($alCrear!==null) $alCrear($base,$token);
         foreach ($archivos as $archivo) {
-            foreach (\Multinegocio\SqlArchivo::sentencias((string)file_get_contents($root.'/'.$archivo)) as $sql) {
-                $r=$server->query($sql); if ($r instanceof \mysqli_result) $r->free();
-            }
+            $adminSeed=$archivo==='database/development.sql';
+            if ($adminSeed) $server->query('SET @cp_dev_admin_demo_seed=1');
+            try {
+                foreach (\Multinegocio\SqlArchivo::sentencias((string)file_get_contents($root.'/'.$archivo)) as $sql) {
+                    $r=$server->query($sql); if ($r instanceof \mysqli_result) $r->free();
+                }
+            } finally { if ($adminSeed) $server->query('SET @cp_dev_admin_demo_seed=NULL'); }
         }
         $hash=hash('sha256',implode('',array_map(static fn($a)=>hash_file('sha256',$root.'/'.$a),$archivos)));
-        $stmt=$server->prepare('INSERT INTO instalacion_desarrollo(id,entorno,propietario_token,dml_sha256) VALUES (1,?,?,?)');
-        $stmt->execute([$entorno,$token,$hash]); $stmt->close();
+        $stmt=$server->prepare('INSERT INTO instalacion_desarrollo(id,entorno,propietario_token,dml_sha256,administrador_id) VALUES (1,?,?,?,(SELECT id FROM usuarios WHERE username=?))');
+        $stmt->execute([$entorno,$token,$hash,'admin_demo']); $stmt->close();
         $cuenta=BootstrapDesarrollo::ejecutar($server,$entorno,$password);
         $server->query('UPDATE instalacion_desarrollo SET completada=1 WHERE id=1');
         $server->query('DROP TABLE _cp_instalacion_owner');

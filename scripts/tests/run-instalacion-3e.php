@@ -28,7 +28,10 @@ try {
         if($fixtureCanonico===null)$fixtureCanonico=$datos;else $assert($fixtureCanonico['conteos']===$datos['conteos']&&$fixtureCanonico['periodo_tickets']===$datos['periodo_tickets'],'Las dos bases nuevas deben reproducir los mismos conteos y periodos.');
         $user=$db->query("SELECT id,password_hash,activo,es_superadmin,nip_hash,nip_lookup FROM usuarios WHERE username='admin_demo'")->fetch_assoc();
         $id=(int)($user['id']??0);
-        $assert($id>0&&password_verify($password,$user['password_hash'])&&(int)$user['es_superadmin']===1&&(int)$user['activo']===1,'El bootstrap crea una sola cuenta superadministradora con hash válido.');
+        $developmentSql=(string)file_get_contents($root.'/database/development.sql');
+        $hashSembrado=preg_match("/SELECT 'admin_demo','Administrador de desarrollo','(\\$2y\\$10\\$[A-Za-z0-9.\\/]{53})',1,1/",$developmentSql,$coincidencia)===1?($coincidencia[1]??''):'';
+        $assert($hashSembrado!==''&&hash_equals($hashSembrado,(string)$user['password_hash']),'La cuenta proviene del hash versionado en el seed SQL, no de una creación paralela del bootstrap.');
+        $assert($id>0&&password_verify($password,$user['password_hash'])&&(int)$user['es_superadmin']===1&&(int)$user['activo']===1,'El seed SQL y el bootstrap validan una sola cuenta superadministradora con hash válido.');
         $assert($user['nip_hash']===null&&$user['nip_lookup']===null,'El superadministrador no tiene acceso por NIP.');
         $assert((int)$db->query('SELECT COUNT(*) FROM usuario_unidades WHERE activo=1 AND usuario_id='.$id)->fetch_row()[0]===3,'El administrador tiene las tres membresías.');
         $again=Services\Development\BootstrapDesarrollo::ejecutar($db,'test',$password);

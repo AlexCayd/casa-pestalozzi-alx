@@ -67,13 +67,15 @@ rechaza una existente. El orden es:
 3. `database/menu-restaurante.sql`: los 112 productos/ofertas originales y sus
    15 categorías, 3 cartas y 4 áreas; las 13 imágenes están versionadas.
 4. `database/development.sql`: escenarios sintéticos con saldos trazables.
-5. Bootstrap CLI de `admin_demo`, solo development/test identificados, con
-   `DEV_SUPERADMIN_PASSWORD` aportada por configuración local no versionada.
+5. El seed de `database/development.sql` inserta `admin_demo` con hash bcrypt
+   únicamente bajo el guard que activa el instalador CLI en development/test;
+   el bootstrap valida `DEV_SUPERADMIN_PASSWORD` de configuración local.
 
-No hay una contraseña conocida insertada automáticamente por SQL. El bootstrap
-no duplica cuentas, no promueve un homónimo ajeno ni restablece una contraseña
-cambiada sin `--restablecer`. Nunca versionar secretos, `.env` reales, dumps
-privados, logs sensibles ni archivos efímeros de pruebas.
+`deploy.sql` no crea `admin_demo`; el seed no almacena texto claro ni se ejecuta
+en producción. El bootstrap no duplica cuentas, no promueve un homónimo ajeno ni
+restablece una contraseña cambiada sin `--restablecer`. Nunca versionar texto
+claro de secretos, `.env` reales, dumps privados, logs sensibles ni archivos
+efímeros de pruebas.
 
 `productos` representa identidad comercial; `ofertas_producto` contiene el precio,
 categoría, área y disponibilidad del negocio. Recetas/variantes pertenecen a la
