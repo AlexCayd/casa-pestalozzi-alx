@@ -386,7 +386,7 @@ FROM (SELECT dia_idx,DATE_ADD(DATE_SUB(CURDATE(),INTERVAL 7 DAY),INTERVAL dia_id
 INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden)
 SELECT 2,4101+r.dia_idx,1+MOD(r.dia_idx*4+1,11),1
 FROM (SELECT dia_idx FROM (SELECT 0 dia_idx UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) dias) r;
--- El servicio de jueves a las 13:00 representa un grupo que usa dos mesas;
+-- El servicio del cuarto día de la ventana semanal a las 13:00 representa un grupo que usa dos mesas;
 -- ambas relaciones de ticket y reservación se mantienen alineadas.
 INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden) VALUES (2,4105,11,2);
 -- Tres reservas futuras muestran grupos de 2, 3 y 4 mesas. Fechas distintas

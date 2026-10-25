@@ -8,7 +8,7 @@ require_once __DIR__.'/fixture-3b.php';
 require_once __DIR__.'/pruebas-usuarios-3e1.php';
 require_once __DIR__.'/pruebas-almacenes-3e1.php';
 Dotenv\Dotenv::createImmutable($root.'/includes')->safeLoad();
-$original=(string)($_ENV['DB_NAME']??'');$db=null;$bases=[];$count=0;$phase='configuración';$error=null;$results=[];
+$original=(string)($_ENV['DB_NAME']??'');$db=null;$bases=[];$count=0;$phase='configuración';$error=null;$results=[];$fixtureCanonico=null;
 $assert=static function(bool $ok,string $msg) use(&$count): void {if(!$ok)throw new RuntimeException($msg);$count++;};
 $reject=static function(callable $fn,string $msg) use($assert): void {$failed=false;try{$fn();}catch(Throwable){$failed=true;}$assert($failed,$msg);};
 try {
@@ -25,6 +25,7 @@ try {
         $result=Services\Development\Instalacion::ejecutar($db,$name,'test',$password,true,static function($n,$token)use(&$bases){$bases[$n]=$token;});
         $assert($result['ok']===true,'La instalación debe finalizar.');
         $datos=probarDatos3E($db,$root,$count);
+        if($fixtureCanonico===null)$fixtureCanonico=$datos;else $assert($fixtureCanonico['conteos']===$datos['conteos']&&$fixtureCanonico['periodo_tickets']===$datos['periodo_tickets'],'Las dos bases nuevas deben reproducir los mismos conteos y periodos.');
         $user=$db->query("SELECT id,password_hash,activo,es_superadmin,nip_hash,nip_lookup FROM usuarios WHERE username='admin_demo'")->fetch_assoc();
         $id=(int)($user['id']??0);
         $assert($id>0&&password_verify($password,$user['password_hash'])&&(int)$user['es_superadmin']===1&&(int)$user['activo']===1,'El bootstrap crea una sola cuenta superadministradora con hash válido.');
@@ -48,13 +49,27 @@ try {
         $reject(fn()=>Services\Development\Instalacion::ejecutar($db,$name,'test',$password),'El instalador no destruye una base existente.');
         $assert((int)$db->query('SELECT COUNT(*) FROM productos WHERE id<1000')->fetch_row()[0]===112,'La reejecución rechazada conserva el menú.');
         Model\ActiveRecord::setDB($db);
+        $oldSession=$_SESSION??[];$oldPath=$_SERVER['PATH_INFO']??null;
+        \Classes\Auth::start();$_SESSION=['login'=>true,'id'=>$id,'auth_nivel'=>'contrasena','_auth3b'=>true];$_SERVER['PATH_INFO']='/admin';
+        $ventasIA=Services\Analytics\ConsultasRapidas::responderEstructurada('ventas_total',null,null,'30d');
+        $sinVentaIA=Services\Analytics\ConsultasRapidas::responderEstructurada('sin_venta',null,null,'30d');
+        $meserosIA=Services\Analytics\ConsultasRapidas::responderEstructurada('meseros',null,null,'30d');
+        $horasIA=Services\Analytics\ConsultasRapidas::responderEstructurada('horas_pico',null,null,'30d');
+        $consumoIA=Services\Analytics\ConsultasRapidas::responderEstructurada('consumo',1002,null,'semana');
+        $stockIA=Services\Analytics\ConsultasRapidas::responderEstructurada('stock',1002,null,null);
+        $assert($ventasIA['ok']&&$ventasIA['entendida']&&isset($ventasIA['respuesta']['cifra']),'El asistente local consulta ventas reales del periodo.');
+        $assert((int)$sinVentaIA['respuesta']['cifra']>=8,'El asistente local encuentra ofertas activas sin venta.');
+        $assert(count($meserosIA['respuesta']['detalle'])>0&&count($horasIA['respuesta']['detalle'])>0,'El asistente local consulta meseros y horas pico.');
+        $assert((float)str_replace(',','',(string)$consumoIA['respuesta']['cifra'])>0&&$stockIA['respuesta']['cifra']!=='','El asistente local consulta consumo trazado y existencias.');
+        $asistente=['ventas_total_30d'=>$ventasIA['respuesta']['cifra'],'ofertas_sin_venta_30d'=>(int)$sinVentaIA['respuesta']['cifra'],'meseros_consultables'=>count($meserosIA['respuesta']['detalle']),'franjas_horarias'=>count($horasIA['respuesta']['detalle']),'consumo_semana'=>$consumoIA['respuesta']['cifra'],'stock_consultable'=>$stockIA['respuesta']['cifra']];
+        $_SESSION=$oldSession;if($oldPath===null)unset($_SERVER['PATH_INFO']);else $_SERVER['PATH_INFO']=$oldPath;
         $profile=Services\Security\PermisosUsuario::cargar($id,$db);
         $assert(Services\Security\PermisosUsuario::tipoAcceso($profile)==='contrasena'&&count($profile['ambitos'])===3,'La autorización reconoce el superadministrador en los tres ámbitos.');
         $stmt=$db->prepare('CREATE TABLE _cp_multinegocio_owner(token CHAR(64) PRIMARY KEY) ENGINE=InnoDB');$stmt->execute();$stmt->close();
         $stmt=$db->prepare('INSERT INTO _cp_multinegocio_owner(token) VALUES (?)');$stmt->execute([$bases[$name]]);$stmt->close();
         probarUsuarios3E($db,$id,$count);
         probarAlmacenes3E1($db,$count);
-        $results[]=['instalación'=>$i,'menu'=>$datos['menu'],'superadministrador'=>'admin_demo','comprobaciones_acumuladas'=>$count];
+        $results[]=['instalación'=>$i,'menu'=>$datos['menu'],'fixtures'=>$datos['conteos'],'periodo_tickets'=>$datos['periodo_tickets'],'asistente_local'=>$asistente,'superadministrador'=>'admin_demo','comprobaciones_acumuladas'=>$count];
     }
 } catch(Throwable $e){$error=$e->getMessage();}
 finally {

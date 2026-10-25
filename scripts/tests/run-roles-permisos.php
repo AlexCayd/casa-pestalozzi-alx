@@ -120,10 +120,16 @@ foreach (['super_admin', 'admin', 'waiter', 'cook'] as $slug) {
 }
 $assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cartas'), 'Los roles se siembran antes del catálogo por negocio.');
 $development=$leer('database/development.sql');
-$soloReferencias=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
-    && substr_count($referencias[1],",'0','0')")===3
-    && substr_count($referencias[1],'dev_')===3;
-$assert($soloReferencias,'Development solo contiene las tres identidades sintéticas inactivas y sin privilegio superadmin, no cuentas históricas activas.');
+$cuentasDevelopment=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
+    ? preg_match_all("/\('\\d+','(dev_[^']+)','\\[DEV\\][^']+','[^']+','(\\d+)','(\\d+)'\)/i",$referencias[1],$filas,PREG_SET_ORDER)
+    : 0;
+$nombresCuentas=array_column($filas??[],1);
+$cuentasEsperadas=['dev_global_inactivo','dev_restaurante_inactivo','dev_panaderia_inactivo','dev_mesero_1','dev_mesero_2','dev_mesero_3','dev_mesero_inactivo'];
+$soloReferencias=$cuentasDevelopment===7 && $nombresCuentas===$cuentasEsperadas
+    && !array_filter($filas,static fn(array $fila): bool=>$fila[2]!=='0'||$fila[3]!=='0');
+$assert($soloReferencias,'Development conserva las tres identidades de referencia y añade solo cuatro meseros históricos inactivos sin privilegios.');
+$bloqueMembresias=preg_match('/INSERT\s+INTO\s+usuario_unidades\([^;]+?VALUES\s*(.*?);/si',$development,$membresias)===1?$membresias[1]:'';
+$assert(substr_count($bloqueMembresias,'(')===3 && !preg_match('/\(\s*100[4-7]\s*,/',$bloqueMembresias),'Los meseros históricos no reciben membresías ni acceso a panel o POS.');
 $assert(!preg_match("/INSERT\\s+INTO\\s+usuarios[^;]*'admin_demo'/si",$development),'La cuenta conocida se aprovisiona mediante bootstrap y no mediante DML automático.');
 
 // 8 · Nadie decide permisos con el rol escrito a mano.
