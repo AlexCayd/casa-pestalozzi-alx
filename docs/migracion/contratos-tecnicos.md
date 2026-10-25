@@ -1,6 +1,6 @@
 # Contrato técnico compartido multinegocio
 
-Versión 1.3 · 2026-10-24 · Usuarios y autorización concretados en Etapa 3B.
+Versión 1.4 · 2026-10-24 · Autorización 3B y motor/consultas de Almacenes 3C.
 Rige el [plan maestro](plan-maestro.md) y la [política de desarrollo](actualizacion-obligatoria-desarrollo.md).
 El [modelo relacional 3A](modelo-relacional-3a.md) concreta las tablas/relaciones
 implementadas y las diferencias del borrador. Los métodos operativos siguientes
@@ -82,6 +82,8 @@ No reasignar dueño tras registrar movimientos: transferir mercancía. Baja con
 saldo o tránsito pendiente se bloquea; historial nuevo impide borrado físico.
 Responsable: servicio de almacenes. Pruebas: alta local denegada, dueño
 manipulado, selector de almacén ajeno y baja con operaciones pendientes.
+Implementación y API interna de 3C: [contrato del motor](contrato-almacenes-3c.md).
+El coordinador externo recibe estado pendiente hasta que confirme su transacción.
 
 ## 3. Artículos y existencias
 

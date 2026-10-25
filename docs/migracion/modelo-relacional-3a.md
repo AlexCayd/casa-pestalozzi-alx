@@ -128,6 +128,9 @@ No representa permisos de servidor ni implementa servicios operativos.
   ticket_item_id nullable,movimiento_origen_id nullable,transferencia_linea_id
   nullable. Origen de compensación FK por mismo almacén/artículo/unidad;
   UNIQUE(operacion_id,movimiento_origen_id). Actor se identifica por la operación.
+  En 3C se agrega salida interna negativa, inmutabilidad SQL de movimientos y
+  los índices de historial (unidad_id,fecha,id) y (almacen_id,fecha,id).
+  El nombre del artículo maestro es único para impedir identidades duplicadas.
 - `transferencias`: id,almacen_origen_id,origen_unidad_id,almacen_destino_id,
   destino_unidad_id,solicitante_id,emisor_id/receptor_id nullable,estado,version,
   fechas. FK de ambos almacenes con su dueño, CHECK origen!=destino.

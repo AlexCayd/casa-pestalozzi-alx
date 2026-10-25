@@ -17,6 +17,7 @@ Sustituye las obligaciones anteriores de conservar registros históricos de prue
 - [Usuarios 3B.2](etapa-3b-2.md): interfaz, pruebas, auditoría y límites de activación.
 - [Contrato de Almacenes 3C](contrato-almacenes-3c.md): motor, autorización y composición transaccional.
 - [Motor 3C.1](etapa-3c-1.md): implementación y pruebas aisladas de integridad/concurrencia.
+- [Consultas 3C.2](etapa-3c-2.md): consolidado, filtros, autorización y cierre de etapa.
 
 La Etapa 2 preserva el menú y su respaldo restaurable. La Etapa 3A implementa
 el esquema definitivo y su importador, probados solo en bases desechables.

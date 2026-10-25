@@ -253,7 +253,7 @@ function test3cCore(mysqli $db, int &$count): array
     test3cAssert($sum === $balance, 'El saldo coincide con la suma de deltas de movimientos.', $count);
     test3cAssert((int)$db->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ingredientes' AND column_name='stock'")->fetch_row()[0] === 0, 'El catálogo maestro no contiene stock editable.', $count);
 
-    return compact('gid','rid','pid','articleId','entryR','inactive');
+    return compact('gid','rid','pid','articleId','entryR','inactive','global','rest','pan');
 }
 
 $admin = null; $bases = []; $options = []; $config = []; $phase = 'argumentos/configuración'; $error = null; $total = 0; $output = null;
@@ -271,7 +271,12 @@ try {
     [$base, $token] = test3cCreateDatabase($admin, $root, $bases);
     $phase = 'motor de almacenes 3C.1';
     $fixtures = test3cCore($admin, $total);
-    $output = ['ok'=>true, 'comprobaciones'=>$total, 'fase'=>'3C.1', 'base_temporal'=>$base,
+    if(empty($options['solo_motor'])) {
+        $phase='consultas y autorización 3C.2';
+        require __DIR__.'/pruebas-consultas-3c.php';
+        test3cConsultas($admin,$fixtures,$total);
+    }
+    $output = ['ok'=>true, 'comprobaciones'=>$total, 'fase'=>empty($options['solo_motor'])?'3C.1 y 3C.2':'3C.1', 'base_temporal'=>$base,
         'almacenes'=>['global'=>$fixtures['gid'],'restaurante'=>$fixtures['rid'],'panaderia'=>$fixtures['pid']], 'articulo_id'=>$fixtures['articleId']];
 } catch (Throwable $e) {
     $error = $e instanceof mysqli_sql_exception ? 'Error MySQL; código ' . $e->getCode() . '.' : $e->getMessage();

@@ -90,6 +90,49 @@ maestro ni tabla de totales.
 - UNIQUE ingredientes(nombre): identidad maestra compartida sin duplicaciones.
 - Tipo salida negativo para el mecanismo interno sin simular ventas.
 - Triggers UPDATE/DELETE de movimientos: bitácora inmutable; corregir compensando.
+- Marcador multinegocio-3c-v1 al terminar DDL; el motor exige también la marca 3B.
 
 Se conservan las demás relaciones de 3A y todos los bloqueos temporales 3B.
 No se ejecuta el DDL sobre la base configurada.
+
+## Consultas 3C.2
+
+Almacenes expone consultarExistencias, consultarAlmacenes y consultarMovimientos,
+todos con contexto y filtros opcionales. Retornan total, pagina, por_pagina y
+filas estructuradas; no exponen una ruta HTTP nueva. La autenticación y el
+alcance se recargan y bloquean antes de leer. Una consulta independiente usa
+REPEATABLE READ para que conteo, página y desglose pertenezcan a la misma
+instantánea. Una transacción externa conserva su instantánea de datos, pero la
+autorización se obtiene de lecturas actuales; no revive permisos revocados.
+En ella también se conserva el estado pendiente del coordinador.
+
+Existencias admite q, negocio, almacen_id, articulo_id, pagina, por_pagina,
+solo_alertas, sin_asociacion y estado. Almacenes admite q, negocio, almacen_id,
+pagina, por_pagina y estado. Movimientos admite q, negocio, almacen_id,
+articulo_id, pagina, por_pagina, desde, hasta y tipo. Estado:
+todos/activos/inactivos; en existencias considera almacén, asociación y maestro.
+Sin filtros, las cantidades físicas incluyen asociaciones inactivas autorizadas.
+Las alertas requieren almacén, asociación y artículo activos y saldo menor al
+mínimo de esa asociación; no se ocultan por excedentes de otro almacén.
+
+Paginación de 1 a 100 filas, página hasta 100000. Fechas YYYY-MM-DD válidas,
+hasta inclusiva por intervalo semiabierto al día siguiente. Búsqueda literal
+escapa comodines y usa parámetros. Los filtros no aceptados se rechazan; un
+almacén ajeno no devuelve cantidades ni historial. Un negocio local solo puede
+filtrar su propia unidad. El filtro negocio Global no permite unidades futuras
+fuera de los tres slugs conocidos.
+
+Existencias retorna articulos, cada uno con unidad de medida, costo maestro,
+saldo_total, minimo_total, alerta y ambitos. Cada ámbito contiene saldo, minimo
+y almacenes con saldos, mínimos, estado y versión. No se suman artículos
+distintos. Los totales son cadenas exactas y pueden superar el rango de una
+asociación individual; el acumulador admite 18 cifras escaladas y rechaza
+desbordamiento. El catálogo Global incluye artículos sin asociaciones con cero
+y desglose vacío; sin_asociacion=true los filtra, sin filtro físico. Local solo
+lista artículos asociados a sus almacenes.
+
+El listado no hace consultas por artículo. La prueba compara Com_stmt_execute
+para páginas de 1 y 100 artículos y exige el mismo número de consultas.
+Dos índices adicionales soportan los historiales paginados por fecha/id:
+idx_mov_unidad_fecha y idx_mov_almacen_fecha. EXPLAIN FORMAT=TRADITIONAL
+comprueba que son índices elegibles para ambos patrones. No hay tabla de totales.

@@ -116,12 +116,13 @@ final class Almacenes
 
     public function existencia(string $ctx,int $almacen,int $articulo): array
     {
-        try {
+        return TransaccionInventario::ejecutar($this->db,function () use($ctx,$almacen,$articulo) {
+            $this->alcance->autorizar($ctx,'ver',null,true);
             $this->alcance->almacen($ctx,$almacen,'ver',false,false);
             $a=$this->uno('SELECT aa.*,i.nombre,i.unidad,i.activo AS articulo_activo FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=? AND aa.articulo_id=?',[$almacen,$articulo]);
             if(!$a) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró la existencia autorizada.');
-            return ['ok'=>true,'codigo'=>'EXISTENCIA_CONSULTADA','existencia'=>$a];
-        } catch(\Throwable $e) { return self::errorLectura($e); }
+            return ['codigo'=>'EXISTENCIA_CONSULTADA','existencia'=>$a];
+        },'REPEATABLE READ');
     }
 
     public function registrarEntrada(string $ctx,array $doc): array { return $this->operar($ctx,'entrada',$doc); }
@@ -129,6 +130,9 @@ final class Almacenes
     public function registrarSalida(string $ctx,array $doc): array { return $this->operar($ctx,'salida',$doc); }
     public function registrarAjuste(string $ctx,array $doc): array { return $this->operar($ctx,'ajuste',$doc); }
     public function revertirMovimientos(string $ctx,array $doc): array { return $this->operar($ctx,'cancelacion',$doc); }
+    public function consultarExistencias(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->existencias($ctx,$filtros); }
+    public function consultarAlmacenes(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->almacenes($ctx,$filtros); }
+    public function consultarMovimientos(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->movimientos($ctx,$filtros); }
 
     private function operar(string $ctx,string $tipo,array $doc): array
     {
@@ -247,7 +251,6 @@ final class Almacenes
     private function escribir(callable $accion): array
     {
         return TransaccionInventario::ejecutar($this->db,function () use($accion) {
-            if(!$this->uno("SELECT version FROM esquema_versiones WHERE version='multinegocio-3b-v1'")) throw new InventarioError('ESQUEMA_INCOMPATIBLE','El motor requiere el esquema multinegocio con autorización 3B.');
             return $accion();
         });
     }

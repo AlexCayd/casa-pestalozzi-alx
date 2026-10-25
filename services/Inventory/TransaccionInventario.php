@@ -5,15 +5,16 @@ namespace Services\Inventory;
 /** Coordina una llamada independiente o un savepoint del coordinador comercial. */
 final class TransaccionInventario
 {
-    public static function ejecutar(\mysqli $db, callable $accion): array
+    public static function ejecutar(\mysqli $db, callable $accion, string $aislamiento = 'READ COMMITTED'): array
     {
+        if (!in_array($aislamiento,['READ COMMITTED','REPEATABLE READ'],true)) throw new \InvalidArgumentException('Aislamiento inválido.');
         for ($intento = 0; $intento < 3; $intento++) {
             $propia = false;
             $savepoint = null;
             try {
                 $externa = (int)$db->query('SELECT @@autocommit')->fetch_row()[0] === 0;
                 if (!$externa) {
-                    try { $db->query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED'); }
+                    try { $db->query('SET TRANSACTION ISOLATION LEVEL ' . $aislamiento); }
                     catch (\mysqli_sql_exception $e) {
                         if ($e->getCode() !== 1568) throw $e;
                         $externa = true;
@@ -26,6 +27,8 @@ final class TransaccionInventario
                     $db->begin_transaction();
                     $propia = true;
                 }
+                $versiones=(int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version IN ('multinegocio-3b-v1','multinegocio-3c-v1')")->fetch_row()[0];
+                if($versiones!==2) throw new InventarioError('ESQUEMA_INCOMPATIBLE','El motor requiere la estructura 3C y la autorización 3B completas.');
                 $resultado = $accion();
                 if ($propia) $db->commit();
                 else $db->query('RELEASE SAVEPOINT ' . $savepoint);

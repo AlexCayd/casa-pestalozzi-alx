@@ -287,6 +287,7 @@ CREATE TABLE movimientos_inventario (
  FOREIGN KEY(ticket_item_id,unidad_id) REFERENCES ticket_items(id,unidad_id) ON DELETE RESTRICT,
  FOREIGN KEY(movimiento_origen_id,almacen_id,articulo_id,unidad_id) REFERENCES movimientos_inventario(id,almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
  UNIQUE KEY uq_mov_id_almacen_articulo_unidad(id,almacen_id,articulo_id,unidad_id), UNIQUE KEY uq_mov_operacion_origen(operacion_id,movimiento_origen_id), INDEX idx_mov_articulo(almacen_id,articulo_id,fecha),
+ INDEX idx_mov_unidad_fecha(unidad_id,fecha,id), INDEX idx_mov_almacen_fecha(almacen_id,fecha,id),
  CHECK(delta<>0), CHECK((tipo IN('entrada','cancelacion','transferencia_entrada') AND delta>0) OR (tipo IN('venta','salida','merma','transferencia_salida') AND delta<0) OR tipo='ajuste'), CHECK(costo_unitario IS NULL OR costo_unitario>=0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 DELIMITER //
@@ -525,3 +526,5 @@ CREATE TABLE reportes_sistema (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Cada configuración semanal/servicio crea su propia fila por unidad.
+-- Marca de estructura terminada; la autorización 3B se completa con deploy.sql.
+INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3c-v1');
