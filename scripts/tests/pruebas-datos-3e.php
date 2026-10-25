@@ -7,7 +7,7 @@ function probarDatos3E(mysqli $db,string $root,int &$count): array
 {
     $menu=MenuVersionado3E::base($db,$root);$count+=(int)$menu['comprobaciones'];
     $assert=static function(bool $condition,string $message) use(&$count): void {if(!$condition)throw new RuntimeException($message);$count++;};
-    $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='datos-desarrollo-3e-v1'")->fetch_row()[0]===1,'Falta el marcador del DML de desarrollo.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='datos-desarrollo-3e-v2'")->fetch_row()[0]===1,'Falta el marcador del DML de desarrollo.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos aa LEFT JOIN (SELECT almacen_id,articulo_id,unidad_id,SUM(delta) saldo FROM movimientos_inventario GROUP BY almacen_id,articulo_id,unidad_id) m ON m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id AND m.unidad_id=aa.unidad_id WHERE aa.saldo<>COALESCE(m.saldo,0)')->fetch_row()[0]===0,'Los saldos no coinciden con la bitácora.');
     $assert((int)$db->query('SELECT COUNT(DISTINCT unidad_id) FROM almacenes WHERE id IN(1001,1002,1003)')->fetch_row()[0]===3,'Falta un almacén físico de prueba por ámbito.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos WHERE almacen_id IN(1001,1002,1003)')->fetch_row()[0]===9,'Faltan asociaciones físicas de prueba.');
@@ -22,5 +22,16 @@ function probarDatos3E(mysqli $db,string $root,int &$count): array
     $assert((string)$db->query("SELECT SUM(precio*cantidad) FROM ticket_items WHERE ticket_id=1001 AND estado<>'cancelado'")->fetch_row()[0]==='70.00','La venta sintética no coincide con el pago.');
     $assert((string)$db->query('SELECT SUM(delta) FROM movimientos_inventario WHERE ticket_item_id=1002')->fetch_row()[0]==='0.000','La línea cancelada no está compensada.');
     $assert((int)$db->query("SELECT COUNT(DISTINCT estado) FROM ticket_items WHERE ticket_id IN(1002,1003,1004)")->fetch_row()[0]===3,'El fixture debe cubrir enviados, preparación y listos del KDS.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM tickets WHERE unidad_id=2 AND id BETWEEN 2001 AND 2365 AND estado=\'cerrado\'')->fetch_row()[0]===365,'El fixture debe reconstruir un año de ventas diarias de Restaurante.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM ticket_items WHERE unidad_id=2 AND ticket_id BETWEEN 2001 AND 2365')->fetch_row()[0]===803,'El fixture anual debe producir las 803 líneas históricas previstas.');
+    $assert((int)$db->query('SELECT COUNT(DISTINCT DATE_FORMAT(hora_apertura,\'%Y-%m\')) FROM tickets WHERE unidad_id=2 AND id BETWEEN 2001 AND 2365')->fetch_row()[0]===12,'Las ventas deben cubrir los doce meses para tendencias y estacionalidad.');
+    $assert((int)$db->query('SELECT COUNT(DISTINCT DAYOFWEEK(hora_apertura)) FROM tickets WHERE unidad_id=2 AND id BETWEEN 2001 AND 2365')->fetch_row()[0]===7,'Las ventas deben cubrir todos los días de la semana.');
+    $assert((int)$db->query('SELECT COUNT(DISTINCT HOUR(hora_apertura)) FROM tickets WHERE unidad_id=2 AND id BETWEEN 2001 AND 2365')->fetch_row()[0]>=8,'Las ventas deben cubrir varias franjas para RevPASH y analítica horaria.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM ticket_mesas WHERE unidad_id=2 AND ticket_id BETWEEN 2001 AND 2365')->fetch_row()[0]===365,'Cada venta histórica debe tener una mesa o superficie operativa asignada.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM tickets t JOIN (SELECT ticket_id,unidad_id,SUM(precio*cantidad) monto FROM ticket_items WHERE estado<>'cancelado' GROUP BY ticket_id,unidad_id) i ON i.ticket_id=t.id AND i.unidad_id=t.unidad_id JOIN (SELECT ticket_id,unidad_id,SUM(monto) monto FROM ticket_pagos GROUP BY ticket_id,unidad_id) p ON p.ticket_id=t.id AND p.unidad_id=t.unidad_id WHERE t.unidad_id=2 AND t.id BETWEEN 2001 AND 2365 AND t.metodo_pago='dividido' AND ABS(i.monto-p.monto)>0.001")->fetch_row()[0]===0,'Los pagos divididos deben cuadrar con sus líneas entregadas.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM operaciones_financieras WHERE unidad_id=2 AND ticket_id BETWEEN 2001 AND 2365')->fetch_row()[0]===0,'El DML no debe duplicar en finanzas ventas que ya provienen de tickets.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id IN(1004,1005) AND o.unidad_id=2 AND p.nombre LIKE '[DEV]%' ")->fetch_row()[0]===2,'Las ofertas de temporada deben ser sintéticas y permanecer fuera del menú preservado.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM ticket_items WHERE ticket_id BETWEEN 2001 AND 2365 AND estado='cancelado'")->fetch_row()[0]===36,'El histórico debe cubrir cancelaciones anteriores a producción.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM ticket_pagos WHERE ticket_id BETWEEN 2001 AND 2365')->fetch_row()[0]===242,'Las cuentas divididas deben contener dos pagos por ticket.');
     return ['ok'=>true,'menu'=>$menu['conteos'],'comprobaciones_acumuladas'=>$count];
 }

@@ -189,5 +189,147 @@ INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo
 INSERT INTO catas(id,unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES
  ('1001','2','[DEV] Cata de prueba','Evento sintético para verificar la agenda.',@dev_manana,'18:00:00','90','200.00','1');
 UPDATE configuracion_pos SET impresion_activa=0 WHERE unidad_id IN (2,3);
-INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v1');
+-- =====================================================================
+-- BLOQUE DE COBERTURA MULTIPERIODO — arquitectura 3E
+--
+-- El DML anterior de main usaba IDs/rangos 200–499 para analíticas/RevPASH,
+-- IDs 900–999 para variantes y 10000–19999 para el asistente, sobre tablas y
+-- catálogo mononegocio retirados. Esta reconstrucción genera hechos nuevos en
+-- tickets, ticket_items, ticket_mesas y ticket_pagos; no copia aquellos INSERT,
+-- no altera el menú original y no reintroduce ingredientes.stock.
+-- Una venta de carta sin receta congelada mantiene el costo como desconocido;
+-- las operaciones POS de prueba existentes sí conservan su ledger 3C completo.
+-- =====================================================================
+SET @dev_ahora_cobertura=NOW();
+CREATE TEMPORARY TABLE cp_dev_serie AS
+SELECT n,
+       DATE_SUB(LAST_DAY(DATE_SUB(CURDATE(),INTERVAL 1 MONTH)),INTERVAL n-1 DAY) dia,
+       CASE DAYOFWEEK(DATE_SUB(LAST_DAY(DATE_SUB(CURDATE(),INTERVAL 1 MONTH)),INTERVAL n-1 DAY))
+         WHEN 1 THEN 9+MOD(n,8)
+         WHEN 2 THEN 13+MOD(n,7)
+         ELSE 9+MOD(n,11)
+       END hora,
+       MOD(n*37,51) minuto
+FROM (
+ SELECT unidades.d+decenas.d*10+centenas.d*100+1 n
+ FROM (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) unidades
+ CROSS JOIN (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) decenas
+ CROSS JOIN (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) centenas
+) numeros
+WHERE n<=365;
+ALTER TABLE cp_dev_serie ADD PRIMARY KEY(n);
+INSERT INTO mesas(id,unidad_id,numero,nombre,tipo,zona,capacidad,pos_x,pos_y,activo,reservable) VALUES
+ (1009,2,9,'[DEV] Barra','barra',NULL,6,22,92,1,0),
+ (1010,2,10,'[DEV] Para llevar','especial',NULL,0,70,92,1,0);
+INSERT INTO productos(id,nombre,descripcion,img) VALUES
+ (1004,'[DEV] Cacao de temporada','Oferta sintética para ensayar variantes y analíticas; no forma parte del menú original.',NULL),
+ (1005,'[DEV] Pan dulce de temporada','Oferta sintética para ensayar categoría y área de producción.',NULL);
+INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
+ (1004,1004,2,15,85.00,1,1,10002),
+ (1005,1005,2,15,70.00,4,1,10003);
+INSERT INTO producto_variantes(id,oferta_id,unidad_id,grupo,nombre,precio_delta,predeterminada,orden_grupo,orden,activo) VALUES
+ (1010,1004,2,'Tamaño','Regular',0.00,1,0,0,1),
+ (1011,1004,2,'Tamaño','Grande',15.00,0,0,1,1),
+ (1012,1005,2,'Presentación','Individual',0.00,1,0,0,1),
+ (1013,1005,2,'Presentación','Para compartir',35.00,0,0,1,1);
+INSERT INTO excepciones_operacion(unidad_id,fecha,tipo,motivo,hora_apertura,hora_cierre,activo) VALUES
+ (2,DATE_SUB(CURDATE(),INTERVAL 14 DAY),'cerrado','[DEV] Cierre simulado de mantenimiento',NULL,NULL,1),
+ (2,DATE_ADD(CURDATE(),INTERVAL 12 DAY),'horario_especial','[DEV] Servicio especial de prueba','10:00:00','18:00:00',1),
+ (2,DATE_ADD(CURDATE(),INTERVAL 20 DAY),'cerrado','[DEV] Día festivo simulado',NULL,NULL,1);
+INSERT INTO configuracion_anuncio(unidad_id,id,mensaje,tipo,activo,fecha_inicio,fecha_fin,texto_enlace,url_enlace) VALUES
+ (2,1,'[DEV] Especiales de temporada disponibles','novedad_menu',1,@dev_ahora_cobertura,DATE_ADD(@dev_ahora_cobertura,INTERVAL 30 DAY),'Ver menú',NULL),
+ (3,1,'[DEV] Vitrina de prueba','aviso_operativo',0,NULL,NULL,NULL,NULL);
+INSERT INTO catas(id,unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES
+ (1002,2,'[DEV] Cata primavera','Sesión histórica de muestra.','2026-03-21','18:00:00',90,250.00,0),
+ (1003,2,'[DEV] Cata verano','Sesión histórica de muestra.','2026-06-20','18:30:00',90,280.00,0),
+ (1004,2,'[DEV] Cata próxima','Evento futuro sin proveedor externo.',DATE_ADD(CURDATE(),INTERVAL 14 DAY),'18:00:00',90,300.00,1),
+ (1005,2,'[DEV] Cata fin de temporada','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 45 DAY),'17:30:00',120,320.00,1),
+ (1006,2,'[DEV] Cata de invierno','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 100 DAY),'18:00:00',120,350.00,1);
+-- Estados históricos separados; sin contactos personales ni envíos externos.
+INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado,hold_expires_at,reemplaza_reservacion_id) VALUES
+ (1003,2,'[DEV] Reserva cancelada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 2 DAY),'13:30:00',3,'[DEV] Cancelación anterior al servicio.','admin','cancelada',NULL,NULL),
+ (1004,2,'[DEV] Reserva no presentada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 3 DAY),'14:00:00',2,'[DEV] Seguimiento de no-show.','admin','no_show',NULL,NULL),
+ (1005,2,'[DEV] Retención expirada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 4 DAY),'15:00:00',2,'[DEV] Retención vencida.','landing','expirada',DATE_SUB(NOW(),INTERVAL 4 DAY),NULL),
+ (1006,2,'[DEV] Solicitud pendiente','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 4 DAY),'13:30:00',2,'[DEV] Verificación sin mensajería.','landing','pendiente_verificacion',DATE_ADD(NOW(),INTERVAL 30 MINUTE),NULL),
+ (1007,2,'[DEV] Reserva confirmada próxima','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'[DEV] Reserva confirmada para el salón.','admin','confirmada',NULL,NULL),
+ (1008,2,'[DEV] Reserva anterior reubicada','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'[DEV] Registro antecedente de reubicación.','admin','reemplazada',NULL,1007),
+ (1009,2,'[DEV] Reserva en curso','ninguno',NULL,CURDATE(),TIME(DATE_ADD(NOW(),INTERVAL 30 MINUTE)),2,'[DEV] Servicio operativo de muestra.','admin','en_curso',NULL,NULL);
+INSERT INTO reservacion_mesas(id,unidad_id,reservacion_id,mesa_id,orden) VALUES
+ (1003,2,1007,1002,1),
+ (1005,2,1009,1005,1);
+INSERT INTO reservacion_reubicaciones(id,unidad_id,reservacion_id,causa_reservacion_id,motivo,mesas_antes,mesas_despues,revisada_at) VALUES
+ (1001,2,1007,1003,'bloque_exterior','[DEV] Mesa 5','[DEV] Mesa 2',NULL);
+-- Hechos comerciales de doce meses: se agregan con snapshots del catálogo
+-- vigente, dos o tres líneas por ticket, franjas dentro del horario semanal,
+-- grupos con coocurrencia para lift y variantes con precio congelado.
+INSERT INTO tickets(id,unidad_id,unidad_tipo,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id)
+SELECT 2000+s.n,2,'negocio',2+MOD(s.n,5),CONCAT('[DEV] Venta histórica ',LPAD(s.n,3,'0')),
+       TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),
+       DATE_ADD(TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),INTERVAL 45+MOD(s.n,46) MINUTE),
+       DATE_ADD(TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),INTERVAL 45+MOD(s.n,46) MINUTE),
+       'cerrado',CASE MOD(s.n,3) WHEN 0 THEN 'dividido' WHEN 1 THEN 'efectivo' ELSE 'tarjeta' END,
+       MOD(s.n,17)*5.00,NULL,1002
+FROM cp_dev_serie s;
+CREATE TEMPORARY TABLE cp_dev_lineas AS
+SELECT s.n,nums.linea,
+       CASE
+         WHEN MOD(s.n,8) IN (0,1) THEN IF(nums.linea=1,1,IF(nums.linea=2,40,1+MOD(s.n*11,112)))
+         WHEN MOD(s.n,8) IN (2,3) THEN IF(nums.linea=1,18,IF(nums.linea=2,63,1+MOD(s.n*11,112)))
+         WHEN MOD(s.n,8) IN (4,5) THEN IF(nums.linea=1,22,IF(nums.linea=2,69,1+MOD(s.n*11,112)))
+         WHEN MOD(s.n,8)=6 THEN IF(nums.linea=1,80,IF(nums.linea=2,96,1+MOD(s.n*11,112)))
+         ELSE IF(nums.linea=1,1004,IF(nums.linea=2,112,1005))
+       END oferta_id,
+       IF(MOD(s.n,5)=0,3,2) lineas_ticket
+FROM cp_dev_serie s
+CROSS JOIN (SELECT 1 linea UNION ALL SELECT 2 UNION ALL SELECT 3) nums
+WHERE nums.linea<=IF(MOD(s.n,5)=0,3,2);
+ALTER TABLE cp_dev_lineas ADD INDEX idx_cp_dev_lineas(n,oferta_id);
+INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at)
+SELECT 2,2000+l.n,o.id,o.producto_id,NULL,p.nombre,
+       o.precio+COALESCE(pv.precio_delta,0),c.nombre,o.categoria_id,o.area_id,a.nombre,
+       1+MOD(l.n+l.linea-1,2+MOD(l.n,5)),1+MOD(l.n+l.linea,3),
+       IF(l.linea=3,'[DEV] Renglón cancelado antes de producción.',NULL),
+       pv.id,IF(pv.id IS NULL,NULL,CONCAT(pv.grupo,': ',pv.nombre)),NULL,
+       IF(l.linea=3 AND MOD(l.n,10)=0,'cancelado','entregado'),
+       DATE_ADD(t.hora_apertura,INTERVAL 10+l.linea*3 MINUTE)
+FROM cp_dev_lineas l
+JOIN tickets t ON t.id=2000+l.n AND t.unidad_id=2
+JOIN ofertas_producto o ON o.id=l.oferta_id AND o.unidad_id=2
+JOIN productos p ON p.id=o.producto_id
+JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id
+JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id
+LEFT JOIN producto_variantes pv ON pv.id=CASE WHEN l.oferta_id=1004 THEN IF(MOD(l.n,2)=0,1010,1011) WHEN l.oferta_id=1005 THEN IF(MOD(l.n,2)=0,1012,1013) ELSE NULL END
+  AND pv.oferta_id=o.id AND pv.unidad_id=o.unidad_id AND pv.activo=1;
+INSERT INTO ticket_mesas(unidad_id,ticket_id,mesa_id,orden)
+SELECT 2,2000+s.n,
+       CASE WHEN MOD(s.n,10)=0 THEN 1009 WHEN MOD(s.n,5)=0 THEN 1010 ELSE 1001+MOD(s.n-1,8) END,1
+FROM cp_dev_serie s;
+-- Sólo las cuentas divididas guardan dos métodos; su suma coincide exactamente
+-- con las líneas entregadas y nunca se duplica como operación financiera.
+INSERT INTO ticket_pagos(id,unidad_id,ticket_id,comensal,metodo_pago,monto,created_at)
+SELECT 5000+s.n*2,2,2000+s.n,1,'efectivo',ROUND(totales.total/2,2),tk.hora_cierre
+FROM cp_dev_serie s JOIN tickets tk ON tk.id=2000+s.n AND tk.metodo_pago='dividido'
+JOIN (SELECT ticket_id,unidad_id,SUM(precio*cantidad) total FROM ticket_items WHERE unidad_id=2 AND estado<>'cancelado' GROUP BY ticket_id,unidad_id) totales ON totales.ticket_id=tk.id AND totales.unidad_id=tk.unidad_id;
+INSERT INTO ticket_pagos(id,unidad_id,ticket_id,comensal,metodo_pago,monto,created_at)
+SELECT 5001+s.n*2,2,2000+s.n,2,'tarjeta',totales.total-ROUND(totales.total/2,2),tk.hora_cierre
+FROM cp_dev_serie s JOIN tickets tk ON tk.id=2000+s.n AND tk.metodo_pago='dividido'
+JOIN (SELECT ticket_id,unidad_id,SUM(precio*cantidad) total FROM ticket_items WHERE unidad_id=2 AND estado<>'cancelado' GROUP BY ticket_id,unidad_id) totales ON totales.ticket_id=tk.id AND totales.unidad_id=tk.unidad_id;
+INSERT INTO operaciones_financieras(id,unidad_id,tipo,concepto,monto,ticket_id,usuario_id,fecha)
+SELECT 3000+s.n,2,'egreso',
+       CASE MOD(s.n,5) WHEN 0 THEN '[DEV] Servicio de operación simulado' WHEN 1 THEN '[DEV] Insumos sin artículo inventariable' WHEN 2 THEN '[DEV] Mantenimiento simulado' WHEN 3 THEN '[DEV] Nómina de ejemplo' ELSE '[DEV] Gasto de operación' END,
+       ROUND(250.00+MOD(s.n*791,45000)/100,2),NULL,NULL,DATE_SUB(@dev_ahora_cobertura,INTERVAL s.n*10 DAY)
+FROM cp_dev_serie s WHERE s.n<=36;
+INSERT INTO gastos_fijos(id,unidad_id,nombre,categoria,monto,activo) VALUES
+ (1003,2,'[DEV] Nómina mensual','nomina',12000.00,1),
+ (1004,2,'[DEV] Insumos mensuales','insumos',3500.00,1),
+ (1005,2,'[DEV] Servicios mensuales','servicios',1800.00,1),
+ (1006,2,'[DEV] Otros gastos mensuales','otros',750.00,1);
+INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo_espera,experiencia_global,comentario,created_at)
+SELECT 2000+s.n,2,2000+s.n,3+MOD(s.n,3),3+MOD(s.n*2,3),2+MOD(s.n,4),3+MOD(s.n*3,3),
+       '[DEV] Opinión agregada de demostración, sin datos personales.',DATE_ADD(t.closed_at,INTERVAL 5 MINUTE)
+FROM cp_dev_serie s JOIN tickets t ON t.id=2000+s.n
+WHERE MOD(s.n,5)=0;
+DROP TEMPORARY TABLE cp_dev_lineas;
+DROP TEMPORARY TABLE cp_dev_serie;
+INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v2');
 COMMIT;
