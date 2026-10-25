@@ -1,6 +1,6 @@
 # Backlog posterior a 3E
 
-El [contrato rector](contrato.md) distingue funciones operativas, contratos
+El [contrato rector](arquitectura.md) distingue funciones operativas, contratos
 preparados y módulos pendientes. Este backlog no autoriza implementarlos como
 parte del cierre ni convierte una tabla existente en un módulo terminado.
 

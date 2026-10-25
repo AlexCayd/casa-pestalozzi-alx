@@ -1,8 +1,8 @@
 # Almacenes
 
 Contrato funcional de la interfaz administrativa compartida de Global,
-Restaurante y Panadería. Se apoya en el [motor 3C](../migracion/contrato-almacenes-3c.md)
-y en el [contrato rector](../contrato.md); no implementa un motor por ámbito.
+Restaurante y Panadería. Se apoya en el [motor 3C](../arquitectura.md#5-almacenes-e-inventario)
+y en el [contrato rector](../arquitectura.md); no implementa un motor por ámbito.
 
 ## Superficies y permisos
 

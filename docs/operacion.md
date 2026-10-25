@@ -1,7 +1,7 @@
 # Operación POS e impresión
 
 Contrato funcional del envío de comandas, impresión térmica y alertas de
-Restaurante, subordinado al [contrato rector](contrato.md). La impresión es una copia física: el ticket y sus platillos se
+Restaurante, subordinado al [contrato rector](arquitectura.md). La impresión es una copia física: el ticket y sus platillos se
 persisten en PHP y alimentan el tablero de producción.
 
 ## Envío de comanda

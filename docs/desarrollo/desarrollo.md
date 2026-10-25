@@ -1,6 +1,6 @@
 # Guía de desarrollo
 
-La entrada obligatoria es [docs/contrato.md](../contrato.md). Consultar también
+La entrada obligatoria es [docs/arquitectura.md](../arquitectura.md). Consultar también
 [CLAUDE.md](../../CLAUDE.md) para las convenciones y los componentes de interfaz.
 Esta guía no convierte un módulo preparado en funcional.
 

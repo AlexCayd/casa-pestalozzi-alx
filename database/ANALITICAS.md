@@ -1,7 +1,7 @@
 # Casa Pestalozzi — Analíticas diagnósticas
 
 > **Histórico — referencia de diseño.** propuesta y explicación de analíticas anterior al cierre multinegocio; los costos comerciales actuales usan snapshots y la instalación usa el procedimiento 3E.
-> Prevalece el [contrato rector 3E](../docs/contrato.md) y el código de la revisión.
+> Prevalece el [contrato rector 3E](../docs/arquitectura.md) y el código de la revisión.
 > No utilizar este documento para instalar DML, autorizar rutas o aplicar DDL antiguo.
 
 

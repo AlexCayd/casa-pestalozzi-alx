@@ -1,7 +1,7 @@
 # Módulo de Tickets e Impresión Térmica (ESC/POS)
 
 > **Histórico — referencia de diseño.** diseño técnico de impresión de julio de 2026; conserva ejemplos y decisiones anteriores, incluidos nombres de controladores y esquema que ya cambiaron.
-> Prevalece el [contrato rector 3E](../../docs/contrato.md) y el código de la revisión.
+> Prevalece el [contrato rector 3E](../../docs/arquitectura.md) y el código de la revisión.
 > No utilizar este documento para instalar DML, autorizar rutas o aplicar DDL antiguo.
 
 

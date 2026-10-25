@@ -1,12 +1,12 @@
 # Casa Pestalozzi
 
 Aplicación PHP MVC/MySQL con ámbitos Global, Restaurante y Panadería.
-El [contrato rector](docs/contrato.md) describe la arquitectura y distingue los
+El [contrato rector](docs/arquitectura.md) describe la arquitectura y distingue los
 módulos funcionales de los contratos preparados para desarrollo posterior.
 
 ## Empezar
 
-1. Leer el [contrato](docs/contrato.md) y las [instrucciones para agentes](CLAUDE.md).
+1. Leer el [contrato](docs/arquitectura.md) y las [instrucciones para agentes](CLAUDE.md).
 2. Seguir la [instalación reproducible](docs/desarrollo/instalacion.md).
 3. Consultar la [guía de desarrollo](docs/desarrollo/desarrollo.md) y las
    [pruebas obligatorias](docs/desarrollo/pruebas.md).

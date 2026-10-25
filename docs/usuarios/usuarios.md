@@ -1,7 +1,7 @@
 # Usuarios y acceso
 
 Contrato funcional de cuentas internas en los tres ámbitos. La precedencia
-corresponde al [contrato rector](../contrato.md); las asignaciones directas se
+corresponde al [contrato rector](../arquitectura.md); las asignaciones directas se
 detallan en [Permisos y ámbitos](roles-y-permisos.md).
 
 ## Identidad y ámbitos
@@ -68,6 +68,6 @@ No versionar archivos de entorno, logs con credenciales ni NIP entregados.
 ## Referencias vigentes
 
 - [Permisos directos](roles-y-permisos.md).
-- [Contrato técnico de autorización](../migracion/contrato-autorizacion-3b.md).
+- [Contrato técnico de autorización](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Privacidad](../privacidad/privacidad.md).
 - [Reservaciones](../reservaciones/reservaciones.md).

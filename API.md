@@ -3,7 +3,7 @@
 Referencia técnica de endpoints JSON. El registro ejecutable está en
 `public/index.php` y la autorización vigente en
 `services/Security/Permisos.php`/`PermisosUsuario.php`, subordinados al
-[contrato rector](docs/contrato.md). Las tablas de rutas de este inventario
+[contrato rector](docs/arquitectura.md). Las tablas de rutas de este inventario
 son una ayuda de lectura; no sustituyen el catálogo ni acreditan módulos pendientes.
 
 ## Dónde viven

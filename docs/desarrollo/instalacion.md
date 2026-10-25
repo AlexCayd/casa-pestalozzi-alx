@@ -1,7 +1,7 @@
 # Instalación de desarrollo
 
 Esta guía es el procedimiento único para reconstruir la aplicación desde los
-archivos versionados. El [contrato rector](../contrato.md) define su alcance.
+archivos versionados. El [contrato rector](../arquitectura.md) define su alcance.
 No utiliza la base antigua ni el paquete privado de preservación de Etapa 2.
 
 ## Requisitos

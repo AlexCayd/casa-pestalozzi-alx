@@ -2,7 +2,7 @@
 
 El nombre del archivo se conserva para no romper referencias históricas. La
 fuente efectiva desde 3B es la asignación directa, no el rol. El
-[contrato rector](../contrato.md) rige esta implementación y su expansión.
+[contrato rector](../arquitectura.md) rige esta implementación y su expansión.
 
 ## Modelo de datos
 
@@ -81,6 +81,6 @@ Ver [pruebas de aceptación](../desarrollo/pruebas.md).
 ## Referencias
 
 - [Usuarios y acceso](usuarios.md).
-- [Contrato técnico 3B](../migracion/contrato-autorizacion-3b.md).
+- [Contrato técnico 3B](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Instalación y bootstrap](../desarrollo/instalacion.md).
 - [Clasificación de antecedentes](../desarrollo/clasificacion-documental.md).

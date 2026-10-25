@@ -1,6 +1,6 @@
 # Casa Pestalozzi — instrucciones de desarrollo
 
-Leer primero [docs/contrato.md](docs/contrato.md), la fuente principal de verdad.
+Leer primero [docs/arquitectura.md](docs/arquitectura.md), la fuente principal de verdad.
 Después consultar la [instalación](docs/desarrollo/instalacion.md),
 [guía de desarrollo](docs/desarrollo/desarrollo.md),
 [pruebas](docs/desarrollo/pruebas.md) y [backlog](docs/backlog.md).
@@ -42,7 +42,7 @@ doble escritura de stock ni compatibilidad nueva con datos históricos descartad
 La identidad y las membresías se comparten. Los permisos efectivos se asignan por
 usuario, unidad y módulo (`usuario_unidad_permisos`); los roles internos no conceden
 derechos implícitos. `usuarios.es_superadmin` es la excepción explícita protegida.
-Consultar [el contrato técnico de autorización](docs/migracion/contrato-autorizacion-3b.md).
+Consultar [el contrato técnico de autorización](docs/arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 
 Panel utiliza `ver`/`editar`; piso `operar` para POS, KDS y mapa operativo de reservas.
 La unión de permisos de panel en cualquier ámbito exige contraseña, incluso para
@@ -82,7 +82,7 @@ como una decisión comercial implícita de Panadería.
 
 Cada existencia pertenece a almacén y artículo. El único saldo físico vive en
 `almacen_articulos`; el consolidado Global es una consulta. Operar requiere almacén
-propio y autorización del [motor de Almacenes](docs/migracion/contrato-almacenes-3c.md).
+propio y autorización del [motor de Almacenes](docs/arquitectura.md#5-almacenes-e-inventario).
 Las cantidades y costos respetan DECIMAL y se transmiten como cadenas exactas.
 Las ventas guardan oferta y snapshots; consumo y compensación utilizan operaciones
 trazables en la misma transacción. Global no vende y las transferencias siguen

@@ -2,13 +2,13 @@
 
 > **Histórico — antecedente de la migración.** Describe la revisión y aceptación
 > de su etapa, no el procedimiento de instalación ni el estado operativo actual.
-> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> Prevalecen el [contrato rector 3E](../arquitectura.md) y la
 > [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
 
 
-> Evidencia de la propuesta inicial, conservada como antecedente. Sus exigencias
-> de migración histórica quedan sustituidas por el [plan vigente](../migracion/plan-maestro.md).
-> La evidencia de la actualización está en [validacion-plan.md](../migracion/validacion-plan.md).
+> Evidencia de la propuesta inicial, conservada como antecedente. Sus instrucciones
+> de migración no son vigentes; el estado actual y sus reglas están en
+> [Arquitectura](../arquitectura.md).
 
 Fecha: 2026-10-24. Base: `main`, `1aa642a`.
 Alcance: documentación de contratos; sin cambios de código, esquema, rutas,

@@ -1,6 +1,6 @@
 # Pruebas y criterios de aceptación
 
-El [contrato rector](../contrato.md) fija los criterios de entrega. Este documento
+El [contrato rector](../arquitectura.md) fija los criterios de entrega. Este documento
 identifica comandos y alcance; los números y resultados de cada ejecución deben
 registrarse en el informe de la revisión validada.
 
