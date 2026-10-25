@@ -100,31 +100,22 @@ INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES
  ('1002','1001','2','1002'),
  ('1002','1002','2','1002'),
  ('1003','1001','3','1003');
-INSERT INTO mesas(id,unidad_id,numero,nombre,tipo,zona,capacidad,pos_x,pos_y,activo,reservable) VALUES
- ('1001','2','1','[DEV] Mesa 1','mesa','interior','4','15','20','1','1'),
- ('1002','2','2','[DEV] Mesa 2','mesa','interior','4','35','20','1','1'),
- ('1003','2','3','[DEV] Mesa 3','mesa','interior','4','55','20','1','1'),
- ('1004','2','4','[DEV] Mesa 4','mesa','interior','4','75','20','1','1'),
- ('1005','2','5','[DEV] Mesa 5','mesa','exterior','4','15','60','1','1'),
- ('1006','2','6','[DEV] Mesa 6','mesa','exterior','4','35','60','1','1'),
- ('1007','2','7','[DEV] Mesa 7','mesa','exterior','4','55','60','1','1'),
- ('1008','2','8','[DEV] Mesa 8','mesa','exterior','4','75','60','1','1');
 INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado) VALUES
  ('1001','2','[DEV] Reserva futura','ninguno',NULL,@dev_manana,'13:00:00','2','Reserva sintética sin comunicación externa.','admin','confirmada'),
  ('1002','2','[DEV] Reserva completada','ninguno',NULL,@dev_ayer,'12:00:00','2','Registro sintético de atención.','admin','completada');
 INSERT INTO reservacion_mesas(id,unidad_id,reservacion_id,mesa_id,orden) VALUES
- ('1001','2','1001','1001','1'),
- ('1002','2','1002','1001','1');
+ ('1001','2','1001','1','1'),
+ ('1002','2','1002','1','1');
 INSERT INTO tickets(id,unidad_id,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id) VALUES
  ('1001','2','2','[DEV] Venta cerrada',TIMESTAMP(@dev_ayer,'12:00:00'),@dev_cierre,@dev_cierre,'cerrado','efectivo','7.00','1002','1002'),
  ('1002','2','2','[DEV] Comanda enviada',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
  ('1003','2','2','[DEV] En preparación',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
  ('1004','2','2','[DEV] Lista para entregar',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002');
 INSERT INTO ticket_mesas(id,unidad_id,ticket_id,mesa_id,orden) VALUES
- ('1001','2','1001','1001','1'),
- ('1002','2','1002','1002','1'),
- ('1003','2','1003','1003','1'),
- ('1004','2','1004','1004','1');
+ ('1001','2','1001','1','1'),
+ ('1002','2','1002','2','1'),
+ ('1003','2','1003','3','1'),
+ ('1004','2','1004','4','1');
 INSERT INTO ticket_items(id,unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at) VALUES
  ('1001','2','1001','1001','1001','1001','[DEV] Café con leche','35.00','[DEV] Pruebas Restaurante','1001','1','Barra de Café','1','2',NULL,'1001','Normal','4.0000','entregado',TIMESTAMP(@dev_ayer,'12:05:00')),
  ('1002','2','1001','1002','1002','1002','[DEV] Tostada de prueba','45.00','[DEV] Pruebas Restaurante','1001','3','Cocina','1','1','Cancelación sintética compensada.',NULL,NULL,'1.9000','cancelado',TIMESTAMP(@dev_ayer,'12:06:00')),
@@ -189,6 +180,17 @@ INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo
 INSERT INTO catas(id,unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES
  ('1001','2','[DEV] Cata de prueba','Evento sintético para verificar la agenda.',@dev_manana,'18:00:00','90','200.00','1');
 UPDATE configuracion_pos SET impresion_activa=0 WHERE unidad_id IN (2,3);
+-- Referencias locales de impresión para probar gestión y estados sin activar hardware.
+INSERT INTO impresoras(id,unidad_id,nombre,area_id,rol,conexion,host,puerto,dispositivo,ancho,activo) VALUES
+ (101,2,'[DEV] Comanda Café',1,'comanda','red','127.0.0.1',9100,NULL,32,0),
+ (102,2,'[DEV] Comanda Jugos',2,'comanda','red','127.0.0.1',9100,NULL,32,0),
+ (103,2,'[DEV] Comanda Cocina',3,'comanda','red','127.0.0.1',9100,NULL,48,0),
+ (104,2,'[DEV] Comanda Horno',4,'comanda','red','127.0.0.1',9100,NULL,48,0),
+ (105,2,'[DEV] Cuenta Caja',NULL,'cuenta','red','127.0.0.1',9100,NULL,48,0);
+INSERT INTO historial_precios(id,unidad_id,oferta_id,articulo_id,precio_anterior,precio_nuevo,motivo,proveedor_id,created_at) VALUES
+ (1001,2,1001,NULL,NULL,35.0000,'alta',NULL,@dev_cierre),
+ (1002,2,1002,NULL,NULL,45.0000,'alta',NULL,@dev_cierre),
+ (1003,2,NULL,1002,NULL,0.0150,'proveedor',1001,@dev_cierre);
 -- =====================================================================
 -- BLOQUE DE COBERTURA MULTIPERIODO — arquitectura 3E
 --
@@ -218,9 +220,6 @@ FROM (
 ) numeros
 WHERE n<=365;
 ALTER TABLE cp_dev_serie ADD PRIMARY KEY(n);
-INSERT INTO mesas(id,unidad_id,numero,nombre,tipo,zona,capacidad,pos_x,pos_y,activo,reservable) VALUES
- (1009,2,9,'[DEV] Barra','barra',NULL,6,22,92,1,0),
- (1010,2,10,'[DEV] Para llevar','especial',NULL,0,70,92,1,0);
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
  (1004,'[DEV] Cacao de temporada','Oferta sintética para ensayar variantes y analíticas; no forma parte del menú original.',NULL),
  (1005,'[DEV] Pan dulce de temporada','Oferta sintética para ensayar categoría y área de producción.',NULL);
@@ -258,7 +257,7 @@ INSERT INTO reservacion_mesas(id,unidad_id,reservacion_id,mesa_id,orden) VALUES
  (1003,2,1007,1002,1),
  (1005,2,1009,1005,1);
 INSERT INTO reservacion_reubicaciones(id,unidad_id,reservacion_id,causa_reservacion_id,motivo,mesas_antes,mesas_despues,revisada_at) VALUES
- (1001,2,1007,1003,'bloque_exterior','[DEV] Mesa 5','[DEV] Mesa 2',NULL);
+ (1001,2,1007,1003,'bloque_exterior','Mesa 5','Mesa 2',NULL);
 -- Hechos comerciales de doce meses: se agregan con snapshots del catálogo
 -- vigente, dos o tres líneas por ticket, franjas dentro del horario semanal,
 -- grupos con coocurrencia para lift y variantes con precio congelado.
@@ -302,7 +301,7 @@ LEFT JOIN producto_variantes pv ON pv.id=CASE WHEN l.oferta_id=1004 THEN IF(MOD(
   AND pv.oferta_id=o.id AND pv.unidad_id=o.unidad_id AND pv.activo=1;
 INSERT INTO ticket_mesas(unidad_id,ticket_id,mesa_id,orden)
 SELECT 2,2000+s.n,
-       CASE WHEN MOD(s.n,10)=0 THEN 1009 WHEN MOD(s.n,5)=0 THEN 1010 ELSE 1001+MOD(s.n-1,8) END,1
+       CASE WHEN MOD(s.n,20)=0 THEN 12 WHEN MOD(s.n,20)=1 THEN 14 ELSE 1+MOD(s.n-1,11) END,1
 FROM cp_dev_serie s;
 -- Sólo las cuentas divididas guardan dos métodos; su suma coincide exactamente
 -- con las líneas entregadas y nunca se duplica como operación financiera.
@@ -331,5 +330,5 @@ FROM cp_dev_serie s JOIN tickets t ON t.id=2000+s.n
 WHERE MOD(s.n,5)=0;
 DROP TEMPORARY TABLE cp_dev_lineas;
 DROP TEMPORARY TABLE cp_dev_serie;
-INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v2');
+INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v3');
 COMMIT;
