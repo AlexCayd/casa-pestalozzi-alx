@@ -204,7 +204,7 @@ try {
     $floorAdminApi = $floor->request('GET', '/admin/api/analytics/venta-por-hora');
     http3bAssert($floorAdminApi['status'] === 403, 'La sesión operativa no abre una API administrativa.', $count);
     $floorPos = $floor->request('GET', '/punto-de-venta');
-    http3bAssert($floorPos['status'] === 503 && str_contains($floorPos['body'], 'Este módulo espera su adaptación al esquema multinegocio.'), 'La página POS directa señala que el módulo espera adaptación.', $count);
+    http3bAssert($floorPos['status'] === 200 && str_contains($floorPos['body'], 'operational-main') && !str_contains($floorPos['body'], 'Fatal error'), 'El permiso operativo abre el POS de Restaurante adaptado en 3D.', $count);
     $logout = $floor->request('POST', '/logout');
     http3bAssert(in_array($logout['status'], [302,303], true) && str_starts_with($logout['location'], '/login'), 'Logout no cerró la sesión por NIP.', $count);
     $afterLogout = $floor->request('GET', '/admin/usuarios');

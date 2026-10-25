@@ -168,6 +168,9 @@ try {
         'Más de tres decimales se rechazan sin crear versión ni alterar cantidades.', $count);
     $phase = 'permisos de recetas sin permiso de Menú';
     restaurante3dIniciarSesion($recipeOnly);
+    $recipeCatalog=ContextoNegocio::en('restaurante',static fn()=>\Model\Ingrediente::paraRecetas());
+    restaurante3dAssert(in_array($ingredientId,array_map(static fn($i)=>(int)$i->id,$recipeCatalog),true),'El editor de recetas puede elegir artículos sin permiso de Inventario.', $count);
+    restaurante3dDenegado(fn()=>ContextoNegocio::en('restaurante',static fn()=>\Model\Ingrediente::todos()),'Leer la composición no concede acceso al módulo Inventario.', $count);
     $recipeDto = ContextoNegocio::en('restaurante', static fn() => Producto::paraReceta($restOffer));
     restaurante3dAssert($recipeDto instanceof Producto && (int)$recipeDto->id === $restOffer
         && (int)$recipeDto->oferta_id === $restOffer && (int)$recipeDto->producto_id === $restProductId,

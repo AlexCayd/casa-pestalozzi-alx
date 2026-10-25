@@ -11,6 +11,8 @@
 
 namespace Controllers;
 
+use Model\CategoriasMenu;
+
 use Model\Ingrediente;
 use Model\Producto;
 use Model\Subreceta;
@@ -169,7 +171,7 @@ class AdminRecetasController
                     'topbarSection' => 'Recetas / ' . $producto->nombre,
                     'producto' => $producto,
                     'categoriasMap' => self::categoriasMap(),
-                    'ingredientes' => Ingrediente::todos(),
+                    'ingredientes' => Ingrediente::paraRecetas($ctx),
                     'subrecetas' => Subreceta::todas($ctx),
                     'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
                     'alertas' => Producto::getAlertas(),
@@ -203,7 +205,7 @@ class AdminRecetasController
         $ingredientes = [];
         $subrecetas = [];
         try {
-            $ingredientes = Ingrediente::todos();
+            $ingredientes = Ingrediente::paraRecetas($ctx);
             $subrecetas = Subreceta::todas($ctx);
         } catch (\Throwable $e) {
             // Sin inventario aún: la receta se muestra vacía.
@@ -568,7 +570,7 @@ class AdminRecetasController
     {
         $ingredientes = [];
         try {
-            $ingredientes = Ingrediente::todos();
+            $ingredientes = Ingrediente::paraRecetas();
         } catch (\Throwable $e) {
             // Sin inventario aún.
         }

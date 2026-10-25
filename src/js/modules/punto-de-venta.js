@@ -4785,7 +4785,7 @@ function initMapa() {
                     ' <span class="mmodal-cart-comensal">' + com + '</span>' +
                     notaHtml + '</span>' +
                     '<span class="mmodal-confirm-item-qty">\xD7' + row.cantidad + '</span>' +
-                    '<span class="mmodal-confirm-item-price">$' + Math.round(row.precio * row.cantidad) + '</span>' +
+                    '<span class="mmodal-confirm-item-price">' + dineroCorto(row.precio * row.cantidad) + '</span>' +
                     // Las acciones van juntas en su propio piso de la rejilla
                     // (ver .mmodal-confirm-item): en fila con el precio se
                     // salían de la columna en una tablet a 1024.

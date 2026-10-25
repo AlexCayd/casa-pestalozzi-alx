@@ -38,6 +38,16 @@ class Ingrediente extends ActiveRecord {
     }
 
     public static function all() { return \Services\Security\ContextoNegocio::nuevo() ? self::todos() : parent::all(); }
+
+    /** Catálogo de composición; no concede lectura de existencias o movimientos. */
+    public static function paraRecetas(?string $ctx=null): array
+    {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return self::todos();
+        $ctx??=\Services\Security\ContextoNegocio::slug();
+        \Services\Security\ContextoNegocio::exigir('productos','ver',$ctx);
+        \Services\Security\ContextoNegocio::vendedora($ctx);
+        return self::consultarSQL('SELECT id,nombre,unidad,costo,activo FROM ingredientes ORDER BY activo DESC,nombre ASC');
+    }
     public static function total($columna='', $valor='') {
         if (!\Services\Security\ContextoNegocio::nuevo()) return parent::total($columna,$valor);
         \Services\Security\ContextoNegocio::exigir('inventario','ver','restaurante');
