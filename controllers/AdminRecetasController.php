@@ -14,6 +14,9 @@ namespace Controllers;
 use Model\Ingrediente;
 use Model\Producto;
 use Model\Subreceta;
+use Services\Menu\RecetasOferta;
+use Services\Security\ContextoNegocio;
+use Services\Inventory\DecimalInventario;
 use MVC\Router;
 
 class AdminRecetasController
@@ -29,6 +32,8 @@ class AdminRecetasController
     // ── Listado de platillos con su receta ───────────────────
     public static function index(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::index($router); return; }
+        ContextoNegocio::exigir('productos', 'ver', null, true);
         $filtros = self::leerFiltros();
 
         $productos = [];
@@ -138,8 +143,11 @@ class AdminRecetasController
      */
     public static function receta(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::receta($router); return; }
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('productos', 'ver', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
-        $producto = Producto::find($id);
+        $producto = Producto::paraReceta($id);
 
         if (!$producto) {
             Producto::setAlerta('error', 'El platillo no existe');
@@ -151,7 +159,25 @@ class AdminRecetasController
         $volver = self::volverSeguro($_GET['volver'] ?? null);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $componentes = self::guardarComponentes((int) $producto->id);
+            ContextoNegocio::exigir('productos', 'editar', $ctx, true);
+            $guardado = self::guardarComponentes($ctx, (int) $producto->id);
+            $componentes = count($guardado['componentes'] ?? []);
+            if (empty($guardado['ok'])) {
+                Producto::setAlerta('error', $guardado['mensaje'] ?? 'No se pudo guardar la receta.');
+                self::render('recetas/form', [
+                    'title' => 'Receta de ' . $producto->nombre,
+                    'topbarSection' => 'Recetas / ' . $producto->nombre,
+                    'producto' => $producto,
+                    'categoriasMap' => self::categoriasMap(),
+                    'ingredientes' => Ingrediente::todos(),
+                    'subrecetas' => Subreceta::todas($ctx),
+                    'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
+                    'alertas' => Producto::getAlertas(),
+                    'accion' => 'Guardar receta',
+                    'volverUrl' => $volver ?? self::PATH,
+                ]);
+                return;
+            }
 
             /*
              * Se llegó desde una lista de pendientes (la de Menú o la de este
@@ -178,7 +204,7 @@ class AdminRecetasController
         $subrecetas = [];
         try {
             $ingredientes = Ingrediente::todos();
-            $subrecetas = Subreceta::todas();
+            $subrecetas = Subreceta::todas($ctx);
         } catch (\Throwable $e) {
             // Sin inventario aún: la receta se muestra vacía.
         }
@@ -190,7 +216,7 @@ class AdminRecetasController
             'categoriasMap' => self::categoriasMap(),
             'ingredientes' => $ingredientes,
             'subrecetas' => $subrecetas,
-            'componentes' => self::componentesDe((int) $producto->id),
+            'componentes' => RecetasOferta::componentes($ctx, (int) $producto->id),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
@@ -201,9 +227,12 @@ class AdminRecetasController
     // ── Subrecetas ───────────────────────────────────────────
     public static function subrecetas(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetas($router); return; }
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('productos', 'ver', $ctx, true);
         $subrecetas = [];
         try {
-            $subrecetas = Subreceta::todas();
+            $subrecetas = Subreceta::todas($ctx);
         } catch (\Throwable $e) {
             Subreceta::setAlerta('error', 'No se pudieron cargar las subrecetas.');
         }
@@ -219,6 +248,9 @@ class AdminRecetasController
 
     public static function subrecetaCreate(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaCreate($router); return; }
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $subreceta = new Subreceta();
         $alertas = [];
 
@@ -228,17 +260,18 @@ class AdminRecetasController
             $alertas = $subreceta->validar();
 
             if (empty($alertas)) {
-                $resultado = $subreceta->guardar();
-                if ($resultado && ($resultado['resultado'] ?? false)) {
-                    $nuevoId = (int) ($resultado['id'] ?? 0);
-                    if ($nuevoId) {
-                        self::guardarSubrecetaIngredientes($nuevoId);
-                    }
+                $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
+                if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
                     Subreceta::setAlerta('exito', 'Subreceta creada correctamente');
                     self::subrecetas($router);
                     return;
                 }
-                Subreceta::setAlerta('error', 'No se pudo guardar la subreceta');
+                if (!empty($resultado['pendiente'])) {
+                    Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
+                } else {
+                    $subreceta->id = null;
+                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
+                }
                 $alertas = Subreceta::getAlertas();
             }
         }
@@ -248,8 +281,11 @@ class AdminRecetasController
 
     public static function subrecetaEdit(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaEdit($router); return; }
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
-        $subreceta = Subreceta::find($id);
+        $subreceta = Subreceta::find($id, $ctx);
 
         if (!$subreceta) {
             Subreceta::setAlerta('error', 'La subreceta no existe');
@@ -265,28 +301,35 @@ class AdminRecetasController
             $alertas = $subreceta->validar();
 
             if (empty($alertas)) {
-                if ($subreceta->guardar() !== false) {
-                    self::guardarSubrecetaIngredientes((int) $subreceta->id);
+                $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
+                if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
                     Subreceta::setAlerta('exito', 'Subreceta actualizada correctamente');
                     self::subrecetas($router);
                     return;
                 }
-                Subreceta::setAlerta('error', 'No se pudo actualizar la subreceta');
+                if (!empty($resultado['pendiente'])) {
+                    Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
+                } else {
+                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
+                }
                 $alertas = Subreceta::getAlertas();
             }
         }
 
-        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar subreceta', self::ingredientesDeSubreceta((int) $subreceta->id));
+        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar subreceta', self::ingredientesDeSubreceta($ctx, (int) $subreceta->id));
     }
 
     public static function subrecetaDelete(Router $router): void
     {
+        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaDelete($router); return; }
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirect(self::SUBPATH);
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
-        $subreceta = Subreceta::find($id);
+        $subreceta = Subreceta::find($id, $ctx);
 
         if ($subreceta && $subreceta->eliminar()) {
             Subreceta::setAlerta('exito', 'Subreceta eliminada correctamente');
@@ -298,107 +341,120 @@ class AdminRecetasController
     }
 
     // ── Persistencia de recetas ──────────────────────────────
-    /** @return int Componentes que quedaron en la receta. */
-    private static function guardarComponentes(int $productoId): int
+    /** Convierte el formulario actual a DTO y delega la versión a RecetasOferta. */
+    private static function guardarComponentes(string $ctx, int $ofertaId): array
     {
         // Cada componente llega como "tipo:ref" (p. ej. "ingrediente:5") en comp[]
         // con su cantidad en comp_cant[]. Así no depende de JS para el tipo.
         $comps = $_POST['comp'] ?? [];
         $cants = $_POST['comp_cant'] ?? [];
 
-        Producto::ejecutarSQL("DELETE FROM producto_componentes WHERE producto_id = {$productoId}");
-
-        $guardados = 0;
         if (!is_array($comps)) {
-            return $guardados;
+            return ['ok' => false, 'mensaje' => 'La receta enviada no es válida.'];
         }
-
+        $componentes = [];
         foreach ($comps as $i => $valor) {
             $partes = explode(':', (string) $valor, 2);
             if (count($partes) !== 2) {
-                continue;
+                return ['ok' => false, 'mensaje' => 'Un componente de receta no es válido.'];
             }
             $tipo = $partes[0] === 'subreceta' ? 'subreceta' : 'ingrediente';
             $ref = (int) $partes[1];
-            $cant = (float) ($cants[$i] ?? 0);
-            if ($ref <= 0 || $cant <= 0) {
-                continue;
+            $cant = $cants[$i] ?? null;
+            if ($ref <= 0 || !is_string($cant) || $cant === '') {
+                return ['ok' => false, 'mensaje' => 'Cada componente requiere una cantidad positiva.'];
             }
-            $cantSql = number_format($cant, 3, '.', '');
-            Producto::ejecutarSQL(
-                "INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
-                 VALUES ({$productoId}, '{$tipo}', {$ref}, {$cantSql})"
-            );
-            $guardados++;
+            $componentes[] = ['tipo' => $tipo, 'ref_id' => $ref, 'cantidad' => $cant];
         }
-
-        return $guardados;
+        return RecetasOferta::guardar($ctx, $ofertaId, $componentes);
     }
 
-    private static function guardarSubrecetaIngredientes(int $subrecetaId): void
+    private static function guardarSubrecetaIngredientes(string $ctx, int $subrecetaId): bool
     {
         $refs  = $_POST['ing_ref'] ?? [];
         $cants = $_POST['ing_cant'] ?? [];
-
-        Subreceta::ejecutarSQL("DELETE FROM subreceta_ingredientes WHERE subreceta_id = {$subrecetaId}");
-
-        if (!is_array($refs)) {
-            return;
+        if (!is_array($refs) || !is_array($cants)) return false;
+        $unidadId = ContextoNegocio::unidad($ctx);
+        try {
+            $result = ContextoNegocio::en($ctx, static function () use ($subrecetaId, $refs, $cants, $unidadId, $ctx): array {
+                return ContextoNegocio::transaccion(static function () use ($subrecetaId, $refs, $cants, $unidadId, $ctx): array {
+                    ContextoNegocio::exigir('productos', 'editar', $ctx, true);
+                    $db = Subreceta::getDB();
+                    $check = $db->prepare('SELECT id FROM subrecetas WHERE id=? AND unidad_id=? FOR UPDATE');
+                    $check->bind_param('ii', $subrecetaId, $unidadId); $check->execute();
+                    $owned = (bool)$check->get_result()->fetch_assoc(); $check->close();
+                    if (!$owned) throw new \DomainException('Subreceta fuera del ámbito.');
+                    $limpios=[];
+                    foreach ($refs as $i=>$ref) {
+                        $ref=(int)$ref;
+                        $cant=DecimalInventario::cantidad(DecimalInventario::leer($cants[$i]??null));
+                        if ($ref<=0 || DecimalInventario::leer($cant)<=0) throw new \DomainException('Componente inválido.');
+                        $limpios[]=[$ref,$cant];
+                    }
+                    $del=$db->prepare('DELETE FROM subreceta_ingredientes WHERE subreceta_id=? AND unidad_id=?');
+                    $del->bind_param('ii',$subrecetaId,$unidadId); if(!$del->execute()) throw new \RuntimeException($del->error); $del->close();
+                    $ins=$db->prepare('INSERT INTO subreceta_ingredientes (subreceta_id,unidad_id,articulo_id,cantidad) VALUES (?,?,?,?)');
+                    foreach($limpios as [$articuloId,$cant]) { $ins->bind_param('iiis',$subrecetaId,$unidadId,$articuloId,$cant); if(!$ins->execute()) throw new \RuntimeException($ins->error); }
+                    $ins->close();
+                    return ['guardado'=>true];
+                });
+            });
+            return !empty($result['ok']) || ($result['ok'] ?? null) === null;
+        } catch (\Throwable $e) {
+            error_log('AdminRecetasController::guardarSubrecetaIngredientes - '.$e->getMessage());
+            return false;
         }
+    }
 
-        foreach ($refs as $i => $ref) {
-            $ref = (int) $ref;
-            $cant = (float) ($cants[$i] ?? 0);
-            if ($ref <= 0 || $cant <= 0) {
-                continue;
-            }
-            $cantSql = number_format($cant, 3, '.', '');
-            Subreceta::ejecutarSQL(
-                "INSERT INTO subreceta_ingredientes (subreceta_id, ingrediente_id, cantidad)
-                 VALUES ({$subrecetaId}, {$ref}, {$cantSql})"
-            );
+    /** Guarda encabezado y composición bajo una sola confirmación externa. */
+    private static function guardarSubrecetaCompleta(string $ctx, Subreceta $subreceta): array
+    {
+        try {
+            return ContextoNegocio::en($ctx, static function () use ($ctx, $subreceta): array {
+                return ContextoNegocio::transaccion(static function () use ($ctx, $subreceta): array {
+                    ContextoNegocio::exigir('productos', 'editar', $ctx, true);
+                    $resultado = $subreceta->guardar();
+                    if ($resultado === false || (is_array($resultado) && empty($resultado['resultado']))) {
+                        throw new \RuntimeException('No se pudo guardar el encabezado de la subreceta.');
+                    }
+                    $id = (int)($subreceta->id ?? (is_array($resultado) ? ($resultado['id'] ?? 0) : 0));
+                    if ($id < 1 || !self::guardarSubrecetaIngredientes($ctx, $id)) {
+                        throw new \RuntimeException('No se pudieron guardar los componentes de la subreceta.');
+                    }
+                    return ['subreceta_id' => $id, 'guardado' => true];
+                });
+            });
+        } catch (\Throwable $e) {
+            error_log('AdminRecetasController::guardarSubrecetaCompleta - ' . $e->getMessage());
+            return ['ok' => false, 'confirmado' => false, 'pendiente' => false, 'mensaje' => 'No se pudo guardar la subreceta y sus componentes.'];
         }
     }
 
     // ── Lectura de recetas ───────────────────────────────────
     private static function componentesDe(int $productoId): array
     {
-        $db = Producto::getDB();
-        $rows = [];
-        $res = $db->query(
-            "SELECT pc.tipo, pc.ref_id, pc.cantidad,
-                    CASE WHEN pc.tipo = 'ingrediente' THEN i.nombre ELSE s.nombre END AS nombre,
-                    CASE WHEN pc.tipo = 'ingrediente' THEN i.unidad ELSE s.unidad END AS unidad
-               FROM producto_componentes pc
-               LEFT JOIN ingredientes i ON pc.tipo = 'ingrediente' AND i.id = pc.ref_id
-               LEFT JOIN subrecetas   s ON pc.tipo = 'subreceta'   AND s.id = pc.ref_id
-              WHERE pc.producto_id = {$productoId}
-              ORDER BY pc.tipo DESC, nombre ASC"
-        );
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $rows[] = $row;
-            }
-        }
-        return $rows;
+        return RecetasOferta::componentes(ContextoNegocio::slug(), $productoId);
     }
 
-    private static function ingredientesDeSubreceta(int $subrecetaId): array
+    private static function ingredientesDeSubreceta(string $ctx, int $subrecetaId): array
     {
         $db = Subreceta::getDB();
         $rows = [];
-        $res = $db->query(
-            "SELECT si.ingrediente_id AS ref_id, si.cantidad, i.nombre, i.unidad
+        $unidadId = ContextoNegocio::unidad($ctx);
+        $stmt = $db->prepare(
+            "SELECT si.articulo_id AS ref_id, si.cantidad, i.nombre, i.unidad
                FROM subreceta_ingredientes si
-               JOIN ingredientes i ON i.id = si.ingrediente_id
-              WHERE si.subreceta_id = {$subrecetaId}
+               JOIN ingredientes i ON i.id = si.articulo_id
+              WHERE si.subreceta_id = ? AND si.unidad_id = ?
               ORDER BY i.nombre ASC"
         );
+        $stmt->bind_param('ii', $subrecetaId, $unidadId); $stmt->execute(); $res=$stmt->get_result();
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $rows[] = $row;
             }
         }
+        $stmt->close();
         return $rows;
     }
 
@@ -414,29 +470,31 @@ class AdminRecetasController
     {
         $db = Producto::getDB();
         $map = [];
-        $res = $db->query(
-            "SELECT producto_id,
-                    SUM(tipo = 'ingrediente') AS ingredientes,
-                    SUM(tipo = 'subreceta')   AS subrecetas
-               FROM producto_componentes
-              GROUP BY producto_id"
-        );
+        $unidadId = ContextoNegocio::unidad();
+        $stmt = $db->prepare("SELECT r.oferta_id, SUM(rc.articulo_id IS NOT NULL) AS ingredientes, SUM(rc.subreceta_id IS NOT NULL) AS subrecetas FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id WHERE r.unidad_id=? AND r.activo=1 GROUP BY r.oferta_id");
+        $stmt->bind_param('i', $unidadId); $stmt->execute(); $res=$stmt->get_result();
         if ($res) {
             while ($row = $res->fetch_assoc()) {
-                $map[(int) $row['producto_id']] = [
+                $map[(int) $row['oferta_id']] = [
                     'ingredientes' => (int) $row['ingredientes'],
                     'subrecetas' => (int) $row['subrecetas'],
                 ];
             }
         }
+        $stmt->close();
         return $map;
     }
 
     /** Platillos ocultos de la carta, para la nota de la tarjeta «Platillos». */
     private static function conteoOcultos(): int
     {
-        $res = Producto::getDB()->query("SELECT COUNT(*) AS n FROM productos WHERE activo = 0");
+        $unidadId = ContextoNegocio::unidad();
+        $stmt = Producto::getDB()->prepare('SELECT COUNT(*) AS n FROM ofertas_producto WHERE unidad_id = ? AND activo = 0');
+        $stmt->bind_param('i', $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         $row = $res ? $res->fetch_assoc() : null;
+        $stmt->close();
 
         return (int) ($row['n'] ?? 0);
     }
@@ -483,14 +541,17 @@ class AdminRecetasController
     {
         $db = Subreceta::getDB();
         $map = [];
-        $res = $db->query(
-            "SELECT subreceta_id, COUNT(*) AS n FROM subreceta_ingredientes GROUP BY subreceta_id"
-        );
+        $unidadId = ContextoNegocio::unidad();
+        $stmt = $db->prepare('SELECT subreceta_id, COUNT(*) AS n FROM subreceta_ingredientes WHERE unidad_id = ? GROUP BY subreceta_id');
+        $stmt->bind_param('i', $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $map[(int) $row['subreceta_id']] = (int) $row['n'];
             }
         }
+        $stmt->close();
         return $map;
     }
 
@@ -498,13 +559,7 @@ class AdminRecetasController
     private static function categoriasMap(): array
     {
         $map = [];
-        $db = Producto::getDB();
-        $res = $db->query("SELECT id, nombre FROM categorias ORDER BY id ASC");
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $map[(int) $row['id']] = $row['nombre'];
-            }
-        }
+        foreach (CategoriasMenu::paraRecetas() as $categoria) $map[(int)$categoria->id] = $categoria->nombre;
         return $map;
     }
 

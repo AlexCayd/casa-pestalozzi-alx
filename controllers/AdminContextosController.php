@@ -24,6 +24,10 @@ final class AdminContextosController
     public static function navegacion(string $contexto, array $restaurante): array
     {
         if (Auth::multinegocio()) {
+            if ($contexto === 'restaurante') {
+                $habilitados=\Services\Security\ContextoNegocio::modulosHabilitados($contexto);
+                return array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
+            }
             if (!Auth::puede('users', 'ver', $contexto)) {
                 return [];
             }

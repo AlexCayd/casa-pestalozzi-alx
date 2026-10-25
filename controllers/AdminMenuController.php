@@ -264,10 +264,12 @@ class AdminMenuController
         }
 
         if ($eliminado) {
-            // Sólo cuando la fila ya no existe: si el DELETE no pasa, el
-            // platillo sigue vivo y sigue mostrando su foto.
-            ImagenUploader::eliminar($platillo->img);
-            Producto::setAlerta('exito', 'Platillo eliminado correctamente');
+            if (!\Services\Security\ContextoNegocio::nuevo()) {
+                ImagenUploader::eliminar($platillo->img);
+                Producto::setAlerta('exito', 'Platillo eliminado correctamente');
+            } else {
+                Producto::setAlerta('exito', 'Platillo retirado correctamente');
+            }
         } else {
             Producto::setAlerta('error', 'No se pudo eliminar: el platillo tiene una receta o ventas asociadas.');
         }
@@ -289,7 +291,12 @@ class AdminMenuController
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
-        Producto::ejecutarSQL("UPDATE productos SET activo = 1 - activo WHERE id = {$id} LIMIT 1");
+        $platillo = Producto::find($id);
+        if (!$platillo || !$platillo->alternarVisibilidad()) {
+            Producto::setAlerta('error', 'No fue posible actualizar la visibilidad del platillo');
+            self::index($router);
+            return;
+        }
         Producto::setAlerta('exito', 'Visibilidad actualizada');
 
         self::index($router);
@@ -517,7 +524,10 @@ class AdminMenuController
     {
         $areas = [];
         $db = Producto::getDB();
-        $res = $db->query("SELECT id, nombre FROM areas_produccion ORDER BY id ASC");
+        $where = \Services\Security\ContextoNegocio::nuevo()
+            ? ' WHERE unidad_id = ' . \Services\Security\ContextoNegocio::unidad(\Services\Security\ContextoNegocio::slug())
+            : '';
+        $res = $db->query("SELECT id, nombre FROM areas_produccion{$where} ORDER BY id ASC");
 
         if ($res) {
             while ($row = $res->fetch_assoc()) {

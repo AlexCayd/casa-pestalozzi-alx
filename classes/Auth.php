@@ -519,11 +519,12 @@ class Auth {
             foreach ($ruta['modulos'] as $mod) if (PermisosUsuario::permitido($p,$ctx,$mod,Permisos::nivelRequerido($_SERVER['REQUEST_METHOD']??'GET'))) $permitido=true;
             if (!$permitido) self::negarDirecto(403,'PERMISO_DENEGADO','No tienes permiso para esta operación.');
         }
-        // No ejecutar consultas mononegocio contra el esquema nuevo. Usuarios y
-        // navegación son la entrega habilitada; los demás módulos esperan adaptación.
+        // Solo los consumidores adaptados pueden ejecutar SQL en el esquema nuevo.
         $usuarios=preg_match('~^/admin/(?:global/|panaderia/)?usuarios(?:/|$)~',$url)===1;
         $navegacion=in_array($url,['/admin','/admin/global','/admin/panaderia','/admin/contexto'],true);
-        if (!$usuarios && !$navegacion) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');
+        $adaptado=$ctx==='restaurante' && $ruta['modulos']!==[]
+            && array_diff($ruta['modulos'],\Services\Security\ContextoNegocio::modulosHabilitados($ctx))===[];
+        if (!$usuarios && !$navegacion && !$adaptado) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');
     }
 
     private static function negarDirecto(int $status,string $codigo,string $mensaje): never {

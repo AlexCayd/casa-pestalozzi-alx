@@ -18,6 +18,8 @@
 namespace Services\Menu;
 
 use Model\Producto;
+use Services\Security\ContextoNegocio;
+use Services\Inventory\DecimalInventario;
 
 final class Variantes
 {
@@ -64,17 +66,21 @@ final class Variantes
      *
      * @return list<array{nombre: string, opciones: list<array>}>
      */
-    public static function deProducto(int $productoId): array
+    public static function deProducto(int $productoId, ?string $ctx = null): array
     {
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::deProducto($productoId);
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'ver', $ctx, true);
         $db = Producto::getDB();
-        $productoId = max(0, $productoId);
-        $res = $db->query(
-            "SELECT id, grupo, nombre, precio_delta, predeterminada, activo
-               FROM producto_variantes
-              WHERE producto_id = {$productoId}
-              ORDER BY orden_grupo ASC, orden ASC, id ASC"
-        );
+        $unidadId = ContextoNegocio::unidad($ctx);
+        $productoId = max(0, $productoId); // ID comercial: ofertas_producto.id
+        self::exigirOferta($db, $productoId, $unidadId);
+        $stmt = $db->prepare('SELECT id, grupo, nombre, precio_delta, predeterminada, activo FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? ORDER BY orden_grupo, orden, id');
+        $stmt->bind_param('ii', $productoId, $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         if (!$res) {
+            $stmt->close();
             return [];
         }
 
@@ -97,15 +103,16 @@ final class Variantes
             ];
         }
         $res->free();
+        $stmt->close();
 
         if ($ids !== []) {
             $lista = implode(',', $ids);
             $aj = $db->query(
-                "SELECT va.variante_id, va.accion, va.tipo, va.ref_id, va.cantidad,
-                        va.nuevo_tipo, va.nuevo_ref_id, va.nueva_cantidad, pv.grupo
+                "SELECT va.variante_id, va.accion, va.articulo_id, va.subreceta_id, va.cantidad,
+                        va.articulo_nuevo_id, va.subreceta_nueva_id, va.nueva_cantidad, pv.grupo
                    FROM variante_ajustes va
-                   JOIN producto_variantes pv ON pv.id = va.variante_id
-                  WHERE va.variante_id IN ({$lista})
+                   JOIN producto_variantes pv ON pv.id = va.variante_id AND pv.oferta_id = va.oferta_id AND pv.unidad_id = va.unidad_id
+                  WHERE va.variante_id IN ({$lista}) AND va.oferta_id = {$productoId} AND va.unidad_id = {$unidadId}
                   ORDER BY va.id ASC"
             );
             if ($aj) {
@@ -114,12 +121,12 @@ final class Variantes
                     $grupo = (string) $row['grupo'];
                     $grupos[$grupo]['opciones'][$vid]['ajustes'][] = [
                         'accion' => (string) $row['accion'],
-                        'tipo' => (string) $row['tipo'],
-                        'ref_id' => (int) $row['ref_id'],
-                        'cantidad' => (float) $row['cantidad'],
-                        'nuevo_tipo' => $row['nuevo_tipo'] !== null ? (string) $row['nuevo_tipo'] : null,
-                        'nuevo_ref_id' => $row['nuevo_ref_id'] !== null ? (int) $row['nuevo_ref_id'] : null,
-                        'nueva_cantidad' => $row['nueva_cantidad'] !== null ? (float) $row['nueva_cantidad'] : null,
+                        'tipo' => $row['articulo_id'] !== null ? 'ingrediente' : 'subreceta',
+                        'ref_id' => (int) ($row['articulo_id'] ?? $row['subreceta_id']),
+                        'cantidad' => (string) $row['cantidad'],
+                        'nuevo_tipo' => $row['articulo_nuevo_id'] !== null ? 'ingrediente' : ($row['subreceta_nueva_id'] !== null ? 'subreceta' : null),
+                        'nuevo_ref_id' => $row['articulo_nuevo_id'] !== null ? (int) $row['articulo_nuevo_id'] : ($row['subreceta_nueva_id'] !== null ? (int) $row['subreceta_nueva_id'] : null),
+                        'nueva_cantidad' => $row['nueva_cantidad'] !== null ? (string) $row['nueva_cantidad'] : null,
                     ];
                 }
                 $aj->free();
@@ -142,22 +149,17 @@ final class Variantes
      * sustitución proporcional incluida; por eso viajan las composiciones de
      * las subrecetas y no sólo sus nombres.
      */
-    public static function datosEditor(int $productoId): array
+    public static function datosEditor(int $productoId, ?string $ctx = null): array
     {
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::datosEditor($productoId);
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'ver', $ctx, true);
         $db = Producto::getDB();
         $productoId = max(0, $productoId);
+        $unidadId = ContextoNegocio::unidad($ctx);
+        self::exigirOferta($db, $productoId, $unidadId);
 
-        $base = [];
-        $res = $db->query(
-            "SELECT tipo, ref_id, cantidad FROM producto_componentes
-              WHERE producto_id = {$productoId} ORDER BY id ASC"
-        );
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $base[] = ['tipo' => (string) $row['tipo'], 'ref_id' => (int) $row['ref_id'], 'cantidad' => (float) $row['cantidad']];
-            }
-            $res->free();
-        }
+        $base = RecetasOferta::paraEditorVariantes($ctx, $productoId);
 
         $ingredientes = [];
         $res = $db->query('SELECT id, nombre, unidad, costo, activo FROM ingredientes ORDER BY nombre ASC');
@@ -175,29 +177,30 @@ final class Variantes
         }
 
         $subrecetas = [];
-        $res = $db->query('SELECT id, nombre, unidad, rendimiento FROM subrecetas WHERE activo = 1 ORDER BY nombre ASC');
+        $subStmt = $db->prepare('SELECT id, nombre, unidad, rendimiento FROM subrecetas WHERE unidad_id = ? AND activo = 1 ORDER BY nombre ASC');
+        $subStmt->bind_param('i', $unidadId);
+        $subStmt->execute();
+        $res = $subStmt->get_result();
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $subrecetas[(int) $row['id']] = [
                     'id' => (int) $row['id'],
                     'nombre' => (string) $row['nombre'],
                     'unidad' => (string) $row['unidad'],
-                    'rendimiento' => (float) $row['rendimiento'],
+                    'rendimiento' => (string) $row['rendimiento'],
                     'ingredientes' => [],
                 ];
             }
             $res->free();
         }
+        $subStmt->close();
         if ($subrecetas !== []) {
-            $res = $db->query(
-                'SELECT subreceta_id, ingrediente_id, cantidad FROM subreceta_ingredientes WHERE subreceta_id IN ('
-                . implode(',', array_keys($subrecetas)) . ')'
-            );
+            $res = $db->query('SELECT subreceta_id, articulo_id, cantidad FROM subreceta_ingredientes WHERE unidad_id = ' . $unidadId . ' AND subreceta_id IN (' . implode(',', array_map('intval', array_keys($subrecetas))) . ')');
             if ($res) {
                 while ($row = $res->fetch_assoc()) {
                     $subrecetas[(int) $row['subreceta_id']]['ingredientes'][] = [
-                        'id' => (int) $row['ingrediente_id'],
-                        'cantidad' => (float) $row['cantidad'],
+                        'id' => (int) $row['articulo_id'],
+                        'cantidad' => (string) $row['cantidad'],
                     ];
                 }
                 $res->free();
@@ -206,10 +209,11 @@ final class Variantes
 
         return [
             'producto_id' => $productoId,
+            'oferta_id' => $productoId,
             'base' => $base,
             'ingredientes' => $ingredientes,
             'subrecetas' => array_values($subrecetas),
-            'grupos' => self::deProducto($productoId),
+            'grupos' => self::deProducto($productoId, $ctx),
             'plantillas' => self::PLANTILLAS,
             'limites' => ['grupos' => self::MAX_GRUPOS, 'opciones' => self::MAX_OPCIONES],
         ];
@@ -225,23 +229,31 @@ final class Variantes
      *
      * @return array<int, list<array>>
      */
-    public static function paraPos(): array
+    public static function paraPos(?string $ctx = null): array
     {
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::paraPos();
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('pdv', 'operar', $ctx, true);
+        $unidadId = ContextoNegocio::vendedora($ctx);
         $db = Producto::getDB();
-        $res = $db->query(
-            "SELECT pv.id, pv.producto_id, pv.grupo, pv.nombre, pv.precio_delta, pv.predeterminada
+        $stmt = $db->prepare(
+            "SELECT pv.id, pv.oferta_id, pv.grupo, pv.nombre, pv.precio_delta, pv.predeterminada
                FROM producto_variantes pv
-               JOIN productos p ON p.id = pv.producto_id
-              WHERE pv.activo = 1 AND p.activo = 1
-              ORDER BY pv.producto_id ASC, pv.orden_grupo ASC, pv.orden ASC, pv.id ASC"
+               JOIN ofertas_producto o ON o.id = pv.oferta_id AND o.unidad_id = pv.unidad_id
+              WHERE pv.activo = 1 AND o.activo = 1 AND o.unidad_id = ?
+              ORDER BY pv.oferta_id, pv.orden_grupo, pv.orden, pv.id"
         );
+        $stmt->bind_param('i', $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         if (!$res) {
+            $stmt->close();
             return [];
         }
 
         $porProducto = [];
         while ($row = $res->fetch_assoc()) {
-            $pid = (int) $row['producto_id'];
+            $pid = (int) $row['oferta_id'];
             $grupo = (string) $row['grupo'];
             $porProducto[$pid][$grupo]['n'] = $grupo;
             $porProducto[$pid][$grupo]['o'][] = [
@@ -252,6 +264,7 @@ final class Variantes
             ];
         }
         $res->free();
+        $stmt->close();
 
         $salida = [];
         foreach ($porProducto as $pid => $grupos) {
@@ -277,18 +290,27 @@ final class Variantes
      *
      * @return array<int, int>
      */
-    public static function conteoPorProducto(): array
+    public static function conteoPorProducto(?string $ctx = null): array
     {
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::conteoPorProducto();
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'ver', $ctx, true);
+        $unidadId = ContextoNegocio::unidad($ctx);
         $db = Producto::getDB();
-        $res = $db->query('SELECT producto_id, COUNT(*) AS n FROM producto_variantes GROUP BY producto_id');
+        $stmt = $db->prepare('SELECT oferta_id, COUNT(*) AS n FROM producto_variantes WHERE unidad_id = ? GROUP BY oferta_id');
+        $stmt->bind_param('i', $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         if (!$res) {
+            $stmt->close();
             return [];
         }
         $out = [];
         while ($row = $res->fetch_assoc()) {
-            $out[(int) $row['producto_id']] = (int) $row['n'];
+            $out[(int) $row['oferta_id']] = (int) $row['n'];
         }
         $res->free();
+        $stmt->close();
 
         return $out;
     }
@@ -308,17 +330,25 @@ final class Variantes
      * @param int[] $ids
      * @return array{ok: bool, ids: list<int>, etiqueta: ?string, delta: float, error: ?string}
      */
-    public static function resolver(int $productoId, array $ids): array
+    public static function resolver(int $productoId, array $ids, ?string $ctx = null): array
     {
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::resolver($productoId, $ids);
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('pdv', 'operar', $ctx, true);
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $i): bool => $i > 0)));
         $db = Producto::getDB();
         $productoId = max(0, $productoId);
-        $res = $db->query(
+        $unidadId = ContextoNegocio::vendedora($ctx);
+        self::exigirOferta($db, $productoId, $unidadId);
+        $stmt = $db->prepare(
             "SELECT id, grupo, nombre, precio_delta, predeterminada
                FROM producto_variantes
-              WHERE producto_id = {$productoId} AND activo = 1
+              WHERE oferta_id = ? AND unidad_id = ? AND activo = 1
               ORDER BY orden_grupo ASC, orden ASC, id ASC"
         );
+        $stmt->bind_param('ii', $productoId, $unidadId);
+        $stmt->execute();
+        $res = $stmt->get_result();
         $grupos = [];
         $porId = [];
         if ($res) {
@@ -335,6 +365,7 @@ final class Variantes
             }
             $res->free();
         }
+        $stmt->close();
 
         $fallo = static fn (string $error): array => ['ok' => false, 'ids' => [], 'etiqueta' => null, 'delta' => 0.0, 'error' => $error];
 
@@ -395,115 +426,82 @@ final class Variantes
      *
      * @return array{ok: bool, errores: list<string>, grupos: list<array>}
      */
-    public static function guardar(int $productoId, array $grupos): array
+    public static function guardar(int $productoId, array $grupos, ?string $ctx = null): array
     {
-        $validacion = self::validar($grupos);
+        if (!ContextoNegocio::nuevo()) return VariantesLegado::guardar($productoId, $grupos);
+        $ctx ??= ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'editar', $ctx, true);
+        $unidadId = ContextoNegocio::unidad($ctx);
+        $validacion = self::validar($grupos, $unidadId);
         if ($validacion['errores'] !== []) {
             return ['ok' => false, 'errores' => $validacion['errores'], 'grupos' => []];
         }
         $limpios = $validacion['grupos'];
 
         $db = Producto::getDB();
-        $productoId = max(0, $productoId);
-
-        $existentes = [];
-        $res = $db->query("SELECT id FROM producto_variantes WHERE producto_id = {$productoId}");
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $existentes[(int) $row['id']] = true;
-            }
-            $res->free();
-        }
-
-        $db->begin_transaction();
+        $productoId = max(0, $productoId); // oferta_id
         try {
-            // Nombres temporales para que renombrar «A→B» y «B→A» en el mismo
-            // guardado no tropiece con uq_variante a mitad del recorrido.
-            if ($existentes !== []) {
-                $db->query(
-                    "UPDATE producto_variantes SET grupo = CONCAT('~', id) WHERE producto_id = {$productoId}"
-                );
-            }
-
-            $conservados = [];
-            $upd = $db->prepare(
-                'UPDATE producto_variantes
-                    SET grupo = ?, nombre = ?, precio_delta = ?, predeterminada = ?, activo = ?, orden_grupo = ?, orden = ?
-                  WHERE id = ? AND producto_id = ?'
-            );
-            $ins = $db->prepare(
-                'INSERT INTO producto_variantes (producto_id, grupo, nombre, precio_delta, predeterminada, activo, orden_grupo, orden)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $insAj = $db->prepare(
-                'INSERT INTO variante_ajustes (variante_id, accion, tipo, ref_id, cantidad, nuevo_tipo, nuevo_ref_id, nueva_cantidad)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            if (!$upd || !$ins || !$insAj) {
-                throw new \RuntimeException('No fue posible preparar el guardado de variantes.');
-            }
-
-            foreach ($limpios as $ordenGrupo => $grupo) {
-                foreach ($grupo['opciones'] as $orden => $op) {
-                    $id = (int) ($op['id'] ?? 0);
-                    $nombreGrupo = $grupo['nombre'];
-                    $nombre = $op['nombre'];
-                    $delta = $op['precio_delta'];
-                    $def = $op['predeterminada'] ? 1 : 0;
-                    $activo = $op['activo'] ? 1 : 0;
-                    if ($id > 0 && isset($existentes[$id])) {
-                        $upd->bind_param('ssdiiiiii', $nombreGrupo, $nombre, $delta, $def, $activo, $ordenGrupo, $orden, $id, $productoId);
-                        if (!$upd->execute()) {
-                            throw new \RuntimeException($upd->error);
-                        }
-                    } else {
-                        $ins->bind_param('issdiiii', $productoId, $nombreGrupo, $nombre, $delta, $def, $activo, $ordenGrupo, $orden);
-                        if (!$ins->execute()) {
-                            throw new \RuntimeException($ins->error);
-                        }
-                        $id = (int) $db->insert_id;
+            $resultado = ContextoNegocio::en($ctx, static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
+                return ContextoNegocio::transaccion(static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
+                    ContextoNegocio::exigir('menu', 'editar', $ctx, true);
+                    self::exigirOferta($db, $productoId, $unidadId);
+                    $existentes = [];
+                    $sel = $db->prepare('SELECT id FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? FOR UPDATE');
+                    $sel->bind_param('ii', $productoId, $unidadId);
+                    $sel->execute();
+                    foreach ($sel->get_result()->fetch_all(MYSQLI_ASSOC) as $row) $existentes[(int)$row['id']] = true;
+                    $sel->close();
+                    if ($existentes !== []) {
+                        $db->query("UPDATE producto_variantes SET grupo = CONCAT('~', id) WHERE oferta_id = {$productoId} AND unidad_id = {$unidadId}");
                     }
-                    $conservados[$id] = true;
-
-                    $db->query("DELETE FROM variante_ajustes WHERE variante_id = {$id}");
-                    foreach ($op['ajustes'] as $aj) {
-                        $accion = $aj['accion'];
-                        $tipo = $aj['tipo'];
-                        $ref = $aj['ref_id'];
-                        $cant = $aj['cantidad'];
-                        $nTipo = $aj['nuevo_tipo'];
-                        $nRef = $aj['nuevo_ref_id'];
-                        $nCant = $aj['nueva_cantidad'];
-                        $insAj->bind_param('issidsid', $id, $accion, $tipo, $ref, $cant, $nTipo, $nRef, $nCant);
-                        if (!$insAj->execute()) {
-                            throw new \RuntimeException($insAj->error);
+                    $upd = $db->prepare('UPDATE producto_variantes SET grupo=?, nombre=?, precio_delta=?, predeterminada=?, activo=?, orden_grupo=?, orden=? WHERE id=? AND oferta_id=? AND unidad_id=?');
+                    $ins = $db->prepare('INSERT INTO producto_variantes (oferta_id, unidad_id, grupo, nombre, precio_delta, predeterminada, activo, orden_grupo, orden) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                    $insAj = $db->prepare('INSERT INTO variante_ajustes (variante_id, oferta_id, unidad_id, articulo_id, subreceta_id, cantidad, accion, articulo_nuevo_id, subreceta_nueva_id, nueva_cantidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                    if (!$upd || !$ins || !$insAj) throw new \RuntimeException($db->error);
+                    $conservados = [];
+                    foreach ($limpios as $ordenGrupo => $grupo) foreach ($grupo['opciones'] as $orden => $op) {
+                        $id = (int)($op['id'] ?? 0); $nombreGrupo=$grupo['nombre']; $nombre=$op['nombre']; $delta=$op['precio_delta'];
+                        $def=$op['predeterminada']?1:0; $activo=$op['activo']?1:0;
+                        if ($id > 0 && isset($existentes[$id])) {
+                            $upd->bind_param('ssdiiiiiii',$nombreGrupo,$nombre,$delta,$def,$activo,$ordenGrupo,$orden,$id,$productoId,$unidadId);
+                            if (!$upd->execute()) throw new \RuntimeException($upd->error);
+                        } else {
+                            $ins->bind_param('iissdiiii',$productoId,$unidadId,$nombreGrupo,$nombre,$delta,$def,$activo,$ordenGrupo,$orden);
+                            if (!$ins->execute()) throw new \RuntimeException($ins->error);
+                            $id=(int)$db->insert_id;
+                        }
+                        $conservados[$id]=true;
+                        $del=$db->prepare('DELETE FROM variante_ajustes WHERE variante_id=? AND oferta_id=? AND unidad_id=?');
+                        $del->bind_param('iii',$id,$productoId,$unidadId); if (!$del->execute()) throw new \RuntimeException($del->error); $del->close();
+                        foreach ($op['ajustes'] as $aj) {
+                            $accion=$aj['accion']; $tipo=$aj['tipo']; $ref=$aj['ref_id'];
+                            $articuloId=$tipo==='ingrediente'?$ref:null; $subrecetaId=$tipo==='subreceta'?$ref:null; $cant=$aj['cantidad'];
+                            $nuevoTipo=$aj['nuevo_tipo']; $nuevoRef=$aj['nuevo_ref_id'];
+                            $nuevoArticuloId=$nuevoTipo==='ingrediente'?$nuevoRef:null; $nuevaSubrecetaId=$nuevoTipo==='subreceta'?$nuevoRef:null; $nCant=$aj['nueva_cantidad'];
+                            $insAj->bind_param('iiiiissiis',$id,$productoId,$unidadId,$articuloId,$subrecetaId,$cant,$accion,$nuevoArticuloId,$nuevaSubrecetaId,$nCant);
+                            if (!$insAj->execute()) throw new \RuntimeException($insAj->error);
                         }
                     }
-                }
+                    $upd->close(); $ins->close(); $insAj->close();
+                    $sobrantes=array_diff(array_keys($existentes),array_keys($conservados));
+                    if ($sobrantes) $db->query('DELETE FROM producto_variantes WHERE oferta_id='.$productoId.' AND unidad_id='.$unidadId.' AND id IN ('.implode(',',array_map('intval',$sobrantes)).')');
+                    return ['guardado'=>true];
+                });
+            });
+            if (empty($resultado['ok']) && $resultado['ok'] !== null) {
+                return ['ok'=>false,'errores'=>[$resultado['mensaje'] ?? 'No fue posible guardar las variantes.'],'grupos'=>[]] + $resultado;
             }
-
-            $sobrantes = array_diff(array_keys($existentes), array_keys($conservados));
-            if ($sobrantes !== []) {
-                $db->query(
-                    'DELETE FROM producto_variantes WHERE producto_id = ' . $productoId
-                    . ' AND id IN (' . implode(',', array_map('intval', $sobrantes)) . ')'
-                );
-            }
-
-            $db->commit();
+            return $resultado + ['errores'=>[],'grupos'=>self::deProducto($productoId,$ctx)];
         } catch (\Throwable $e) {
-            $db->rollback();
             error_log('Variantes::guardar - ' . $e->getMessage());
-            return ['ok' => false, 'errores' => ['No fue posible guardar las variantes. Intenta de nuevo.'], 'grupos' => []];
+            return ['ok'=>false,'errores'=>['No fue posible guardar las variantes. Intenta de nuevo.'],'grupos'=>[]];
         }
-
-        return ['ok' => true, 'errores' => [], 'grupos' => self::deProducto($productoId)];
     }
 
     /**
      * @return array{errores: list<string>, grupos: list<array>}
      */
-    private static function validar(array $grupos): array
+    private static function validar(array $grupos, int $unidadId): array
     {
         $errores = [];
         $limpios = [];
@@ -570,7 +568,7 @@ final class Variantes
 
                 $ajustes = [];
                 foreach (is_array($op['ajustes'] ?? null) ? $op['ajustes'] : [] as $aj) {
-                    $limpio = self::validarAjuste(is_array($aj) ? $aj : [], $nombre, $errores);
+                    $limpio = self::validarAjuste(is_array($aj) ? $aj : [], $nombre, $unidadId, $errores);
                     if ($limpio !== null) {
                         $ajustes[] = $limpio;
                     }
@@ -595,22 +593,28 @@ final class Variantes
         return ['errores' => array_values(array_unique($errores)), 'grupos' => $limpios];
     }
 
-    private static function validarAjuste(array $aj, string $opcion, array &$errores): ?array
+    private static function validarAjuste(array $aj, string $opcion, int $unidadId, array &$errores): ?array
     {
         $accion = (string) ($aj['accion'] ?? '');
         $tipo = (string) ($aj['tipo'] ?? '');
         $ref = (int) ($aj['ref_id'] ?? 0);
-        $cantidad = is_numeric($aj['cantidad'] ?? null) ? round((float) $aj['cantidad'], 3) : 0.0;
+        try {
+            $cantidadInt = DecimalInventario::leer($aj['cantidad'] ?? null);
+            $cantidad = DecimalInventario::cantidad($cantidadInt);
+        } catch (\Throwable) {
+            $cantidadInt = 0;
+            $cantidad = '0.000';
+        }
 
         if (!in_array($accion, self::ACCIONES, true) || !in_array($tipo, self::TIPOS, true) || $ref <= 0) {
             $errores[] = "Un ajuste de receta de «{$opcion}» está incompleto: elige qué hacer y con qué ingrediente.";
             return null;
         }
-        if ($cantidad <= 0 || $cantidad > 99999) {
+        if ($cantidadInt <= 0) {
             $errores[] = "Un ajuste de «{$opcion}» necesita una cantidad mayor que cero.";
             return null;
         }
-        if (!self::componenteExiste($tipo, $ref)) {
+        if (!self::componenteExiste($tipo, $ref, $unidadId)) {
             $errores[] = "Un ajuste de «{$opcion}» apunta a un ingrediente que ya no existe.";
             return null;
         }
@@ -621,8 +625,14 @@ final class Variantes
         if ($accion === 'sustituir') {
             $nuevoTipo = (string) ($aj['nuevo_tipo'] ?? '');
             $nuevoRef = (int) ($aj['nuevo_ref_id'] ?? 0);
-            $nuevaCantidad = is_numeric($aj['nueva_cantidad'] ?? null) ? round((float) $aj['nueva_cantidad'], 3) : $cantidad;
-            if (!in_array($nuevoTipo, self::TIPOS, true) || $nuevoRef <= 0 || !self::componenteExiste($nuevoTipo, $nuevoRef)) {
+            try {
+                $nuevaCantidadInt = DecimalInventario::leer($aj['nueva_cantidad'] ?? null);
+                $nuevaCantidad = DecimalInventario::cantidad($nuevaCantidadInt);
+            } catch (\Throwable) {
+                $nuevaCantidadInt = 0;
+                $nuevaCantidad = '0.000';
+            }
+            if (!in_array($nuevoTipo, self::TIPOS, true) || $nuevoRef <= 0 || !self::componenteExiste($nuevoTipo, $nuevoRef, $unidadId)) {
                 $errores[] = "En «{$opcion}» elige por qué ingrediente se sustituye.";
                 return null;
             }
@@ -630,7 +640,7 @@ final class Variantes
                 $errores[] = "En «{$opcion}» un ingrediente no puede sustituirse por sí mismo.";
                 return null;
             }
-            if ($nuevaCantidad <= 0 || $nuevaCantidad > 99999) {
+            if ($nuevaCantidadInt <= 0) {
                 $errores[] = "En «{$opcion}» la cantidad del sustituto debe ser mayor que cero.";
                 return null;
             }
@@ -647,17 +657,36 @@ final class Variantes
         ];
     }
 
-    private static function componenteExiste(string $tipo, int $ref): bool
+    private static function componenteExiste(string $tipo, int $ref, int $unidadId): bool
     {
         static $cache = [];
-        $clave = $tipo . ':' . $ref;
+        $clave = $tipo . ':' . $unidadId . ':' . $ref;
         if (isset($cache[$clave])) {
             return $cache[$clave];
         }
-        $tabla = $tipo === 'subreceta' ? 'subrecetas' : 'ingredientes';
-        $res = Producto::getDB()->query("SELECT 1 FROM {$tabla} WHERE id = " . max(0, $ref) . ' LIMIT 1');
+        $db = Producto::getDB();
+        if ($tipo === 'subreceta') {
+            $stmt = $db->prepare('SELECT 1 FROM subrecetas WHERE id = ? AND unidad_id = ? LIMIT 1');
+            $stmt->bind_param('ii', $ref, $unidadId);
+        } else {
+            $stmt = $db->prepare('SELECT 1 FROM ingredientes WHERE id = ? LIMIT 1');
+            $stmt->bind_param('i', $ref);
+        }
+        $stmt->execute();
+        $ok = (bool) $stmt->get_result()->fetch_row();
+        $stmt->close();
+        return $cache[$clave] = $ok;
+    }
 
-        return $cache[$clave] = (bool) ($res && $res->fetch_row());
+    private static function exigirOferta(\mysqli $db, int $ofertaId, int $unidadId): void
+    {
+        if ($ofertaId <= 0 || $unidadId <= 0) throw new \DomainException('Oferta fuera del ámbito activo.');
+        $stmt = $db->prepare('SELECT id FROM ofertas_producto WHERE id = ? AND unidad_id = ? LIMIT 1');
+        $stmt->bind_param('ii', $ofertaId, $unidadId);
+        $stmt->execute();
+        $ok = (bool) $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$ok) throw new \DomainException('La oferta no pertenece al negocio activo.');
     }
 
     private static function texto($valor, int $max): string
