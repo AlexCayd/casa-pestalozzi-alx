@@ -17,6 +17,7 @@ use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
+use Controllers\AdminAlmacenesController;
 use Controllers\AdminRecetasController;
 use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
@@ -47,6 +48,12 @@ $router = new Router();
 // del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
 // admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
+
+// Almacenes comparte controlador, motor, componentes y permisos por ámbito.
+foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
+    $router->get($baseAlmacenes.'/almacenes',[AdminAlmacenesController::class,'index']);
+    $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
+}
 
 // Home
 $router->get('/', [HomeController::class, 'index']);
@@ -87,8 +94,8 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 // Admin
 $router->get('/admin/contexto', [\Controllers\AdminContextosController::class, 'cambiar']);
 $router->get('/admin/global', [\Controllers\AdminContextosController::class, 'pagina']);
-$router->get('/admin/global/catalogo', [\Controllers\AdminContextosController::class, 'pagina']);
-$router->get('/admin/global/inventario', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/catalogo', static function ($router) { header('Location: /admin/global/almacenes?vista=catalogo',true,302); });
+$router->get('/admin/global/inventario', static function ($router) { header('Location: /admin/global/almacenes',true,302); });
 $router->get('/admin/global/configuracion', [\Controllers\AdminContextosController::class, 'pagina']);
 if (!\Classes\Auth::multinegocio()) {
     $router->get('/admin/global/usuarios', [\Controllers\AdminContextosController::class, 'pagina']);
@@ -96,7 +103,7 @@ if (!\Classes\Auth::multinegocio()) {
 $router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
 $router->get('/admin/panaderia/menu', [\Controllers\AdminContextosController::class, 'pagina']);
 $router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
-$router->get('/admin/panaderia/inventario', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/inventario', static function ($router) { header('Location: /admin/panaderia/almacenes',true,302); });
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);

@@ -9,19 +9,9 @@ use Services\Security\Contextos;
 use Services\Security\PermisosUsuario;
 
 /**
- * Sesión y protección de rutas del personal.
- *
- * Un solo formulario en /login con dos pestañas (NIP y contraseña). Qué rutas
- * puede visitar cada quien lo decide su ROL con los permisos por módulo de
- * Roles y permisos: la tabla de rutas y la decisión viven en
- * Services\Security\Permisos; aquí se carga el rol de la sesión y se aplica
- * la respuesta (dejar pasar, mandar al login, negar).
- *
- * Los roles de sistema (super_admin y admin) lo tienen todo. Mesero y
- * Cocinero son roles predefinidos, editables como cualquier otro.
- *
- * Una ruta /api/... que no esté en Permisos::APIS queda pública: al añadir un
- * endpoint del personal hay que anotarlo allí.
+ * Sesión y guardia única del personal. La autorización efectiva utiliza
+ * asignaciones directas por ámbito/módulo y la excepción explícita superadmin.
+ * Los roles son metadatos; una API privada desconocida deniega por defecto.
  */
 class Auth {
 
@@ -530,7 +520,7 @@ class Auth {
         // Solo los consumidores adaptados pueden ejecutar SQL en el esquema nuevo.
         $usuarios=preg_match('~^/admin/(?:global/|panaderia/)?usuarios(?:/|$)~',$url)===1;
         $navegacion=in_array($url,['/admin','/admin/global','/admin/panaderia','/admin/contexto'],true);
-        $adaptado=$ctx==='restaurante' && $ruta['modulos']!==[]
+        $adaptado=$ruta['modulos']!==[]
             && array_diff($ruta['modulos'],\Services\Security\ContextoNegocio::modulosHabilitados($ctx))===[];
         $soporte=$ctx==='restaurante' && $url==='/admin/api/reportes' && ($_SERVER['REQUEST_METHOD']??'GET')==='POST';
         if (!$usuarios && !$navegacion && !$adaptado && !$soporte) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');

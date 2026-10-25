@@ -603,3 +603,16 @@
     line-height: 1.45;
   }
 }
+
+// El buscador ocupa una fila completa en móvil para conservar un ancho usable.
+@media (max-width: 600px) {
+  .admin-users .admin-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .admin-filters__search,
+    .admin-filters__actions {
+      grid-column: 1 / -1;
+    }
+  }
+}

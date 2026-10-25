@@ -301,29 +301,21 @@ final class AdminUsuariosAmbitosController
         return is_array($catalogo) ? $catalogo : [];
     }
 
-    private static function facultadesCatalogo(): array
+    private static function facultadesCatalogo(string $contexto): array
     {
-        $defaults = ['usuarios.gestionar' => 'Gestionar usuarios', 'permisos.delegar' => 'Delegar permisos'];
-        if (method_exists(PermisosUsuario::class, 'facultades')) {
-            $facultades = PermisosUsuario::facultades();
-            if (is_array($facultades)) {
-                return $facultades;
-            }
-        }
-        return $defaults;
+        return \Services\Users\AccesosUsuario::catalogoFacultades($contexto);
     }
 
     private static function facultadesPorAmbito(array $actor, string $contexto, array $permitidos): array
     {
         $result = [];
-        $catalogo = self::facultadesCatalogo();
         foreach ($permitidos as $slug) {
+            $catalogo = self::facultadesCatalogo($slug);
             if (!empty($actor['super'])) {
                 $result[$slug] = $catalogo;
                 continue;
             }
-            $origen = $actor['ambitos'][$slug]['facultades'] ?? [];
-            if ($contexto === 'global' && $origen === []) $origen = $actor['ambitos']['global']['facultades'] ?? [];
+            $origen = $actor['ambitos'][$contexto]['facultades'] ?? [];
             $result[$slug] = array_intersect_key($catalogo, array_fill_keys((array) $origen, true));
         }
         return $result;
@@ -333,7 +325,7 @@ final class AdminUsuariosAmbitosController
     {
         $result = [];
         foreach ($permitidos as $slug) {
-            $origen = $actor['ambitos'][$slug] ?? ($contexto === 'global' ? ($actor['ambitos']['global'] ?? []) : []);
+            $origen = $actor['ambitos'][$contexto] ?? [];
             $result[$slug] = !empty($actor['super']) ? '*' : (array) ($origen['permisos'] ?? []);
         }
         return $result;

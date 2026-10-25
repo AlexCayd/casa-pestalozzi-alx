@@ -28,11 +28,11 @@ final class AdminContextosController
                 $habilitados=\Services\Security\ContextoNegocio::modulosHabilitados($contexto);
                 return array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
             }
-            if (!Auth::puede('users', 'ver', $contexto)) {
-                return [];
-            }
-            $path = $contexto === 'restaurante' ? '/admin/usuarios' : '/admin/' . $contexto . '/usuarios';
-            return ['users' => ['title' => 'Usuarios', 'path' => $path]];
+            $base='/admin/'.$contexto;
+            $entradas=[];
+            if (Auth::puede('inventario','ver',$contexto)) $entradas['inventario']=['title'=>'Almacenes','path'=>$base.'/almacenes'];
+            if (Auth::puede('users','ver',$contexto)) $entradas['users']=['title'=>'Usuarios','path'=>$base.'/usuarios'];
+            return $entradas;
         }
         if ($contexto === 'restaurante') {
             return $restaurante;

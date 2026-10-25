@@ -12,6 +12,7 @@ final class PermisosUsuario
         if (!isset(Contextos::NOMBRES[$contexto])) return [];
         $modulos = Permisos::MODULOS;
         unset($modulos['roles']);
+        $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
         foreach ($modulos as $key => &$modulo) {
             $operativo = $modulo['grupo'] === Permisos::GRUPO_PISO;

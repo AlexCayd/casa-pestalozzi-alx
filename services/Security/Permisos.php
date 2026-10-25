@@ -318,6 +318,7 @@ final class Permisos
         if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
         $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
         if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
+        if (self::casa($normal,'/admin/almacenes') || in_array($url,['/admin/global/catalogo','/admin/global/inventario','/admin/panaderia/inventario'],true)) return ['tipo'=>'modulos','modulos'=>['inventario']];
         if (self::casa($normal, '/admin/api/buzon')) return ['tipo'=>'modulos','modulos'=>['reservations']];
         if (preg_match('~^/admin/usuarios(?:/|$)~',$normal)) return ['tipo'=>'modulos','modulos'=>['users']];
         if (preg_match('~^/admin/roles(?:/|$)~',$normal)) return ['tipo'=>'solo_sistema','modulos'=>[]];

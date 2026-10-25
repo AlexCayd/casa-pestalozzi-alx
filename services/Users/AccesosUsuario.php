@@ -668,18 +668,23 @@ final class AccesosUsuario
         return true;
     }
 
+    /** Catálogo único para validación y formulario; las facultades Global no se ofrecen a negocios. */
+    public static function catalogoFacultades(string $contexto): array
+    {
+        $slug = self::slugContexto($contexto);
+        $stmt = self::db()->prepare("SELECT clave,descripcion FROM facultades WHERE solo_global=0 OR ?='global' ORDER BY clave");
+        self::execute($stmt, 's', [$slug]);
+        $values = [];
+        foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+            $values[(string) $row['clave']] = (string) $row['descripcion'];
+        }
+        $stmt->close();
+        return $values;
+    }
+
     private static function facultadesCatalogo(string $slug): array
     {
-        $result = self::db()->query('SELECT f.clave FROM facultades f WHERE f.solo_global = 0' . ($slug === 'global' ? ' OR f.solo_global = 1' : ''));
-        if (!$result) {
-            return [];
-        }
-        $values = [];
-        while ($row = $result->fetch_assoc()) {
-            $values[] = (string) $row['clave'];
-        }
-        $result->free();
-        return $values;
+        return array_keys(self::catalogoFacultades($slug));
     }
 
     private static function perfilSimulado(array $posted, string $context, ?array $old, ?int $id, array $manageable): array
