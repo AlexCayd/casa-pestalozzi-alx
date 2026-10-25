@@ -119,7 +119,12 @@ foreach (['super_admin', 'admin', 'waiter', 'cook'] as $slug) {
     $assert(preg_match("/\\(\\d+,\\s*'{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
 }
 $assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cartas'), 'Los roles se siembran antes del catálogo por negocio.');
-$assert(!preg_match('/INSERT\s+INTO\s+usuarios/i', $leer('database/development.sql')), 'Development no recrea usuarios ni credenciales antiguas.');
+$development=$leer('database/development.sql');
+$soloReferencias=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
+    && substr_count($referencias[1],",'0','0')")===3
+    && substr_count($referencias[1],'dev_')===3;
+$assert($soloReferencias,'Development solo contiene las tres identidades sintéticas inactivas y sin privilegio superadmin, no cuentas históricas activas.');
+$assert(!preg_match("/INSERT\\s+INTO\\s+usuarios[^;]*'admin_demo'/si",$development),'La cuenta conocida se aprovisiona mediante bootstrap y no mediante DML automático.');
 
 // 8 · Nadie decide permisos con el rol escrito a mano.
 foreach (['controllers/PuntoVentaController.php', 'controllers/PosReservacionController.php', 'views/punto-de-venta/partials/pos-alta.php', 'views/area/index.php'] as $archivo) {

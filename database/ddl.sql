@@ -5,6 +5,7 @@
 -- esquema completo; se restaura siempre al final.
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
 DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -537,3 +538,13 @@ CREATE TABLE reportes_sistema (
 -- Cada configuración semanal/servicio crea su propia fila por unidad.
 -- Marca de estructura terminada; la autorización 3B se completa con deploy.sql.
 INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3c-v1');
+
+-- Marca de instalación explícita de desarrollo; no contiene credenciales.
+CREATE TABLE instalacion_desarrollo (
+ id TINYINT UNSIGNED PRIMARY KEY, entorno ENUM('development','test') NOT NULL,
+ propietario_token CHAR(64) NOT NULL, administrador_id INT NULL,
+ dml_sha256 CHAR(64) NOT NULL, completada TINYINT(1) NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(administrador_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK(id=1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

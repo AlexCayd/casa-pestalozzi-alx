@@ -461,6 +461,11 @@ function copyImages() {
   return src("assets/images/**/*").pipe(dest("public/build/images"));
 }
 
+// El menú preservado se publica sin recomprimir sus archivos verificados.
+function copyMenuImages() {
+  return src("src/images/menu-preservado/*.webp").pipe(dest("public/build/images"));
+}
+
 // Variantes de 720 px de las fotos grandes, para el `srcset` de la landing
 // (srcsetImagen() en includes/funciones.php, que sólo lo emite si la variante
 // existe). Las fotos vienen a ~1170 px: bien para un escritorio retina, pero un
@@ -628,6 +633,7 @@ exports.dev = parallel(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   devWatch,
 );
 
@@ -670,5 +676,8 @@ exports.build = series(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   imagenesResponsivas,
 );
+
+exports.menuImages = copyMenuImages;
