@@ -104,6 +104,23 @@ el flujo comercial en navegador real además de los servicios y los contratos
 estáticos. Un test modificado conserva su intención; las contradicciones con el
 modelo final se corrigen conjuntamente con la documentación y sus consumidores.
 
+## HTTP 3E desde la instalación versionada
+
+Con la contraseña de desarrollo en configuración local segura, iniciar:
+
+```sh
+php scripts/tests/servir-instalacion-3e.php --host 127.0.0.1 --base casa-pestalozzi --entorno development --fixture-salida <ruta-absoluta-privada-nueva-en-visualizations>
+php scripts/tests/pruebas-http-3e.php --fixture <misma-ruta-privada>
+```
+
+El primer comando permanece abierto en loopback 8094. La salida privada contiene
+credenciales efímeras: no mostrarla, versionarla ni compartirla. Enviar Enter por
+STDIN al servidor al terminar: comprueba propiedad, detiene el proceso, elimina
+su base temporal y retira sesiones y archivo privado. El router impide servir
+scripts PHP arbitrarios o configuración privada. Se prueban lectura y escritura
+autorizadas en los tres ámbitos, IDs ajenos, CSRF contextual, precisión,
+idempotencia, revocación y ciclo de usuarios. No depende del paquete de Etapa 2.
+
 ## Comprobaciones externas
 
 La simulación no certifica impresoras físicas, SMTP, Meta/WhatsApp, credenciales

@@ -6,8 +6,8 @@
 > [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
 
 
-**Versión:** 1.0 — Especificación inicial  
-**Estado:** Arquitectura propuesta; implementación pendiente  
+**Versión:** 1.0 — Especificación inicial
+**Estado:** Arquitectura propuesta; implementación pendiente
 **Repositorio:** `AlexCayd/casa-pestalozzi-alx`
 
 ## 1. Objetivo

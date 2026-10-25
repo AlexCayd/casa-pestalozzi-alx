@@ -51,4 +51,3 @@ consultas operativas del esquema nuevo sigue sin adaptar; la guardia no las
 ejecuta sobre datos multiunidad para aparentar una regresión completa de POS,
 KDS o reservas. En el esquema nuevo responden módulo pendiente después de
 comprobar la autorización. La BD original y sus flujos no se activan parcialmente.
-
