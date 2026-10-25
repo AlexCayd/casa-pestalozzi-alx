@@ -130,15 +130,71 @@ final class Almacenes
     public function registrarSalida(string $ctx,array $doc): array { return $this->operar($ctx,'salida',$doc); }
     public function registrarAjuste(string $ctx,array $doc): array { return $this->operar($ctx,'ajuste',$doc); }
     public function revertirMovimientos(string $ctx,array $doc): array { return $this->operar($ctx,'cancelacion',$doc); }
+
+    /** Consume la receta/version guardada en el item; solo Restaurante POS. */
+    public function consumirVenta(string $ctx, int $ticketItemId): array
+    {
+        return \Services\Security\ContextoNegocio::en($ctx, function () use ($ctx,$ticketItemId): array {
+            return TransaccionInventario::ejecutar($this->db, function () use ($ctx,$ticketItemId): array {
+                $alcance=$this->alcance->autorizarVenta($ctx,true);
+                $item=ConsumoOferta::ticketItem($this->db,$alcance['unidad_id'],$ticketItemId,false,true);
+                $previa=$this->resultadoComercial($alcance['unidad_id'],'venta',$ticketItemId,'venta');
+                if($previa!==null) return $previa;
+                if($item['estado']!=='enviado') throw new InventarioError('ITEM_NO_CONSUMIBLE','Solo se consume inventario al enviar el item a preparación.');
+                $resuelto=ConsumoOferta::preparar($this->db,$item,$alcance['unidad_id']);
+                if(!$resuelto['consume']) {
+                    // También congelar la decisión explícita de no consumir:
+                    // una variante editada después no convierte un replay en venta nueva.
+                    $r=['codigo'=>'VENTA_SIN_CONSUMO','ticket_item_id'=>$ticketItemId,'costo_unitario'=>null,'movimientos'=>[],'sin_consumo'=>true,'reintento'=>false];
+                    $clave='ticket-item-'.$ticketItemId;
+                    $hash=hash('sha256',json_encode([$item['oferta_id'],$item['receta_id'],$item['variante_ids'],$item['cantidad'],'sin_consumo'],JSON_THROW_ON_ERROR));
+                    $this->sql("INSERT INTO operaciones_inventario(unidad_id,tipo,actor_tipo,usuario_id,origen,clave_idempotencia,hash_solicitud,referencia,resultado) VALUES (?,'venta','usuario',?,'pos',?,?,?,?)",
+                        [$alcance['unidad_id'],$this->alcance->actorId(),$clave,$hash,$clave,json_encode($r,JSON_THROW_ON_ERROR)]);
+                    return $r;
+                }
+                $doc=['origen'=>'pos','clave'=>'ticket-item-'.$ticketItemId,'referencia'=>'ticket-item-'.$ticketItemId,
+                    'motivo'=>'venta_pos','nota'=>'Consumo de venta POS','lineas'=>$resuelto['lineas']];
+                $r=$this->operar($ctx,'venta',$doc,true,$ticketItemId,$alcance,$resuelto['costo_unitario']);
+                if(($r['ok']??null)===false) throw new InventarioError((string)($r['codigo']??'CONSUMO_FALLIDO'),(string)($r['mensaje']??'No se pudo completar el consumo de venta.'));
+                return $r;
+            });
+        });
+    }
+
+    /** Compensa exclusivamente los movimientos de venta del item cancelado. */
+    public function revertirVenta(string $ctx, int $ticketItemId): array
+    {
+        return \Services\Security\ContextoNegocio::en($ctx, function () use ($ctx,$ticketItemId): array {
+            return TransaccionInventario::ejecutar($this->db, function () use ($ctx,$ticketItemId): array {
+                $alcance=$this->alcance->autorizarVenta($ctx,true);
+                ConsumoOferta::ticketItem($this->db,$alcance['unidad_id'],$ticketItemId,true);
+                $previa=$this->resultadoComercial($alcance['unidad_id'],'cancelacion',$ticketItemId,'reversion');
+                if($previa!==null) return $previa;
+                $pendientes=ConsumoOferta::movimientosPendientes($this->db,$alcance['unidad_id'],$ticketItemId);
+                if($pendientes===[]) return ['codigo'=>'VENTA_SIN_CONSUMO','ticket_item_id'=>$ticketItemId,'movimientos'=>[]];
+                $doc=['origen'=>'pos','clave'=>'cancel-ticket-item-'.$ticketItemId,'referencia'=>'cancel-ticket-item-'.$ticketItemId,
+                    'motivo'=>'cancelacion_venta','nota'=>'Reversión de venta POS','lineas'=>$pendientes];
+                $r=$this->operar($ctx,'cancelacion',$doc,true,$ticketItemId,$alcance);
+                if(($r['ok']??null)===false) throw new InventarioError((string)($r['codigo']??'REVERSA_FALLIDA'),(string)($r['mensaje']??'No se pudo completar la reversión de venta.'));
+                return $r;
+            });
+        });
+    }
+
     public function consultarExistencias(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->existencias($ctx,$filtros); }
     public function consultarAlmacenes(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->almacenes($ctx,$filtros); }
     public function consultarMovimientos(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->movimientos($ctx,$filtros); }
 
-    private function operar(string $ctx,string $tipo,array $doc): array
+    private function operar(string $ctx,string $tipo,array $doc,bool $comercial=false,?int $ticketItemId=null,?array $alcanceComercial=null,?string $costoVenta=null): array
     {
-        return $this->escribir(function () use($ctx,$tipo,$doc) {
-            $alcance=$this->alcance->autorizar($ctx,'editar',null,true);
-            $d=$this->normalizar($tipo,$doc);
+        return $this->escribir(function () use($ctx,$tipo,$doc,$comercial,$ticketItemId,$alcanceComercial,$costoVenta) {
+            if($comercial) {
+                if(!in_array($tipo,['venta','cancelacion'],true) || $ticketItemId===null || $alcanceComercial===null) throw new InventarioError('OPERACION_INVALIDA','La operación comercial no es válida.');
+                $alcance=$this->alcance->autorizarVenta($ctx,true);
+                if($alcance['unidad_id']!==$alcanceComercial['unidad_id']) throw new InventarioError('AMBITO_DENEGADO','Cambió el ámbito autorizado durante la operación.');
+                ConsumoOferta::ticketItem($this->db,$alcance['unidad_id'],$ticketItemId,$tipo==='cancelacion');
+            } else $alcance=$this->alcance->autorizar($ctx,'editar',null,true);
+            $d=$this->normalizar($tipo,$doc,$comercial);
             if($tipo==='merma' && !Inventario::motivoMermaValido($d['motivo'])) throw new InventarioError('MOTIVO_INVALIDO','Elige un motivo de merma válido.');
             $hash=hash('sha256',json_encode([$this->alcance->actorId(),$ctx,$tipo,$d],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
             try {
@@ -170,7 +226,7 @@ final class Almacenes
             $almacenes=[];
             foreach($lineas as $l) $almacenes[(int)$l['almacen_id']]=true;
             ksort($almacenes,SORT_NUMERIC);
-            foreach($almacenes as $id=>$_) $almacenes[$id]=$this->alcance->almacen($ctx,$id,'editar',true);
+            foreach($almacenes as $id=>$_) $almacenes[$id]=$comercial?$this->almacenVenta($id,$alcance['unidad_id']):$this->alcance->almacen($ctx,$id,'editar',true);
             usort($lineas,static fn($a,$b)=>[(int)$a['almacen_id'],(int)$a['articulo_id'],(int)($a['movimiento_id']??0)] <=> [(int)$b['almacen_id'],(int)$b['articulo_id'],(int)($b['movimiento_id']??0)]);
             $movimientos=[];
             foreach($lineas as $l) {
@@ -181,13 +237,14 @@ final class Almacenes
                 $maestro=$this->articuloActivo($articulo);
                 $cantidad=DecimalInventario::leer($l['cantidad'],3,$tipo==='ajuste');
                 $saldo=DecimalInventario::leer($a['saldo'],3,true);
-                $delta=in_array($tipo,['merma','salida'],true)?-$cantidad:$cantidad;
+                $delta=in_array($tipo,['merma','salida','venta'],true)?-$cantidad:$cantidad;
                 if($tipo==='ajuste') {
                     if((string)$a['version']!==(string)$l['version']) throw new InventarioError('VERSION_CONFLICTO','Las existencias cambiaron después del conteo.');
                     $delta=$cantidad-$saldo;
                 }
                 if($tipo==='cancelacion') {
                     // Lectura actual también si el coordinador usa REPEATABLE READ.
+                    if($comercial && ((int)$l['ticket_item_id']!==$ticketItemId || $l['tipo']!=='venta')) throw new InventarioError('RECURSO_NO_ENCONTRADO','El movimiento no corresponde a la venta autorizada.');
                     $compensaciones=$this->sql('SELECT delta FROM movimientos_inventario WHERE movimiento_origen_id=? FOR UPDATE',[$l['movimiento_id']])->get_result();
                     $repuesto=0;
                     while($comp=$compensaciones->fetch_assoc()) $repuesto=DecimalInventario::sumar($repuesto,DecimalInventario::leer($comp['delta'],3,true));
@@ -200,18 +257,23 @@ final class Almacenes
                 if($delta===0) continue;
                 $costo=$tipo==='cancelacion'?$l['costo_unitario']:($l['costo_unitario']??$maestro['costo']);
                 $this->sql('UPDATE almacen_articulos SET saldo=?,version=version+1 WHERE almacen_id=? AND articulo_id=?',[$nuevoSql,$almacen,$articulo]);
-                $this->sql('INSERT INTO movimientos_inventario(operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,movimiento_origen_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                    [$operacion,$alcance['unidad_id'],$almacen,$articulo,$tipo,$deltaSql,$d['motivo'],$d['nota'],$costo,$l['movimiento_id']??null]);
+                $this->sql('INSERT INTO movimientos_inventario(operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,ticket_item_id,movimiento_origen_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                    [$operacion,$alcance['unidad_id'],$almacen,$articulo,$tipo,$deltaSql,$d['motivo'],$d['nota'],$costo,$comercial?$ticketItemId:null,$l['movimiento_id']??null]);
                 $movimientos[]=['id'=>(int)$this->db->insert_id,'almacen_id'=>$almacen,'articulo_id'=>$articulo,'delta'=>$deltaSql,'saldo'=>$nuevoSql,'version'=>(int)$a['version']+1];
             }
             $resultado=['codigo'=>'OPERACION_REGISTRADA','operacion_id'=>$operacion,'movimientos'=>$movimientos,'reintento'=>false];
+            if($comercial) {
+                $resultado['ticket_item_id']=$ticketItemId;
+                if($tipo==='venta') $resultado['costo_unitario']=$costoVenta;
+            }
             $this->sql('UPDATE operaciones_inventario SET resultado=? WHERE id=?',[json_encode($resultado,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),$operacion]);
             return $resultado;
         });
     }
 
-    private function normalizar(string $tipo,array $doc): array
+    private function normalizar(string $tipo,array $doc,bool $comercial=false): array
     {
+        if($tipo==='venta' && !$comercial) throw new InventarioError('OPERACION_INVALIDA','Las ventas solo se consumen desde el POS autorizado.');
         self::claves($doc,['clave','referencia','origen','motivo','nota','lineas']);
         $d=['clave'=>self::texto($doc['clave']??null,120),'referencia'=>self::texto($doc['referencia']??null,120),
             'origen'=>self::texto($doc['origen']??'motor_inventario',40),'motivo'=>self::texto($doc['motivo']??null,80),
@@ -232,7 +294,7 @@ final class Almacenes
                 if($tipo==='ajuste') $n['version']=self::version($l['version']??null);
                 elseif(array_key_exists('version',$l)) throw new InventarioError('DATOS_INVALIDOS','La versión solo corresponde a un ajuste.');
                 if(isset($l['costo_unitario'])) {
-                    if($tipo!=='entrada') throw new InventarioError('DATOS_INVALIDOS','El costo solo puede indicarse al registrar una entrada.');
+                    if($tipo!=='entrada' && !($tipo==='venta' && $comercial)) throw new InventarioError('DATOS_INVALIDOS','El costo solo puede indicarse al registrar una entrada o venta interna.');
                     $n['costo_unitario']=DecimalInventario::formato(DecimalInventario::leer($l['costo_unitario'],4),4);
                 }
             }
@@ -273,6 +335,28 @@ final class Almacenes
     {
         $r=$this->uno('SELECT id,costo,activo FROM ingredientes WHERE id=? FOR SHARE',[$id]);
         if(!$r || !(int)$r['activo']) throw new InventarioError('ARTICULO_INACTIVO','El artículo no existe o está inactivo.');
+        return $r;
+    }
+
+    /** Bloqueo de almacén acotado por item POS; no abre permiso administrativo. */
+    private function almacenVenta(int $id,int $unidadId): array
+    {
+        $a=$this->uno('SELECT id,unidad_id,nombre,permitir_negativos,activo FROM almacenes WHERE id=? AND unidad_id=? FOR UPDATE',[$id,$unidadId]);
+        if(!$a) throw new InventarioError('RECURSO_NO_ENCONTRADO','El almacén de consumo no pertenece al negocio vendedor.');
+        if(!(int)$a['activo']) throw new InventarioError('ALMACEN_INACTIVO','El almacén de consumo está inactivo.');
+        return $a;
+    }
+
+    /** Respuesta de idempotencia bloqueada antes de resolver la receta actual. */
+    private function resultadoComercial(int $unidadId,string $tipo,int $ticketItemId,string $accion): ?array
+    {
+        $s=$this->sql('SELECT id,resultado FROM operaciones_inventario WHERE unidad_id=? AND tipo=? AND origen=\'pos\' AND clave_idempotencia=? FOR UPDATE',
+            [$unidadId,$tipo,($accion==='venta'?'ticket-item-':'cancel-ticket-item-').$ticketItemId]);
+        $rows=$s->get_result()->fetch_all(MYSQLI_ASSOC);
+        if($rows===[]) return null;
+        if(count($rows)!==1 || $rows[0]['resultado']===null) throw new InventarioError('CONFLICTO_IDEMPOTENCIA','La venta ya tiene una operación pendiente de resolución.');
+        $r=json_decode($rows[0]['resultado'],true,512,JSON_THROW_ON_ERROR);
+        $r['reintento']=true;
         return $r;
     }
 

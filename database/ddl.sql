@@ -6,7 +6,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -248,6 +248,15 @@ CREATE TABLE tickets (
  UNIQUE KEY uq_ticket_id_unidad(id,unidad_id), UNIQUE KEY uq_ticket_reservacion(reservacion_id,unidad_id),
  FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, FOREIGN KEY(mesero_id) REFERENCES usuarios(id) ON DELETE SET NULL,
  CHECK(unidad_tipo='negocio'), CHECK(propina>=0), INDEX idx_ticket_estado(estado), INDEX idx_ticket_cierre(hora_cierre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE pos_operaciones (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, actor_id INT NOT NULL,
+ ticket_id INT NOT NULL, tipo VARCHAR(24) NOT NULL, clave VARCHAR(120) NOT NULL, hash_solicitud CHAR(64) NOT NULL,
+ resultado JSON NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_pos_operacion_clave(unidad_id,actor_id,tipo,clave),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE ticket_items (
  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ticket_id INT NOT NULL,

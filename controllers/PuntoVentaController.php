@@ -26,6 +26,8 @@ use Services\Pos\PosReservacionSerializer;
 use Services\Pos\PuntoVentaReservacionService;
 use Services\Analytics\Sugerencias;
 use Services\Security\StaffCsrfService;
+use Services\Security\ContextoNegocio;
+use Services\Pos\Comercial;
 
 class PuntoVentaController {
 
@@ -414,10 +416,41 @@ class PuntoVentaController {
             return;
         }
 
-        $ticketExistente = Ticket::consultarSQL(
-            "SELECT id, estado FROM tickets WHERE id = {$ticketId} LIMIT 1"
-        );
-        if (!empty($ticketExistente) && $ticketExistente[0]->estado === 'cerrado') {
+        if (ContextoNegocio::nuevo()) {
+            try {
+                ContextoNegocio::exigir('pdv', 'operar', ContextoNegocio::slug());
+                $totalActual = Comercial::totalTicket($ticketId, ContextoNegocio::slug());
+                if (!($totalActual['ok'] ?? false)) {
+                    self::responder($totalActual);
+                    return;
+                }
+                $ticketEstado = $totalActual['estado'];
+                $pendientes = (int)$totalActual['pendientes'];
+                $total = (float)$totalActual['total'];
+            } catch (\Throwable $e) {
+                self::errorJson('TICKET_NO_VALIDO');
+                return;
+            }
+            if ($ticketEstado === 'cerrado') {
+                $resultado = PuntoVentaReservacionService::cerrarTicket(
+                    $ticketId, 'efectivo', 0.0, [], (int)($_SESSION['id'] ?? 0)
+                );
+                if (($resultado['ok'] ?? false) === true) {
+                    $resultado['codigo'] = 'TICKET_CERRADO';
+                    $resultado['id'] = $ticketId;
+                }
+                self::responder($resultado);
+                return;
+            }
+            if ($ticketEstado !== 'abierto') {
+                self::errorJson('TICKET_NO_VALIDO');
+                return;
+            }
+        } else {
+            $ticketExistente = Ticket::consultarSQL(
+                "SELECT id, estado FROM tickets WHERE id = {$ticketId} LIMIT 1"
+            );
+            if (!empty($ticketExistente) && $ticketExistente[0]->estado === 'cerrado') {
             $resultado = PuntoVentaReservacionService::cerrarTicket(
                 $ticketId,
                 'efectivo',
@@ -431,45 +464,55 @@ class PuntoVentaController {
             }
             self::responder($resultado);
             return;
+            }
         }
 
         // No se cierra una cuenta con productos sin entregar: el mesero debe
         // haber entregado todo (los cancelados no cuentan) antes de cobrar.
         // Se usa ejecutarSQL+fetch_assoc: consultarSQL descarta los alias como
         // "AS n" que no son propiedades del modelo.
-        $pendientes = 0;
-        try {
-            $res = Ticket::ejecutarSQL(
-                "SELECT COUNT(*) AS n FROM ticket_items
-                 WHERE ticket_id = {$ticketId} AND estado NOT IN ('entregado','cancelado')"
-            );
-            if ($res && ($row = $res->fetch_assoc())) {
-                $pendientes = (int)$row['n'];
-            }
-        } catch (\Throwable $e) {
+        if (!ContextoNegocio::nuevo()) {
             $pendientes = 0;
-        }
-        if ($pendientes > 0) {
+            try {
+                $res = Ticket::ejecutarSQL(
+                    "SELECT COUNT(*) AS n FROM ticket_items
+                     WHERE ticket_id = {$ticketId} AND estado NOT IN ('entregado','cancelado')"
+                );
+                if ($res && ($row = $res->fetch_assoc())) {
+                    $pendientes = (int)$row['n'];
+                }
+            } catch (\Throwable $e) {
+                $pendientes = 0;
+            }
+            if ($pendientes > 0) {
+                self::errorJson('TICKET_ITEMS_PENDIENTES', 422, ['pendientes' => $pendientes]);
+                return;
+            }
+        } elseif ($pendientes > 0) {
             self::errorJson('TICKET_ITEMS_PENDIENTES', 422, ['pendientes' => $pendientes]);
             return;
         }
 
         // Total real de la cuenta (no se confía en el cliente). Se usa en ambas
         // ramas para validar el pago y calcular la propina.
-        try {
-            $rows  = TicketItem::consultarSQL(
-                "SELECT precio, cantidad FROM ticket_items
-                 WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
-            );
-            $total = 0.0;
-            foreach ($rows as $r) {
-                $total += (float)$r->precio * (int)$r->cantidad;
+        if (ContextoNegocio::nuevo()) {
+            $total = (float)$totalActual['total'];
+        } else {
+            try {
+                $rows  = TicketItem::consultarSQL(
+                    "SELECT precio, cantidad FROM ticket_items
+                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+                );
+                $total = 0.0;
+                foreach ($rows as $r) {
+                    $total += (float)$r->precio * (int)$r->cantidad;
+                }
+                $total = round($total, 2);
+            } catch (\Throwable $e) {
+                error_log('PuntoVentaController::cerrarTicket total - ' . $e->getMessage());
+                self::errorJson('TOTAL_TICKET_NO_DISPONIBLE');
+                return;
             }
-            $total = round($total, 2);
-        } catch (\Throwable $e) {
-            error_log('PuntoVentaController::cerrarTicket total - ' . $e->getMessage());
-            self::errorJson('TOTAL_TICKET_NO_DISPONIBLE');
-            return;
         }
         $totalCents = (int)round($total * 100);
 
@@ -559,7 +602,8 @@ class PuntoVentaController {
                 $metodoPago,
                 $propina,
                 $pagosLimpios,
-                (int)($_SESSION['id'] ?? 0)
+                (int)($_SESSION['id'] ?? 0),
+                ContextoNegocio::nuevo() ? $totalCents : null
             );
             if (!($cierre['ok'] ?? false)) {
                 self::responder($cierre);
@@ -574,20 +618,25 @@ class PuntoVentaController {
             // Impresión de la cuenta: efecto secundario en su propio try/catch.
             // Un fallo de impresora no debe afectar el cierre ni el token de feedback.
             try {
+                $unidadSql = ContextoNegocio::nuevo() ? ContextoNegocio::vendedora(ContextoNegocio::slug()) : 0;
+                $filtroUnidad = ContextoNegocio::nuevo() ? " AND t.unidad_id = {$unidadSql}" : '';
+                $filtroItem = ContextoNegocio::nuevo() ? " AND ti.unidad_id = {$unidadSql}" : '';
+                $joinTicketMesaScope = ContextoNegocio::nuevo() ? ' AND tm.unidad_id = t.unidad_id' : '';
+                $joinMesaScope = ContextoNegocio::nuevo() ? ' AND m.unidad_id = tm.unidad_id' : '';
                 $trow = Ticket::consultarSQL(
                     "SELECT t.id, t.nombre AS cliente, t.comensales, t.hora_apertura,
                             m.nombre AS mesa, u.nombre AS mesero
                      FROM tickets t
-                     JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
-                     JOIN mesas m ON m.id = tm.mesa_id
+                     JOIN ticket_mesas tm ON tm.ticket_id = t.id" . $joinTicketMesaScope . " AND tm.orden = 1
+                     JOIN mesas m ON m.id = tm.mesa_id" . $joinMesaScope . "
                      LEFT JOIN usuarios u ON u.id = t.mesero_id
-                     WHERE t.id = {$ticketId} LIMIT 1"
+                     WHERE t.id = {$ticketId}" . (ContextoNegocio::nuevo() ? " AND t.unidad_id = {$unidadSql}" : '') . " LIMIT 1"
                 );
                 $ticketRow = array_shift($trow);
 
                 $itemsRows = TicketItem::consultarSQL(
                     "SELECT nombre, variante, precio, cantidad, comensal FROM ticket_items
-                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+                     WHERE ticket_id = {$ticketId}" . $filtroItem . " AND estado <> 'cancelado'"
                 );
                 $items = array_map(function ($r) {
                     return [
@@ -638,6 +687,66 @@ class PuntoVentaController {
 
         if (!$ticketId || empty($items)) {
             self::errorJson('DATOS_INCOMPLETOS');
+            return;
+        }
+
+        if (ContextoNegocio::nuevo()) {
+            $clave = trim((string)($data['clave_idempotencia'] ?? ''));
+            $ctx = ContextoNegocio::slug();
+            $resultado = Comercial::enviarComanda($ticketId, $items, $clave, $ctx);
+            if (($resultado['ok'] ?? false) !== true || ($resultado['confirmado'] ?? false) !== true) {
+                self::responderComercial($resultado);
+                return;
+            }
+            $printOk = true;
+            $alertas = [];
+            if (empty($resultado['reintento']) && !empty($resultado['imprimir'])) {
+                $itemsComanda = (array)($resultado['items_comanda'] ?? []);
+                try {
+                    $unidad = ContextoNegocio::vendedora($ctx);
+                    $db = Ticket::getDB();
+                    $stmt = $db->prepare(
+                        'SELECT t.nombre cliente,t.hora_apertura,m.numero mesa_numero,m.nombre mesa_nombre,u.nombre mesero
+                           FROM tickets t
+                           JOIN ticket_mesas tm ON tm.ticket_id=t.id AND tm.unidad_id=t.unidad_id AND tm.orden=1
+                           JOIN mesas m ON m.id=tm.mesa_id AND m.unidad_id=tm.unidad_id
+                           LEFT JOIN usuarios u ON u.id=t.mesero_id
+                          WHERE t.id=? AND t.unidad_id=? LIMIT 1'
+                    );
+                    if (!$stmt) throw new \RuntimeException($db->error);
+                    $stmt->bind_param('ii', $ticketId, $unidad);
+                    $stmt->execute();
+                    $meta = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($meta && $itemsComanda !== []) {
+                        $resultadosImpresion = TicketPrinter::imprimirComanda($itemsComanda, [
+                            'mesa' => $meta['mesa_numero'] ?? '',
+                            'mesa_nombre' => $meta['mesa_nombre'] ?? null,
+                            'cliente' => $meta['cliente'] ?? null,
+                            'mesero' => $meta['mesero'] ?? null,
+                            'hora' => date('H:i'),
+                            'ticket_id' => $ticketId,
+                        ]);
+                        $printOk = !in_array(false, $resultadosImpresion, true);
+                        $alertas = ImpresionAlertaService::registrar(TicketPrinter::fallos(), [
+                            'ticket_id' => $ticketId,
+                            'mesa_nombre' => $meta['mesa_nombre'] ?? null,
+                            'usuario_id' => (int)($_SESSION['id'] ?? 0),
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    error_log('PuntoVentaController::enviarComanda - impresión multinegocio falló: ' . $e->getMessage());
+                    $printOk = false;
+                }
+            }
+            echo json_encode([
+                'ok' => true,
+                'commit' => true,
+                'count' => (int)($resultado['count'] ?? 0),
+                'reintento' => (bool)($resultado['reintento'] ?? false),
+                'print_ok' => $printOk,
+                'alertas_impresion' => $alertas,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             return;
         }
 
@@ -810,6 +919,11 @@ class PuntoVentaController {
             return;
         }
 
+        if (ContextoNegocio::nuevo()) {
+            self::responderComercial(Comercial::cancelarItem($itemId, ContextoNegocio::slug()));
+            return;
+        }
+
         try {
             TicketItem::ejecutarSQL(
                 "UPDATE ticket_items SET estado = 'cancelado'
@@ -840,6 +954,11 @@ class PuntoVentaController {
 
         if (!$itemId) {
             self::errorJson('ITEM_ID_REQUERIDO');
+            return;
+        }
+
+        if (ContextoNegocio::nuevo()) {
+            self::responderComercial(Comercial::entregarItem($itemId, ContextoNegocio::slug()));
             return;
         }
 
@@ -888,6 +1007,11 @@ class PuntoVentaController {
             return;
         }
 
+        if (ContextoNegocio::nuevo()) {
+            self::responderComercial(Comercial::actualizarTicket($ticketId, $nombre, ContextoNegocio::slug()));
+            return;
+        }
+
         try {
             $val = $nombre ? "'" . Ticket::escaparString($nombre) . "'" : 'NULL';
             Ticket::ejecutarSQL(
@@ -911,6 +1035,16 @@ class PuntoVentaController {
         $ticketId = isset($_GET['ticket_id']) ? (int)$_GET['ticket_id'] : 0;
         if (!$ticketId) {
             self::errorJson('TICKET_ID_REQUERIDO');
+            return;
+        }
+
+        if (ContextoNegocio::nuevo()) {
+            $resultado = Comercial::ticketItems($ticketId, ContextoNegocio::slug());
+            if (!($resultado['ok'] ?? false)) {
+                self::responder($resultado);
+                return;
+            }
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             return;
         }
 
@@ -1108,6 +1242,26 @@ class PuntoVentaController {
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    private static function responderComercial(array $resultado): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (($resultado['ok'] ?? false) === true && ($resultado['confirmado'] ?? false) === true) {
+            $resultado['commit'] = true;
+        } else {
+            $resultado['ok'] = false;
+            $resultado['commit'] = false;
+            if (!isset($resultado['codigo'])) $resultado['codigo'] = 'OPERACION_POS_FALLIDA';
+        }
+        // Los códigos del motor comercial/inventario conservan su significado;
+        // el catálogo de reservaciones no puede convertirlos en ERROR_INTERNO
+        // ni sustituir el resultado real del commit.
+        if (!$resultado['ok']) {
+            http_response_code(in_array($resultado['codigo'],['PERMISO_DENEGADO','AMBITO_DENEGADO','NIVEL_AUTH_REQUERIDO'],true)?403:409);
+        }
+        $resultado['mensaje']??=$resultado['ok']?'Operación registrada.':'No se pudo completar la operación.';
+        echo json_encode($resultado,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    }
+
     /**
      * GET /api/corte-caja
      * Resumen de ventas del día (tickets cerrados hoy): ventas, propinas,
@@ -1119,14 +1273,24 @@ class PuntoVentaController {
         \Classes\Auth::liberarSesion();
 
         try {
+            $unidadFiltro = '';
+            $unidadItemFiltro = '';
+            $joinUnidad = '';
+            if (ContextoNegocio::nuevo()) {
+                ContextoNegocio::exigir('pdv', 'operar', ContextoNegocio::slug());
+                $unidad = ContextoNegocio::vendedora(ContextoNegocio::slug());
+                $unidadFiltro = " AND t.unidad_id = {$unidad}";
+                $unidadItemFiltro = " AND ti.unidad_id = {$unidad}";
+                $joinUnidad = ' AND tp.unidad_id = t.unidad_id';
+            }
             // Tickets cerrados hoy con su consumo (sin ítems cancelados) y propina.
             $resTickets = Ticket::ejecutarSQL(
                 "SELECT t.id, t.metodo_pago, COALESCE(t.propina, 0) AS propina,
                         COALESCE((SELECT SUM(ti.precio * ti.cantidad)
                                   FROM ticket_items ti
-                                  WHERE ti.ticket_id = t.id AND ti.estado <> 'cancelado'), 0) AS total
+                                  WHERE ti.ticket_id = t.id" . $unidadItemFiltro . " AND ti.estado <> 'cancelado'), 0) AS total
                    FROM tickets t
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()"
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()" . $unidadFiltro
             );
 
             $numTickets = 0;
@@ -1157,9 +1321,9 @@ class PuntoVentaController {
             $resPagos = Ticket::ejecutarSQL(
                 "SELECT tp.metodo_pago, COALESCE(SUM(tp.monto), 0) AS monto
                    FROM ticket_pagos tp
-                   JOIN tickets t ON t.id = tp.ticket_id
+                   JOIN tickets t ON t.id = tp.ticket_id" . $joinUnidad . "
                   WHERE t.estado = 'cerrado' AND t.metodo_pago = 'dividido'
-                        AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
+                        AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()" . $unidadFiltro . "
                   GROUP BY tp.metodo_pago"
             );
             if ($resPagos) {
@@ -1187,8 +1351,8 @@ class PuntoVentaController {
                         SUM(ti.cantidad) AS unidades,
                         SUM(ti.precio * ti.cantidad) AS importe
                    FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
+                   JOIN tickets t ON t.id = ti.ticket_id" . (ContextoNegocio::nuevo() ? ' AND t.unidad_id = ti.unidad_id' : '') . "
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()" . $unidadFiltro . $unidadItemFiltro . "
                         AND ti.estado <> 'cancelado'
                   GROUP BY ti.nombre
                   ORDER BY unidades DESC, importe DESC
@@ -1210,9 +1374,9 @@ class PuntoVentaController {
                 "SELECT COALESCE(ap.nombre, 'Sin área') AS area,
                         COALESCE(SUM(ti.precio * ti.cantidad), 0) AS importe
                    FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                   LEFT JOIN areas_produccion ap ON ap.id = ti.area_id
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
+                   JOIN tickets t ON t.id = ti.ticket_id" . (ContextoNegocio::nuevo() ? ' AND t.unidad_id = ti.unidad_id' : '') . "
+                   LEFT JOIN areas_produccion ap ON ap.id = ti.area_id" . (ContextoNegocio::nuevo() ? ' AND ap.unidad_id = ti.unidad_id' : '') . "
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()" . $unidadFiltro . $unidadItemFiltro . "
                         AND ti.estado <> 'cancelado'
                   GROUP BY ap.nombre
                   ORDER BY importe DESC"

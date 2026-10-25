@@ -136,3 +136,38 @@ para páginas de 1 y 100 artículos y exige el mismo número de consultas.
 Dos índices adicionales soportan los historiales paginados por fecha/id:
 idx_mov_unidad_fecha y idx_mov_almacen_fecha. EXPLAIN FORMAT=TRADITIONAL
 comprueba que son índices elegibles para ambos patrones. No hay tabla de totales.
+
+## Extensión 3D.2: consumo comercial de Restaurante
+
+`Almacenes::consumirVenta($ctx, $ticketItemId)` y
+`Almacenes::revertirVenta($ctx, $ticketItemId)` son las únicas entradas POS para
+consumir o compensar inventario. No reciben cantidad, artículo ni almacén del
+cliente. Solo operan en `restaurante` y vuelven a comprobar `pdv/operar` con el
+actor y nivel de autenticación de la sesión dentro de la transacción. El item y
+su ticket deben pertenecer a la unidad autorizada; el ticket debe estar abierto.
+Para consumir, el item no puede estar cancelado; para revertir, sí debe estarlo.
+
+El consumo resuelve `receta_id` y `variante_ids` guardados en el item. La
+identidad de oferta es `oferta_id`; no se busca por nombre ni se usa la receta
+activa actual para reconstruir una venta anterior. Si el snapshot no tiene
+receta y sus variantes no agregan componentes inventariables, no hay consumo.
+Una receta presente sin componentes, una subreceta local inválida o una
+referencia de artículo inactiva produce un error de dominio. Cada artículo se
+asigna exclusivamente al almacén de `oferta_consumos` de esa oferta/unidad; no
+se elige otro almacén ni se distribuye entre almacenes.
+
+Las cantidades se calculan con aritmética decimal exacta, se multiplican por la
+cantidad entera del item y se redondean una sola vez a tres decimales. Un
+consumo positivo menor a esa precisión falla en lugar de desaparecer. Los
+costos unitarios se suman con precisión decimal y se redondean half-up a cuatro
+decimales. El costo que devuelve `consumirVenta` es una cadena decimal por
+unidad vendida (`costo_unitario`); para venta sin consumo explícito devuelve
+`null`.
+
+Las operaciones generan movimientos `venta` con cantidad negativa, costo
+unitario, `ticket_item_id` y clave/referencia idempotente por item. La
+reversión usa los movimientos originales de ese item y sus almacenes y costos,
+descontando compensaciones previas; nunca consulta la receta actual. Ambas
+operaciones participan en la transacción exterior mediante savepoint y
+devuelven `pendiente` mientras el coordinador no confirme. No realizan un
+commit propio cuando ya existe una transacción comercial.

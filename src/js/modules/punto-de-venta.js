@@ -65,6 +65,7 @@ function initMapa() {
   // Arranca en el comportamiento histórico por si la primera respuesta falla.
   var posConfig     = { mesero_editable: true };
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
+  var claveComandaPendiente = null;
   var selectedComensal = 0;  // 0 = General
   var SUGERENCIAS         = []; // tarjeta(s) visibles; las trae n8n al abrir la mesa
   var sugCola             = []; // resto del ranking de n8n, para "↻ Otra sugerencia"
@@ -3955,7 +3956,7 @@ function initMapa() {
             abrirOpciones(d, { comensal: selectedComensal, origen: boton });
             return;
           }
-          addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '');
+          addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '', null, null, d.oferta_id || d.id);
         });
       })(dish, row);
       dishesEl.appendChild(row);
@@ -4015,7 +4016,7 @@ function initMapa() {
     return (ids || []).slice().sort(function(a, b) { return a - b; }).join(',');
   }
 
-  function addToComanda(name, price, areaSlug, categoria, variante, comensal) {
+  function addToComanda(name, price, areaSlug, categoria, variante, comensal, ofertaId) {
     var areaId = (window.CP_AREAS && window.CP_AREAS[areaSlug])
                  ? window.CP_AREAS[areaSlug].id : 3;
     var para = typeof comensal === 'number' ? comensal : selectedComensal;
@@ -4024,7 +4025,7 @@ function initMapa() {
     var found = false;
     for (var i = 0; i < commandaItems.length; i++) {
       var ci = commandaItems[i];
-      if (ci.n === name && ci.comensal === para && claveVariante(ci.v) === clave) {
+      if (ci.n === name && ci.oferta_id === Number(ofertaId || 0) && ci.comensal === para && claveVariante(ci.v) === clave) {
         ci.qty++;
         found = true;
         break;
@@ -4034,6 +4035,7 @@ function initMapa() {
       commandaItems.push({
         n: name, p: price, area: areaSlug, area_id: areaId,
         categoria: categoria, comensal: para, qty: 1, nota: '',
+        oferta_id: Number(ofertaId || 0),
         v: ids, vl: variante && variante.label ? variante.label : ''
       });
     }
@@ -4272,7 +4274,7 @@ function initMapa() {
     }
     var comensal = typeof h.ctx.comensal === 'number' ? h.ctx.comensal : selectedComensal;
     cerrarOpciones();
-    addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal);
+    addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal, d.oferta_id || d.id);
   }
 
   if (modal) {
@@ -4299,12 +4301,17 @@ function initMapa() {
     // Una sugerencia con elección obligatoria (el término de la hamburguesa)
     // no puede entrar a ciegas: el servidor la rechazaría al enviar.
     var dishSug = buscarDishPorNombre(sug.n);
+    if (!dishSug) {
+      aviso('Actualiza el menú antes de agregar esta sugerencia.', 'warning');
+      return;
+    }
+    var sugerenciaOfertaId = Number(dishSug.oferta_id || dishSug.id || 0);
     if (opcionesObligatorias(dishSug)) {
       abrirOpciones(dishSug, { comensal: comensal });
       return;
     }
     for (var i = 0; i < commandaItems.length; i++) {
-      if (commandaItems[i].n === sug.n && commandaItems[i].comensal === comensal) {
+      if (commandaItems[i].oferta_id === sugerenciaOfertaId && commandaItems[i].comensal === comensal && claveVariante(commandaItems[i].v) === '') {
         commandaItems[i].qty++;
         renderComandaCart();
         return;
@@ -4312,7 +4319,8 @@ function initMapa() {
     }
     commandaItems.push({
       n: sug.n, p: sug.p, area: sug.area, area_id: sug.area_id,
-      categoria: sug.categoria, comensal: comensal, qty: 1, nota: ''
+      categoria: sug.categoria, comensal: comensal, qty: 1, nota: '',
+      oferta_id: sugerenciaOfertaId, v: []
     });
     renderComandaCart();
   }
@@ -6623,6 +6631,7 @@ function initMapa() {
     for (var i = 0; i < commandaItems.length; i++) {
       var ci = commandaItems[i];
       payload.items.push({
+        oferta_id:  ci.oferta_id,
         nombre:    ci.n,
         precio:    ci.p,
         categoria: ci.categoria,
@@ -6634,6 +6643,18 @@ function initMapa() {
       });
     }
 
+    var firmaComanda = JSON.stringify([payload.ticket_id, payload.items]);
+    if (!claveComandaPendiente || claveComandaPendiente.firma !== firmaComanda) {
+      var clave = '';
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        clave = window.crypto.randomUUID();
+      } else {
+        clave = 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+      }
+      claveComandaPendiente = { firma: firmaComanda, clave: clave };
+    }
+    payload.clave_idempotencia = claveComandaPendiente.clave;
+
     fetch('/api/enviar-comanda', {
       method:  'POST',
       headers: staffJsonHeaders(),
@@ -6642,6 +6663,7 @@ function initMapa() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        claveComandaPendiente = null;
         invalidarTicketItems(ticketId);
         recibirAlertasPropias(result.alertas_impresion);
         // Antes de limpiar el carrito: cerrar el ciclo de lo que se sugirió

@@ -1,7 +1,7 @@
 <?php
 namespace Model;
 
-class Ticket extends ActiveRecord {
+class Ticket extends RegistroRestaurante {
 
     protected static $tabla = 'tickets';
 
@@ -39,7 +39,7 @@ class Ticket extends ActiveRecord {
             "SELECT t.id, t.nombre, t.comensales, t.hora_apertura, t.closed_at,
                     t.hora_cierre, t.estado, t.reservacion_id
              FROM tickets t
-             WHERE t.reservacion_id = {$reservacionId}
+             WHERE t.reservacion_id = {$reservacionId}" . self::filtroUnidad('t') . "
              ORDER BY t.id DESC
              LIMIT 1"
         );

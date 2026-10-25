@@ -444,7 +444,7 @@ final class Variantes
             $resultado = ContextoNegocio::en($ctx, static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
                 return ContextoNegocio::transaccion(static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
                     ContextoNegocio::exigir('menu', 'editar', $ctx, true);
-                    self::exigirOferta($db, $productoId, $unidadId);
+                    self::exigirOferta($db, $productoId, $unidadId, true);
                     $existentes = [];
                     $sel = $db->prepare('SELECT id FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? FOR UPDATE');
                     $sel->bind_param('ii', $productoId, $unidadId);
@@ -678,10 +678,10 @@ final class Variantes
         return $cache[$clave] = $ok;
     }
 
-    private static function exigirOferta(\mysqli $db, int $ofertaId, int $unidadId): void
+    private static function exigirOferta(\mysqli $db, int $ofertaId, int $unidadId, bool $bloquear=false): void
     {
         if ($ofertaId <= 0 || $unidadId <= 0) throw new \DomainException('Oferta fuera del ámbito activo.');
-        $stmt = $db->prepare('SELECT id FROM ofertas_producto WHERE id = ? AND unidad_id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id FROM ofertas_producto WHERE id = ? AND unidad_id = ? LIMIT 1'.($bloquear?' FOR UPDATE':''));
         $stmt->bind_param('ii', $ofertaId, $unidadId);
         $stmt->execute();
         $ok = (bool) $stmt->get_result()->fetch_assoc();

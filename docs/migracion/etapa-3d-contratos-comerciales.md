@@ -60,3 +60,46 @@ preservación del menú, 34; recursos PDF, 15; especiales de temporada, 30.
 Todos los destinos temporales fueron verificados y eliminados. Las suites
 generales conservan los dos fallos iniciales documentados en la auditoría;
 su resolución y repetición integral siguen pendientes de 3D.3/3D.4.
+
+## 3D.2: comanda, inventario y cierre
+
+Comercial recibe IDs de oferta y una clave de envío estable. El servidor resuelve
+precio, identidad, categoría, área, receta y variantes; los valores descriptivos
+enviados por la tablet no determinan la venta. La tabla `pos_operaciones` reserva
+la clave por actor/unidad y congela el resultado junto con todos los items.
+Un reintento idéntico devuelve los mismos IDs y no imprime otra comanda.
+
+El descuento sigue ocurriendo al enviar la comanda. Almacenes consume mediante
+el bucle de movimientos de 3C, con autorización operativa POS independiente de
+los permisos administrativos de inventario. Sus nuevas entradas solo reciben el
+ID del item; las cantidades y el origen físico se derivan del snapshot y de
+`oferta_consumos`. No hay búsqueda de stock ajeno, fallback ni reparto implícito.
+BCMath resuelve subrecetas y sustituciones proporcionales sin float para saldos;
+la cantidad se redondea una vez al final, con precisión de tres decimales.
+
+La decisión de vender sin consumo también queda congelada como operación
+idempotente, sin movimientos. La cancelación utiliza los movimientos originales,
+su almacén y costo; nunca vuelve a resolver la receta vigente. La entrega mantiene
+los estados operativos enviado/en preparación/listo del código integrado.
+
+El coordinador comercial confirma items y movimientos en una misma transacción.
+La impresión ocurre después del commit. El cierre conserva el coordinador de
+reservaciones y sus locks; vuelve a verificar productos pendientes e importe
+dentro de la transacción antes de guardar pagos, token y estado. Una cuenta que
+cambió desde la validación de cobro devuelve `TICKET_TOTAL_CAMBIO`.
+El descarte de ticket vacío elimina expresamente sus relaciones, conforme a las
+FK restrictivas del esquema nuevo. Los CRUD operativos comunes construyen sus
+consultas con unidad de Restaurante mediante RegistroRestaurante; el SQL crudo
+de cada consumidor continúa requiriendo su filtro explícito.
+
+El runner 3D.2 pasó 58 comprobaciones sobre una base temporal: venta sin receta,
+receta/variantes, varias líneas, negativos, origen incompleto, ID de otro negocio,
+reintento/conflicto, cancelación original y repetida, entrega, errores SQL antes
+del ticket, durante items/movimientos/pagos/cierre, apertura y descarte. Dos
+procesos compitieron por la última porción: uno confirmó y otro obtuvo saldo
+insuficiente. Dos cancelaciones concurrentes produjeron una sola compensación.
+La regresión 3C pasó 158 comprobaciones y sus 17 casos de concurrencia.
+
+Las rutas POS completas y la navegación se habilitan al cerrar sus consumidores
+de mapa/KDS/impresión en 3D.3, y se verifican por HTTP/navegador en 3D.4. Las
+pruebas anteriores son de servicios y procesos reales, no de impresoras físicas.

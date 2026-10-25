@@ -24,9 +24,34 @@ use Model\VerificacionContacto;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Shared\FechaOperacionLock;
+use Services\Security\ContextoNegocio;
+use Model\Ticket;
 
 final class PuntoVentaReservacionService
 {
+    private static function unidadSql(string $alias=''): string
+    {
+        return Ticket::filtroUnidad($alias);
+    }
+
+    private static function iniciarTransaccion(\mysqli $db): void
+    {
+        if (ContextoNegocio::nuevo()) {
+            if ((int)$db->query('SELECT @@autocommit')->fetch_row()[0]===0) throw new \DomainException('El coordinador de reservaciones requiere su propia transacción.');
+            // MySQL rechaza SET TRANSACTION si ya hay una transacción activa;
+            // así no confirmamos implícitamente trabajo de otro coordinador.
+            $db->query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        }
+        $db->begin_transaction();
+    }
+
+    private static function autorizar(?int $usuarioId=null): void
+    {
+        if (!ContextoNegocio::nuevo()) return;
+        if (ContextoNegocio::slug()!=='restaurante') throw new \DomainException('El POS solo está habilitado en Restaurante.');
+        ContextoNegocio::exigir('pdv','operar','restaurante',true);
+        if ($usuarioId!==null && $usuarioId!==ContextoNegocio::actorId()) throw new \DomainException('El actor debe proceder de la sesión autenticada.');
+    }
     public const OK = ReservacionMantenimientoService::OK;
     public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
     public const NO_EXISTE = ReservacionService::RESERVACION_NO_EXISTE;
@@ -102,7 +127,8 @@ final class PuntoVentaReservacionService
             if (!$lockHorario) {
                 throw new \RuntimeException('No fue posible bloquear el horario operativo.');
             }
-            $previa = self::fila("SELECT fecha FROM reservaciones WHERE id = {$reservacionId}");
+            self::autorizar($usuarioId);
+            $previa = self::fila("SELECT fecha FROM reservaciones WHERE id = {$reservacionId}" . self::unidadSql());
             if (!$previa) {
                 return ['ok' => false, 'codigo' => self::NO_EXISTE];
             }
@@ -110,8 +136,9 @@ final class PuntoVentaReservacionService
             if (!FechaOperacionLock::adquirir($db, $lockFecha, 10)) {
                 throw new \RuntimeException('No fue posible bloquear la fecha operativa.');
             }
-            $db->begin_transaction();
+            self::iniciarTransaccion($db);
             $transaccion = true;
+            self::autorizar();
 
             $r = Reservacion::buscarFilaPorIdParaActualizar($reservacionId);
             if (!$r) {
@@ -120,7 +147,7 @@ final class PuntoVentaReservacionService
             if ($r['estado'] === 'en_curso') {
                 $ticket = self::fila(
                     "SELECT t.id FROM tickets t
-                     WHERE t.reservacion_id = {$reservacionId}
+                     WHERE t.reservacion_id = {$reservacionId}" . self::unidadSql('t') . "
                        AND " . TicketMesa::condicionSqlAbierto('t') . "
                      FOR UPDATE"
                 );
@@ -339,6 +366,7 @@ final class PuntoVentaReservacionService
      */
     public static function abrirWalkIn(array $datos, int $usuarioId): array
     {
+        self::autorizar($usuarioId);
         $mesaIds = $datos['mesa_ids'] ?? [];
         if (!is_array($mesaIds)) {
             $mesaIds = [];
@@ -368,8 +396,9 @@ final class PuntoVentaReservacionService
             if (!$lockHorario || !$lockFecha) {
                 throw new \RuntimeException('No fue posible bloquear la operación del día.');
             }
-            $db->begin_transaction();
+            self::iniciarTransaccion($db);
             $transaccion = true;
+            self::autorizar();
             self::bloquearMesas($db, $mesaIds);
             $mesasInvalidas = self::mesasNoTicketables($db, $mesaIds);
             if ($mesasInvalidas !== []) {
@@ -535,8 +564,10 @@ final class PuntoVentaReservacionService
         string $metodoPago,
         float $propina,
         array $pagos,
-        int $usuarioId
+        int $usuarioId,
+        ?int $totalEsperadoCentavos=null
     ): array {
+        self::autorizar($usuarioId);
         $db = ActiveRecord::getDB();
         $lockHorario = false;
         $lockFecha = null;
@@ -546,7 +577,7 @@ final class PuntoVentaReservacionService
                 "SELECT t.reservacion_id, t.hora_apertura, r.fecha AS reservacion_fecha
                  FROM tickets t
                  LEFT JOIN reservaciones r ON r.id = t.reservacion_id
-                 WHERE t.id = {$ticketId}
+                 WHERE t.id = {$ticketId}" . self::unidadSql('t') . "
                  LIMIT 1"
             );
             if (!$previo) {
@@ -561,8 +592,9 @@ final class PuntoVentaReservacionService
             if (!$lockHorario || !FechaOperacionLock::adquirir($db, $lockFecha, 10)) {
                 throw new \RuntimeException('No fue posible bloquear la fecha operativa.');
             }
-            $db->begin_transaction();
+            self::iniciarTransaccion($db);
             $transaccion = true;
+            self::autorizar();
             $reservacionId = $previo['reservacion_id'] !== null ? (int)$previo['reservacion_id'] : null;
             $reservacion = null;
             if ($reservacionId) {
@@ -571,7 +603,7 @@ final class PuntoVentaReservacionService
                     return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
                 }
             }
-            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId} FOR UPDATE");
+            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId}" . self::unidadSql() . " FOR UPDATE");
             if (!$ticket) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
             }
@@ -588,8 +620,33 @@ final class PuntoVentaReservacionService
                 return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
             }
 
+            if (ContextoNegocio::nuevo()) {
+                self::autorizar($usuarioId);
+                if (!in_array($metodoPago,['efectivo','tarjeta','dividido'],true) || !is_finite($propina) || $propina<0) {
+                    return self::rollbackResultado($db,$transaccion,self::DATOS_INVALIDOS);
+                }
+                $filas=$db->query("SELECT precio,cantidad,estado FROM ticket_items WHERE ticket_id={$ticketId}".self::unidadSql().' ORDER BY id FOR UPDATE');
+                $totalActualCentavos=0;
+                while ($linea=$filas->fetch_assoc()) {
+                    if (!in_array($linea['estado'],['entregado','cancelado'],true)) return self::rollbackResultado($db,$transaccion,'TICKET_ITEMS_PENDIENTES');
+                    if ($linea['estado']==='cancelado') continue;
+                    $totalActualCentavos+=(int)str_replace('.','',(string)$linea['precio'])*(int)$linea['cantidad'];
+                }
+                if ($totalEsperadoCentavos!==null && $totalEsperadoCentavos!==$totalActualCentavos) {
+                    return self::rollbackResultado($db,$transaccion,'TICKET_TOTAL_CAMBIO');
+                }
+                if ($metodoPago==='dividido') {
+                    $suma=0;
+                    foreach($pagos as $pago) {
+                        if (!is_numeric($pago['monto']??null)) return self::rollbackResultado($db,$transaccion,'PAGO_INVALIDO');
+                        $suma+=(int)round((float)$pago['monto']*100);
+                    }
+                    if ($pagos===[] || $suma<$totalActualCentavos-1) return self::rollbackResultado($db,$transaccion,'PAGO_INSUFICIENTE');
+                } elseif ($pagos!==[]) return self::rollbackResultado($db,$transaccion,'PAGO_INVALIDO');
+            }
+
             $mesasTicket = self::fila(
-                "SELECT COUNT(*) AS total FROM ticket_mesas WHERE ticket_id = {$ticketId} FOR UPDATE"
+                "SELECT COUNT(*) AS total FROM ticket_mesas WHERE ticket_id = {$ticketId}" . self::unidadSql() . " FOR UPDATE"
             );
             if ((int)($mesasTicket['total'] ?? 0) < 1) {
                 return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
@@ -604,7 +661,7 @@ final class PuntoVentaReservacionService
                  SET estado = 'cerrado', closed_at = COALESCE(closed_at, NOW()),
                      hora_cierre = COALESCE(hora_cierre, NOW()),
                      metodo_pago = '{$metodo}', propina = {$propinaSql}
-                 WHERE id = {$ticketId}"
+                 WHERE id = {$ticketId}" . self::unidadSql()
             )) {
                 throw new \RuntimeException($db->error);
             }
@@ -619,8 +676,8 @@ final class PuntoVentaReservacionService
                 $metodoFila = $db->real_escape_string($metodoPagoFila);
                 $montoSql = number_format($monto, 2, '.', '');
                 if (!$db->query(
-                    "INSERT INTO ticket_pagos (ticket_id, comensal, metodo_pago, monto)
-                     VALUES ({$ticketId}, {$comensal}, '{$metodoFila}', {$montoSql})"
+                    "INSERT INTO ticket_pagos (" . (ContextoNegocio::nuevo()?'unidad_id,':'') . "ticket_id, comensal, metodo_pago, monto)
+                     VALUES (" . (ContextoNegocio::nuevo()?Ticket::unidadRestaurante().',':'') . "{$ticketId}, {$comensal}, '{$metodoFila}', {$montoSql})"
                 )) {
                     throw new \RuntimeException($db->error);
                 }
@@ -681,6 +738,7 @@ final class PuntoVentaReservacionService
      */
     public static function descartarTicketVacio(int $ticketId, int $usuarioId): array
     {
+        self::autorizar($usuarioId);
         $db = ActiveRecord::getDB();
         $lockHorario = false;
         $lockFecha = null;
@@ -690,7 +748,7 @@ final class PuntoVentaReservacionService
                 "SELECT t.reservacion_id, t.hora_apertura, r.fecha AS reservacion_fecha
                  FROM tickets t
                  LEFT JOIN reservaciones r ON r.id = t.reservacion_id
-                 WHERE t.id = {$ticketId}
+                 WHERE t.id = {$ticketId}" . self::unidadSql('t') . "
                  LIMIT 1"
             );
             if (!$previo) {
@@ -708,10 +766,11 @@ final class PuntoVentaReservacionService
             if (!$lockHorario || !FechaOperacionLock::adquirir($db, $lockFecha, 10)) {
                 throw new \RuntimeException('No fue posible bloquear la fecha operativa.');
             }
-            $db->begin_transaction();
+            self::iniciarTransaccion($db);
             $transaccion = true;
+            self::autorizar();
 
-            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId} FOR UPDATE");
+            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId}" . self::unidadSql() . " FOR UPDATE");
             if (!$ticket) {
                 return self::rollbackResultado($db, $transaccion, 'TICKET_NO_VALIDO');
             }
@@ -725,7 +784,7 @@ final class PuntoVentaReservacionService
             // otra tablet entre esta cuenta y el DELETE se perdería con el
             // ticket, y el área seguiría preparando platillos ya borrados.
             $items = self::fila(
-                "SELECT COUNT(*) AS total FROM ticket_items WHERE ticket_id = {$ticketId} FOR UPDATE"
+                "SELECT COUNT(*) AS total FROM ticket_items WHERE ticket_id = {$ticketId}" . self::unidadSql() . " FOR UPDATE"
             );
             if ((int)($items['total'] ?? 0) > 0) {
                 return self::rollbackResultado($db, $transaccion, self::TICKET_CON_CONSUMO);
@@ -745,7 +804,14 @@ final class PuntoVentaReservacionService
             }
 
             // ticket_mesas, ticket_items y feedback_tokens caen por CASCADE.
-            if (!$db->query("DELETE FROM tickets WHERE id = {$ticketId}")) {
+            if (ContextoNegocio::nuevo()) {
+                $db->query("DELETE FROM ticket_mesas WHERE ticket_id = {$ticketId}" . self::unidadSql());
+                // Los registros de idempotencia son evidencia comercial; no borrar
+                // tickets que ya tengan una operación registrada aunque estén vacíos.
+                $operada=self::fila("SELECT id FROM pos_operaciones WHERE ticket_id={$ticketId}" . self::unidadSql() . " LIMIT 1 FOR UPDATE");
+                if ($operada) return self::rollbackResultado($db,$transaccion,self::TICKET_CON_CONSUMO);
+            }
+            if (!$db->query("DELETE FROM tickets WHERE id = {$ticketId}" . self::unidadSql())) {
                 throw new \RuntimeException($db->error);
             }
 
@@ -790,7 +856,7 @@ final class PuntoVentaReservacionService
                     tm.mesa_id
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.mesa_id = {$mesaId}
-             WHERE " . TicketMesa::condicionSqlAbierto('t') . "
+             WHERE " . TicketMesa::condicionSqlAbierto('t') . self::unidadSql('t') . self::unidadSql('tm') . "
              ORDER BY t.id LIMIT 1"
         );
         $ahora = ReservacionConfig::ahora();
@@ -803,7 +869,7 @@ final class PuntoVentaReservacionService
             "SELECT r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
-             WHERE rm.mesa_id = {$mesaId}
+             WHERE rm.mesa_id = {$mesaId}" . self::unidadSql('r') . self::unidadSql('rm') . "
                AND r.estado = 'confirmada'
                AND r.fecha = '{$fechaActual}'
                AND TIMESTAMP(r.fecha, r.hora) <= '{$hasta}'
@@ -897,8 +963,9 @@ final class PuntoVentaReservacionService
         $db = ActiveRecord::getDB();
         $transaccion = false;
         try {
-            $db->begin_transaction();
+            self::iniciarTransaccion($db);
             $transaccion = true;
+            self::autorizar();
             $r = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$r) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
@@ -930,8 +997,8 @@ final class PuntoVentaReservacionService
     ): int {
         $stmt = $db->prepare(
             "INSERT INTO tickets
-                (comensales, nombre, estado, reservacion_id, mesero_id)
-             VALUES (?, NULLIF(?, ''), 'abierto', ?, ?)"
+                (" . (ContextoNegocio::nuevo()?'unidad_id,':'') . "comensales, nombre, estado, reservacion_id, mesero_id)
+             VALUES (" . (ContextoNegocio::nuevo()?Ticket::unidadRestaurante().',':'') . "?, NULLIF(?, ''), 'abierto', ?, ?)"
         );
         $stmt->bind_param(
             'isii',
@@ -958,7 +1025,7 @@ final class PuntoVentaReservacionService
             throw new \DomainException('No hay mesas que bloquear.');
         }
         $resultado = $db->query(
-            'SELECT id FROM mesas WHERE activo = 1 AND id IN (' . implode(',', $mesaIds) . ') ORDER BY id FOR UPDATE'
+            'SELECT id FROM mesas WHERE activo = 1 AND id IN (' . implode(',', $mesaIds) . ')' . self::unidadSql() . ' ORDER BY id FOR UPDATE'
         );
         if (!$resultado || $resultado->num_rows !== count($mesaIds)) {
             throw new \DomainException('Una mesa no existe o está fuera de servicio.');
@@ -973,7 +1040,7 @@ final class PuntoVentaReservacionService
         $resultado = $db->query(
             "SELECT id, tipo, nombre, reservable
              FROM mesas
-             WHERE id IN ({$ids})
+             WHERE id IN ({$ids})" . self::unidadSql() . "
              ORDER BY id
              FOR UPDATE"
         );
@@ -1007,7 +1074,7 @@ final class PuntoVentaReservacionService
         $ids = implode(',', array_map('intval', $mesaIds));
         $fila = self::fila(
             "SELECT id, nombre, tipo FROM mesas
-             WHERE id IN ({$ids})
+             WHERE id IN ({$ids})" . self::unidadSql() . "
                AND (tipo = 'barra' OR (tipo = 'especial' AND nombre = 'Llevar'))
              ORDER BY id
              LIMIT 1"
@@ -1031,7 +1098,7 @@ final class PuntoVentaReservacionService
             "SELECT t.id
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
-             WHERE " . TicketMesa::condicionSqlAbierto('t') . "
+             WHERE " . TicketMesa::condicionSqlAbierto('t') . self::unidadSql('t') . self::unidadSql('tm') . "
                AND tm.mesa_id = {$mesaId}
              FOR UPDATE"
         );
@@ -1051,7 +1118,7 @@ final class PuntoVentaReservacionService
             "SELECT t.id, GROUP_CONCAT(DISTINCT tm.mesa_id ORDER BY tm.mesa_id) AS mesa_ids
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
-             WHERE " . TicketMesa::condicionSqlAbierto('t') . "
+             WHERE " . TicketMesa::condicionSqlAbierto('t') . self::unidadSql('t') . self::unidadSql('tm') . "
                AND tm.mesa_id IN ({$ids})
              GROUP BY t.id
              LIMIT 1 FOR UPDATE"
@@ -1062,7 +1129,7 @@ final class PuntoVentaReservacionService
     {
         return self::fila(
             "SELECT t.id FROM tickets t
-             WHERE t.reservacion_id = {$reservacionId}
+             WHERE t.reservacion_id = {$reservacionId}" . self::unidadSql('t') . "
                AND " . TicketMesa::condicionSqlAbierto('t') . "
              LIMIT 1 FOR UPDATE"
         ) !== null;
@@ -1073,7 +1140,7 @@ final class PuntoVentaReservacionService
     {
         $resultado = $db->query(
             "SELECT id FROM reservaciones
-             WHERE reemplaza_reservacion_id = {$reservacionId}
+             WHERE reemplaza_reservacion_id = {$reservacionId}" . self::unidadSql() . "
                AND estado = 'pendiente_verificacion'
              ORDER BY id DESC
              FOR UPDATE"
@@ -1093,7 +1160,7 @@ final class PuntoVentaReservacionService
         if (!$db->query(
             "UPDATE reservaciones
              SET estado = 'expirada', hold_expires_at = NULL, estado_changed_at = NOW()
-             WHERE id IN ({$lista}) AND estado = 'pendiente_verificacion'"
+             WHERE id IN ({$lista}) AND estado = 'pendiente_verificacion'" . self::unidadSql()
         )) {
             throw new \RuntimeException($db->error);
         }
@@ -1128,12 +1195,12 @@ final class PuntoVentaReservacionService
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              INNER JOIN reservacion_mesas rm_todas ON rm_todas.reservacion_id = r.id
-             WHERE rm.mesa_id IN ({$ids})
+             WHERE rm.mesa_id IN ({$ids})" . self::unidadSql('r') . self::unidadSql('rm') . self::unidadSql('rm_todas') . "
                AND r.estado = 'confirmada'
                AND r.fecha = '{$fecha}'
                AND NOT EXISTS (
                     SELECT 1 FROM tickets vigencia_ticket
-                    WHERE vigencia_ticket.reservacion_id = r.id
+                    WHERE vigencia_ticket.reservacion_id = r.id" . self::unidadSql('vigencia_ticket') . "
                       AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
                )
                AND TIMESTAMP(r.fecha, r.hora) <= '{$limite}'
@@ -1180,14 +1247,14 @@ final class PuntoVentaReservacionService
     private static function tokenFeedback(\mysqli $db, int $ticketId): string
     {
         $existente = self::fila(
-            "SELECT token FROM feedback_tokens WHERE ticket_id = {$ticketId} LIMIT 1 FOR UPDATE"
+            "SELECT token FROM feedback_tokens WHERE ticket_id = {$ticketId}" . self::unidadSql() . " LIMIT 1 FOR UPDATE"
         );
         if ($existente) {
             return (string)$existente['token'];
         }
         $token = bin2hex(random_bytes(16));
         if (!$db->query(
-            "INSERT INTO feedback_tokens (ticket_id, token) VALUES ({$ticketId}, '{$token}')"
+            "INSERT INTO feedback_tokens (" . (ContextoNegocio::nuevo()?'unidad_id,':'') . "ticket_id, token) VALUES (" . (ContextoNegocio::nuevo()?Ticket::unidadRestaurante().',':'') . "{$ticketId}, '{$token}')"
         )) {
             throw new \RuntimeException($db->error);
         }
@@ -1197,7 +1264,7 @@ final class PuntoVentaReservacionService
 
     private static function actualizarReservacion(\mysqli $db, int $id, string $set): void
     {
-        if (!$db->query("UPDATE reservaciones SET {$set} WHERE id = {$id}")) {
+        if (!$db->query("UPDATE reservaciones SET {$set} WHERE id = {$id}" . self::unidadSql())) {
             throw new \RuntimeException($db->error);
         }
     }
@@ -1206,6 +1273,11 @@ final class PuntoVentaReservacionService
     {
         if ($meseroId === null) {
             return true;
+        }
+
+        if (ContextoNegocio::nuevo()) {
+            $perfil=\Services\Security\PermisosUsuario::cargar($meseroId,$db,true);
+            return \Services\Security\PermisosUsuario::permitido($perfil,'restaurante','pdv','operar');
         }
 
         $stmt = $db->prepare(
