@@ -1,5 +1,10 @@
 # Etapa 3D — Contratos comerciales
 
+**Referencia técnica vigente de los servicios comerciales de Restaurante.**
+La evidencia fechada de su implementación está en el [cierre 3D](etapa-3d-cierre.md).
+El [contrato rector 3E](../contrato.md) prevalece para alcance y módulos pendientes.
+
+
 ## 3D.1: identidad, oferta y preparación
 
 En el esquema multinegocio, los formularios existentes conservan `id` como
@@ -100,6 +105,7 @@ procesos compitieron por la última porción: uno confirmó y otro obtuvo saldo
 insuficiente. Dos cancelaciones concurrentes produjeron una sola compensación.
 La regresión 3C pasó 158 comprobaciones y sus 17 casos de concurrencia.
 
-Las rutas POS completas y la navegación se habilitan al cerrar sus consumidores
-de mapa/KDS/impresión en 3D.3, y se verifican por HTTP/navegador en 3D.4. Las
+Las rutas POS y la navegación de Restaurante se habilitaron tras adaptar los
+consumidores de mapa/KDS/impresión; sus recorridos HTTP/navegador se documentan
+en el cierre 3D y se repiten durante la aceptación de la instalación 3E. Las
 pruebas anteriores son de servicios y procesos reales, no de impresoras físicas.

@@ -1,5 +1,11 @@
 # Etapa 3C.2 — Consultas consolidadas y autorización
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Primera entrega: commit 685b2b0. La segunda entrega incorpora
 ConsultasAlmacen y los tres métodos de consulta expuestos por Almacenes.
 Véase el [contrato completo](contrato-almacenes-3c.md) para firmas, filtros,

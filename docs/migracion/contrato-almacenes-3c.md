@@ -1,11 +1,15 @@
 # Contrato del motor de Almacenes 3C
 
-El motor nuevo se obtiene con
+**Referencia técnica vigente**, subordinada al [contrato rector 3E](../contrato.md).
+La interfaz administrativa comparte los casos de uso del motor; no crea otro
+modelo de stock por ámbito.
+
+El motor se obtiene con
 Inventario::porAlmacenes(mysqli, actorId, authNivel), o construyendo Almacenes
 con esos mismos argumentos. El actor y el nivel proceden de la sesión o del
-coordinador servidor autenticado, nunca de parámetros del cliente. No hay rutas
-nuevas ni activación del POS. El servicio antiguo conserva sus consumidores
-hasta la adaptación explícita de 3D.
+coordinador servidor autenticado, nunca de parámetros del cliente. Las interfaces
+3E y el POS de Restaurante adaptado en 3D consumen este mismo motor. Las
+transferencias y el POS de Panadería permanecen pendientes.
 
 ## Autorización
 
@@ -93,7 +97,9 @@ maestro ni tabla de totales.
 - Marcador multinegocio-3c-v1 al terminar DDL; el motor exige también la marca 3B.
 
 Se conservan las demás relaciones de 3A y todos los bloqueos temporales 3B.
-No se ejecuta el DDL sobre la base configurada.
+Los runners no ejecutan DDL sobre la base configurada. El instalador 3E crea
+únicamente un destino nuevo identificado, con el procedimiento documentado en
+[instalación](../desarrollo/instalacion.md).
 
 ## Consultas 3C.2
 

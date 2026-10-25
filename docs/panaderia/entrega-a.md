@@ -1,5 +1,11 @@
 # Ajustes de navegación · Entrega A
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 El selector único está debajo del logotipo del sidebar. Es un `select` nativo
 etiquetado; `src/js/admin/core/contextos.js` envía el formulario al elegir.
 Se reutilizan `/admin/contexto`, Auth y Contextos. Sin JavaScript hay enlaces

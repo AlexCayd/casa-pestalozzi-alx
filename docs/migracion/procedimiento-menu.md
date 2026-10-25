@@ -1,5 +1,11 @@
 # Procedimiento reproducible de conservación del menú
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Estado actualizado: exportación/verificación/respaldo implementados y ensayados
 en [Etapa 2](etapa-2-menu.md). El [formato v1](formato-menu-v1.md) es el contrato
 del importador concretado en [Etapa 3A](etapa-3a.md) sobre el DDL definitivo.

@@ -1,336 +1,124 @@
-# Casa Pestalozzi
+# Casa Pestalozzi — instrucciones de desarrollo
 
-Sistema de gestión para el restaurante: landing público con carta y reservaciones,
-punto de venta para meseros, tableros de producción por área, y panel de
-administración (menú, inventario, recetas, analíticas, catas, usuarios,
-configuración).
+Leer primero [docs/contrato.md](docs/contrato.md), la fuente principal de verdad.
+Después consultar la [instalación](docs/desarrollo/instalacion.md),
+[guía de desarrollo](docs/desarrollo/desarrollo.md),
+[pruebas](docs/desarrollo/pruebas.md) y [backlog](docs/backlog.md).
+La [clasificación documental](docs/desarrollo/clasificacion-documental.md)
+identifica contratos vigentes, referencias técnicas y antecedentes históricos.
 
-## Stack
+## Antes de trabajar
 
-PHP 8 MVC **hecho a mano**. No hay framework, ni ORM, ni Tailwind, ni librería de
-componentes. Lo que parezca "convención de framework" aquí es código propio.
+1. Revisar rama, HEAD, `git status` y worktrees; preservar cambios previos ajenos.
+2. Identificar si el módulo pertenece a Global, Restaurante o Panadería.
+3. Revisar servicios compartidos y consumidores antes de crear clases nuevas.
+4. Distinguir funcional y validado, preparado y pendiente: una tabla no acredita UI.
+5. Reutilizar el diseño equivalente de Restaurante con configuración por ámbito.
+6. Validar permisos en servidor, incluidos detalles, exportaciones y IDs manipulados.
+7. Mantener DDL, DML, fixtures, rutas y consumidores sincronizados.
+8. Añadir pruebas de aislamiento, autorización, revocación y operaciones atómicas.
+9. Documentar resultado real y límites externos; no afirmar pruebas no ejecutadas.
+10. Justificar y documentar cualquier cambio a un contrato compartido antes de editarlo.
 
-- **Router**: `Router.php` — mapa plano de URLs exactas a `[Controller::class, 'metodo']`.
-  Tres verbos (GET/POST/DELETE), sin parámetros de ruta ni regex: los IDs viajan
-  por query string o en el cuerpo JSON. Todas las rutas se registran en
-  `public/index.php`.
-- **Datos**: MySQL por `mysqli` crudo + ActiveRecord propio (`models/ActiveRecord.php`).
-  El SQL se arma por concatenación de strings; usa `escaparString()` / `escaparLike()`
-  o sentencias preparadas (`$db->prepare`) para todo lo que venga del usuario.
-- **Lógica de negocio**: en `services/`, no en los controladores.
-- **Vistas**: plantillas PHP en `views/`. `Router::render()` bufferiza la vista y la
-  envuelve en `views/layout.php` (o el layout del módulo).
-- **Frontend**: JS vanilla ES5 (`var`, IIFEs, `fetch`, HTML por concatenación) y SCSS.
-  Sin bundler más allá de gulp-concat/terser.
-- **Autenticación y permisos**: `classes/Auth.php` + `services/Security/Permisos.php`.
-  `Auth::proteger()` corre en `public/index.php` **antes** del ruteo; la decisión
-  la toma `Permisos::decidir()` (pura, sin base ni sesión) y Auth sólo carga el
-  rol y responde. Ver «Roles y permisos» abajo. Dos reglas que no perdonan:
-  **una ruta `/admin/*` sin módulo en `Permisos::RUTAS` sólo la abren los roles
-  de sistema** (y `run-roles-permisos.php` la delata), y **una ruta `/api/...`
-  que no esté en `Permisos::APIS` queda pública**.
+No modificar `main`, hacer push/merge, aplicar stashes históricos, borrar trabajo
+ajeno o ampliar el alcance sin autorización. Un worktree de entrega puede quedar
+limpio mientras los cambios ajenos permanecen intactos en el checkout original.
 
-### Rutas y convenciones
+## Stack y organización
 
-- Páginas: renderizan HTML. Mutaciones de admin: POST-redirect-GET.
-- JSON: prefijo `/api/...` o `/admin/api/...`, responden `echo json_encode(...)`.
-- Los controladores de POS/áreas comparten helpers (`entradaJson()`, `responder()`).
+PHP MVC propio, sin framework ni ORM. `public/index.php` registra rutas exactas
+y llama a `Auth::proteger()` antes del ruteo de `Router.php`. Controllers y Services
+coordinan casos de uso; Models persisten mediante `mysqli` y ActiveRecord propio;
+Views reutilizan layouts/parciales y presentan datos preparados.
 
-### Build
+Composer mantiene los namespaces `Controllers\`, `Model\`, `Classes\`, `MVC\`
+y `Services\`. Los servicios viven en `services/<Dominio>/Clase.php`, un nivel
+por dominio. Usar sentencias preparadas para valores del usuario y validar cualquier
+identificador SQL dinámico con una lista permitida. No introducir un SQL rewriter,
+doble escritura de stock ni compatibilidad nueva con datos históricos descartados.
 
+## Autenticación, autorización y ámbitos
+
+La identidad y las membresías se comparten. Los permisos efectivos se asignan por
+usuario, unidad y módulo (`usuario_unidad_permisos`); los roles internos no conceden
+derechos implícitos. `usuarios.es_superadmin` es la excepción explícita protegida.
+Consultar [el contrato técnico de autorización](docs/migracion/contrato-autorizacion-3b.md).
+
+Panel utiliza `ver`/`editar`; piso `operar` para POS, KDS y mapa operativo de reservas.
+La unión de permisos de panel en cualquier ámbito exige contraseña, incluso para
+solo consulta. Un NIP de cuatro dígitos sirve exclusivamente para las cuentas de
+piso autorizadas. Cada petición relee estado, membresías y permisos; una revocación
+no espera un nuevo login. La UI no sustituye la validación del servicio.
+
+Registrar cada API privada en `Permisos::clasificarDirecto()` o su catálogo efectivo;
+una API desconocida no queda pública por omisión. Los endpoints públicos existentes
+conservan tokens y autenticación de integración. El selector y los campos ocultos
+no conceden ámbito ni privilegios. Preservar CSRF, límites de intentos,
+reautenticación de credenciales y protección del último superadministrador activo.
+
+## Datos e instalación
+
+El procedimiento único es `scripts/desarrollo/instalar.php`, documentado en
+[instalación](docs/desarrollo/instalacion.md). Crea una base nueva identificada y
+rechaza una existente. El orden es:
+
+1. `database/ddl.sql`: estructura definitiva.
+2. `database/deploy.sql`: unidades, facultades y configuración estructural.
+3. `database/menu-restaurante.sql`: los 112 productos/ofertas originales y sus
+   15 categorías, 3 cartas y 4 áreas; las 13 imágenes están versionadas.
+4. `database/development.sql`: escenarios sintéticos con saldos trazables.
+5. Bootstrap CLI de `admin_demo`, solo development/test identificados, con
+   `DEV_SUPERADMIN_PASSWORD` aportada por configuración local no versionada.
+
+No hay una contraseña conocida insertada automáticamente por SQL. El bootstrap
+no duplica cuentas, no promueve un homónimo ajeno ni restablece una contraseña
+cambiada sin `--restablecer`. Nunca versionar secretos, `.env` reales, dumps
+privados, logs sensibles ni archivos efímeros de pruebas.
+
+`productos` representa identidad comercial; `ofertas_producto` contiene el precio,
+categoría, área y disponibilidad del negocio. Recetas/variantes pertenecen a la
+oferta. No enlazar ventas o inventario por nombre ni clonar ofertas de Restaurante
+como una decisión comercial implícita de Panadería.
+
+Cada existencia pertenece a almacén y artículo. El único saldo físico vive en
+`almacen_articulos`; el consolidado Global es una consulta. Operar requiere almacén
+propio y autorización del [motor de Almacenes](docs/migracion/contrato-almacenes-3c.md).
+Las cantidades y costos respetan DECIMAL y se transmiten como cadenas exactas.
+Las ventas guardan oferta y snapshots; consumo y compensación utilizan operaciones
+trazables en la misma transacción. Global no vende y las transferencias siguen
+pendientes.
+
+## Build y pruebas
+
+```sh
+composer install --no-interaction
+npm ci
+npm run build
+npm run test:php
+npm run test:js
+npm run test:notifications
 ```
-npx gulp build      # todo (`npx gulp` a secas no existe)
-npx gulp js         # solo JS de la landing
-npx gulp css        # solo SCSS de la landing
-npx gulp operationAppCss adminMapJs   # el piso: operation.css y el POS
-```
 
-Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
+Consultar las guías enlazadas para requisitos de plataforma, configuración privada,
+ensayos de instalación y límites de los runners históricos. `npm run dev` deja
+watchers activos; `npm run build` termina. El procedimiento de instalación no
+requiere respaldos privados ni la antigua base local.
 
-| Fuente | Salida | Quién la carga |
-|---|---|---|
-| `src/scss/app.scss` | `public/build/css/app.css` + `assets/css/` | landing y **feedback** |
-| `src/scss/admin/shared/app-admin.scss` | `public/build/css/admin.css` | panel |
-| `src/scss/admin/modules/*.scss` | `public/build/css/admin/*.css` | cada módulo del panel |
-| `src/scss/operation/app-operation.scss` | `public/build/css/operation.css` | **POS, áreas y login** |
-| `paths.adminMapJs` (POS: `punto-de-venta.js` + shell/mapa + `core/select.js`) | `public/build/js/admin/map.js` | POS |
-| `src/js/admin/area/area.js` | `public/build/js/admin/area.js` | módulo de áreas del panel |
-| resto de `src/js/` | `public/build/js/bundle.min.js` | landing y feedback |
+Editar `src/`, nunca bundles manualmente:
 
-`src/js/modules/punto-de-venta.js` está **excluido** del bundle general a propósito;
-llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
-`paths.adminMapJs`). El panel admin carga **solo** `admin.js`, nunca
-`bundle.min.js`: lo que deba estar disponible en ambos va en las dos listas.
+| Fuente | Tarea / salida |
+|---|---|
+| `src/scss/app.scss` | `gulp css` → landing / feedback |
+| `src/scss/admin/shared/app-admin.scss` | `gulp adminCss` → panel |
+| `src/scss/admin/modules/*.scss` | `gulp adminModuleCss` → módulos |
+| `src/scss/operation/app-operation.scss` | `gulp operationAppCss` → piso y login |
+| `src/js/modules/punto-de-venta.js` y sus dependencias | `gulp adminMapJs` → `public/build/js/admin/map.js` |
+| `src/js/admin/users-directos.js` | `gulp adminUsersDirectosJs` → Usuarios compartido |
 
-Los bundles son concats en **scope global**, no módulos, así que el orden de la
-lista es lo que resuelve las dependencias. Dos casos que hay que respetar:
-`core/icons.js` va primero en `paths.adminJs` porque define `window.AdminIcons`,
-que consumen `buzon.js` y los bundles de módulo; y `sankey.js` va antes que
-`finanzas.js` por lo mismo. Y como `views/admin/layout.php` carga `admin.js`
-**antes** que cualquier bundle de módulo, los módulos pueden contar con lo que
-`admin.js` haya publicado.
-
-Dos bundles administrativos y no uno: `admin.css` (panel) y `operation.css`
-(piso). Los dos salen de `admin/shared/`, así que el watch de esa carpeta
-regenera ambos. Había un tercero, `operation/reservations.css`, de la pantalla
-de Operación de reservaciones; se retiró con ella.
-
-⚠️ `npx gulp adminModuleCss` (y `build`) recompila TODOS los módulos del
-panel: si hay SCSS de un módulo a medio editar, su CSS sale en el mismo
-cambio. Para tocar sólo el piso, `operationAppCss` y `adminMapJs`.
-
-El POS cargaba `app.css` entero —la landing completa, 470 KB— sólo para llegar a
-su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
-
-> Verificar con `php -l`, `node --check` y recorridos manuales.
-
-## Base de datos
-
-**Tres archivos, y el orden es el nombre:**
-
-1. `database/ddl.sql` — estructura, DROP+CREATE completo.
-2. `database/deploy.sql` — datos mínimos de operación. Es la **única** fuente del
-   catálogo base: áreas, categorías, mesas, productos, `productos_semilla` y el
-   horario semanal.
-3. `database/development.sql` — opcional, sólo desarrollo y QA. Funde los tres
-   fixtures que antes vivían sueltos (`dml_pruebas`, `analiticas-datos-ex`,
-   `REVPash-pruebas`) en tres bloques que se acotan por rango para no pisarse:
-   analíticas trabaja sobre los tickets 200-299 y los tokens
-   `fx-analytics-res-%`; RevPASH sobre los 300-499 y `fx-revpash-res-%`.
-
-   **Los tres bloques se anclan a `CURDATE()` al cargar el dump.** Dos usaban
-   fechas absolutas —noviembre-diciembre de 2026 los escenarios de reservación,
-   la primera semana de agosto de 2026 el de RevPASH— y eso las condenaba a
-   caducar: cargado el dump unos meses después, las reservaciones quedaban a tres
-   meses vista y el panel abría vacío con la base llena. Ahora se derivan de un
-   solo `SET` por bloque: `@fecha_principal` (hoy + 3 días, y las otras cinco
-   fechas cuelgan de ella) y `@REVPASH_ANCLA`. El desplazamiento de RevPASH va en
-   **múltiplos de siete días** para no romper lo único que ese fixture necesita:
-   que cada día caiga en su día de la semana, que es lo que da forma al mapa de
-   calor. `SELECT @SEM_INI, @SEM_FIN;` dice en qué fechas quedó.
-
-   Además hay un bloque **«Reservaciones de hoy»** (tokens `fx-hoy-%`): un día
-   de servicio en `CURDATE()`, con nombres de cliente y mesas, para que el POS
-   abra con reservas. Es idempotente (borra por token y vuelve a sembrar) y el
-   estado sale del reloj al cargar: lo ya pasado entra atendido. Toda reserva
-   confirmada del dump tiene mesas y ninguna mesa se reserva dos veces en un
-   mismo intervalo de 90 minutos; al añadir fixtures hay que mantenerlo.
-
-Al final hay un **bloque 4, «Variantes por platillo»**: ingredientes 35-71
-(leches vegetales, jarabes, licores de barra…), receta para los platillos que
-no la tenían (Latte, té, jugos, smoothie, coctelería), la receta base de los
-platillos con variantes (mismos valores que el bloque 1), ~30 platillos con
-grupos y ajustes, y tickets **900-999** de los últimos siete días con
-variantes, para que las consultas rápidas tengan qué responder. Es
-reidempotente y se puede correr suelto sobre una base existente.
-
-Después van un **bloque 5, «Especiales de temporada»** (cinco platillos de
-muestra de la categoría 15 para la vitrina de la landing, tres con foto propia
-y dos con la de su categoría; reidempotente por nombre) y un **bloque 6, «Uso
-del asistente»**: dos meses y medio de
-operación cerrada para que el Asistente IA conteste sus doce preguntas en
-todos sus periodos, comparación incluida. Usa tickets **10000-19999**,
-ticket_items **100000-199999** y movimientos_inventario **1000000-1999999**;
-ticket_mesas y ticket_pagos caen en cascada con su ticket. **No lleva ninguna
-fecha literal**: se ancla a `@ASISTENTE_AHORA := NOW()` y a su fecha, y la
-ventana va del día 1 de hace dos meses (o de hace 74 días, lo que quede antes)
-hasta la hora de la corrida; de HOY sólo trae lo ya cobrado, así que cada vez
-que se corre «hoy», «ayer», «esta semana» y «este mes» vuelven a tener datos.
-Siembra de 20 a 48 tickets por día con patrón semanal y la curva de
-`horarios_operacion`, unos pocos superventas y ocho platillos que nunca se
-venden, variantes como las resuelve `Variantes::resolver`, un ~3 % de
-renglones cancelados y un movimiento de `venta` por ingrediente con la misma
-cuenta de `aplicarVenta()`, más su `cancelacion` y unas tres mermas por
-semana. El azar sale de MD5 de la fecha, así que dos corridas el mismo día
-dejan lo mismo. Es reidempotente y se corre suelto (copiar del encabezado del
-bloque hasta «Fin del bloque 6»; tarda ~10 s). **No toca
-`ingredientes.stock`**, y sube el AUTO_INCREMENT de esas tres tablas al final
-de su rango para que lo que cree el POS después no caiga dentro; por eso los
-folios nuevos salen con cinco cifras. Va siempre al final, después del 4 y del
-5 (siembra ventas sobre el catálogo completo): si se vuelve a correr el 4
-(recrea las variantes con ids nuevos) o el 2 (borra los ingredientes 10-99 y,
-en cascada, sus movimientos), hay que correr otra vez el 6. Para ver en qué
-fechas quedó: `SELECT DATE(MIN(hora_apertura)),
-MAX(hora_cierre), COUNT(*) FROM tickets WHERE id BETWEEN 10000 AND 19999;`
-
-Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
-pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
-pasada choca contra `tickets.PRIMARY`. Para rehacer el entorno, recrear la base.
-
-`development.sql` declara los seis usuarios de desarrollo con id explícito porque
-los tickets de los fixtures apuntan a `mesero_id` 2..6 por llave foránea, pero los
-deja **sin credencial utilizable**. Para que además puedan entrar hay que correr
-después `php scripts/seed-usuarios-prueba.php`, que calcula el HMAC de cada NIP
-con `NIP_LOOKUP_SECRET` y los enseña sólo en la salida de esa ejecución. Casa por
-`username`, que es UNIQUE, así que actualiza esas filas en vez de duplicarlas.
-Credenciales de demo en `docs/usuarios/credenciales.md`.
-
-Fuentes documentales vigentes: `docs/arquitectura.md`, `docs/config.md`,
-`docs/operacion.md`, `docs/reservaciones/reservaciones.md`,
-`docs/reservaciones/notificaciones.md`, `docs/usuarios/usuarios.md`,
-`docs/usuarios/roles-y-permisos.md` (incluye el plan de la integración
-multiempresa) y `docs/privacidad/privacidad.md`. Las reglas de mesas y reservaciones tienen una
-fuente normativa en `docs/reservaciones/reservaciones.md`.
-
-El esquema vigente está en `database/ddl.sql`. Los datos mínimos de operación
-están en `database/deploy.sql`; `database/development.sql` es opcional y se usa
-sólo para desarrollo y QA.
-
-`ddl.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
-agregar una tabla, añade su `DROP` al bloque correspondiente.
-
-Cosas que cargan peso y no son obvias:
-
-- `productos` es la **única** fuente de platillos. La tabla `menu` es legado de
-  solo lectura; no escribir ahí.
-- `productos.nombre` es UNIQUE por dependencia funcional: el descuento de
-  inventario, el COGS y el motor de sugerencias unen por nombre, no por id.
-- `categorias.carta` (`comida` | `maridaje` | `temporada`) parte el catálogo en las **dos
-  piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
-  categoría y no en el producto porque la carta es una decisión de SECCIÓN —
-  «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
-  Menú**: pastillas en el alta rápida del tab «+» y en la edición de la
-  categoría, más una columna en el listado. El listado además se **filtra por
-  carta** (`?carta=comida|maridaje`, selector «Ambas / Comida / Maridaje» sobre
-  las pestañas de categoría): acota las pestañas y la tabla, y un valor fuera
-  de la lista cae a «ambas». Sustituyó a los dos botones de PDF del encabezado,
-  así que desde el panel ya no se abre ningún PDF; las rutas
-  `/admin/menu/pdf*` siguen registradas pero sin enlace. Tres consecuencias:
-  `Carta::publica($carta)` filtra por ella y **por defecto devuelve comida**,
-  así que la sección de menú de la landing y `/menu/pdf` siguen siendo lo que
-  eran; `/maridaje/pdf` (admin: `/admin/menu/pdf/maridaje`) es la otra pieza,
-  y sale de la MISMA plantilla —`items-pdf.php`, que recibe rótulo, bajada,
-  título y aviso de vacío y no sabe cuál imprime—; y `Carta::paraPos()` **no**
-  la mira, porque el mesero cobra la copa y el plato en el mismo ticket.
-  ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
-  por campos ocultos: si añades una columna a `categorias`, tiene que viajar
-  ahí también o apagar una categoría la devuelve a su valor por defecto.
-- **Especiales de temporada** son el tercer valor de `categorias.carta`
-  (`temporada`), y no un módulo: la vitrina de la landing
-  (`views/home/_firma.php`) pinta los platillos activos de esas categorías
-  desde `Carta::especiales()`, impresos en el servidor. `deploy.sql` siembra
-  la categoría «Especiales de temporada» (id 15) **sin platillos**; la cocina
-  los da de alta en Menú cada semana y los apaga con el interruptor de
-  visibilidad. Antes eran un arreglo fijo en `src/js/modules/gallery.js`, que
-  ahora sólo engancha el clic y el avance con el scroll; las tarjetas usan el
-  marcado y el SCSS de siempre (`.gcard`, `_galeria.scss` sin cambios). Cuatro
-  reglas: no salen en la sección de menú ni en ningún PDF (`MenuPdf` cae a
-  comida si se le pide `temporada`) y el POS sí los vende; la foto es
-  **opcional** —el campo del formulario pasa a llamarse «Foto para la
-  landing»— y sin foto propia el especial toma la de su categoría
-  (`especiales-temporada.webp`, archivo propio porque reemplazarla borra el
-  anterior); sin ninguna de las dos no sale, porque la vitrina sólo pinta
-  tarjetas de foto; una semana sin especiales deja la sección con una línea
-  `.lead`, para no mover su número ni su enlace del índice; y
-  `run-especiales-temporada.php` falla si el ENUM del DDL se separa de
-  `CategoriasMenu::CARTAS`.
-- `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
-  `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
-- **Variantes por platillo** (`producto_variantes` + `variante_ajustes`,
-  servicio `Services\Menu\Variantes`): grupos de opción de elección única
-  («Leche», «Tamaño», «Término») que mueven el precio y ajustan la receta. Un
-  grupo con opción `predeterminada` es la receta base —el POS la trae marcada
-  y la comanda no la imprime—; un grupo SIN predeterminada es de elección
-  obligatoria. El ticket_item conserva `nombre` sin tocar (todas las uniones por
-  nombre siguen valiendo) y la variante viaja aparte: `variante_ids` (todas las
-  opciones elegidas, ordenadas, para descontar y desglosar) y `variante` (el
-  rótulo congelado, sin las predeterminadas, para comanda, KDS, cuenta y
-  consultas). Tres reglas que no se deducen del código:
-  - **El precio de una opción lo decide el servidor** (`Variantes::resolver`
-    en `enviarComanda`), nunca la tablet; y una opción inválida o un grupo
-    obligatorio sin elegir rechaza la comanda ENTERA antes de insertar nada
-    (`VARIANTE_INVALIDA`).
-  - **«Sustituir» es proporcional** (`Inventario::explotarReceta`): reemplaza la
-    fracción `cantidad ÷ lo que la receta base lleva de ese componente` de lo
-    que el platillo lleve en ese momento, también lo que sume otra opción. Así
-    «Almendra» (120 de 120 ml) cambia toda la leche de un «Grande», y
-    «Divorciados» (40 de 80 ml de salsa) cambia la mitad. El editor del panel
-    (`src/js/admin/menu/variantes.js`) repite la misma explosión para su vista
-    previa: si cambia en un sitio, cambia en el otro.
-  - **El guardado conserva los ids** (`Variantes::guardar` actualiza en vez de
-    borrar y recrear): una tablet que cargó `CP_MENU` antes lleva esos ids en
-    su carrito.
-  Se editan en Menú → icono de deslizadores de cada platillo
-  (`/admin/menu/variantes?id=`). El COGS de Finanzas agrupa por variante.
-  **En el POS** la tarjeta del platillo no lleva pastilla «Opciones»: todo
-  platillo con grupos abre la hoja al tocarlo, también si todos traen
-  predeterminada (nace marcada y con el foco en «Agregar»). El botón de la hoja
-  lleva verbo y precio separados (`.mmodal-opts__verbo` / `__precio`), con
-  «desde $X» si falta una elección obligatoria y «N × $X» al editar varias
-  unidades. No hay botón «Cambiar» en el pedido: la fila
-  (`.mmodal-cart-row--editable`) abre la hoja, el botón real es
-  `.mmodal-cart-name` (`data-editar-opciones`) y −/+, Nota y el campo de la
-  nota quedan fuera del toque por `closest()`. Sólo lo pendiente de enviar se
-  edita así.
-- `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.
-- `catas` es una tabla de **anuncio**, no de reservas. `catas.disponible`
-  significa **una sola cosa: si quedan lugares**. No decide la visibilidad —eso
-  lo decide el reloj— así que apagar el interruptor NO retira la cata de la
-  portada: la deja anunciada, marcada como «sin cupo» y **bloqueada**, sin
-  ningún enlace. Antes ofrecía un segundo CTA («avísame si se libera»); se
-  retiró porque invitaba a escribir por algo que no se puede dar, y el sello del
-  titular más el atenuado de `.cata--sin-cupo` ya dicen que está cerrada. Nace
-  en `1`,
-  porque una cata recién programada admite gente. La agenda pública es todo lo
-  que no ha ocurrido todavía; lo único que sale de la portada es el pasado.
-  Consecuencia asumida: no hay estado de borrador, una cata es pública en cuanto
-  se guarda. `idx_catas_agenda` va por `(fecha, hora)` — encabezarlo con el
-  booleano dejó de servir cuando la consulta pública dejó de filtrar por él.
-- **La landing ya no tiene ningún formulario anónimo.** Los dos que había
-  —inscripción a catas y cotización de catering— se fueron a WhatsApp, y con
-  ellos las tablas `cata_inscripciones` y `catering_solicitudes`, el cupo, los
-  endpoints `/api/catas/*` y `/api/catering/*`, y el tope de envíos por contacto
-  que sumaba las dos tablas. Catering no tiene módulo en el panel: su sección de
-  la landing es la rejilla de ocasiones de `SitioConfig::OCASIONES_EVENTO`, cada
-  una un enlace con su frase ya escrita. Las catas escriben al WhatsApp del
-  restaurante (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering, al de
-  eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
-- `usuarios` tiene dos vías de acceso: `password_hash` (usuario+contraseña)
-  y `nip_hash` + `nip_lookup` (NIP de **4 dígitos**). Cuál usa una cuenta lo
-  decide su ROL (ver «Roles y permisos»). El lookup es un HMAC con
-  `NIP_LOOKUP_SECRET` para resolver la fila directamente; `password_verify` sólo
-  confirma la credencial encontrada. La generación, rotación y migración están
-  documentadas en `docs/usuarios/usuarios.md`.
-- **Roles y permisos** (`/admin/roles`, módulo `roles`; documentación completa
-  y plan multiempresa en `docs/usuarios/roles-y-permisos.md`). `usuarios.rol` es un
-  slug con llave foránea a `roles.slug`; `rol_permisos` guarda, por rol, un
-  renglón por módulo con `ver` o `editar` (sin renglón, sin acceso). Los módulos
-  son las claves de `AdminController::MODULES` —el menú del panel—, y `pdv` y
-  `area` además abren las pantallas de piso (`/punto-de-venta`, `/area`).
-  Lo que hay que saber:
-  - **Ver = GET/HEAD, editar = todo lo demás**, en la guardia central: una ruta
-    nueva hereda la regla sola. Un formulario de un rol que sólo consulta vuelve
-    a su pantalla con el aviso de `AppNotice` que pinta el layout; una API
-    responde 403. Los botones de editar **no** se esconden por módulo (decisión
-    de la primera entrega): el servidor es la frontera.
-  - **Tres tipos de rol**: `sistema` (`super_admin`, `admin`: todo en editar,
-    calculado, ni se editan ni se borran), `predefinido` (`waiter`, `cook`:
-    se editan sus permisos, no se borran) y `personalizado`.
-  - **La vía de acceso se deduce, no se elige** (`Permisos::acceso()`): con algún
-    módulo del panel, contraseña; sólo piso, NIP. Por eso un rol con usuarios no
-    puede cambiar de vía (sus cuentas tienen la credencial de la otra) y los
-    logins filtran por `Rol::slugsConAcceso()`.
-  - **Nadie da lo que no tiene** (`Permisos::puedeOtorgar`). El super admin
-    asigna cualquier rol; el admin, cualquiera que no sea de sistema (no crea
-    ni edita cuentas de admin ni de super admin); un rol personalizado con
-    Usuarios o Roles, sólo roles que caben en los suyos. La cuenta que no se
-    puede perder es el **último super admin activo**.
-  - **Cada petición protegida relee el rol y el estado** de la cuenta: cambiar
-    permisos, reasignar o desactivar vale desde la siguiente acción, sin cerrar
-    sesión. Mesero y Cocinero tienen permisos de respaldo
-    (`Rol::PERMISOS_POR_DEFECTO`) por si la base no responde.
-  - **Quién es «admin» en el POS**: las capacidades administrativas de
-    reservaciones (comentario interno, ver contacto, capturarlo en el alta) son
-    de quien tiene `reservations` (ver para mirar el contacto, editar para el
-    resto), no de un rol con nombre. Las listas de «meseros» (asignar mesero a
-    un ticket, desempeño) siguen siendo sólo el rol `waiter`.
-  - **Unidades** (`unidades`: Restaurante, Panadería; `usuarios.unidad_id`):
-    sólo se asignan a cuentas con rol `admin`, sólo las asigna el super admin y
-    **restringen el contexto desde Etapa 1** mediante `Auth` y
-    `Services\Security\Contextos`: un admin requiere una unidad válida;
-    Panadería solo tiene demostraciones en desarrollo/pruebas y no abre
-    operaciones de Restaurante. Datos multiempresa reales, pendientes.
-    Contrato y validación en `docs/panaderia/etapa-1.md`.
+Los bundles son concatenaciones en scope global: preservar el orden de dependencias
+del `gulpfile.js`. `admin.js` se carga antes de los bundles de módulos; el POS usa
+`map.js`, no el bundle de la landing. La UI nueva reutiliza estilos y componentes
+existentes. Cualquier tarea Gulp que abarque varios módulos requiere revisar su diff.
 
 ## Design system
 
@@ -352,19 +140,19 @@ Dos archivos de tokens, y son la única fuente de verdad:
   inline en `views/admin/layout.php` que en la primera visita consulta
   `prefers-color-scheme` y a partir de ahí obedece a `localStorage`.
 
-### Todo cambio visual pasa por el subagente `ux-ui`
+### Revisión UX/UI de cambios visuales
 
-**Obligatorio**, no opcional: antes de dar por terminado cualquier trabajo que cree o
-modifique un archivo de `src/scss/`, un JS con animación, scroll o interacción, o el markup
-de una vista con implicación visual, hay que invocar el subagente **`ux-ui`**
-(`~/.claude/agents/ux-ui.md`, nivel de usuario: sirve a todos los proyectos) con la lista de
-archivos tocados y qué debía conseguir la pantalla. Juzga concepto, jerarquía, tipografía,
-color, movimiento y accesibilidad, y decide si entra tal cual.
+Antes de dar por terminado un cambio de SCSS, interacción o markup, realizar una
+revisión UX/UI de los archivos y del objetivo de la pantalla. Usar el subagente o
+skill disponible en el entorno cuando esté configurado, y registrar el resultado.
+La revisión compara jerarquía, tipografía, color, interacción, errores, teclado y
+responsive con la interfaz equivalente de Restaurante. No depende de un perfil
+privado externo al repositorio para poder instalar o continuar el proyecto.
 
-Ahí vive el criterio de diseño; aquí, la mecánica de este proyecto. El agente lee este
-archivo primero, así que lo de esta sección manda sobre cualquier preferencia suya — en
-particular **que son dos sistemas visuales distintos a propósito**: proponerle a la landing
-algo del panel, o al revés, es un error de lectura, no una idea.
+La landing y el panel son dos sistemas visuales distintos a propósito. Las nuevas
+pantallas de Global/Panadería reutilizan el panel de Restaurante, no la landing.
+Esta sección conserva la mecánica real y los componentes como referencia técnica;
+el contrato rector y el código de la revisión determinan propiedad y autorización.
 
 ### Paleta de la landing
 
@@ -1177,7 +965,7 @@ consulta de vez en cuando: ajustes de la vista, «Cómo leer el mapa» y, sólo
 admin, el panel; el POS no lleva wordmark), `$operationalShowLastUpdate`, `$operationalHeaderDrawerToggle` (en
 falso donde no hay cajón — el KDS) y `$operationalHeaderBack`, que se apaga
 para meseros y cocineros porque su destino vive bajo `/admin/` y la guardia de
-rol los rebotaría.
+permisos directos no les concede acceso administrativo.
 
 El KDS **no tiene diseño propio**, pero sí tiene un código de color cerrado, y
 es lo primero que hay que entender antes de tocarlo.
@@ -1405,10 +1193,9 @@ Las ventas se cuentan como en el resto del panel (tickets cerrados, sin
 renglones cancelados, por `COALESCE(hora_cierre, hora_apertura)`). Excepciones
 deliberadas: `horas_pico` agrupa por hora de APERTURA (llegada), y `consumo`
 suma los movimientos `venta` − `cancelacion` de `movimientos_inventario` por
-su fecha —la receta que explotó `Inventario::aplicarVenta()` al mandar la
+su fecha —la receta que explotó `Almacenes::consumirVenta()` al mandar la
 comanda, sin volver a explotarla—, así que cuadra con la existencia aunque la
-receta cambie (y en la base de desarrollo sale casi siempre en cero: los
-tickets de prueba no generan movimientos). El intérprete de frases
+receta cambie. Los fixtures nuevos conservan movimientos que explican sus saldos. El intérprete de frases
 (`responder()`, que entiende «familia» como sinónimo de categoría) se conserva
 como contrato del texto canónico y para repetir preguntas de texto guardadas
 antes del cambio. Además lee **hora, franja y día de la semana**
@@ -1998,12 +1785,12 @@ hay que tocar la definición del corte, ése es el momento de sacar un
 
 ## Notas de trabajo
 
-- Escribe en español: comentarios, mensajes de UI, mensajes de commit.
-- Los comentarios explican **por qué**, no qué hace la línea.
-- `.claude/` está en `.gitignore`; `docs/` sí se versiona.
-- Pruebas de variantes contra la base de desarrollo, en una transacción que se
-  revierte: `php scripts/tests/run-variantes-db.php` (necesita el bloque 4).
-- Pruebas: `npm run test:php`, `npm run test:js` y, contra una base aislada
-  que se crea y se borra sola, `php scripts/tests/run-notifications-isolated.php
-  [suite]` (sin argumento corre su lista). `run-privacidad-contract.php` lee los
-  bundles construidos: compilar antes de correrlo.
+- Escribir en español comentarios, mensajes de interfaz y commits.
+- Los comentarios explican decisiones e invariantes, no repiten el código.
+- Editar `src/` y regenerar assets mediante Gulp; no modificar bundles a mano.
+- Los scripts históricos que aceptan paquetes privados son evidencia de migración,
+  no pasos de instalación. No ejecutar runners DB contra una base no identificada.
+- Ejecutar las pruebas apropiadas de [la guía vigente](docs/desarrollo/pruebas.md)
+  y registrar evidencia automatizada, HTTP, navegador y límites externos por separado.
+- Actualizar contrato, DDL/DML y documentación cuando cambie un comportamiento
+  compartido. No hacer push ni merge como consecuencia implícita de pasar tests.

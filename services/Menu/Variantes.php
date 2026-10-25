@@ -68,7 +68,6 @@ final class Variantes
      */
     public static function deProducto(int $productoId, ?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::deProducto($productoId);
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'ver', $ctx, true);
         $db = Producto::getDB();
@@ -151,7 +150,6 @@ final class Variantes
      */
     public static function datosEditor(int $productoId, ?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::datosEditor($productoId);
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'ver', $ctx, true);
         $db = Producto::getDB();
@@ -231,7 +229,6 @@ final class Variantes
      */
     public static function paraPos(?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::paraPos();
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('pdv', 'operar', $ctx, true);
         $unidadId = ContextoNegocio::vendedora($ctx);
@@ -292,7 +289,6 @@ final class Variantes
      */
     public static function conteoPorProducto(?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::conteoPorProducto();
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'ver', $ctx, true);
         $unidadId = ContextoNegocio::unidad($ctx);
@@ -332,7 +328,6 @@ final class Variantes
      */
     public static function resolver(int $productoId, array $ids, ?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::resolver($productoId, $ids);
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('pdv', 'operar', $ctx, true);
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $i): bool => $i > 0)));
@@ -428,7 +423,6 @@ final class Variantes
      */
     public static function guardar(int $productoId, array $grupos, ?string $ctx = null): array
     {
-        if (!ContextoNegocio::nuevo()) return VariantesLegado::guardar($productoId, $grupos);
         $ctx ??= ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'editar', $ctx, true);
         $unidadId = ContextoNegocio::unidad($ctx);

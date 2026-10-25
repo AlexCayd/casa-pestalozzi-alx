@@ -1,5 +1,11 @@
 # Validación de la actualización documental
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Fecha: 2026-10-24. Política aplicada: actualización obligatoria para desarrollo.
 Estado: plan actualizado; decisiones técnicas y ejecución posterior pendientes.
 

@@ -1,5 +1,11 @@
 # Etapa 3B.1 — Núcleo de autorización directa
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Base 73de92d; rama codex/usuarios-permisos-multinegocio-3b. La nueva política
 sustituye la inferencia por roles por permisos usuario/unidad/módulo. El
 [contrato central](contrato-autorizacion-3b.md) define la interfaz y límites.

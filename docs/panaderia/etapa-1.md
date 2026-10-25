@@ -1,5 +1,11 @@
 # Contextos y demostración de Panadería · Etapa 1
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 ## Alcance entregado
 
 Una sola aplicación, autenticación y sesión; navegación distinta para Global,

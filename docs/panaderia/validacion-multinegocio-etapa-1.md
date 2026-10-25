@@ -1,5 +1,11 @@
 # Evidencia de la Etapa 1 técnica
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 > Evidencia de la propuesta inicial, conservada como antecedente. Sus exigencias
 > de migración histórica quedan sustituidas por el [plan vigente](../migracion/plan-maestro.md).
 > La evidencia de la actualización está en [validacion-plan.md](../migracion/validacion-plan.md).

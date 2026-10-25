@@ -1,5 +1,11 @@
 # Dependencias operativas tras el esquema de Etapa 3A
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 El nuevo DDL se valida exclusivamente en bases desechables. **No es compatible
 con el código operativo actual por sí solo y no debe activarse en desarrollo.**
 La base configurada permanece con su estructura anterior; ningún adaptador

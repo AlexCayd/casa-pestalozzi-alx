@@ -1,5 +1,11 @@
 # Casa Pestalozzi — Actualización obligatoria del plan de migración
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 ## Contexto
 
 Casa Pestalozzi se encuentra completamente en desarrollo.

@@ -1,5 +1,11 @@
 # Etapa 2 — Preservación del menú de Restaurante
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Fecha: 2026-10-24. Rama `codex/preservacion-menu-etapa-2`, creada desde main
 integrado `1aa642a`. Se incorporaron por cherry-pick los dos commits documentales
 previos. Sin stashes, push ni merge; el commit de cierre se obtiene con git log -1

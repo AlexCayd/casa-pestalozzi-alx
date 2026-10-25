@@ -1,5 +1,11 @@
 # Casa Pestalozzi — Plan maestro multinegocio
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Versión 1.3 · 2026-10-24 · Etapa 3A aislada implementada; activación pendiente.
 
 ## 1. Política vigente y alcance de esta entrega

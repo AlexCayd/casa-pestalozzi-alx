@@ -34,7 +34,6 @@ class AdminRecetasController
     // ── Listado de platillos con su receta ───────────────────
     public static function index(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::index($router); return; }
         ContextoNegocio::exigir('productos', 'ver', null, true);
         $filtros = self::leerFiltros();
 
@@ -145,7 +144,6 @@ class AdminRecetasController
      */
     public static function receta(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::receta($router); return; }
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'ver', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
@@ -229,7 +227,6 @@ class AdminRecetasController
     // ── Subrecetas ───────────────────────────────────────────
     public static function subrecetas(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetas($router); return; }
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'ver', $ctx, true);
         $subrecetas = [];
@@ -250,7 +247,6 @@ class AdminRecetasController
 
     public static function subrecetaCreate(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaCreate($router); return; }
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $subreceta = new Subreceta();
@@ -283,7 +279,6 @@ class AdminRecetasController
 
     public static function subrecetaEdit(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaEdit($router); return; }
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
@@ -323,7 +318,6 @@ class AdminRecetasController
 
     public static function subrecetaDelete(Router $router): void
     {
-        if (!ContextoNegocio::nuevo()) { AdminRecetasControllerLegado::subrecetaDelete($router); return; }
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

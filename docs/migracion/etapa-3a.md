@@ -1,5 +1,11 @@
 # Etapa 3A — Esquema definitivo e importador aislado
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Fecha: 2026-10-24. Rama `codex/esquema-multinegocio-etapa-3a`, creada desde
 `0ed55ab` (Etapa 2), sin push/merge/stashes ni cambios en main. El commit exclusivo
 de cierre se identifica con git log -1 en esta rama. package-lock.json mantiene

@@ -1,26 +1,17 @@
-# Migración multinegocio
+# Antecedentes de contextos y Panadería
 
-La documentación vigente está en [docs/migracion/](../migracion/README.md):
-[plan maestro](../migracion/plan-maestro.md),
-[contrato compartido](../migracion/contratos-tecnicos.md) y
-[procedimiento de menú](../migracion/procedimiento-menu.md).
+**Índice histórico.** El [contrato rector 3E](../contrato.md) es la fuente actual.
+Los módulos comerciales pendientes se detallan en el [backlog](../backlog.md).
+Para instalar, seguir la [guía vigente](../desarrollo/instalacion.md).
 
-La nueva política conserva únicamente el catálogo de Restaurante y sus
-dependencias; los demás datos de desarrollo se regeneran. Sustituye las
-obligaciones anteriores de migración histórica y retrocompatibilidad de esquema.
-No se ha reconstruido la base ni implementado nuevos módulos.
+Esta carpeta conserva la demo inicial de contextos y las decisiones recibidas:
 
-La [referencia funcional v1.0](documento-maestro-multinegocio.md) se conserva como
-adjunto original sin modificar; sus exigencias de conservación histórica ya no
-rigen. La [validación de la propuesta anterior](validacion-multinegocio-etapa-1.md)
-es evidencia fechada, no aceptación del plan vigente.
+- [Documento maestro original](documento-maestro-multinegocio.md).
+- [Contextos de Etapa 1](etapa-1.md) y [validación técnica](validacion-multinegocio-etapa-1.md).
+- [Ajustes de navegación](entrega-a.md) y [diseño inicial](diseno.md).
+- [Referencia de contratos](contratos-multinegocio-etapa-1.md).
 
-Antecedentes ya integrados:
-
-- [Contextos y demostración](etapa-1.md): navegación, acceso por unidad y fixtures.
-- [Entrega A](entrega-a.md): ajustes del selector y componentes administrativos.
-- [Diseño de demostración](diseno.md): estructura visual y capturas existentes.
-
-La denominación anterior «Etapa 1» corresponde a la demo de contextos. No debe
-confundirse con la definición de contratos técnicos exigida por el documento
-maestro. La aceptación histórica de esa demo no aprueba los contratos nuevos.
+Las capturas son evidencia histórica y no acreditan POS, Menú o Finanzas de
+Panadería como módulos operativos. Usuarios y Almacenes se desarrollan sobre
+la arquitectura compartida y el diseño de Restaurante. La secuencia 2–3D está
+en [antecedentes de migración](../migracion/README.md).

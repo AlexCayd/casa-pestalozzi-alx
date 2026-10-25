@@ -1,5 +1,11 @@
 # Etapa 3D — cierre de integración de Restaurante
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Fecha: 25 de octubre de 2026. Rama: `codex/adaptacion-restaurante-etapa-3d`.
 
 ## Entregas

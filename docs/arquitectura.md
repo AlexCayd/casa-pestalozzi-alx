@@ -38,6 +38,7 @@ Cada carpeta representa un dominio y cada clase declara el namespace
 | Dominio | Responsabilidad principal |
 | --- | --- |
 | `Analytics` | Analíticas y recomendaciones |
+| `Development` | Instalación y bootstrap CLI identificados, exclusivos de desarrollo/pruebas |
 | `Configuration` | Configuración pública del sitio |
 | `Contact` | Contacto y datos de comunicación |
 | `Integrations` | Adaptadores a servicios externos |
@@ -97,3 +98,29 @@ adaptador externo.
 
 Los incumplimientos vigentes que requieren una corrección separada se registran
 en [Pendientes arquitectónicos](correcciones_pendientes_arquitectura.md).
+
+## Arquitectura multinegocio
+
+El [contrato rector](contrato.md) es la fuente principal. `unidades` identifica
+Global, Restaurante y Panadería. Identidad de usuario, servicios y catálogo
+maestro se comparten; permisos directos, ofertas comerciales y almacenes físicos
+mantienen su ámbito. Global no es un vendedor ni un almacén virtual.
+
+`productos` identifica el producto comercial y `ofertas_producto` define precio,
+categoría, área y disponibilidad del negocio. Recetas/variantes pertenecen a la
+oferta. Tickets e items conservan oferta, unidad y snapshots; su consumo y sus
+compensaciones usan el motor 3C en la misma conexión/transacción.
+
+Usuarios utiliza `AccesosUsuario`; las interfaces de Almacenes utilizan
+`AdministracionAlmacenes` como coordinador de formularios del mismo motor
+`Almacenes`, sin otro saldo o reglas de stock. Las vistas se parametrizan por
+ámbito y reutilizan el diseño de Restaurante. El consolidado Global consulta
+cantidades por artículo y desglosa almacén/propietario; no concede escritura ajena.
+
+Los contratos detallados de [autorización](migracion/contrato-autorizacion-3b.md),
+[Almacenes](migracion/contrato-almacenes-3c.md) y
+[comercio](migracion/etapa-3d-contratos-comerciales.md) explican invariantes reales.
+El DDL ejecutable está en `database/ddl.sql`; la
+[instalación](desarrollo/instalacion.md) define el único orden de DDL/DML/bootstrap.
+Los [antecedentes](desarrollo/clasificacion-documental.md) no son procedimientos
+alternativos de activación.

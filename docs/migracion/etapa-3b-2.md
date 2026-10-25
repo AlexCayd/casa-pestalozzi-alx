@@ -1,5 +1,11 @@
 # Etapa 3B.2 — Usuarios y permisos por ámbito
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Rama `codex/usuarios-permisos-multinegocio-3b`, desde `73de92d` de 3A.
 Primer commit: `3eeb390` (núcleo). El segundo commit contiene esta entrega.
 No se modifica main, no se hace push/merge y package-lock.json ajeno queda fuera.

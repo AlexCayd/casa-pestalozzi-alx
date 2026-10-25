@@ -1,5 +1,12 @@
 # Contrato técnico compartido multinegocio
 
+> **Histórico — propuesta técnica acumulada durante 3A–3C.** No es el contrato
+> rector ni acredita módulos operativos. Las firmas ejecutables se documentan en
+> [autorización 3B](contrato-autorizacion-3b.md), [Almacenes 3C](contrato-almacenes-3c.md)
+> y [comercio 3D](etapa-3d-contratos-comerciales.md); el
+> [contrato 3E](../contrato.md) resuelve alcance, estado y precedencia actuales.
+
+
 Versión 1.4 · 2026-10-24 · Autorización 3B y motor/consultas de Almacenes 3C.
 Rige el [plan maestro](plan-maestro.md) y la [política de desarrollo](actualizacion-obligatoria-desarrollo.md).
 El [modelo relacional 3A](modelo-relacional-3a.md) concreta las tablas/relaciones

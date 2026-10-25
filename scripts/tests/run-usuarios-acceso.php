@@ -124,7 +124,7 @@ comprobar(file_exists($root . '/docs/usuarios/credenciales.md'), 'Falta la docum
 comprobar(!file_exists($root . '/database/CREDENCIALES.md'), 'La copia antigua de credenciales no fue retirada.');
 comprobar(!file_exists($root . '/docs/usuarios_acceso.md'), 'La documentación duplicada de acceso no fue retirada.');
 comprobar(str_contains($usuariosDocs, 'NIP_LOOKUP_SECRET'), 'La documentación canónica no explica el secreto de lookup.');
-comprobar(str_contains($credenciales, 'seed-usuarios-prueba.php'), 'Las credenciales de desarrollo no explican el seed.');
+comprobar(str_contains($credenciales, 'bootstrap-admin.php') && str_contains($credenciales, 'DEV_SUPERADMIN_PASSWORD') && str_contains($credenciales, '--restablecer'), 'Las credenciales de desarrollo explican el bootstrap explícito, el secreto local y el restablecimiento controlado.');
 comprobar(!preg_match('/INSERT\s+INTO\s+usuarios/i', $ddl), 'El DDL contiene registros de usuarios.');
 
 NipService::usarGenerador(null);

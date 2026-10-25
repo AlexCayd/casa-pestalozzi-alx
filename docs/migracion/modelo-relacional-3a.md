@@ -1,8 +1,14 @@
 # Modelo relacional revisado — Etapa 3A
 
-Versión de contrato SQL: `multinegocio-3a-v1`. Revisión central previa al DDL,
-2026-10-24. Destino: MySQL 8.0.16+ / 9.x, InnoDB, utf8mb4. No activar sobre la
-BD configurada: los consumidores actuales se adaptarán en 3B y siguientes.
+**Referencia técnica del núcleo relacional 3A**, conservada para explicar claves
+e invariantes. El [contrato rector 3E](../contrato.md) fija el estado actual y
+`database/ddl.sql` es la estructura ejecutable definitiva, incluidas las
+extensiones posteriores y la marca de instalación de desarrollo. El diagrama
+no debe utilizarse para deducir que un módulo pendiente ya está implementado.
+
+Destino: MySQL 8.0.16+ / 9.x, InnoDB, utf8mb4. La reconstrucción vigente usa
+[el instalador](../desarrollo/instalacion.md) sobre una base nueva identificada;
+no se aplica una secuencia histórica a la base antigua.
 
 ## Relaciones y claves
 

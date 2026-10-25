@@ -1,14 +1,10 @@
-# Contratos multinegocio: ubicación vigente
+# Contratos multinegocio — referencia histórica
 
-La versión 1.1 está en [docs/migracion/contratos-tecnicos.md](../migracion/contratos-tecnicos.md).
-El [plan maestro actualizado](../migracion/plan-maestro.md) sustituye el plan
-anterior de migración histórica: la aplicación está en desarrollo y solo se
-conservan los productos del menú Restaurante y sus dependencias de presentación.
+Esta ruta se conserva para resolver enlaces anteriores, sin copiar un contrato
+independiente. La propuesta de Etapa 1 es un antecedente; no establece permisos
+por rol, migraciones históricas ni activación de módulos en la versión actual.
 
-Quedan retiradas las obligaciones de migrar membresías, stock, movimientos,
-recetas, variantes, tickets o finanzas de prueba, así como sus adaptadores de
-esquema y conciliaciones antiguas. Las operaciones nuevas mantienen seguridad,
-aislamiento, transacciones y trazabilidad según el contrato vigente.
-
-Consultar el [procedimiento de exportación/importación del menú](../migracion/procedimiento-menu.md).
-No se ha ejecutado la reconstrucción ni comenzado módulos adicionales.
+Consultar el [contrato rector 3E](../contrato.md), la
+[autorización directa](../migracion/contrato-autorizacion-3b.md),
+[Almacenes](../migracion/contrato-almacenes-3c.md) y
+[comercio de Restaurante](../migracion/etapa-3d-contratos-comerciales.md).

@@ -1,5 +1,11 @@
 # Etapa 3C.1 — Motor transaccional
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Base validada 3B: 4d65d30. Rama codex/almacenes-existencias-etapa-3c.
 Se preservan como cambios previos database/deploy.sql (admin_demo) y
 package-lock.json; no forman parte de los commits de 3C.

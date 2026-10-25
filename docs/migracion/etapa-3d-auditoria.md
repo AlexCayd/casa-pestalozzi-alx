@@ -1,5 +1,11 @@
 # Etapa 3D — Auditoría inicial y contrato de adaptación
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Base real: e6cf89e, cierre de 3C.2; 3C.1 es 685b2b0 y 3B es 4d65d30.
 Rama independiente codex/adaptacion-restaurante-etapa-3d, un solo worktree.
 Cambios previos preservados: database/deploy.sql, package-lock.json y el nuevo

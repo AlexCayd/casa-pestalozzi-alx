@@ -1,5 +1,11 @@
 # Casa Pestalozzi — Documento maestro de migración multinegocio
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 **Versión:** 1.0 — Especificación inicial  
 **Estado:** Arquitectura propuesta; implementación pendiente  
 **Repositorio:** `AlexCayd/casa-pestalozzi-alx`

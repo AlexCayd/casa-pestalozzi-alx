@@ -1,5 +1,11 @@
 # Contrato de preservación e importación: menú v1
 
+> **Histórico — antecedente de la migración.** Describe la revisión y aceptación
+> de su etapa, no el procedimiento de instalación ni el estado operativo actual.
+> Prevalecen el [contrato rector 3E](../contrato.md) y la
+> [instalación vigente](../desarrollo/instalacion.md). Se conserva por evidencia y enlaces.
+
+
 Estado: formato implementado de exportación/verificación; el importador del DDL
 definitivo se implementa en [Etapa 3A](etapa-3a.md), solo sobre destinos desechables.
 No hay un esquema ni importador provisional.
