@@ -80,7 +80,7 @@ final class ReservacionAjustesService
             $stmt = $db->prepare(
                 "SELECT comensales, COUNT(*) AS total
                    FROM reservaciones
-                  WHERE fecha >= ?
+                  WHERE fecha >= ?" . \Model\Reservacion::filtroUnidad() . "
                     AND comensales >= ?
                     AND (estado = 'confirmada'
                          OR (estado = 'pendiente_verificacion' AND hold_expires_at > NOW()))

@@ -196,13 +196,14 @@ class AsignacionMesasService
             if ($gestionarTransaccion && !$db->begin_transaction()) {
                 throw new \RuntimeException('No fue posible iniciar la transaccion de asignacion.');
             }
+            if ($tipoAsignacion==='manual' && \Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigirUno(['reservations'=>'editar','pdv'=>'operar','reservations_map'=>'operar'],'restaurante',true);
 
             $reservacion = self::fila(
                 "SELECT id, fecha, hora, comensales, estado, origen,
                         contacto_tipo, contacto,
                         created_at, updated_at
                  FROM reservaciones
-                 WHERE id = {$reservacionId}
+                 WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
                  LIMIT 1
                  FOR UPDATE"
             );
@@ -216,7 +217,7 @@ class AsignacionMesasService
             if ($modoMapaAdministrativo) {
                 $ticketVinculado = self::fila(
                     "SELECT id FROM tickets WHERE reservacion_id = {$reservacionId} AND "
-                    . TicketMesa::condicionSqlAbierto('tickets') . " LIMIT 1 FOR UPDATE"
+                    . TicketMesa::condicionSqlAbierto('tickets') . \Model\Ticket::filtroUnidad('tickets') . " LIMIT 1 FOR UPDATE"
                 );
                 if ($ticketVinculado) {
                     self::rollbackSiPropia($db, $gestionarTransaccion);

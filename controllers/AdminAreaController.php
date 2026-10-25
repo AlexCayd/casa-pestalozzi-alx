@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use MVC\Router;
+use Services\Security\ContextoNegocio;
 
 class AdminAreaController
 {
@@ -83,11 +84,12 @@ class AdminAreaController
 
     public static function index(Router $router): void
     {
+        $areas=self::areasActuales();
         AdminController::render('area/index', [
             'activeModule' => 'area',
             'title' => 'Producción',
             'topbarTitle' => 'Producción',
-            'areas' => self::conInk(self::AREAS),
+            'areas' => self::conInk($areas),
             'styles' => [self::AREA_CSS],
             'scripts' => [],
         ]);
@@ -130,7 +132,7 @@ class AdminAreaController
 
     private static function show(string $slug): void
     {
-        $areas = self::conInk(self::AREAS);
+        $areas = self::conInk(self::areasActuales());
         $area  = $areas[$slug] ?? null;
 
         if (!$area) {
@@ -147,6 +149,26 @@ class AdminAreaController
             'styles' => [self::AREA_CSS],
             'scripts' => [self::AREA_JS],
         ]);
+    }
+
+    /** Áreas dinámicas en el Restaurante nuevo; IDs fijos solo en el esquema legado. */
+    private static function areasActuales(): array
+    {
+        if (!ContextoNegocio::nuevo()) return self::AREAS;
+        ContextoNegocio::exigir('area','operar','restaurante');
+        $db=ContextoNegocio::db(); $unidad=ContextoNegocio::unidad('restaurante');
+        $stmt=$db->prepare('SELECT id,nombre,slug,color FROM areas_produccion WHERE unidad_id=? ORDER BY orden,id');
+        $stmt->bind_param('i',$unidad); $stmt->execute(); $rows=$stmt->get_result()->fetch_all(\MYSQLI_ASSOC); $stmt->close();
+        $areas=[];
+        foreach($rows as $row) {
+            $slug=(string)$row['slug'];
+            if(!preg_match('/^[a-z0-9-]{1,20}$/D',$slug)) continue;
+            $nombre=(string)$row['nombre'];
+            $color=(string)$row['color'];
+            if(!preg_match('/^#(?:[0-9a-fA-F]{3}){1,2}$/',$color)) $color='#8b8b8b';
+            $areas[$slug]=['id'=>(int)$row['id'],'nombre'=>$nombre,'label'=>$nombre,'path'=>'/admin/area/'.$slug,'color'=>$color];
+        }
+        return $areas;
     }
 
     private static function redirect(string $url): void

@@ -5,6 +5,8 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
+use Services\Security\IntentosAcceso;
+use Services\Security\AdminCsrfService;
 
 class AuthController {
     /**
@@ -22,7 +24,16 @@ class AuthController {
      */
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
+        if (Auth::check() && Auth::multinegocio()) {
+            $perfil=Auth::refrescar();
+            if (!$perfil || empty($perfil['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($perfil)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
+            if (Auth::contextos() === []) {
+                Auth::logout();
+                header('Location: /login?resultado=sin_contexto');
+                exit;
+            }
             header('Location: ' . Auth::destinoPorRol());
             exit;
         }
@@ -30,6 +41,10 @@ class AuthController {
         $alertas = [];
         $alertasAdmin = [];
         $tabActiva = ($_GET['tab'] ?? '') === 'admin' ? 'admin' : 'nip';
+        if (($_GET['resultado'] ?? '') === 'sin_contexto') {
+            $tabActiva = 'admin';
+            $alertasAdmin['error'][] = 'Tu cuenta no tiene una unidad de negocio válida. Pide al superadministrador que revise su asignación.';
+        }
 
         // El aviso vive en la pestaña de contraseña, así que se abre ahí: sin
         // esto el mensaje se renderiza en un panel oculto y nadie lo lee.
@@ -48,7 +63,9 @@ class AuthController {
             $tabActiva = 'nip';
             $nip = trim((string) ($_POST['nip'] ?? ''));
 
-            if (!self::nipLoginPermitido()) {
+            if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+                $alertas['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+            } elseif (!self::nipLoginPermitido()) {
                 $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
             } elseif (!preg_match('/^\d{4}$/', $nip)) {
                 self::registrarFalloNip();
@@ -58,7 +75,7 @@ class AuthController {
 
                 if ($usuario) {
                     self::limpiarFallosNip();
-                    Auth::login($usuario);
+                    Auth::login($usuario, 'nip');
                     // La primera página que se pinte lleva la llegada
                     // (views/components/llegada.php).
                     Auth::anunciarLlegada();
@@ -78,6 +95,7 @@ class AuthController {
     private static function nipLoginPermitido(): bool
     {
         Auth::start();
+        if (!IntentosAcceso::admitir('nip', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) return false;
         $ahora = time();
         $ip = hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
         $estado = $_SESSION['_nip_login_rate'] ?? null;
@@ -113,6 +131,10 @@ class AuthController {
      * para no romper marcadores ni POST antiguos.
      */
     public static function loginAdmin(Router $router) {
+        if (Auth::check() && Auth::multinegocio()) {
+            $p=Auth::refrescar();
+            if (!$p || empty($p['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($p)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
             header('Location: ' . Auth::destinoPorRol());
             exit;
@@ -130,7 +152,11 @@ class AuthController {
         $username = trim((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
-        if ($username === '' || $password === '') {
+        if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+            $alertasAdmin['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+        } elseif (!IntentosAcceso::admitir('contrasena', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) {
+            $alertasAdmin['error'][] = 'Credenciales incorrectas';
+        } elseif ($username === '' || $password === '') {
             $alertasAdmin['error'][] = 'Ingresa tu usuario y contraseña';
         } else {
             $usuario = Usuario::porCredenciales($username, $password);

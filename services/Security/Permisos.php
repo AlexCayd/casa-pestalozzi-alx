@@ -172,6 +172,10 @@ final class Permisos
      * Un prefijo casa con la ruta exacta y con todo lo que cuelga de `prefijo/`.
      */
     private const RUTAS = [
+        '/admin/panaderia/menu' => ['menu'],
+        '/admin/panaderia/recetas' => ['productos'],
+        '/admin/panaderia/inventario' => ['inventario'],
+        '/admin/global' => ['configuration'],
         // Las direcciones de la antigua Operación de reservaciones redirigen
         // al POS: se abren con el permiso del POS, como hasta ahora.
         '/admin/reservaciones/operacion' => ['pdv'],
@@ -281,7 +285,7 @@ final class Permisos
 
         // /admin a secas es compartida; los demás prefijos compartidos, con
         // todo lo que cuelga de ellos.
-        if ($url === '/admin') {
+        if (in_array($url, ['/admin', '/admin/contexto', '/admin/panaderia'], true)) {
             return ['tipo' => 'compartida', 'modulos' => []];
         }
         foreach (self::COMPARTIDAS as $prefijo) {
@@ -306,6 +310,30 @@ final class Permisos
     public static function nivelRequerido(string $metodo): string
     {
         return in_array(strtoupper($metodo), ['GET', 'HEAD'], true) ? self::VER : self::EDITAR;
+    }
+
+    /** Catálogo de rutas 3B; no reutiliza una excepción de rol para conceder acceso. */
+    public static function clasificarDirecto(string $url): array
+    {
+        if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
+        $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
+        if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
+        if (self::casa($normal,'/admin/almacenes') || in_array($url,['/admin/global/catalogo','/admin/global/inventario','/admin/panaderia/inventario'],true)) return ['tipo'=>'modulos','modulos'=>['inventario']];
+        if (self::casa($normal, '/admin/api/buzon')) return ['tipo'=>'modulos','modulos'=>['reservations']];
+        if (preg_match('~^/admin/usuarios(?:/|$)~',$normal)) return ['tipo'=>'modulos','modulos'=>['users']];
+        if (preg_match('~^/admin/roles(?:/|$)~',$normal)) return ['tipo'=>'solo_sistema','modulos'=>[]];
+        if (in_array($normal,['/admin/reservaciones/operacion','/admin/reservations/operation'],true)) return ['tipo'=>'modulos','modulos'=>['reservations_map']];
+        if (str_starts_with($url,'/api/punto-de-venta/reservaciones')) return ['tipo'=>'modulos','modulos'=>['pdv','reservations_map']];
+        if (self::casa($normal,'/admin/area') || in_array($normal,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true)) return ['tipo'=>'modulos','modulos'=>['area']];
+        if (self::casa($normal,'/admin/punto-de-venta')) return ['tipo'=>'modulos','modulos'=>['configuration']];
+        $clasificada=self::clasificar($normal);
+        if ($clasificada['tipo']==='publica' && str_starts_with($url,'/api/')) {
+            // Las APIs públicas actuales conservan sus guardias de token/integración.
+            $publicas=['/api/reservaciones/horarios','/api/reservaciones/disponibilidad','/api/reservaciones/retencion','/api/reservaciones/crear','/api/reservaciones/modificar','/api/reservaciones/confirmar-modificacion','/api/reservaciones/cancelar','/api/reservaciones/contacto/codigo','/api/reservaciones/contacto/estado','/api/reservaciones/contacto/verificar','/api/reservaciones/mis-reservaciones','/api/reservaciones/contacto/logout','/api/reservaciones/cambio-horario/disponibilidad','/api/reservaciones/cambio-horario/modificar','/api/reservaciones/cambio-horario/cancelar','/api/reservaciones/gestionar/disponibilidad','/api/reservaciones/gestionar/modificar','/api/reservaciones/gestionar/cancelar','/api/integraciones/n8n/reservaciones/recordatorios/preparar','/api/integraciones/n8n/reservaciones/recordatorios/reclamar','/api/integraciones/n8n/reservaciones/notificacion-resultado','/api/feedback','/api/feedback-n8n'];
+            if (in_array($url,$publicas,true)) return $clasificada;
+            return ['tipo'=>'solo_sistema','modulos'=>[]];
+        }
+        return $clasificada;
     }
 
     /**

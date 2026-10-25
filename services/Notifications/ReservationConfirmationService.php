@@ -5,12 +5,18 @@ namespace Services\Notifications;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
+use Model\RegistroRestaurante;
+use Services\Security\ContextoNegocio;
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 
 /** Prepara y despacha códigos de confirmación únicamente después del commit. */
 final class ReservationConfirmationService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     public const EVENT = ReservationNotificationContract::EVENT_CONFIRMATION;
     public const WEBHOOK_PATH = '/webhook/reservaciones/confirmacion';
     private const PRIVATE_PAYLOAD = '_notification_payload';
@@ -137,7 +143,7 @@ final class ReservationConfirmationService
     private static function reservation(int $reservationId): ?array
     {
         $stmt = ActiveRecord::getDB()->prepare(
-            'SELECT nombre, fecha, hora, comensales FROM reservaciones WHERE id = ? LIMIT 1'
+            'SELECT nombre, fecha, hora, comensales FROM reservaciones WHERE id = ?' . self::unidadSql() . ' LIMIT 1'
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la reservación de confirmación.');

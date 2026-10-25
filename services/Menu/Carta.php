@@ -2,6 +2,8 @@
 
 namespace Services\Menu;
 
+use Services\Security\ContextoNegocio;
+
 use Model\CategoriasMenu;
 use Model\Producto;
 
@@ -39,6 +41,7 @@ class Carta
      */
     public static function publica(?string $carta = CategoriasMenu::CARTA_COMIDA): array
     {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::publica($carta);
         $out = [];
         $db = Producto::getDB();
         $filtroCarta = '';
@@ -112,6 +115,7 @@ class Carta
      */
     public static function especiales(): array
     {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::especiales();
         $out = [];
 
         foreach (self::publica(CategoriasMenu::CARTA_TEMPORADA) as $categoria) {
@@ -153,6 +157,7 @@ class Carta
      */
     public static function paraPos(): array
     {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::paraPos();
         $out = [];
         $db = Producto::getDB();
         $res = $db->query(
@@ -208,6 +213,7 @@ class Carta
      */
     public static function areasPos(): array
     {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::areasPos();
         $out = [];
         $db = Producto::getDB();
         $res = $db->query("SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC");
@@ -227,5 +233,74 @@ class Carta
         $res->free();
 
         return $out;
+    }
+}
+
+
+
+/** Catálogo que proyecta ofertas; cada lectura administrativa/POS incluye su unidad. */
+class CartaMultinegocio
+{
+    /** Público: siempre Restaurante, sin depender de sesión ni del contexto de ruta. */
+    public static function publica(?string $carta = CategoriasMenu::CARTA_COMIDA): array
+    {
+        $unidad = self::unidadRestaurante();
+        $db = Producto::getDB(); $filtro = '';
+        if ($carta !== null) $filtro = " AND c.carta='" . Producto::escaparString(CategoriasMenu::normalizarCarta($carta)) . "'";
+        $res = $db->query("SELECT c.id cat_id,c.nombre cat_nombre,c.img cat_img,o.id oferta_id,o.producto_id,p.nombre,p.descripcion,o.precio,p.img FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1{$filtro} ORDER BY c.orden,c.id,o.orden,o.id");
+        if (!$res) return [];
+        $out=[];
+        while ($row=$res->fetch_assoc()) {
+            $cid=(int)$row['cat_id'];
+            if (!isset($out[$cid])) $out[$cid]=['id'=>$cid,'label'=>$row['cat_nombre'],'img'=>$row['cat_img']?'/'.ltrim($row['cat_img'],'/'):null,'dishes'=>[]];
+            $out[$cid]['dishes'][]=['n'=>$row['nombre'],'d'=>(string)$row['descripcion'],'p'=>(float)$row['precio'],'img'=>$row['img']?'/'.ltrim($row['img'],'/'):null];
+        }
+        $res->free(); return array_values($out);
+    }
+
+    public static function especiales(): array
+    {
+        $out=[];
+        foreach (self::publica(CategoriasMenu::CARTA_TEMPORADA) as $categoria) foreach ($categoria['dishes'] as $dish) {
+            $img=$dish['img']?:$categoria['img']; if ($img===null) continue;
+            $out[]=['n'=>$dish['n'],'d'=>$dish['d'],'p'=>$dish['p'],'cat'=>$categoria['label'],'img'=>$img,'propia'=>$dish['img']!==null];
+        }
+        return $out;
+    }
+
+    /** Menú de venta del negocio activo, sin filtro de carta; id y variantes son IDs de oferta. */
+    public static function paraPos(): array
+    {
+        ContextoNegocio::exigir('pdv','operar',ContextoNegocio::slug());
+        $ctx=ContextoNegocio::slug(); $unidad=ContextoNegocio::vendedora($ctx);
+        $res=Producto::getDB()->query("SELECT c.id cat_id,c.nombre cat_nombre,o.id oferta_id,p.nombre,o.precio,ap.slug area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1 ORDER BY c.orden,c.id,o.orden,o.id");
+        if (!$res) return [];
+        try { $variantes=Variantes::paraPos(); } catch (\Throwable $e) { error_log('Carta::paraPos - variantes no disponibles: '.$e->getMessage()); $variantes=[]; }
+        $out=[];
+        while ($row=$res->fetch_assoc()) {
+            $cid=(int)$row['cat_id']; if (!isset($out[$cid])) $out[$cid]=['id'=>$cid,'label'=>$row['cat_nombre'],'dishes'=>[]];
+            $oid=(int)$row['oferta_id']; $dish=['id'=>$oid,'oferta_id'=>$oid,'n'=>$row['nombre'],'p'=>(float)$row['precio'],'area'=>$row['area_slug']];
+            if (!empty($variantes[$oid])) $dish['g']=$variantes[$oid];
+            $out[$cid]['dishes'][]=$dish;
+        }
+        $res->free(); return array_values($out);
+    }
+
+    public static function areasPos(): array
+    {
+        ContextoNegocio::exigir('pdv','operar',ContextoNegocio::slug());
+        $unidad=ContextoNegocio::vendedora(ContextoNegocio::slug()); $out=[];
+        $res=Producto::getDB()->query('SELECT id,nombre,slug,color FROM areas_produccion WHERE unidad_id='.$unidad.' ORDER BY orden,id');
+        if (!$res) return [];
+        while ($r=$res->fetch_assoc()) $out[$r['slug']]=['id'=>(int)$r['id'],'label'=>$r['nombre'],'color'=>$r['color']];
+        $res->free(); return $out;
+    }
+
+    private static function unidadRestaurante(): int
+    {
+        $db=Producto::getDB(); $stmt=$db->prepare("SELECT id FROM unidades WHERE slug='restaurante' LIMIT 1");
+        if (!$stmt) return 0;
+        $stmt->execute(); $row=$stmt->get_result()->fetch_row(); $stmt->close();
+        return $row ? (int)$row[0] : 0;
     }
 }

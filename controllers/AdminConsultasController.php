@@ -4,6 +4,7 @@ namespace Controllers;
 
 use MVC\Router;
 use Services\Analytics\ConsultasRapidas;
+use Services\Security\ContextoNegocio;
 
 /**
  * El motor de consultas rápidas, que es lo que responde en el Asistente IA
@@ -30,6 +31,7 @@ class AdminConsultasController
         $intencion = self::texto('intencion');
 
         try {
+            self::exigirConsultaNueva();
             if ($intencion !== '') {
                 $respuesta = ConsultasRapidas::responderEstructurada(
                     $intencion,
@@ -61,6 +63,7 @@ class AdminConsultasController
     {
         self::cabeceras();
         try {
+            self::exigirConsultaNueva();
             echo json_encode(['ok' => true] + ConsultasRapidas::catalogo(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\Throwable $e) {
             self::fallo('catalogo', $e, 'No fue posible cargar la lista.');
@@ -75,6 +78,7 @@ class AdminConsultasController
     {
         self::cabeceras();
         try {
+            self::exigirConsultaNueva();
             echo json_encode(['ok' => true] + ConsultasRapidas::capacidades(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\Throwable $e) {
             self::fallo('capacidades', $e, 'No fue posible cargar las consultas disponibles.');
@@ -85,6 +89,18 @@ class AdminConsultasController
     {
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
+    }
+
+    private static function exigirConsultaNueva(): void
+    {
+        if (!ContextoNegocio::nuevo()) return;
+        $ctx = ContextoNegocio::slug();
+        if ($ctx !== 'restaurante') throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE', 'Las consultas del POS están disponibles para Restaurante.');
+        foreach (['analytics','ia','menu','inventario','tickets'] as $modulo) {
+            try { ContextoNegocio::exigir($modulo, 'ver', $ctx); return; }
+            catch (\Services\Inventory\InventarioError $e) { if (!in_array($e->codigo, ['PERMISO_DENEGADO','MODULO_NO_DISPONIBLE'], true)) throw $e; }
+        }
+        throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO', 'No tienes permiso para consultar datos del restaurante.');
     }
 
     private static function texto(string $clave): string
@@ -102,7 +118,7 @@ class AdminConsultasController
     private static function fallo(string $metodo, \Throwable $e, string $mensaje): void
     {
         error_log('AdminConsultasController::' . $metodo . ' - ' . $e->getMessage());
-        http_response_code(500);
+        http_response_code($e instanceof \Services\Inventory\InventarioError && in_array($e->codigo, ['PERMISO_DENEGADO','AMBITO_DENEGADO','AMBITO_NO_DISPONIBLE'], true) ? 403 : 500);
         echo json_encode(['ok' => false, 'mensaje' => $mensaje], JSON_UNESCAPED_UNICODE);
     }
 }

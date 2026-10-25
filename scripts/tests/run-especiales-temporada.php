@@ -7,8 +7,8 @@ declare(strict_types=1);
  *
  * Los especiales son una carta más de `categorias.carta` ('temporada') y la
  * vitrina de views/home/_firma.php los pinta desde la base. Lo que protege:
- * que el ENUM del DDL y CategoriasMenu::CARTAS no se separen, que la
- * categoría del sistema siga sembrada con su foto de respaldo, que la vitrina
+ * que las cartas del DDL y CategoriasMenu::CARTAS no se separen, que la
+ * importación preserve la categoría y su foto de respaldo, que la vitrina
  * no vuelva a un arreglo fijo en el JS ni cambie el marcado de la tarjeta, y
  * que pedir la carta de temporada al PDF no lo rompa.
  */
@@ -28,28 +28,30 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 };
 $leer = static fn (string $ruta): string => (string) file_get_contents($root . '/' . $ruta);
 
-// 1 · El ENUM del DDL es exactamente la lista de CategoriasMenu::CARTAS.
+// 1 · Cartas por negocio: el catálogo referenciado conserva las claves públicas.
 $ddl = $leer('database/ddl.sql');
 $assert(
-    preg_match('/CREATE TABLE IF NOT EXISTS categorias \((.*?)\);/s', $ddl, $tabla) === 1
-        && preg_match("/carta\s+ENUM\(([^)]*)\)/", $tabla[1], $enum) === 1,
-    'ddl.sql declara categorias.carta como ENUM.'
+    preg_match('/CREATE TABLE cartas \((.*?)\) ENGINE=/s', $ddl, $tabla) === 1
+        && preg_match("/CHECK\(slug\s+IN\s*\(([^)]*)\)\)/", $tabla[1], $enum) === 1,
+    'ddl.sql limita cartas.slug a las claves comerciales.'
 );
 $valores = array_map(static fn ($v) => trim($v, " '"), explode(',', $enum[1]));
-$assert($valores === array_keys(CategoriasMenu::CARTAS), 'El ENUM de categorias.carta coincide con CategoriasMenu::CARTAS.');
+$assert($valores === array_keys(CategoriasMenu::CARTAS), 'Las claves de cartas coinciden con CategoriasMenu::CARTAS.');
+$assert(str_contains($ddl, 'FOREIGN KEY(unidad_id,carta) REFERENCES cartas(unidad_id,slug)'), 'La categoría referencia una carta del mismo negocio.');
 $assert(isset(CategoriasMenu::CARTAS[CategoriasMenu::CARTA_TEMPORADA]), 'Existe la carta de temporada.');
 $assert(!in_array(CategoriasMenu::CARTA_TEMPORADA, CategoriasMenu::CARTAS_IMPRESAS, true), 'Los especiales no se imprimen.');
 $assert(CategoriasMenu::normalizarCarta('temporada') === 'temporada', 'normalizarCarta() admite temporada.');
 
-// 2 · La categoría del sistema se siembra en deploy.sql, con la foto que toma
-//     un especial sin la suya: un archivo propio, que nadie más nombra.
+// 2 · La política conserva el menú importado: deploy no crea otra categoría de muestra.
 $deploy = $leer('database/deploy.sql');
 $assert(
-    preg_match("/\(\s*\d+\s*,\s*'Especiales de temporada'\s*,\s*'temporada'\s*,\s*'build\/images\/especiales-temporada\.webp'\s*\)/", $deploy) === 1,
-    'deploy.sql siembra «Especiales de temporada» con carta temporada y su foto.'
+    !preg_match('/INSERT\s+INTO\s+categorias\b/i', $deploy)
+        && preg_match("/\(2,'temporada','Temporada',3,1\)/", $deploy) === 1,
+    'deploy.sql siembra la carta de temporada y deja las categorías al menú importado.'
 );
 $assert(is_file($root . '/assets/images/especiales-temporada.webp'), 'Existe la foto de respaldo de los especiales.');
-$assert(substr_count($deploy, 'especiales-temporada.webp') === 1, 'Ninguna otra categoría comparte la foto de respaldo.');
+$importador = $leer('scripts/menu/ImportadorMenu.php');
+$assert(str_contains($importador, "\$img = \$categoria['img']") && str_contains($importador, "\$carta = \$categoria['carta']"), 'El importador conserva carta y foto de categoría sin inventar un respaldo.');
 
 // 3 · El PDF no tiene pieza de temporada y no se rompe si se la piden.
 $pdf = $leer('services/Menu/MenuPdf.php');

@@ -47,12 +47,13 @@ function insertCommunicationReservation(
     string $status = 'confirmada',
     ?int $rootId = null
 ): int {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $requestToken = bin2hex(random_bytes(32));
     $stmt = $db->prepare(
-        'INSERT INTO reservaciones
-          (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+        "INSERT INTO reservaciones
+          (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
            estado, request_token, reemplaza_reservacion_id, estado_changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES ({$restaurantUnitId}, 'negocio', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $date = '2037-01-15';
     $time = '13:00:00';
@@ -81,6 +82,7 @@ function insertCommunicationReservation(
 }
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $reservationIds = [];
 $impactId = 0;
 $impactItemId = 0;
@@ -92,7 +94,7 @@ $standaloneContacts = [
 $oldEnvironment = $_ENV['APP_ENV'] ?? null;
 $oldNow = $_ENV['RESERVATION_TEST_NOW'] ?? null;
 $oldBaseUrl = $_ENV['RESERVATION_PUBLIC_BASE_URL'] ?? null;
-$configResult = $db->query('SELECT recordatorio_dia_anterior_activo, hora_recordatorio, updated_by FROM configuracion_reservaciones WHERE id = 1');
+$configResult = $db->query('SELECT recordatorio_dia_anterior_activo, hora_recordatorio, updated_by FROM configuracion_reservaciones WHERE unidad_id = ' . $restaurantUnitId . ' AND id = 1');
 communicationsDbAssert($configResult !== false, 'no se pudo respaldar la configuración');
 $oldConfig = $configResult->fetch_assoc() ?: ['recordatorio_dia_anterior_activo' => 0, 'hora_recordatorio' => '18:00:00', 'updated_by' => null];
 $configResult->free();
@@ -102,6 +104,7 @@ try {
     $_ENV['RESERVATION_PUBLIC_BASE_URL'] = 'http://localhost';
     $_ENV['RESERVATION_TEST_NOW'] = '2037-01-14 17:59:00';
 
+    notificationsTestAuthenticateStaff();
     $saved = ReservacionNotificacionConfigService::guardar([
         'recordatorio_dia_anterior_activo' => true,
         'hora_recordatorio' => '18:00',
@@ -146,7 +149,7 @@ try {
     );
     communicationsDbAssert(($failedConfirmation['ok'] ?? true) === false && ($failedConfirmation['codigo'] ?? '') === 'OTP_ENVIO_FALLIDO', 'fallo de confirmación test no se informó');
     $failedVerificationResult = $db->query(
-        "SELECT COUNT(*) AS total FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContacts[1]) . "'"
+        "SELECT COUNT(*) AS total FROM verificaciones_contacto WHERE unidad_id = {$restaurantUnitId} AND reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContacts[1]) . "'"
     );
     $failedVerificationCount = $failedVerificationResult ? (int)($failedVerificationResult->fetch_assoc()['total'] ?? 0) : 0;
     if ($failedVerificationResult) {
@@ -333,14 +336,15 @@ try {
     );
     $reservationIds[] = $affectedId;
     $impactDedup = hash('sha256', 'fixture-impact-' . bin2hex(random_bytes(8)));
-    $stmt = $db->prepare("INSERT INTO horario_impactos (tipo_origen, estado, dedup_key) VALUES ('fixture', 'pendiente', ?)");
-    $stmt->bind_param('s', $impactDedup);
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
+    $stmt = $db->prepare("INSERT INTO horario_impactos (unidad_id, tipo_origen, estado, dedup_key) VALUES (?, 'fixture', 'pendiente', ?)");
+    $stmt->bind_param('is', $restaurantUnitId, $impactDedup);
     communicationsDbAssert($stmt->execute(), 'no se pudo crear impacto de fixture');
     $impactId = (int)$db->insert_id;
     $stmt->close();
     communicationsDbAssert($db->query(
-        "INSERT INTO horario_impacto_reservaciones (impacto_id, reservacion_id, estado)
-         VALUES ({$impactId}, {$affectedId}, 'pendiente_notificacion')"
+        "INSERT INTO horario_impacto_reservaciones (unidad_id, impacto_id, reservacion_id, estado)
+         VALUES ({$restaurantUnitId}, {$impactId}, {$affectedId}, 'pendiente_notificacion')"
     ) !== false, 'no se pudo vincular el impacto de fixture');
     $impactItemId = (int)$db->insert_id;
 
@@ -381,8 +385,8 @@ try {
     );
     $reservationIds[] = $retryReservationId;
     communicationsDbAssert($db->query(
-        "INSERT INTO horario_impacto_reservaciones (impacto_id, reservacion_id, estado)
-         VALUES ({$impactId}, {$retryReservationId}, 'pendiente_notificacion')"
+        "INSERT INTO horario_impacto_reservaciones (unidad_id, impacto_id, reservacion_id, estado)
+         VALUES ({$restaurantUnitId}, {$impactId}, {$retryReservationId}, 'pendiente_notificacion')"
     ) !== false, 'no se pudo crear el caso de reenvío');
     $retryImpactItemId = (int)$db->insert_id;
 
@@ -520,13 +524,17 @@ try {
             $db->query("DELETE FROM horario_impactos WHERE id = {$impactId}");
         }
         $db->query("DELETE FROM reservacion_recordatorios WHERE reservacion_id IN ({$ids}) OR reservacion_raiz_id IN ({$ids})");
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
         foreach (array_reverse($reservationIds) as $reservationId) {
             $db->query('DELETE FROM reservaciones WHERE id = ' . (int)$reservationId);
         }
     }
     foreach ($standaloneContacts as $standaloneContact) {
         $db->query(
-            "DELETE FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContact) . "'"
+            "DELETE FROM verificaciones_contacto WHERE unidad_id = {$restaurantUnitId} AND reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContact) . "'"
         );
     }
     $oldActive = (int)($oldConfig['recordatorio_dia_anterior_activo'] ?? 0);
@@ -537,7 +545,7 @@ try {
         "UPDATE configuracion_reservaciones
          SET recordatorio_dia_anterior_activo = {$oldActive},
              hora_recordatorio = '{$oldTime}', updated_by = {$updatedBySql}
-         WHERE id = 1"
+         WHERE unidad_id = {$restaurantUnitId} AND id = 1"
     );
     if ($oldEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $oldEnvironment;
     if ($oldNow === null) unset($_ENV['RESERVATION_TEST_NOW']); else $_ENV['RESERVATION_TEST_NOW'] = $oldNow;

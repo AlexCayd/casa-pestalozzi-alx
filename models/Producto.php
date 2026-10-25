@@ -1,6 +1,8 @@
 <?php
 namespace Model;
 
+use Services\Security\ContextoNegocio;
+
 /**
  * Catalogo unico de platillos y bebidas (tabla 'productos'): fuente unica.
  *
@@ -55,6 +57,7 @@ class Producto extends ActiveRecord {
      */
     public function crear()
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'crear');
         $atributos = $this->atributos();
         $columnas = implode(', ', array_keys($atributos));
         $marcas = implode(', ', array_fill(0, count($atributos), '?'));
@@ -69,6 +72,7 @@ class Producto extends ActiveRecord {
 
     public function actualizar()
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'actualizar');
         $atributos = $this->atributos();
         $asignaciones = implode(', ', array_map(
             static fn(string $columna): string => "{$columna} = ?",
@@ -104,6 +108,7 @@ class Producto extends ActiveRecord {
 
     public static function todos(): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::todos();
         return self::consultarSQL(
             "SELECT * FROM " . static::$tabla . " ORDER BY activo DESC, categoria_id ASC, nombre ASC"
         );
@@ -117,6 +122,7 @@ class Producto extends ActiveRecord {
      */
     public static function cartaPublica(): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::cartaPublica();
         return self::agruparPorCategoria('WHERE c.activo = 1 AND p.activo = 1');
     }
 
@@ -126,6 +132,7 @@ class Producto extends ActiveRecord {
      */
     public static function cartaCompleta(): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::cartaCompleta();
         return self::agruparPorCategoria('');
     }
 
@@ -135,6 +142,7 @@ class Producto extends ActiveRecord {
      */
     public static function catalogoPos(): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::catalogoPos();
         return self::consultarSQL(
             "SELECT p.id, p.nombre, p.precio, p.categoria_id, p.area_id,
                     c.nombre AS categoria_nombre, a.slug AS area_slug
@@ -183,6 +191,7 @@ class Producto extends ActiveRecord {
     /** Listado paginado del admin, con los filtros de la barra superior. */
     public static function buscarAdmin(array $filtros = [], ?int $limite = null, int $offset = 0): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::buscarAdmin($filtros, $limite, $offset);
         $condiciones = self::condicionesAdmin($filtros);
         $query = "SELECT * FROM " . static::$tabla;
 
@@ -203,6 +212,7 @@ class Producto extends ActiveRecord {
 
     public static function totalAdmin(array $filtros = []): int
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::totalAdmin($filtros);
         $condiciones = self::condicionesAdmin($filtros);
         $query = "SELECT COUNT(*) FROM " . static::$tabla;
 
@@ -229,6 +239,7 @@ class Producto extends ActiveRecord {
      */
     public function retirar(): bool
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'retirar');
         $id = (int) $this->id;
 
         if ($id < 1) {
@@ -258,6 +269,7 @@ class Producto extends ActiveRecord {
      */
     public static function buscarRecetas(array $filtros = [], ?int $limite = null, int $offset = 0): array
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::buscarRecetas($filtros, $limite, $offset);
         $condiciones = self::condicionesRecetas($filtros);
         $query = "SELECT p.* FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id";
 
@@ -279,6 +291,7 @@ class Producto extends ActiveRecord {
     /** Total de platillos que casan con el filtro; alimenta la paginación. */
     public static function totalRecetas(array $filtros = []): int
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::totalRecetas($filtros);
         $condiciones = self::condicionesRecetas($filtros);
         $query = "SELECT COUNT(*) FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id";
 
@@ -411,6 +424,7 @@ class Producto extends ActiveRecord {
 
     public function validar()
     {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'validar');
         static::$alertas = [];
 
         if (!trim((string) $this->nombre)) {
@@ -445,6 +459,39 @@ class Producto extends ActiveRecord {
      * n8n resuelven el producto por nombre. Se comprueba antes de guardar para
      * dar un mensaje util en lugar del error 1062 de MySQL.
      */
+    public static function all()
+    {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::todos();
+        return parent::all();
+    }
+    public static function paraReceta($id)
+    {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::paraReceta($id);
+        return self::find($id);
+    }
+
+    public static function where($columna,$valor) { if (ContextoNegocio::nuevo()) throw new \LogicException('Use búsquedas de oferta con alcance de negocio.'); return parent::where($columna,$valor); }
+    public static function get($limite) { if (ContextoNegocio::nuevo()) throw new \LogicException('Use búsquedas de oferta con alcance de negocio.'); return parent::get($limite); }
+    public static function paginar($por_pagina,$offset) { if (ContextoNegocio::nuevo()) throw new \LogicException('Use búsquedas de oferta con alcance de negocio.'); return parent::paginar($por_pagina,$offset); }
+
+    public static function find($id)
+    {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::find($id);
+        return parent::find($id);
+    }
+
+    public function alternarVisibilidad(): bool
+    {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'alternarVisibilidad');
+        $id=(int)$this->id;
+        return (bool)self::ejecutarSQL("UPDATE productos SET activo=1-activo WHERE id={$id} LIMIT 1");
+    }
+
+    public function eliminar()
+    {
+        if (ContextoNegocio::nuevo()) return ProductoMultinegocio::delegar($this, 'eliminar');
+        return parent::eliminar();
+    }
     private static function nombreRepetido(string $nombre, int $idActual): bool
     {
         $nombreEscapado = self::escaparString(trim($nombre));
@@ -457,5 +504,350 @@ class Producto extends ActiveRecord {
         $res = self::ejecutarSQL($query . ' LIMIT 1');
 
         return $res && $res->num_rows > 0;
+    }
+}
+
+
+class ProductoMultinegocio extends Producto
+{
+    public static function delegar(Producto $origen,string $metodo,array $argumentos=[])
+    {
+        $nuevo=new self();
+        foreach (get_object_vars($origen) as $prop=>$valor) if (property_exists($nuevo,$prop)) $nuevo->$prop=$valor;
+        $ret=$nuevo->$metodo(...$argumentos);
+        foreach (get_object_vars($nuevo) as $prop=>$valor) if (property_exists($origen,$prop)) $origen->$prop=$valor;
+        return $ret;
+    }
+    protected static $tabla = 'ofertas_producto';
+    protected static $columnasDB = ['id', 'nombre', 'descripcion', 'img', 'categoria_id', 'precio', 'area_id', 'activo', 'orden'];
+
+    /** `id` permanece como alias de oferta_id para las interfaces existentes. */
+    public $id;
+    public $oferta_id;
+    public $producto_id;
+    public $unidad_id;
+    public $nombre;
+    public $descripcion;
+    public $img;
+    public $categoria_id;
+    public $precio;
+    public $area_id;
+    public $activo = 1;
+    public $orden = 0;
+    public $categoria_nombre;
+    public $categoria_img;
+    public $area_slug;
+
+    /** Alta atómica de una identidad nueva y su oferta para el contexto actual. */
+    public function crear()
+    {
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'editar', $ctx);
+        if ($ctx === 'global') {
+            return ['resultado' => false, 'id' => 0];
+        }
+        $unidad = ContextoNegocio::unidad($ctx);
+        $db = self::getDB();
+        $resultado = ContextoNegocio::transaccion(function () use ($db, $unidad, $ctx) {
+
+            ContextoNegocio::exigir('menu', 'editar', $ctx, true);
+            self::validarReferenciasLocales($db, (int)$this->categoria_id, (int)$this->area_id, $unidad);
+            $nombre = trim((string)$this->nombre);
+            $descripcion = $this->descripcion;
+            $img = $this->img;
+            $stmt = $db->prepare('INSERT INTO productos (nombre, descripcion, img) VALUES (?, ?, ?)');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('sss', $nombre, $descripcion, $img);
+            self::ejecutar($stmt);
+            $productoId = (int)$db->insert_id;
+            $stmt->close();
+            $categoria = (int)$this->categoria_id;
+            $area = (int)$this->area_id;
+            $precio = (float)$this->precio;
+            $activo = (int)$this->activo;
+            $orden = (int)$this->orden;
+            $stmt = $db->prepare("INSERT INTO ofertas_producto (producto_id, unidad_id, unidad_tipo, categoria_id, precio, area_id, activo, orden) VALUES (?, ?, 'negocio', ?, ?, ?, ?, ?)");
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('iiidiii', $productoId, $unidad, $categoria, $precio, $area, $activo, $orden);
+            self::ejecutar($stmt);
+            $ofertaId = (int)$db->insert_id;
+            $stmt->close();
+            return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
+        });
+        $payload = self::transaccionResultado($resultado);
+        if (empty($payload['resultado'])) return ['resultado' => false, 'id' => 0];
+        $this->oferta_id = $this->id = (int)$payload['id'];
+        $this->producto_id = (int)$payload['producto_id'];
+        $this->unidad_id = $unidad;
+        return ['resultado' => true, 'id' => $this->id];
+    }
+
+    /** Actualiza solo la oferta local; identidad compartida requiere facultad global. */
+    public function actualizar()
+    {
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('menu', 'editar', $ctx);
+        $unidad = ContextoNegocio::unidad($ctx);
+        $oferta = (int)($this->oferta_id ?: $this->id);
+        if ($oferta < 1 || $ctx === 'global') return false;
+        $db = self::getDB();
+        $resultado = ContextoNegocio::transaccion(function () use ($db, $unidad, $oferta, $ctx) {
+            ContextoNegocio::exigir('menu', 'editar', $ctx, true);
+            $stmt = $db->prepare('SELECT o.producto_id, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('ii', $oferta, $unidad);
+            self::ejecutar($stmt);
+            $actual = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$actual) return ['resultado' => false];
+            self::validarReferenciasLocales($db, (int)$this->categoria_id, (int)$this->area_id, $unidad);
+            $productoId = (int)$actual['producto_id'];
+            $nombre = trim((string)$this->nombre);
+            $descripcion = $this->descripcion;
+            $img = $this->img;
+            $cambioIdentidad = $nombre !== (string)$actual['nombre'] || $descripcion !== $actual['descripcion'] || $img !== $actual['img'];
+            if ($cambioIdentidad && (int)$actual['ofertas'] > 1) {
+                ContextoNegocio::facultad('catalogo.editar', 'global', 'menu', true);
+            }
+            if ($cambioIdentidad) {
+                $stmt = $db->prepare('UPDATE productos SET nombre=?, descripcion=?, img=? WHERE id=? LIMIT 1');
+                if (!$stmt) throw new \RuntimeException($db->error);
+                $stmt->bind_param('sssi', $nombre, $descripcion, $img, $productoId);
+                self::ejecutar($stmt);
+                $stmt->close();
+            }
+            $categoria = (int)$this->categoria_id;
+            $precio = (float)$this->precio;
+            $area = (int)$this->area_id;
+            $activo = (int)$this->activo;
+            $orden = (int)$this->orden;
+            $stmt = $db->prepare('UPDATE ofertas_producto SET categoria_id=?, precio=?, area_id=?, activo=?, orden=? WHERE id=? AND unidad_id=? LIMIT 1');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('idiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
+            self::ejecutar($stmt);
+            $stmt->close();
+            return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
+        });
+        $payload = self::transaccionResultado($resultado);
+        if (empty($payload['resultado'])) return false;
+        $this->id = $this->oferta_id = $oferta;
+        $this->producto_id = (int)$payload['producto_id'];
+        $this->unidad_id = $unidad;
+        return true;
+    }
+
+    public static function paraReceta($id)
+    {
+        ContextoNegocio::exigir('productos','ver',ContextoNegocio::slug());
+        $id=(int)$id; if ($id<1) return null;
+        $rows=self::consultarSQL(self::baseSelect().' AND o.id='.$id.' LIMIT 1');
+        return $rows[0]??null;
+    }
+public static function find($id)
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        $id=(int)$id; if ($id<1) return null;
+        $rows=self::consultarSQL(self::baseSelect().' AND o.id='.$id.' LIMIT 1');
+        return $rows[0]??null;
+    }
+    public static function todos(): array
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        return self::consultarSQL(self::baseSelect() . ' ORDER BY o.activo DESC, o.categoria_id, o.orden, o.id');
+    }
+
+    public static function cartaPublica(): array
+    {
+        return self::agrupar(' AND c.activo=1 AND o.activo=1');
+    }
+
+    public static function cartaCompleta(): array
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        return self::agrupar('');
+    }
+
+    public static function catalogoPos(): array
+    {
+        ContextoNegocio::exigir('pdv','operar',ContextoNegocio::slug());
+        return self::consultarSQL('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, o.precio, o.categoria_id, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, ap.slug AS area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug()) . ' AND o.activo=1 AND c.activo=1 ORDER BY c.orden, c.id, o.orden, o.id');
+    }
+
+    private static function baseSelect(): string
+    {
+        $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
+        return 'SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img, ap.slug AS area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id LEFT JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad;
+    }
+
+    private static function agrupar(string $filtro): array
+    {
+        $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
+        $res = self::getDB()->query('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad . $filtro . ' ORDER BY c.orden, c.id, o.orden, o.id');
+        $grupos = [];
+        if (!$res) return [];
+        while ($fila = $res->fetch_object()) {
+            $cid = (int)$fila->categoria_id;
+            if (!isset($grupos[$cid])) $grupos[$cid] = ['id'=>$cid, 'nombre'=>$fila->categoria_nombre, 'img'=>$fila->categoria_img, 'platillos'=>[]];
+            $grupos[$cid]['platillos'][] = $fila;
+        }
+        $res->free();
+        return array_values($grupos);
+    }
+
+    public static function buscarAdmin(array $filtros = [], ?int $limite = null, int $offset = 0): array
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        $where = self::condicionesAdmin($filtros);
+        $sql = self::baseSelect() . ($where ? ' AND ' . implode(' AND ', $where) : '') . ' ORDER BY o.categoria_id, o.orden, p.nombre, o.id DESC';
+        if ($limite !== null) $sql .= ' LIMIT ' . max(1, (int)$limite) . ' OFFSET ' . max(0, (int)$offset);
+        return self::consultarSQL($sql);
+    }
+
+    public static function totalAdmin(array $filtros = []): int
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        $where = self::condicionesAdmin($filtros);
+        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
+        if ($where) $sql .= ' AND ' . implode(' AND ', $where);
+        $res = self::getDB()->query($sql);
+        if (!$res) return 0;
+        $row = $res->fetch_row(); $res->free();
+        return (int)$row[0];
+    }
+
+    public static function buscarRecetas(array $filtros = [], ?int $limite = null, int $offset = 0): array
+    {
+        ContextoNegocio::exigir('productos','ver',ContextoNegocio::slug());
+        $where = self::condicionesRecetas($filtros);
+        $sql = self::baseSelect() . ($where ? ' AND ' . implode(' AND ', $where) : '') . ' ORDER BY o.activo DESC, o.categoria_id, o.orden, p.nombre';
+        if ($limite !== null) $sql .= ' LIMIT ' . max(1,(int)$limite) . ' OFFSET ' . max(0,(int)$offset);
+        return self::consultarSQL($sql);
+    }
+
+    public static function totalRecetas(array $filtros = []): int
+    {
+        ContextoNegocio::exigir('productos','ver',ContextoNegocio::slug());
+        $where = self::condicionesRecetas($filtros);
+        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id LEFT JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
+        if ($where) $sql .= ' AND ' . implode(' AND ', $where);
+        $res = self::getDB()->query($sql);
+        if (!$res) return 0;
+        $row = $res->fetch_row(); $res->free();
+        return (int)$row[0];
+    }
+
+    private static function condicionesAdmin(array $f): array
+    {
+        $w = [];
+        $q = trim((string)($f['q'] ?? ''));
+        if ($q !== '') $w[] = "p.nombre LIKE '%" . self::escaparLike($q) . "%' ESCAPE '\\\\'";
+        $cat = (int)($f['categoria'] ?? $f['category_id'] ?? 0);
+        if ($cat > 0) $w[] = 'o.categoria_id=' . $cat;
+        $carta = (string)($f['carta'] ?? '');
+        if ($carta !== '' && isset(CategoriasMenu::CARTAS[$carta])) $w[] = "c.carta='" . self::escaparString($carta) . "'";
+        $area = (int)($f['area'] ?? 0);
+        if ($area > 0) $w[] = 'o.area_id=' . $area;
+        $visible = (string)($f['visible'] ?? '');
+        if ($visible === '0' || $visible === '1') $w[] = 'o.activo=' . $visible;
+        if (($f['pendiente'] ?? '') === 'receta') $w[] = self::sinRecetaSql();
+        return $w;
+    }
+
+    private static function condicionesRecetas(array $f): array
+    {
+        $w = [];
+        $q = trim((string)($f['q'] ?? ''));
+        if ($q !== '') foreach (array_slice(preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $term) {
+            $t = self::escaparLike($term);
+            $w[] = "(p.nombre LIKE '%{$t}%' ESCAPE '\\\\' OR c.nombre LIKE '%{$t}%' ESCAPE '\\\\' OR EXISTS (SELECT 1 FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id LEFT JOIN ingredientes i ON i.id=rc.articulo_id LEFT JOIN subrecetas s ON s.id=rc.subreceta_id AND s.unidad_id=r.unidad_id WHERE r.oferta_id=o.id AND r.unidad_id=o.unidad_id AND r.activo=1 AND (i.nombre LIKE '%{$t}%' ESCAPE '\\\\' OR s.nombre LIKE '%{$t}%' ESCAPE '\\\\')))";
+        }
+        $estado = (string)($f['estado'] ?? '');
+        if ($estado === 'sin') $w[] = self::sinRecetaSql();
+        elseif ($estado === 'con') $w[] = self::tieneRecetaSql();
+        return $w;
+    }
+
+    private static function tieneRecetaSql(): string
+    {
+        return 'EXISTS (SELECT 1 FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id WHERE r.oferta_id=o.id AND r.unidad_id=o.unidad_id AND r.activo=1)';
+    }
+
+    private static function sinRecetaSql(): string { return 'NOT ' . self::tieneRecetaSql(); }
+
+    public function alternarVisibilidad(): bool
+    {
+        $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
+        $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
+            ContextoNegocio::exigir('menu','editar',$ctx,true);
+            $stmt=$db->prepare('UPDATE ofertas_producto SET activo=1-activo WHERE id=? AND unidad_id=? LIMIT 1');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('ii',$id,$unidad); self::ejecutar($stmt); $ok=$stmt->affected_rows===1; $stmt->close();
+            return ['actualizado'=>$ok];
+        });
+        $ok=!empty($resultado['ok']) && !empty($resultado['confirmado']) && !empty($resultado['actualizado']);
+        if ($ok) $this->activo=1-(int)$this->activo;
+        return $ok;
+    }
+
+    public function retirar(): bool
+    {
+        $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
+        $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
+            ContextoNegocio::exigir('menu','editar',$ctx,true);
+            $stmt=$db->prepare('SELECT id FROM ofertas_producto WHERE id=? AND unidad_id=? LIMIT 1 FOR UPDATE');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('ii',$id,$unidad); self::ejecutar($stmt); $existe=(bool)$stmt->get_result()->fetch_row(); $stmt->close();
+            if (!$existe) return ['retirado'=>false];
+            $stmt=$db->prepare('UPDATE ofertas_producto SET activo=0 WHERE id=? AND unidad_id=? LIMIT 1');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $stmt->bind_param('ii',$id,$unidad); self::ejecutar($stmt); $stmt->close();
+            return ['retirado'=>true];
+        });
+        $ok=!empty($resultado['ok']) && !empty($resultado['confirmado']) && !empty($resultado['retirado']);
+        if ($ok) $this->activo=0;
+        return $ok;
+    }
+
+    /** El retiro es la eliminación segura de la oferta; ventas/recetas conservan sus referencias. */
+    public function eliminar() { return $this->retirar(); }
+
+    public function validar(): array
+    {
+        static::$alertas = [];
+        if (!trim((string)$this->nombre)) static::setAlerta('error', 'El nombre del platillo es obligatorio');
+        if (!trim((string)$this->descripcion)) static::setAlerta('error', 'La descripción es obligatoria');
+        if ((int)$this->categoria_id < 1) static::setAlerta('error', 'La categoría es obligatoria');
+        if ($this->precio === '' || $this->precio === null || !is_numeric($this->precio) || (float)$this->precio < 0) static::setAlerta('error', 'El precio debe ser un número válido');
+                if ((int)$this->area_id < 1) static::setAlerta('error', 'El área de producción es obligatoria');
+        if (trim((string)$this->nombre) !== '' && self::nombreRepetido(trim((string)$this->nombre), (int)($this->oferta_id ?: $this->id))) static::setAlerta('error', 'Ya existe una oferta con ese nombre en este negocio');
+        return static::$alertas;
+    }
+
+    private static function nombreRepetido(string $nombre,int $oferta): bool
+    {
+        $unidad=ContextoNegocio::unidad(ContextoNegocio::slug()); $nombre=self::escaparString($nombre);
+        $sql="SELECT o.id FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.unidad_id={$unidad} AND p.nombre='{$nombre}'";
+        if ($oferta>0) $sql.=' AND o.id<>'.(int)$oferta;
+        $res=self::getDB()->query($sql.' LIMIT 1'); return $res && $res->num_rows>0;
+    }
+    private static function validarReferenciasLocales(\mysqli $db, int $categoria, int $area, int $unidad): void
+    {
+        $stmt = $db->prepare('SELECT (SELECT COUNT(*) FROM categorias WHERE id=? AND unidad_id=?), (SELECT COUNT(*) FROM areas_produccion WHERE id=? AND unidad_id=?)');
+        if (!$stmt) throw new \RuntimeException($db->error);
+        $stmt->bind_param('iiii', $categoria, $unidad, $area, $unidad);
+        self::ejecutar($stmt);
+        $row = $stmt->get_result()->fetch_row(); $stmt->close();
+        if (!$row || (int)$row[0] !== 1 || (int)$row[1] !== 1) throw new \RuntimeException('La categoría o el área no pertenecen al negocio activo.');
+    }
+
+    private static function transaccionResultado(array $resultado): array
+    {
+        if (empty($resultado['ok']) || empty($resultado['confirmado'])) return [];
+        return $resultado;
+    }
+
+    private static function ejecutar(\mysqli_stmt $stmt): void
+    {
+        if (!$stmt->execute()) throw new \RuntimeException($stmt->error);
     }
 }

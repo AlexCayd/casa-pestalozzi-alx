@@ -11,7 +11,7 @@ namespace Model;
     use Services\Contact\ContactoService;
     use Services\Reservations\ReservacionVigenciaService;
 
-class Reservacion extends ActiveRecord {
+class Reservacion extends RegistroRestaurante {
     protected static $tabla = 'reservaciones';
     protected static $columnasDB = [
         'id',
@@ -128,7 +128,7 @@ class Reservacion extends ActiveRecord {
                   FROM reservaciones r
                   LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
                   LEFT JOIN mesas m ON m.id = rm.mesa_id
-                  WHERE r.id = {$id}
+                  WHERE r.id = {$id}" . self::filtroUnidad('r') . "
                   GROUP BY
                     r.id,
                     r.nombre,
@@ -157,7 +157,7 @@ class Reservacion extends ActiveRecord {
 
     public static function buscarPorRequestToken(string $token): ?self
     {
-        $stmt = self::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
+        $stmt = self::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ?' . self::filtroUnidad() . ' LIMIT 1');
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la consulta de idempotencia.');
         }
@@ -192,7 +192,7 @@ class Reservacion extends ActiveRecord {
         }
         $lock = $bloquear ? ' FOR UPDATE' : '';
         $resultado = self::getDB()->query(
-            "SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1{$lock}"
+            "SELECT * FROM reservaciones WHERE id = {$id}" . self::filtroUnidad() . " LIMIT 1{$lock}"
         );
         if ($resultado === false) {
             throw new \RuntimeException(self::getDB()->error);
@@ -213,10 +213,10 @@ class Reservacion extends ActiveRecord {
     {
         $stmt = self::getDB()->prepare(
             "INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (" . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . "nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
                  comentario_admin, origen, estado, request_token)
              VALUES
-                (?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''),
+                (" . (\Services\Security\ContextoNegocio::nuevo()?self::unidadRestaurante().',':'') . "?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''),
                  'admin', 'confirmada', NULLIF(?, ''))"
         );
         if (!$stmt) {
@@ -263,7 +263,7 @@ class Reservacion extends ActiveRecord {
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
-             WHERE {$condicionOcupacion}
+             WHERE {$condicionOcupacion}" . self::filtroUnidad() . "
                AND (fecha > ? OR (fecha = ? AND hora > ?))
              ORDER BY fecha ASC, hora ASC, id ASC"
         );
@@ -294,7 +294,7 @@ class Reservacion extends ActiveRecord {
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
-             WHERE fecha = ?
+             WHERE fecha = ?" . self::filtroUnidad() . "
                AND {$condicionOcupacion}
              ORDER BY hora ASC, id ASC"
         );
@@ -339,7 +339,7 @@ class Reservacion extends ActiveRecord {
         );
         $sql = "SELECT id, nombre, fecha, hora, comensales, nota, estado, contacto_tipo
                 FROM reservaciones
-                WHERE contacto_tipo = ?
+                WHERE contacto_tipo = ?" . self::filtroUnidad() . "
                   AND contacto = ?
                   AND {$condicionVisible}
                 ORDER BY fecha ASC, hora ASC, id ASC
@@ -389,7 +389,7 @@ class Reservacion extends ActiveRecord {
         );
         $sql = "SELECT COUNT(*) AS total
                 FROM reservaciones
-                WHERE contacto_tipo = ?
+                WHERE contacto_tipo = ?" . self::filtroUnidad() . "
                   AND contacto = ?
                   AND {$condicionLimite}";
         if ($excluirReservacionId > 0) {
@@ -434,7 +434,7 @@ class Reservacion extends ActiveRecord {
         $stmt = self::getDB()->prepare(
             "SELECT reemplaza_reservacion_id, fecha, hora, comensales, nota, hold_expires_at
              FROM reservaciones
-             WHERE contacto_tipo = ?
+             WHERE contacto_tipo = ?" . self::filtroUnidad() . "
                AND contacto = ?
                AND estado = 'pendiente_verificacion'
                AND reemplaza_reservacion_id IS NOT NULL
@@ -551,7 +551,7 @@ class Reservacion extends ActiveRecord {
                   FROM reservaciones r
                   LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
                   LEFT JOIN mesas m ON m.id = rm.mesa_id
-                  WHERE r.fecha = '{$fecha}'
+                  WHERE r.fecha = '{$fecha}'" . self::filtroUnidad('r') . "
                   GROUP BY
                     r.id,
                     r.nombre,
@@ -647,6 +647,7 @@ class Reservacion extends ActiveRecord {
 
     private static function condicionesAdmin(array $filtros, $incluirEstado = true) {
         $condiciones = [];
+        if (\Services\Security\ContextoNegocio::nuevo()) $condiciones[]='r.unidad_id='.self::unidadRestaurante();
         $q = trim((string)($filtros['q'] ?? ''));
         $fechaInicio = (string)($filtros['fecha_inicio'] ?? '');
         $fechaFin = (string)($filtros['fecha_fin'] ?? '');

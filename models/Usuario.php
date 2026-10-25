@@ -29,6 +29,7 @@ class Usuario extends ActiveRecord
     public $password_hash;
     public $nip_hash;
     public $nip_lookup;
+    public $es_superadmin = 0;
     public $rol = 'waiter';
     public $unidad_id = null;
     public $activo = 1;
@@ -160,6 +161,9 @@ class Usuario extends ActiveRecord
     {
         $atributos = parent::atributos();
         unset($atributos['created_at'], $atributos['updated_at']);
+        if (self::usaEsquema3b()) {
+            $atributos['es_superadmin'] = (int) $this->es_superadmin;
+        }
 
         return $atributos;
     }
@@ -247,6 +251,27 @@ class Usuario extends ActiveRecord
         try {
             $lookup = NipService::lookup($nip);
             $db = self::getDB();
+            if (self::usaEsquema3b()) {
+                $stmt = $db->prepare('SELECT * FROM usuarios WHERE nip_lookup = ? AND activo = 1 LIMIT 1');
+                if (!$stmt) {
+                    return null;
+                }
+                $stmt->bind_param('s', $lookup);
+                if (!$stmt->execute()) {
+                    $stmt->close();
+                    return null;
+                }
+                $fila = $stmt->get_result()->fetch_assoc() ?: null;
+                $stmt->close();
+                if (!$fila || !password_verify($nip, (string) ($fila['nip_hash'] ?? ''))) {
+                    return null;
+                }
+                $perfil = self::perfilDirecto((int) $fila['id']);
+                if (!$perfil || \Services\Security\PermisosUsuario::tipoAcceso($perfil) !== Permisos::ACCESO_NIP) {
+                    return null;
+                }
+                return static::crearObjeto($fila);
+            }
             // Sólo los roles que entran por NIP —los de piso—: una cuenta cuyo
             // rol ganó un módulo del panel conserva su NIP viejo, pero ya no
             // entra con él.
@@ -290,6 +315,27 @@ class Usuario extends ActiveRecord
     public static function porCredenciales(string $username, string $password): ?Usuario
     {
         $db = self::getDB();
+        if (self::usaEsquema3b()) {
+            $stmt = $db->prepare('SELECT * FROM usuarios WHERE activo = 1 AND username = ? LIMIT 1');
+            if (!$stmt) {
+                return null;
+            }
+            $stmt->bind_param('s', $username);
+            if (!$stmt->execute()) {
+                $stmt->close();
+                return null;
+            }
+            $fila = $stmt->get_result()->fetch_assoc() ?: null;
+            $stmt->close();
+            if (!$fila || !password_verify($password, (string) ($fila['password_hash'] ?? ''))) {
+                return null;
+            }
+            $perfil = self::perfilDirecto((int) $fila['id']);
+            if (!$perfil || \Services\Security\PermisosUsuario::tipoAcceso($perfil) !== Permisos::ACCESO_CONTRASENA) {
+                return null;
+            }
+            return static::crearObjeto($fila);
+        }
         $roles = self::listaSql(Rol::slugsConAcceso(Permisos::ACCESO_CONTRASENA));
         if ($roles === '') {
             return null;
@@ -360,5 +406,27 @@ class Usuario extends ActiveRecord
             static fn ($slug): string => "'" . self::escaparString((string) $slug) . "'",
             $slugs
         ));
+    }
+
+    /** Detecta exclusivamente el esquema nuevo; cualquier error conserva la ruta legacy. */
+    private static function usaEsquema3b(): bool
+    {
+        if (!class_exists(\Classes\Auth::class) || !method_exists(\Classes\Auth::class, 'multinegocio')) {
+            return false;
+        }
+        try {
+            return (bool) \Classes\Auth::multinegocio();
+        } catch (\Throwable $e) {
+            // Un error de versión debe impedir la autenticación legacy.
+            return true;
+        }
+    }
+
+    private static function perfilDirecto(int $usuarioId): ?array
+    {
+        if (!class_exists(\Services\Security\PermisosUsuario::class)) {
+            return null;
+        }
+        return \Services\Security\PermisosUsuario::cargar($usuarioId, self::getDB());
     }
 }

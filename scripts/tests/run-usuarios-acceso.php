@@ -58,7 +58,12 @@ $usuariosDocs = file_get_contents($root . '/docs/usuarios/usuarios.md');
 
 comprobar(str_contains($ddl, 'nip_lookup'), 'El DDL no define nip_lookup.');
 comprobar(str_contains($ddl, 'uq_usuarios_nip_lookup'), 'Falta la restricción UNIQUE de nip_lookup.');
-comprobar(str_contains($ddl, 'chk_usuarios_admin_sin_nip'), 'Falta la regla de BD para admins sin NIP.');
+// 3B deriva el panel de permisos directos; rol_id ya no concede administración.
+comprobar(str_contains($ddl, 'trg_usuarios_admin_sin_nip_update')
+    && str_contains($ddl, 'trg_permiso_directo_insert') && str_contains($ddl, 'trg_permiso_directo_update')
+    && str_contains($ddl, 'chk_superadmin_sin_nip')
+    && substr_count($ddl, "MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'") === 2,
+    'Falta la regla de BD para NIP al cambiar cuenta o permisos administrativos directos.');
 comprobar(!str_contains($modelo, 'fecha_nacimiento'), 'El modelo aún contiene el campo retirado.');
 comprobar(!str_contains($formulario, 'name="nip"'), 'El formulario administrativo acepta NIP manual.');
 comprobar(!str_contains($formulario, 'nip_confirm'), 'El formulario administrativo conserva confirmación manual.');
@@ -119,7 +124,7 @@ comprobar(file_exists($root . '/docs/usuarios/credenciales.md'), 'Falta la docum
 comprobar(!file_exists($root . '/database/CREDENCIALES.md'), 'La copia antigua de credenciales no fue retirada.');
 comprobar(!file_exists($root . '/docs/usuarios_acceso.md'), 'La documentación duplicada de acceso no fue retirada.');
 comprobar(str_contains($usuariosDocs, 'NIP_LOOKUP_SECRET'), 'La documentación canónica no explica el secreto de lookup.');
-comprobar(str_contains($credenciales, 'seed-usuarios-prueba.php'), 'Las credenciales de desarrollo no explican el seed.');
+comprobar(str_contains($credenciales, 'bootstrap-admin.php') && str_contains($credenciales, 'DEV_SUPERADMIN_PASSWORD') && str_contains($credenciales, '--restablecer'), 'Las credenciales de desarrollo explican el bootstrap explícito, el secreto local y el restablecimiento controlado.');
 comprobar(!preg_match('/INSERT\s+INTO\s+usuarios/i', $ddl), 'El DDL contiene registros de usuarios.');
 
 NipService::usarGenerador(null);

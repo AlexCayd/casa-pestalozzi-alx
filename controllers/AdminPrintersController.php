@@ -13,6 +13,7 @@ use Model\Impresora;
 use Model\ConfiguracionPos;
 use Classes\TicketPrinter;
 use MVC\Router;
+use Services\Security\ContextoNegocio;
 
 class AdminPrintersController
 {
@@ -36,6 +37,7 @@ class AdminPrintersController
 
     public static function index(Router $router): void
     {
+        self::exigirNuevo('ver');
         self::render('printers/index', [
             'title' => 'Estaciones de impresión',
             'topbarSection' => 'Estaciones de impresión',
@@ -52,6 +54,7 @@ class AdminPrintersController
 
     public static function create(Router $router): void
     {
+        self::exigirNuevo('editar');
         $impresora = new Impresora();
         $alertas = [];
 
@@ -83,6 +86,7 @@ class AdminPrintersController
 
     public static function edit(Router $router): void
     {
+        self::exigirNuevo(($_SERVER['REQUEST_METHOD']??'GET')==='POST'?'editar':'ver');
         $id = self::validarId($_GET['id'] ?? $_POST['id'] ?? null, $router);
         $impresora = Impresora::find($id);
 
@@ -122,6 +126,7 @@ class AdminPrintersController
 
     public static function delete(Router $router): void
     {
+        self::exigirNuevo('editar');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirect(self::PRINTERS_PATH);
         }
@@ -157,6 +162,7 @@ class AdminPrintersController
      */
     public static function test(Router $router): void
     {
+        self::exigirNuevo('editar',self::pideJson());
         $json = self::pideJson();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -261,6 +267,7 @@ class AdminPrintersController
      */
     private static function guardar(Impresora $impresora): bool
     {
+        if(ContextoNegocio::nuevo()) return $impresora->id ? (bool)$impresora->actualizar() : (bool)$impresora->crear();
         $nombre   = Impresora::escaparString($impresora->nombre);
         $rol      = Impresora::escaparString($impresora->rol);
         $conexion = Impresora::escaparString($impresora->conexion);
@@ -325,7 +332,11 @@ class AdminPrintersController
 
         $areas = [];
         try {
-            $res = Impresora::getDB()->query('SELECT id, nombre, color FROM areas_produccion ORDER BY id ASC');
+            if(ContextoNegocio::nuevo()) {
+                $unidad=ContextoNegocio::unidad('restaurante');
+                $stmt=Impresora::getDB()->prepare('SELECT id,nombre,color FROM areas_produccion WHERE unidad_id=? ORDER BY orden,id');
+                $stmt->bind_param('i',$unidad); $stmt->execute(); $res=$stmt->get_result();
+            } else $res = Impresora::getDB()->query('SELECT id, nombre, color FROM areas_produccion ORDER BY id ASC');
             while ($res && ($fila = $res->fetch_assoc())) {
                 $color = trim((string) ($fila['color'] ?? ''));
                 $valido = preg_match('/^#(?:[0-9a-fA-F]{3}){1,2}$/', $color) === 1;
@@ -339,13 +350,23 @@ class AdminPrintersController
             error_log('AdminPrintersController::areasProduccion - ' . $e->getMessage());
         }
 
-        if (empty($areas)) {
+        if (empty($areas) && !ContextoNegocio::nuevo()) {
             foreach (self::AREAS as $id => $nombre) {
                 $areas[$id] = ['nombre' => $nombre, 'color' => null, 'tinta' => 'ink'];
             }
         }
 
         return $areas;
+    }
+
+    private static function exigirNuevo(string $nivel,bool $json=false): void
+    {
+        if(!ContextoNegocio::nuevo()) return;
+        try { ContextoNegocio::exigir('printers',$nivel,'restaurante',true); }
+        catch(\Throwable $e) {
+            if($json) self::responderJson(403,false,'No tienes permiso para administrar impresoras.');
+            http_response_code(403); echo 'No tienes permiso para administrar impresoras.'; exit;
+        }
     }
 
     /**

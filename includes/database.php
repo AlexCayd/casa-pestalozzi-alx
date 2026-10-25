@@ -1,20 +1,14 @@
 <?php
-$db = mysqli_connect(
-    $_ENV['DB_HOST'] ?? '',
-    $_ENV['DB_USER'] ?? '', 
-    $_ENV['DB_PASS'] ?? '', 
-    $_ENV['DB_NAME'] ?? ''
-);
-
-if (!$db) {
-    echo "Error: No se pudo conectar a MySQL.";
-    echo "errno de depuración: " . mysqli_connect_errno();
-    echo "error de depuración: " . mysqli_connect_error();
-    exit;
+/** La aplicación definitiva solo admite el esquema multinegocio completo. */
+try {
+    mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
+    $db=new mysqli((string)($_ENV['DB_HOST']??''),(string)($_ENV['DB_USER']??''),(string)($_ENV['DB_PASS']??''),(string)($_ENV['DB_NAME']??''),(int)($_ENV['DB_PORT']??3306));
+    $db->set_charset('utf8mb4'); $db->query("SET time_zone='-06:00'");
+    $versiones=(int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version IN ('multinegocio-3a-v1','multinegocio-3b-v1','multinegocio-3c-v1')")->fetch_row()[0];
+    if ($versiones!==3) throw new RuntimeException('Esquema incompleto.');
+} catch (Throwable $e) {
+    error_log('No se pudo verificar la instalación multinegocio de Casa Pestalozzi.');
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    exit('La instalación no está disponible. Verifica la configuración y el procedimiento de instalación.');
 }
-
-// El MySQL corre en un contenedor Docker cuyo reloj es UTC. Alinear la sesión
-// a GMT-6 para que NOW()/CURRENT_TIMESTAMP (hora_apertura de tickets,
-// created_at de items) se guarden — y las columnas TIMESTAMP se lean — en la
-// hora local del restaurante.
-mysqli_query($db, "SET time_zone = '-06:00'");

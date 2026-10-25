@@ -29,6 +29,7 @@ final class Proveedores
      */
     public static function asignarAIngrediente(int $ingredienteId, array $filas): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return self::asignarNuevo($ingredienteId,$filas);
         if ($ingredienteId < 1) {
             return false;
         }
@@ -119,7 +120,9 @@ final class Proveedores
             }
             $filas[] = [
                 'proveedor_id' => (int) $id,
-                'costo' => (float) ($costos[$indice] ?? 0),
+                'costo' => \Services\Security\ContextoNegocio::nuevo()
+                    ? self::decimalCosto($costos[$indice] ?? '0')
+                    : (float) ($costos[$indice] ?? 0),
                 'codigo' => (string) ($codigos[$indice] ?? ''),
                 // El radio manda el índice de la fila elegida, no un booleano
                 // por fila: sólo puede haber uno.
@@ -137,6 +140,13 @@ final class Proveedores
      */
     public static function eliminar(int $proveedorId): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            try {
+                \Services\Security\ContextoNegocio::exigir('inventario','editar','restaurante');
+                $p=Proveedor::find($proveedorId);
+                return $p ? (bool)$p->eliminar() : false;
+            } catch(\Throwable $e) { error_log('Proveedores::eliminar - '.$e->getMessage()); return false; }
+        }
         $proveedor = Proveedor::find($proveedorId);
         if (!$proveedor) {
             return false;
@@ -155,5 +165,38 @@ final class Proveedores
     public static function deIngrediente(int $ingredienteId): array
     {
         return $ingredienteId > 0 ? IngredienteProveedor::porIngrediente($ingredienteId) : [];
+    }
+
+    private static function asignarNuevo(int $articuloId,array $filas): bool
+    {
+        if($articuloId<1) return false;
+        try {
+            $resultado=\Services\Security\ContextoNegocio::transaccion(function() use($articuloId,$filas) {
+                \Services\Security\ContextoNegocio::exigir('inventario','editar','restaurante',true);
+                $db=\Services\Security\ContextoNegocio::db(); $u=\Services\Security\ContextoNegocio::unidad('restaurante');
+                $s=$db->prepare('SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.articulo_id=? AND aa.unidad_id=? LIMIT 1 FOR UPDATE');
+                $s->execute([$articuloId,$u]); if(!$s->get_result()->fetch_row()) throw new \Services\Inventory\InventarioError('RECURSO_NO_ENCONTRADO','El artículo no está asociado al Restaurante.');
+                $reset=$db->prepare('UPDATE ingrediente_proveedores SET preferente=0 WHERE unidad_id=? AND ingrediente_id=?'); $reset->execute([$u,$articuloId]);
+                $del=$db->prepare('DELETE ip FROM ingrediente_proveedores ip JOIN proveedores p ON p.id=ip.proveedor_id AND p.unidad_id=ip.unidad_id WHERE ip.unidad_id=? AND ip.ingrediente_id=? AND p.activo=1'); $del->execute([$u,$articuloId]);
+                $ins=$db->prepare('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo,codigo,preferente) SELECT ?,?,?,?, ?,? FROM proveedores WHERE id=? AND unidad_id=?');
+                $seen=[]; $preferred=false;
+                foreach($filas as $fila) {
+                    $pid=(int)($fila['proveedor_id']??0); if($pid<1||isset($seen[$pid])) throw new \Services\Inventory\InventarioError('PROVEEDOR_INVALIDO','Revisa la lista de proveedores.'); $seen[$pid]=true;
+                    $costo=self::decimalCosto($fila['costo']??'0'); $codigo=trim((string)($fila['codigo']??'')); $codigo=$codigo===''?null:mb_substr($codigo,0,60);
+                    $pref=!empty($fila['preferente'])&&!$preferred?1:0; if($pref)$preferred=true;
+                    $ins->execute([$u,$articuloId,$pid,$costo,$codigo,$pref,$pid,$u]);
+                    if($ins->affected_rows!==1) throw new \Services\Inventory\InventarioError('PROVEEDOR_INVALIDO','El proveedor no pertenece al Restaurante.');
+                }
+                return ['ok'=>true,'codigo'=>'PROVEEDORES_ASIGNADOS'];
+            });
+            // Un savepoint válido queda pendiente del coordinador exterior.
+            return ($resultado['ok']??null) !== false && ($resultado['codigo']??'') === 'PROVEEDORES_ASIGNADOS';
+        } catch(\Throwable $e) { error_log('Proveedores::asignarNuevo - '.$e->getMessage()); return false; }
+    }
+
+    private static function decimalCosto(mixed $valor): string
+    {
+        if((!is_string($valor)&&!is_int($valor))||!preg_match('/^(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,4})?$/D',(string)$valor)) throw new \Services\Inventory\InventarioError('COSTO_INVALIDO','El costo debe ser positivo con hasta cuatro decimales.');
+        $p=explode('.',(string)$valor,2); return $p[0].'.'.str_pad($p[1]??'',4,'0');
     }
 }

@@ -1,5 +1,10 @@
 # Módulo de Tickets e Impresión Térmica (ESC/POS)
 
+> **Histórico — referencia de diseño.** diseño técnico de impresión de julio de 2026; conserva ejemplos y decisiones anteriores, incluidos nombres de controladores y esquema que ya cambiaron.
+> Prevalece el [contrato rector 3E](../../docs/arquitectura.md) y el código de la revisión.
+> No utilizar este documento para instalar DML, autorizar rutas o aplicar DDL antiguo.
+
+
 > Documentación técnica de la capa de impresión de Casa Pestalozzi POS.
 > Enfoque: ~80% técnico · ~20% negocio.
 > Última actualización: 2026-07-04.

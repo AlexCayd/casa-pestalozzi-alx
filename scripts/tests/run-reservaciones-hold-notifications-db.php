@@ -61,5 +61,9 @@ try {
     holdAssert($after['estado'] === $row['estado'] && $after['hold_expires_at'] === $row['hold_expires_at'], 'Notificación alteró hold.');
     echo "Retención: fallo conservado, idempotencia, tres aceptaciones, cooldown, límite y propiedad PASS.\n";
 } finally {
-    if ($id > 0) $db->query('DELETE FROM reservaciones WHERE id = ' . $id);
+    if ($id > 0) {
+        $db->query('DELETE FROM verificaciones_contacto WHERE reservacion_id = ' . $id . ' AND unidad_id = ' . NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID);
+        $db->query('DELETE FROM reservacion_mesas WHERE reservacion_id = ' . $id);
+        $db->query('DELETE FROM reservaciones WHERE id = ' . $id);
+    }
 }

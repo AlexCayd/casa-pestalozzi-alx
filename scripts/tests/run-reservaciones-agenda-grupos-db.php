@@ -32,6 +32,7 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $creadas = [];
 
 // Un día abierto de 12:00 a 20:00 al menos, para no depender del día de la semana.
@@ -47,12 +48,12 @@ for ($i = 0; $i < 14 && $fecha === null; $i++, $dia = $dia->modify('+1 day')) {
 }
 $assert($fecha !== null, 'deploy.sql no trae ningún día abierto de 12:00 a 20:00 en dos semanas.');
 
-$sembrar = static function (string $nombre, int $comensales, string $hora, array $mesaIds) use ($db, $fecha, &$creadas): int {
+$sembrar = static function (string $nombre, int $comensales, string $hora, array $mesaIds) use ($db, $fecha, &$creadas, $restaurantUnitId): int {
     $token = 'fx-agenda-' . substr(md5($nombre . $hora), 0, 16);
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, 'ninguno', NULL, ?, ?, ?, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, 'ninguno', NULL, ?, ?, ?, '', 'admin', 'confirmada', ?)"
     );
     $stmt->bind_param('sssis', $nombre, $fecha, $hora, $comensales, $token);
     $stmt->execute();
@@ -73,6 +74,7 @@ $franja = static function (array $diaAgenda, string $hora): ?array {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     $grupo = $sembrar('Agenda Grupo', 10, '14:00:00', [8, 9, 10, 11]);
     $parejaExterior = $sembrar('Agenda Pareja Fuera', 2, '18:00:00', [9]);
     $parejaInterior = $sembrar('Agenda Pareja Dentro', 2, '15:00:00', [2]);
@@ -99,6 +101,11 @@ try {
     $assert(count($largo['dias']) === Agenda::MAX_DIAS, 'La agenda no acota un rango demasiado largo.');
 } finally {
     if ($creadas !== []) {
+        $ids = implode(',', array_map('intval', $creadas));
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
         $db->query('DELETE FROM reservaciones WHERE id IN (' . implode(',', array_map('intval', $creadas)) . ')');
     }
 }

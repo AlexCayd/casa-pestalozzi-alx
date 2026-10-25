@@ -1,1165 +1,550 @@
--- Casa Pestalozzi — Esquema (DDL)
--- Estructura de la base de datos: DROP + CREATE TABLE.
--- Los datos de siembra viven en deploy.sql y development.sql;
--- ambos se ejecutan después de este archivo.
--- Ejecutar contra la BD configurada en includes/.env (DB_NAME).
+-- Esquema definitivo multiunidad 3A. MySQL 8.0.16+ / InnoDB.
+-- RESET DESTRUCTIVO: ejecutar únicamente sobre una BD desechable recién
+-- identificada como desarrollo/pruebas y tras respaldar/exportar el menú.
+-- No ejecutar contra DB_NAME configurada. FK_CHECKS solo permite vaciar el
+-- esquema completo; se restaura siempre al final.
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS instalacion_desarrollo;
+DROP TABLE IF EXISTS usuario_unidad_permisos;
+DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+SET FOREIGN_KEY_CHECKS = 1;
 
--- -------------------------------------------------------
--- RESET (orden inverso de dependencias)
--- -------------------------------------------------------
-
--- ticket_pagos va primero: apunta a tickets. Si falta aquí, el DROP de
--- tickets falla por llave foránea y el reset completo se cae sobre una BD ya
--- existente.
--- logs_sugerencias se conserva en el DROP para limpiar instalaciones previas:
--- la tabla ya no existe en este esquema (ver nota en SUGERENCIAS).
-DROP TABLE IF EXISTS logs_sugerencias;
--- Inventario / finanzas (hijos primero).
--- historial_precios apunta a usuarios y a proveedores; ingrediente_proveedores
--- a ingredientes y a proveedores. Los tres van antes que proveedores, y
--- proveedores antes que ingredientes.
-DROP TABLE IF EXISTS historial_precios;
-DROP TABLE IF EXISTS ingrediente_proveedores;
-DROP TABLE IF EXISTS proveedores;
-DROP TABLE IF EXISTS gastos_fijos;
-DROP TABLE IF EXISTS movimientos_inventario;
-DROP TABLE IF EXISTS variante_ajustes;
-DROP TABLE IF EXISTS producto_variantes;
-DROP TABLE IF EXISTS producto_componentes;
-DROP TABLE IF EXISTS subreceta_ingredientes;
-DROP TABLE IF EXISTS subrecetas;
-DROP TABLE IF EXISTS ingredientes;
-DROP TABLE IF EXISTS reportes_sistema;
-DROP TABLE IF EXISTS configuracion_paleta;
-DROP TABLE IF EXISTS configuracion_pos;
-DROP TABLE IF EXISTS configuracion_reservaciones;
-DROP TABLE IF EXISTS configuracion_anuncio;
-DROP TABLE IF EXISTS buzon_notificaciones;
-DROP TABLE IF EXISTS reservacion_recordatorios;
-DROP TABLE IF EXISTS horario_impacto_reservaciones;
-DROP TABLE IF EXISTS horario_impactos;
-DROP TABLE IF EXISTS excepciones_operacion;
-DROP TABLE IF EXISTS horarios_operacion;
-DROP TABLE IF EXISTS verificaciones_contacto;
-DROP TABLE IF EXISTS ticket_mesas;
-DROP TABLE IF EXISTS ticket_pagos;
-DROP TABLE IF EXISTS reservacion_reubicaciones;
-DROP TABLE IF EXISTS reservacion_mesas;
--- cata_inscripciones y catering_solicitudes ya no se crean —los dos flujos se
--- fueron a WhatsApp— pero se siguen soltando: este archivo también reinicia
--- instalaciones que las tenían, y cata_inscripciones apunta a catas, así que va
--- antes que ella.
-DROP TABLE IF EXISTS cata_inscripciones;
-DROP TABLE IF EXISTS catas;
-DROP TABLE IF EXISTS catering_solicitudes;
-DROP TABLE IF EXISTS impresion_alertas;
-DROP TABLE IF EXISTS impresoras;
-DROP TABLE IF EXISTS feedback;
-DROP TABLE IF EXISTS feedback_tokens;
-DROP TABLE IF EXISTS ticket_items;
-DROP TABLE IF EXISTS productos;
--- `menu` ya no se crea: su contenido vive en `productos`. El DROP se conserva
--- para que este script purgue la tabla en instalaciones anteriores que aún la
--- tengan; sin él quedaría huérfana para siempre.
-DROP TABLE IF EXISTS menu;
-DROP TABLE IF EXISTS categorias;
-DROP TABLE IF EXISTS tickets;
-DROP TABLE IF EXISTS reservaciones;
-DROP TABLE IF EXISTS usuarios;
--- Roles y unidades van DESPUÉS de usuarios: usuarios.rol y usuarios.unidad_id
--- apuntan a ellas.
-DROP TABLE IF EXISTS rol_permisos;
-DROP TABLE IF EXISTS roles;
-DROP TABLE IF EXISTS unidades;
-DROP TABLE IF EXISTS areas_produccion;
-DROP TABLE IF EXISTS mesas;
-
--- -------------------------------------------------------
--- CATÁLOGOS BASE
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS mesas (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  numero     INT NOT NULL UNIQUE,
-  nombre     VARCHAR(60) NOT NULL,
-  tipo       ENUM('mesa','barra','especial') NOT NULL DEFAULT 'mesa',
-  -- Zona del salón. La asignación automática llena primero el interior y
-  -- reserva el exterior COMPLETO como bloque para los grupos de 9 en adelante.
-  -- Sólo las mesas la llevan: barras, Caja y Llevar no se asignan a nadie.
-  -- Una mesa nueva sin zona no entra al bloque ni recibe reubicaciones.
-  zona       ENUM('interior','exterior') NULL DEFAULT NULL,
-  capacidad  INT NOT NULL DEFAULT 4,
-  pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0,
-  pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0,
-  activo     TINYINT(1) NOT NULL DEFAULT 1,
-  reservable TINYINT(1) NOT NULL DEFAULT 1,
-  CONSTRAINT chk_mesas_zona CHECK (zona IS NULL OR tipo = 'mesa')
-);
-
-CREATE TABLE IF NOT EXISTS areas_produccion (
-  id     TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(60) NOT NULL,
-  slug   VARCHAR(20) NOT NULL UNIQUE,
-  color  VARCHAR(10) NOT NULL
-);
-
--- `carta` parte el catalogo en las DOS piezas impresas que el comensal
--- recibe: la carta de comida y la de maridaje (barra). No es un filtro de
--- adorno: decide que categorias entran en cada PDF y cuales pinta la seccion
--- de menu de la landing, que sigue siendo solo la de comida.
---
--- Vive en la categoria y no en el producto porque la carta es una decision
--- de SECCION: "Cocktails" entero es maridaje, y un platillo no puede estar
--- en una categoria de comida y salir en la otra pieza.
---
--- El punto de venta NO lo mira: el mesero cobra bebida y comida en el mismo
--- ticket, asi que Carta::paraPos() sigue trayendo las dos.
---
--- 'temporada' no es papel: es la vitrina «Especiales de temporada» de la
--- landing. Sus platillos cambian cada semana y se dan de alta en Menu como
--- cualquier otro; no salen en la seccion de menu ni en ningun PDF, y el POS
--- los vende igual. deploy.sql siembra la categoria «Especiales de temporada».
-CREATE TABLE IF NOT EXISTS categorias (
-  id     INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(40) NOT NULL,
-  carta  ENUM('comida','maridaje','temporada') NOT NULL DEFAULT 'comida',
-  img    VARCHAR(200),
-  activo TINYINT(1) NOT NULL DEFAULT 1,
-  KEY idx_categorias_carta (carta, id)
-);
-
--- -------------------------------------------------------
--- ROLES, PERMISOS Y UNIDADES
--- -------------------------------------------------------
-
--- Unidades de negocio (Restaurante, Panadería). Hoy sólo se ASIGNAN a las
--- cuentas de administrador y no restringen nada: es el gancho de la futura
--- integración multiempresa, donde un admin verá sólo lo de su unidad.
-CREATE TABLE IF NOT EXISTS unidades (
-  id     TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(60) NOT NULL,
-  slug   VARCHAR(30) NOT NULL UNIQUE
-);
-
--- Roles del personal. `slug` es lo que guarda usuarios.rol y no cambia nunca
--- (de ahí que la llave foránea no necesite ON UPDATE). `tipo`:
---   sistema      super_admin y admin: todo en «editar», ni se editan ni se borran;
---   predefinido  waiter y cook: se editan sus permisos, no se borran;
---   personalizado los que se crean en Roles y permisos.
--- Los permisos de los de sistema no se guardan: se calculan
--- (Services\Security\Permisos::todos()).
-CREATE TABLE IF NOT EXISTS roles (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  slug        VARCHAR(40) NOT NULL UNIQUE,
-  nombre      VARCHAR(60) NOT NULL,
-  descripcion VARCHAR(255) NULL,
-  tipo        ENUM('sistema','predefinido','personalizado') NOT NULL DEFAULT 'personalizado',
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_roles_nombre (nombre)
-);
-
--- Un renglón por módulo al que el rol entra; sin renglón, sin acceso.
--- `modulo` es una clave de Services\Security\Permisos::MODULOS.
-CREATE TABLE IF NOT EXISTS rol_permisos (
-  rol_id INT NOT NULL,
-  modulo VARCHAR(40) NOT NULL,
-  nivel  ENUM('ver','editar') NOT NULL,
-  PRIMARY KEY (rol_id, modulo),
-  CONSTRAINT fk_rol_permisos_rol
-    FOREIGN KEY (rol_id) REFERENCES roles(id) ON DELETE CASCADE
-);
-
--- Accesos: los roles con algún módulo del panel entran con usuario +
--- password alfanumerica (password_hash); los que sólo tienen pantallas de
--- piso, con un NIP numerico de 4 digitos, guardado hasheado con bcrypt
--- (nip_hash). nip_lookup es un HMAC determinista que permite localizar el
--- candidato y respaldar la unicidad en la BD.
---
--- El rol decide a que vista se entra y que rutas se permiten: lo resuelve
--- Classes\Auth con los permisos del rol (rol_permisos).
-CREATE TABLE IF NOT EXISTS usuarios (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  username      VARCHAR(50) NOT NULL UNIQUE,
-  nombre        VARCHAR(120) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  nip_hash      VARCHAR(255) NULL,
-  nip_lookup    CHAR(64) NULL,
-  rol           VARCHAR(40) NOT NULL DEFAULT 'waiter',
-  -- Sólo para administradores; NULL = sin unidad. Hoy no restringe nada.
-  unidad_id     TINYINT UNSIGNED NULL,
-  activo        TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_usuarios_nip_lookup (nip_lookup),
-  -- Sin ON UPDATE/ON DELETE a propósito: MySQL no admite un CHECK sobre una
-  -- columna que participa en una acción referencial, y el slug no cambia.
-  CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol) REFERENCES roles(slug),
-  CONSTRAINT fk_usuarios_unidad
-    FOREIGN KEY (unidad_id) REFERENCES unidades(id) ON DELETE SET NULL,
-  -- Los roles de sistema entran con contraseña: nunca con NIP. Para los
-  -- personalizados la regla depende de sus permisos y la aplica PHP
-  -- (Services\Users\UsuarioService).
-  CONSTRAINT chk_usuarios_admin_sin_nip
-    CHECK (rol NOT IN ('admin','super_admin') OR (nip_hash IS NULL AND nip_lookup IS NULL))
-);
-
--- -------------------------------------------------------
--- RESERVACIONES
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS reservaciones (
-  id                   INT AUTO_INCREMENT PRIMARY KEY,
-  nombre               VARCHAR(100) NOT NULL,
-  contacto_tipo        ENUM('email','telefono','ninguno') NOT NULL DEFAULT 'ninguno',
-  -- El contacto se persiste en su formato canónico, normalizado en PHP.
-  contacto             VARCHAR(150) NULL,
-  fecha                DATE NOT NULL,
-  hora                 TIME NOT NULL,
-  comensales           INT UNSIGNED NOT NULL DEFAULT 2,
-  nota                 TEXT,
-  comentario_admin     TEXT NULL,
-  motivo_cancelacion   VARCHAR(500) NULL,
-  origen               ENUM('landing','admin') NOT NULL,
-  request_token        VARCHAR(64) NULL,
-  -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
-  hold_expires_at      DATETIME NULL,
-  estado               ENUM(
-                         'pendiente_verificacion',
-                         'confirmada',
-                         'en_curso',
-                         'completada',
-                         'cancelada',
-                         'no_show',
-                         'expirada',
-                         'reemplazada'
-                       ) NOT NULL DEFAULT 'pendiente_verificacion',
-  reemplaza_reservacion_id INT NULL,
-  estado_changed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
-  INDEX idx_reservaciones_contacto_horario (contacto_tipo, contacto, fecha, hora, estado),
-  INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
-  INDEX idx_reservaciones_reemplazo (reemplaza_reservacion_id),
-  CONSTRAINT chk_reservaciones_comensales
-    CHECK (comensales > 0),
-  CONSTRAINT chk_reservaciones_contacto
-    CHECK (
-      (contacto_tipo = 'ninguno' AND contacto IS NULL)
-      OR
-      (contacto_tipo IN ('email','telefono') AND contacto IS NOT NULL AND TRIM(contacto) <> '')
-    ),
-  CONSTRAINT chk_reservaciones_retencion_vencimiento
-    CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
-  CONSTRAINT fk_reservacion_reemplazada
-    FOREIGN KEY (reemplaza_reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  UNIQUE KEY uq_reservaciones_request_token (request_token)
-);
-
--- MySQL no permite referenciar una columna AUTO_INCREMENT desde un CHECK.
--- La regla de no auto-reemplazo se mantiene en la frontera de persistencia.
+CREATE TABLE unidades (
+ id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(60) NOT NULL,
+ slug VARCHAR(30) NOT NULL UNIQUE, tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ UNIQUE KEY uq_unidades_id_tipo(id,tipo), CONSTRAINT chk_unidad_slug_tipo CHECK ((slug='global' AND tipo='global') OR (slug<>'global' AND tipo='negocio'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE roles (
+ id INT AUTO_INCREMENT PRIMARY KEY, slug VARCHAR(40) NOT NULL UNIQUE, nombre VARCHAR(60) NOT NULL,
+ descripcion VARCHAR(255), tipo ENUM('sistema','predefinido','personalizado') NOT NULL DEFAULT 'personalizado',
+ unidad_id TINYINT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_roles_id_unidad(id,unidad_id), UNIQUE KEY uq_roles_nombre_unidad(nombre,unidad_id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ CHECK(tipo='personalizado' OR unidad_id IS NULL)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE usuarios (
+ id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) NOT NULL UNIQUE, nombre VARCHAR(120) NOT NULL,
+ password_hash VARCHAR(255) NOT NULL, nip_hash VARCHAR(255), nip_lookup CHAR(64), activo TINYINT(1) NOT NULL DEFAULT 1,
+ es_superadmin TINYINT(1) NOT NULL DEFAULT 0 CHECK(es_superadmin IN (0,1)),
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_usuarios_nip_lookup(nip_lookup),
+ CONSTRAINT chk_usuarios_nip_par CHECK ((nip_hash IS NULL) = (nip_lookup IS NULL)),
+ CONSTRAINT chk_superadmin_sin_nip CHECK (es_superadmin=0 OR nip_hash IS NULL)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE facultades (
+ clave VARCHAR(60) PRIMARY KEY, solo_global TINYINT(1) NOT NULL DEFAULT 0, descripcion VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE rol_permisos (
+ rol_id INT NOT NULL, modulo VARCHAR(40) NOT NULL, nivel ENUM('ver','editar') NOT NULL,
+ PRIMARY KEY(rol_id,modulo), FOREIGN KEY(rol_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE usuario_unidades (
+ usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, rol_id INT NULL DEFAULT NULL, activo TINYINT(1) NOT NULL DEFAULT 1,
+ PRIMARY KEY(usuario_id,unidad_id), KEY idx_uu_rol(rol_id,unidad_id),
+ FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(rol_id) REFERENCES roles(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE usuario_unidad_facultades (
+ usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, facultad VARCHAR(60) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(usuario_id,unidad_id,facultad),
+ FOREIGN KEY(usuario_id,unidad_id) REFERENCES usuario_unidades(usuario_id,unidad_id) ON DELETE CASCADE,
+ FOREIGN KEY(facultad) REFERENCES facultades(clave) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Fuente efectiva única para cuentas 3B. rol_id es metadata sin permisos implícitos.
+CREATE TABLE usuario_unidad_permisos (
+ usuario_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, modulo VARCHAR(40) NOT NULL,
+ nivel ENUM('ver','editar','operar') NOT NULL,
+ PRIMARY KEY(usuario_id,unidad_id,modulo),
+ FOREIGN KEY(usuario_id,unidad_id) REFERENCES usuario_unidades(usuario_id,unidad_id) ON DELETE CASCADE,
+ CHECK((modulo IN ('pdv','area','reservations_map') AND nivel='operar')
+    OR (modulo NOT IN ('pdv','area','reservations_map','roles') AND nivel IN ('ver','editar')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 DELIMITER //
-DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_insert//
-CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_insert
-BEFORE INSERT ON reservaciones
-FOR EACH ROW
-BEGIN
-  IF NEW.reemplaza_reservacion_id IS NOT NULL
-     AND NEW.id IS NOT NULL
-     AND NEW.reemplaza_reservacion_id = NEW.id THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
-  END IF;
+CREATE TRIGGER trg_membresia_rol_insert BEFORE INSERT ON usuario_unidades FOR EACH ROW
+BEGIN DECLARE v_unidad TINYINT UNSIGNED; SELECT unidad_id INTO v_unidad FROM roles WHERE id=NEW.rol_id;
+ IF v_unidad IS NOT NULL AND v_unidad<>NEW.unidad_id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol local fuera de su unidad'; END IF;
 END//
-DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_update//
-CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_update
-BEFORE UPDATE ON reservaciones
-FOR EACH ROW
+CREATE TRIGGER trg_membresia_rol_update BEFORE UPDATE ON usuario_unidades FOR EACH ROW
+BEGIN DECLARE v_unidad TINYINT UNSIGNED; SELECT unidad_id INTO v_unidad FROM roles WHERE id=NEW.rol_id;
+ IF v_unidad IS NOT NULL AND v_unidad<>NEW.unidad_id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rol local fuera de su unidad'; END IF;
+END//
+CREATE TRIGGER trg_usuarios_admin_sin_nip_update BEFORE UPDATE ON usuarios FOR EACH ROW
 BEGIN
-  IF NEW.reemplaza_reservacion_id IS NOT NULL
-     AND NEW.reemplaza_reservacion_id = NEW.id THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
-  END IF;
+ IF NEW.nip_hash IS NOT NULL AND (NEW.es_superadmin=1 OR EXISTS(SELECT 1 FROM usuario_unidades uu JOIN usuario_unidad_permisos p ON p.usuario_id=uu.usuario_id AND p.unidad_id=uu.unidad_id WHERE uu.usuario_id=OLD.id AND uu.activo=1 AND p.nivel IN ('ver','editar'))) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Usuario administrativo no admite NIP'; END IF;
+END//
+CREATE TRIGGER trg_roles_unidad_update BEFORE UPDATE ON roles FOR EACH ROW
+BEGIN
+ IF NOT (OLD.unidad_id <=> NEW.unidad_id) AND EXISTS (
+   SELECT 1 FROM usuario_unidades uu WHERE uu.rol_id=OLD.id AND NEW.unidad_id IS NOT NULL AND uu.unidad_id<>NEW.unidad_id
+ ) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='El rol tiene membresias incompatibles con el nuevo propietario'; END IF;
+END//
+CREATE TRIGGER trg_permiso_directo_insert BEFORE INSERT ON usuario_unidad_permisos FOR EACH ROW
+BEGIN
+ IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
+END//
+CREATE TRIGGER trg_permiso_directo_update BEFORE UPDATE ON usuario_unidad_permisos FOR EACH ROW
+BEGIN
+ IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
+END//
+CREATE TRIGGER trg_facultad_global_insert BEFORE INSERT ON usuario_unidad_facultades FOR EACH ROW
+BEGIN DECLARE v_global TINYINT; DECLARE v_tipo VARCHAR(16); SELECT solo_global INTO v_global FROM facultades WHERE clave=NEW.facultad; SELECT tipo INTO v_tipo FROM unidades WHERE id=NEW.unidad_id;
+ IF v_global=1 AND v_tipo<>'global' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Facultad reservada a Global'; END IF;
+END//
+CREATE TRIGGER trg_facultades_solo_global_update BEFORE UPDATE ON facultades FOR EACH ROW
+BEGIN
+ IF NEW.solo_global=1 AND EXISTS (
+   SELECT 1 FROM usuario_unidad_facultades uf JOIN unidades u ON u.id=uf.unidad_id
+   WHERE uf.facultad=OLD.clave AND u.tipo<>'global'
+ ) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='La facultad sigue asignada a membresias de negocio'; END IF;
+END//
+CREATE TRIGGER trg_facultad_global_update BEFORE UPDATE ON usuario_unidad_facultades FOR EACH ROW
+BEGIN DECLARE v_global TINYINT; DECLARE v_tipo VARCHAR(16); SELECT solo_global INTO v_global FROM facultades WHERE clave=NEW.facultad; SELECT tipo INTO v_tipo FROM unidades WHERE id=NEW.unidad_id;
+ IF v_global=1 AND v_tipo<>'global' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Facultad reservada a Global'; END IF;
 END//
 DELIMITER ;
 
--- Desafíos OTP de un solo uso. Nunca se guarda el código original: codigo_hash
--- contiene únicamente el resultado de password_hash() y se valida en PHP con
--- password_verify(). reservacion_id puede ser NULL para acceso sin reserva.
-CREATE TABLE IF NOT EXISTS verificaciones_contacto (
-  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id INT NULL,
-  contacto_tipo  ENUM('email','telefono') NOT NULL,
-  contacto       VARCHAR(150) NOT NULL,
-  -- Solamente se persiste el resultado de password_hash().
-  codigo_hash    VARCHAR(255) NOT NULL,
-  expires_at     DATETIME NOT NULL,
-  attempts       TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  delivery_status ENUM('legacy','pending','accepted','failed') NOT NULL DEFAULT 'pending',
-  accepted_at DATETIME NULL,
-  finalized_at DATETIME NULL,
-  cycle_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
-  cycle_expires_at DATETIME NULL,
-  used_at        DATETIME NULL,
-  invalidated_at DATETIME NULL,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_verificacion_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
-  INDEX idx_verificacion_contacto (contacto_tipo, contacto, created_at),
-  INDEX idx_verificacion_reservacion (reservacion_id),
-  INDEX idx_verificacion_expiracion (expires_at),
-  INDEX idx_verificacion_ciclo (contacto_tipo, contacto, reservacion_id, cycle_id, id)
-);
+CREATE TABLE mesas (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ numero INT NOT NULL, nombre VARCHAR(60) NOT NULL, tipo ENUM('mesa','barra','especial') NOT NULL DEFAULT 'mesa', zona ENUM('interior','exterior') NULL,
+ capacidad INT NOT NULL DEFAULT 4, pos_x DECIMAL(5,2) NOT NULL DEFAULT 0, pos_y DECIMAL(5,2) NOT NULL DEFAULT 0,
+ activo TINYINT(1) NOT NULL DEFAULT 1, reservable TINYINT(1) NOT NULL DEFAULT 1,
+ UNIQUE KEY uq_mesas_numero(unidad_id,numero), UNIQUE KEY uq_mesas_id_unidad(id,unidad_id),
+ CHECK(unidad_tipo='negocio'), CHECK(zona IS NULL OR tipo='mesa'), FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE areas_produccion (
+ id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ nombre VARCHAR(60) NOT NULL, slug VARCHAR(20) NOT NULL, color VARCHAR(10) NOT NULL, orden INT NOT NULL DEFAULT 0,
+ UNIQUE KEY uq_area_slug(unidad_id,slug), UNIQUE KEY uq_area_id_unidad(id,unidad_id), CHECK(unidad_tipo='negocio'),
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE cartas (
+ unidad_id TINYINT UNSIGNED NOT NULL, slug VARCHAR(20) NOT NULL, nombre VARCHAR(60) NOT NULL, orden INT NOT NULL DEFAULT 0,
+ activo TINYINT(1) NOT NULL DEFAULT 1, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ PRIMARY KEY(unidad_id,slug), KEY idx_carta_unidad_tipo(unidad_id,unidad_tipo), CHECK(unidad_tipo='negocio'), CHECK(slug IN ('comida','maridaje','temporada')),
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE categorias (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, carta VARCHAR(20) NOT NULL, nombre VARCHAR(60) NOT NULL,
+ img VARCHAR(200) NULL, activo TINYINT(1) NOT NULL DEFAULT 1, orden INT NOT NULL DEFAULT 0, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ UNIQUE KEY uq_categoria_id_unidad(id,unidad_id),
+ CHECK(unidad_tipo='negocio'), FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, FOREIGN KEY(unidad_id,carta) REFERENCES cartas(unidad_id,slug) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE productos (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(120) NOT NULL, descripcion TEXT NULL, img VARCHAR(255) NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ofertas_producto (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, producto_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio', categoria_id INT UNSIGNED NOT NULL, precio DECIMAL(8,2) NOT NULL,
+ area_id TINYINT UNSIGNED NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1, orden INT NOT NULL DEFAULT 0,
+ UNIQUE KEY uq_oferta_producto_unidad(producto_id,unidad_id), UNIQUE KEY uq_oferta_id_unidad(id,unidad_id), UNIQUE KEY uq_oferta_producto_scope(id,producto_id,unidad_id),
+ FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE RESTRICT,
+ FOREIGN KEY(categoria_id,unidad_id) REFERENCES categorias(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(area_id,unidad_id) REFERENCES areas_produccion(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, CHECK(unidad_tipo='negocio'), CHECK(precio>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE importaciones_menu (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, paquete_sha256 CHAR(64) NOT NULL UNIQUE, unidad_id TINYINT UNSIGNED NOT NULL,
+ fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, conteos JSON NOT NULL, correspondencias JSON NOT NULL,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE esquema_versiones(version VARCHAR(64) PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS reservacion_mesas (
-  id             INT AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id INT NOT NULL,
-  mesa_id        INT NOT NULL,
-  orden          TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reservacion_mesas_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
-  CONSTRAINT fk_reservacion_mesas_mesa
-    FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_reservacion_mesa  (reservacion_id, mesa_id),
-  UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
-  INDEX idx_rm_mesa (mesa_id),
-  INDEX idx_rm_reservacion (reservacion_id)
-);
+CREATE TABLE ingredientes (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(120) NOT NULL, unidad ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
+ UNIQUE KEY uq_articulo_nombre(nombre),
+ costo DECIMAL(10,4) NOT NULL DEFAULT 0, activo TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, CHECK(costo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE almacenes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, nombre VARCHAR(100) NOT NULL,
+ permitir_negativos TINYINT(1) NOT NULL DEFAULT 0 CHECK(permitir_negativos IN (0,1)), activo TINYINT(1) NOT NULL DEFAULT 1,
+ UNIQUE KEY uq_almacen_id_unidad(id,unidad_id), FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE almacen_articulos (
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ saldo DECIMAL(12,3) NOT NULL DEFAULT 0, minimo DECIMAL(12,3) NOT NULL DEFAULT 0, activo TINYINT(1) NOT NULL DEFAULT 1, version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ PRIMARY KEY(almacen_id,articulo_id), UNIQUE KEY uq_aa_scope(almacen_id,articulo_id,unidad_id), CHECK(minimo>=0),
+ FOREIGN KEY(almacen_id,unidad_id) REFERENCES almacenes(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+DELIMITER //
+CREATE TRIGGER trg_almacen_articulos_negativo_insert BEFORE INSERT ON almacen_articulos FOR EACH ROW
+BEGIN DECLARE v_permite TINYINT; SELECT permitir_negativos INTO v_permite FROM almacenes WHERE id=NEW.almacen_id AND unidad_id=NEW.unidad_id; IF NEW.saldo<0 AND v_permite=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Saldo negativo no permitido'; END IF; END//
+CREATE TRIGGER trg_almacen_articulos_negativo_update BEFORE UPDATE ON almacen_articulos FOR EACH ROW
+BEGIN DECLARE v_permite TINYINT; SELECT permitir_negativos INTO v_permite FROM almacenes WHERE id=NEW.almacen_id AND unidad_id=NEW.unidad_id; IF NEW.saldo<0 AND v_permite=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Saldo negativo no permitido'; END IF; END//
+CREATE TRIGGER trg_almacen_no_desactivar_negativos BEFORE UPDATE ON almacenes FOR EACH ROW
+BEGIN IF OLD.permitir_negativos=1 AND NEW.permitir_negativos=0 AND EXISTS(SELECT 1 FROM almacen_articulos WHERE almacen_id=OLD.id AND unidad_id=OLD.unidad_id AND saldo<0) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='No se permiten negativos pendientes'; END IF; END//
+DELIMITER ;
+CREATE TABLE subrecetas (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ nombre VARCHAR(120) NOT NULL, version INT UNSIGNED NOT NULL DEFAULT 1, rendimiento DECIMAL(12,3) NOT NULL,
+ unidad ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g', activo TINYINT(1) NOT NULL DEFAULT 1,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_subreceta_id_unidad(id,unidad_id), FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT,
+ CHECK(unidad_tipo='negocio'), CHECK(version>0 AND rendimiento>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE subreceta_ingredientes (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, subreceta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, cantidad DECIMAL(12,3) NOT NULL,
+ FOREIGN KEY(subreceta_id,unidad_id) REFERENCES subrecetas(id,unidad_id) ON DELETE CASCADE, FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT, CHECK(cantidad>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE recetas (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, oferta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio', version INT UNSIGNED NOT NULL DEFAULT 1, activo TINYINT(1) NOT NULL DEFAULT 1,
+ UNIQUE KEY uq_receta_oferta_version(oferta_id,version), UNIQUE KEY uq_receta_id_unidad(id,unidad_id), UNIQUE KEY uq_receta_oferta_scope(id,oferta_id,unidad_id),
+ FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, CHECK(unidad_tipo='negocio'), CHECK(version>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE receta_componentes (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, receta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ articulo_id INT UNSIGNED NULL, subreceta_id INT UNSIGNED NULL, cantidad DECIMAL(12,3) NOT NULL,
+ FOREIGN KEY(receta_id,unidad_id) REFERENCES recetas(id,unidad_id) ON DELETE CASCADE,
+ FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
+ FOREIGN KEY(subreceta_id,unidad_id) REFERENCES subrecetas(id,unidad_id) ON DELETE RESTRICT,
+ CHECK((articulo_id IS NULL) <> (subreceta_id IS NULL)), CHECK(cantidad>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE producto_variantes (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, oferta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ grupo VARCHAR(40) NOT NULL, nombre VARCHAR(60) NOT NULL, precio_delta DECIMAL(8,2) NOT NULL DEFAULT 0,
+ predeterminada TINYINT(1) NOT NULL DEFAULT 0, orden_grupo SMALLINT UNSIGNED NOT NULL DEFAULT 0, orden INT NOT NULL DEFAULT 0, activo TINYINT(1) NOT NULL DEFAULT 1,
+ UNIQUE KEY uq_variante_grupo_nombre(oferta_id,grupo,nombre), UNIQUE KEY uq_variante_scope(id,oferta_id,unidad_id),
+ FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE variante_ajustes (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, variante_id INT UNSIGNED NOT NULL, oferta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ articulo_id INT UNSIGNED NULL, subreceta_id INT UNSIGNED NULL, cantidad DECIMAL(12,3) NOT NULL,
+ accion ENUM('agregar','quitar','sustituir') NOT NULL, articulo_nuevo_id INT UNSIGNED NULL, subreceta_nueva_id INT UNSIGNED NULL, nueva_cantidad DECIMAL(12,3) NULL,
+ FOREIGN KEY(variante_id,oferta_id,unidad_id) REFERENCES producto_variantes(id,oferta_id,unidad_id) ON DELETE CASCADE,
+ FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT, FOREIGN KEY(subreceta_id,unidad_id) REFERENCES subrecetas(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(articulo_nuevo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT, FOREIGN KEY(subreceta_nueva_id,unidad_id) REFERENCES subrecetas(id,unidad_id) ON DELETE RESTRICT,
+ CHECK((articulo_id IS NULL) <> (subreceta_id IS NULL)), CHECK(cantidad>0),
+ CHECK((accion='sustituir' AND ((articulo_nuevo_id IS NULL) <> (subreceta_nueva_id IS NULL)) AND nueva_cantidad IS NOT NULL AND nueva_cantidad>0) OR (accion<>'sustituir' AND articulo_nuevo_id IS NULL AND subreceta_nueva_id IS NULL AND nueva_cantidad IS NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE oferta_consumos (
+ oferta_id INT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, almacen_id BIGINT UNSIGNED NOT NULL,
+ PRIMARY KEY(oferta_id,articulo_id), FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(almacen_id,articulo_id,unidad_id) REFERENCES almacen_articulos(almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Bitácora de reubicaciones automáticas. Un grupo de 9 en adelante aparta el
--- exterior completo y las reservas que ya estaban ahí se mueven solas a otras
--- mesas; cada movimiento queda aquí para que el anfitrión lo vea en la ficha
--- («Reubicada de Mesa 9 a Mesa 3») y el panel lo liste en Casos hasta que
--- alguien lo marque como revisado. Las mesas se guardan como ids en texto:
--- son un registro de lo que pasó y no deben cambiar si la mesa se edita.
-CREATE TABLE IF NOT EXISTS reservacion_reubicaciones (
-  id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id       INT NOT NULL,
-  -- La reserva que provocó el movimiento. SET NULL: si se borra, la
-  -- reubicación sigue siendo un hecho.
-  causa_reservacion_id INT NULL,
-  motivo               VARCHAR(40) NOT NULL DEFAULT 'bloque_exterior',
-  mesas_antes          VARCHAR(60) NOT NULL,
-  mesas_despues        VARCHAR(60) NOT NULL,
-  revisada_at          DATETIME NULL,
-  revisada_por         INT NULL,
-  created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reubicacion_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
-  CONSTRAINT fk_reubicacion_causa
-    FOREIGN KEY (causa_reservacion_id) REFERENCES reservaciones(id) ON DELETE SET NULL,
-  CONSTRAINT fk_reubicacion_revisor
-    FOREIGN KEY (revisada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_reubicacion_reservacion (reservacion_id, created_at),
-  INDEX idx_reubicacion_pendiente (revisada_at, created_at)
-);
+-- Operación inventario: operaciones son idempotencia; movimientos son bitácora inmutable.
+CREATE TABLE operaciones_inventario (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, tipo VARCHAR(40) NOT NULL,
+ actor_tipo ENUM('usuario','automatizado') NOT NULL, usuario_id INT NULL, origen VARCHAR(40) NOT NULL,
+ clave_idempotencia VARCHAR(120) NOT NULL, hash_solicitud CHAR(64) NOT NULL, referencia VARCHAR(120) NOT NULL,
+ resultado JSON NULL, fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_op_id_unidad(id,unidad_id), UNIQUE KEY uq_op_idempotencia(unidad_id,origen,clave_idempotencia), UNIQUE KEY uq_op_referencia(unidad_id,tipo,referencia),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK((actor_tipo='usuario' AND usuario_id IS NOT NULL) OR (actor_tipo='automatizado' AND usuario_id IS NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE tickets (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ comensales INT NOT NULL DEFAULT 1, nombre VARCHAR(120) NULL, hora_apertura DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, closed_at DATETIME NULL, hora_cierre DATETIME NULL,
+ estado ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto', metodo_pago ENUM('efectivo','tarjeta','dividido') NULL, propina DECIMAL(8,2) NOT NULL DEFAULT 0,
+ reservacion_id INT NULL, mesero_id INT NULL,
+ UNIQUE KEY uq_ticket_id_unidad(id,unidad_id), UNIQUE KEY uq_ticket_reservacion(reservacion_id,unidad_id),
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, FOREIGN KEY(mesero_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(unidad_tipo='negocio'), CHECK(propina>=0), INDEX idx_ticket_estado(estado), INDEX idx_ticket_cierre(hora_cierre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE pos_operaciones (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, actor_id INT NOT NULL,
+ ticket_id INT NOT NULL, tipo VARCHAR(24) NOT NULL, clave VARCHAR(120) NOT NULL, hash_solicitud CHAR(64) NOT NULL,
+ resultado JSON NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_pos_operacion_clave(unidad_id,actor_id,tipo,clave),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ticket_items (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ticket_id INT NOT NULL,
+ oferta_id INT UNSIGNED NOT NULL, producto_id INT UNSIGNED NOT NULL, receta_id INT UNSIGNED NULL,
+ nombre VARCHAR(120) NOT NULL, precio DECIMAL(8,2) NOT NULL, categoria VARCHAR(60) NOT NULL, categoria_id INT UNSIGNED NULL,
+ area_id TINYINT UNSIGNED NOT NULL, area_nombre VARCHAR(60) NULL, comensal TINYINT UNSIGNED NULL, cantidad TINYINT UNSIGNED NOT NULL DEFAULT 1, nota VARCHAR(280) NULL,
+ variante_ids VARCHAR(120) NULL, variante VARCHAR(160) NULL, costo_unitario DECIMAL(10,4) NULL,
+ estado ENUM('enviado','en_preparacion','listo','entregado','cancelado') NOT NULL DEFAULT 'enviado', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_ticket_item_id_unidad(id,unidad_id),
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(oferta_id,producto_id,unidad_id) REFERENCES ofertas_producto(id,producto_id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(receta_id,oferta_id,unidad_id) REFERENCES recetas(id,oferta_id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(categoria_id,unidad_id) REFERENCES categorias(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(area_id,unidad_id) REFERENCES areas_produccion(id,unidad_id) ON DELETE RESTRICT,
+ INDEX idx_area_estado(unidad_id,area_id,estado), INDEX idx_ti_ticket(unidad_id,ticket_id), CHECK(precio>=0), CHECK(cantidad>0), CHECK(costo_unitario IS NULL OR costo_unitario>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ticket_pagos (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ticket_id INT NOT NULL,
+ comensal TINYINT UNSIGNED NOT NULL, metodo_pago ENUM('efectivo','tarjeta') NOT NULL, monto DECIMAL(8,2) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ INDEX idx_tp_ticket(unidad_id,ticket_id), CHECK(monto>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ticket_mesas (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ticket_id INT NOT NULL, mesa_id INT NOT NULL,
+ orden TINYINT UNSIGNED NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(mesa_id,unidad_id) REFERENCES mesas(id,unidad_id) ON DELETE RESTRICT,
+ UNIQUE KEY uq_ticket_mesa(ticket_id,mesa_id), UNIQUE KEY uq_ticket_orden(ticket_id,orden), INDEX idx_ticket_mesas_mesa(unidad_id,mesa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE movimientos_inventario (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, operacion_id BIGINT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, tipo ENUM('entrada','venta','salida','merma','ajuste','cancelacion','transferencia_salida','transferencia_entrada') NOT NULL,
+ delta DECIMAL(12,3) NOT NULL, motivo VARCHAR(80) NULL, nota VARCHAR(255) NULL, costo_unitario DECIMAL(10,4) NULL,
+ ticket_item_id INT UNSIGNED NULL, movimiento_origen_id BIGINT UNSIGNED NULL, transferencia_linea_id BIGINT UNSIGNED NULL,
+ fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(operacion_id,unidad_id) REFERENCES operaciones_inventario(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(almacen_id,articulo_id,unidad_id) REFERENCES almacen_articulos(almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(ticket_item_id,unidad_id) REFERENCES ticket_items(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(movimiento_origen_id,almacen_id,articulo_id,unidad_id) REFERENCES movimientos_inventario(id,almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
+ UNIQUE KEY uq_mov_id_almacen_articulo_unidad(id,almacen_id,articulo_id,unidad_id), UNIQUE KEY uq_mov_operacion_origen(operacion_id,movimiento_origen_id), INDEX idx_mov_articulo(almacen_id,articulo_id,fecha),
+ INDEX idx_mov_unidad_fecha(unidad_id,fecha,id), INDEX idx_mov_almacen_fecha(almacen_id,fecha,id),
+ CHECK(delta<>0), CHECK((tipo IN('entrada','cancelacion','transferencia_entrada') AND delta>0) OR (tipo IN('venta','salida','merma','transferencia_salida') AND delta<0) OR tipo='ajuste'), CHECK(costo_unitario IS NULL OR costo_unitario>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+DELIMITER //
+CREATE TRIGGER trg_movimientos_inmutables_update BEFORE UPDATE ON movimientos_inventario FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Movimiento inmutable: registrar compensacion'; END//
+CREATE TRIGGER trg_movimientos_inmutables_delete BEFORE DELETE ON movimientos_inventario FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Movimiento inmutable: registrar compensacion'; END//
+DELIMITER ;
 
--- -------------------------------------------------------
--- CATAS
--- -------------------------------------------------------
+CREATE TABLE transferencias (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, almacen_origen_id BIGINT UNSIGNED NOT NULL, origen_unidad_id TINYINT UNSIGNED NOT NULL,
+ almacen_destino_id BIGINT UNSIGNED NOT NULL, destino_unidad_id TINYINT UNSIGNED NOT NULL, solicitante_id INT NOT NULL,
+ emisor_id INT NULL, receptor_id INT NULL, estado ENUM('solicitada','enviada','recibida','cancelada','rechazada','incidencia') NOT NULL DEFAULT 'solicitada',
+ version BIGINT UNSIGNED NOT NULL DEFAULT 0, creada_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, enviada_at DATETIME NULL, recibida_at DATETIME NULL,
+ FOREIGN KEY(almacen_origen_id,origen_unidad_id) REFERENCES almacenes(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(almacen_destino_id,destino_unidad_id) REFERENCES almacenes(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(solicitante_id) REFERENCES usuarios(id) ON DELETE RESTRICT, FOREIGN KEY(emisor_id) REFERENCES usuarios(id) ON DELETE RESTRICT, FOREIGN KEY(receptor_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK(almacen_origen_id<>almacen_destino_id), INDEX idx_transferencia_estado(estado,creada_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE transferencia_lineas (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, transferencia_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL,
+ cantidad_solicitada DECIMAL(12,3) NOT NULL, cantidad_enviada DECIMAL(12,3) NOT NULL DEFAULT 0, cantidad_recibida DECIMAL(12,3) NOT NULL DEFAULT 0,
+ cantidad_retornada DECIMAL(12,3) NOT NULL DEFAULT 0, costo_unitario DECIMAL(10,4) NULL,
+ UNIQUE KEY uq_transferencia_articulo(transferencia_id,articulo_id), FOREIGN KEY(transferencia_id) REFERENCES transferencias(id) ON DELETE RESTRICT,
+ FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
+ CHECK(cantidad_solicitada>0 AND cantidad_enviada>=0 AND cantidad_recibida>=0 AND cantidad_retornada>=0),
+ CHECK(cantidad_recibida+cantidad_retornada<=cantidad_enviada AND cantidad_enviada<=cantidad_solicitada)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE movimientos_inventario ADD CONSTRAINT fk_mov_transferencia_linea FOREIGN KEY(transferencia_linea_id) REFERENCES transferencia_lineas(id) ON DELETE RESTRICT;
+CREATE TABLE transferencia_historial (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, transferencia_id BIGINT UNSIGNED NOT NULL, estado_anterior VARCHAR(20) NULL, estado_nuevo VARCHAR(20) NOT NULL,
+ actor_id INT NULL, fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, motivo VARCHAR(255) NULL,
+ FOREIGN KEY(transferencia_id) REFERENCES transferencias(id) ON DELETE RESTRICT, FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE operaciones_financieras (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, tipo ENUM('ingreso','egreso') NOT NULL,
+ concepto VARCHAR(160) NOT NULL, monto DECIMAL(12,2) NOT NULL, ticket_id INT NULL, usuario_id INT NULL, fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL, CHECK(monto>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE gastos_fijos (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, nombre VARCHAR(120) NOT NULL,
+ categoria ENUM('renta','servicios','nomina','insumos','otros') NOT NULL DEFAULT 'otros', monto DECIMAL(12,2) NOT NULL DEFAULT 0,
+ activo TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, CHECK(monto>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE proveedores (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, nombre VARCHAR(120) NOT NULL,
+ contacto VARCHAR(120) NULL, telefono VARCHAR(30) NULL, correo VARCHAR(120) NULL, notas TEXT NULL, activo TINYINT(1) NOT NULL DEFAULT 1,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_proveedores_nombre(unidad_id,nombre), UNIQUE KEY uq_proveedores_id_unidad(id,unidad_id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ingrediente_proveedores (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ingrediente_id INT UNSIGNED NOT NULL, proveedor_id INT UNSIGNED NOT NULL,
+ costo DECIMAL(10,4) NOT NULL DEFAULT 0, codigo VARCHAR(60) NULL, preferente TINYINT(1) NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_ing_prov(unidad_id,ingrediente_id,proveedor_id), INDEX idx_ing_prov_proveedor(unidad_id,proveedor_id),
+ FOREIGN KEY(ingrediente_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
+ FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT, CHECK(costo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE historial_precios (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, oferta_id INT UNSIGNED NULL, articulo_id INT UNSIGNED NULL,
+ precio_anterior DECIMAL(10,4) NULL, precio_nuevo DECIMAL(10,4) NOT NULL, motivo ENUM('alta','edicion','proveedor') NOT NULL DEFAULT 'edicion', proveedor_id INT UNSIGNED NULL, usuario_id INT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT, FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
+ FOREIGN KEY(proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL, FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK((oferta_id IS NULL) <> (articulo_id IS NULL)), CHECK(precio_nuevo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Catas dirigidas: la agenda que el panel programa y la landing publica.
---
--- Es una tabla de anuncio, no de reservas. Hubo cupo, inscripciones y un estado
--- de cinco valores que CataService movía solo a 'agotada' al llenarse; todo eso
--- se retiró junto con el formulario público. Quien quiere lugar escribe por
--- WhatsApp, así que el sistema no tiene forma de contar personas y fingir que
--- las cuenta era peor que no hacerlo: el conteo se desviaba en cuanto alguien
--- apartaba por teléfono.
---
--- Lo que queda es un interruptor. `disponible` decide dos cosas a la vez —si la
--- cata sale en la landing y si admite gente— porque para el visitante son la
--- misma: una cata que no puede reservar no le sirve de nada. Apagarlo también
--- es lo que sostiene el borrador, que antes era un estado propio: se programa
--- con el interruptor abajo y se enciende cuando la fecha está cerrada.
-CREATE TABLE IF NOT EXISTS catas (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  titulo        VARCHAR(120) NOT NULL,
-  descripcion   TEXT NULL,
-  fecha         DATE NOT NULL,
-  hora          TIME NOT NULL,
-  duracion_min  SMALLINT UNSIGNED NOT NULL DEFAULT 90,
-  precio        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  -- ¿Quedan lugares? Eso y nada más. NO decide la visibilidad: la agenda
-  -- pública muestra toda cata que no haya ocurrido todavía, y una sin cupo
-  -- sigue anunciada, sólo que marcada. Nace en 1 porque una cata recién
-  -- programada admite gente; se cierra el día que se llena.
-  disponible    TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  -- El índice va por fecha: la consulta pública filtra por el reloj y ya no
-  -- toca `disponible`, así que encabezar por el booleano no servía de nada.
-  INDEX idx_catas_agenda (fecha, hora),
-  CONSTRAINT chk_catas_precio CHECK (precio >= 0),
-  CONSTRAINT chk_catas_duracion CHECK (duracion_min > 0)
-);
+CREATE TABLE reservaciones (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ nombre VARCHAR(100) NOT NULL, contacto_tipo ENUM('email','telefono','ninguno') NOT NULL DEFAULT 'ninguno', contacto VARCHAR(150) NULL,
+ fecha DATE NOT NULL, hora TIME NOT NULL, comensales INT UNSIGNED NOT NULL DEFAULT 2, nota TEXT NULL, comentario_admin TEXT NULL, motivo_cancelacion VARCHAR(500) NULL,
+ origen ENUM('landing','admin') NOT NULL, request_token VARCHAR(64) NULL, hold_expires_at DATETIME NULL,
+ estado ENUM('pendiente_verificacion','confirmada','en_curso','completada','cancelada','no_show','expirada','reemplazada') NOT NULL DEFAULT 'pendiente_verificacion',
+ reemplaza_reservacion_id INT NULL, estado_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_reservacion_id_unidad(id,unidad_id), UNIQUE KEY uq_reservacion_request_token(unidad_id,request_token),
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT,
+ FOREIGN KEY(reemplaza_reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ CHECK(unidad_tipo='negocio'), CHECK(comensales>0),
+ CHECK((contacto_tipo='ninguno' AND contacto IS NULL) OR (contacto_tipo IN('email','telefono') AND contacto IS NOT NULL AND TRIM(contacto)<>'')),
+ CHECK(estado<>'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
+ INDEX idx_reservaciones_fecha_estado_hora(unidad_id,fecha,estado,hora), INDEX idx_reservaciones_contacto_horario(unidad_id,contacto_tipo,contacto,fecha,hora,estado), INDEX idx_reservaciones_retenciones_vencidas(unidad_id,estado,hold_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE tickets ADD CONSTRAINT fk_ticket_reservacion FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT;
+DELIMITER //
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_insert BEFORE INSERT ON reservaciones FOR EACH ROW
+BEGIN IF NEW.reemplaza_reservacion_id IS NOT NULL AND NEW.id IS NOT NULL AND NEW.reemplaza_reservacion_id=NEW.id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Una reservacion no puede reemplazarse a si misma'; END IF; END//
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_update BEFORE UPDATE ON reservaciones FOR EACH ROW
+BEGIN IF NEW.reemplaza_reservacion_id=NEW.id THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Una reservacion no puede reemplazarse a si misma'; END IF; END//
+DELIMITER ;
+CREATE TABLE verificaciones_contacto (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, reservacion_id INT NULL,
+ contacto_tipo ENUM('email','telefono') NOT NULL, contacto VARCHAR(150) NOT NULL, codigo_hash VARCHAR(255) NOT NULL, expires_at DATETIME NOT NULL,
+ attempts TINYINT UNSIGNED NOT NULL DEFAULT 0, delivery_status ENUM('legacy','pending','accepted','failed') NOT NULL DEFAULT 'pending',
+ accepted_at DATETIME NULL, finalized_at DATETIME NULL, cycle_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL, cycle_expires_at DATETIME NULL,
+ used_at DATETIME NULL, invalidated_at DATETIME NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ INDEX idx_verificacion_contacto(unidad_id,contacto_tipo,contacto,created_at), INDEX idx_verificacion_expiracion(expires_at), INDEX idx_verificacion_ciclo(unidad_id,contacto_tipo,contacto,reservacion_id,cycle_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE reservacion_mesas (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, reservacion_id INT NOT NULL, mesa_id INT NOT NULL,
+ orden TINYINT UNSIGNED NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(mesa_id,unidad_id) REFERENCES mesas(id,unidad_id) ON DELETE RESTRICT,
+ UNIQUE KEY uq_reservacion_mesa(reservacion_id,mesa_id), UNIQUE KEY uq_reservacion_orden(reservacion_id,orden), INDEX idx_rm_mesa(unidad_id,mesa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE reservacion_reubicaciones (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, reservacion_id INT NOT NULL, causa_reservacion_id INT NULL,
+ motivo VARCHAR(40) NOT NULL DEFAULT 'bloque_exterior', mesas_antes VARCHAR(60) NOT NULL, mesas_despues VARCHAR(60) NOT NULL,
+ revisada_at DATETIME NULL, revisada_por INT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(causa_reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(revisada_por) REFERENCES usuarios(id) ON DELETE SET NULL, INDEX idx_reubicacion_reservacion(reservacion_id,created_at), INDEX idx_reubicacion_pendiente(revisada_at,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE catas (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, unidad_tipo ENUM('global','negocio') NOT NULL DEFAULT 'negocio',
+ titulo VARCHAR(120) NOT NULL, descripcion TEXT NULL, fecha DATE NOT NULL, hora TIME NOT NULL, duracion_min SMALLINT UNSIGNED NOT NULL DEFAULT 90,
+ precio DECIMAL(10,2) NOT NULL DEFAULT 0, disponible TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_cata_id_unidad(id,unidad_id),
+ FOREIGN KEY(unidad_id,unidad_tipo) REFERENCES unidades(id,tipo) ON DELETE RESTRICT, CHECK(unidad_tipo='negocio'), CHECK(precio>=0 AND duracion_min>0), INDEX idx_catas_agenda(unidad_id,fecha,hora)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE feedback_tokens (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, ticket_id INT NOT NULL, token VARCHAR(64) NOT NULL,
+ usado TINYINT(1) NOT NULL DEFAULT 0, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_feedback_token(token), UNIQUE KEY uq_feedback_ticket(ticket_id),
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE feedback (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, token_id INT UNSIGNED NULL, ticket_id INT NULL,
+ calidad_sabor TINYINT UNSIGNED NOT NULL, atencion_mesero TINYINT UNSIGNED NOT NULL, tiempo_espera TINYINT UNSIGNED NOT NULL, experiencia_global TINYINT UNSIGNED NOT NULL,
+ comentario TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(token_id) REFERENCES feedback_tokens(id) ON DELETE SET NULL, FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ CHECK(calidad_sabor BETWEEN 1 AND 5 AND atencion_mesero BETWEEN 1 AND 5 AND tiempo_espera BETWEEN 1 AND 5 AND experiencia_global BETWEEN 1 AND 5)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE impresoras (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, nombre VARCHAR(60) NOT NULL, area_id TINYINT UNSIGNED NULL,
+ rol ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda', conexion ENUM('red','windows') NOT NULL DEFAULT 'red', host VARCHAR(64) NOT NULL,
+ puerto INT NOT NULL DEFAULT 9100, dispositivo VARCHAR(120) NULL, ancho TINYINT NOT NULL DEFAULT 48, activo TINYINT(1) NOT NULL DEFAULT 1,
+ UNIQUE KEY uq_impresora_id_unidad(id,unidad_id), FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(area_id,unidad_id) REFERENCES areas_produccion(id,unidad_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE impresion_alertas (
+ id INT AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, documento ENUM('comanda','cuenta') NOT NULL,
+ motivo ENUM('sin_impresora','sin_conexion','fallo_envio') NOT NULL, ticket_id INT NULL, mesa_nombre VARCHAR(60) NULL,
+ area_id TINYINT UNSIGNED NULL, area_nombre VARCHAR(60) NULL, impresora_nombre VARCHAR(60) NULL, detalle VARCHAR(255) NULL,
+ usuario_id INT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, atendida_at DATETIME NULL, atendida_por INT NULL,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL, FOREIGN KEY(atendida_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+ INDEX idx_impresion_alertas_pendientes(unidad_id,atendida_at,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE horarios_operacion (
+ id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, dia_semana TINYINT UNSIGNED NOT NULL, abierto TINYINT(1) NOT NULL DEFAULT 1,
+ hora_apertura TIME NULL, hora_cierre TIME NULL, updated_by INT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_horario_unidad_dia(unidad_id,dia_semana), FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL, CHECK(dia_semana BETWEEN 0 AND 6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE excepciones_operacion (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, fecha DATE NOT NULL, tipo ENUM('cerrado','horario_especial') NOT NULL,
+ motivo VARCHAR(160) NULL, hora_apertura TIME NULL, hora_cierre TIME NULL, activo TINYINT(1) NOT NULL DEFAULT 1, updated_by INT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_excepcion_fecha(unidad_id,fecha), FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL, INDEX idx_excepciones_fecha_activo(unidad_id,fecha,activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE horario_impactos (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, tipo_origen VARCHAR(40) NOT NULL, origen_id INT UNSIGNED NULL,
+ estado ENUM('pendiente','resuelto') NOT NULL DEFAULT 'pendiente', dedup_key CHAR(64) NOT NULL, created_by INT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at DATETIME NULL, UNIQUE KEY uq_horario_impacto_id_unidad(id,unidad_id), UNIQUE KEY uq_horario_impacto_dedup(unidad_id,dedup_key),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+ INDEX idx_horario_impactos_estado_fecha(unidad_id,estado,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE horario_impacto_reservaciones (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, impacto_id INT UNSIGNED NOT NULL, reservacion_id INT NOT NULL,
+ estado ENUM('pendiente_notificacion','notificacion_preparada','sin_contacto','atendida_manual','resuelta_por_cliente') NOT NULL,
+ notification_prepared_at DATETIME NULL, access_token_hash CHAR(64) NULL, access_expires_at DATETIME NULL, access_invalidated_at DATETIME NULL,
+ notification_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0, last_notification_at DATETIME NULL,
+ notification_delivery_status ENUM('pending','accepted','failed') NOT NULL DEFAULT 'pending', notification_delivery_updated_at DATETIME NULL,
+ resolved_by INT NULL, resolved_at DATETIME NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(impacto_id,unidad_id) REFERENCES horario_impactos(id,unidad_id) ON DELETE RESTRICT, FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(resolved_by) REFERENCES usuarios(id) ON DELETE SET NULL, UNIQUE KEY uq_horario_impacto_reservacion(impacto_id,reservacion_id),
+ INDEX idx_horario_impacto_res_estado(impacto_id,estado), INDEX idx_horario_impacto_access(access_token_hash,access_expires_at), INDEX idx_horario_impacto_delivery(notification_delivery_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE reservacion_recordatorios (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, reservacion_id INT NOT NULL, reservacion_raiz_id INT NOT NULL,
+ tipo ENUM('dia_anterior') NOT NULL DEFAULT 'dia_anterior', dedup_key VARCHAR(191) NOT NULL, access_token_hash CHAR(64) NULL,
+ access_expires_at DATETIME NULL, access_invalidated_at DATETIME NULL, notification_delivery_status ENUM('pending','accepted','failed') NOT NULL DEFAULT 'pending',
+ notification_delivery_updated_at DATETIME NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, notification_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+ transport_claimed_at DATETIME NULL, retryable TINYINT(1) NOT NULL DEFAULT 0, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(reservacion_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(reservacion_raiz_id,unidad_id) REFERENCES reservaciones(id,unidad_id) ON DELETE RESTRICT,
+ UNIQUE KEY uq_recordatorio_dedup(unidad_id,dedup_key), UNIQUE KEY uq_recordatorio_access(access_token_hash), INDEX idx_recordatorio_reservacion(reservacion_id), INDEX idx_recordatorio_raiz(reservacion_raiz_id), INDEX idx_recordatorio_delivery(notification_delivery_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE buzon_notificaciones (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, tipo VARCHAR(80) NOT NULL, modulo VARCHAR(60) NOT NULL,
+ entidad_tipo VARCHAR(80) NOT NULL, entidad_id INT UNSIGNED NOT NULL, prioridad ENUM('normal','alta') NOT NULL DEFAULT 'normal',
+ requiere_accion TINYINT(1) NOT NULL DEFAULT 1, visible_from DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, leida_at DATETIME NULL,
+ cerrada_at DATETIME NULL, cerrada_por INT NULL, cierre_motivo VARCHAR(120) NULL, dedup_key VARCHAR(191) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(cerrada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+ UNIQUE KEY uq_buzon_dedup(unidad_id,dedup_key), INDEX idx_buzon_visibles(unidad_id,cerrada_at,visible_from), INDEX idx_buzon_tipo(unidad_id,tipo,cerrada_at), INDEX idx_buzon_accion(unidad_id,cerrada_at,visible_from,requiere_accion), INDEX idx_buzon_entidad(unidad_id,entidad_tipo,entidad_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE configuracion_anuncio (
+ unidad_id TINYINT UNSIGNED NOT NULL, id TINYINT UNSIGNED NOT NULL, mensaje VARCHAR(255) NOT NULL DEFAULT '',
+ tipo ENUM('evento','promocion','novedad_menu','aviso_operativo') NOT NULL DEFAULT 'evento', activo TINYINT(1) NOT NULL DEFAULT 0,
+ fecha_inicio DATETIME NULL, fecha_fin DATETIME NULL, texto_enlace VARCHAR(80) NULL, url_enlace VARCHAR(500) NULL,
+ updated_by INT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY(unidad_id,id), FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE configuracion_pos (
+ unidad_id TINYINT UNSIGNED NOT NULL, id TINYINT UNSIGNED NOT NULL, mesero_editable TINYINT(1) NOT NULL DEFAULT 1,
+ impresion_activa TINYINT(1) NOT NULL DEFAULT 1, max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4, updated_by INT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY(unidad_id,id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(max_tickets_barra BETWEEN 1 AND 12)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE configuracion_paleta (
+ unidad_id TINYINT UNSIGNED NOT NULL, id TINYINT UNSIGNED NOT NULL, verde CHAR(7) NULL, oro CHAR(7) NULL, beige CHAR(7) NULL, crema CHAR(7) NULL,
+ updated_by INT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY(unidad_id,id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE configuracion_reservaciones (
+ unidad_id TINYINT UNSIGNED NOT NULL, id TINYINT UNSIGNED NOT NULL, recordatorio_dia_anterior_activo TINYINT(1) NOT NULL DEFAULT 0,
+ hora_recordatorio TIME NOT NULL DEFAULT '18:00:00', max_comensales_publico TINYINT UNSIGNED NOT NULL DEFAULT 12, whatsapp_reservas VARCHAR(20) NULL,
+ updated_by INT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY(unidad_id,id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(max_comensales_publico BETWEEN 7 AND 16)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE reportes_sistema (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, usuario_id INT NULL, modulo VARCHAR(60) NULL,
+ titulo VARCHAR(120) NOT NULL, descripcion TEXT NOT NULL, ruta_origen VARCHAR(255) NULL,
+ navegador ENUM('chrome','edge','firefox','safari','otro') NULL, navegador_otro VARCHAR(80) NULL,
+ estado ENUM('nuevo','en_revision','resuelto','descartado') NOT NULL DEFAULT 'nuevo', resuelto_at DATETIME NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+ INDEX idx_reportes_estado_fecha(unidad_id,estado,created_at), INDEX idx_reportes_modulo(unidad_id,modulo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- -------------------------------------------------------
--- TICKETS / COMANDA
--- -------------------------------------------------------
+-- Cada configuración semanal/servicio crea su propia fila por unidad.
+-- Marca de estructura terminada; la autorización 3B se completa con deploy.sql.
+INSERT INTO esquema_versiones(version) VALUES ('multinegocio-3c-v1');
 
--- mesero_id asocia el mesero a la mesa para imprimirlo en el ticket.
--- metodo_pago registra 'dividido' cuando la cuenta se separa por comensal y
--- se mezclan metodos de pago (el detalle por comensal vive en ticket_pagos).
-CREATE TABLE IF NOT EXISTS tickets (
-  id                 INT AUTO_INCREMENT PRIMARY KEY,
-  comensales         INT NOT NULL DEFAULT 1,
-  nombre             VARCHAR(120) DEFAULT NULL,
-  hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  closed_at          DATETIME NULL,
-  -- Momento del cobro usado por analítica y finanzas.
-  hora_cierre        DATETIME NULL,
-  estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
-  metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
-  propina            DECIMAL(8,2) NOT NULL DEFAULT 0,
-  reservacion_id     INT NULL,
-  mesero_id          INT NULL,
-  FOREIGN KEY (reservacion_id)     REFERENCES reservaciones(id) ON DELETE SET NULL,
-  FOREIGN KEY (mesero_id)          REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_ticket_estado      (estado),
-  INDEX idx_ticket_reservacion (reservacion_id),
-  UNIQUE KEY uq_ticket_reservacion (reservacion_id)
-);
--- Pago dividido por comensal: cuando la cuenta se separa, cada comensal puede
--- pagar con un metodo distinto. El ticket registra 'dividido' si se mezclan metodos.
--- Fuente canónica exclusiva de ocupación física.
-CREATE TABLE IF NOT EXISTS ticket_mesas (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ticket_id  INT NOT NULL,
-  mesa_id    INT NOT NULL,
-  orden      TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ticket_mesas_ticket
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ticket_mesas_mesa
-    FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE RESTRICT,
-  UNIQUE KEY uq_ticket_mesa (ticket_id, mesa_id),
-  UNIQUE KEY uq_ticket_orden (ticket_id, orden),
-  INDEX idx_ticket_mesas_mesa (mesa_id)
-);
-
-
--- PRODUCTOS — fuente única de los platillos.
---
--- De aquí salen la carta pública, el PDF, el punto de venta, el inventario, el
--- COGS y el ruteo por área: un platillo se da de alta una sola vez.
---
--- El UNIQUE sobre `nombre` es lo que sostiene el enlace por nombre que usan
--- Inventario::aplicarVenta, el COGS de Finanzas y las sugerencias: un nombre
--- duplicado rompía el descuento de stock sin dar ningún error.
-CREATE TABLE IF NOT EXISTS productos (
-  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(120) NOT NULL,
-  -- La validación de Producto la exige en altas nuevas; permanece nullable
-  -- para aceptar catálogos históricos durante la transición.
-  descripcion  TEXT NULL,
-  -- Foto propia del platillo, mismo formato que categorias.img: ruta relativa
-  -- que devuelve ImagenUploader ("build/images/<hash>.webp"). NULL no es un
-  -- hueco sino una decision: la carta usa entonces la foto de su categoria.
-  -- Por eso Producto la escribe con sentencia preparada y no como '' (ver
-  -- Producto::crear). El fallback NO se resuelve en SQL: Carta::publica()
-  -- entrega las dos y la landing elige.
-  img          VARCHAR(255) NULL DEFAULT NULL,
-  categoria_id INT NOT NULL,
-  precio       DECIMAL(8,2) NOT NULL,
-  area_id      TINYINT UNSIGNED NOT NULL,
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  -- El UNIQUE es dependencia funcional, no higiene: el descuento de
-  -- inventario, el COGS y el motor de sugerencias unen platillos por nombre.
-  -- Estaba declarado dos veces, y eso hacia fallar el CREATE TABLE entero
-  -- ("Duplicate key name") en cualquier base creada desde cero.
-  UNIQUE KEY uq_productos_nombre (nombre),
-  KEY idx_productos_cat_activo (categoria_id, activo),
-  INDEX idx_productos_carta (activo, categoria_id),
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
-);
-
--- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
--- La aplicación usa `productos` como fuente funcional; esta tabla permite
--- conservar datos descriptivos históricos durante la transición.
-CREATE TABLE IF NOT EXISTS menu (
-  id           INT AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(120) NOT NULL,
-  descripcion  TEXT NOT NULL,
-  precio       DECIMAL(10,2) NOT NULL,
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  categoria_id INT NOT NULL,
-  UNIQUE KEY uq_menu_nombre (nombre),
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
-);
-
-CREATE TABLE IF NOT EXISTS ticket_items (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ticket_id  INT NOT NULL,
-  nombre     VARCHAR(120) NOT NULL,
-  precio     DECIMAL(8,2) NOT NULL,
-  categoria  VARCHAR(60) NOT NULL,
-  area_id    TINYINT UNSIGNED NOT NULL,
-  comensal   TINYINT UNSIGNED NULL,
-  cantidad   TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  nota       VARCHAR(280) NULL DEFAULT NULL,
-  -- Variante elegida en el POS (producto_variantes). `nombre` sigue siendo el
-  -- del platillo a secas —el COGS, las analíticas y el descuento unen por
-  -- nombre—, así que la variante viaja aparte: los ids, ordenados y separados
-  -- por coma, para descontar inventario y desglosar ventas; y el rótulo
-  -- congelado ("Almendra · Grande") para la comanda, el KDS y la cuenta, que
-  -- no debe cambiar aunque mañana se renombre la opción.
-  variante_ids VARCHAR(120) NULL DEFAULT NULL,
-  variante     VARCHAR(160) NULL DEFAULT NULL,
-  estado     ENUM('enviado','en_preparacion','listo','entregado','cancelado') NOT NULL DEFAULT 'enviado',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-  FOREIGN KEY (area_id)   REFERENCES areas_produccion(id),
-  INDEX idx_area_estado (area_id, estado),
-  INDEX idx_ti_ticket   (ticket_id)
-);
-
--- Registro del pago de cada comensal cuando la cuenta se divide.
--- La suma de 'monto' de un ticket debe ser >= al total de sus ticket_items no
--- cancelados; el excedente es propina y se guarda en tickets.propina (validado
--- en MapaController::cerrarTicket). Solo se llena en cuentas divididas.
-CREATE TABLE IF NOT EXISTS ticket_pagos (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ticket_id   INT NOT NULL,
-  comensal    TINYINT UNSIGNED NOT NULL,
-  metodo_pago ENUM('efectivo','tarjeta') NOT NULL,
-  monto       DECIMAL(8,2) NOT NULL,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-  INDEX idx_tp_ticket (ticket_id)
-);
-
--- -------------------------------------------------------
--- INVENTARIO / RECETAS
--- -------------------------------------------------------
-
--- Ingredientes: unidad de inventario con existencias. El stock puede quedar
--- negativo (se permite pedir aunque no haya existencias).
-CREATE TABLE IF NOT EXISTS ingredientes (
-  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(120) NOT NULL,
-  unidad       ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
-  stock        DECIMAL(12,3) NOT NULL DEFAULT 0,
-  stock_minimo DECIMAL(12,3) NOT NULL DEFAULT 0,
-  -- Costo por unidad de inventario (g, ml o pieza).
-  costo        DECIMAL(10,4) NOT NULL DEFAULT 0,
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Subrecetas: preparaciones intermedias reutilizables (p. ej. una salsa). Su
--- composición vive en subreceta_ingredientes.
-CREATE TABLE IF NOT EXISTS subrecetas (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre      VARCHAR(120) NOT NULL,
-  unidad      ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
-  -- Cantidad producida por la receta base.
-  rendimiento DECIMAL(12,3) NOT NULL DEFAULT 1,
-  activo      TINYINT(1) NOT NULL DEFAULT 1,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS subreceta_ingredientes (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  subreceta_id   INT UNSIGNED NOT NULL,
-  ingrediente_id INT UNSIGNED NOT NULL,
-  cantidad       DECIMAL(12,3) NOT NULL DEFAULT 0,
-  FOREIGN KEY (subreceta_id)   REFERENCES subrecetas(id) ON DELETE CASCADE,
-  FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
-  INDEX idx_si_sub (subreceta_id)
-);
-
--- Receta principal de un producto: lista de componentes (ingredientes y/o
--- subrecetas) con su cantidad. ref_id apunta a ingredientes.id o subrecetas.id
--- según 'tipo' (relación polimórfica, sin FK sobre ref_id).
-CREATE TABLE IF NOT EXISTS producto_componentes (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  producto_id INT UNSIGNED NOT NULL,
-  tipo        ENUM('ingrediente','subreceta') NOT NULL,
-  -- Apunta a ingredientes.id o subrecetas.id según tipo.
-  ref_id      INT UNSIGNED NOT NULL,
-  cantidad    DECIMAL(12,3) NOT NULL DEFAULT 0,
-  FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
-  INDEX idx_pc_producto (producto_id)
-);
-
--- Variantes por platillo: grupos de opción de elección única ("Leche",
--- "Tamaño", "Término"…). Cada opción puede mover el precio y ajustar la receta.
---
--- `predeterminada` = la receta base tal cual: el POS la trae marcada y la
--- comanda no la imprime. Un GRUPO sin opción predeterminada es de elección
--- obligatoria (el término de un corte): el POS no deja agregar el platillo sin
--- elegir. Sólo puede haber una predeterminada por grupo; lo valida
--- Services\Menu\Variantes al guardar.
-CREATE TABLE IF NOT EXISTS producto_variantes (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  producto_id    INT UNSIGNED NOT NULL,
-  grupo          VARCHAR(40) NOT NULL,
-  nombre         VARCHAR(60) NOT NULL,
-  precio_delta   DECIMAL(8,2) NOT NULL DEFAULT 0,
-  predeterminada TINYINT(1) NOT NULL DEFAULT 0,
-  orden_grupo    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  orden          SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  activo         TINYINT(1) NOT NULL DEFAULT 1,
-  FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_variante (producto_id, grupo, nombre),
-  INDEX idx_pv_producto (producto_id, activo, orden_grupo, orden)
-);
-
--- Lo que una opción le hace a la receta base, por UNA unidad vendida.
---   agregar   suma `cantidad` del componente (más leche, un shot extra).
---   quitar    resta `cantidad` del componente (sin parmesano).
---   sustituir resta `cantidad` del componente y suma `nueva_cantidad` del
---             `nuevo_*` (leche → leche de almendra). Se guarda como UNA fila y
---             no como quitar + agregar para que el panel la pueda volver a
---             enseñar como lo que es.
--- Igual que producto_componentes, `ref_id` / `nuevo_ref_id` apuntan a
--- ingredientes.id o subrecetas.id según su tipo y no llevan FK.
-CREATE TABLE IF NOT EXISTS variante_ajustes (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variante_id    INT UNSIGNED NOT NULL,
-  accion         ENUM('agregar','quitar','sustituir') NOT NULL,
-  tipo           ENUM('ingrediente','subreceta') NOT NULL,
-  ref_id         INT UNSIGNED NOT NULL,
-  cantidad       DECIMAL(12,3) NOT NULL DEFAULT 0,
-  nuevo_tipo     ENUM('ingrediente','subreceta') NULL,
-  nuevo_ref_id   INT UNSIGNED NULL,
-  nueva_cantidad DECIMAL(12,3) NULL,
-  FOREIGN KEY (variante_id) REFERENCES producto_variantes(id) ON DELETE CASCADE,
-  INDEX idx_va_variante (variante_id)
-);
-
--- Bitácora de movimientos de inventario (trazabilidad del descuento por venta).
---
--- `entrada` y `merma` se separan de `ajuste` a propósito: recibir mercancía,
--- corregir un conteo y tirar producto echado a perder son tres hechos distintos
--- con consecuencias contables distintas, y mientras los tres eran `ajuste` el
--- panel no podía valorizar la merma ni distinguir una compra de una corrección.
-CREATE TABLE IF NOT EXISTS movimientos_inventario (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ingrediente_id INT UNSIGNED NOT NULL,
-  tipo           ENUM('venta','cancelacion','ajuste','entrada','merma') NOT NULL,
-  -- Un valor negativo descuenta; uno positivo repone.
-  cantidad       DECIMAL(12,3) NOT NULL,
-  -- Por qué se perdió el producto: clave del catálogo de Services\Inventory\Inventario.
-  -- Solo lo llenan las mermas.
-  motivo         VARCHAR(40) NULL,
-  -- Detalle libre de quien registra la merma.
-  nota           VARCHAR(255) NULL,
-  -- Costo unitario del ingrediente en el momento del movimiento. Sin él, la
-  -- merma de hace tres meses se valorizaba al costo de hoy.
-  costo_unitario DECIMAL(10,4) NULL,
-  -- Quién lo registró. Las salidas por venta no lo llevan: las genera el POS.
-  usuario_id     INT NULL,
-  ticket_item_id INT UNSIGNED NULL,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
-  CONSTRAINT fk_mi_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_mi_ing (ingrediente_id),
-  INDEX idx_mi_ti (ticket_item_id),
-  -- Los tableros agregan por tipo dentro de un rango de fechas.
-  INDEX idx_mi_tipo_fecha (tipo, created_at)
-);
-
--- Proveedores que surten los insumos.
---
--- Cuelgan de `ingredientes` y no de `productos`: lo que se compra son los
--- insumos; un platillo se produce aquí. Un mismo ingrediente puede tener varios
--- proveedores a precios distintos, y esa comparación es justo el motivo de la
--- tabla — antes la entrada de mercancía era anónima y no había forma de saber a
--- quién se le compró más caro.
-CREATE TABLE IF NOT EXISTS proveedores (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre     VARCHAR(120) NOT NULL,
-  -- Persona de contacto; el resto son datos para volver a marcarles.
-  contacto   VARCHAR(120) NULL,
-  telefono   VARCHAR(30) NULL,
-  correo     VARCHAR(120) NULL,
-  notas      TEXT NULL,
-  activo     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_proveedores_nombre (nombre)
-);
-
--- Precio de compra de un ingrediente por proveedor.
-CREATE TABLE IF NOT EXISTS ingrediente_proveedores (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ingrediente_id INT UNSIGNED NOT NULL,
-  proveedor_id   INT UNSIGNED NOT NULL,
-  -- En la unidad de inventario del ingrediente (g, ml o pieza), la misma que
-  -- ingredientes.costo, para poder compararlos sin convertir nada.
-  costo          DECIMAL(10,4) NOT NULL DEFAULT 0,
-  -- Clave con la que el proveedor identifica el producto en su catálogo.
-  codigo         VARCHAR(60) NULL,
-  -- El preferente es el que se propone al recibir mercancía. No se fuerza a uno
-  -- solo por ingrediente desde el esquema: durante un cambio de proveedor
-  -- conviven dos marcados mientras se decide, y el servicio ya deja uno.
-  preferente     TINYINT(1) NOT NULL DEFAULT 0,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ing_prov_ingrediente FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ing_prov_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE CASCADE,
-  -- Un proveedor no puede tener dos precios para el mismo ingrediente.
-  UNIQUE KEY uq_ing_prov (ingrediente_id, proveedor_id),
-  INDEX idx_ing_prov_proveedor (proveedor_id)
-);
-
--- Histórico de precios de platillos y de costos de insumos.
---
--- El precio vigente vive en productos.precio y en ingredientes.costo, que se
--- pisan en cada edición: sin esta bitácora no había manera de contestar "¿desde
--- cuándo subió el café?" ni de explicar por qué cayó el margen de un mes.
---
--- `entidad` + `ref_id` es la misma relación polimórfica que usa
--- producto_componentes, y por lo mismo ref_id no lleva FK: apunta a
--- productos.id o a ingredientes.id según entidad.
-CREATE TABLE IF NOT EXISTS historial_precios (
-  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  entidad         ENUM('producto','ingrediente') NOT NULL,
-  ref_id          INT UNSIGNED NOT NULL,
-  -- NULL sólo en el alta: antes no había precio del que venir.
-  precio_anterior DECIMAL(10,4) NULL,
-  precio_nuevo    DECIMAL(10,4) NOT NULL,
-  -- DECIMAL(10,4) cubre las dos escalas: productos.precio es (8,2) e
-  -- ingredientes.costo (10,4).
-  motivo          ENUM('alta','edicion','proveedor') NOT NULL DEFAULT 'edicion',
-  -- Sólo en los cambios que vienen de recibir mercancía a otro precio.
-  proveedor_id    INT UNSIGNED NULL,
-  -- usuarios.id es INT con signo, no UNSIGNED.
-  usuario_id      INT NULL,
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_hp_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL,
-  CONSTRAINT fk_hp_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-  -- La consulta que sirve la ficha: los últimos cambios de una entidad.
-  INDEX idx_hp_entidad (entidad, ref_id, created_at)
-);
-
--- Gastos fijos mensuales del negocio (renta, luz, agua, nómina, etc.). Se usan
--- para calcular la utilidad neta y dar transparencia financiera.
-CREATE TABLE IF NOT EXISTS gastos_fijos (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre     VARCHAR(120) NOT NULL,
-  categoria  ENUM('renta','servicios','nomina','insumos','otros') NOT NULL DEFAULT 'otros',
-  -- Monto mensual.
-  monto      DECIMAL(12,2) NOT NULL DEFAULT 0,
-  activo     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- -------------------------------------------------------
--- MENÚ
--- -------------------------------------------------------
---
--- No hay tabla propia: la carta se sirve desde 'productos' (definida arriba,
--- ver TICKETS / COMANDA). La carta pública y el POS son la misma consulta,
--- 'productos WHERE activo = 1', así que un platillo dado de baja desaparece de
--- ambos a la vez.
-
--- -------------------------------------------------------
--- FEEDBACK
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS feedback_tokens (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ticket_id  INT NOT NULL,
-  token      VARCHAR(64) NOT NULL UNIQUE,
-  usado      TINYINT(1) NOT NULL DEFAULT 0,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_feedback_token_ticket (ticket_id)
-);
-
-CREATE TABLE IF NOT EXISTS feedback (
-  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  token_id           INT UNSIGNED NULL,
-  ticket_id          INT NULL,
-  calidad_sabor      TINYINT UNSIGNED NOT NULL,
-  atencion_mesero    TINYINT UNSIGNED NOT NULL,
-  tiempo_espera      TINYINT UNSIGNED NOT NULL,
-  experiencia_global TINYINT UNSIGNED NOT NULL,
-  comentario         TEXT NULL,
-  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (token_id) REFERENCES feedback_tokens(id) ON DELETE SET NULL
-);
-
--- -------------------------------------------------------
--- IMPRESIÓN (ESC/POS)
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS impresoras (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  nombre      VARCHAR(60) NOT NULL,
-  area_id     TINYINT UNSIGNED NULL,
-  rol         ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda',
-  conexion    ENUM('red','windows') NOT NULL DEFAULT 'red',
-  host        VARCHAR(64) NOT NULL,
-  puerto      INT NOT NULL DEFAULT 9100,
-  dispositivo VARCHAR(120) NULL DEFAULT NULL,
-  ancho       TINYINT NOT NULL DEFAULT 48,
-  activo      TINYINT(1) NOT NULL DEFAULT 1,
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
-);
-
--- Alertas de impresión para el piso: una fila por documento que NO llegó a su
--- impresora (comanda de un área o cuenta de caja) con el servicio encendido.
--- Las lee el POS en su refresco y las ven todas las tablets hasta que alguien
--- las marca como atendidas. Con el servicio apagado no se escribe ninguna.
---
--- Los nombres (mesa, área, impresora) van COPIADOS y no por llave: la alerta
--- describe lo que pasó en ese momento, y un ticket descartado o una impresora
--- renombrada después no deben cambiar lo que el mesero leyó.
-CREATE TABLE IF NOT EXISTS impresion_alertas (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  documento        ENUM('comanda','cuenta') NOT NULL,
-  -- sin_impresora: no hay impresora activa para ese destino.
-  -- sin_conexion:  la impresora no respondió (apagada, IP, red).
-  -- fallo_envio:   conectó, pero el documento no terminó de salir.
-  motivo           ENUM('sin_impresora','sin_conexion','fallo_envio') NOT NULL,
-  ticket_id        INT NULL,
-  mesa_nombre      VARCHAR(60) NULL,
-  area_id          TINYINT UNSIGNED NULL,
-  area_nombre      VARCHAR(60) NULL,
-  impresora_nombre VARCHAR(60) NULL,
-  -- Mensaje técnico de la excepción. Sólo lo ve un administrador.
-  detalle          VARCHAR(255) NULL,
-  usuario_id       INT NULL,
-  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  atendida_at      DATETIME NULL,
-  atendida_por     INT NULL,
-  CONSTRAINT fk_impresion_alertas_ticket
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
-  CONSTRAINT fk_impresion_alertas_usuario
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-  CONSTRAINT fk_impresion_alertas_atendio
-    FOREIGN KEY (atendida_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_impresion_alertas_pendientes (atendida_at, created_at)
-);
-
-
--- -------------------------------------------------------
--- SUGERENCIAS (venta sugerida del POS)
--- -------------------------------------------------------
---
--- No hay tabla: la sugerencia se calcula al vuelo y no se persiste.
---
--- El motor (flujo de n8n) deduce qué ofrecer a partir de datos que ya existen:
--- los tickets cerrados del mismo cliente — vía tickets.reservacion_id ->
--- reservaciones.contacto — y los tickets de otras mesas que pidieron platillos
--- parecidos a los de ticket_items. Nada de eso necesita un log propio.
---
--- Para no repetir lo ya ofrecido, el POS excluye lo que la mesa ya pidió
--- (ticket_items) más lo que lleva visto en la sesión del modal, que manda en
--- cada llamada (ver Services\Analytics\Sugerencias). Consecuencia asumida: al reabrir
--- la mesa vuelve a salir la misma sugerencia, y un rechazo no deja rastro —
--- no hay dónde medir la conversión por producto.
--- CAMBIOS MODULO DE AJUSTES
--- -------------------------------------------------------
-CREATE TABLE IF NOT EXISTS horarios_operacion (
-  id            TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  dia_semana    TINYINT UNSIGNED NOT NULL,
-  abierto       TINYINT(1) NOT NULL DEFAULT 1,
-  hora_apertura TIME NULL,
-  hora_cierre   TIME NULL,
-  updated_by    INT NULL,
-  updated_at    TIMESTAMP NOT NULL
-                  DEFAULT CURRENT_TIMESTAMP
-                  ON UPDATE CURRENT_TIMESTAMP,
-
-  CONSTRAINT fk_horarios_operacion_usuario
-    FOREIGN KEY (updated_by)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL,
-
-  UNIQUE KEY uq_horarios_operacion_dia (dia_semana)
-);
-
-CREATE TABLE IF NOT EXISTS excepciones_operacion (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  fecha         DATE NOT NULL,
-  tipo          ENUM('cerrado', 'horario_especial') NOT NULL,
-  motivo        VARCHAR(160) NULL,
-  hora_apertura TIME NULL,
-  hora_cierre   TIME NULL,
-  activo        TINYINT(1) NOT NULL DEFAULT 1,
-  updated_by    INT NULL,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NULL DEFAULT NULL
-                  ON UPDATE CURRENT_TIMESTAMP,
-
-  CONSTRAINT fk_excepciones_operacion_usuario
-    FOREIGN KEY (updated_by)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL,
-
-  UNIQUE KEY uq_excepciones_operacion_fecha (fecha),
-  INDEX idx_excepciones_fecha_activo (fecha, activo)
-);
-
--- Seguimiento durable de reservaciones que quedan fuera del horario efectivo.
--- Estas tablas no cambian el estado canónico de `reservaciones` ni duplican PII.
-CREATE TABLE IF NOT EXISTS horario_impactos (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  tipo_origen  VARCHAR(40) NOT NULL,
-  origen_id    INT UNSIGNED NULL,
-  estado       ENUM('pendiente', 'resuelto') NOT NULL DEFAULT 'pendiente',
-  dedup_key    CHAR(64) NOT NULL,
-  created_by   INT NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  resolved_at  DATETIME NULL,
-  CONSTRAINT fk_horario_impactos_usuario
-    FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
-  UNIQUE KEY uq_horario_impactos_dedup (dedup_key),
-  INDEX idx_horario_impactos_estado_fecha (estado, created_at)
-);
-
-CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
-  id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  impacto_id            INT UNSIGNED NOT NULL,
-  reservacion_id        INT NOT NULL,
-  estado                ENUM(
-                           'pendiente_notificacion',
-                           'notificacion_preparada',
-                           'sin_contacto',
-                           'atendida_manual',
-                           'resuelta_por_cliente'
-                         ) NOT NULL,
-  notification_prepared_at DATETIME NULL,
-  access_token_hash      CHAR(64) NULL,
-  access_expires_at      DATETIME NULL,
-  access_invalidated_at  DATETIME NULL,
-  notification_attempts  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  last_notification_at   DATETIME NULL,
-  notification_delivery_status ENUM('pending', 'accepted', 'failed')
-                           NOT NULL DEFAULT 'pending',
-  notification_delivery_updated_at DATETIME NULL,
-  resolved_by           INT NULL,
-  resolved_at           DATETIME NULL,
-  created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at            TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_horario_impacto_reservaciones_impacto
-    FOREIGN KEY (impacto_id) REFERENCES horario_impactos(id) ON DELETE CASCADE,
-  CONSTRAINT fk_horario_impacto_reservaciones_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_horario_impacto_reservaciones_usuario
-    FOREIGN KEY (resolved_by) REFERENCES usuarios(id) ON DELETE SET NULL,
-  UNIQUE KEY uq_horario_impacto_reservacion (impacto_id, reservacion_id),
-  INDEX idx_horario_impacto_reservaciones_estado (impacto_id, estado),
-  INDEX idx_horario_impacto_reservaciones_access (access_token_hash, access_expires_at),
-  INDEX idx_horario_impacto_reservaciones_delivery (notification_delivery_status)
-);
-
--- Recordatorios ordinarios: una fila por raíz/tipo/fecha, sin duplicar PII.
-CREATE TABLE IF NOT EXISTS reservacion_recordatorios (
-  id                              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id                  INT NOT NULL,
-  reservacion_raiz_id             INT NOT NULL,
-  tipo                            ENUM('dia_anterior') NOT NULL DEFAULT 'dia_anterior',
-  dedup_key                       VARCHAR(191) NOT NULL,
-  access_token_hash               CHAR(64) NULL,
-  access_expires_at               DATETIME NULL,
-  access_invalidated_at           DATETIME NULL,
-  notification_delivery_status    ENUM('pending', 'accepted', 'failed')
-                                    NOT NULL DEFAULT 'pending',
-  notification_delivery_updated_at DATETIME NULL,
-  created_at                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  notification_attempts           SMALLINT UNSIGNED NOT NULL DEFAULT 1,
-  transport_claimed_at             DATETIME NULL,
-  retryable                       TINYINT(1) NOT NULL DEFAULT 0,
-  updated_at                      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reservacion_recordatorios_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_reservacion_recordatorios_raiz
-    FOREIGN KEY (reservacion_raiz_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  UNIQUE KEY uq_reservacion_recordatorios_dedup (dedup_key),
-  UNIQUE KEY uq_reservacion_recordatorios_access (access_token_hash),
-  INDEX idx_reservacion_recordatorios_reservacion (reservacion_id),
-  INDEX idx_reservacion_recordatorios_raiz (reservacion_raiz_id),
-  INDEX idx_reservacion_recordatorios_delivery (notification_delivery_status)
-);
-
--- Buzón administrativo genérico. No almacena PII ni sustituye la autoridad
--- del módulo fuente; entidad_tipo + entidad_id apunta al caso operativo.
-CREATE TABLE IF NOT EXISTS buzon_notificaciones (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  tipo           VARCHAR(80) NOT NULL,
-  modulo         VARCHAR(60) NOT NULL,
-  entidad_tipo   VARCHAR(80) NOT NULL,
-  entidad_id     INT UNSIGNED NOT NULL,
-  prioridad      ENUM('normal', 'alta') NOT NULL DEFAULT 'normal',
-  requiere_accion TINYINT(1) NOT NULL DEFAULT 1,
-  visible_from   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  leida_at       DATETIME NULL,
-  cerrada_at     DATETIME NULL,
-  cerrada_por    INT NULL,
-  cierre_motivo  VARCHAR(120) NULL,
-  dedup_key      VARCHAR(191) NOT NULL,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at     TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_buzon_notificaciones_usuario
-    FOREIGN KEY (cerrada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-  UNIQUE KEY uq_buzon_notificaciones_dedup (dedup_key),
-  INDEX idx_buzon_notificaciones_visibles (cerrada_at, visible_from),
-  INDEX idx_buzon_notificaciones_tipo (tipo, cerrada_at),
-  INDEX idx_buzon_notificaciones_accion (cerrada_at, visible_from, requiere_accion),
-  INDEX idx_buzon_notificaciones_entidad (entidad_tipo, entidad_id)
-);
-
-CREATE TABLE IF NOT EXISTS configuracion_anuncio (
-  id            TINYINT UNSIGNED NOT NULL,
-  mensaje       VARCHAR(255) NOT NULL DEFAULT '',
-  tipo          ENUM('evento', 'promocion', 'novedad_menu', 'aviso_operativo')
-                  NOT NULL DEFAULT 'evento',
-  activo        TINYINT(1) NOT NULL DEFAULT 0,
-  fecha_inicio  DATETIME NULL,
-  fecha_fin     DATETIME NULL,
-  texto_enlace  VARCHAR(80) NULL,
-  url_enlace    VARCHAR(500) NULL,
-  updated_by    INT NULL,
-  updated_at    TIMESTAMP NOT NULL
-                  DEFAULT CURRENT_TIMESTAMP
-                  ON UPDATE CURRENT_TIMESTAMP,
-
-  PRIMARY KEY (id),
-
-  CONSTRAINT fk_configuracion_anuncio_usuario
-    FOREIGN KEY (updated_by)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL
-);
-
--- Ajustes del punto de venta. Fila única (id = 1), como configuracion_anuncio:
--- son preferencias del sistema, no un catálogo.
-CREATE TABLE IF NOT EXISTS configuracion_pos (
-  id               TINYINT UNSIGNED NOT NULL,
-  -- 1 = el mesero se elige a mano al abrir la mesa (comportamiento histórico).
-  -- 0 = el campo queda bloqueado con el usuario de la sesión, para turnos en
-  --     los que cada quien usa su propia tablet y la selección manual solo
-  --     abre la puerta a asignar tickets a otro por error.
-  mesero_editable  TINYINT(1) NOT NULL DEFAULT 1,
-  -- Interruptor del SERVICIO de impresion, independiente de impresoras.activo.
-  -- 1 = las comandas y la cuenta se envian a las impresoras configuradas.
-  -- 0 = no se abre ninguna conexion: TicketPrinter corta antes de construir el
-  --     documento. Existe porque una instalacion puede tener sus cinco
-  --     impresoras dadas de alta y activas sin que el hardware este conectado
-  --     —es el caso de deploy.sql, que las siembra en 192.168.1.5x—, y cada
-  --     envio de comanda pagaba entonces el timeout de conexion por area
-  --     dentro de la peticion. Apagar impresoras.activo una por una tambien lo
-  --     evitaria, pero destruye la configuracion de cada estacion y hay que
-  --     rehacerla al reconectar el hardware; esto es un solo interruptor y no
-  --     toca ninguna fila de impresoras.
-  impresion_activa TINYINT(1) NOT NULL DEFAULT 1,
-  -- Tickets abiertos a la vez por barra. Una barra no se reserva ni cuenta en
-  -- la capacidad del salón: se llena por tickets, como Llevar pero con tope.
-  -- Al llegar al tope el pin se pinta ocupado y el siguiente ticket se rechaza.
-  max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4,
-  updated_by       INT NULL,
-  updated_at       TIMESTAMP NOT NULL
-                     DEFAULT CURRENT_TIMESTAMP
-                     ON UPDATE CURRENT_TIMESTAMP,
-
-  PRIMARY KEY (id),
-
-  CONSTRAINT chk_configuracion_pos_max_tickets_barra
-    CHECK (max_tickets_barra BETWEEN 1 AND 12),
-  CONSTRAINT fk_configuracion_pos_usuario
-    FOREIGN KEY (updated_by)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL
-);
-
--- Paleta de la landing. Fila única (id = 1), como configuracion_pos.
--- Cada columna sobrescribe UNO de los cuatro colores de la capa 1 de
--- src/scss/layout/_reset.scss (--brand-verde, --brand-oro, --brand-beige,
--- --brand-crema); escalas y roles se derivan solos con color-mix.
--- NULL = el valor del manual de marca, que es el del SCSS. Se guarda NULL y no
--- el hex de marca para que un color que nadie tocó siga al manual si algún día
--- cambia la capa 1. Sin fila, o sin tabla, la landing se pinta como siempre.
-CREATE TABLE IF NOT EXISTS configuracion_paleta (
-  id          TINYINT UNSIGNED NOT NULL,
-  verde       CHAR(7) NULL,
-  oro         CHAR(7) NULL,
-  beige       CHAR(7) NULL,
-  crema       CHAR(7) NULL,
-  updated_by  INT NULL,
-  updated_at  TIMESTAMP NOT NULL
-                DEFAULT CURRENT_TIMESTAMP
-                ON UPDATE CURRENT_TIMESTAMP,
-
-  PRIMARY KEY (id),
-
-  CONSTRAINT fk_configuracion_paleta_usuario
-    FOREIGN KEY (updated_by)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL
-);
-
--- Comunicaciones y límites de reservaciones. Fila única; el recordatorio nace
--- desactivado.
-CREATE TABLE IF NOT EXISTS configuracion_reservaciones (
-  id                                  TINYINT UNSIGNED NOT NULL,
-  recordatorio_dia_anterior_activo    TINYINT(1) NOT NULL DEFAULT 0,
-  hora_recordatorio                   TIME NOT NULL DEFAULT '18:00:00',
-  -- Grupo más grande que la landing reserva sola. Por encima, el formulario se
-  -- bloquea y manda al WhatsApp del restaurante. El techo de 16 es físico: el
-  -- bloque exterior (Mesas 8–11) tiene 16 asientos y es lo más grande que el
-  -- motor asigna sin intervención. El piso de 7 lo pone el control de
-  -- comensales de la landing, que pinta 1–6 como pastillas fijas.
-  max_comensales_publico              TINYINT UNSIGNED NOT NULL DEFAULT 12,
-  -- WhatsApp del restaurante, sólo dígitos y con lada de país. NULL = el de
-  -- .env (RESERVAS_WHATSAPP). Lo usan los grupos grandes y la agenda de catas.
-  whatsapp_reservas                   VARCHAR(20) NULL,
-  updated_by                          INT NULL,
-  updated_at                          TIMESTAMP NOT NULL
-                                        DEFAULT CURRENT_TIMESTAMP
-                                        ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  CONSTRAINT chk_configuracion_reservaciones_max_comensales
-    CHECK (max_comensales_publico BETWEEN 7 AND 16),
-  CONSTRAINT fk_configuracion_reservaciones_usuario
-    FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
-);
-
-INSERT INTO configuracion_reservaciones
-  (id, recordatorio_dia_anterior_activo, hora_recordatorio, updated_by)
-VALUES (1, 0, '18:00:00', NULL);
-
-CREATE TABLE IF NOT EXISTS reportes_sistema (
-  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  usuario_id       INT NULL,
-  modulo           VARCHAR(60) NULL,
-  titulo           VARCHAR(120) NOT NULL,
-  descripcion      TEXT NOT NULL,
-  ruta_origen VARCHAR(255) NULL,
-  navegador        ENUM(
-                       'chrome',
-                       'edge',
-                       'firefox',
-                       'safari',
-                       'otro'
-                     ) NULL,
-  navegador_otro   VARCHAR(80) NULL,
-  estado           ENUM(
-                       'nuevo',
-                       'en_revision',
-                       'resuelto',
-                       'descartado'
-                     ) NOT NULL DEFAULT 'nuevo',
-  resuelto_at      DATETIME NULL,
-  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at       TIMESTAMP NULL DEFAULT NULL
-                     ON UPDATE CURRENT_TIMESTAMP,
-
-  CONSTRAINT fk_reportes_sistema_usuario
-    FOREIGN KEY (usuario_id)
-    REFERENCES usuarios(id)
-    ON DELETE SET NULL,
-
-  INDEX idx_reportes_estado_fecha (estado, created_at),
-  INDEX idx_reportes_modulo (modulo)
-);
+-- Marca de instalación explícita de desarrollo; no contiene credenciales.
+CREATE TABLE instalacion_desarrollo (
+ id TINYINT UNSIGNED PRIMARY KEY, entorno ENUM('development','test') NOT NULL,
+ propietario_token CHAR(64) NOT NULL, administrador_id INT NULL,
+ dml_sha256 CHAR(64) NOT NULL, completada TINYINT(1) NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(administrador_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK(id=1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

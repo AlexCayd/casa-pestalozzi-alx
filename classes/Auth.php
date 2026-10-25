@@ -5,26 +5,51 @@ namespace Classes;
 use Model\Rol;
 use Model\Usuario;
 use Services\Security\Permisos;
+use Services\Security\Contextos;
+use Services\Security\PermisosUsuario;
 
 /**
- * Sesión y protección de rutas del personal.
- *
- * Un solo formulario en /login con dos pestañas (NIP y contraseña). Qué rutas
- * puede visitar cada quien lo decide su ROL con los permisos por módulo de
- * Roles y permisos: la tabla de rutas y la decisión viven en
- * Services\Security\Permisos; aquí se carga el rol de la sesión y se aplica
- * la respuesta (dejar pasar, mandar al login, negar).
- *
- * Los roles de sistema (super_admin y admin) lo tienen todo. Mesero y
- * Cocinero son roles predefinidos, editables como cualquier otro.
- *
- * Una ruta /api/... que no esté en Permisos::APIS queda pública: al añadir un
- * endpoint del personal hay que anotarlo allí.
+ * Sesión y guardia única del personal. La autorización efectiva utiliza
+ * asignaciones directas por ámbito/módulo y la excepción explícita superadmin.
+ * Los roles son metadatos; una API privada desconocida deniega por defecto.
  */
 class Auth {
 
     /** Rol de la sesión ya resuelto, por petición: [slug, nombre, sistema, permisos]. */
     private static ?array $rolCache = null;
+    private static ?array $perfilDirecto = null;
+
+    /** Selección exclusiva por esquema; no mezcla permisos de roles y directos. */
+    public static function multinegocio(): bool {
+        if (!empty($_SESSION['_auth3b'])) return true;
+        $db = Usuario::getDB();
+        if (!$db) return false;
+        try {
+            if ($db->query("SELECT version FROM esquema_versiones WHERE version='multinegocio-3b-v1'")->fetch_row()) return true;
+            throw new \RuntimeException('El esquema requiere completar la autorización 3B antes de utilizarlo.');
+        } catch (\mysqli_sql_exception $e) {
+            if ($e->getCode() === 1146) return false;
+            throw new \RuntimeException('No se pudo verificar el esquema de autenticación.');
+        }
+    }
+
+    public static function refrescar(): ?array {
+        self::$perfilDirecto = null;
+        if (!self::check()) return null;
+        try { return self::$perfilDirecto = PermisosUsuario::cargar((int)$_SESSION['id']); }
+        catch (\Throwable) { return null; }
+    }
+
+    public static function perfil(): array {
+        return self::$perfilDirecto ?? self::refrescar() ?? ['id'=>0,'activo'=>false,'super'=>false,'ambitos'=>[]];
+    }
+
+    public static function evaluar(string $ctx, string $modulo, string $nivel='ver', ?string $tabla=null, ?int $id=null): array {
+        $perfil = self::refrescar() ?? [];
+        $r = PermisosUsuario::decidir($perfil,$ctx,$modulo,$nivel,(string)($_SESSION['auth_nivel'] ?? ''));
+        if ($r['ok'] && $tabla !== null && !PermisosUsuario::recurso($perfil,$ctx,$tabla,(int)$id,$nivel,$modulo)) return ['ok'=>false,'codigo'=>'RECURSO_NO_ENCONTRADO'];
+        return $r;
+    }
 
     /** Aviso que la guardia deja para la siguiente pantalla del panel. */
     public const AVISO_PERMISO = '_aviso_permiso';
@@ -55,15 +80,27 @@ class Auth {
         }
     }
 
-    public static function login(Usuario $usuario): void {
+    public static function login(Usuario $usuario, string $metodo = 'contrasena'): void {
         self::start();
+        if (self::multinegocio()) {
+            $perfil = PermisosUsuario::cargar((int)$usuario->id);
+            $tipo = PermisosUsuario::tipoAcceso($perfil);
+            if (empty($perfil['activo']) || !in_array($metodo,['nip','contrasena'],true) || $tipo !== $metodo) throw new \RuntimeException('Método de autenticación no permitido para esta cuenta.');
+            session_regenerate_id(true);
+            $_SESSION = ['login'=>true,'id'=>(int)$usuario->id,'nombre'=>$perfil['nombre'],'username'=>$perfil['username'],'auth_nivel'=>$metodo,'_auth3b'=>true];
+            self::$perfilDirecto=$perfil;
+            self::$rolCache=null;
+            return;
+        }
         // Evitar fijación de sesión: id nuevo al autenticarse
         session_regenerate_id(true);
+        self::$rolCache = null;
         $_SESSION['login']    = true;
         $_SESSION['id']       = (int) $usuario->id;
         $_SESSION['nombre']   = $usuario->nombre;
         $_SESSION['username'] = $usuario->username;
         $_SESSION['rol']      = $usuario->rol;
+        self::cargarUnidad($usuario->unidad_id);
     }
 
     /**
@@ -102,6 +139,7 @@ class Auth {
     }
 
     public static function logout(): void {
+        self::$perfilDirecto = null;
         self::start();
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
@@ -124,6 +162,7 @@ class Auth {
     }
 
     public static function rol(): string {
+        if (self::multinegocio()) return !empty(self::perfil()['super']) ? 'super_admin' : 'usuario_directo';
         self::start();
         return (string) ($_SESSION['rol'] ?? '');
     }
@@ -140,6 +179,10 @@ class Auth {
      * @return array{slug: string, nombre: string, sistema: bool, permisos: array<string, string>}
      */
     public static function rolActual(): array {
+        if (self::multinegocio()) {
+            $p=self::perfil(); $ctx=Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
+            return ['slug'=>!empty($p['super'])?'super_admin':'usuario_directo','nombre'=>!empty($p['super'])?'Superadministrador':'Permisos directos','sistema'=>!empty($p['super']),'permisos'=>$p['ambitos'][$ctx]['permisos'] ?? []];
+        }
         $slug = (string) ($_SESSION['rol'] ?? '');
         if (self::$rolCache !== null && self::$rolCache['slug'] === $slug) {
             return self::$rolCache;
@@ -191,24 +234,32 @@ class Auth {
 
     /** Super admin o administrador: los roles de sistema, que lo tienen todo. */
     public static function esAdmin(): bool {
+        if (self::multinegocio()) return self::esSuperAdmin();
         return self::check() && Permisos::esSistema(self::rol());
     }
 
     public static function esSuperAdmin(): bool {
+        if (self::multinegocio()) return self::check() && !empty(self::perfil()['activo']) && !empty(self::perfil()['super']);
         return self::check() && self::rol() === Permisos::SUPER_ADMIN;
     }
 
     /** El rol predefinido Mesero. Las listas de meseros cuentan sólo éste. */
     public static function esMesero(): bool {
+        if (self::multinegocio()) return self::puede('pdv','operar','restaurante');
         return self::check() && self::rol() === Permisos::MESERO;
     }
 
     public static function esCocinero(): bool {
+        if (self::multinegocio()) return self::puede('area','operar','restaurante');
         return self::check() && self::rol() === Permisos::COCINERO;
     }
 
     /** ¿El rol de la sesión llega a $nivel en $modulo? */
-    public static function puede(string $modulo, string $nivel = Permisos::VER): bool {
+    public static function puede(string $modulo, string $nivel = Permisos::VER, ?string $contexto=null): bool {
+        if (self::multinegocio()) {
+            $ctx=$contexto ?? Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
+            return PermisosUsuario::decidir(self::perfil(),$ctx,$modulo,$nivel,(string)($_SESSION['auth_nivel'] ?? ''))['ok'];
+        }
         $rol = self::rolActual();
         if ($rol['sistema']) {
             return true;
@@ -220,6 +271,7 @@ class Auth {
 
     /** ¿Entra al panel (algún módulo que no sea de piso)? */
     public static function tienePanel(): bool {
+        if (self::multinegocio()) return PermisosUsuario::tipoAcceso(self::perfil()) === 'contrasena';
         $rol = self::rolActual();
 
         return $rol['sistema'] || Permisos::tienePanel($rol['permisos']);
@@ -254,7 +306,26 @@ class Auth {
 
     /** Vista inicial que corresponde a un rol tras iniciar sesión. */
     public static function destinoPorRol(?string $rol = null): string {
+        if (self::multinegocio()) {
+            foreach (self::contextos() as $ctx) if (self::puede('users','ver',$ctx)) return $ctx==='restaurante'?'/admin/usuarios':'/admin/'.$ctx.'/usuarios';
+            foreach (self::contextos() as $ctx) {
+                $habilitados = \Services\Security\ContextoNegocio::modulosHabilitados($ctx);
+                foreach (PermisosUsuario::catalogo($ctx) as $mod => $def) {
+                    if (!in_array($mod, $habilitados, true) || !self::puede($mod, 'ver', $ctx)) continue;
+                    return (string)($def['ruta'] ?? ($ctx === 'restaurante' ? '/admin' : '/admin/' . $ctx));
+                }
+            }
+            return '/login?resultado=sin_acceso';
+        }
         $resuelto = $rol === null ? self::rolActual() : self::resolverRol($rol);
+
+        $contextos = self::contextos();
+        if ($contextos === []) {
+            return '/login?resultado=sin_contexto';
+        }
+        if (!in_array('restaurante', $contextos, true) || $resuelto['slug'] === Permisos::SUPER_ADMIN) {
+            return Contextos::inicio($contextos[0]);
+        }
 
         return Permisos::destino($resuelto['sistema'], $resuelto['permisos']);
     }
@@ -269,6 +340,10 @@ class Auth {
      * vuelve a la pantalla de donde salió con el aviso de sólo consulta.
      */
     public static function proteger(string $url): void {
+        if (!Usuario::getDB()) self::negarJson(503,'No fue posible verificar el acceso.');
+        try { $directo=self::multinegocio(); }
+        catch (\Throwable) { self::negarJson(503,'No fue posible verificar el acceso.'); }
+        if ($directo) { self::protegerDirecto($url); return; }
         if (Permisos::clasificar($url)['tipo'] === 'publica') {
             return;
         }
@@ -282,6 +357,18 @@ class Auth {
         }
 
         $decision = Permisos::decidir($url, $metodo, $rol);
+
+        // Se aplica también a roles de sistema y a TODAS las APIs protegidas.
+        if ($rol !== null && !Contextos::permite($url, self::rol(), $_SESSION['unidad_slug'] ?? null)) {
+            if ($esApi) {
+                self::negarJson(403, 'No tienes acceso a este contexto de trabajo.');
+            }
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            $destinoContexto = self::destinoPorRol();
+            require __DIR__ . '/../views/auth/contexto-denegado.php';
+            exit;
+        }
 
         if ($decision['resultado'] === 'libre' || $decision['resultado'] === 'permitir') {
             return;
@@ -344,16 +431,18 @@ class Auth {
      * siguiente petición y no desde el siguiente login. Si la cuenta ya no
      * existe o está inactiva, se cierra la sesión.
      *
-     * Tolerante: si la base no responde se conserva la sesión tal cual, como
-     * antes de que existiera esta comprobación.
+     * Si la base no responde se conserva la sesión, pero la unidad queda sin
+     * verificar y no autoriza operaciones de negocio.
      */
     private static function refrescarSesion(): bool {
+        // Sin revalidación de la unidad no se reutiliza una asignación antigua.
+        $_SESSION['unidad_slug'] = 'invalida';
         try {
             $db = Usuario::getDB();
             if (!$db) {
                 return true;
             }
-            $stmt = $db->prepare('SELECT rol, activo FROM usuarios WHERE id = ? LIMIT 1');
+            $stmt = $db->prepare('SELECT u.rol, u.activo, u.unidad_id, n.slug AS unidad_slug FROM usuarios u LEFT JOIN unidades n ON n.id = u.unidad_id WHERE u.id = ? LIMIT 1');
             if (!$stmt) {
                 return true;
             }
@@ -380,7 +469,78 @@ class Auth {
             self::$rolCache = null;
         }
 
+        $_SESSION['unidad_slug'] = $fila['unidad_id'] === null ? null : ($fila['unidad_slug'] ?? 'invalida');
+
         return true;
+    }
+
+    public static function contextos(): array {
+        if (self::multinegocio()) return !empty(self::perfil()['activo']) ? array_keys(self::perfil()['ambitos']) : [];
+        $contextos = Contextos::permitidos(self::rol(), $_SESSION['unidad_slug'] ?? null);
+        // El piso de Panadería aún no existe: una asignación futura no abre el panel.
+        if (!self::tienePanel()) {
+            return array_values(array_intersect($contextos, ['restaurante']));
+        }
+        return $contextos;
+    }
+
+    private static function cargarUnidad($id): void {
+        $_SESSION['unidad_slug'] = $id === null ? null : 'invalida';
+        if ($id !== null) {
+            try {
+                $unidad = \Model\Unidad::find((int) $id);
+                $_SESSION['unidad_slug'] = $unidad ? (string) $unidad->slug : 'invalida';
+            } catch (\Throwable $e) {
+                error_log('Auth::cargarUnidad - no se pudo resolver la unidad');
+            }
+        }
+    }
+
+    private static function protegerDirecto(string $url): void {
+        $ruta=Permisos::clasificarDirecto($url);
+        if ($ruta['tipo']==='publica') return;
+        $p=self::refrescar();
+        if (!$p || empty($p['activo'])) { self::negarDirecto(401,'NO_AUTORIZADO','Vuelve a iniciar sesión.'); }
+        if (!in_array($_SESSION['auth_nivel']??'',['nip','contrasena'],true)) self::negarDirecto(401,'NO_AUTORIZADO','Vuelve a iniciar sesión.');
+        if (PermisosUsuario::tipoAcceso($p)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena') { self::negarDirecto(401,'NIVEL_AUTH_REQUERIDO','Tus permisos requieren iniciar sesión con contraseña.'); }
+        $kdsPanel=preg_match('~^/admin/area(?:/|$)~',$url)===1 || in_array($url,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true);
+        if ($kdsPanel && ($_SESSION['auth_nivel']??'')!=='contrasena') self::negarDirecto(403,'NIVEL_AUTH_REQUERIDO','Abre Producción desde su acceso operativo.');
+        // El selector no pertenece a Restaurante: el controlador valida el destino.
+        if ($url==='/admin/contexto' && ($_SESSION['auth_nivel']??'')==='contrasena') return;
+        $ctx=Contextos::deRuta($url);
+        if (!isset($p['ambitos'][$ctx])) self::negarDirecto(403,'AMBITO_DENEGADO','No tienes acceso a este ámbito.');
+        if ($ruta['tipo']==='compartida') {
+            if (($_SESSION['auth_nivel']??'')!=='contrasena') self::negarDirecto(403,'PERMISO_DENEGADO','Tu acceso operativo no permite abrir el panel administrativo.');
+            if (($p['ambitos'][$ctx]['permisos']??[])===[]) self::negarDirecto(403,'PERMISO_DENEGADO','No tienes módulos autorizados.');
+        } else {
+            $permitido=false;
+            foreach ($ruta['modulos'] as $mod) if (PermisosUsuario::permitido($p,$ctx,$mod,Permisos::nivelRequerido($_SERVER['REQUEST_METHOD']??'GET'))) $permitido=true;
+            if (!$permitido) self::negarDirecto(403,'PERMISO_DENEGADO','No tienes permiso para esta operación.');
+        }
+        // Solo los consumidores adaptados pueden ejecutar SQL en el esquema nuevo.
+        $usuarios=preg_match('~^/admin/(?:global/|panaderia/)?usuarios(?:/|$)~',$url)===1;
+        $navegacion=in_array($url,['/admin','/admin/global','/admin/panaderia','/admin/contexto'],true);
+        $adaptado=$ruta['modulos']!==[]
+            && array_diff($ruta['modulos'],\Services\Security\ContextoNegocio::modulosHabilitados($ctx))===[];
+        $soporte=$ctx==='restaurante' && $url==='/admin/api/reportes' && ($_SERVER['REQUEST_METHOD']??'GET')==='POST';
+        if (!$usuarios && !$navegacion && !$adaptado && !$soporte) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');
+    }
+
+    private static function negarDirecto(int $status,string $codigo,string $mensaje): never {
+        http_response_code($status);
+        $url=$_SERVER['PATH_INFO']??'';
+        if (str_contains($url,'/api/')) { header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'codigo'=>$codigo,'mensaje'=>$mensaje],JSON_UNESCAPED_UNICODE); }
+        else {
+            header('Content-Type: text/html; charset=utf-8');
+            $mensajeAcceso=$mensaje;
+            $tituloAcceso=$status===503?'Módulo pendiente':'Acceso denegado';
+            $destinoContexto=$status===401?'/login?tab=admin&resultado=reauth':self::destinoPorRol();
+            // Un módulo pendiente puede ser el destino operativo de la cuenta.
+            if ($status===503) $destinoContexto='/login?tab=admin';
+            $textoDestino=$status===401||$status===503?'Iniciar sesión':'Volver a mi espacio';
+            require __DIR__.'/../views/auth/contexto-denegado.php';
+        }
+        exit;
     }
 
     /**

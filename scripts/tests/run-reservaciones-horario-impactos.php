@@ -46,15 +46,17 @@ impactoAssert(!HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-
 
 $ddl = file_get_contents($root . '/database/ddl.sql');
 impactoAssert(is_string($ddl), 'se pudo leer el esquema vigente');
-impactoAssert(str_contains($ddl, 'CREATE TABLE IF NOT EXISTS buzon_notificaciones'), 'DDL crea el buzón genérico');
-foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'requiere_accion', 'dedup_key', 'uq_buzon_notificaciones_dedup', 'idx_buzon_notificaciones_visibles'] as $column) {
+impactoAssert(preg_match('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?buzon_notificaciones\s*\(/i',$ddl)===1, 'DDL crea el buzón genérico');
+foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'requiere_accion', 'dedup_key'] as $column) {
     impactoAssert(str_contains($ddl, $column), "DDL contiene {$column}");
 }
 foreach (['notification_prepared_at', 'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'notification_attempts', 'last_notification_at', 'resolved_by', 'resolved_at'] as $column) {
     impactoAssert(str_contains($ddl, $column), "DDL contiene {$column}");
 }
-impactoAssert(!str_contains($ddl, 'CREATE TABLE IF NOT EXISTS reservacion_notificaciones'), 'DDL final no crea outbox específica');
-impactoAssert(!str_contains($ddl, 'CREATE TABLE IF NOT EXISTS reservacion_magic_links'), 'DDL final no crea magic links');
+impactoAssert(preg_match('/UNIQUE KEY\s+\w+\s*\(unidad_id,\s*dedup_key\)/i',$ddl)===1,'DDL deduplica el buzón por unidad');
+impactoAssert(preg_match('/INDEX\s+\w+\s*\(unidad_id,\s*cerrada_at,\s*visible_from\)/i',$ddl)===1,'DDL indexa los avisos visibles por unidad');
+impactoAssert(preg_match('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?reservacion_notificaciones\s*\(/i',$ddl)!==1, 'DDL final no crea outbox específica');
+impactoAssert(preg_match('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?reservacion_magic_links\s*\(/i',$ddl)!==1, 'DDL final no crea magic links');
 impactoAssert(str_contains($ddl, 'notification_attempts') && str_contains($ddl, 'last_notification_at'), 'esquema conserva intentos del seguimiento');
 impactoAssert(str_contains($ddl, 'visible_from'), 'seguimiento preparado es visible de inmediato');
 

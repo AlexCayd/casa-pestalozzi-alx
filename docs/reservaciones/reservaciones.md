@@ -405,8 +405,9 @@ Acciones:
   con `version_esperada` y `mesa_ids_actuales`: si otra tablet la movió, el
   servidor responde `VERSION_DESACTUALIZADA` en vez de pisar el cambio. Navegar
   a otra hora o reserva sale del modo.
-- Comentario interno: **el mesero lo lee pero no lo edita**; sólo un admin
-  (`PERMISO_DENEGADO` en el servidor). No se escriben ahí datos de contacto.
+- Comentario interno: el personal operativo puede leer la nota de atención;
+  editarla exige `reservations/editar` en Restaurante (`PERMISO_DENEGADO` en el
+  servidor). No se escriben ahí datos de contacto.
 - «Abrir ticket de todas formas» sólo si la política permite el walk-in.
 - «Reubicada de Mesa 9 a Mesa 3», con «Marcar revisada».
 
@@ -463,12 +464,16 @@ La elegibilidad, vigencia, intentos y transporte de avisos son parte de
 [Notificaciones de reservaciones](notificaciones.md); esa fuente también define
 qué acredita `accepted` y cómo se tratan fallos o resultados inciertos.
 
-## Roles operativos
+## Permisos operativos
 
-La operación de reservaciones en el POS es una superficie compartida por los
-roles `admin` y `waiter`. Cada mutación vuelve a validar los permisos y reglas
-en backend. El mesero no ve ni captura contacto y no edita el comentario
-interno. El manejo de datos personales por rol corresponde a
+La operación de reservaciones se autoriza mediante permisos directos de
+Restaurante, con las alternativas explícitas del caso de uso (`pdv/operar`,
+`reservations_map/operar` o administración `reservations`). No se deduce del
+nombre de un rol. Las mutaciones vuelven a comprobar permisos y reglas en backend.
+
+El contacto y la edición de comentarios internos requieren los permisos administrativos
+expresos correspondientes; una sesión de piso no los recibe por tener acceso al
+mapa. El tratamiento de datos personales se rige por
 [Privacidad](../privacidad/privacidad.md).
 
 ## Autoridad de reglas y persistencia
@@ -570,36 +575,17 @@ Las consultas de administración/reporting y los locks que tienen alcance
 transaccional propio permanecen en los Services cuando no representan una
 lectura básica reutilizada.
 
-## Migración de bases existentes
+## Instalación y datos de desarrollo
 
-`database/ddl.sql` ya trae el esquema completo; una base creada de cero no
-necesita nada más. Para una base existente, en este orden —**SQL, luego código,
-luego build**— y sin recrearla:
+El esquema definitivo se reconstruye con el procedimiento único de
+[instalación](../desarrollo/instalacion.md): DDL, DML estructural, menú preservado,
+fixtures sintéticos y bootstrap seguro. No se aplica una secuencia de ALTER
+históricos a la base antigua ni se conservan registros históricos descartables.
 
-```sql
-ALTER TABLE configuracion_reservaciones
-  ADD COLUMN max_comensales_publico TINYINT UNSIGNED NOT NULL DEFAULT 12,
-  ADD COLUMN whatsapp_reservas VARCHAR(20) NULL,
-  ADD CONSTRAINT chk_configuracion_reservaciones_max_comensales
-    CHECK (max_comensales_publico BETWEEN 7 AND 16);
-
-ALTER TABLE configuracion_pos
-  ADD COLUMN max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4,
-  ADD CONSTRAINT chk_configuracion_pos_max_tickets_barra
-    CHECK (max_tickets_barra BETWEEN 1 AND 12);
-
-ALTER TABLE mesas
-  ADD COLUMN zona ENUM('interior','exterior') NULL DEFAULT NULL,
-  ADD CONSTRAINT chk_mesas_zona CHECK (zona IS NULL OR tipo = 'mesa');
-UPDATE mesas SET zona = 'interior' WHERE tipo = 'mesa' AND numero BETWEEN 1 AND 7;
-UPDATE mesas SET zona = 'exterior' WHERE tipo = 'mesa' AND numero BETWEEN 8 AND 11;
-
--- y la tabla reservacion_reubicaciones tal como está en ddl.sql
-```
-
-Las lecturas de esos campos son tolerantes: si la columna aún no existe, se usa
-el valor por defecto. Mesas nuevas sin `zona` no participan en el bloque ni como
-destino de reubicación; hoy las mesas sólo se dan de alta por SQL.
+Todas las reservas, mesas, tickets y relaciones del esquema multinegocio tienen
+unidad; las consultas y mutaciones de Restaurante la fijan en servidor. Las
+pruebas antiguas de base se adaptan al esquema vigente dentro de destinos
+identificados y desechables; no se ejecutan contra la base original por omisión.
 
 ## Referencias
 

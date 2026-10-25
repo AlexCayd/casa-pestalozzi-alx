@@ -105,7 +105,8 @@ assertReassignmentContract($withConflict[0]['ticket_id'] === 77, 'el conflicto c
 assertReassignmentContract($withConflict[0]['mesas_conflicto'] === [4], 'el conflicto identifica la mesa superpuesta');
 
 $assignmentSource = (string)file_get_contents(dirname(__DIR__, 2) . '/services/Reservations/AsignacionMesasService.php');
-$controllerSource = (string)file_get_contents(dirname(__DIR__, 2) . '/controllers/ReservacionOperacionController.php');
+$controllerSource = file_get_contents(dirname(__DIR__, 2) . '/controllers/PosReservacionController.php');
+assertReassignmentContract(is_string($controllerSource) && $controllerSource!=='','se revisa el controlador vigente de reasignación');
 assertReassignmentContract(
     strpos($assignmentSource, 'if ($modoMapaAdministrativo || empty($opciones[\'permitir_superposicion_ticket_abierto\']))') !== false,
     'el mapa administrativo no abre confirmacion para un ticket ajeno'

@@ -15,6 +15,7 @@ use MVC\Router;
 use Services\Finance\DiagnosticoFinanciero;
 use Services\Inventory\Inventario;
 use Services\Shared\RangoPeriodo;
+use Services\Security\ContextoNegocio;
 
 class AdminFinanzasController
 {
@@ -62,6 +63,49 @@ class AdminFinanzasController
 
         try {
             $db = Producto::getDB();
+
+            if (ContextoNegocio::nuevo()) {
+                if (ContextoNegocio::slug() !== 'restaurante') {
+                    throw new \RuntimeException('Las finanzas solo están disponibles para Restaurante.');
+                }
+                ContextoNegocio::exigir('finanzas', 'ver', 'restaurante');
+                $unidad = ContextoNegocio::unidad('restaurante');
+                $datos = self::agregadosRestaurante($db, $unidad, (string)$rango['start'], (string)$rango['end']);
+                if (!empty($rango['comparar'])) {
+                    $previo = self::agregadosRestaurante($db, $unidad, (string)$rango['prevStart'], (string)$rango['prevEnd']);
+                }
+                $merma = self::mermaRestaurante($db, $unidad, (string)$rango['start'], (string)$rango['end']);
+                if (!empty($rango['comparar'])) {
+                    $mermaPrev = self::mermaRestaurante($db, $unidad, (string)$rango['prevStart'], (string)$rango['prevEnd']);
+                }
+                $factorGastos = ((int)$rango['dias']) / 30;
+                $gastos = GastoFijo::todos();
+                foreach ($gastos as $g) {
+                    if (!(int)$g->activo) continue;
+                    $monto = (float)$g->monto * $factorGastos;
+                    $totalGastos += $monto;
+                    $gastosPorCategoria[$g->categoria] = ($gastosPorCategoria[$g->categoria] ?? 0.0) + $monto;
+                    $gastosMensuales[$g->categoria] = ($gastosMensuales[$g->categoria] ?? 0.0) + (float)$g->monto;
+                }
+                arsort($gastosPorCategoria);
+                arsort($gastosMensuales);
+                $s = $db->prepare('SELECT COALESCE(SUM(aa.saldo * COALESCE(ip.costo,0)),0) valor FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id LEFT JOIN (SELECT unidad_id,ingrediente_id,CASE WHEN SUM(preferente=1)=1 THEN MAX(CASE WHEN preferente=1 THEN costo END) WHEN SUM(preferente=1)=0 AND COUNT(*)=1 THEN MAX(costo) ELSE NULL END costo FROM ingrediente_proveedores GROUP BY unidad_id,ingrediente_id) ip ON ip.unidad_id=aa.unidad_id AND ip.ingrediente_id=aa.articulo_id WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1');
+                $s->execute([$unidad]);
+                $inventarioValor = (float)($s->get_result()->fetch_assoc()['valor'] ?? 0);
+                $s = $db->prepare("SELECT ti.oferta_id, MAX(ti.nombre) nombre,
+                        SUM(ti.precio*ti.cantidad)/NULLIF(SUM(ti.cantidad),0) precio,
+                        SUM(ti.costo_unitario*ti.cantidad)/NULLIF(SUM(ti.cantidad),0) costo,
+                        SUM(ti.cantidad) unidades, SUM(CASE WHEN ti.costo_unitario IS NULL THEN ti.cantidad ELSE 0 END) sin_costo
+                    FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id
+                    WHERE ti.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND ti.created_at>=? AND ti.created_at<=?
+                    GROUP BY ti.oferta_id HAVING unidades>0 ORDER BY nombre");
+                $s->execute([$unidad, (string)$rango['start'].' 00:00:00', (string)$rango['end'].' 23:59:59']);
+                foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+                    if ((float)$row['sin_costo'] > 0 || $row['costo'] === null) continue;
+                    $precio=(float)$row['precio']; $costo=(float)$row['costo'];
+                    $rentabilidad[]=['nombre'=>$row['nombre'],'precio'=>$precio,'costo'=>$costo,'margen'=>$precio-$costo,'margen_pct'=>$precio>0?(($precio-$costo)/$precio)*100:0];
+                }
+            } else {
 
             // Mapa nombre → producto (para enlazar ventas con recetas por nombre).
             $productosPorNombre = [];
@@ -154,6 +198,7 @@ class AdminFinanzasController
                     ];
                 }
             }
+            }
         } catch (\Throwable $e) {
             GastoFijo::setAlerta('error', 'No se pudieron cargar los datos financieros. ¿Ya corriste la migración de la BD?');
         }
@@ -185,7 +230,9 @@ class AdminFinanzasController
         $rangoCortes = ['start' => (string) $rango['start'], 'end' => (string) $rango['end']];
         $cortes = [];
         try {
-            $cortes = self::cortes($rangoCortes['start'], $rangoCortes['end']);
+            $cortes = ContextoNegocio::nuevo()
+                ? self::cortesRestaurante($rangoCortes['start'], $rangoCortes['end'])
+                : self::cortes($rangoCortes['start'], $rangoCortes['end']);
         } catch (\Throwable $e) {
             error_log('AdminFinanzasController::cortes - ' . $e->getMessage());
         }
@@ -319,6 +366,43 @@ class AdminFinanzasController
         return ($res && ($row = $res->fetch_assoc())) ? (float) $row['valor'] : 0.0;
     }
 
+    private static function agregadosRestaurante(\mysqli $db, int $unidad, string $start, string $end): array
+    {
+        $r=['ingresos'=>0.0,'propinas'=>0.0,'tickets'=>0,'cogs'=>0.0,'sinCosto'=>0.0];
+        $cierre='COALESCE(t.hora_cierre,t.hora_apertura)';
+        $s=$db->prepare("SELECT COALESCE(SUM(ti.precio*ti.cantidad),0) ingresos,
+            COALESCE(SUM(CASE WHEN ti.costo_unitario IS NULL THEN ti.precio*ti.cantidad ELSE 0 END),0) sin_costo
+            FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id
+            WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND {$cierre}>=? AND {$cierre}<=?");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']);
+        $f=$s->get_result()->fetch_assoc() ?: [];
+        $r['ingresos']=(float)($f['ingresos']??0); $r['sinCosto']=(float)($f['sin_costo']??0);
+        $s=$db->prepare("SELECT COUNT(*) n,COALESCE(SUM(t.propina),0) propinas FROM tickets t WHERE t.unidad_id=? AND t.estado='cerrado' AND {$cierre}>=? AND {$cierre}<=?");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']); $f=$s->get_result()->fetch_assoc() ?: [];
+        $r['tickets']=(int)($f['n']??0); $r['propinas']=(float)($f['propinas']??0);
+        $s=$db->prepare("SELECT COALESCE(SUM(ti.costo_unitario*ti.cantidad),0) cogs FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND ti.costo_unitario IS NOT NULL AND {$cierre}>=? AND {$cierre}<=?");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']); $r['cogs']=(float)($s->get_result()->fetch_assoc()['cogs']??0);
+        return $r;
+    }
+
+    private static function mermaRestaurante(\mysqli $db, int $unidad, string $start, string $end): float
+    {
+        $s=$db->prepare("SELECT COALESCE(SUM(ABS(delta)*costo_unitario),0) valor FROM movimientos_inventario WHERE unidad_id=? AND tipo='merma' AND costo_unitario IS NOT NULL AND fecha>=? AND fecha<=?");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']);
+        return (float)($s->get_result()->fetch_assoc()['valor']??0);
+    }
+
+    private static function cortesRestaurante(string $start, string $end): array
+    {
+        $db=Producto::getDB(); $unidad=ContextoNegocio::unidad('restaurante'); $cierre='COALESCE(t.hora_cierre,t.hora_apertura)';
+        $s=$db->prepare("SELECT DATE({$cierre}) dia,t.metodo_pago,t.propina,COALESCE((SELECT SUM(ti.precio*ti.cantidad) FROM ticket_items ti WHERE ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id AND ti.estado<>'cancelado'),0) total FROM tickets t WHERE t.unidad_id=? AND t.estado='cerrado' AND {$cierre}>=? AND {$cierre}<=?");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']); $dias=[];
+        foreach($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row){$d=$row['dia'];$dias[$d]??=['fecha'=>$d,'tickets'=>0,'ventas'=>0.0,'propinas'=>0.0,'efectivo'=>0.0,'tarjeta'=>0.0];$v=(float)$row['total'];$p=(float)$row['propina'];$dias[$d]['tickets']++;$dias[$d]['ventas']+=$v;$dias[$d]['propinas']+=$p;if($row['metodo_pago']==='efectivo')$dias[$d]['efectivo']+=$v+$p;elseif($row['metodo_pago']==='tarjeta')$dias[$d]['tarjeta']+=$v+$p;}
+        $s=$db->prepare("SELECT DATE({$cierre}) dia,tp.metodo_pago,SUM(tp.monto) monto FROM ticket_pagos tp JOIN tickets t ON t.id=tp.ticket_id AND t.unidad_id=tp.unidad_id WHERE tp.unidad_id=? AND t.estado='cerrado' AND t.metodo_pago='dividido' AND {$cierre}>=? AND {$cierre}<=? GROUP BY dia,tp.metodo_pago");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']); foreach($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row){if(!isset($dias[$row['dia']]))continue;if($row['metodo_pago']==='efectivo')$dias[$row['dia']]['efectivo']+=(float)$row['monto'];elseif($row['metodo_pago']==='tarjeta')$dias[$row['dia']]['tarjeta']+=(float)$row['monto'];}
+        foreach($dias as &$d)$d['total']=$d['ventas']+$d['propinas'];unset($d);krsort($dias);return array_values($dias);
+    }
+
     /**
      * Ingresos, propinas, tickets y COGS de un tramo de fechas. Se extrajo del
      * cuerpo de index() para poder pedir también el periodo anterior sin
@@ -408,12 +492,21 @@ class AdminFinanzasController
 
     public static function guardarGasto(Router $router): void
     {
+        if (ContextoNegocio::nuevo()) {
+            if (ContextoNegocio::slug() !== 'restaurante') throw new \RuntimeException('Las finanzas solo están disponibles para Restaurante.');
+            ContextoNegocio::exigir('finanzas', 'editar', 'restaurante');
+        }
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirect(self::PATH);
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $gasto = $id ? GastoFijo::find($id) : new GastoFijo();
+        if ($id && !$gasto && ContextoNegocio::nuevo()) {
+            GastoFijo::setAlerta('error', 'El gasto no existe en Restaurante.');
+            self::index($router);
+            return;
+        }
         if (!$gasto) {
             $gasto = new GastoFijo();
         }
@@ -423,8 +516,12 @@ class AdminFinanzasController
         $alertas = $gasto->validar();
 
         if (empty($alertas)) {
-            $gasto->guardar();
-            GastoFijo::setAlerta('exito', $id ? 'Gasto actualizado' : 'Gasto agregado');
+            $guardado = $gasto->guardar();
+            if (!ContextoNegocio::nuevo() || $guardado === true || (is_array($guardado) && ($guardado['resultado'] ?? false))) {
+                GastoFijo::setAlerta('exito', $id ? 'Gasto actualizado' : 'Gasto agregado');
+            } else {
+                GastoFijo::setAlerta('error', 'No se confirmó el guardado del gasto.');
+            }
         }
 
         self::index($router);
@@ -432,6 +529,10 @@ class AdminFinanzasController
 
     public static function eliminarGasto(Router $router): void
     {
+        if (ContextoNegocio::nuevo()) {
+            if (ContextoNegocio::slug() !== 'restaurante') throw new \RuntimeException('Las finanzas solo están disponibles para Restaurante.');
+            ContextoNegocio::exigir('finanzas', 'editar', 'restaurante');
+        }
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirect(self::PATH);
         }
@@ -440,6 +541,8 @@ class AdminFinanzasController
         $gasto = $id ? GastoFijo::find($id) : null;
         if ($gasto && $gasto->eliminar()) {
             GastoFijo::setAlerta('exito', 'Gasto eliminado');
+        } elseif (ContextoNegocio::nuevo()) {
+            GastoFijo::setAlerta('error', 'No se confirmó la eliminación del gasto.');
         }
 
         self::index($router);

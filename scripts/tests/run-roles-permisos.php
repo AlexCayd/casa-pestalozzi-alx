@@ -109,17 +109,22 @@ $assert(!RolService::puedeAsignar($gerente, 'contador', ['finanzas' => 'ver']), 
 $assert(!RolService::puedeGestionar($super, Rol::TIPO_SISTEMA, Permisos::todos()), 'Los roles de sistema no los edita nadie, ni el super admin.');
 $assert(RolService::puedeGestionar($admin, Rol::TIPO_PREDEFINIDO, ['pdv' => 'editar']), 'Mesero y Cocinero se editan.');
 
-// 7 · Base: los cuatro roles, la llave foránea y la migración de los admins.
+// 7 · Base 3A: roles existentes, membresías por ámbito y seeds sin identidades de prueba.
 $ddl = $leer('database/ddl.sql');
-$assert(str_contains($ddl, 'CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol) REFERENCES roles(slug)'), 'usuarios.rol apunta a roles.slug.');
-$assert(strpos($ddl, 'CREATE TABLE IF NOT EXISTS roles') < strpos($ddl, 'CREATE TABLE IF NOT EXISTS usuarios'), 'roles se crea antes que usuarios.');
-$assert(strpos($ddl, 'DROP TABLE IF EXISTS roles;') > strpos($ddl, 'DROP TABLE IF EXISTS usuarios;'), 'roles se borra después que usuarios.');
+$assert(str_contains($ddl, 'FOREIGN KEY(rol_id) REFERENCES roles(id)'), 'La membresía apunta al rol por identidad.');
+$assert(strpos($ddl, 'CREATE TABLE roles') < strpos($ddl, 'CREATE TABLE usuario_unidades'), 'El rol se crea antes que sus membresías.');
+$assert(str_contains($ddl, 'PRIMARY KEY(usuario_id,unidad_id)') && str_contains($ddl, 'trg_membresia_rol_insert'), 'La membresía es única por unidad y rechaza roles locales ajenos.');
 $deploy = $leer('database/deploy.sql');
 foreach (['super_admin', 'admin', 'waiter', 'cook'] as $slug) {
-    $assert(preg_match("/\\(\\d+, '{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
+    $assert(preg_match("/\\(\\d+,\\s*'{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
 }
-$assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO mesas'), 'Los roles se siembran al principio de deploy.sql.');
-$assert(str_contains($leer('database/development.sql'), "NULL, NULL, 'super_admin', 1)"), 'El admin de desarrollo es super admin.');
+$assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cartas'), 'Los roles se siembran antes del catálogo por negocio.');
+$development=$leer('database/development.sql');
+$soloReferencias=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
+    && substr_count($referencias[1],",'0','0')")===3
+    && substr_count($referencias[1],'dev_')===3;
+$assert($soloReferencias,'Development solo contiene las tres identidades sintéticas inactivas y sin privilegio superadmin, no cuentas históricas activas.');
+$assert(!preg_match("/INSERT\\s+INTO\\s+usuarios[^;]*'admin_demo'/si",$development),'La cuenta conocida se aprovisiona mediante bootstrap y no mediante DML automático.');
 
 // 8 · Nadie decide permisos con el rol escrito a mano.
 foreach (['controllers/PuntoVentaController.php', 'controllers/PosReservacionController.php', 'views/punto-de-venta/partials/pos-alta.php', 'views/area/index.php'] as $archivo) {

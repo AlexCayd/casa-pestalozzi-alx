@@ -1,0 +1,21 @@
+<section class="admin-panel admin-card"><h3>Catálogo maestro de artículos</h3><p><?php echo (int)$catalogo['total']; ?> artículos compartidos. Su identidad y costo son comunes; las existencias pertenecen a cada almacén.</p>
+<?php if(!$catalogo['articulos']): ?><div class="admin-empty"><strong>Sin artículos para esta búsqueda</strong></div><?php else: ?>
+<div class="admin-table-wrap" data-scrollable><table class="admin-table"><thead><tr><th>Artículo</th><th>Unidad</th><th>Costo maestro</th><th>Estado</th><th>Administración</th></tr></thead><tbody>
+<?php foreach($catalogo['articulos'] as $articulo): $artId=(int)$articulo['id']; ?><tr><td><strong><?php echo $esc($articulo['nombre']); ?></strong></td><td><?php echo $esc($articulo['unidad']); ?></td><td class="admin-num"><?php echo $esc('$'.$articulo['costo']); ?></td><td><?php echo (int)$articulo['activo']?'Activo':'Inactivo'; ?></td><td>
+<?php if($puedeCatalogo): ?><details><summary>Editar artículo</summary><form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid">
+    <?php $campos('editar_articulo',['articulo_id'=>$artId]); ?>
+    <div class="admin-field"><label class="admin-field__label" for="articulo-<?php echo $artId; ?>-nombre">Nombre</label><input id="articulo-<?php echo $artId; ?>-nombre" name="nombre" maxlength="120" value="<?php echo $esc($articulo['nombre']); ?>" required></div>
+    <div class="admin-field"><label class="admin-field__label" for="articulo-<?php echo $artId; ?>-unidad">Unidad</label><select id="articulo-<?php echo $artId; ?>-unidad" name="unidad"><?php foreach(['g','kg','ml','l','pza'] as $medida): ?><option value="<?php echo $medida; ?>" <?php echo $articulo['unidad']===$medida?'selected':''; ?>><?php echo $medida; ?></option><?php endforeach; ?></select><p class="admin-field__hint">La unidad no cambia después de registrar movimientos.</p></div>
+    <div class="admin-field"><label class="admin-field__label" for="articulo-<?php echo $artId; ?>-costo">Costo unitario</label><input id="articulo-<?php echo $artId; ?>-costo" name="costo" type="number" min="0" step="0.0001" inputmode="decimal" value="<?php echo $esc($articulo['costo']); ?>" required></div>
+    <div class="admin-field"><label><input name="activo" type="checkbox" value="1" <?php echo (int)$articulo['activo']?'checked':''; ?>> Artículo activo</label><p class="admin-field__hint">Para inactivarlo, no puede tener saldos pendientes.</p></div>
+    <div class="admin-form-grid__actions"><button type="submit" class="admin-btn admin-btn--primary">Guardar artículo</button></div>
+</form></details><?php else: ?>Solo consulta<?php endif; ?>
+</td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section>
+<?php if($puedeCatalogo): ?><section class="admin-panel admin-card"><h3>Crear artículo compartido</h3>
+<form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid"><?php $campos('crear_articulo'); ?>
+    <div class="admin-field"><label class="admin-field__label" for="nuevo-articulo-nombre">Nombre</label><input id="nuevo-articulo-nombre" name="nombre" maxlength="120" required></div>
+    <div class="admin-field"><label class="admin-field__label" for="nuevo-articulo-unidad">Unidad</label><select id="nuevo-articulo-unidad" name="unidad"><?php foreach(['g','kg','ml','l','pza'] as $medida): ?><option value="<?php echo $medida; ?>"><?php echo $medida; ?></option><?php endforeach; ?></select></div>
+    <div class="admin-field"><label class="admin-field__label" for="nuevo-articulo-costo">Costo unitario</label><input id="nuevo-articulo-costo" name="costo" type="number" min="0" step="0.0001" value="0.0000" inputmode="decimal" required></div>
+    <div class="admin-field"><label><input name="activo" type="checkbox" value="1" checked> Artículo activo</label></div>
+    <div class="admin-form-grid__actions"><button type="submit" class="admin-btn admin-btn--primary">Crear artículo</button></div>
+</form></section><?php endif; ?>
