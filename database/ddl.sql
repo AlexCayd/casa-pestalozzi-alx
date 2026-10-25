@@ -156,6 +156,7 @@ CREATE TABLE esquema_versiones(version VARCHAR(64) PRIMARY KEY, applied_at TIMES
 
 CREATE TABLE ingredientes (
  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(120) NOT NULL, unidad ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
+ UNIQUE KEY uq_articulo_nombre(nombre),
  costo DECIMAL(10,4) NOT NULL DEFAULT 0, activo TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, CHECK(costo>=0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -277,7 +278,7 @@ CREATE TABLE ticket_mesas (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE movimientos_inventario (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, operacion_id BIGINT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
- almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, tipo ENUM('entrada','venta','merma','ajuste','cancelacion','transferencia_salida','transferencia_entrada') NOT NULL,
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, tipo ENUM('entrada','venta','salida','merma','ajuste','cancelacion','transferencia_salida','transferencia_entrada') NOT NULL,
  delta DECIMAL(12,3) NOT NULL, motivo VARCHAR(80) NULL, nota VARCHAR(255) NULL, costo_unitario DECIMAL(10,4) NULL,
  ticket_item_id INT UNSIGNED NULL, movimiento_origen_id BIGINT UNSIGNED NULL, transferencia_linea_id BIGINT UNSIGNED NULL,
  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -286,8 +287,14 @@ CREATE TABLE movimientos_inventario (
  FOREIGN KEY(ticket_item_id,unidad_id) REFERENCES ticket_items(id,unidad_id) ON DELETE RESTRICT,
  FOREIGN KEY(movimiento_origen_id,almacen_id,articulo_id,unidad_id) REFERENCES movimientos_inventario(id,almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
  UNIQUE KEY uq_mov_id_almacen_articulo_unidad(id,almacen_id,articulo_id,unidad_id), UNIQUE KEY uq_mov_operacion_origen(operacion_id,movimiento_origen_id), INDEX idx_mov_articulo(almacen_id,articulo_id,fecha),
- CHECK(delta<>0), CHECK((tipo IN('entrada','cancelacion','transferencia_entrada') AND delta>0) OR (tipo IN('venta','merma','transferencia_salida') AND delta<0) OR tipo='ajuste'), CHECK(costo_unitario IS NULL OR costo_unitario>=0)
+ CHECK(delta<>0), CHECK((tipo IN('entrada','cancelacion','transferencia_entrada') AND delta>0) OR (tipo IN('venta','salida','merma','transferencia_salida') AND delta<0) OR tipo='ajuste'), CHECK(costo_unitario IS NULL OR costo_unitario>=0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+DELIMITER //
+CREATE TRIGGER trg_movimientos_inmutables_update BEFORE UPDATE ON movimientos_inventario FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Movimiento inmutable: registrar compensacion'; END//
+CREATE TRIGGER trg_movimientos_inmutables_delete BEFORE DELETE ON movimientos_inventario FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Movimiento inmutable: registrar compensacion'; END//
+DELIMITER ;
 
 CREATE TABLE transferencias (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, almacen_origen_id BIGINT UNSIGNED NOT NULL, origen_unidad_id TINYINT UNSIGNED NOT NULL,

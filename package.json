@@ -12,6 +12,8 @@
     "test:menu-preservacion:db": "php scripts/tests/run-menu-preservacion-db.php",
     "test:multinegocio:3a": "php scripts/tests/run-multinegocio-3a.php",
     "test:multinegocio:3b": "php scripts/tests/run-multinegocio-3b.php",
+    "test:almacenes:3c": "php scripts/tests/run-almacenes-3c.php",
+    "test:almacenes:concurrencia": "php scripts/tests/run-almacenes-3c-concurrencia.php",
     "test:menu-pdf": "php scripts/tests/run-notifications-isolated.php run-reservaciones-menu-pdf.php",
     "test:pos-print-alerts": "php scripts/tests/run-notifications-isolated.php run-pos-print-alerts-db.php",
     "test:pos-llevar": "php scripts/tests/run-notifications-isolated.php run-pos-llevar-multiples-db.php",

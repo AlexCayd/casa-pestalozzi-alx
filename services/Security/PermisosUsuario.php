@@ -23,16 +23,17 @@ final class PermisosUsuario
         return $modulos;
     }
 
-    public static function cargar(int $id, ?\mysqli $db = null): array
+    public static function cargar(int $id, ?\mysqli $db = null, bool $bloquear = false): array
     {
         $db ??= ActiveRecord::getDB();
         if (!$db || $id < 1) throw new \RuntimeException('No se pudo verificar la identidad.');
-        $stmt = $db->prepare('SELECT id,nombre,username,activo,es_superadmin FROM usuarios WHERE id=?');
+        $lock = $bloquear ? ' FOR SHARE' : '';
+        $stmt = $db->prepare('SELECT id,nombre,username,activo,es_superadmin FROM usuarios WHERE id=?' . $lock);
         $stmt->execute([$id]);
         $fila = $stmt->get_result()->fetch_assoc();
         if (!$fila) return ['id' => $id, 'nombre' => '', 'username' => '', 'activo' => false, 'super' => false, 'ambitos' => []];
         $perfil = ['id' => (int)$fila['id'], 'nombre' => $fila['nombre'], 'username' => $fila['username'], 'activo' => (int)$fila['activo'] === 1, 'super' => (int)$fila['es_superadmin'] === 1, 'ambitos' => []];
-        $stmt = $db->prepare('SELECT u.id,u.slug FROM usuario_unidades m JOIN unidades u ON u.id=m.unidad_id WHERE m.usuario_id=? AND m.activo=1 ORDER BY u.id');
+        $stmt = $db->prepare('SELECT u.id,u.slug FROM usuario_unidades m JOIN unidades u ON u.id=m.unidad_id WHERE m.usuario_id=? AND m.activo=1 ORDER BY u.id' . $lock);
         $stmt->execute([$id]);
         $unidades = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         if ($perfil['super']) $unidades = $db->query('SELECT id,slug FROM unidades ORDER BY id')->fetch_all(MYSQLI_ASSOC);
@@ -41,13 +42,13 @@ final class PermisosUsuario
             if (!isset(Contextos::NOMBRES[$slug])) continue;
             $perfil['ambitos'][$slug] = ['id' => (int)$unidad['id'], 'permisos' => [], 'facultades' => []];
         }
-        $stmt = $db->prepare('SELECT u.slug,p.modulo,p.nivel FROM usuario_unidad_permisos p JOIN unidades u ON u.id=p.unidad_id JOIN usuario_unidades m ON m.usuario_id=p.usuario_id AND m.unidad_id=p.unidad_id WHERE p.usuario_id=? AND m.activo=1');
+        $stmt = $db->prepare('SELECT u.slug,p.modulo,p.nivel FROM usuario_unidad_permisos p JOIN unidades u ON u.id=p.unidad_id JOIN usuario_unidades m ON m.usuario_id=p.usuario_id AND m.unidad_id=p.unidad_id WHERE p.usuario_id=? AND m.activo=1' . $lock);
         $stmt->execute([$id]);
         foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $p) {
             $catalogo = self::catalogo($p['slug']);
             if (isset($perfil['ambitos'][$p['slug']], $catalogo[$p['modulo']]) && in_array($p['nivel'], $catalogo[$p['modulo']]['niveles'], true)) $perfil['ambitos'][$p['slug']]['permisos'][$p['modulo']] = $p['nivel'];
         }
-        $stmt = $db->prepare('SELECT u.slug,f.facultad FROM usuario_unidad_facultades f JOIN unidades u ON u.id=f.unidad_id JOIN usuario_unidades m ON m.usuario_id=f.usuario_id AND m.unidad_id=f.unidad_id WHERE f.usuario_id=? AND m.activo=1');
+        $stmt = $db->prepare('SELECT u.slug,f.facultad FROM usuario_unidad_facultades f JOIN unidades u ON u.id=f.unidad_id WHERE f.usuario_id=? AND EXISTS(SELECT 1 FROM usuario_unidades m WHERE m.usuario_id=f.usuario_id AND m.unidad_id=f.unidad_id AND m.activo=1)' . $lock);
         $stmt->execute([$id]);
         foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
             if (isset($perfil['ambitos'][$f['slug']])) $perfil['ambitos'][$f['slug']]['facultades'][] = $f['facultad'];
