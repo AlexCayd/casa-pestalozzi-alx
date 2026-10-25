@@ -35,7 +35,7 @@ Los tickets de desarrollo tienen unidad vendedora Restaurante. Global no vende. 
 
 ## Instalación, credenciales y aislamiento
 
-La guía única es [instalación](instalacion.md). `development.sql` contiene únicamente el hash bcrypt de `admin_demo` y lo inserta solo con el guard de sesión que establece el instalador CLI para `development`/`test`; el bootstrap valida `DEV_SUPERADMIN_PASSWORD` local contra el hash y registra la propiedad. `deploy.sql` no incorpora la cuenta. Las decisiones rectoras y la [arquitectura vigente](../arquitectura.md) describen los límites funcionales.
+La guía de instalación soportada es [instalación](instalacion.md). `development.sql` contiene únicamente el hash bcrypt de `admin_demo`: el instalador CLI lo inserta bajo un guard explícito de `development`/`test` y después el bootstrap valida `DEV_SUPERADMIN_PASSWORD` local y registra la propiedad. La prueba de importación SQL directa también valida el DML sin el marcador del instalador, en una base aleatoria identificada exclusivamente como test; ese método no sustituye el procedimiento CLI ni debe usarse fuera de una base local nueva/controlada. `deploy.sql` no incorpora la cuenta. Las decisiones rectoras y la [arquitectura vigente](../arquitectura.md) describen los límites funcionales.
 
 Los ensayos usaron `run-instalacion-3e.php` con dos esquemas temporales aleatorios sobre MySQL local. La herramienta no se conectó a la base persistente seleccionada como destino de escrituras y no ejecutó `DROP` sobre ella. La contraseña se entregó mediante variable de entorno temporal del proceso y se quitó al finalizar; el texto claro no se guardó en archivos versionados. El hash bcrypt sí está en el DML de desarrollo. No hubo acceso a SMTP, impresoras físicas ni servicios externos.
 

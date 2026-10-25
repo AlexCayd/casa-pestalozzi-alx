@@ -67,9 +67,11 @@ rechaza una existente. El orden es:
 3. `database/menu-restaurante.sql`: los 112 productos/ofertas originales y sus
    15 categorías, 3 cartas y 4 áreas; las 13 imágenes están versionadas.
 4. `database/development.sql`: escenarios sintéticos con saldos trazables.
-5. El seed de `database/development.sql` inserta `admin_demo` con hash bcrypt
-   únicamente bajo el guard que activa el instalador CLI en development/test;
-   el bootstrap valida `DEV_SUPERADMIN_PASSWORD` de configuración local.
+5. El seed de `database/development.sql` contiene solo el hash bcrypt de
+   `admin_demo`: el instalador CLI lo habilita explícitamente en development/test;
+   una importación SQL directa de los archivos de desarrollo lo habilita solo si
+   no existe el marcador del instalador. El bootstrap CLI valida
+   `DEV_SUPERADMIN_PASSWORD` de configuración local.
 
 `deploy.sql` no crea `admin_demo`; el seed no almacena texto claro ni se ejecuta
 en producción. El bootstrap no duplica cuentas, no promueve un homónimo ajeno ni

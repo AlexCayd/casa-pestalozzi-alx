@@ -1,46 +1,41 @@
--- Casa Pestalozzi: reemplazo de los dos bloques anteriores que insertaban
--- admin_demo y sus membresias en database/development.sql.
--- Usar SOLO en desarrollo/test. NO agregar a deploy.sql ni a produccion.
--- Bcrypt verificado para la contrasena local acordada.
---
--- Compatibilidad con los dos metodos de instalacion:
--- 1) Importacion SQL directa (ddl -> deploy -> menu -> development):
---    no existe _cp_instalacion_owner, por lo que crea admin_demo.
--- 2) Instalador CLI oficial: crea _cp_instalacion_owner ANTES de cargar el SQL;
---    aqui se omite admin_demo porque BootstrapDesarrollo lo crea despues.
--- No requiere ejecutar un script PHP por separado para el metodo 1.
-
-SET @cp_dev_admin_demo_seed = (
+-- Fixtures reproducibles 3E, exclusivamente development/test.
+-- Requiere ddl.sql, deploy.sql y menu-restaurante.sql en una base nueva.
+-- Se ejecuta una sola vez: las PK y el marcador rechazan una segunda carga.
+-- Las cuentas de referencia permanecen inactivas, sin credenciales conocidas.
+-- admin_demo se inserta solo en el DML development/test: en importacion directa si falta marca de instalador, o por guard CLI.
+SET NAMES utf8mb4;
+START TRANSACTION;
+SET @cp_dev_admin_demo_seed = COALESCE(@cp_dev_admin_demo_seed, (
   SELECT IF(COUNT(*) = 0, 1, 0)
   FROM information_schema.TABLES
   WHERE TABLE_SCHEMA = DATABASE()
     AND TABLE_NAME = '_cp_instalacion_owner'
-);
-
-INSERT INTO usuarios (username, nombre, password_hash, activo, es_superadmin)
-SELECT 'admin_demo', 'Administrador de desarrollo',
-       '$2y$10$DQ66kBvQDeSLRs14KmPan.KzDcy770MUnjK4WqSY84ca/ffhjYx3W',
-       1, 1
-WHERE @cp_dev_admin_demo_seed = 1
-  AND NOT EXISTS (
-    SELECT 1 FROM usuarios WHERE username = 'admin_demo'
-  );
-
-INSERT INTO usuario_unidades (usuario_id, unidad_id, rol_id, activo)
-SELECT u.id, un.id, NULL, 1
-FROM usuarios AS u
-JOIN unidades AS un ON un.slug IN ('global', 'restaurante', 'panaderia')
-WHERE @cp_dev_admin_demo_seed = 1
-  AND u.username = 'admin_demo'
-  AND u.activo = 1
-  AND u.es_superadmin = 1
-  AND u.password_hash = '$2y$10$DQ66kBvQDeSLRs14KmPan.KzDcy770MUnjK4WqSY84ca/ffhjYx3W'
-  AND NOT EXISTS (
-    SELECT 1 FROM usuario_unidades AS m
-    WHERE m.usuario_id = u.id AND m.unidad_id = un.id
-  );
-
-SET @cp_dev_admin_demo_seed = NULL;
+));
+SET @dev_ayer=DATE_SUB(CURDATE(), INTERVAL 1 DAY);
+SET @dev_manana=DATE_ADD(CURDATE(), INTERVAL 3 DAY);
+SET @dev_cierre=TIMESTAMP(@dev_ayer,'14:00:00');
+SET @dev_apertura=DATE_SUB(NOW(), INTERVAL 30 MINUTE);
+INSERT INTO usuarios(id,username,nombre,password_hash,activo,es_superadmin) VALUES
+ ('1001','dev_global_inactivo','[DEV] Referencia Global','$2y$10$hatCLgX3ods3zFMmdoNrDuzv4MTcxJ7UaElssfBkHxAsP3NciI4dO','0','0'),
+ ('1002','dev_restaurante_inactivo','[DEV] Referencia Restaurante','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1003','dev_panaderia_inactivo','[DEV] Referencia Panadería','$2y$10$ilOA3qCX9GoQL0wQPxnLruKlkE.qlyOUa.n/8zOD4ZdeftVzEEW4O','0','0'),
+ ('1004','dev_mesero_1','[DEV] Mesero 1','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1005','dev_mesero_2','[DEV] Mesero 2','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1006','dev_mesero_3','[DEV] Mesero 3','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1007','dev_mesero_inactivo','[DEV] Mesero anterior','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0');
+-- Hash bcrypt de la credencial acordada para pruebas locales; nunca guardar el texto claro.
+-- Instalacion::ejecutar define la variable solo en su flujo CLI development/test.
+INSERT INTO usuarios(username,nombre,password_hash,activo,es_superadmin)
+SELECT 'admin_demo','Administrador de desarrollo','$2y$10$DQ66kBvQDeSLRs14KmPan.KzDcy770MUnjK4WqSY84ca/ffhjYx3W',1,1
+FROM DUAL WHERE COALESCE(@cp_dev_admin_demo_seed,0)=1;
+INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id,activo)
+SELECT u.id,un.id,NULL,1 FROM usuarios u JOIN unidades un ON un.slug IN ('global','restaurante','panaderia')
+WHERE u.username='admin_demo' AND COALESCE(@cp_dev_admin_demo_seed,0)=1;
+SET @cp_dev_admin_demo_seed=NULL;
+INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id,activo) VALUES
+ ('1001','1',NULL,'1'),
+ ('1002','2',NULL,'1'),
+ ('1003','3',NULL,'1');
 INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES
  ('1001','1','users','editar'),
  ('1001','1','inventario','editar'),
