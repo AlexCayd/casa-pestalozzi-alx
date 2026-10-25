@@ -30,19 +30,20 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $ahora = ReservacionConfig::ahora();
 $tolerancia = ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS;
 $creadas = [];
 $tickets = [];
 
-$sembrar = static function (string $nombre, DateTimeImmutable $inicio, int $mesaId) use ($db, &$creadas): int {
+$sembrar = static function (string $nombre, DateTimeImmutable $inicio, int $mesaId) use ($db, &$creadas, $restaurantUnitId): int {
     $token = 'fx-ausencia-' . substr(md5($nombre . $inicio->format('c')), 0, 16);
     $fecha = $inicio->format('Y-m-d');
     $hora = $inicio->format('H:i:s');
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, 'ninguno', NULL, ?, ?, 2, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, 'ninguno', NULL, ?, ?, 2, '', 'admin', 'confirmada', ?)"
     );
     $stmt->bind_param('ssss', $nombre, $fecha, $hora, $token);
     $stmt->execute();
@@ -59,6 +60,7 @@ $estado = static function (int $id) use ($db): string {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     // Los minutos se toman lejos de los bordes para no depender de cuánto
     // tarde la prueba entre sembrar y procesar.
     $vencida = $sembrar('Ausencia Vencida', $ahora->modify('-' . ($tolerancia + 20) . ' minutes'), 1);
@@ -68,10 +70,11 @@ try {
     $manana = $sembrar('Ausencia De Mañana', $ahora->modify('+1 day'), 5);
 
     // El cliente de esta sí llegó: tiene ticket abierto ligado a la reserva.
-    $db->query("INSERT INTO tickets (comensales, estado, reservacion_id) VALUES (2, 'abierto', {$conTicket})");
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
+    $db->query("INSERT INTO tickets (unidad_id, unidad_tipo, comensales, estado, reservacion_id) VALUES ({$restaurantUnitId}, 'negocio', 2, 'abierto', {$conTicket})");
     $ticketId = (int)$db->insert_id;
     $tickets[] = $ticketId;
-    $db->query("INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ({$ticketId}, 3, 1)");
+    $db->query("INSERT INTO ticket_mesas (unidad_id, ticket_id, mesa_id, orden) VALUES ({$restaurantUnitId}, {$ticketId}, 3, 1)");
 
     $resultado = Ausencias::procesar();
 
@@ -95,8 +98,16 @@ try {
 
     echo "Reservaciones: ausencias automáticas al vencer la tolerancia OK\n";
 } finally {
+    $creadasSql = $creadas !== [] ? implode(',', array_map('intval', $creadas)) : '0';
     foreach ($tickets as $id) {
+        $db->query('DELETE FROM ticket_items WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_pagos WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_mesas WHERE ticket_id = ' . (int)$id);
         $db->query('DELETE FROM tickets WHERE id = ' . (int)$id);
+    }
+    if ($creadas !== []) {
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$creadasSql})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$creadasSql})");
     }
     foreach ($creadas as $id) {
         $db->query('DELETE FROM reservaciones WHERE id = ' . (int)$id);

@@ -318,7 +318,13 @@ class Auth {
     public static function destinoPorRol(?string $rol = null): string {
         if (self::multinegocio()) {
             foreach (self::contextos() as $ctx) if (self::puede('users','ver',$ctx)) return $ctx==='restaurante'?'/admin/usuarios':'/admin/'.$ctx.'/usuarios';
-            foreach (self::contextos() as $ctx) foreach (PermisosUsuario::catalogo($ctx) as $mod=>$def) if(self::puede($mod,'ver',$ctx)) return $def['operativo'] ? $def['ruta'] : ($ctx==='restaurante'?'/admin':'/admin/'.$ctx);
+            foreach (self::contextos() as $ctx) {
+                $habilitados = \Services\Security\ContextoNegocio::modulosHabilitados($ctx);
+                foreach (PermisosUsuario::catalogo($ctx) as $mod => $def) {
+                    if (!in_array($mod, $habilitados, true) || !self::puede($mod, 'ver', $ctx)) continue;
+                    return (string)($def['ruta'] ?? ($ctx === 'restaurante' ? '/admin' : '/admin/' . $ctx));
+                }
+            }
             return '/login?resultado=sin_acceso';
         }
         $resuelto = $rol === null ? self::rolActual() : self::resolverRol($rol);
@@ -507,6 +513,8 @@ class Auth {
         if (!$p || empty($p['activo'])) { self::negarDirecto(401,'NO_AUTORIZADO','Vuelve a iniciar sesión.'); }
         if (!in_array($_SESSION['auth_nivel']??'',['nip','contrasena'],true)) self::negarDirecto(401,'NO_AUTORIZADO','Vuelve a iniciar sesión.');
         if (PermisosUsuario::tipoAcceso($p)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena') { self::negarDirecto(401,'NIVEL_AUTH_REQUERIDO','Tus permisos requieren iniciar sesión con contraseña.'); }
+        $kdsPanel=preg_match('~^/admin/area(?:/|$)~',$url)===1 || in_array($url,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true);
+        if ($kdsPanel && ($_SESSION['auth_nivel']??'')!=='contrasena') self::negarDirecto(403,'NIVEL_AUTH_REQUERIDO','Abre Producción desde su acceso operativo.');
         // El selector no pertenece a Restaurante: el controlador valida el destino.
         if ($url==='/admin/contexto' && ($_SESSION['auth_nivel']??'')==='contrasena') return;
         $ctx=Contextos::deRuta($url);
@@ -524,7 +532,8 @@ class Auth {
         $navegacion=in_array($url,['/admin','/admin/global','/admin/panaderia','/admin/contexto'],true);
         $adaptado=$ctx==='restaurante' && $ruta['modulos']!==[]
             && array_diff($ruta['modulos'],\Services\Security\ContextoNegocio::modulosHabilitados($ctx))===[];
-        if (!$usuarios && !$navegacion && !$adaptado) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');
+        $soporte=$ctx==='restaurante' && $url==='/admin/api/reportes' && ($_SERVER['REQUEST_METHOD']??'GET')==='POST';
+        if (!$usuarios && !$navegacion && !$adaptado && !$soporte) self::negarDirecto(503,'MODULO_PENDIENTE','Este módulo espera su adaptación al esquema multinegocio.');
     }
 
     private static function negarDirecto(int $status,string $codigo,string $mensaje): never {

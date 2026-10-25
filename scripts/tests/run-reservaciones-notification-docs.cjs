@@ -43,6 +43,13 @@ const expectedDocs = [
   'reservaciones',
   'usuarios'
 ].sort();
+// El contrato rector puede acompañar el checkout como archivo aportado por
+// el usuario. Su presencia es legítima; no exige versionarlo ni admite otros
+// documentos arbitrarios en la raíz.
+if (fs.existsSync(path.join(root, 'docs/contrato.md'))) {
+  expectedDocs.push('contrato.md');
+  expectedDocs.sort();
+}
 assert.deepEqual(names('docs'), expectedDocs, 'docs contiene sólo fuentes vigentes y pendientes verificados');
 assert.deepEqual(names('docs/reservaciones'), ['notificaciones.md', 'reservaciones.md']);
 assert.deepEqual(names('docs/privacidad'), ['privacidad.md']);

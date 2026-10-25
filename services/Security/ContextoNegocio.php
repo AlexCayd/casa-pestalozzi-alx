@@ -15,7 +15,8 @@ final class ContextoNegocio
     /** Disponibilidad técnica; los permisos se comprueban por separado. */
     public static function modulosHabilitados(string $ctx): array
     {
-        return $ctx === 'restaurante' ? ['users','menu','productos'] : ['users'];
+        if ($ctx !== 'restaurante') return ['users'];
+        return array_values(array_diff(array_keys(PermisosUsuario::catalogo($ctx)), ['roles']));
     }
 
     public static function nuevo(): bool
@@ -72,6 +73,16 @@ final class ContextoNegocio
         $decision=PermisosUsuario::decidir($perfil,$ctx,$modulo,$nivel,self::nivelAuth());
         if(!$decision['ok']) throw new InventarioError($decision['codigo'],'No tienes permiso para esta operación en el ámbito solicitado.');
         return $perfil;
+    }
+
+    /** Operaciones compartidas por superficies expresamente autorizadas. */
+    public static function exigirUno(array $permisos,string $ctx,bool $bloquear=false): array
+    {
+        $perfil=PermisosUsuario::cargar(self::actorId(),self::db(),$bloquear);
+        foreach($permisos as $modulo=>$nivel) {
+            if (PermisosUsuario::decidir($perfil,$ctx,(string)$modulo,(string)$nivel,self::nivelAuth())['ok']) return $perfil;
+        }
+        throw new InventarioError('PERMISO_DENEGADO','No tienes permiso para esta operación en el ámbito solicitado.');
     }
 
     public static function facultad(string $facultad,string $ctx='global',string $modulo='menu',bool $bloquear=false): array

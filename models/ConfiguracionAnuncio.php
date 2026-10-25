@@ -6,7 +6,7 @@ use DateTimeImmutable;
 use Services\Configuration\AnuncioConfig;
 use Services\Reservations\ReservacionConfig;
 
-class ConfiguracionAnuncio extends ActiveRecord
+class ConfiguracionAnuncio extends ConfiguracionUnidad
 {
     private const ID_UNICO = 1;
     protected static $tabla = 'configuracion_anuncio';
@@ -48,6 +48,7 @@ class ConfiguracionAnuncio extends ActiveRecord
 
     public static function obtener(): ?self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return static::find(1);
         $stmt = self::getDB()->prepare(
             'SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1'
         );
@@ -70,6 +71,7 @@ class ConfiguracionAnuncio extends ActiveRecord
 
     public static function obtenerOCrear(): self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) { static::asegurarFila(); return static::obtener(); }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id) VALUES (?)
              ON DUPLICATE KEY UPDATE id = VALUES(id)'
@@ -212,6 +214,11 @@ class ConfiguracionAnuncio extends ActiveRecord
 
     public function guardarConfiguracion(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $this->normalizar();
+            if ($this->validar()!==[]) return false;
+            return static::guardarCampos(['mensaje'=>$this->mensaje,'tipo'=>$this->tipo,'activo'=>$this->activo,'fecha_inicio'=>$this->fecha_inicio,'fecha_fin'=>$this->fecha_fin,'texto_enlace'=>$this->texto_enlace,'url_enlace'=>$this->url_enlace]);
+        }
         $this->normalizar();
 
         $stmt = self::getDB()->prepare(

@@ -21,19 +21,22 @@ function assertDbClosure(bool $condition, string $message): void
 
 function insertAuditTicket(mysqli $db, string $nombre, array $mesaIds, ?int $reservacionId, array $items): int
 {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
+    $areaId = (int)NOTIFICATIONS_TEST_AREA_IDS['cocina'];
+    $offer = notificationsTestOfferForArea($areaId);
     $nombreSql = $db->real_escape_string($nombre);
     $reservacionSql = $reservacionId === null ? 'NULL' : (string)$reservacionId;
     assertDbClosure($db->query(
-        "INSERT INTO tickets (comensales, nombre, estado, metodo_pago, propina, reservacion_id)
-         VALUES (2, '{$nombreSql}', 'abierto', NULL, 0, {$reservacionSql})"
+        "INSERT INTO tickets (unidad_id, unidad_tipo, comensales, nombre, estado, metodo_pago, propina, reservacion_id)
+         VALUES ({$restaurantUnitId}, 'negocio', 2, '{$nombreSql}', 'abierto', NULL, 0, {$reservacionSql})"
     ) !== false, 'no se pudo crear el ticket de prueba');
     $ticketId = (int)$db->insert_id;
 
     foreach ($mesaIds as $orden => $mesaId) {
         $ordenReal = $orden + 1;
         assertDbClosure($db->query(
-            "INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
-             VALUES ({$ticketId}, " . (int)$mesaId . ", {$ordenReal})"
+            "INSERT INTO ticket_mesas (unidad_id, ticket_id, mesa_id, orden)
+             VALUES ({$restaurantUnitId}, {$ticketId}, " . (int)$mesaId . ", {$ordenReal})"
         ) !== false, 'no se pudo vincular la mesa del ticket de prueba');
     }
 
@@ -44,9 +47,9 @@ function insertAuditTicket(mysqli $db, string $nombre, array $mesaIds, ?int $res
         $estado = $db->real_escape_string((string)($item['estado'] ?? 'entregado'));
         assertDbClosure($db->query(
             "INSERT INTO ticket_items
-                (ticket_id, nombre, precio, categoria, area_id, cantidad, estado)
+                (unidad_id, ticket_id, oferta_id, producto_id, nombre, precio, categoria, categoria_id, area_id, cantidad, estado)
              VALUES
-                ({$ticketId}, '{$nombreItem}', {$precio}, 'Desayunos', 3, {$cantidad}, '{$estado}')"
+                ({$restaurantUnitId}, {$ticketId}, {$offer['oferta_id']}, {$offer['producto_id']}, '{$nombreItem}', {$precio}, 'Desayunos', {$offer['categoria_id']}, {$areaId}, {$cantidad}, '{$estado}')"
         ) !== false, 'no se pudo crear el item del ticket de prueba');
     }
 
@@ -55,20 +58,21 @@ function insertAuditTicket(mysqli $db, string $nombre, array $mesaIds, ?int $res
 
 function insertAuditReservation(mysqli $db, string $token): int
 {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $tokenSql = $db->real_escape_string($token);
     assertDbClosure($db->query(
         "INSERT INTO reservaciones
-            (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+            (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
              estado, request_token, estado_changed_at)
          VALUES
-            ('AUDIT FIX reservación cierre', 'ninguno', NULL, CURDATE(),
+            ({$restaurantUnitId}, 'negocio', 'AUDIT FIX reservación cierre', 'ninguno', NULL, CURDATE(),
              TIME_FORMAT(NOW(), '%H:%i:00'), 2, '', 'admin', 'en_curso',
              '{$tokenSql}', NOW())"
     ) !== false, 'no se pudo crear la reservación de prueba');
     $reservacionId = (int)$db->insert_id;
     assertDbClosure($db->query(
-        "INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-         VALUES ({$reservacionId}, 1, 1)"
+        "INSERT INTO reservacion_mesas (unidad_id, reservacion_id, mesa_id, orden)
+         VALUES ({$restaurantUnitId}, {$reservacionId}, 1, 1)"
     ) !== false, 'no se pudo asignar la mesa a la reservación de prueba');
 
     return $reservacionId;
@@ -106,6 +110,7 @@ $ticketIds = [];
 $reservacionIds = [];
 
 try {
+    notificationsTestAuthenticateStaff();
     $casos = [
         ['nombre' => 'AUDIT FIX cierre normal', 'mesas' => [14], 'propina' => 0.0, 'pagos' => []],
         ['nombre' => 'AUDIT FIX cierre propina', 'mesas' => [14], 'propina' => 24.0, 'pagos' => []],

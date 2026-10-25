@@ -17,7 +17,11 @@ $authIniciales = strtoupper(
 // filas): el número del botón no puede contradecir a la pestaña que abre.
 // _buzon.php, que se incluye después, lee estas mismas variables.
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
-if (($contextoActivo ?? 'restaurante') === 'restaurante' && empty($modoMultinegocio)) {
+$mostrarBuzon = ($contextoActivo ?? 'restaurante') === 'restaurante'
+    && (empty($modoMultinegocio) || \Classes\Auth::puede('reservations', 'ver', 'restaurante'));
+$mostrarSoporte = ($contextoActivo ?? '') === 'restaurante'
+    && (empty($modoMultinegocio) || \Classes\Auth::tienePanel());
+if ($mostrarBuzon) {
     try {
         $buzonResumen = \Services\Reservations\ReservacionBuzonBandejaService::resumen();
     } catch (Throwable $e) {
@@ -75,7 +79,7 @@ if ($buzonCantidadAccionable > 0) {
     </div>
 
     <div class="admin-topbar__actions">
-        <?php if ($contextoActivo === 'restaurante' && empty($modoMultinegocio)): ?>
+        <?php if ($mostrarBuzon): ?>
         <button
             class="<?php echo htmlspecialchars(implode(' ', $buzonClasesBoton), ENT_QUOTES, 'UTF-8'); ?>"
             type="button"
@@ -100,6 +104,8 @@ if ($buzonCantidadAccionable > 0) {
             <span class="admin-topbar__inbox-badge" data-inbox-count<?php echo $buzonCantidadAccionable > 0 ? '' : ' hidden'; ?>><?php echo $buzonCantidadAccionable; ?></span>
         </button>
 
+        <?php endif; ?>
+        <?php if ($mostrarSoporte): ?>
         <button
             class="admin-topbar__support"
             type="button"
@@ -115,7 +121,6 @@ if ($buzonCantidadAccionable > 0) {
                 <path d="M12 17h.01"/>
             </svg>
         </button>
-
         <?php endif; ?>
         <button
             class="admin-theme-toggle"

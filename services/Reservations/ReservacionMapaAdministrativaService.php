@@ -31,8 +31,8 @@ final class ReservacionMapaAdministrativaService
             if (!$db->begin_transaction()) {
                 return ['ok' => false, 'codigo' => AsignacionMesasService::ERROR_INTERNO];
             }
-
             try {
+                if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigirUno(['reservations'=>'editar','pdv'=>'operar','reservations_map'=>'operar'],'restaurante',true);
                 $resultado = AsignacionMesasService::asignarManual(
                     $reservacionId,
                     $mesaIds,

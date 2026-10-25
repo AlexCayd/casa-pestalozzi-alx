@@ -21,18 +21,20 @@ function assertDbReassignment(bool $condition, string $message): void
 }
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $token = 'audit-fix-' . bin2hex(random_bytes(8));
 $reservacionId = 0;
 $reservacionConflictoId = 0;
 $pasos = [];
 
 try {
+    notificationsTestAuthenticateStaff();
     $tokenSql = $db->real_escape_string($token);
     assertDbReassignment($db->query(
         "INSERT INTO reservaciones
-            (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token, estado_changed_at)
+            (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token, estado_changed_at)
          VALUES
-            ('AUDIT FIX reasignacion', 'ninguno', NULL, DATE_ADD(CURDATE(), INTERVAL 10 DAY), '13:00:00', 2, '', 'admin', 'confirmada', '{$tokenSql}', NOW())"
+            ({$restaurantUnitId}, 'negocio', 'AUDIT FIX reasignacion', 'ninguno', NULL, DATE_ADD(CURDATE(), INTERVAL 10 DAY), '13:00:00', 2, '', 'admin', 'confirmada', '{$tokenSql}', NOW())"
     ) !== false, 'no se pudo crear el fixture de reservacion');
     $reservacionId = (int)$db->insert_id;
 
@@ -92,9 +94,9 @@ try {
     $conflictoTokenSql = $db->real_escape_string($conflictoToken);
     assertDbReassignment($db->query(
         "INSERT INTO reservaciones
-            (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token, estado_changed_at)
+            (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token, estado_changed_at)
          VALUES
-            ('AUDIT FIX conflicto ocupacion', 'ninguno', NULL, DATE_ADD(CURDATE(), INTERVAL 10 DAY), '13:00:00', 2, '', 'admin', 'confirmada', '{$conflictoTokenSql}', NOW())"
+            ({$restaurantUnitId}, 'negocio', 'AUDIT FIX conflicto ocupacion', 'ninguno', NULL, DATE_ADD(CURDATE(), INTERVAL 10 DAY), '13:00:00', 2, '', 'admin', 'confirmada', '{$conflictoTokenSql}', NOW())"
     ) !== false, 'no se pudo crear la segunda reservacion');
     $reservacionConflictoId = (int)$db->insert_id;
 

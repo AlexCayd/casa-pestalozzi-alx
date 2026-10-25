@@ -18,6 +18,7 @@ namespace Services\Analytics;
 
 use Model\Ticket;
 use Model\TicketMesa;
+use Services\Security\ContextoNegocio;
 
 class Sugerencias
 {
@@ -75,6 +76,7 @@ class Sugerencias
      */
     public static function paraTicket(int $ticketId, array $vistos = []): array
     {
+        if (ContextoNegocio::nuevo()) return self::paraTicketRestaurante($ticketId,$vistos);
         $webhook = self::webhookUrl();
         if ($webhook === '') {
             throw new \RuntimeException('sin_config');
@@ -122,6 +124,20 @@ class Sugerencias
         }
 
         return ['etapa' => $etapa, 'sugerencias' => $sugerencias];
+    }
+
+    private static function paraTicketRestaurante(int $ticketId,array $vistos): array
+    {
+        if(ContextoNegocio::slug()!=='restaurante')throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE','Las sugerencias están disponibles para Restaurante.');
+        ContextoNegocio::exigir('pdv','operar','restaurante');$db=ContextoNegocio::db();$u=ContextoNegocio::unidad('restaurante');
+        $s=$db->prepare("SELECT t.id,t.comensales,t.hora_apertura,m.nombre mesa FROM tickets t LEFT JOIN ticket_mesas tm ON tm.ticket_id=t.id AND tm.unidad_id=t.unidad_id AND tm.orden=1 LEFT JOIN mesas m ON m.id=tm.mesa_id AND m.unidad_id=tm.unidad_id WHERE t.id=? AND t.unidad_id=? AND t.estado='abierto' LIMIT 1");$s->execute([$ticketId,$u]);$t=$s->get_result()->fetch_assoc();if(!$t)throw new \RuntimeException('ticket_invalido');
+        $vistos=array_values(array_unique(array_filter(array_map('intval',$vistos),static fn($x)=>$x>0)));$s=$db->prepare('SELECT DISTINCT oferta_id FROM ticket_items WHERE ticket_id=? AND unidad_id=? AND estado<>\'cancelado\'');$s->execute([$ticketId,$u]);$ex=array_values(array_unique(array_merge($vistos,array_map('intval',array_column($s->get_result()->fetch_all(MYSQLI_ASSOC),'oferta_id')))));
+        $items=[];$s=$db->prepare('SELECT oferta_id,producto_id,nombre,categoria,precio,cantidad,comensal FROM ticket_items WHERE ticket_id=? AND unidad_id=? AND estado<>\'cancelado\' ORDER BY created_at');$s->execute([$ticketId,$u]);foreach($s->get_result()->fetch_all(MYSQLI_ASSOC) as $r)$items[]=['oferta_id'=>(int)$r['oferta_id'],'producto_id'=>(int)$r['producto_id'],'nombre'=>$r['nombre'],'categoria'=>$r['categoria'],'precio'=>(float)$r['precio'],'cantidad'=>(int)$r['cantidad'],'comensal'=>$r['comensal']!==null?(int)$r['comensal']:null];
+        $ctx=['ticket_id'=>$ticketId,'unidad_id'=>$u,'mesa'=>(string)($t['mesa']??''),'comensales'=>(int)$t['comensales'],'hora_apertura'=>$t['hora_apertura'],'minutos_abierto'=>max(0,(int)floor((time()-strtotime((string)$t['hora_apertura']))/60)),'max'=>self::MAX_SUGERENCIAS,'items'=>$items,'excluir'=>$ex];
+        $url=self::webhookUrl();if($url==='')throw new \RuntimeException('sin_config');[$etapa,$crudas]=self::normalizar(self::llamarWebhook($url,$ctx));$ids=array_column($crudas,'oferta_id');$productoIds=array_column($crudas,'producto_id');$productos=self::resolverOfertas($ids,$u,$productoIds);$out=[];
+        foreach($crudas as $r){$of=(int)$r['oferta_id'];if(!$of&&isset($productos['p'.(int)$r['producto_id']]))$of=(int)$productos['p'.(int)$r['producto_id']]['oferta_id'];if(isset($productos[$of])&&!in_array($of,$ex,true)){$p=$productos[$of];$out[]=['oferta_id'=>$of,'producto_id'=>(int)$p['producto_id'],'n'=>$p['nombre'],'p'=>(float)$p['precio'],'categoria'=>$p['categoria'],'area_id'=>(int)$p['area_id'],'area'=>$p['area_slug'],'areaNombre'=>$p['area_nombre'],'argumento'=>$r['argumento'],'score'=>$r['score']];}}
+        if(!$out){$not=$ex?' AND o.id NOT IN ('.implode(',',array_map('intval',$ex)).')':'';$s=$db->prepare("SELECT o.id oferta_id,o.producto_id,p.nombre,c.nombre categoria,o.precio,o.area_id,a.slug area_slug,a.nombre area_nombre FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND o.activo=1 AND c.activo=1 AND c.nombre IN ('Café & Bebidas','Jugos & Smoothies') {$not} ORDER BY o.orden LIMIT 5");$s->execute([$u]);foreach($s->get_result()->fetch_all(MYSQLI_ASSOC) as $p)$out[]=['oferta_id'=>(int)$p['oferta_id'],'producto_id'=>(int)$p['producto_id'],'n'=>$p['nombre'],'p'=>(float)$p['precio'],'categoria'=>$p['categoria'],'area_id'=>(int)$p['area_id'],'area'=>$p['area_slug'],'areaNombre'=>$p['area_nombre'],'argumento'=>self::ARGUMENTO_BEBIDA,'score'=>0.0];}
+        return ['etapa'=>$etapa,'sugerencias'=>$out];
     }
 
     /**
@@ -354,6 +370,7 @@ class Sugerencias
     {
         $query = http_build_query([
             'ticket_id'       => $contexto['ticket_id'],
+            'unidad_id'       => $contexto['unidad_id'] ?? null,
             'mesa'            => $contexto['mesa'],
             'comensales'      => $contexto['comensales'],
             'minutos_abierto' => $contexto['minutos_abierto'],
@@ -396,14 +413,17 @@ class Sugerencias
             }
 
             $productoId = (int) self::primerValor($item, ['producto_id', 'id_producto', 'id']);
-            if ($productoId <= 0 || isset($limpias[$productoId])) {
+            $ofertaId = (int) self::primerValor($item, ['oferta_id']);
+            $clave = $ofertaId > 0 ? 'o'.$ofertaId : 'p'.$productoId;
+            if (($productoId <= 0 && $ofertaId <= 0) || isset($limpias[$clave])) {
                 continue;
             }
 
             $argumento = trim((string) self::primerValor($item, ['argumento_mesero', 'argumento', 'texto', 'mensaje']));
 
-            $limpias[$productoId] = [
+            $limpias[$clave] = [
                 'producto_id' => $productoId,
+                'oferta_id' => $ofertaId,
                 'score'       => round((float) self::primerValor($item, ['score_calculado', 'score', 'puntuacion', 'puntaje_algoritmico', 'puntaje']), 2),
                 'argumento'   => $argumento !== '' ? mb_substr($argumento, 0, 255) : null,
             ];
@@ -514,6 +534,11 @@ class Sugerencias
         }
 
         return $productos;
+    }
+
+    private static function resolverOfertas(array $ids,int $unidad,array $productoIds=[]):array
+    {
+        $ids=array_values(array_unique(array_filter(array_map('intval',$ids))));$productoIds=array_values(array_unique(array_filter(array_map('intval',$productoIds))));if(!$ids&&!$productoIds)return [];$db=ContextoNegocio::db();$f=[];$args=[$unidad];if($ids){$f[]='o.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($args,...$ids);}if($productoIds){$f[]='o.producto_id IN ('.implode(',',array_fill(0,count($productoIds),'?')).')';array_push($args,...$productoIds);}$s=$db->prepare("SELECT o.id oferta_id,o.producto_id,p.nombre,c.nombre categoria,o.precio,o.area_id,a.nombre area_nombre,a.slug area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND o.activo=1 AND c.activo=1 AND (".implode(' OR ',$f).')');$s->execute($args);$out=[];foreach($s->get_result()->fetch_all(MYSQLI_ASSOC) as $r){$out[(int)$r['oferta_id']]=$r;$out['p'.(int)$r['producto_id']]=$r;}return $out;
     }
 
     /** Devuelve el primer valor escalar presente entre varias llaves candidatas. */

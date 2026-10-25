@@ -70,3 +70,59 @@ sin ventas Global ni ofertas de negocio ajeno. 3D.3: consumidores locales,
 fallo de estados resuelto conforme al comportamiento real y pruebas de módulos.
 3D.4: reconstrucción aislada, permisos HTTP, navegador y regresiones 3A/3B/3C.
 No se certifican impresoras físicas o credenciales externas mediante simulación.
+
+## Avance de integración 3D.3 (25 de octubre de 2026)
+
+Los consumidores existentes de Restaurante ya tienen ramas explícitas para el
+esquema nuevo. Reservas, mapa, KDS, impresión, historial, feedback, catas,
+preferencias y horarios filtran la unidad en sus raíces y relaciones. Las
+integraciones públicas conservan sus verificaciones de token o secreto y fijan
+Restaurante en el servidor. Los módulos futuros de Global y Panadería continúan
+cerrados, excepto Usuarios.
+
+Inventario muestra existencias derivadas de asociaciones físicas del motor 3C.
+Las operaciones requieren almacén explícito; Restaurante no modifica el maestro
+compartido. Las asignaciones de proveedores conservan su transacción exterior y
+los formularios solo publican éxito después de confirmar. Las alertas se evalúan
+por asociación física, sin compensar faltantes con excedentes de otro almacén.
+
+Los reportes usan ofertas y snapshots de tickets locales. El costo de una venta
+se conserva aunque cambien los ingredientes o la receta; los importes sin costo
+histórico permanecen identificados. Las consultas de texto reutilizan el parser
+existente y conservan el filtro horario en su texto canónico.
+
+La aserción inicial de cierre se corrigió conforme a los tres estados permitidos
+por el flujo integrado, manteniendo el rechazo de entregados, cancelados y
+tickets cerrados. Otros contratos estáticos del DDL ahora toleran espacios sin
+cambiar columnas, índices o estados exigidos. El verificador de documentación
+acepta el documento rector opcional conservando su lista de fuentes permitidas.
+
+Evidencia ejecutada antes de la última revisión:
+
+- 3A: 114 comprobaciones; preservados 112 productos, 15 categorías, 4 áreas,
+  112 ofertas y 13 archivos.
+- 3B: 128 comprobaciones de identidad, autenticación y asignaciones directas.
+- 3C: 158 comprobaciones del motor y 17 de concurrencia.
+- 3D.2: 58 comprobaciones de POS, consumo y compensación.
+- 3D.3: 56 comprobaciones de consumidores y reportes en una base desechable.
+- Suites completas PHP y JavaScript correctas; logs privados fuera del repositorio.
+
+La revisión posterior añadió correcciones de rollback de proveedores, mensajes
+de confirmación de asociaciones, consumo neto de cancelaciones y alertas físicas.
+El runner ampliado pasó 64 comprobaciones y eliminó su base temporal. La vista
+de inventario pasó 10 comprobaciones sin DB, incluyendo déficit físico oculto
+por excedente en otro almacén, escape de contenido y acceso de solo consulta.
+
+La suite completa de notificaciones pasó 16 suites de base dos veces (32
+ejecuciones). La variante de migraciones informa los scripts históricos retirados
+y comprueba el DDL vigente; no reconstruye ni aplica aquellas migraciones.
+Ambas bases temporales se eliminaron. Transporte, frontera de notificaciones,
+ausencia de clases retiradas, UX, 147 enlaces y 251 escenarios de workflows pasan.
+
+Al reanudar, MySQL97 estaba detenido y Windows impidió iniciarlo desde la sesión.
+El usuario lo inició; las regresiones anteriores y el servidor HTTP aislado
+continuaron correctamente. El smoke HTTP inicial pasó seis comprobaciones.
+
+El recorrido HTTP ampliado, navegador, evidencia visual responsive y commit
+final de integración se documentan en 3D.4. Las simulaciones locales no certifican
+hardware de impresión ni credenciales o entregas externas.

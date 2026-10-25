@@ -3,6 +3,7 @@
 namespace Services\Reservations;
 
 use Model\Reservacion;
+use Model\RegistroRestaurante;
 use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Pos\ReservacionPoliticaPosService;
@@ -30,6 +31,10 @@ use Services\Scheduling\HorarioOperacionService;
  */
 final class ReservacionBuzonBandejaService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return \Services\Security\ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     /** El mismo tope que tenía la API: el cajón no pagina. */
     private const LIMITE = 100;
 
@@ -475,12 +480,12 @@ final class ReservacionBuzonBandejaService
             // tipo de entidad viaja como parámetro.
             $stmt = $db->prepare(
                 "UPDATE buzon_notificaciones bn
-                 LEFT JOIN {$tabla} f ON f.id = bn.entidad_id
+                 LEFT JOIN {$tabla} f ON f.id = bn.entidad_id" . (\Services\Security\ContextoNegocio::nuevo() ? ' AND f.unidad_id=bn.unidad_id' : '') . "
                  SET bn.cerrada_at = NOW(), bn.cerrada_por = NULL,
                      bn.cierre_motivo = 'fuente_inexistente', bn.updated_at = NOW()
                  WHERE bn.cerrada_at IS NULL
                    AND bn.entidad_tipo = ?
-                   AND f.id IS NULL"
+                   AND f.id IS NULL" . self::unidadSql('bn')
             );
             if (!$stmt) {
                 throw new \RuntimeException('No fue posible preparar el cierre de avisos huérfanos.');

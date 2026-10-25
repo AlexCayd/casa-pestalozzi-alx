@@ -17,11 +17,44 @@ class Ingrediente extends ActiveRecord {
     public $created_at;
     public $updated_at;
 
+    /** Catálogo maestro: en Restaurante sólo se lee para asociar artículos; nunca se escribe. */
+    public static function find($id) {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return parent::find($id);
+        \Services\Security\ContextoNegocio::exigir('inventario','ver','restaurante');
+        $s=\Services\Security\ContextoNegocio::db()->prepare('SELECT id,nombre,unidad,costo,activo FROM ingredientes WHERE id=?');
+        $s->execute([(int)$id]); $r=$s->get_result()->fetch_assoc();
+        return $r ? static::crearObjeto($r) : null;
+    }
+
     public static function todos(): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            \Services\Security\ContextoNegocio::exigir('inventario','ver','restaurante');
+            return self::consultarSQL("SELECT id,nombre,unidad,costo,activo FROM ingredientes ORDER BY activo DESC,nombre ASC");
+        }
         return self::consultarSQL(
             "SELECT * FROM " . static::$tabla . " ORDER BY activo DESC, nombre ASC"
         );
+    }
+
+    public static function all() { return \Services\Security\ContextoNegocio::nuevo() ? self::todos() : parent::all(); }
+    public static function total($columna='', $valor='') {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return parent::total($columna,$valor);
+        \Services\Security\ContextoNegocio::exigir('inventario','ver','restaurante');
+        return (int)self::getDB()->query('SELECT COUNT(*) FROM ingredientes')->fetch_row()[0];
+    }
+
+    public function guardar() {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return parent::guardar();
+        throw new \Services\Inventory\InventarioError('CATALOGO_GLOBAL','El catálogo maestro solo se edita desde el ámbito Global.');
+    }
+
+    public function crear() { if(!\Services\Security\ContextoNegocio::nuevo()) return parent::crear(); throw new \Services\Inventory\InventarioError('CATALOGO_GLOBAL','El catálogo maestro solo se edita desde Global.'); }
+    public function actualizar() { if(!\Services\Security\ContextoNegocio::nuevo()) return parent::actualizar(); throw new \Services\Inventory\InventarioError('CATALOGO_GLOBAL','El catálogo maestro solo se edita desde Global.'); }
+
+    public function eliminar() {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return parent::eliminar();
+        throw new \Services\Inventory\InventarioError('CATALOGO_GLOBAL','Los artículos compartidos no se eliminan desde Restaurante.');
     }
 
     public function validar()

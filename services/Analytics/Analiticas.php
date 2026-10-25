@@ -20,6 +20,7 @@ namespace Services\Analytics;
 
 use Model\Ticket;
 use Services\Inventory\Inventario;
+use Services\Security\ContextoNegocio;
 
 class Analiticas
 {
@@ -41,6 +42,10 @@ class Analiticas
     /** Ensambla las analíticas de Nivel 1 para la vista de análisis. */
     public static function nivel1(string $start, string $end): array
     {
+        if (ContextoNegocio::nuevo()) {
+            self::exigirAnalytics();
+            if (ContextoNegocio::slug() !== 'restaurante') throw new \RuntimeException('Las analíticas solo están disponibles para Restaurante.');
+        }
         // Blindaje: solo se aceptan fechas YYYY-MM-DD (el llamador ya valida,
         // pero estas cadenas se interpolan en SQL, así que se re-verifican).
         $re = '/^\d{4}-\d{2}-\d{2}$/';
@@ -77,6 +82,7 @@ class Analiticas
             return [];
         }
         try {
+            if (ContextoNegocio::nuevo()) self::exigirAnalytics();
             $db = Ticket::getDB();
             if (!$db) {
                 return [];
@@ -85,6 +91,7 @@ class Analiticas
                 "SELECT HOUR(ti.created_at) AS h, ti.nombre, SUM(ti.cantidad) AS u
                    FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
                   WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                    " . (ContextoNegocio::nuevo() ? "AND t.unidad_id=" . ContextoNegocio::unidad('restaurante') . " AND ti.unidad_id=t.unidad_id " : "") . "
                     AND ti.created_at >= '{$start} 00:00:00' AND ti.created_at <= '{$end} 23:59:59'
                   GROUP BY h, ti.nombre"
             );
@@ -137,6 +144,7 @@ class Analiticas
             'cortes' => ['margen' => 0.0], 'scatter' => []];
 
         try {
+            if (ContextoNegocio::nuevo()) return self::ingenieriaMenuRestaurante($start,$end,$vacio);
             $db = Ticket::getDB();
             if (!$db) {
                 return $vacio;
@@ -264,6 +272,37 @@ class Analiticas
         }
     }
 
+    private static function ingenieriaMenuRestaurante(string $start,string $end,array $vacio): array
+    {
+        self::exigirAnalytics();
+        if (ContextoNegocio::slug()!=='restaurante') throw new \RuntimeException('Las analíticas solo están disponibles para Restaurante.');
+        $db=Ticket::getDB(); $unidad=ContextoNegocio::unidad('restaurante');
+        $s=$db->prepare("SELECT ti.oferta_id,ti.categoria_id,MAX(ti.nombre) nombre,MAX(ti.categoria) categoria,
+             SUM(ti.cantidad) unidades,SUM(ti.precio*ti.cantidad)/NULLIF(SUM(ti.cantidad),0) precio,
+             SUM(ti.costo_unitario*ti.cantidad)/NULLIF(SUM(ti.cantidad),0) costo,
+             SUM(CASE WHEN ti.costo_unitario IS NULL THEN ti.cantidad ELSE 0 END) costo_desconocido
+             FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id
+             WHERE ti.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado'
+             AND t.hora_apertura>=? AND t.hora_apertura<=? GROUP BY ti.oferta_id,ti.categoria_id HAVING unidades>0");
+        $s->execute([$unidad,$start.' 00:00:00',$end.' 23:59:59']); $rows=$s->get_result()->fetch_all(MYSQLI_ASSOC);
+        $prods=[];$total=0;$cats=[];
+        foreach($rows as $r){if((float)$r['costo_desconocido']>0 || $r['costo']===null)continue;$u=(int)$r['unidades'];$precio=(float)$r['precio'];$costo=(float)$r['costo'];$cat=(string)($r['categoria']??'');$prods[]=['nombre'=>$r['nombre'],'categoria'=>$cat,'unidades'=>$u,'precio'=>$precio,'costo'=>$costo,'margen'=>$precio-$costo];$total+=$u;$cats[$cat]??=[0,0];$cats[$cat][0]+=$u;$cats[$cat][1]++;}
+        if(!$total)return $vacio;
+        $margenProm=array_sum(array_map(static fn($p)=>$p['margen']*$p['unidades'],$prods))/$total;
+        $resumen=['estrella'=>0,'vaca'=>0,'incognita'=>0,'perro'=>0];$items=[];$scatter=[];
+        foreach($prods as $p){$cat=$p['categoria'];$pop=$p['unidades']>=.7*($cats[$cat][0]/max(1,$cats[$cat][1]));$alto=$p['margen']>=$margenProm;$clase=$pop?($alto?'estrella':'vaca'):($alto?'incognita':'perro');$label=['estrella'=>'Estrella','vaca'=>'Vaca','incognita'=>'Incógnita','perro'=>'Perro'][$clase];$resumen[$clase]++;$pct=$p['unidades']/$total*100;$margenPct=$p['precio']>0?$p['margen']/$p['precio']*100:0;$items[]=['nombre'=>$p['nombre'],'categoria'=>$cat,'unidades'=>$p['unidades'],'popularidad'=>round($pct,1),'precio'=>round($p['precio'],2),'costo'=>round($p['costo'],2),'margen'=>round($p['margen'],2),'margenPct'=>round($margenPct,1),'clase'=>$clase,'claseLabel'=>$label];$scatter[]=['x'=>round($pct,2),'y'=>round($p['margen'],2),'label'=>$p['nombre'],'clase'=>$clase];}
+        $orden=['estrella'=>0,'vaca'=>1,'incognita'=>2,'perro'=>3];usort($items,static fn($a,$b)=>$orden[$a['clase']]<=>$orden[$b['clase']] ?: $b['unidades']<=>$a['unidades']);
+        return ['items'=>$items,'resumen'=>$resumen,'cortes'=>['margen'=>round($margenProm,2)],'scatter'=>$scatter];
+    }
+
+    private static function exigirAnalytics(): void
+    {
+        if (ContextoNegocio::nuevo()) {
+            if (ContextoNegocio::slug()!=='restaurante') throw new \RuntimeException('Las analíticas solo están disponibles para Restaurante.');
+            ContextoNegocio::exigir('analytics','ver','restaurante');
+        }
+    }
+
     /**
      * §3.2 — RevPASH como mapa de calor hora × día de la semana.
      *   RevPASH(día, hora) = ingreso(día, hora) / (asientos × días_operados(día, hora))
@@ -294,6 +333,7 @@ class Analiticas
             'mejor' => null, 'peor' => null, 'porDia' => [], 'promedioDia' => 0.0];
 
         try {
+            if (ContextoNegocio::nuevo()) self::exigirAnalytics();
             $db = Ticket::getDB();
             if (!$db) {
                 return $vacio;
@@ -303,6 +343,7 @@ class Analiticas
             // salón, o un día con sólo barra pasaría por día operado.
             $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'"
                 . ' AND ' . self::condicionTicketDeSalon('t');
+            if (ContextoNegocio::nuevo()) $fTk .= " AND t.unidad_id=" . ContextoNegocio::unidad('restaurante');
 
             // Asientos: los de las mesas del salón activas y reservables, la
             // misma definición que el «N/44» del POS. Antes era una constante
@@ -310,7 +351,10 @@ class Analiticas
             // desactivar una mesa baja el denominador sin tocar código. No hay
             // historial de capacidad: el cambio reescala también los periodos
             // pasados.
-            $asientos = \Model\Mesa::capacidadReservableTotal();
+            if (ContextoNegocio::nuevo()) {
+                $s=$db->prepare("SELECT COALESCE(SUM(capacidad),0) n FROM mesas WHERE unidad_id=? AND activo=1 AND reservable=1 AND tipo='mesa'");
+                $s->execute([ContextoNegocio::unidad('restaurante')]); $asientos=(int)($s->get_result()->fetch_assoc()['n']??0);
+            } else $asientos = \Model\Mesa::capacidadReservableTotal();
             if ($asientos <= 0) {
                 return $vacio;
             }
@@ -492,10 +536,12 @@ class Analiticas
             throw new \InvalidArgumentException('Alias de ticket inválido.');
         }
 
+        $scope = ContextoNegocio::nuevo() ? " AND tm_salon.unidad_id={$alias}.unidad_id AND m_salon.unidad_id={$alias}.unidad_id" : '';
+        $scopeSin = ContextoNegocio::nuevo() ? " AND tm_sin.unidad_id={$alias}.unidad_id" : '';
         return "(EXISTS (SELECT 1 FROM ticket_mesas tm_salon
                            JOIN mesas m_salon ON m_salon.id = tm_salon.mesa_id
-                          WHERE tm_salon.ticket_id = {$alias}.id AND m_salon.tipo = 'mesa')
-                 OR NOT EXISTS (SELECT 1 FROM ticket_mesas tm_sin WHERE tm_sin.ticket_id = {$alias}.id))";
+                          WHERE tm_salon.ticket_id = {$alias}.id AND m_salon.tipo = 'mesa' {$scope})
+                 OR NOT EXISTS (SELECT 1 FROM ticket_mesas tm_sin WHERE tm_sin.ticket_id = {$alias}.id {$scopeSin}))";
     }
 
     /**
@@ -585,7 +631,9 @@ class Analiticas
         // Se conservan las horas tal cual las guarda MySQL ('HH:MM:SS'): el
         // recorte a la hora entera se hacía aquí y perdía los medios turnos.
         $semanal = [];   // dia_semana => [abierto, apertura, cierre]
-        $res = $db->query("SELECT dia_semana, abierto, hora_apertura, hora_cierre FROM horarios_operacion");
+        $whereUnidad = ContextoNegocio::nuevo() ? ' WHERE unidad_id=' . ContextoNegocio::unidad('restaurante') : '';
+        $andUnidad = ContextoNegocio::nuevo() ? ' AND unidad_id=' . ContextoNegocio::unidad('restaurante') : '';
+        $res = $db->query("SELECT dia_semana, abierto, hora_apertura, hora_cierre FROM horarios_operacion{$whereUnidad}");
         if ($res) {
             while ($r = $res->fetch_assoc()) {
                 $semanal[(int) $r['dia_semana']] = [
@@ -603,7 +651,7 @@ class Analiticas
         $res = $db->query(
             "SELECT fecha, tipo, hora_apertura, hora_cierre
                FROM excepciones_operacion
-              WHERE activo = 1 AND fecha >= '{$start}' AND fecha <= '{$end}'"
+              WHERE activo = 1 {$andUnidad} AND fecha >= '{$start}' AND fecha <= '{$end}'"
         );
         if ($res) {
             while ($r = $res->fetch_assoc()) {
@@ -722,6 +770,7 @@ class Analiticas
         $vacio = ['items' => [], 'tickets' => 0];
 
         try {
+            if (ContextoNegocio::nuevo()) self::exigirAnalytics();
             $db = Ticket::getDB();
             if (!$db) {
                 return $vacio;
@@ -730,19 +779,22 @@ class Analiticas
 
             // Canastas: conjunto de platillos distintos por ticket cerrado.
             $res = $db->query(
-                "SELECT ti.ticket_id, ti.nombre
+                "SELECT ti.ticket_id, " . (ContextoNegocio::nuevo() ? 'ti.oferta_id item_id, MAX(ti.nombre) nombre' : 'ti.nombre, NULL item_id') . "
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
-                  GROUP BY ti.ticket_id, ti.nombre"
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk} " . (ContextoNegocio::nuevo() ? " AND t.unidad_id=" . ContextoNegocio::unidad('restaurante') . " AND ti.unidad_id=t.unidad_id" : "") . "
+                  GROUP BY ti.ticket_id, " . (ContextoNegocio::nuevo() ? 'ti.oferta_id' : 'ti.nombre')
             );
             if (!$res) {
                 return $vacio;
             }
 
             $canastas = [];
+            $nombresOferta = [];
             while ($r = $res->fetch_assoc()) {
-                $canastas[$r['ticket_id']][] = $r['nombre'];
+                $itemId = ContextoNegocio::nuevo() ? (string)$r['item_id'] : (string)$r['nombre'];
+                $canastas[$r['ticket_id']][] = $itemId;
+                if (ContextoNegocio::nuevo()) $nombresOferta[$itemId] = (string)$r['nombre'];
             }
             $total = count($canastas);
             if ($total < 2) {
@@ -794,8 +846,10 @@ class Analiticas
                 $confianza = $co / min($ca, $cb);
 
                 $filas[] = [
-                    'a'           => $a,
-                    'b'           => $b,
+                    'a'           => ContextoNegocio::nuevo() ? ($nombresOferta[$a] ?? $a) : $a,
+                    'b'           => ContextoNegocio::nuevo() ? ($nombresOferta[$b] ?? $b) : $b,
+                    'oferta_a'    => ContextoNegocio::nuevo() ? (int)$a : null,
+                    'oferta_b'    => ContextoNegocio::nuevo() ? (int)$b : null,
                     'coocurrencias' => $co,
                     'soportePct'  => round($soporte * 100, 1),
                     'confianzaPct' => round($confianza * 100, 1),

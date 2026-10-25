@@ -163,9 +163,9 @@ class PuntoVentaController {
             }
 
             $meseros = Usuario::consultarSQL(
-                "SELECT id, nombre FROM usuarios
-                 WHERE rol = 'waiter' AND activo = 1
-                 ORDER BY nombre ASC"
+                \Services\Security\ContextoNegocio::nuevo()
+                    ? "SELECT u.id,u.nombre FROM usuarios u WHERE u.activo=1 AND EXISTS(SELECT 1 FROM usuario_unidades m JOIN usuario_unidad_permisos p ON p.usuario_id=m.usuario_id AND p.unidad_id=m.unidad_id WHERE m.usuario_id=u.id AND m.unidad_id=".\Services\Security\ContextoNegocio::unidad('restaurante')." AND m.activo=1 AND p.modulo='pdv' AND p.nivel='operar') ORDER BY u.nombre"
+                    : "SELECT id, nombre FROM usuarios WHERE rol = 'waiter' AND activo = 1 ORDER BY nombre ASC"
             );
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::api - ' . $e->getMessage());
@@ -273,13 +273,13 @@ class PuntoVentaController {
         return $sesionId > 0 && self::esMeseroAsignable($sesionId) ? $sesionId : $enviado;
     }
 
-    /** Mismo criterio que la lista `meseros` de la API: rol waiter y activo. */
+    /** Mismo criterio que la lista de meseros: permiso POS local en el esquema nuevo. */
     private static function esMeseroAsignable(int $usuarioId): bool {
         try {
             $filas = Usuario::consultarSQL(
-                "SELECT id FROM usuarios
-                  WHERE id = {$usuarioId} AND rol = 'waiter' AND activo = 1
-                  LIMIT 1"
+                \Services\Security\ContextoNegocio::nuevo()
+                    ? "SELECT u.id FROM usuarios u WHERE u.id={$usuarioId} AND u.activo=1 AND EXISTS(SELECT 1 FROM usuario_unidades m JOIN usuario_unidad_permisos p ON p.usuario_id=m.usuario_id AND p.unidad_id=m.unidad_id WHERE m.usuario_id=u.id AND m.unidad_id=".\Services\Security\ContextoNegocio::unidad('restaurante')." AND m.activo=1 AND p.modulo='pdv' AND p.nivel='operar') LIMIT 1"
+                    : "SELECT id FROM usuarios WHERE id = {$usuarioId} AND rol = 'waiter' AND activo = 1 LIMIT 1"
             );
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::esMeseroAsignable - ' . $e->getMessage());

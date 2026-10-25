@@ -101,7 +101,7 @@ final class ReservationManagementAccessService
                  FROM horario_impacto_reservaciones ir
                  JOIN horario_impactos i ON i.id = ir.impacto_id
                  JOIN reservaciones r ON r.id = ir.reservacion_id
-                 WHERE ir.id = ? AND ir.reservacion_id = ?
+                 WHERE ir.id = ? AND ir.reservacion_id = ?" . \Model\Reservacion::filtroUnidad('ir') . "
                    AND ir.estado = 'notificacion_preparada' AND i.estado = 'pendiente'
                    AND ir.access_invalidated_at IS NULL AND ir.access_expires_at > NOW()
                  LIMIT 1 FOR UPDATE"
@@ -111,7 +111,7 @@ final class ReservationManagementAccessService
                 "SELECT r.estado, r.fecha, r.hora, r.comensales
                  FROM reservacion_recordatorios rr
                  JOIN reservaciones r ON r.id = rr.reservacion_id
-                 WHERE rr.id = ? AND rr.reservacion_id = ? AND rr.tipo = 'dia_anterior'
+                 WHERE rr.id = ? AND rr.reservacion_id = ? AND rr.tipo = 'dia_anterior'" . \Model\Reservacion::filtroUnidad('rr') . "
                    AND rr.access_invalidated_at IS NULL AND rr.access_expires_at > NOW()
                  LIMIT 1 FOR UPDATE"
             );
@@ -147,7 +147,7 @@ final class ReservationManagementAccessService
         $stmt = $db->prepare(
             'UPDATE reservacion_recordatorios
              SET access_invalidated_at = COALESCE(access_invalidated_at, NOW())
-             WHERE id = ? AND access_invalidated_at IS NULL'
+             WHERE id = ? AND access_invalidated_at IS NULL' . \Model\Reservacion::filtroUnidad()
         );
         $stmt->bind_param('i', $sourceId);
         $stmt->execute();
@@ -223,7 +223,7 @@ final class ReservationManagementAccessService
              FROM horario_impacto_reservaciones ir
              JOIN horario_impactos i ON i.id = ir.impacto_id
              JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE {$where} LIMIT 1"
+             WHERE {$where}" . \Model\Reservacion::filtroUnidad('ir') . " LIMIT 1"
         );
         self::bind($stmt, $types, $params);
         $stmt->execute();
@@ -250,7 +250,7 @@ final class ReservationManagementAccessService
                     r.estado AS reservacion_estado, r.nombre, r.fecha, r.hora, r.comensales, r.nota
              FROM reservacion_recordatorios rr
              JOIN reservaciones r ON r.id = rr.reservacion_id
-             WHERE {$where} LIMIT 1"
+             WHERE {$where}" . \Model\Reservacion::filtroUnidad('rr') . " LIMIT 1"
         );
         self::bind($stmt, $types, $params);
         $stmt->execute();

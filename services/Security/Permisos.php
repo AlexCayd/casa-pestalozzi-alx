@@ -318,11 +318,13 @@ final class Permisos
         if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
         $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
         if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
+        if (self::casa($normal, '/admin/api/buzon')) return ['tipo'=>'modulos','modulos'=>['reservations']];
         if (preg_match('~^/admin/usuarios(?:/|$)~',$normal)) return ['tipo'=>'modulos','modulos'=>['users']];
         if (preg_match('~^/admin/roles(?:/|$)~',$normal)) return ['tipo'=>'solo_sistema','modulos'=>[]];
         if (in_array($normal,['/admin/reservaciones/operacion','/admin/reservations/operation'],true)) return ['tipo'=>'modulos','modulos'=>['reservations_map']];
         if (str_starts_with($url,'/api/punto-de-venta/reservaciones')) return ['tipo'=>'modulos','modulos'=>['pdv','reservations_map']];
-        if (str_starts_with($normal,'/admin/area') || str_starts_with($normal,'/admin/punto-de-venta') || in_array($normal,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true)) return ['tipo'=>'modulos','modulos'=>['configuration']];
+        if (self::casa($normal,'/admin/area') || in_array($normal,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true)) return ['tipo'=>'modulos','modulos'=>['area']];
+        if (self::casa($normal,'/admin/punto-de-venta')) return ['tipo'=>'modulos','modulos'=>['configuration']];
         $clasificada=self::clasificar($normal);
         if ($clasificada['tipo']==='publica' && str_starts_with($url,'/api/')) {
             // Las APIs públicas actuales conservan sus guardias de token/integración.

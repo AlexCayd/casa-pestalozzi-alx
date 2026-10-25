@@ -75,7 +75,7 @@ $model = $read('models/Reservacion.php');
 $ddl = $read('database/ddl.sql');
 $service = $read('services/Reservations/ReservacionAdministrativaService.php');
 $detail = $read('views/admin/reservations/show.php');
-assertUxRefinement(str_contains($ddl, 'motivo_cancelacion   VARCHAR(500) NULL'), 'DDL declara motivo_cancelacion');
+assertUxRefinement(preg_match('/\bmotivo_cancelacion\s+VARCHAR\(500\)\s+NULL\b/i', $ddl) === 1, 'DDL declara motivo_cancelacion');
 assertUxRefinement(str_contains($model, "'motivo_cancelacion'"), 'modelo declara motivo_cancelacion');
 assertUxRefinement(substr_count($model, 'r.motivo_cancelacion') >= 3, 'consultas administrativas recuperan motivo_cancelacion');
 assertUxRefinement(str_contains($service, 'motivo_cancelacion = NULLIF'), 'cancelación persiste el motivo');

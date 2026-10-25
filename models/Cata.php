@@ -14,7 +14,7 @@ namespace Model;
  * WhatsApp, y un contador que no ve esas conversaciones miente en cuanto
  * alguien llama. Lo que queda es un sí/no que se declara a mano.
  */
-class Cata extends ActiveRecord
+class Cata extends RegistroRestaurante
 {
     protected static $tabla = 'catas';
 
@@ -37,6 +37,17 @@ class Cata extends ActiveRecord
     public $disponible = 1;
     public $created_at;
     public $updated_at;
+
+    public function eliminar()
+    {
+        if (!\Services\Security\ContextoNegocio::nuevo()) return parent::eliminar();
+        $r=\Services\Security\ContextoNegocio::transaccion(function (): array {
+            \Services\Security\ContextoNegocio::exigir('catas','editar','restaurante',true);
+            if (!parent::eliminar()) throw new \DomainException('La cata no pertenece a Restaurante.');
+            return ['eliminada'=>true];
+        });
+        return !empty($r['ok']) && !empty($r['confirmado']);
+    }
 
     public function validar()
     {

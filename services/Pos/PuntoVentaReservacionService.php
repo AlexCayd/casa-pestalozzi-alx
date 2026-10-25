@@ -73,6 +73,7 @@ final class PuntoVentaReservacionService
      */
     public static function listar(string $fecha, string $superficie = 'waiter'): array
     {
+        if (ContextoNegocio::nuevo()) ContextoNegocio::exigirUno(['reservations'=>'ver','pdv'=>'operar','reservations_map'=>'operar'],'restaurante');
         if (!HorarioReservacionService::fechaValida($fecha)) {
             return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'reservaciones' => []];
         }
@@ -846,6 +847,7 @@ final class PuntoVentaReservacionService
      */
     public static function contextoMesa(int $mesaId, string $superficie = 'waiter'): array
     {
+        if (ContextoNegocio::nuevo()) ContextoNegocio::exigirUno(['reservations'=>'ver','pdv'=>'operar','reservations_map'=>'operar'],'restaurante');
         if ($mesaId < 1) {
             return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
         }
@@ -965,7 +967,7 @@ final class PuntoVentaReservacionService
         try {
             self::iniciarTransaccion($db);
             $transaccion = true;
-            self::autorizar();
+            if (ContextoNegocio::nuevo()) ContextoNegocio::exigirUno(['reservations'=>'editar','pdv'=>'operar','reservations_map'=>'operar'],'restaurante',true);
             $r = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$r) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);

@@ -23,10 +23,11 @@ function assertMapStateIntegration(bool $condition, string $message): void
 
 function insertMapStateTable(mysqli $db, int $number): int
 {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $name = 'Fixture mapa ' . $number;
     $stmt = $db->prepare(
-        "INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable)
-         VALUES (?, ?, 'mesa', 4, 15, 20, 1, 1)"
+        "INSERT INTO mesas (unidad_id, unidad_tipo, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, ?, 'mesa', 4, 15, 20, 1, 1)"
     );
     $stmt->bind_param('is', $number, $name);
     assertMapStateIntegration($stmt->execute(), 'no se pudo crear la mesa fixture');
@@ -43,6 +44,7 @@ function insertMapStateReservation(
     string $status = 'confirmada',
     ?string $holdExpiresAt = null
 ): int {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $name = 'Fixture mapa de estado';
     $contactType = 'ninguno';
     $contact = null;
@@ -52,10 +54,10 @@ function insertMapStateReservation(
     $token = 'map-state-' . bin2hex(random_bytes(8));
     $changedAt = $date . ' 12:00:00';
     $stmt = $db->prepare(
-        'INSERT INTO reservaciones
-          (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+        "INSERT INTO reservaciones
+          (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
            estado, request_token, hold_expires_at, estado_changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES ({$restaurantUnitId}, 'negocio', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $stmt->bind_param(
         'sssssissssss',
@@ -127,9 +129,10 @@ try {
     $realNow = ReservacionConfig::ahora();
     $endpointDate = $realNow->modify('+1 day')->format('Y-m-d');
     $weekday = (int)(new DateTimeImmutable($endpointDate, ReservacionConfig::timezone()))->format('w');
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $db->query(
-        "INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre)
-         VALUES ({$weekday}, 1, '10:00:00', '23:00:00')
+        "INSERT INTO horarios_operacion (unidad_id, dia_semana, abierto, hora_apertura, hora_cierre)
+         VALUES ({$restaurantUnitId}, {$weekday}, 1, '10:00:00', '23:00:00')
          ON DUPLICATE KEY UPDATE abierto = 1, hora_apertura = '10:00:00', hora_cierre = '23:00:00'"
     );
 
@@ -143,7 +146,7 @@ try {
         $endpointTableId
     );
     $reservationIds[] = $endpointReservationId;
-    $_SESSION = ['login' => true, 'id' => 1, 'rol' => 'admin'];
+    notificationsTestAuthenticateStaff();
 
     // B — el endpoint real del POS proyecta a la hora pedida. Azul de
     // inicio − 60 a inicio + 90, semiabierto; la asignación es otro hecho.
@@ -269,7 +272,18 @@ try {
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } finally {
     foreach ($ticketIds as $id) {
+        $db->query('DELETE FROM ticket_items WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_pagos WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_mesas WHERE ticket_id = ' . (int)$id);
         $db->query('DELETE FROM tickets WHERE id = ' . (int)$id);
+    }
+    if ($reservationIds !== []) {
+        $ids = implode(',', array_map('intval', $reservationIds));
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_recordatorios WHERE reservacion_id IN ({$ids}) OR reservacion_raiz_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
     }
     foreach ($reservationIds as $id) {
         $db->query('DELETE FROM reservaciones WHERE id = ' . (int)$id);

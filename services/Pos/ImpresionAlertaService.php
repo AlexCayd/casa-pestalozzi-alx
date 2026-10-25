@@ -4,6 +4,7 @@ namespace Services\Pos;
 
 use Classes\TicketPrinter;
 use Model\ActiveRecord;
+use Services\Security\ContextoNegocio;
 
 /**
  * Alertas de impresión para el piso.
@@ -38,6 +39,7 @@ class ImpresionAlertaService
      */
     public static function registrar(array $fallos, array $contexto): array
     {
+        if (ContextoNegocio::nuevo()) return self::registrarNuevo($fallos,$contexto);
         if ($fallos === [] || !TicketPrinter::servicioActivo()) {
             return [];
         }
@@ -106,6 +108,7 @@ class ImpresionAlertaService
      */
     public static function pendientes(): array
     {
+        if (ContextoNegocio::nuevo()) return self::pendientesNuevo();
         if (!TicketPrinter::servicioActivo()) {
             return [];
         }
@@ -142,6 +145,7 @@ class ImpresionAlertaService
      */
     public static function atender(?array $ids, int $usuarioId): int
     {
+        if (ContextoNegocio::nuevo()) return self::atenderNuevo($ids);
         try {
             $db = ActiveRecord::getDB();
             $usuario = $usuarioId > 0 ? $usuarioId : 'NULL';
@@ -237,7 +241,8 @@ class ImpresionAlertaService
         // Auth::puede() y no esAdmin(): lee $_SESSION sin reabrirla, y el
         // refresco del mapa ya la liberó. El detalle técnico (IP, ruta SMB) es
         // de quien administra las impresoras.
-        if (\Classes\Auth::puede('printers') && !empty($fila['detalle'])) {
+        $puedeVerDetalle=ContextoNegocio::nuevo()?self::permisoDetalleNuevo():\Classes\Auth::puede('printers');
+        if ($puedeVerDetalle && !empty($fila['detalle'])) {
             $alerta['detalle'] = (string)$fila['detalle'];
         }
 
@@ -251,5 +256,80 @@ class ImpresionAlertaService
             return null;
         }
         return function_exists('mb_substr') ? mb_substr($texto, 0, $max) : substr($texto, 0, $max);
+    }
+
+    private static function registrarNuevo(array $fallos,array $contexto): array
+    {
+        if($fallos===[] || !TicketPrinter::servicioActivo()) return [];
+        try {
+            ContextoNegocio::exigir('pdv','operar','restaurante');
+            $db=ContextoNegocio::db(); $unidad=ContextoNegocio::unidad('restaurante');
+            $ticketId=!empty($contexto['ticket_id'])?(int)$contexto['ticket_id']:null;
+            if($ticketId!==null) {
+                $check=$db->prepare('SELECT id FROM tickets WHERE id=? AND unidad_id=? LIMIT 1');
+                $check->bind_param('ii',$ticketId,$unidad); $check->execute(); $ok=$check->get_result()->fetch_row(); $check->close();
+                if(!$ok) return [];
+            }
+            $stmt=$db->prepare('INSERT INTO impresion_alertas(unidad_id,documento,motivo,ticket_id,mesa_nombre,area_id,area_nombre,impresora_nombre,detalle,usuario_id) VALUES(?,?,?,?,?,?,?,?,?,?)');
+            if(!$stmt) throw new \RuntimeException($db->error);
+            $mesa=self::texto($contexto['mesa_nombre']??null,60); $usuario=ContextoNegocio::actorId();
+            $creadas=[];
+            foreach($fallos as $fallo) {
+                $documento=($fallo['documento']??'')==='cuenta'?'cuenta':'comanda';
+                $motivo=in_array($fallo['motivo']??'', ['sin_impresora','sin_conexion','fallo_envio'],true)?(string)$fallo['motivo']:'fallo_envio';
+                $areaId=isset($fallo['area_id'])?(int)$fallo['area_id']:null; $areaNombre=null;
+                if($areaId!==null && $areaId>0) {
+                    $area=$db->prepare('SELECT nombre FROM areas_produccion WHERE id=? AND unidad_id=? LIMIT 1');
+                    $area->bind_param('ii',$areaId,$unidad); $area->execute(); $ar=$area->get_result()->fetch_assoc(); $area->close();
+                    if(!$ar) { $areaId=null; } else $areaNombre=(string)$ar['nombre'];
+                } else $areaId=null;
+                $impresora=self::texto($fallo['impresora']??null,60); $detalle=self::texto($fallo['detalle']??null,255);
+                $stmt->bind_param('issisisssi',$unidad,$documento,$motivo,$ticketId,$mesa,$areaId,$areaNombre,$impresora,$detalle,$usuario);
+                if(!$stmt->execute()) { error_log('ImpresionAlertaService::registrar - '.$stmt->error); continue; }
+                $creadas[]=(int)$db->insert_id;
+            }
+            $stmt->close();
+            if($creadas===[]) return [];
+            $in=implode(',',array_map('intval',$creadas));
+            $res=$db->query("SELECT * FROM impresion_alertas WHERE unidad_id={$unidad} AND id IN ({$in}) ORDER BY id DESC");
+            $filas=$res?$res->fetch_all(MYSQLI_ASSOC):[]; if($res) $res->free();
+            return array_map([self::class,'serializar'],$filas);
+        } catch(\Throwable $e) { error_log('ImpresionAlertaService::registrar - '.$e->getMessage()); return []; }
+    }
+
+    private static function pendientesNuevo(): array
+    {
+        if(!TicketPrinter::servicioActivo()) return [];
+        try {
+            ContextoNegocio::exigir('pdv','operar','restaurante');
+            $unidad=ContextoNegocio::unidad('restaurante'); $db=ContextoNegocio::db();
+            $res=$db->query("SELECT * FROM impresion_alertas WHERE unidad_id={$unidad} AND atendida_at IS NULL AND created_at>=NOW()-INTERVAL ".self::HORAS_VIGENCIA." HOUR ORDER BY created_at DESC,id DESC LIMIT ".self::LIMITE);
+            if(!$res) throw new \RuntimeException($db->error);
+            $filas=$res->fetch_all(MYSQLI_ASSOC); $res->free();
+            return array_map([self::class,'serializar'],$filas);
+        } catch(\Throwable $e) { error_log('ImpresionAlertaService::pendientes - '.$e->getMessage()); return []; }
+    }
+
+    private static function atenderNuevo(?array $ids): int
+    {
+        try {
+            ContextoNegocio::exigir('pdv','operar','restaurante');
+            $db=ContextoNegocio::db(); $unidad=ContextoNegocio::unidad('restaurante'); $usuario=ContextoNegocio::actorId();
+            if($ids===[]) return 0;
+            $filtro='';
+            if($ids!==null) {
+                $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+                if($ids===[]) return 0;
+                $filtro=' AND id IN ('.implode(',',$ids).')';
+            }
+            $stmt=$db->prepare('UPDATE impresion_alertas SET atendida_at=NOW(),atendida_por=? WHERE unidad_id=? AND atendida_at IS NULL'.$filtro);
+            $stmt->bind_param('ii',$usuario,$unidad); $stmt->execute(); $n=(int)$stmt->affected_rows; $stmt->close(); return $n;
+        } catch(\Throwable $e) { error_log('ImpresionAlertaService::atender - '.$e->getMessage()); return 0; }
+    }
+
+    private static function permisoDetalleNuevo(): bool
+    {
+        try { ContextoNegocio::exigir('printers','ver','restaurante'); return true; }
+        catch(\Throwable) { return false; }
     }
 }

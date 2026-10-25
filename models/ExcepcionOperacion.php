@@ -2,7 +2,7 @@
 
 namespace Model;
 
-class ExcepcionOperacion extends ActiveRecord
+class ExcepcionOperacion extends RegistroRestaurante
 {
     protected static $tabla = 'excepciones_operacion';
     protected static $columnasDB = [
@@ -62,13 +62,13 @@ class ExcepcionOperacion extends ActiveRecord
 
     public static function buscarPorId(int $id): ?self
     {
-        return static::buscarUno('SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1', 'i', [$id]);
+        return static::buscarUno('SELECT * FROM ' . static::$tabla . ' WHERE id = ?' . static::filtroUnidad() . ' LIMIT 1', 'i', [$id]);
     }
 
     public static function buscarPorIdParaActualizar(int $id): ?self
     {
         return static::buscarUno(
-            'SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1 FOR UPDATE',
+            'SELECT * FROM ' . static::$tabla . ' WHERE id = ?' . static::filtroUnidad() . ' LIMIT 1 FOR UPDATE',
             'i',
             [$id]
         );
@@ -77,7 +77,7 @@ class ExcepcionOperacion extends ActiveRecord
     public static function buscarActivaPorFecha(string $fecha): ?self
     {
         return static::buscarUno(
-            'SELECT * FROM ' . static::$tabla . ' WHERE fecha = ? AND activo = 1 LIMIT 1',
+            'SELECT * FROM ' . static::$tabla . ' WHERE fecha = ? AND activo = 1' . static::filtroUnidad() . ' LIMIT 1',
             's',
             [$fecha]
         );
@@ -86,6 +86,7 @@ class ExcepcionOperacion extends ActiveRecord
     public static function listarOrdenadas(array $filtros = []): array
     {
         $condiciones = [];
+        if (\Services\Security\ContextoNegocio::nuevo()) $condiciones[]='unidad_id='.static::unidadRestaurante();
         $tipos = '';
         $valores = [];
 
@@ -136,7 +137,7 @@ class ExcepcionOperacion extends ActiveRecord
 
     public static function existeFecha(string $fecha, ?int $excluirId = null): bool
     {
-        $query = 'SELECT id FROM ' . static::$tabla . ' WHERE fecha = ?';
+        $query = 'SELECT id FROM ' . static::$tabla . ' WHERE fecha = ?' . static::filtroUnidad();
         $tipos = 's';
         $valores = [$fecha];
 
@@ -161,6 +162,24 @@ class ExcepcionOperacion extends ActiveRecord
 
     public function guardarExcepcion(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $r=\Services\Security\ContextoNegocio::transaccion(function (): array {
+                \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+                if ($this->validar()!==[]) throw new \DomainException('Excepción inválida.');
+                $datos=[$this->fecha,$this->tipo,$this->motivo,$this->hora_apertura,$this->hora_cierre,(int)$this->activo,\Services\Security\ContextoNegocio::actorId()];
+                if ($this->id===null) {
+                    $stmt=static::getDB()->prepare('INSERT INTO excepciones_operacion(unidad_id,fecha,tipo,motivo,hora_apertura,hora_cierre,activo,updated_by) VALUES (?,?,?,?,?,?,?,?)');
+                    $stmt->execute(array_merge([static::unidadRestaurante()],$datos));
+                    $this->id=(int)static::getDB()->insert_id;
+                } else {
+                    if (!static::buscarPorIdParaActualizar((int)$this->id)) throw new \DomainException('Excepción fuera del ámbito.');
+                    $stmt=static::getDB()->prepare('UPDATE excepciones_operacion SET fecha=?,tipo=?,motivo=?,hora_apertura=?,hora_cierre=?,activo=?,updated_by=? WHERE id=? AND unidad_id=?');
+                    $stmt->execute(array_merge($datos,[(int)$this->id,static::unidadRestaurante()]));
+                }
+                $stmt->close(); return ['guardado'=>true];
+            });
+            return ($r['ok']??null)!==false && !empty($r['guardado']);
+        }
         $fecha = $this->fecha;
         $tipo = $this->tipo;
         $motivo = $this->motivo;
@@ -203,6 +222,16 @@ class ExcepcionOperacion extends ActiveRecord
 
     public static function cambiarEstado(int $id, bool $activo, ?int $usuarioId): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $r=\Services\Security\ContextoNegocio::transaccion(static function () use($id,$activo): array {
+                \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+                if (!static::buscarPorIdParaActualizar($id)) throw new \DomainException('Excepción fuera del ámbito.');
+                $stmt=static::getDB()->prepare('UPDATE excepciones_operacion SET activo=?,updated_by=? WHERE id=? AND unidad_id=?');
+                $stmt->execute([(int)$activo,\Services\Security\ContextoNegocio::actorId(),$id,static::unidadRestaurante()]); $stmt->close();
+                return ['guardado'=>true];
+            });
+            return ($r['ok']??null)!==false && !empty($r['guardado']);
+        }
         $estado = $activo ? 1 : 0;
         $stmt = self::getDB()->prepare(
             'UPDATE ' . static::$tabla . ' SET activo = ?, updated_by = ? WHERE id = ? LIMIT 1'
@@ -220,6 +249,15 @@ class ExcepcionOperacion extends ActiveRecord
 
     public function eliminarExcepcion(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $r=\Services\Security\ContextoNegocio::transaccion(function (): array {
+                \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+                if (!static::buscarPorIdParaActualizar((int)$this->id)) throw new \DomainException('Excepción fuera del ámbito.');
+                if (!$this->eliminar()) throw new \RuntimeException('No se eliminó la excepción.');
+                return ['guardado'=>true];
+            });
+            return ($r['ok']??null)!==false && !empty($r['guardado']);
+        }
         $id = filter_var($this->id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if (!$id) {
             throw new \InvalidArgumentException('El identificador de la excepción no es válido.');

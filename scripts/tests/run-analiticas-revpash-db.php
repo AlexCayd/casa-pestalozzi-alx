@@ -30,6 +30,8 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
+$ticketOffer = notificationsTestOfferForArea(NOTIFICATIONS_TEST_AREA_IDS['cafe']);
 $consulta = static function (string $sql) use ($db): void {
     if ($db->query($sql) === false) {
         throw new RuntimeException($db->error . ' :: ' . $sql);
@@ -42,19 +44,19 @@ $fecha = '2026-09-01';
 $dow = (int)date('w', strtotime($fecha));
 $tickets = [];
 
-$abrirCerrado = static function (?int $mesaId, float $importe, string $nombre) use ($consulta, $db, $fecha, &$tickets): int {
+$abrirCerrado = static function (?int $mesaId, float $importe, string $nombre) use ($consulta, $db, $fecha, &$tickets, $restaurantUnitId, $ticketOffer): int {
     $consulta(
-        "INSERT INTO tickets (comensales, nombre, hora_apertura, hora_cierre, closed_at, estado, metodo_pago)
-         VALUES (2, '{$nombre}', '{$fecha} 14:10:00', '{$fecha} 15:00:00', '{$fecha} 15:00:00', 'cerrado', 'efectivo')"
+        "INSERT INTO tickets (unidad_id, unidad_tipo, comensales, nombre, hora_apertura, hora_cierre, closed_at, estado, metodo_pago)
+         VALUES ({$restaurantUnitId}, 'negocio', 2, '{$nombre}', '{$fecha} 14:10:00', '{$fecha} 15:00:00', '{$fecha} 15:00:00', 'cerrado', 'efectivo')"
     );
     $ticketId = (int)$db->insert_id;
     $tickets[] = $ticketId;
     if ($mesaId !== null) {
-        $consulta("INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ({$ticketId}, {$mesaId}, 1)");
+        $consulta("INSERT INTO ticket_mesas (unidad_id, ticket_id, mesa_id, orden) VALUES ({$restaurantUnitId}, {$ticketId}, {$mesaId}, 1)");
     }
     $consulta(
-        "INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, estado)
-         VALUES ({$ticketId}, 'Fixture RevPASH', {$importe}, 'Fixture', 1, 1, 'entregado')"
+        "INSERT INTO ticket_items (unidad_id, ticket_id, oferta_id, producto_id, nombre, precio, categoria, categoria_id, area_id, cantidad, estado)
+         VALUES ({$restaurantUnitId}, {$ticketId}, {$ticketOffer['oferta_id']}, {$ticketOffer['producto_id']}, 'Fixture RevPASH', {$importe}, 'Fixture', {$ticketOffer['categoria_id']}, " . (int)NOTIFICATIONS_TEST_AREA_IDS['cafe'] . ", 1, 'entregado')"
     );
     return $ticketId;
 };
@@ -73,6 +75,7 @@ $celda = static function (array $revpash, int $hora, int $dow): ?array {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     $asientosSalon = \Model\Mesa::capacidadReservableTotal();
     $assert($asientosSalon === 44, "El salón de deploy.sql debe sumar 44 asientos y suma {$asientosSalon}.");
 
@@ -100,6 +103,8 @@ try {
 } finally {
     $db->query('UPDATE mesas SET activo = 1 WHERE id = 1');
     if ($tickets !== []) {
+        $db->query('DELETE FROM ticket_items WHERE ticket_id IN (' . implode(',', array_map('intval', $tickets)) . ')');
+        $db->query('DELETE FROM ticket_mesas WHERE ticket_id IN (' . implode(',', array_map('intval', $tickets)) . ')');
         $db->query('DELETE FROM tickets WHERE id IN (' . implode(',', array_map('intval', $tickets)) . ')');
     }
 }

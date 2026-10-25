@@ -30,18 +30,19 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $ahora = ReservacionConfig::ahora();
 $creadas = [];
 $tickets = [];
 
-$sembrar = static function (string $nombre, DateTimeImmutable $inicio, array $mesas) use ($db, &$creadas): int {
+$sembrar = static function (string $nombre, DateTimeImmutable $inicio, array $mesas) use ($db, &$creadas, $restaurantUnitId): int {
     $token = 'fx-reub-ticket-' . substr(md5($nombre . $inicio->format('c')), 0, 16);
     $fecha = $inicio->format('Y-m-d');
     $hora = $inicio->format('H:i:00');
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, 'ninguno', NULL, ?, ?, 2, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, 'ninguno', NULL, ?, ?, 2, '', 'admin', 'confirmada', ?)"
     );
     $stmt->bind_param('ssss', $nombre, $fecha, $hora, $token);
     $stmt->execute();
@@ -52,12 +53,12 @@ $sembrar = static function (string $nombre, DateTimeImmutable $inicio, array $me
     return $id;
 };
 
-$ocupar = static function (array $mesas) use ($db, &$tickets): int {
-    $db->query("INSERT INTO tickets (comensales, estado) VALUES (2, 'abierto')");
+$ocupar = static function (array $mesas) use ($db, &$tickets, $restaurantUnitId): int {
+    $db->query("INSERT INTO tickets (unidad_id, unidad_tipo, comensales, estado) VALUES ({$restaurantUnitId}, 'negocio', 2, 'abierto')");
     $id = (int)$db->insert_id;
     $orden = 1;
     foreach ($mesas as $mesa) {
-        $db->query("INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ({$id}, " . (int)$mesa . ', ' . $orden++ . ')');
+        $db->query("INSERT INTO ticket_mesas (unidad_id, ticket_id, mesa_id, orden) VALUES ({$restaurantUnitId}, {$id}, " . (int)$mesa . ', ' . $orden++ . ')');
     }
     $tickets[] = $id;
     return $id;
@@ -103,7 +104,18 @@ try {
     echo "Reservaciones: reubicación por ticket abierto OK\n";
 } finally {
     foreach ($tickets as $id) {
+        $db->query('DELETE FROM ticket_mesas WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_items WHERE ticket_id = ' . (int)$id);
+        $db->query('DELETE FROM ticket_pagos WHERE ticket_id = ' . (int)$id);
         $db->query('DELETE FROM tickets WHERE id = ' . (int)$id);
+    }
+    if ($creadas !== []) {
+        $ids = implode(',', array_map('intval', $creadas));
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_recordatorios WHERE reservacion_id IN ({$ids}) OR reservacion_raiz_id IN ({$ids})");
     }
     foreach ($creadas as $id) {
         $db->query('DELETE FROM reservaciones WHERE id = ' . (int)$id);

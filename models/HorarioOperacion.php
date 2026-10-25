@@ -2,7 +2,7 @@
 
 namespace Model;
 
-class HorarioOperacion extends ActiveRecord
+class HorarioOperacion extends RegistroRestaurante
 {
     protected static $tabla = 'horarios_operacion';
     protected static $columnasDB = [
@@ -56,14 +56,14 @@ class HorarioOperacion extends ActiveRecord
     public static function todosOrdenados(): array
     {
         return static::consultarSQL(
-            'SELECT * FROM ' . static::$tabla . ' ORDER BY dia_semana ASC'
+            'SELECT * FROM ' . static::$tabla . ' WHERE 1=1' . static::filtroUnidad() . ' ORDER BY dia_semana ASC'
         );
     }
 
     public static function buscarPorDia(int $diaSemana): ?self
     {
         $stmt = self::getDB()->prepare(
-            'SELECT * FROM ' . static::$tabla . ' WHERE dia_semana = ? LIMIT 1'
+            'SELECT * FROM ' . static::$tabla . ' WHERE dia_semana = ?' . static::filtroUnidad() . ' LIMIT 1'
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la consulta de horario.');
@@ -83,6 +83,16 @@ class HorarioOperacion extends ActiveRecord
      */
     public function guardarPorDia(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $r=\Services\Security\ContextoNegocio::transaccion(function (): array {
+                \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+                if ($this->validar()!==[]) throw new \DomainException('Horario inválido.');
+                $stmt=static::getDB()->prepare('INSERT INTO horarios_operacion(unidad_id,dia_semana,abierto,hora_apertura,hora_cierre,updated_by) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE abierto=VALUES(abierto),hora_apertura=VALUES(hora_apertura),hora_cierre=VALUES(hora_cierre),updated_by=VALUES(updated_by)');
+                $stmt->execute([static::unidadRestaurante(),(int)$this->dia_semana,(int)$this->abierto,$this->hora_apertura,$this->hora_cierre,\Services\Security\ContextoNegocio::actorId()]); $stmt->close();
+                return ['guardado'=>true];
+            });
+            return ($r['ok']??null)!==false && !empty($r['guardado']);
+        }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . '
                 (dia_semana, abierto, hora_apertura, hora_cierre, updated_by)
