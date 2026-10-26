@@ -14,7 +14,18 @@ final class ClienteInstalacion3E
   $raw=curl_exec($this->curl);if(!is_string($raw))throw new RuntimeException('No respondió el servidor HTTP de pruebas.');$size=(int)curl_getinfo($this->curl,CURLINFO_HEADER_SIZE);$head=substr($raw,0,$size);$body=substr($raw,$size);preg_match('/^Location:\s*([^\r\n]+)/mi',$head,$loc);
   return ['status'=>(int)curl_getinfo($this->curl,CURLINFO_RESPONSE_CODE),'body'=>$body,'location'=>trim($loc[1]??''),'json'=>json_decode($body,true)];
  }
- public function login(array $account,bool $nip=false): array { $page=$this->request('GET','/login');$csrf=self::token($page['body'],'login_csrf');return $this->request('POST',$nip?'/login':'/admin/login',$nip?['login_csrf'=>$csrf,'nip'=>$account['nip']]:['login_csrf'=>$csrf,'username'=>$account['username'],'password'=>$account['password']]); }
+ public function login(array $account,bool $nip=false): array {
+  $page=$this->request('GET','/login');$csrf=self::token($page['body'],'login_csrf');
+  $result=$this->request('POST',$nip?'/login':'/admin/login',$nip?['login_csrf'=>$csrf,'nip'=>$account['nip']]:['login_csrf'=>$csrf,'username'=>$account['username'],'password'=>$account['password']]);
+  if(!$nip){
+   if($result['location']!=='/login/verificacion')throw new RuntimeException('La contraseña administrativa debe abrir el reto 2FA.');
+   if($this->request('GET','/admin/global/almacenes')['status']!==401)throw new RuntimeException('El reto pendiente permite entrar al panel.');
+   $challenge=$this->request('GET','/login/verificacion');
+   if(!preg_match('/data-otp-usar="(\d{6})"/',$challenge['body'],$code))throw new RuntimeException('Falta código del entorno test explícito.');
+   $result=$this->request('POST','/login/verificacion',['codigo'=>$code[1]]);
+  }
+  return $result;
+ }
  public static function token(string $body,string $name='admin_csrf'): string {if(!preg_match('/name="'.preg_quote($name,'/').'"\s+value="([^"]+)"/',$body,$m))throw new RuntimeException('No se encontró el token del formulario.');return html_entity_decode($m[1],ENT_QUOTES|ENT_HTML5,'UTF-8');}
  public static function dom(string $body): DOMXPath { $doc=new DOMDocument();$previous=libxml_use_internal_errors(true);$doc->loadHTML('<?xml encoding="utf-8" ?>'.$body);libxml_clear_errors();libxml_use_internal_errors($previous);return new DOMXPath($doc); }
  public static function form(string $body,string $action,int $warehouse=0,int $article=0): array {
@@ -54,6 +65,13 @@ try {
  $assert($readers['restaurante']->request('GET',$bases['panaderia'])['status']===403,'La membresía Restaurante no abre Panadería');
  $assert($admin->request('GET','/admin/panaderia/menu')['status']===503,'Menú Panadería continúa pendiente sin escrituras parciales');
  $assert($valid($admin->request('GET','/admin/menu'))&&$valid($admin->request('GET','/admin/recetas')),'Restaurante conserva menú y recetas');
+ foreach(['/panaderia','/panaderia/carta','/panaderia/pedidos','/panaderia/nosotros','/panaderia/contacto'] as $path){
+  $r=$anon->request('GET',$path);$assert($valid($r)&&str_contains($r['body'],'noindex'),'Andamio público sin tienda '.$path);
+ }
+ foreach(['/admin/reservaciones','/admin/area','/admin/finanzas','/admin/ia'] as $path)$assert($valid($admin->request('GET',$path)),'Restaurante conserva lectura HTTP '.$path);
+ foreach(['dia','0'] as $turno){$r=$floor->request('GET','/api/corte-caja?turno='.$turno);$assert($r['status']===200&&isset($r['json']['resumen']['ventas']),'Corte HTTP '.$turno);}
+ foreach(['/admin/panaderia/api/cerrar-ticket','/api/panaderia/cerrar-ticket'] as $path)$assert(in_array($admin->request('POST',$path,[])['status'],[401,403,503],true),'API comercial pendiente denegada '.$path);
+ foreach(['/api/integraciones/n8n/feedback/areas-mejora','/api/integraciones/n8n/inventada'] as $path)$assert($anon->request('POST',$path,[])['status']===401,'JWT requerido antes de sesión '.$path);
 
  $phase='catálogo y almacenes físicos';$suffix=bin2hex(random_bytes(4));$articleName='HTTP3E-articulo-'.$suffix;
  $r=$admin->operation($bases['global'],'crear_articulo',['nombre'=>$articleName,'unidad'=>'g','costo'=>'0.1250','activo'=>'1'],'catalogo');$assert($confirmed($r),'Global crea identidad maestra compartida');

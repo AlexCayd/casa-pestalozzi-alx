@@ -2,6 +2,14 @@
 
 ## Variables de entorno
 
+El segundo factor administrativo solo muestra códigos en `development` o `test`
+explícitos; vacío, ausente, desconocido y producción los ocultan. Configurar
+correo y transporte para cada administrador antes de producción; consultar
+[credenciales](usuarios/credenciales.md#segundo-factor-administrativo).
+`JWT_N8N_SALIDA_SECRET` corresponde al helper de firma saliente y debe ser distinto
+de `JWT_N8N_ENTRADA_SECRET`; los transportes salientes actuales de reservaciones
+conservan `N8N_RESERVATIONS_WEBHOOK_SECRET`, sin migración implícita a JWT.
+
 `.env` configura infraestructura y entorno; no debe contener reglas de negocio.
 Define los datos de conexión (`DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`) y
 protege los secretos fuera del repositorio.

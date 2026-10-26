@@ -43,7 +43,7 @@ del COMMIT de PHP. Templates esperados: `reservation_confirmation_code`,
 | Ámbito | Valores | Persistencia y uso |
 |---|---|---|
 | Secretos de instancia | `N8N_ENCRYPTION_KEY`; token técnico del runner independiente | Archivos privados externos al repositorio, montados como secrets. La clave sólo se monta en n8n. |
-| Credenciales n8n | SMTP, WhatsApp Business Cloud/Meta, Header Auth de entrada y Header Auth hacia PHP | Se crean/asignan en la instancia; quedan cifradas en su BD, nunca en exports. |
+| Credenciales n8n | SMTP, WhatsApp Business Cloud/Meta, Header Auth de entrada y JWT hacia PHP | Se crean/asignan en la instancia; quedan cifradas en su BD, nunca en exports. |
 | Configuración no secreta del workflow | App base URL, Email From, Phone Number ID, idioma de template | Nodo Edit Fields (Set) llamado **Configuración**, propio de cada workflow. |
 | Configuración de proceso n8n | Timezone, URLs de instancia, proxy, bloqueo de entorno, persistencia de ejecuciones | Compose y archivo de parámetros persistente del operador. |
 | Configuración PHP | `APP_ENV`, `N8N_BASE_URL`, `RESERVATION_PUBLIC_BASE_URL`, los dos secretos de reservaciones | Configuración privada de PHP; no se inyecta en los nodos n8n. |
@@ -85,12 +85,12 @@ no sirve en otra, y PHP rechaza cualquier header heredado):
 | `/api/integraciones/n8n/feedback/areas-mejora` | `feedback.areas-mejora` |
 
 ⚠️ Los exports todavía llevan Header Auth en esos HTTP Request: el cambio a
-JWT se hace en la instancia (API.md §9.3, fase 6) y, hasta entonces, PHP los
+JWT se hace en la instancia (ver [contrato JWT](../API.md#9-jwt-de-integraciones)) y, hasta entonces, PHP los
 rechaza con 401.
 
 Los dos secretos son aleatorios, distintos entre sí y por entorno; también son
 distintos de la clave de cifrado y del token del runner. En los HTTP Request
-elegir Generic Credential Type → Header Auth; no escribir un header secreto
+configurar el nodo JWT Sign y enviar su resultado como Bearer; no escribir un header secreto
 manual ni validarlo en Code. En los Webhook usar la autenticación nativa
 [Header Auth](https://docs.n8n.io/integrations/builtin/credentials/webhook).
 `N8N_SECRET` no forma parte del contrato objetivo de reservaciones.

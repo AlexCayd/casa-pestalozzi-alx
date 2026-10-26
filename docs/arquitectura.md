@@ -2,6 +2,15 @@
 
 **Estado rector posterior a 3E · 25 de octubre de 2026**
 
+M0 integra segundo factor administrativo por privilegios efectivos (superadmin
+y permisos directos de panel), JWT HS256 para integraciones entrantes y corte
+de caja por turnos de Restaurante. No libera nuevos módulos comerciales.
+Los contratos detallados se desarrollan en [credenciales](usuarios/credenciales.md),
+[API](../API.md#9-jwt-de-integraciones) y [operación](operacion.md#corte-de-caja-por-turnos).
+Las rutas públicas `/panaderia`, `/panaderia/carta`, `/panaderia/pedidos`,
+`/panaderia/nosotros` y `/panaderia/contacto` son un andamio de navegación
+sin tienda, pedidos ni ventas funcionales. Sus APIs comerciales siguen bloqueadas.
+
 Este documento es la única fuente normativa para alcance, arquitectura, propiedad, seguridad, datos y reglas de desarrollo. Describe la implementación de esta revisión: una entidad o pantalla existente por sí sola no significa que un módulo esté funcional. Las guías enlazadas explican procedimientos y detalles técnicos subordinados; si una referencia contradice estas decisiones, debe actualizarse antes de ampliar el módulo.
 
 ## 1. Objetivo y alcance

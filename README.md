@@ -1,6 +1,10 @@
 # Casa Pestalozzi
 
 Aplicación PHP MVC/MySQL con ámbitos Global, Restaurante y Panadería.
+
+M0 conserva Usuarios y Almacenes compartidos y la operación de Restaurante.
+El acceso administrativo exige segundo factor según privilegios efectivos.
+El sitio público `/panaderia` y sus subpáginas son solo un andamio de navegación.
 El [contrato rector](docs/arquitectura.md) describe la arquitectura y distingue los
 módulos funcionales de los contratos preparados para desarrollo posterior.
 

@@ -19,11 +19,12 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
 
 ## Deuda conocida a evaluar por dominio
 
-- Integraciones ajenas a reservaciones: feedback entrante solo exige N8N_SECRET
-  si está configurado (AreasMejora::secret); el disparador de áreas de mejora
-  no añade autenticación (AdminController::llamarWebhook). Evaluar autenticación
-  obligatoria y separación de secretos en una entrega de seguridad; el antiguo
-  plan JWT no es implementación ni obliga a usar ese mecanismo.
+- Integraciones: feedback entrante ya exige JWT HS256 por audiencia. Los exports
+  de reservaciones requieren adaptar sus HTTP Request en la instancia antes de
+  desplegar; PHP rechaza sus headers anteriores. La firma JWT saliente tiene
+  helper, pero los consumidores actuales conservan sus contratos de transporte.
+  El disparador de áreas de mejora sigue sin autenticación saliente propia.
+  Consultar [API](../API.md#9-jwt-de-integraciones), sin restaurar el antiguo plan.
 - KDS: ticket_items no registra hora por transición. Definir medición antes de
   prometer tiempos de cocina/entrega; no reconstruirla desde el estado final.
 - UI: revisar la diferencia de tipografía entre button.admin-btn y a.admin-btn

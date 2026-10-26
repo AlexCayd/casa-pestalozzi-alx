@@ -1,5 +1,12 @@
 # Guía técnica de interfaz
 
+El acceso administrativo tiene dos pasos: contraseña y código, sin acceso al
+panel mientras el reto está pendiente. El recuadro de código solo existe en
+`development`/`test` explícitos; consultar [credenciales](../usuarios/credenciales.md).
+El modal de caja permite turno vigente o día; su ventana y totales se rigen por
+[operación](../operacion.md#corte-de-caja-por-turnos). El sitio público de
+Panadería solo comprueba navegación y no representa una tienda liberada.
+
 Referencia subordinada a [Arquitectura](../arquitectura.md). Conserva los contratos
 visuales y componentes compartidos; no concede permisos ni declara módulos funcionales.
 La marca se apoya en el [manual de identidad](../../Manual%20de%20Identidad%20Casa%20Pestalozzi%20Draft.pdf).

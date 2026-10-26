@@ -6,6 +6,35 @@ registrarse en el informe de la revisión validada.
 
 ## Suites generales
 
+M0 añade los contratos puros y dos runners DB con destino propio. Identificar
+host/base/entorno según la configuración local; nunca apuntar DDL a la base activa:
+
+```sh
+composer validate
+npm run build
+npm run test:menu-preservacion
+php scripts/tests/run-dos-factores.php
+php scripts/tests/run-jwt-integraciones.php
+php scripts/tests/run-corte-turnos.php
+php scripts/tests/run-dos-factores-3b.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-m0-integracion-db.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-instalacion-3e.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-notifications-isolated.php run-punto-venta-cierre-db.php
+```
+
+El runner 2FA hidrata usuarios reales del DDL 3B: superadministrador, permisos
+directos y cuenta operativa; comprueba contraseña incorrecta, reto sin sesión,
+cuenta sin correo y revocación/desactivación antes del código. El runner puro
+mantiene vigencia, formato, intentos, reenvío y entornos cerrados por defecto.
+El cliente HTTP 3E exige reto antes de autenticar, verifica el bloqueo del panel
+durante ese reto y completa el código exclusivamente del entorno `test`.
+
+La importación SQL directa carga los cuatro archivos versionados sin el marcador
+del instalador, verifica `admin_demo`, tres ámbitos, datos y menú, y contrasta el
+corte por negocio, tickets cerrados, propinas, pagos divididos y suma de ventanas.
+La instalación alinea la zona horaria con la aplicación y usa últimos siete días
+para el consumo del fixture de ayer, incluso un lunes; conserva sus aserciones.
+
 Con dependencias y assets preparados según la [instalación](instalacion.md):
 
 ```sh

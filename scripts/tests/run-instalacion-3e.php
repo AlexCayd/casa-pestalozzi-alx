@@ -8,6 +8,8 @@ require_once __DIR__.'/fixture-3b.php';
 require_once __DIR__.'/pruebas-usuarios-3e1.php';
 require_once __DIR__.'/pruebas-almacenes-3e1.php';
 Dotenv\Dotenv::createImmutable($root.'/includes')->safeLoad();
+// Igual que includes/app.php: evita cruzar de semana en UTC antes que MySQL local.
+date_default_timezone_set('America/Mexico_City');
 $original=(string)($_ENV['DB_NAME']??'');$db=null;$bases=[];$count=0;$phase='configuración';$error=null;$results=[];$fixtureCanonico=null;
 $assert=static function(bool $ok,string $msg) use(&$count): void {if(!$ok)throw new RuntimeException($msg);$count++;};
 $reject=static function(callable $fn,string $msg) use($assert): void {$failed=false;try{$fn();}catch(Throwable){$failed=true;}$assert($failed,$msg);};
@@ -58,13 +60,14 @@ try {
         $sinVentaIA=Services\Analytics\ConsultasRapidas::responderEstructurada('sin_venta',null,null,'30d');
         $meserosIA=Services\Analytics\ConsultasRapidas::responderEstructurada('meseros',null,null,'30d');
         $horasIA=Services\Analytics\ConsultasRapidas::responderEstructurada('horas_pico',null,null,'30d');
-        $consumoIA=Services\Analytics\ConsultasRapidas::responderEstructurada('consumo',1002,null,'semana');
+        // El consumo del fixture ocurre ayer: el lunes queda fuera de "esta semana".
+        $consumoIA=Services\Analytics\ConsultasRapidas::responderEstructurada('consumo',1002,null,'7d');
         $stockIA=Services\Analytics\ConsultasRapidas::responderEstructurada('stock',1002,null,null);
         $assert($ventasIA['ok']&&$ventasIA['entendida']&&isset($ventasIA['respuesta']['cifra']),'El asistente local consulta ventas reales del periodo.');
         $assert((int)$sinVentaIA['respuesta']['cifra']>=8,'El asistente local encuentra ofertas activas sin venta.');
         $assert(count($meserosIA['respuesta']['detalle'])>0&&count($horasIA['respuesta']['detalle'])>0,'El asistente local consulta meseros y horas pico.');
         $assert((float)str_replace(',','',(string)$consumoIA['respuesta']['cifra'])>0&&$stockIA['respuesta']['cifra']!=='','El asistente local consulta consumo trazado y existencias.');
-        $asistente=['ventas_total_30d'=>$ventasIA['respuesta']['cifra'],'ofertas_sin_venta_30d'=>(int)$sinVentaIA['respuesta']['cifra'],'meseros_consultables'=>count($meserosIA['respuesta']['detalle']),'franjas_horarias'=>count($horasIA['respuesta']['detalle']),'consumo_semana'=>$consumoIA['respuesta']['cifra'],'stock_consultable'=>$stockIA['respuesta']['cifra']];
+        $asistente=['ventas_total_30d'=>$ventasIA['respuesta']['cifra'],'ofertas_sin_venta_30d'=>(int)$sinVentaIA['respuesta']['cifra'],'meseros_consultables'=>count($meserosIA['respuesta']['detalle']),'franjas_horarias'=>count($horasIA['respuesta']['detalle']),'consumo_7d'=>$consumoIA['respuesta']['cifra'],'stock_consultable'=>$stockIA['respuesta']['cifra']];
         $_SESSION=$oldSession;if($oldPath===null)unset($_SERVER['PATH_INFO']);else $_SERVER['PATH_INFO']=$oldPath;
         $profile=Services\Security\PermisosUsuario::cargar($id,$db);
         $assert(Services\Security\PermisosUsuario::tipoAcceso($profile)==='contrasena'&&count($profile['ambitos'])===3,'La autorización reconoce el superadministrador en los tres ámbitos.');
