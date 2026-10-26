@@ -166,9 +166,9 @@ class AuthController {
         } else {
             $usuario = Usuario::porCredenciales($username, $password);
 
-            // porCredenciales() ya sólo encuentra cuentas cuyo rol entra con
-            // contraseña (los de sistema y los que tienen módulos del panel).
-            if ($usuario && DosFactores::aplica((string) $usuario->rol)) {
+            // porCredenciales() solo admite identidades con acceso por contraseña.
+            // En 3B se decide por permisos efectivos, sin roles heredados.
+            if ($usuario && DosFactores::requiere($usuario)) {
                 // La contraseña sola no abre sesión: abre el reto del código.
                 DosFactores::iniciar($usuario);
                 header('Location: /login/verificacion');
@@ -190,7 +190,7 @@ class AuthController {
     }
 
     /**
-     * /login/verificacion: el código de 6 dígitos de los roles de sistema.
+     * /login/verificacion: el código de 6 dígitos del acceso administrativo.
      * Sin reto abierto no hay nada que verificar y se vuelve a la contraseña.
      */
     public static function verificacion(Router $router) {
@@ -222,7 +222,7 @@ class AuthController {
                 header('Location: ' . Auth::destinoPorRol($usuario->rol));
                 exit;
             }
-            if ($resultado === 'agotado' || $resultado === 'sin_reto') {
+            if ($resultado === 'agotado' || $resultado === 'sin_reto' || $resultado === 'revocado') {
                 header('Location: /login?tab=admin' . ($resultado === 'agotado' ? '&resultado=verificacion_agotada' : ''));
                 exit;
             }
