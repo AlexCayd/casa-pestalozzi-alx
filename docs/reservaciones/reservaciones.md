@@ -1,6 +1,6 @@
 # Reservaciones
 
-Fuente normativa de horarios consultados, capacidad, asignación, operación y
+Referencia técnica subordinada a [Arquitectura](../arquitectura.md) sobre horarios, capacidad, asignación, operación y
 proyección visual de mesas. Las decisiones de asignación y operación las
 confirma el backend; el mapa presenta hechos, no concede permisos.
 

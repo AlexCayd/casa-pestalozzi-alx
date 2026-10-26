@@ -1,15 +1,8 @@
-# Módulo de Tickets e Impresión Térmica (ESC/POS)
+# Módulo de impresión térmica ESC/POS
 
-> **Histórico — referencia de diseño.** diseño técnico de impresión de julio de 2026; conserva ejemplos y decisiones anteriores, incluidos nombres de controladores y esquema que ya cambiaron.
-> Prevalece el [contrato rector 3E](../../docs/arquitectura.md) y el código de la revisión.
-> No utilizar este documento para instalar DML, autorizar rutas o aplicar DDL antiguo.
-
-
-> Documentación técnica de la capa de impresión de Casa Pestalozzi POS.
-> Enfoque: ~80% técnico · ~20% negocio.
-> Última actualización: 2026-07-04.
-
----
+Referencia técnica subordinada a [Arquitectura](../../docs/arquitectura.md).
+El flujo vigente de commit, reintentos y alertas está en
+[operación](../../docs/operacion.md); esta guía detalla adaptadores y hardware.
 
 ## 1. Qué resuelve (visión de negocio)
 
@@ -23,7 +16,7 @@ En el restaurante hay dos documentos físicos que se imprimen en papel térmico:
 Regla de oro del negocio: **la impresión nunca debe frenar la operación.** Si una
 impresora está apagada, sin papel o desconectada, el mesero debe poder seguir
 enviando órdenes y cobrando. Por eso toda la capa de impresión es un *efecto
-secundario*: falla en silencio (se registra en log) y jamás interrumpe el cobro,
+secundario*: registra el fallo y expone alertas operativas y jamás interrumpe el cobro,
 el envío de comandas ni el token de feedback del cliente.
 
 ---
@@ -34,9 +27,9 @@ el envío de comandas ni el token de feedback del cliente.
                  POS (mapa de mesas)
                         │
         ┌───────────────┼─────────────────┐
-        │ send-order    │ close-ticket     │  (endpoints JSON)
+        │ enviar-comanda    │ cerrar-ticket     │  (endpoints JSON)
         ▼               ▼                  │
-  MapaController    MapaController         │
+  PuntoVentaController    PuntoVentaController         │
   ::enviarComanda   ::cerrarTicket         │
         │               │                  │
         ▼               ▼                  │
@@ -82,41 +75,19 @@ Separación de responsabilidades:
 | `classes/Impresion/Prueba.php` | Ticket de prueba de conectividad. |
 | `models/Impresora.php` | Modelo + validación + routing (`comandaPorArea`, `cuenta`). |
 | `controllers/AdminPrintersController.php` | CRUD `/admin/printers` + prueba. |
-| `controllers/MapaController.php` | Dispara comanda (`enviarComanda`) y cuenta (`cerrarTicket`). |
+| `controllers/PuntoVentaController.php` | Dispara comanda (`enviarComanda`) y cuenta (`cerrarTicket`). |
 | `views/admin/printers/{index,form}.php` | UI de administración de impresoras. |
 | `database/ddl.sql` · `database/deploy.sql` · `database/development.sql` | Esquema (tabla `impresoras`) y datos de siembra. |
 
 ---
 
-## 4. Modelo de datos: tabla `impresoras`
+## 4. Modelo de datos
 
-```sql
-CREATE TABLE impresoras (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  nombre      VARCHAR(60)  NOT NULL,
-  area_id     TINYINT UNSIGNED NULL,       -- NULL = impresora de cuenta/caja
-  rol         ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda',
-  conexion    ENUM('red','windows') NOT NULL DEFAULT 'red',
-  host        VARCHAR(64)  NOT NULL,        -- sólo aplica a conexion='red'
-  puerto      INT NOT NULL DEFAULT 9100,    -- sólo aplica a conexion='red'
-  dispositivo VARCHAR(120) NULL,            -- windows: nombre de impresora o smb://host/recurso
-  ancho       TINYINT NOT NULL DEFAULT 48,  -- 48 = papel 80mm · 32 = papel 58mm
-  activo      TINYINT(1) NOT NULL DEFAULT 1,
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
-);
-```
-
-### Esquema (DDL) y datos (DML)
-
-La base se define en tres archivos: `database/ddl.sql` (estructura),
-`database/deploy.sql` (datos mínimos de operación) y
-`database/development.sql` (datos ficticios). La tabla `impresoras` — con sus columnas
-`conexion` (`red` / `windows`) y `dispositivo` — se crea directamente en el
-`CREATE TABLE` del DDL, sin `ALTER TABLE` posteriores.
-
-> **Al desplegar en una máquina nueva**, ejecuta primero `database/ddl.sql` y luego
-> `database/deploy.sql`. Carga `database/development.sql` sólo en desarrollo
-> o QA. Sin la columna `conexion` el formulario y `conectar()` fallan.
+La tabla impresoras vigente está en database/ddl.sql. Tiene propietario unidad_id,
+área del mismo negocio, rol, conexión, host/puerto o dispositivo, ancho y estado.
+No copiar un CREATE TABLE parcial de esta guía. La reconstrucción completa se
+hace según [instalación](../../docs/desarrollo/instalacion.md), incluyendo menú
+preservado y fixtures solo en development/test.
 
 ### Campos según el tipo de conexión
 
@@ -144,14 +115,8 @@ Impresora::comandaPorArea($area_id);   // WHERE rol='comanda' AND area_id=? AND 
 Impresora::cuenta();                    // WHERE rol='cuenta' AND activo=1
 ```
 
-Áreas de producción (`AdminPrintersController::AREAS`):
-
-| area_id | Área |
-|:-------:|------|
-| 1 | Café |
-| 2 | Jugos |
-| 3 | Cocina |
-| 4 | Horno |
+Las áreas provienen de areasProduccion() y de areas_produccion del negocio.
+No suponer que los IDs 1–4 identifiquen estaciones de todas las instalaciones.
 
 Reglas de validación (`Impresora::validar`):
 
@@ -173,10 +138,10 @@ Reglas de validación (`Impresora::validar`):
 3. Cobrar / cerrar mesa  POST /api/cerrar-ticket     → imprime CUENTA (cobro)
 ```
 
-### 6.1 Comanda (`MapaController::enviarComanda`)
+### 6.1 Comanda (`PuntoVentaController::enviarComanda`)
 
 - Inserta en `ticket_items` **sólo los productos de esta tanda** con su
-  `area_id` (default `3` = Cocina si no viene el área).
+  área y snapshots de la oferta resueltos por el servidor.
 - Llama `TicketPrinter::imprimirComanda($items, $meta)`, que **segmenta la orden
   por área**: cada área de producción recibe en su impresora de rol `comanda`
   únicamente los platillos que le corresponden (a Jugos no le llega lo de
@@ -187,9 +152,9 @@ Reglas de validación (`Impresora::validar`):
 - La impresión va en su propio `try/catch`; el resultado (`print_ok`) es
   meramente informativo y **nunca** cambia la respuesta `ok` del endpoint.
 
-### 6.2 Cuenta (`MapaController::cerrarTicket`)
+### 6.2 Cuenta (`PuntoVentaController::cerrarTicket`)
 
-- Valida `metodo_pago` ∈ {`efectivo`, `tarjeta`}.
+- Valida el cierre y los pagos, incluidos los divididos, en el flujo comercial.
 - Marca el ticket `cerrado`, guarda el método de pago y genera el token de
   feedback.
 - Lee los items **no cancelados** y llama `TicketPrinter::imprimirCuenta(...)`.
@@ -346,8 +311,8 @@ not found`, timeout de socket, etc.).
 | Cuenta no sale al cobrar | Sin impresora `cuenta` activa | Registrar POS80C con rol **Cuenta** y activa (§5) |
 | Timeout / conexión rechazada (red) | IP/puerto/red incorrectos | Verificar IP fija, puerto 9100, misma red (§8.3) |
 
-Los mensajes completos siempre quedan en el `error_log` de PHP con el prefijo
-`TicketPrinter — ...`.
+El detalle de diagnóstico depende del adaptador y del flujo; los errores locales
+pueden estar redactados. No registrar credenciales ni payloads de clientes.
 
 ---
 
@@ -373,5 +338,3 @@ admin no genera alertas.
 - **Regla invariable**: la impresión es efecto secundario. Cualquier método nuevo
   debe capturar `\Throwable`, registrar en log y **jamás** propagar la excepción al
   flujo del POS.
-```
-

@@ -1,17 +1,13 @@
-# Antecedentes de contextos y Panadería
+# Panadería
 
-**Índice histórico.** El [contrato rector 3E](../arquitectura.md) es la fuente actual.
-Los módulos comerciales pendientes se detallan en el [backlog](../backlog.md).
-Para instalar, seguir la [guía vigente](../desarrollo/instalacion.md).
+Usuarios y Almacenes son funcionales mediante componentes compartidos con los
+otros ámbitos. Menú administrativo, recetas comerciales, POS sin mesas, tickets,
+pagos y finanzas requieren completar sus recorridos; no se activan desde fixtures.
 
-Esta carpeta conserva la demo inicial de contextos y las decisiones recibidas:
+- [Arquitectura y estado de módulos](../arquitectura.md#3-ambitos-propiedad-y-estado-de-modulos).
+- [Usuarios](../usuarios/usuarios.md) y [Almacenes](../modulos/almacenes.md).
+- [Backlog y dependencias](../backlog.md).
+- [Interfaz compartida](../desarrollo/interfaz.md).
 
-- [Documento maestro original](documento-maestro-multinegocio.md).
-- [Contextos de Etapa 1](etapa-1.md) y [validación técnica](validacion-multinegocio-etapa-1.md).
-- [Ajustes de navegación](entrega-a.md) y [diseño inicial](diseno.md).
-- [Arquitectura vigente](../arquitectura.md), única fuente de las reglas actuales.
-
-Las capturas son evidencia histórica y no acreditan POS, Menú o Finanzas de
-Panadería como módulos operativos. Usuarios y Almacenes se desarrollan sobre
-la arquitectura compartida y el diseño de Restaurante. La secuencia 2–3D está
-en [antecedentes de migración](../desarrollo/clasificacion-documental.md).
+Consultar Git para entregas y capturas iniciales de contextos. El estado actual
+se verifica con las [pruebas vigentes](../desarrollo/pruebas.md).

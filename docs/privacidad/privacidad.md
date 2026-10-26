@@ -1,6 +1,6 @@
 # Privacidad
 
-Fuente de verdad vigente para el tratamiento de datos personales en Casa Pestalozzi. La aplicación sólo debe capturar y mostrar los datos necesarios para gestionar la reservación y la operación del restaurante.
+Guía de tratamiento de datos personales subordinada a [Arquitectura](../arquitectura.md). La aplicación sólo debe capturar y mostrar los datos necesarios para gestionar la reservación y la operación del restaurante.
 
 ## Datos capturados
 

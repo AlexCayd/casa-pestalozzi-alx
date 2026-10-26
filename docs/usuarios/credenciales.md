@@ -16,7 +16,7 @@ Seguir el [procedimiento único de instalación](../desarrollo/instalacion.md).
 El procedimiento CLI agrega las tres membresías solo cuando el instalador corre
 con la opción simulada en `development`/`test`. El comando
 [bootstrap-admin.php](../../scripts/desarrollo/bootstrap-admin.php) valida el
-hash frente al secreto local y deja una marca para impedir que se promueva una
+hash frente al secreto local `DEV_SUPERADMIN_PASSWORD` y deja una marca para impedir que se promueva una
 cuenta homónima ajena. La reejecución no restablece una contraseña cambiada;
 `--restablecer` expresa esa decisión solo en desarrollo/pruebas identificados.
 

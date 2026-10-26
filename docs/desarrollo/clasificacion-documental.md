@@ -1,57 +1,43 @@
-# Clasificación documental
+# Índice documental
 
-Revisión del 25 de octubre de 2026. [Arquitectura](../arquitectura.md) es la única fuente normativa sobre modelo, permisos, propiedad, estado de módulos, datos y límites. Esta tabla clasifica todos los documentos que permanecen en el árbol; un informe histórico o una referencia técnica no sustituye esa fuente.
+[Arquitectura](../arquitectura.md) es la única fuente normativa. Las guías
+operativas y referencias técnicas la desarrollan; no habilitan módulos por
+su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 
-## Criterios
+## Documentación vigente
 
-- **Vigente:** guía actual o índice operativo subordinado a Arquitectura.
-- **Referencia técnica:** inventario/explicación de una pieza ejecutable concreta.
-- **Histórico:** evidencia o propuesta de una etapa anterior, sin instrucciones de activación presentes.
-- **Obsoleto:** documento que ya no describe un proceso útil; los casos detectados se retiraron.
-- **Duplicado:** copia normativa reemplazada por Arquitectura; no se deja una segunda fuente.
-
-## Inventario de fuentes conservadas
-
-| Archivo | Clasificación | Uso y precedencia |
+| Documento | Tipo | Utilidad |
 |---|---|---|
-| [Arquitectura](../arquitectura.md) | Vigente, rector | Fuente única para alcance y decisiones de arquitectura. |
-| [Backlog](../backlog.md) | Vigente | Separa defectos/deuda, mejoras y funciones nuevas. |
-| [Configuración](../config.md) | Vigente | Variables de entorno y configuración real. |
-| [Deuda arquitectónica](../correcciones_pendientes_arquitectura.md) | Referencia técnica | Hallazgos puntuales vigentes; no reemplaza pruebas ni autoriza refactor masivo. |
-| [Clasificación](clasificacion-documental.md) | Vigente | Este inventario; actualizarlo al añadir o retirar documentación. |
-| [Guía de desarrollo](desarrollo.md) | Vigente | Procedimiento de trabajo para futuras entregas. |
-| [Informe 3E](entrega-3e.md) | Vigente | Evidencia de cierre y estado de integración. |
-| [Instalación](instalacion.md) | Vigente | Procedimiento único desde archivos versionados. |
-| [Pruebas](pruebas.md) | Vigente | Runners y aceptación verificable. |
-| [Almacenes](../modulos/almacenes.md) | Referencia técnica vigente | Interfaz y operación del motor compartido. |
-| [Operación](../operacion.md) | Referencia técnica vigente | POS, impresión e idempotencia de Restaurante. |
-| [Panadería: índice](../panaderia/README.md) | Histórico | Índice de evidencia de la primera etapa; no documenta el estado final. |
-| [Panadería: diseño](../panaderia/diseno.md) | Histórico | Propuesta original; las decisiones vigentes están en Arquitectura. |
-| [Panadería: documento maestro](../panaderia/documento-maestro-multinegocio.md) | Histórico | Contexto de la propuesta inicial, no contrato actual. |
-| [Panadería: entrega A](../panaderia/entrega-a.md) | Histórico | Evidencia fechada de la primera entrega. |
-| [Panadería: etapa 1](../panaderia/etapa-1.md) | Histórico | Antecedente de alcance y diseño. |
-| [Panadería: validación inicial](../panaderia/validacion-multinegocio-etapa-1.md) | Histórico | Evidencia de su etapa; no valida la aceptación 3E. |
-| [Privacidad](../privacidad/privacidad.md) | Vigente | Tratamiento y exposición de datos personales. |
-| [Notificaciones de reservas](../reservaciones/notificaciones.md) | Referencia técnica vigente | Contrato de transporte y límites del proveedor. |
-| [Reservaciones](../reservaciones/reservaciones.md) | Referencia técnica vigente | Reglas y operación del agregado; Arquitectura fija el alcance organizacional. |
-| [Credenciales](../usuarios/credenciales.md) | Vigente | Bootstrap seguro y credenciales de panel/piso. |
-| [Permisos directos](../usuarios/roles-y-permisos.md) | Referencia técnica vigente | Detalle de implementación subordinado a §§3–4 de Arquitectura. |
-| [Usuarios](../usuarios/usuarios.md) | Referencia técnica vigente | Entidades, rutas y componentes subordinados a §4 de Arquitectura. |
-| [README](../../README.md) | Vigente | Índice de entrada al producto, instalación y guías. |
-| [Instrucciones de agentes](../../CLAUDE.md) | Vigente | Pasos de trabajo; remite a Arquitectura como autoridad. |
-| [API](../../API.md) | Referencia técnica | Inventario de rutas; el router y clasificador ejecutable mandan. |
-| [PRODUCT](../../PRODUCT.md) | Referencia técnica | Contexto de producto subordinado al alcance real de Arquitectura. |
-| [Impresión](../../classes/Impresion/README.md) | Referencia técnica | Implementación y requisitos del adaptador; hardware no queda certificado. |
-| [Analíticas](../../database/ANALITICAS.md) | Referencia técnica | Consultas/criterios de informes; no declara módulos pendientes funcionales. |
-| [n8n](../../n8n/README.md) | Referencia técnica | Frontera y configuración de la integración externa. |
-| [Despliegue n8n](../../n8n/deploy/README.md) | Referencia técnica | Receta externa; no acredita una entrega real del proveedor. |
+| [API.md](../../API.md) | Referencia técnica | Inventario de rutas y autenticación efectiva |
+| [CLAUDE.md](../../CLAUDE.md) | Vigente | Guía breve de trabajo para agentes |
+| [PRODUCT.md](../../PRODUCT.md) | Referencia técnica | Propósito, usuarios y principios de producto |
+| [README.md](../../README.md) | Vigente | Entrada al proyecto y rutas de lectura |
+| [classes/Impresion/README.md](../../classes/Impresion/README.md) | Referencia técnica | Módulo de impresión térmica ESC/POS |
+| [database/ANALITICAS.md](../../database/ANALITICAS.md) | Referencia técnica | Analíticas de Restaurante |
+| [docs/arquitectura.md](../arquitectura.md) | Vigente, rector | Única fuente normativa de arquitectura y alcance |
+| [docs/backlog.md](../backlog.md) | Vigente | Pendientes, mejoras y deuda conocida |
+| [docs/config.md](../config.md) | Vigente | Configuración |
+| [docs/correcciones_pendientes_arquitectura.md](../correcciones_pendientes_arquitectura.md) | Referencia técnica | Hallazgos técnicos con identificadores persistentes |
+| [docs/desarrollo/clasificacion-documental.md](clasificacion-documental.md) | Vigente | Índice y precedencia documental |
+| [docs/desarrollo/desarrollo.md](desarrollo.md) | Vigente | Guía de desarrollo |
+| [docs/desarrollo/instalacion.md](instalacion.md) | Vigente | Instalación de desarrollo |
+| [docs/desarrollo/interfaz.md](interfaz.md) | Vigente | Tokens, componentes y contratos visuales compartidos |
+| [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
+| [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
+| [docs/operacion.md](../operacion.md) | Vigente | Operación POS e impresión |
+| [docs/panaderia/README.md](../panaderia/README.md) | Vigente | Estado y referencias actuales de Panadería |
+| [docs/privacidad/privacidad.md](../privacidad/privacidad.md) | Vigente | Privacidad |
+| [docs/reservaciones/notificaciones.md](../reservaciones/notificaciones.md) | Referencia técnica | Notificaciones de reservaciones |
+| [docs/reservaciones/reservaciones.md](../reservaciones/reservaciones.md) | Referencia técnica | Reservaciones |
+| [docs/usuarios/credenciales.md](../usuarios/credenciales.md) | Vigente | Credenciales de desarrollo |
+| [docs/usuarios/roles-y-permisos.md](../usuarios/roles-y-permisos.md) | Referencia técnica | Permisos directos y ámbitos |
+| [docs/usuarios/usuarios.md](../usuarios/usuarios.md) | Vigente | Usuarios y acceso |
+| [n8n/README.md](../../n8n/README.md) | Referencia técnica | n8n: configuración, despliegue y operación |
+| [n8n/deploy/README.md](../../n8n/deploy/README.md) | Referencia técnica | Receta Compose para n8n |
 
-Las capturas conservadas bajo `docs/panaderia/capturas/` son **históricas**: se retienen como evidencia visual de la etapa inicial, no como aceptación actual. Los documentos de Panadería permanecen porque aportan contexto histórico y visual; sus propuestas no autorizan duplicar interfaces ni servicios.
+## Mantenimiento
 
-## Documentos retirados
-
-- `docs/contrato.md` era una segunda copia normativa no versionada. Su contenido se integró y amplió en `docs/arquitectura.md`; se elimina la fuente divergente.
-- Los planes, contratos y reportes por etapa 2/3A/3B/3C/3D se retiraron del árbol de documentación vigente. La reconstrucción actual, sus contratos técnicos necesarios y el plan posterior se expresan en Arquitectura, guías vigentes y backlog. La historia de Git conserva el cambio.
-- `docs/panaderia/contratos-multinegocio-etapa-1.md` solo repetía enlaces a esos contratos y ya no aportaba evidencia técnica independiente.
-
-No se eliminó código, DDL, DML, test, imagen preservada del menú original ni evidencia de pruebas válida. El clasificador de documentación automática y los enlaces locales deben pasar después de cada actualización de esta lista.
+Conservar documentación útil para comprender, operar, probar o extender la
+aplicación. Actualizar este índice y los enlaces al añadir o retirar una guía.
+Históricos, propuestas sustituidas y resultados de entregas se consultan en Git;
+no crear una carpeta de archivo ni otro contrato normativo.

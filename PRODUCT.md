@@ -1,6 +1,6 @@
 # Product
 
-Contexto de producto y diseño, subordinado al [contrato rector](docs/contrato.md).
+Contexto de producto y diseño, subordinado al [contrato rector](docs/arquitectura.md).
 No es una segunda fuente de autorización ni de estado de módulos.
 
 
@@ -40,6 +40,10 @@ Los permisos efectivos pertenecen al usuario, ámbito y módulo, no al nombre de
 
 ## Capabilities and Constraints
 
+Las capacidades operativas siguientes corresponden a Restaurante. Usuarios y
+Almacenes funcionan en los tres ámbitos; el comercio de Panadería y los
+consolidados comerciales de Global siguen pendientes según Arquitectura.
+
 - Reservaciones públicas y administrativas, disponibilidad, modificación y cancelación.
 - POS, tickets, mesas, mapa de mesas, operación de reservaciones y KDS.
 - Administración de menú, recetas, inventario, proveedores, finanzas, usuarios, reportes, configuración e impresoras.
@@ -52,7 +56,7 @@ Los permisos efectivos pertenecen al usuario, ámbito y módulo, no al nombre de
 
 ## Brand Commitments
 
-La identidad es Casa Pestalozzi, un restaurante de estilo editorial/elegante. La interfaz interna debe ser sobria, oscura, de alto contraste, profesional y orientada a operación rápida; no debe sentirse como un dashboard SaaS genérico. La superficie pública y la administrativa pueden tener necesidades visuales diferentes y no necesitan compartir exactamente el mismo tratamiento.
+La identidad es Casa Pestalozzi, un restaurante de estilo editorial/elegante. El panel debe ser sobrio, con temas claro y oscuro, alto contraste y orientación a operación rápida; POS, KDS y login mantienen el tema oscuro; no debe sentirse como un dashboard SaaS genérico. La superficie pública y la administrativa pueden tener necesidades visuales diferentes y no necesitan compartir exactamente el mismo tratamiento.
 
 El idioma principal es español. Deben preservarse la marca, la lógica visual existente y los cambios funcionales ya estabilizados.
 

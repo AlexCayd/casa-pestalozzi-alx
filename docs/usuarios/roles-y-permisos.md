@@ -83,4 +83,4 @@ Ver [pruebas de aceptación](../desarrollo/pruebas.md).
 - [Usuarios y acceso](usuarios.md).
 - [Contrato técnico 3B](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Instalación y bootstrap](../desarrollo/instalacion.md).
-- [Clasificación de antecedentes](../desarrollo/clasificacion-documental.md).
+- [Índice documental](../desarrollo/clasificacion-documental.md).

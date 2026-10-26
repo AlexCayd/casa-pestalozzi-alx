@@ -18,9 +18,11 @@ transferencias, producción y catering continúan en el [backlog](docs/backlog.m
 
 El menú original se reconstruye desde `database/menu-restaurante.sql` y sus
 archivos versionados; no requiere un respaldo o paquete privado. La cuenta
-`admin_demo` se provisiona únicamente con un bootstrap CLI de desarrollo y una
-contraseña aportada por configuración local; ningún SQL instala una contraseña
-conocida automáticamente.
+`admin_demo` se instala con hash bcrypt de desarrollo. El procedimiento CLI
+valida el secreto local y marca la identidad; la importación SQL directa sin
+marcador también activa esa cuenta y se reserva a bases locales nuevas de
+prueba. Consultar [credenciales](docs/usuarios/credenciales.md); no cargar
+fixtures de desarrollo en producción.
 
 ## Documentación
 
@@ -31,7 +33,9 @@ conocida automáticamente.
 - [Reservaciones](docs/reservaciones/reservaciones.md) y [notificaciones](docs/reservaciones/notificaciones.md).
 - [Operación POS e impresión](docs/operacion.md).
 - [Configuración](docs/config.md) y [privacidad](docs/privacidad/privacidad.md).
-- [Clasificación documental](docs/desarrollo/clasificacion-documental.md).
+- [Guía técnica de interfaz](docs/desarrollo/interfaz.md).
+- [Contexto de producto](PRODUCT.md) y [API](API.md).
+- [Índice documental](docs/desarrollo/clasificacion-documental.md).
 
-La evidencia de cada entrega debe leerse en la revisión indicada por su informe;
-la existencia de una tabla o de una pantalla no acredita un flujo terminado.
+La existencia de una tabla o pantalla no acredita un flujo terminado. Los
+resultados de una entrega pertenecen a su revisión en Git.

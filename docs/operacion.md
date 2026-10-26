@@ -79,6 +79,14 @@ disponibilidad de reservaciones; sí en ventas. Cobertura en
 Las reservaciones también se operan aquí, en el cajón y la ficha del mapa: ver
 [Reservaciones](reservaciones/reservaciones.md#la-operacion-en-el-pos).
 
+## Corte de caja
+
+GET /api/corte-caja es solo lectura: no persiste arqueos. Consultas del día
+usan tickets cerrados y DATE(COALESCE(hora_cierre, hora_apertura)); el top de
+cinco productos por unidades usa ese mismo universo. El histórico del panel
+repite parte de las consultas: al cambiar su definición revisar también
+AdminFinanzasController::cortes, sin crear un contrato paralelo.
+
 ## Verificación
 
 La cobertura automatizada de fallos de impresión está en

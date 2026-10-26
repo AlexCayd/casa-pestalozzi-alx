@@ -127,3 +127,12 @@ La simulación no certifica impresoras físicas, SMTP, Meta/WhatsApp, credencial
 n8n, entregas reales, reinicios o restauración. Registrar esas pruebas como no
 realizadas cuando no haya evidencia. Un fallo crítico de aislamiento, integridad
 o seguridad bloquea la candidatura a merge; no se etiqueta como mejora futura.
+
+## Verificación documental
+
+node scripts/tests/run-reservaciones-notification-docs.cjs valida estructura
+de docs, contratos de transporte y enlaces locales con encabezados de las guías,
+n8n, README y CLAUDE. Para cambios documentales comprobar también PRODUCT, API,
+database/ANALITICAS y classes/Impresion/README: esos archivos quedan fuera de su
+recorrido automático. Revisar enlaces internos y referencias a rutas retiradas.
+No modificar pruebas para permitir una limpieza incompatible con sus consumidores.
