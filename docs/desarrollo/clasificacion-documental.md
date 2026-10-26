@@ -41,3 +41,9 @@ Conservar documentación útil para comprender, operar, probar o extender la
 aplicación. Actualizar este índice y los enlaces al añadir o retirar una guía.
 Históricos, propuestas sustituidas y resultados de entregas se consultan en Git;
 no crear una carpeta de archivo ni otro contrato normativo.
+
+## Recursos visuales y licencias
+
+- [Manual de identidad](../../Manual%20de%20Identidad%20Casa%20Pestalozzi%20Draft.pdf): referencia visual vigente de la marca.
+- [Licencia Fontshare](../../assets/fonts/LICENCIA-fontshare-FFL.txt): conservar junto a las fuentes.
+- [Licencia distribuida](../../public/build/fonts/LICENCIA-fontshare-FFL.txt): copia legítima publicada por el build.

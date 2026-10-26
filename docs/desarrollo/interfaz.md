@@ -2,6 +2,7 @@
 
 Referencia subordinada a [Arquitectura](../arquitectura.md). Conserva los contratos
 visuales y componentes compartidos; no concede permisos ni declara módulos funcionales.
+La marca se apoya en el [manual de identidad](../../Manual%20de%20Identidad%20Casa%20Pestalozzi%20Draft.pdf).
 Consultar [PRODUCT](../../PRODUCT.md) para propósito, usuarios y accesibilidad.
 
 ## Sistemas visuales y tokens
