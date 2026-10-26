@@ -111,6 +111,8 @@ if (!function_exists('admin_icon_paths')) {
             'estrella' => '<path d="m12 3 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.9 6.1 21l1.2-6.5L2.5 9.9 9.1 9Z"/>',
             'alerta' => '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
             'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+            // Segundo paso del acceso (views/auth/dos-factores.php).
+            'correo' => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>',
             // Pareja de icons.js, donde ya vivía para los avisos: error y
             // advertencia se separan por FORMA (círculo con aspa frente a
             // triángulo). El Asistente lo usa para «Cancelaciones».

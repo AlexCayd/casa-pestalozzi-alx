@@ -24,6 +24,7 @@
     // al cambiar a un rol de contraseña hay que exigirla.
     var originalAccess = form.getAttribute("data-original-access") || "";
     var unidadField = form.querySelector("[data-user-unidad-field]");
+    var emailField = form.querySelector("[data-user-email-field]");
     var mode = form.getAttribute("data-form-mode") || "crear";
     var hasPersistedNip = form.getAttribute("data-has-persisted-nip") === "1";
 
@@ -70,6 +71,10 @@
 
       if (unidadField) {
         unidadField.hidden = role() !== "admin";
+      }
+      // Sólo los roles de sistema reciben el código del segundo paso.
+      if (emailField) {
+        emailField.hidden = role() !== "admin" && role() !== "super_admin";
       }
 
       if (roleHint) {

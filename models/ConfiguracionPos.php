@@ -19,6 +19,7 @@ class ConfiguracionPos extends ActiveRecord
         'mesero_editable',
         'impresion_activa',
         'max_tickets_barra',
+        'turnos_caja',
         'updated_by',
         'updated_at',
     ];
@@ -27,6 +28,7 @@ class ConfiguracionPos extends ActiveRecord
     public $mesero_editable = 1;
     public $impresion_activa = 1;
     public $max_tickets_barra = self::MAX_TICKETS_BARRA_PREDETERMINADO;
+    public $turnos_caja = null;
     public $updated_by = null;
     public $updated_at = null;
 
@@ -66,6 +68,57 @@ class ConfiguracionPos extends ActiveRecord
         return $valor = $leido > 0
             ? max(self::MAX_TICKETS_BARRA_MINIMO, min(self::MAX_TICKETS_BARRA_TOPE, $leido))
             : self::MAX_TICKETS_BARRA_PREDETERMINADO;
+    }
+
+    /**
+     * Turnos del corte de caja, ya validados al guardar. Tolerante como los
+     * demás: sin columna, sin fila o con JSON roto, ningún turno, y el corte
+     * cae al día completo de siempre.
+     *
+     * @return list<array{nombre: string, inicio: string, fin: string}>
+     */
+    public static function turnosCaja(): array
+    {
+        try {
+            $configuracion = static::getDB() ? static::obtener() : null;
+        } catch (\Throwable $e) {
+            error_log('ConfiguracionPos::turnosCaja - ' . $e->getMessage());
+            return [];
+        }
+
+        return $configuracion ? $configuracion->listaTurnos() : [];
+    }
+
+    /** @return list<array{nombre: string, inicio: string, fin: string}> */
+    public function listaTurnos(): array
+    {
+        $lista = json_decode((string) ($this->turnos_caja ?? ''), true);
+
+        return is_array($lista) ? array_values($lista) : [];
+    }
+
+    /** Guarda SÓLO los turnos del corte (ver guardarImpresionActiva()). */
+    public function guardarTurnosCaja(array $turnos): bool
+    {
+        $stmt = self::getDB()->prepare(
+            'INSERT INTO ' . static::$tabla . ' (id, turnos_caja, updated_by)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                turnos_caja = VALUES(turnos_caja),
+                updated_by = VALUES(updated_by)'
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el guardado de los turnos de caja.');
+        }
+
+        $id = self::ID_UNICO;
+        $json = $turnos === [] ? null : json_encode(array_values($turnos), JSON_UNESCAPED_UNICODE);
+        $updatedBy = $this->updated_by !== null ? (int) $this->updated_by : null;
+        $stmt->bind_param('isi', $id, $json, $updatedBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return $ok;
     }
 
     /** Guarda SÓLO el tope de tickets por barra (ver guardarImpresionActiva()). */
@@ -236,6 +289,7 @@ class ConfiguracionPos extends ActiveRecord
             'mesero_editable' => (int) $this->mesero_editable === 1,
             'impresion_activa' => (int) $this->impresion_activa === 1,
             'max_tickets_barra' => (int) $this->max_tickets_barra,
+            'turnos_caja' => $this->listaTurnos(),
             'updated_at' => (string) ($this->updated_at ?? ''),
         ];
     }

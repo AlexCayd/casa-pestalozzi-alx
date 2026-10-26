@@ -147,6 +147,24 @@ reintentables, con máximo tres intentos técnicos y la misma fila funcional.
 Un claim sin resultado no se reintenta automáticamente: requiere revisar evidencia
 del proveedor. `accepted` nunca se recupera reenviando.
 
+### Código de acceso del panel (pendiente de workflow)
+
+El segundo paso del login de super admin y admin
+(`Services\Security\DosFactores`) manda el código a
+`POST /webhook/admin/codigo-acceso`, con `X-N8N-Secret`
+(`N8N_RESERVATIONS_WEBHOOK_SECRET`) como el resto de PHP → n8n:
+
+```json
+{ "tipo": "admin_codigo_acceso", "email": "…", "nombre": "…", "codigo": "482913", "vigencia_minutos": 10 }
+```
+
+El workflow sólo envía el correo y responde `202` con `{"ok":true,"accepted":true}`
+en cuanto el proveedor lo acepta; cualquier otra respuesta se toma por no
+enviado y la pantalla lo dice. No hay callback. El código no debe quedar en el
+historial de ejecuciones (*Save execution data* desactivado en este workflow).
+Todavía no existe el export: hasta crearlo, el código sólo se ve en pantalla
+fuera de `APP_ENV=production`.
+
 ## Importación, exportación y aceptación
 
 1. Resolver las condiciones previas anteriores y probar los contratos PHP/JSON.

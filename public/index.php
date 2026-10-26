@@ -123,6 +123,7 @@ $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, '
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
+$router->post('/admin/configuracion/pos/turnos', [AdminConfigurationController::class, 'guardarTurnos']);
 $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
@@ -353,6 +354,11 @@ $router->get('/login', [AuthController::class, 'login']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
+// Segundo paso de los roles de sistema (Services\Security\DosFactores).
+// Públicas a propósito: todavía no hay sesión, sólo el reto.
+$router->get('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion/reenviar', [AuthController::class, 'reenviarCodigo']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
 // Carta pública: JSON para la landing y los dos PDF para el comensal — la

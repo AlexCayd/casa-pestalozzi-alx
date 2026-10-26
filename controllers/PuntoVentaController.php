@@ -12,6 +12,7 @@ use Model\Usuario;
 use Classes\TicketPrinter;
 use Classes\Auth;
 use Services\Security\Permisos;
+use Services\Pos\CorteCaja;
 use MVC\Router;
 use Services\Menu\Carta;
 use Services\Menu\Variantes;
@@ -1109,142 +1110,47 @@ class PuntoVentaController {
     }
 
     /**
-     * GET /api/corte-caja
-     * Resumen de ventas del día (tickets cerrados hoy): ventas, propinas,
-     * desglose por método de pago, top platillos y ventas por área. Solo
-     * lectura: no persiste ningún arqueo.
+     * GET /api/corte-caja[?fecha=YYYY-MM-DD&turno=N|dia]
+     * Corte de un turno de Configuración → POS o del día entero (tickets
+     * cerrados en la ventana): ventas, propinas, métodos de pago, los cinco
+     * más pedidos y ventas por área. Sólo lectura: no persiste ningún arqueo.
+     * Sin parámetros abre el turno en curso (Services\Pos\CorteCaja).
      */
     public static function corteCaja(Router $router) {
         header('Content-Type: application/json');
         \Classes\Auth::liberarSesion();
 
         try {
-            // Tickets cerrados hoy con su consumo (sin ítems cancelados) y propina.
-            $resTickets = Ticket::ejecutarSQL(
-                "SELECT t.id, t.metodo_pago, COALESCE(t.propina, 0) AS propina,
-                        COALESCE((SELECT SUM(ti.precio * ti.cantidad)
-                                  FROM ticket_items ti
-                                  WHERE ti.ticket_id = t.id AND ti.estado <> 'cancelado'), 0) AS total
-                   FROM tickets t
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()"
-            );
+            $turnos = ConfiguracionPos::turnosCaja();
+            $ahora = new \DateTimeImmutable();
+            $vigente = CorteCaja::turnoVigente($turnos, $ahora);
 
-            $numTickets = 0;
-            $ventas     = 0.0;
-            $propinas   = 0.0;
-            $efectivo   = 0.0;
-            $tarjeta    = 0.0;
-
-            if ($resTickets) {
-                while ($row = $resTickets->fetch_assoc()) {
-                    $numTickets++;
-                    $total   = (float) $row['total'];
-                    $propina = (float) $row['propina'];
-                    $ventas   += $total;
-                    $propinas += $propina;
-
-                    // El dinero recibido (consumo + propina) se atribuye al método.
-                    // Los tickets divididos se detallan luego con ticket_pagos.
-                    if ($row['metodo_pago'] === 'efectivo') {
-                        $efectivo += $total + $propina;
-                    } elseif ($row['metodo_pago'] === 'tarjeta') {
-                        $tarjeta += $total + $propina;
-                    }
-                }
+            $fecha = is_string($_GET['fecha'] ?? null) ? $_GET['fecha'] : '';
+            $fechaValida = \DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+            if (!$fechaValida || $fechaValida->format('Y-m-d') !== $fecha) {
+                $fecha = $vigente['fecha'];
+            }
+            $pedido = $_GET['turno'] ?? null;
+            if ($pedido === null) {
+                $indice = $vigente['indice'];
+            } else {
+                // 'dia' (o cualquier otra cosa) es el día completo.
+                $indice = is_string($pedido) && ctype_digit($pedido) && isset($turnos[(int) $pedido]) ? (int) $pedido : null;
             }
 
-            // Desglose de las cuentas divididas por método (ticket_pagos).
-            $resPagos = Ticket::ejecutarSQL(
-                "SELECT tp.metodo_pago, COALESCE(SUM(tp.monto), 0) AS monto
-                   FROM ticket_pagos tp
-                   JOIN tickets t ON t.id = tp.ticket_id
-                  WHERE t.estado = 'cerrado' AND t.metodo_pago = 'dividido'
-                        AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
-                  GROUP BY tp.metodo_pago"
-            );
-            if ($resPagos) {
-                while ($row = $resPagos->fetch_assoc()) {
-                    if ($row['metodo_pago'] === 'efectivo') {
-                        $efectivo += (float) $row['monto'];
-                    } elseif ($row['metodo_pago'] === 'tarjeta') {
-                        $tarjeta += (float) $row['monto'];
-                    }
-                }
-            }
+            $turno = $indice !== null ? $turnos[$indice] : null;
+            $ventana = CorteCaja::ventana($fecha, $turno);
 
-            // Ranking de los cinco platillos más pedidos del día, por unidades.
-            //
-            // Cinco y no seis: es un ranking que se lee de un vistazo en la
-            // tablet, y el sexto puesto no cambia ninguna decisión del turno.
-            //
-            // El criterio es el mismo que el resto del corte —tickets CERRADOS
-            // del día— para que las cifras de este modal cuadren entre sí: si
-            // contara también las mesas abiertas, el ranking hablaría de un
-            // universo distinto al de "Ventas del día" que tiene justo encima.
-            $top = [];
-            $resTop = Ticket::ejecutarSQL(
-                "SELECT ti.nombre,
-                        SUM(ti.cantidad) AS unidades,
-                        SUM(ti.precio * ti.cantidad) AS importe
-                   FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
-                        AND ti.estado <> 'cancelado'
-                  GROUP BY ti.nombre
-                  ORDER BY unidades DESC, importe DESC
-                  LIMIT 5"
-            );
-            if ($resTop) {
-                while ($row = $resTop->fetch_assoc()) {
-                    $top[] = [
-                        'nombre'   => $row['nombre'],
-                        'unidades' => (int) $row['unidades'],
-                        'importe'  => (float) $row['importe'],
-                    ];
-                }
-            }
-
-            // Ventas por área de producción.
-            $areas = [];
-            $resAreas = Ticket::ejecutarSQL(
-                "SELECT COALESCE(ap.nombre, 'Sin área') AS area,
-                        COALESCE(SUM(ti.precio * ti.cantidad), 0) AS importe
-                   FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                   LEFT JOIN areas_produccion ap ON ap.id = ti.area_id
-                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
-                        AND ti.estado <> 'cancelado'
-                  GROUP BY ap.nombre
-                  ORDER BY importe DESC"
-            );
-            if ($resAreas) {
-                while ($row = $resAreas->fetch_assoc()) {
-                    $areas[] = [
-                        'area'    => $row['area'],
-                        'importe' => (float) $row['importe'],
-                    ];
-                }
-            }
-
-            $promedio = $numTickets > 0 ? $ventas / $numTickets : 0.0;
-
-            echo json_encode([
+            echo json_encode(array_merge([
                 'ok'      => true,
-                'fecha'   => date('Y-m-d'),
-                'resumen' => [
-                    'tickets'  => $numTickets,
-                    'ventas'   => round($ventas, 2),
-                    'propinas' => round($propinas, 2),
-                    'total'    => round($ventas + $propinas, 2),
-                    'promedio' => round($promedio, 2),
-                ],
-                'metodos' => [
-                    'efectivo' => round($efectivo, 2),
-                    'tarjeta'  => round($tarjeta, 2),
-                ],
-                'top'     => $top,
-                'areas'   => $areas,
-            ], JSON_UNESCAPED_UNICODE);
+                'fecha'   => $fecha,
+                'turnos'  => $turnos,
+                'turno'   => $indice,
+                // Las cifras del turno en curso todavía se mueven: el modal lo dice.
+                'en_curso' => $ahora->format('Y-m-d H:i:s') >= $ventana['desde']
+                    && $ahora->format('Y-m-d H:i:s') < $ventana['hasta'],
+                'ventana' => $ventana,
+            ], CorteCaja::resumen($ventana['desde'], $ventana['hasta'])), JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::corteCaja - ' . $e->getMessage());
             self::errorJson('CORTE_CAJA_ERROR');

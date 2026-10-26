@@ -4387,6 +4387,70 @@
   gap: .85rem;
 }
 
+/* Selector de turno del corte (Configuración → POS). Reparten el ancho por
+   igual —base cero, como los destinos del cajón— para que el largo del nombre
+   no haga pesar más un turno que otro. El elegido va en el relleno sólido del
+   acento: es el único estado de la fila y tiene que leerse desde un brazo. */
+.mmodal-caja-turnos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  transition: opacity .15s ease;
+
+  &.is-cargando {
+    opacity: .55;
+    pointer-events: none;
+  }
+}
+
+// Con el grupo delante: `.admin-body button` (0,1,1) le quitaba la voz.
+.mmodal-caja-turnos .mmodal-caja-turno {
+  display: flex;
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .15rem;
+  padding: .45rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--txt);
+  touch-action: manipulation;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+
+  &[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+
+    .mmodal-caja-turno__horas { color: color-mix(in srgb, var(--on-accent) 72%, transparent); }
+  }
+
+  @media (hover: hover) {
+    &[aria-pressed="false"]:hover { border-color: var(--line-strong); }
+  }
+}
+
+.mmodal-caja-turno__nombre {
+  @include control(.85rem);
+}
+
+.mmodal-caja-turno__horas {
+  @include cifra-columna;
+  font-size: .7rem;
+  color: var(--txt-faint);
+}
+
+.mmodal-caja .mmodal-caja-nota {
+  margin: 0;
+  font-size: .78rem;
+  color: var(--txt-faint);
+  text-align: center;
+}
+
 .mmodal-caja-kpis {
   display: grid;
   grid-template-columns: 1fr 1fr;

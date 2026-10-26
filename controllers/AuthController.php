@@ -5,6 +5,7 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
+use Services\Security\DosFactores;
 
 class AuthController {
     /**
@@ -42,6 +43,10 @@ class AuthController {
         // pinta sus propios errores.
         if (($_GET['resultado'] ?? '') === 'sin_acceso') {
             $alertas['error'][] = 'Tu rol ya no tiene acceso a ningún módulo. Pide a un administrador que lo revise.';
+        }
+        if (($_GET['resultado'] ?? '') === 'verificacion_agotada') {
+            $alertasAdmin['error'][] = 'Demasiados intentos con el código. Vuelve a iniciar sesión.';
+            $tabActiva = 'admin';
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -137,6 +142,12 @@ class AuthController {
 
             // porCredenciales() ya sólo encuentra cuentas cuyo rol entra con
             // contraseña (los de sistema y los que tienen módulos del panel).
+            if ($usuario && DosFactores::aplica((string) $usuario->rol)) {
+                // La contraseña sola no abre sesión: abre el reto del código.
+                DosFactores::iniciar($usuario);
+                header('Location: /login/verificacion');
+                exit;
+            }
             if ($usuario) {
                 Auth::login($usuario);
                 Auth::anunciarLlegada();
@@ -150,6 +161,101 @@ class AuthController {
         }
 
         include_once __DIR__ . '/../views/auth/login.php';
+    }
+
+    /**
+     * /login/verificacion: el código de 6 dígitos de los roles de sistema.
+     * Sin reto abierto no hay nada que verificar y se vuelve a la contraseña.
+     */
+    public static function verificacion(Router $router) {
+        if (Auth::check()) {
+            header('Location: ' . Auth::destinoPorRol());
+            exit;
+        }
+        if (DosFactores::reto() === null) {
+            header('Location: /login?tab=admin');
+            exit;
+        }
+
+        $alertas = [];
+        $avisos = [];
+        $errorCodigo = false;
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $verificacion = DosFactores::verificar((string) ($_POST['codigo'] ?? ''));
+            $resultado = $verificacion['resultado'];
+
+            if ($resultado === 'ok') {
+                $usuario = Usuario::find($verificacion['id']);
+                if (!$usuario || (int) $usuario->activo !== 1) {
+                    header('Location: /login?tab=admin');
+                    exit;
+                }
+                Auth::login($usuario);
+                Auth::anunciarLlegada();
+                header('Location: ' . Auth::destinoPorRol($usuario->rol));
+                exit;
+            }
+            if ($resultado === 'agotado' || $resultado === 'sin_reto') {
+                header('Location: /login?tab=admin' . ($resultado === 'agotado' ? '&resultado=verificacion_agotada' : ''));
+                exit;
+            }
+
+            $errorCodigo = true;
+            $restantes = (int) ($verificacion['restantes'] ?? 0);
+            $alertas[] = match ($resultado) {
+                'vencido' => 'El código venció. Pide uno nuevo.',
+                'formato' => 'Escribe los 6 dígitos del código.',
+                default => 'Código incorrecto. ' . ($restantes === 1 ? 'Te queda 1 intento.' : "Te quedan {$restantes} intentos."),
+            };
+        }
+
+        $reto = DosFactores::reto();
+        $codigoVisible = DosFactores::mostrarCodigo() ? ($reto['visible'] ?? null) : null;
+        $entrega = (string) ($reto['entrega'] ?? '');
+
+        $aviso = (string) ($_GET['aviso'] ?? '');
+        if ($aviso === 'reenviado' && ($codigoVisible !== null || $entrega === 'NOTIFICACION_ACEPTADA')) {
+            $avisos[] = 'Te enviamos un código nuevo. El anterior ya no sirve.';
+        } elseif ($aviso === 'espera') {
+            $avisos[] = 'Espera unos segundos antes de pedir otro código.';
+        } elseif ($aviso === 'sin_envios') {
+            $avisos[] = 'Ya no se pueden pedir más códigos. Si no te llegó, vuelve a iniciar sesión.';
+        }
+
+        // Con el código en pantalla (pruebas) un correo que no salió no
+        // bloquea a nadie; en production es lo primero que hay que leer.
+        if ($codigoVisible === null && !$errorCodigo) {
+            if ($entrega === 'SIN_CORREO') {
+                $alertas[] = 'Tu cuenta no tiene un correo registrado. Pide a un super admin que lo agregue en Usuarios.';
+            } elseif ($entrega !== 'NOTIFICACION_ACEPTADA') {
+                $alertas[] = 'No pudimos enviar el código. Pide uno nuevo en unos segundos.';
+            }
+        }
+
+        $ahora = time();
+        $correo = DosFactores::correoVisible($reto);
+        $vence = max(0, (int) $reto['expira'] - $ahora);
+        $espera = DosFactores::esperaReenvio($reto, $ahora);
+
+        include_once __DIR__ . '/../views/auth/dos-factores.php';
+    }
+
+    /** Código nuevo, con espera entre envíos y tope por reto (DosFactores). */
+    public static function reenviarCodigo(Router $router) {
+        $reto = DosFactores::reto();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || $reto === null) {
+            header('Location: /login?tab=admin');
+            exit;
+        }
+
+        $espera = DosFactores::esperaReenvio($reto, time());
+        if ($espera === 0) {
+            DosFactores::emitir();
+        }
+        $aviso = $espera === 0 ? 'reenviado' : ($espera < 0 ? 'sin_envios' : 'espera');
+        header('Location: /login/verificacion?aviso=' . $aviso);
+        exit;
     }
 
     public static function logout() {

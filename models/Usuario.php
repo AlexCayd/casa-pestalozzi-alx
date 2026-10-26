@@ -13,6 +13,7 @@ class Usuario extends ActiveRecord
         'id',
         'username',
         'nombre',
+        'email',
         'password_hash',
         'nip_hash',
         'nip_lookup',
@@ -26,6 +27,7 @@ class Usuario extends ActiveRecord
     public $id;
     public $username;
     public $nombre;
+    public $email = null;
     public $password_hash;
     public $nip_hash;
     public $nip_lookup;
@@ -168,6 +170,7 @@ class Usuario extends ActiveRecord
     {
         $this->nombre = trim((string) ($this->nombre ?? ''));
         $this->username = trim((string) ($this->username ?? ''));
+        $this->email = strtolower(trim((string) ($this->email ?? ''))) ?: null;
         $this->rol = (string) ($this->rol ?: 'waiter');
         $this->activo = (int) $this->activo;
         $this->unidad_id = ($this->unidad_id === '' || $this->unidad_id === null) ? null : (int) $this->unidad_id;
@@ -190,6 +193,10 @@ class Usuario extends ActiveRecord
 
         if (!in_array($this->rol, self::rolesPermitidos(), true)) {
             static::setAlerta('error', 'El rol no es válido');
+        }
+
+        if ($this->email !== null && (strlen($this->email) > 160 || !filter_var($this->email, FILTER_VALIDATE_EMAIL))) {
+            static::setAlerta('error', 'El correo no es válido');
         }
 
         if ($this->activo !== 0 && $this->activo !== 1) {

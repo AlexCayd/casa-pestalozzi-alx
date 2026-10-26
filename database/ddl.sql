@@ -182,6 +182,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
+  -- Sólo roles de sistema: adonde llega el código del segundo paso
+  -- (Services\Security\DosFactores). NULL en el resto.
+  email         VARCHAR(160) NULL,
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
   nip_lookup    CHAR(64) NULL,
@@ -1058,6 +1061,10 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
   -- la capacidad del salón: se llena por tickets, como Llevar pero con tope.
   -- Al llegar al tope el pin se pinta ocupado y el siguiente ticket se rechaza.
   max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4,
+  -- Turnos del corte de caja, iguales todos los días: lista JSON de
+  -- {nombre, inicio "HH:MM", fin "HH:MM"} ordenada por inicio, sin solapes
+  -- (Services\Pos\CorteCaja). NULL o vacía = el corte sólo ofrece el día.
+  turnos_caja      JSON NULL,
   updated_by       INT NULL,
   updated_at       TIMESTAMP NOT NULL
                      DEFAULT CURRENT_TIMESTAMP

@@ -1981,20 +1981,31 @@ queden filas viejas.
 
 ### El corte de caja
 
-`GET /api/corte-caja` (inline en `PuntoVentaController::corteCaja`, sin servicio)
-y `renderCajaModal()` en `punto-de-venta.js`. Es **sólo lectura**: no persiste
-ningún arqueo.
+`GET /api/corte-caja[?fecha=&turno=N|dia]` (`PuntoVentaController::corteCaja`
+→ `Services\Pos\CorteCaja`) y `renderCajaModal()` en `punto-de-venta.js`. Es
+**sólo lectura**: no persiste ningún arqueo.
 
-Las cuatro consultas filtran por tickets **cerrados** del día
-(`DATE(COALESCE(hora_cierre, hora_apertura)) = CURDATE()`), y el ranking de
-«Más pedidos del día» —cinco puestos, por unidades— usa el mismo criterio a
-propósito: si contara también las mesas abiertas hablaría de un universo
-distinto al de «Ventas del día», que tiene justo encima en el mismo modal.
+**Se corta por turno o por día.** Los turnos se definen en Configuración → POS
+(`configuracion_pos.turnos_caja`, JSON de hasta cuatro `{nombre, inicio, fin}`,
+iguales todos los días, sin solapes) y el modal los ofrece como botones más
+«Todo el día». Sin parámetros abre el turno en curso; uno cuyo fin es anterior
+a su inicio pasa la medianoche y es del día en que EMPIEZA (a la 01:00, el
+18:00–02:00 es de ayer). La ventana es semiabierta, `[desde, hasta)`. Sin
+turnos guardados, el corte es el del día de siempre. No hay navegación a otros
+días: el modal enseña el día de servicio en curso. Prueba:
+`run-corte-turnos.php`.
+
+Las cuatro consultas filtran por tickets **cerrados** cobrados en la ventana
+(`COALESCE(hora_cierre, hora_apertura)`), y el ranking —cinco puestos, por
+unidades— usa el mismo criterio a propósito: si contara también las mesas
+abiertas hablaría de un universo distinto al de las ventas que tiene justo
+encima en el mismo modal. Por eso un turno en curso lleva el aviso «faltan las
+cuentas que siguen abiertas».
 
 `AdminFinanzasController::cortes()` **duplica** dos de esas consultas para el
 histórico por día del panel, y no incluye ni el top ni las áreas. Si alguna vez
-hay que tocar la definición del corte, ése es el momento de sacar un
-`services/CorteCajaService.php` en vez de editar los dos sitios.
+hay que tocar la DEFINICIÓN del corte (no la ventana), hay que llevar Finanzas
+a `CorteCaja::resumen()` en vez de editar los dos sitios.
 
 ## Notas de trabajo
 

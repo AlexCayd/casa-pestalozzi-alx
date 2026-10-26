@@ -152,6 +152,24 @@
                 </p>
             </div>
 
+            <?php /* Correo del segundo paso: sólo los roles de sistema lo usan
+                     (Services\Security\DosFactores) y el servidor lo descarta
+                     en cualquier otro. */ ?>
+            <div class="admin-users-form__field" data-user-email-field <?php echo in_array($rolActual, ['super_admin', 'admin'], true) ? '' : 'hidden'; ?>>
+                <label for="email">Correo</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    maxlength="160"
+                    autocomplete="email"
+                    spellcheck="false"
+                    placeholder="ej. mariana@casapestalozzi.mx"
+                    value="<?php echo htmlspecialchars((string) $valor('email'), ENT_QUOTES, 'UTF-8'); ?>"
+                >
+                <p class="admin-users-form__hint">Aquí llega el código de 6 dígitos que pide el inicio de sesión. Sin correo, la cuenta no podrá entrar al panel.</p>
+            </div>
+
             <div
                 class="admin-users-access-status-grid<?php echo !$esEdicion || $esAdmin ? ' admin-users-access-status-grid--single' : ''; ?>"
                 data-user-access-status-grid
