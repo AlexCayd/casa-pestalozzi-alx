@@ -22,6 +22,11 @@
     $pendiente = (string) ($pendiente ?? '');
     $consultaActual = is_array($consultaActual ?? null) ? $consultaActual : [];
     $hayProveedores = (bool) ($hayProveedores ?? true);
+    $nuevo = (bool)($nuevo ?? false);
+    $puedeEditar = !$nuevo || \Classes\Auth::puede('inventario', 'editar', 'restaurante');
+    $puedeVerRecetas = !$nuevo || \Classes\Auth::puede('productos', 'ver', 'restaurante');
+    $almacenesLocales = $almacenesLocales ?? [];
+    $existenciasPorArticulo = $existenciasPorArticulo ?? [];
     $rango = is_array($rango ?? null) ? $rango : [];
     $valorInventario = (float) ($valorInventario ?? 0);
     $consumo = is_array($consumo ?? null) ? $consumo : [];
@@ -40,6 +45,16 @@
     $cant = static fn ($v): string => rtrim(rtrim(number_format((float) $v, 3, '.', ','), '0'), '.');
     $money = static fn ($v): string => '$' . number_format((float) $v, 2);
     $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+    $almacenesBajos = static function (array $locales): array {
+        $bajos = array_values(array_filter($locales, static fn(array $local): bool =>
+            !empty($local['alerta'])));
+        usort($bajos, static function (array $a, array $b): int {
+            $cobertura = static fn(array $local): float => (float)$local['minimo'] > 0
+                ? (float)$local['saldo'] / (float)$local['minimo'] : ((float)$local['saldo'] > 0 ? 1.0 : 0.0);
+            return $cobertura($a) <=> $cobertura($b);
+        });
+        return $bajos;
+    };
     // El badge de variación lo arma views/admin/partials/_stat-card.php.
 
     // Los formularios de la página llevan la query de lo que se está viendo
@@ -65,7 +80,7 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Inventario</span>
             <h2 class="admin-page__title">Inventario de ingredientes</h2>
-            <p class="admin-page__subtitle">Controla las existencias de cada ingrediente. Las ventas descuentan el stock automáticamente según la receta de cada producto.</p>
+            <p class="admin-page__subtitle"><?php echo $nuevo ? 'Consulta el saldo agregado por artículo; mínimos y movimientos se gestionan por almacén.' : 'Controla las existencias de cada ingrediente. Las ventas descuentan el stock automáticamente según la receta de cada producto.'; ?></p>
         </div>
         <?php /* Igual que en Finanzas: el selector de periodo se queda solo en el
                  encabezado y las acciones bajan a su propia barra. */ ?>
@@ -77,23 +92,28 @@
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
     <div class="admin-toolbar admin-inventario__toolbar">
+        <?php if ($puedeVerRecetas) : ?>
         <a class="admin-btn admin-btn--secondary" href="/admin/recetas">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
             Ver recetas
         </a>
+        <?php endif; ?>
+        <?php if ($puedeEditar) : ?>
         <a class="admin-btn admin-btn--secondary" href="#inventario-merma">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
             Registrar merma
         </a>
+        <?php endif; ?>
         <a class="admin-btn admin-btn--secondary" href="/admin/inventario/proveedores">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 9h18l-2 11H5L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>
             Proveedores
         </a>
-        <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/inventario/create">
+        <?php if ($puedeEditar) : ?><a class="admin-btn admin-btn--primary admin-create-button" href="/admin/inventario/create">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            <span>Nuevo ingrediente</span>
-        </a>
+            <span><?php echo $nuevo ? 'Asociar artículo' : 'Nuevo ingrediente'; ?></span>
+        </a><?php endif; ?>
     </div>
+    <?php if (!$puedeEditar) : ?><p class="admin-field__hint">Acceso de solo consulta. Puedes revisar existencias y movimientos.</p><?php endif; ?>
 
     <?php /* Las cifras del PERIODO, las que siguen al selector del encabezado.
              «Ingredientes» y «Bajo stock» bajaron a las tarjetas-filtro de las
@@ -112,7 +132,7 @@
             $statValue = $money($consumo['valor']);
             $statSub = (int) $consumo['movimientos'] . ' salidas por venta · '
                 . (int) $consumo['entradas'] . ' entradas · '
-                . (int) $consumo['ajustes'] . ' ajustes · a costo actual';
+                . (int) $consumo['ajustes'] . ($nuevo ? ' ajustes · al costo del movimiento' : ' ajustes · a costo actual');
             $statDelta = $deltaConsumo;
             $statPrev = $comparando ? $money($consumoPrev['valor']) : '';
             include __DIR__ . '/../partials/_stat-card.php';
@@ -184,7 +204,7 @@
                 <div>
                     <span class="admin-eyebrow">Pendientes</span>
                     <h3 id="pendientes-titulo">Por surtir</h3>
-                    <p>En su mínimo o por debajo. Registra lo que llegó: se suma a las existencias, y en cuanto el ingrediente pasa de su mínimo sale de esta lista.</p>
+                    <p><?php echo $nuevo ? 'Artículos con al menos un almacén por debajo de su mínimo. Se muestra el almacén con menor cobertura; cada entrada se registra en el almacén que elijas.' : 'En su mínimo o por debajo. Registra lo que llegó: se suma a las existencias, y en cuanto el ingrediente pasa de su mínimo sale de esta lista.'; ?></p>
                 </div>
                 <a class="admin-btn admin-btn--secondary admin-btn--small admin-tareas-cabeza__volver" href="<?php echo $esc($urlPendiente('')); ?>">
                     <?php echo admin_icon('flecha-izquierda', 16, 'admin-btn__icon'); ?>
@@ -193,7 +213,7 @@
             </div>
 
             <?php if ($ingredientesActivos === 0) : ?>
-                <p class="admin-empty">No hay ingredientes activos. Crea el primero para empezar a controlar el inventario.</p>
+                <p class="admin-empty"><?php echo $nuevo ? 'No hay artículos activos asociados a los almacenes del Restaurante.' : 'No hay ingredientes activos. Crea el primero para empezar a controlar el inventario.'; ?></p>
             <?php elseif ($numBajos === 0) : ?>
                 <?php
                     $tcTitulo = 'Todo está sobre su mínimo';
@@ -208,6 +228,12 @@
                         <?php
                             $rStock = (float) $ing->stock;
                             $rMin = (float) $ing->stock_minimo;
+                            $rLocalesBajos = $nuevo ? $almacenesBajos($existenciasPorArticulo[(int)$ing->id] ?? []) : [];
+                            $rLocal = $rLocalesBajos[0] ?? null;
+                            if ($rLocal !== null) {
+                                $rStock = (float)$rLocal['saldo'];
+                                $rMin = (float)$rLocal['minimo'];
+                            }
                             $rFaltan = max(0.0, $rMin - $rStock);
                             $rPct = $rMin > 0 ? max(0.0, min(100.0, ($rStock / $rMin) * 100)) : ($rStock > 0 ? 100.0 : 0.0);
                             $rAgotado = $rStock <= 0;
@@ -219,6 +245,9 @@
                             <span class="admin-tarea__texto">
                                 <span class="admin-tarea__nombre"><?php echo $esc($ing->nombre); ?></span>
                                 <span class="admin-tarea__detalle">
+                                    <?php if ($rLocal !== null) : ?>
+                                        <?php echo $esc($rLocal['nombre']); ?><?php if (count($rLocalesBajos) > 1) : ?> y <?php echo count($rLocalesBajos) - 1; ?> almacén(es) más<?php endif; ?> ·
+                                    <?php endif; ?>
                                     <?php if ($rAgotado) : ?>
                                         <span class="admin-tarea__aviso admin-tarea__aviso--grave">Agotado</span>
                                         <?php if ($rFaltan > 0) : ?> · faltan <?php echo $cant($rFaltan); ?> <?php echo $esc($rUnidad); ?> para el mínimo<?php endif; ?>
@@ -237,9 +266,10 @@
                                     <span class="<?php echo $rAgotado || $rPct < 50 ? 'is-critico' : ''; ?>" style="--avance: <?php echo round($rPct, 1); ?>%"></span>
                                 </span>
                             </span>
-                            <form class="admin-tarea__accion admin-inventario__entrada" method="POST"
+                            <?php if ($puedeEditar) : ?><form class="admin-tarea__accion admin-inventario__entrada" method="POST"
                                   action="/admin/inventario/entrada<?php echo $esc($sufijo); ?>">
                                 <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">
+                                <?php if ($nuevo) : ?><label class="admin-visually-hidden" for="almacen-entrada-<?php echo (int)$ing->id; ?>">Almacén donde recibir</label><select id="almacen-entrada-<?php echo (int)$ing->id; ?>" name="almacen_id" required><option value="">Almacén</option><?php foreach (($existenciasPorArticulo[(int)$ing->id]??[]) as $local) { if($local['activo']&&$local['asociacion_activa']) : ?><option value="<?php echo (int)$local['almacen_id']; ?>"><?php echo $esc($local['nombre']); ?></option><?php endif; } ?></select><?php endif; ?>
                                 <label class="admin-visually-hidden" for="<?php echo $rCampo; ?>">Cantidad recibida de <?php echo $esc($ing->nombre); ?>, en <?php echo $esc($rUnidad); ?></label>
                                 <span class="admin-inventario__campo">
                                     <input type="number" id="<?php echo $rCampo; ?>" name="cantidad" step="0.001" min="0.001" required
@@ -250,7 +280,7 @@
                                     <?php echo admin_icon('mas', 16, 'admin-btn__icon'); ?>
                                     Sumar
                                 </button>
-                            </form>
+                            </form><?php endif; ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -268,7 +298,7 @@
                     <span class="admin-eyebrow">Pendientes</span>
                     <h3 id="pendientes-titulo">Sin proveedor</h3>
                     <p>Sin proveedor no hay a quién pedirlo ni precio con el que comparar. Asígnale al menos uno; el preferente es el que se propone al recibir mercancía.</p>
-                    <?php if (!$hayProveedores) : ?>
+                    <?php if (!$hayProveedores && $puedeEditar) : ?>
                         <p class="admin-inventario__aviso">Todavía no hay proveedores dados de alta: <a href="/admin/inventario/proveedores/create">crea el primero</a> y vuelve a esta lista.</p>
                     <?php endif; ?>
                 </div>
@@ -279,7 +309,7 @@
             </div>
 
             <?php if ($ingredientesActivos === 0) : ?>
-                <p class="admin-empty">No hay ingredientes activos. Crea el primero para empezar a controlar el inventario.</p>
+                <p class="admin-empty"><?php echo $nuevo ? 'No hay artículos activos asociados a los almacenes del Restaurante.' : 'No hay ingredientes activos. Crea el primero para empezar a controlar el inventario.'; ?></p>
             <?php elseif ($numSinProveedor === 0) : ?>
                 <?php
                     $tcTitulo = 'Todos los ingredientes tienen proveedor';
@@ -305,14 +335,14 @@
                             <span class="admin-tarea__dato">
                                 <span class="admin-num">$<?php echo number_format((float) $ing->costo, 4); ?></span> / <?php echo $esc($ing->unidad); ?>
                             </span>
-                            <span class="admin-tarea__accion">
+                            <?php if ($puedeEditar) : ?><span class="admin-tarea__accion">
                                 <a class="admin-btn admin-btn--secondary admin-btn--small admin-tarea__enlace"
                                    href="<?php echo $esc($editarUrl); ?>"
                                    aria-label="Asignar proveedor a <?php echo $esc($ing->nombre); ?>">
                                     Asignar proveedor
                                     <?php echo admin_icon('flecha-derecha', 15, 'admin-btn__icon'); ?>
                                 </a>
-                            </span>
+                            </span><?php endif; ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -324,12 +354,12 @@
             <div class="admin-panel-head">
                 <div>
                     <h3>Existencias</h3>
-                    <p><?php echo number_format($totalIngredientes); ?> ingredientes registrados. Un punto delante de la cifra marca lo que está en su mínimo o por debajo.</p>
+                    <p><?php echo number_format($totalIngredientes); ?> ingredientes registrados. <?php echo $nuevo ? 'La cifra suma los saldos asociados. Un punto indica que al menos un almacén está por debajo de su mínimo.' : 'Un punto delante de la cifra marca lo que está en su mínimo o por debajo.'; ?></p>
                 </div>
             </div>
 
             <?php if (empty($ingredientes)) : ?>
-                <p class="admin-empty">No hay ingredientes registrados. Crea el primero para comenzar a controlar el inventario.</p>
+                <p class="admin-empty"><?php echo $nuevo ? 'No hay artículos asociados a los almacenes del Restaurante.' : 'No hay ingredientes registrados. Crea el primero para comenzar a controlar el inventario.'; ?></p>
             <?php else : ?>
                 <?php /* Ordenable en el cliente (table-sort.js): la lista no va
                          paginada, así que ordenar aquí sí ordena el inventario
@@ -343,7 +373,7 @@
                             <tr>
                                 <th data-sort-type="text">Ingrediente</th>
                                 <th data-sort-type="number" class="admin-inventario__col-num">Existencias</th>
-                                <th data-sort-type="number" class="admin-inventario__col-num">Mínimo</th>
+                            <th data-sort-type="number" class="admin-inventario__col-num"><?php echo $nuevo ? 'Mínimos asociados' : 'Mínimo'; ?></th>
                                 <th data-sort-type="number" class="admin-inventario__col-num">Costo / u</th>
                                 <th data-sort-disabled>Ajuste rápido</th>
                                 <th data-sort-disabled>Acciones</th>
@@ -356,8 +386,11 @@
                                     $min = (float) $ing->stock_minimo;
                                     $estadoStock = $stock <= 0 ? 'agotado' : ($stock <= $min ? 'bajo' : '');
                                     $unidad = (string) $ing->unidad;
+                                    $locales = $existenciasPorArticulo[(int)$ing->id] ?? [];
+                                    if ($nuevo) $estadoStock = $almacenesBajos($locales) !== [] ? 'bajo' : '';
+                                    $editarFilaUrl = '/admin/inventario/edit?id='.(int)$ing->id.($nuevo&&!empty($locales)?'&almacen_id='.(int)$locales[0]['almacen_id']:'');
                                 ?>
-                                <tr data-row-href="/admin/inventario/edit?id=<?php echo (int) $ing->id; ?>"<?php echo !$ing->activo ? ' class="is-inactivo"' : ''; ?>>
+                                <tr<?php if ($puedeEditar) : ?> data-row-href="<?php echo $esc($editarFilaUrl); ?>"<?php endif; ?><?php echo !$ing->activo ? ' class="is-inactivo"' : ''; ?>>
                                     <td data-sort-value="<?php echo $esc($ing->nombre); ?>">
                                         <span class="admin-table__cell-main"><?php echo $esc($ing->nombre); ?></span>
                                         <?php if (!$ing->activo) : ?>
@@ -374,7 +407,7 @@
                                             <?php if ($estadoStock === 'agotado') : ?>
                                                 <span class="admin-visually-hidden">, agotado</span>
                                             <?php elseif ($estadoStock === 'bajo') : ?>
-                                                <span class="admin-visually-hidden">, en su mínimo o por debajo</span>
+                                                <span class="admin-visually-hidden"><?php echo $nuevo ? ', al menos un almacén está por debajo de su mínimo' : ', en su mínimo o por debajo'; ?></span>
                                             <?php endif; ?>
                                         </span>
                                     </td>
@@ -385,25 +418,32 @@
                                         $<?php echo number_format((float) $ing->costo, 4); ?>
                                     </td>
                                     <td>
-                                        <form class="admin-inline-form" method="POST" action="/admin/inventario/ajustar<?php echo $esc($sufijo); ?>">
+                                <?php if ($puedeEditar) : ?><form class="admin-inline-form" method="POST" action="/admin/inventario/ajustar<?php echo $esc($sufijo); ?>">
                                             <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">
-                                            <input type="number" name="stock" step="0.001" value="<?php echo $esc($fmt($stock)); ?>" aria-label="Nuevo stock de <?php echo $esc($ing->nombre); ?>, en <?php echo $esc($unidad); ?>">
+                                    <?php if ($nuevo) : ?>
+                                        <select name="almacen_id" aria-label="Almacén para ajustar <?php echo $esc($ing->nombre); ?>" required>
+                                            <option value="">Almacén</option>
+                                            <?php foreach ($locales as $local) { if ($local['activo'] && $local['asociacion_activa']) : ?><option value="<?php echo (int)$local['almacen_id']; ?>"><?php echo $esc($local['nombre']); ?></option><?php endif; } ?>
+                                        </select>
+                                    <?php endif; ?>
+                                            <input type="number" name="stock" step="0.001" value="<?php echo $nuevo ? '' : $esc($fmt($stock)); ?>" aria-label="Nuevo stock de <?php echo $esc($ing->nombre); ?>, en <?php echo $esc($unidad); ?>">
                                             <?php /* Secundario y no dorado: fijar el stock es rutina de
                                                     conteo, no la acción principal de la pantalla. */ ?>
                                             <button type="submit" class="admin-btn admin-btn--secondary admin-inventario__save" title="Fijar stock">
                                                 <?php echo admin_icon('check', 16, 'admin-btn__icon'); ?>
                                                 Guardar
                                             </button>
-                                        </form>
+                                        </form><?php else : ?><span class="admin-table__cell-sub">Solo consulta</span><?php endif; ?>
                                     </td>
                                     <td>
                                         <?php /* Dos acciones, separadas por un filete: editar y,
                                                 aparte, borrar. «Registrar merma» salió de la fila:
                                                 el panel de merma tiene el formulario completo. */ ?>
-                                        <div class="admin-table-actions">
-                                            <a class="admin-icon-button admin-icon-button--edit" href="/admin/inventario/edit?id=<?php echo (int) $ing->id; ?>" title="Editar" aria-label="Editar <?php echo $esc($ing->nombre); ?>">
+                                        <?php if ($puedeEditar) : ?><div class="admin-table-actions">
+                                            <a class="admin-icon-button admin-icon-button--edit" href="<?php echo $esc($editarFilaUrl); ?>" title="Editar" aria-label="Editar <?php echo $esc($ing->nombre); ?>">
                                                 <?php echo admin_icon('editar', 18); ?>
                                             </a>
+                                            <?php if (!$nuevo) : ?>
                                             <?php /* data-ingrediente-delete lo intercepta inventario.js para
                                                     pedir al servidor en qué recetas entra el ingrediente y
                                                     exigir que se escriba el nombre. Sin JS, el formulario
@@ -424,7 +464,8 @@
                                                     <?php echo admin_icon('basura', 18); ?>
                                                 </button>
                                             </form>
-                                        </div>
+                                            <?php endif; ?>
+                                        </div><?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -451,7 +492,7 @@
             </span>
         </div>
 
-        <form class="admin-merma__form" method="POST" action="/admin/inventario/merma<?php echo $esc($sufijo); ?>">
+        <?php if ($puedeEditar) : ?><form class="admin-merma__form" method="POST" action="/admin/inventario/merma<?php echo $esc($sufijo); ?>">
             <div class="admin-merma__field admin-merma__field--wide">
                 <label for="merma-ingrediente">Ingrediente</label>
                 <select id="merma-ingrediente" name="id" required>
@@ -463,6 +504,14 @@
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php if ($nuevo) : ?>
+            <div class="admin-merma__field admin-merma__field--wide">
+                <label for="merma-almacen">Almacén físico</label>
+                <select id="merma-almacen" name="almacen_id" required><option value="">Elige un almacén</option>
+                    <?php foreach ($almacenesLocales as $almacen) : ?><option value="<?php echo (int)$almacen['almacen_id']; ?>"><?php echo $esc($almacen['nombre']); ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <?php endif; ?>
             <div class="admin-merma__field">
                 <label for="merma-cantidad">Cantidad</label>
                 <input type="number" id="merma-cantidad" name="cantidad" step="0.001" min="0.001" placeholder="0" required>
@@ -483,7 +532,7 @@
             <div class="admin-merma__actions">
                 <button type="submit" class="admin-btn admin-btn--primary">Registrar merma</button>
             </div>
-        </form>
+        </form><?php endif; ?>
 
         <?php if (!empty($mermaPorMotivo)) : ?>
             <ul class="admin-merma__motivos">

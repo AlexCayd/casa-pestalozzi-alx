@@ -4,6 +4,8 @@ namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
+use Model\RegistroRestaurante;
+use Services\Security\ContextoNegocio;
 use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Pos\ReservacionPoliticaPosService;
@@ -13,6 +15,10 @@ use Services\Scheduling\HorarioOperacionImpactoService;
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */
 final class ReservacionBuzonService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     public const TIPO_HORARIO_AFECTADO = 'reservacion_horario_afectado';
     public const TIPO_GRUPO_GRANDE = 'reservacion_grupo_grande';
     public const TIPO_AUSENCIA_PENDIENTE = 'reservacion_ausencia_pendiente';
@@ -322,9 +328,9 @@ final class ReservacionBuzonService
                     r.created_at, r.updated_at, COUNT(rm.id) AS mesas_count,
                     COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids
              FROM reservaciones r
-             LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-             LEFT JOIN mesas m ON m.id = rm.mesa_id
-             WHERE r.fecha = ?
+             LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id" . (ContextoNegocio::nuevo() ? ' AND rm.unidad_id=r.unidad_id' : '') . "
+             LEFT JOIN mesas m ON m.id = rm.mesa_id" . (ContextoNegocio::nuevo() ? ' AND m.unidad_id=rm.unidad_id' : '') . "
+             WHERE (r.fecha = ?
                 OR EXISTS (
                     SELECT 1 FROM buzon_notificaciones bn
                     WHERE bn.entidad_tipo = 'reservacion'
@@ -332,8 +338,8 @@ final class ReservacionBuzonService
                       AND bn.tipo IN ('reservacion_ausencia_pendiente',
                                       'reservacion_sin_asignacion_proxima',
                                       'reservacion_grupo_grande')
-                      AND bn.cerrada_at IS NULL
-                )
+                      AND bn.cerrada_at IS NULL" . self::unidadSql('bn') . "
+                )" . self::unidadSql('r') . "
              GROUP BY r.id, r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora,
                       r.comensales, r.estado, r.hold_expires_at, r.origen,
                       r.created_at, r.updated_at
@@ -369,7 +375,7 @@ final class ReservacionBuzonService
                AND tipo IN ('reservacion_ausencia_pendiente',
                             'reservacion_sin_asignacion_proxima',
                             'reservacion_grupo_grande')
-               AND cerrada_at IS NULL"
+               AND cerrada_at IS NULL" . self::unidadSql()
         );
         if (!$resultado) {
             return [];
@@ -392,8 +398,8 @@ final class ReservacionBuzonService
                     r.comensales, r.estado, r.hold_expires_at, r.origen,
                     r.created_at, r.updated_at, COUNT(rm.id) AS mesas_count
              FROM reservaciones r
-             LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-             WHERE r.id = ?
+             LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id" . (ContextoNegocio::nuevo() ? ' AND rm.unidad_id=r.unidad_id' : '') . "
+             WHERE r.id = ?" . self::unidadSql('r') . "
              GROUP BY r.id, r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora,
                       r.comensales, r.estado, r.hold_expires_at, r.origen,
                       r.created_at, r.updated_at

@@ -1,6 +1,8 @@
 <?php
 namespace Model;
 
+use Services\Security\ContextoNegocio;
+
 /**
  * Un cambio de precio de venta (productos) o de costo de insumo (ingredientes).
  *
@@ -45,6 +47,7 @@ class HistorialPrecio extends ActiveRecord {
      */
     public static function registrar(array $datos): bool
     {
+        if (ContextoNegocio::nuevo()) return HistorialPrecioMultinegocio::registrar($datos);
         $sql = 'INSERT INTO ' . static::$tabla .
             ' (entidad, ref_id, precio_anterior, precio_nuevo, motivo, proveedor_id, usuario_id)
               VALUES (?, ?, ?, ?, ?, ?, ?)';
@@ -89,6 +92,7 @@ class HistorialPrecio extends ActiveRecord {
      */
     public static function historial(string $entidad, int $refId, int $limite = 20): array
     {
+        if (ContextoNegocio::nuevo()) return HistorialPrecioMultinegocio::historial($entidad, $refId, $limite);
         if (!in_array($entidad, self::ENTIDADES, true)) {
             return [];
         }
@@ -105,5 +109,87 @@ class HistorialPrecio extends ActiveRecord {
               ORDER BY h.created_at DESC, h.id DESC
               LIMIT " . $limite
         );
+    }
+}
+
+/** Branch del esquema 3B/3C; el modelo anterior queda intacto si no está activo. */
+class HistorialPrecioMultinegocio extends HistorialPrecio
+{
+    protected static $tabla = 'historial_precios';
+    protected static $columnasDB = ['id','unidad_id','oferta_id','articulo_id','precio_anterior','precio_nuevo','motivo','proveedor_id','usuario_id'];
+
+    public $unidad_id;
+    public $oferta_id;
+    public $articulo_id;
+
+    public static function registrar(array $datos): bool
+    {
+        $unidad=(int)($datos['unidad_id']??0);
+        $oferta=$datos['oferta_id']??null;
+        $articulo=$datos['articulo_id']??null;
+        if ($unidad<1 || (($oferta===null)==($articulo===null))) {
+            throw new \Services\Inventory\InventarioError('DATOS_INVALIDOS','El histórico debe pertenecer a una oferta o artículo y a una unidad.');
+        }
+        if (!is_numeric($datos['precio_nuevo']??null) || (float)$datos['precio_nuevo']<0 || !in_array((string)($datos['motivo']??''),self::MOTIVOS,true)) {
+            throw new \Services\Inventory\InventarioError('DATOS_INVALIDOS','El precio y el motivo del histórico no son válidos.');
+        }
+
+        $db=self::getDB();
+        $resultado=ContextoNegocio::transaccion(function () use ($db,$datos,$unidad,$oferta,$articulo): array {
+            $ctx=ContextoNegocio::slug();
+            $unidadActual=ContextoNegocio::unidad($ctx);
+            if ($unidad!==$unidadActual) {
+                throw new \Services\Inventory\InventarioError('AMBITO_DENEGADO','La unidad del histórico no coincide con el contexto autorizado.');
+            }
+            ContextoNegocio::exigir($oferta!==null?'menu':'inventario','editar',$ctx,true);
+
+            $tabla=$oferta!==null?'ofertas_producto':'ingredientes';
+            $sql='SELECT id FROM '.$tabla.' WHERE id=?'.($oferta!==null?' AND unidad_id=?':'').' LIMIT 1 FOR SHARE';
+            $stmt=$db->prepare($sql);
+            if (!$stmt) throw new \RuntimeException($db->error);
+            if ($oferta!==null) { $ref=(int)$oferta; $stmt->bind_param('ii',$ref,$unidad); }
+            else { $ref=(int)$articulo; $stmt->bind_param('i',$ref); }
+            if (!$stmt->execute() || !$stmt->get_result()->fetch_row()) {
+                $stmt->close();
+                throw new \Services\Inventory\InventarioError('RECURSO_NO_ENCONTRADO','No se encontró la oferta o artículo dentro del ámbito permitido.');
+            }
+            $stmt->close();
+
+            $proveedor=$datos['proveedor_id']??null;
+            if ($proveedor!==null) {
+                $stmt=$db->prepare('SELECT id FROM proveedores WHERE id=? AND unidad_id=? LIMIT 1 FOR SHARE');
+                if (!$stmt) throw new \RuntimeException($db->error);
+                $proveedor=(int)$proveedor; $stmt->bind_param('ii',$proveedor,$unidad);
+                if (!$stmt->execute() || !$stmt->get_result()->fetch_row()) {
+                    $stmt->close();
+                    throw new \Services\Inventory\InventarioError('AMBITO_DENEGADO','El proveedor no pertenece a la unidad del histórico.');
+                }
+                $stmt->close();
+            }
+
+            $stmt=$db->prepare('INSERT INTO historial_precios (unidad_id,oferta_id,articulo_id,precio_anterior,precio_nuevo,motivo,proveedor_id,usuario_id) VALUES (?,?,?,?,?,?,?,?)');
+            if (!$stmt) throw new \RuntimeException($db->error);
+            $anterior=$datos['precio_anterior']??null;
+            $nuevo=(float)$datos['precio_nuevo'];
+            $motivo=(string)$datos['motivo'];
+            $usuario=ContextoNegocio::actorId() ?: null;
+            $stmt->bind_param('iiiddsii',$unidad,$oferta,$articulo,$anterior,$nuevo,$motivo,$proveedor,$usuario);
+            if (!$stmt->execute()) { $error=$stmt->error; $stmt->close(); throw new \RuntimeException($error); }
+            $stmt->close();
+            return ['registrado'=>true];
+        });
+
+        return !empty($resultado['ok']) && !empty($resultado['confirmado']) && !empty($resultado['registrado']);
+    }
+
+    public static function historial(string $entidad,int $refId,int $limite=20): array
+    {
+        if (!in_array($entidad,self::ENTIDADES,true) || $refId<1) return [];
+        $ctx=ContextoNegocio::slug();
+        $unidad=ContextoNegocio::unidad($ctx);
+        ContextoNegocio::exigir($entidad===self::ENTIDAD_PRODUCTO?'menu':'inventario','ver',$ctx);
+        $limite=max(1,min(200,$limite));
+        $columna=$entidad===self::ENTIDAD_PRODUCTO?'h.oferta_id':'h.articulo_id';
+        return self::consultarSQL("SELECT h.*, '{$entidad}' AS entidad, {$columna} AS ref_id, u.nombre AS usuario_nombre, p.nombre AS proveedor_nombre FROM historial_precios h LEFT JOIN usuarios u ON u.id=h.usuario_id LEFT JOIN proveedores p ON p.id=h.proveedor_id WHERE h.unidad_id={$unidad} AND {$columna}={$refId} ORDER BY h.created_at DESC,h.id DESC LIMIT {$limite}");
     }
 }

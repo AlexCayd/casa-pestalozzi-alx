@@ -35,6 +35,37 @@ class UsuarioService
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const ERROR_GUARDADO = 'ERROR_GUARDADO';
 
+    /** Operaciones del esquema directo 3B; el CRUD legacy conserva su ruta actual. */
+    public static function listarDirectos(int $actorId, $contexto, array $filtros = []): array
+    {
+        return AccesosUsuario::listarDirectos($actorId, $contexto, $filtros);
+    }
+
+    public static function detalleDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::detalleDirecto($actorId, $contexto, $id);
+    }
+
+    public static function guardarDirecto(int $actorId, $contexto, ?int $id, array $datos): array
+    {
+        return AccesosUsuario::guardarDirecto($actorId, $contexto, $id, $datos);
+    }
+
+    public static function estadoDirecto(int $actorId, $contexto, int $id, bool $activo): array
+    {
+        return AccesosUsuario::estadoDirecto($actorId, $contexto, $id, $activo);
+    }
+
+    public static function eliminarDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::eliminarDirecto($actorId, $contexto, $id);
+    }
+
+    public static function regenerarNipDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::regenerarNipDirecto($actorId, $contexto, $id);
+    }
+
     public static function crear(Usuario $usuario): array
     {
         $db = ActiveRecord::getDB();

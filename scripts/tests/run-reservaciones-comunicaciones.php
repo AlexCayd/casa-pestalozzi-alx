@@ -182,7 +182,7 @@ communicationsAssert(is_string($ddl) && is_string($routes), 'esquema y rutas leg
 foreach (['configuracion_reservaciones', 'reservacion_recordatorios', 'notification_delivery_status', 'notification_delivery_updated_at'] as $fragment) {
     communicationsAssert(str_contains($ddl, $fragment), "esquema contiene {$fragment}");
 }
-communicationsAssert(str_contains($ddl, "ENUM('pending', 'accepted', 'failed')"), 'estados de transporte explícitos');
+communicationsAssert(preg_match("/ENUM\\(\\s*'pending'\\s*,\\s*'accepted'\\s*,\\s*'failed'\\s*\\)/", $ddl) === 1, 'estados de transporte explícitos');
 foreach (['/recordatorios/preparar', '/notificacion-resultado'] as $route) {
     communicationsAssert(str_contains($routes, $route), "ruta registrada {$route}");
 }

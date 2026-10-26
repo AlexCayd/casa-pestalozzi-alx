@@ -18,6 +18,11 @@ use Model\Ingrediente;
 
 class Inventario
 {
+    /** Entrada explícita al motor 3C; los consumidores comerciales se adaptan en 3D. */
+    public static function porAlmacenes(\mysqli $db, int $actorId, string $authNivel): Almacenes
+    {
+        return new Almacenes($db, $actorId, $authNivel);
+    }
     /**
      * Motivos de merma. Es la única lista: alimenta el <select> del modal y la
      * validación del controlador, para que no puedan divergir.

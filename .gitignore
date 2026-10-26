@@ -17,5 +17,6 @@ vendor
 node_modules
 AGENTS.md
 storage/sessions/
+tmp/menu-preservacion/
 PRODUCT.md
 skills-lock.json

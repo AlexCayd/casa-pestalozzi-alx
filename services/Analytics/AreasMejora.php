@@ -11,6 +11,8 @@
 
 namespace Services\Analytics;
 
+use Services\Security\ContextoNegocio;
+
 class AreasMejora
 {
     /** Mapea la palabra clave del icono a su path SVG (viewBox 0 0 24 24). */
@@ -52,6 +54,12 @@ class AreasMejora
     /** Ruta absoluta del archivo JSON donde se persisten las areas. */
     public static function rutaArchivo(): string
     {
+        if (ContextoNegocio::nuevo()) {
+            if (ContextoNegocio::slug() !== 'restaurante') {
+                throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE', 'Las áreas de mejora están disponibles solo para Restaurante.');
+            }
+            return dirname(__DIR__, 2) . '/storage/areas_de_mejora/restaurante.json';
+        }
         return dirname(__DIR__, 2) . '/storage/areas_de_mejora.json';
     }
 

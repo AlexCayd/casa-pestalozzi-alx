@@ -1,50 +1,73 @@
 # Usuarios y acceso
 
-Fuente de verdad vigente para cuentas internas, roles y credenciales de acceso. Las reglas aplican a la aplicación y no sustituyen la configuración de producción.
+Contrato funcional de cuentas internas en los tres ámbitos. La precedencia
+corresponde al [contrato rector](../arquitectura.md); las asignaciones directas se
+detallan en [Permisos y ámbitos](roles-y-permisos.md).
 
-## Roles
+## Identidad y ámbitos
 
-Cada cuenta tiene un rol, y cada rol abre módulos del sistema en modo consulta o edición. El detalle —modelo de datos, decisión de la guardia, reglas de gobierno y el plan multiempresa— está en [Roles y permisos](roles-y-permisos.md).
+Una cuenta puede tener membresías en Global, Restaurante y Panadería mediante
+`usuario_unidades`. Sus permisos se asignan directamente por usuario, ámbito y
+módulo en `usuario_unidad_permisos`. Los roles internos son metadatos técnicos;
+no suman permisos implícitos ni existe un editor de plantillas.
 
-| Rol | Tipo | Acceso principal |
-| --- | --- | --- |
-| Super admin | sistema | Todo el sistema. Único que asigna unidades y gestiona cuentas de administrador. |
-| Administrador | sistema | Todos los módulos. No toca roles de sistema ni cuentas de administrador. |
-| Mesero | predefinido | Punto de venta (editable desde Roles y permisos). |
-| Cocinero | predefinido | Tableros de producción (editable desde Roles y permisos). |
-| Personalizados | personalizado | Los módulos que se les den, cada uno en consulta o edición. |
-
-El backend autoriza cada acción por sesión y rol, y relee el rol de la cuenta en cada petición protegida. Ocultar un botón en el navegador no es una medida de seguridad.
+Global con `users` y las facultades delegadas puede administrar cuentas de los
+ámbitos autorizados. Un administrador local gestiona solamente su ámbito. No
+puede modificar identidad, credenciales o estado global de una cuenta compartida,
+ni revocar membresías ajenas. La excepción organizacional de superadministrador
+proviene exclusivamente de `usuarios.es_superadmin`, releída en servidor.
 
 ## Inicio de sesión
 
-La vía de acceso la deciden los módulos del rol: con algún módulo del panel, usuario y contraseña; si sólo tiene pantallas de piso (punto de venta, producción), un NIP numérico de cuatro dígitos. El frontend no solicita que el usuario invente o escriba manualmente un NIP durante el alta normal: el servidor lo genera y lo entrega una sola vez por el flujo autorizado.
+Se conserva `/login` con dos vías. Cualquier permiso de panel, incluso `ver` y
+aunque pertenezca a otro ámbito, exige usuario y contraseña. Solo las cuentas
+exclusivamente operativas pueden utilizar un NIP numérico de cuatro dígitos:
+POS `pdv`, KDS `area` y mapa operativo `reservations_map` autorizado. El mapa
+operativo no equivale a administración de Reservaciones.
 
-Las contraseñas y NIP se almacenan con hash. El secreto de lookup o derivación del NIP (`NIP_LOOKUP_SECRET`) vive únicamente en variables de entorno; no se coloca en Git, documentación, logs, HTML ni respuestas de API.
+El servidor calcula la vía sobre la unión de accesos activos. No la elige el
+cliente. Una promoción de piso a panel exige contraseña y nueva autenticación;
+una sesión NIP no amplía sus derechos al cambiar el perfil.
+
+Las contraseñas y NIP se almacenan como hashes. `NIP_LOOKUP_SECRET`, fuera de Git,
+permite localizar el NIP mediante HMAC; `password_verify` confirma el hash. No se
+exponen hashes, secretos ni NIP en listados o respuestas de detalle.
 
 ## Alta, edición y regeneración
 
-Al crear un usuario se define un rol válido y el servidor aplica las reglas de credenciales correspondientes. Cambiar de rol debe revisar el acceso resultante y no debe conservar credenciales incompatibles.
+La interfaz compartida está en `/admin/usuarios`, `/admin/global/usuarios` y
+`/admin/panaderia/usuarios`. Reutiliza el layout, filtros, tabla y formulario de
+Restaurante, con el selector de contexto bajo el logotipo.
 
-La regeneración de NIP invalida el anterior. El nuevo NIP sólo se muestra o entrega en el momento autorizado y no se vuelve a revelar desde una consulta posterior. Las respuestas deben evitar confirmar información sensible cuando la cuenta no existe o no está autorizada.
+El formulario permite asignar membresías, `ver`/`editar` de panel y `operar` de
+piso, además de facultades autorizadas. El catálogo de facultades proviene del
+mismo servicio que valida el backend; las facultades exclusivas de Global no
+aparecen como opciones de un negocio. El actor no puede delegar derechos por
+encima de su techo en el contexto desde el que administra.
 
-No se permite retirar el último super admin activo ni dejar usuarios sin un rol válido. Las acciones de alta, edición, regeneración y baja requieren autorización, CSRF cuando corresponda y límites contra abuso.
+Las mutaciones pasan por `UsuarioService`/`AccesosUsuario`, validan CSRF y vuelven
+a comprobar identidad, delegación y datos dentro de su transacción. Estado de
+cuenta y revocaciones se releen en las siguientes peticiones protegidas. La
+protección del último superadministrador activo se verifica con bloqueos.
+
+El servidor genera el NIP en el alta o regeneración autorizada y lo entrega una
+sola vez. El código anterior deja de servir; no existe una consulta posterior
+para recuperarlo. Una cuenta compartida conserva las credenciales y los accesos
+ajenos cuando un administrador local revoca solo su membresía.
 
 ## Configuración y despliegue
 
-La configuración sensible se carga desde el entorno según
-[Configuración](../config.md). Los seeds de demostración sólo se usan en
-desarrollo o QA.
+El [bootstrap de desarrollo](credenciales.md) valida la cuenta `admin_demo` que
+el DML de desarrollo agrega bajo guard CLI con hash bcrypt. El DML estructural de
+`deploy.sql` no activa esa cuenta. Consultar la [instalación](../desarrollo/instalacion.md)
+y las [pruebas](../desarrollo/pruebas.md).
 
-Antes de producción se deben reemplazar credenciales de prueba, definir secretos fuera del repositorio, revisar permisos de la base de datos y comprobar que ningún log o export contenga contraseñas o NIP.
-
-## Reglas de privacidad
-
-El tratamiento y la visibilidad de datos personales se rigen por la fuente de
-[Privacidad](../privacidad/privacidad.md).
+Los despliegues expuestos requieren sus propios secretos y revisión de accesos.
+No versionar archivos de entorno, logs con credenciales ni NIP entregados.
 
 ## Referencias vigentes
 
-- [Credenciales de desarrollo](credenciales.md)
-- [Reservaciones](../reservaciones/reservaciones.md)
-- [Privacidad](../privacidad/privacidad.md)
+- [Permisos directos](roles-y-permisos.md).
+- [Contrato técnico de autorización](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
+- [Privacidad](../privacidad/privacidad.md).
+- [Reservaciones](../reservaciones/reservaciones.md).

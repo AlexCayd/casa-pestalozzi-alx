@@ -9,6 +9,8 @@ protege los secretos fuera del repositorio.
 | Variable | Uso |
 | --- | --- |
 | `APP_ENV` | `development`, `test` o `production`; si falta se usa `production`, cualquier otro valor se rechaza. |
+| `DB_PORT` | Puerto MySQL de la conexión local; por omisión 3306 en las herramientas de instalación. |
+| `DEV_SUPERADMIN_PASSWORD` | Contraseña aportada localmente al bootstrap CLI de desarrollo identificado; su valor no se versiona. |
 | `APP_TIMEZONE` | Zona de la aplicación; por omisión `America/Mexico_City`. Mantenerla alineada con MySQL y los procesos externos. |
 | `SESSION_SAVE_PATH` | Ruta opcional para los archivos de sesión de PHP. |
 | `NIP_LOOKUP_SECRET` | Secreto para localizar NIP mediante HMAC; no es una contraseña de usuario. |
@@ -64,7 +66,7 @@ renglones cancelados, por `COALESCE(hora_cierre, hora_apertura)`. Cada cifra
 llega comparada con el periodo anterior de la misma duración; la flecha dice
 hacia dónde y el color qué significa (más cancelaciones o más platillos sin
 venta es peor; más consumo no es ni mejor ni peor). El consumo NO vuelve a
-explotar recetas: suma los movimientos que dejó `Inventario::aplicarVenta()`
+explotar recetas: suma los movimientos que dejó `Almacenes::consumirVenta()`
 —la receta explotada al mandar la comanda—, así cuadra con la existencia
 aunque la receta cambie después; por eso su periodo va por la fecha del
 movimiento y no por la del cobro.
@@ -284,8 +286,15 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
 
 Las columnas son tolerantes: en una base sin migrar se leen los valores por
 defecto. Los `ALTER` están en
-[Reservaciones](reservaciones/reservaciones.md#migracion-de-bases-existentes).
+[Reservaciones](reservaciones/reservaciones.md#instalacion-y-datos-de-desarrollo).
 
 Consulta las reglas de [operación POS e impresión](operacion.md),
 [reservaciones](reservaciones/reservaciones.md) y
 [notificaciones](reservaciones/notificaciones.md).
+
+## Instalación y credenciales de desarrollo
+
+La configuración local se prepara según la [guía de instalación](desarrollo/instalacion.md).
+`includes/.env` nunca se versiona. El bootstrap no corre por una petición HTTP,
+no acepta un entorno ambiguo ni activa automáticamente `admin_demo` en producción.
+La contraseña y `NIP_LOOKUP_SECRET` se aportan localmente; no se publican sus valores.

@@ -37,8 +37,8 @@ class AdminController
             'path' => '/admin/recetas'
         ],
         'inventario' => [
-            'title' => 'Inventario',
-            'path' => '/admin/inventario'
+            'title' => 'Almacenes',
+            'path' => '/admin/almacenes'
         ],
         'finanzas' => [
             'title' => 'Finanzas',
@@ -88,6 +88,36 @@ class AdminController
 
     public static function index(Router $router): void
     {
+        if (Auth::multinegocio()) {
+            if (!in_array('restaurante', Auth::contextos(), true)) {
+                header('Location: ' . Auth::destinoPorRol(), true, 302);
+                exit;
+            }
+            if (Auth::puede('analytics', 'ver', 'restaurante')) {
+                self::analytics($router);
+                return;
+            }
+            $habilitados = \Services\Security\ContextoNegocio::modulosHabilitados('restaurante');
+            foreach ($habilitados as $modulo) {
+                if (!Auth::puede($modulo, 'ver', 'restaurante')) continue;
+                $definicion = \Services\Security\PermisosUsuario::catalogo('restaurante')[$modulo] ?? null;
+                if (is_array($definicion) && !empty($definicion['ruta'])) {
+                    header('Location: ' . $definicion['ruta'], true, 302);
+                    exit;
+                }
+            }
+            $destino = Auth::destinoPorRol();
+            if ($destino === '/admin' || $destino === '/login?resultado=sin_acceso') {
+                header('Location: /login?resultado=sin_acceso', true, 302);
+                exit;
+            }
+            header('Location: ' . $destino, true, 302);
+            exit;
+        }
+        if (!in_array('restaurante', Auth::contextos(), true)) {
+            header('Location: ' . Auth::destinoPorRol(), true, 302);
+            exit;
+        }
         // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
         // que sí tenga, en vez de en una pantalla que no puede ver.
         if (!Auth::puede('analytics')) {
@@ -159,6 +189,9 @@ class AdminController
     /** Construye el dataset real del dashboard desde la BD, filtrado por rango. */
     private static function construirAnalytics(array $rango): array
     {
+        // Etapa 3D.3, apartados 15/16 del encargo: los reportes de Restaurante
+        // conservan sus DTO y excluyen expresamente otras unidades.
+        if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('analytics','ver','restaurante');
         $money = static fn($n): string => '$' . number_format((float) $n, 0);
         $metrics = [];
         $ticketsTabla = [];
@@ -181,6 +214,8 @@ class AdminController
         $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
         $fTk = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
         $fRes = "fecha >= '{$start}' AND fecha <= '{$end}'";
+        $fTk .= \Model\Ticket::filtroUnidad('t');
+        $fRes .= \Model\Reservacion::filtroUnidad();
 
         try {
             $db = \Model\Ticket::getDB();
@@ -193,7 +228,7 @@ class AdminController
                         COALESCE(SUM(sub.total), 0) AS ventas
                    FROM tickets t
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
                   WHERE t.estado = 'cerrado' {$fTk}"
             );
@@ -244,9 +279,9 @@ class AdminController
                 "SELECT COALESCE(SUM(sub.total), 0) AS ventas
                    FROM tickets t
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
-                  WHERE t.estado = 'cerrado'
+                  WHERE t.estado = 'cerrado'" . \Model\Ticket::filtroUnidad('t') . "
                         AND {$cierre} >= '{$prevStart} 00:00:00'
                         AND {$cierre} <= '{$prevEnd} 23:59:59'"
             );
@@ -313,7 +348,7 @@ class AdminController
                 $res = $db->query(
                     "SELECT DATE({$cierre}) AS d, SUM(ti.precio * ti.cantidad) AS total
                        FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
-                      WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                      WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'" . \Model\Ticket::filtroUnidad('t') . "
                             AND {$cierre} >= '{$prevStart} 00:00:00'
                             AND {$cierre} <= '{$prevEnd} 23:59:59'
                       GROUP BY d"
@@ -414,7 +449,7 @@ class AdminController
                    LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                    LEFT JOIN mesas m ON m.id = tm.mesa_id
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
                   WHERE t.estado = 'cerrado' {$fTk}
                   ORDER BY fecha_cobro DESC, t.id DESC LIMIT 12"
@@ -475,7 +510,7 @@ class AdminController
         try {
             $result = \Model\Ticket::ejecutarSQL(
                 "SELECT calidad_sabor, atencion_mesero, tiempo_espera, experiencia_global, comentario, created_at
-                   FROM feedback
+                   FROM feedback WHERE 1=1" . \Model\Ticket::filtroUnidad() . "
                   ORDER BY created_at DESC
                   LIMIT 100"
             );
@@ -492,7 +527,7 @@ class AdminController
                         AVG(atencion_mesero) AS atencion,
                         AVG(tiempo_espera) AS espera,
                         AVG(experiencia_global) AS global_exp
-                   FROM feedback"
+                   FROM feedback WHERE 1=1" . \Model\Ticket::filtroUnidad()
             );
 
             if ($agg && ($r = $agg->fetch_assoc())) {
@@ -514,6 +549,9 @@ class AdminController
         // feedback (varias reseñas por ticket) con los tickets.
         $meseros = [];
         try {
+            $filtroMesero=\Services\Security\ContextoNegocio::nuevo()
+                ? "EXISTS (SELECT 1 FROM usuario_unidades mu JOIN usuario_unidad_permisos pu ON pu.usuario_id=mu.usuario_id AND pu.unidad_id=mu.unidad_id WHERE mu.usuario_id=u.id AND mu.activo=1 AND mu.unidad_id=" . \Model\Ticket::unidadRestaurante() . " AND pu.modulo='pdv' AND pu.nivel='operar')"
+                : "u.rol = 'waiter'";
             $mes = \Model\Ticket::ejecutarSQL(
                 "SELECT u.id, u.nombre, u.activo,
                         fb.atencion, fb.n_resenas,
@@ -523,7 +561,7 @@ class AdminController
                         SELECT t.mesero_id, AVG(f.atencion_mesero) AS atencion, COUNT(*) AS n_resenas
                           FROM feedback f
                           JOIN tickets t ON t.id = f.ticket_id
-                         WHERE t.mesero_id IS NOT NULL
+                         WHERE t.mesero_id IS NOT NULL" . \Model\Ticket::filtroUnidad('t') . "
                          GROUP BY t.mesero_id
                    ) fb ON fb.mesero_id = u.id
                    LEFT JOIN (
@@ -532,12 +570,12 @@ class AdminController
                                COUNT(*) AS n_tickets
                           FROM tickets t
                           JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                  FROM ticket_items WHERE estado <> 'cancelado'
+                                  FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                  GROUP BY ticket_id) tot ON tot.ticket_id = t.id
-                         WHERE t.estado = 'cerrado' AND t.mesero_id IS NOT NULL
+                         WHERE t.estado = 'cerrado' AND t.mesero_id IS NOT NULL" . \Model\Ticket::filtroUnidad('t') . "
                          GROUP BY t.mesero_id
                    ) tp ON tp.mesero_id = u.id
-                  WHERE u.rol = 'waiter'
+                  WHERE {$filtroMesero}
                   ORDER BY u.activo DESC, tp.tip_pct DESC, u.nombre ASC"
             );
             if ($mes) {
@@ -760,11 +798,40 @@ class AdminController
             $$key = $value;
         }
 
-        ob_start();
-        include_once __DIR__ . "/../views/admin/{$view}.php";
-        $content = ob_get_clean();
+        $contextoActivo = \Services\Security\Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
+        $contextosDisponibles = Auth::contextos();
+        $modoMultinegocio = Auth::multinegocio();
+        $modules = AdminContextosController::navegacion($contextoActivo, $modules);
+
+        if ($view === '__inicio-multinegocio') {
+            $content = self::inicioMultinegocio($contextosDisponibles);
+        } else {
+            ob_start();
+            include_once __DIR__ . "/../views/admin/{$view}.php";
+            $content = ob_get_clean();
+        }
 
         include_once __DIR__ . '/../views/admin/layout.php';
+    }
+
+    private static function inicioMultinegocio(array $contextos): string
+    {
+        $secciones=[];
+        foreach (['users'=>['Usuarios','Gestiona cuentas y permisos directos.','usuarios'],
+                  'inventario'=>['Almacenes','Consulta existencias y operaciones físicas autorizadas.','almacenes']] as $modulo=>$def) {
+            $links=[];
+            foreach ($contextos as $contexto) {
+                if (!Auth::puede($modulo,'ver',(string)$contexto)) continue;
+                $nombre=\Services\Security\Contextos::NOMBRES[$contexto]??$contexto;
+                $path=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/'.$def[2];
+                $links[]='<div class="admin-context-page__business"><div><h3>'.htmlspecialchars($nombre,ENT_QUOTES,'UTF-8')
+                    .'</h3><p>'.$def[1].'</p></div><a class="admin-btn admin-btn--secondary" href="'
+                    .htmlspecialchars($path,ENT_QUOTES,'UTF-8').'">Abrir '.strtolower($def[0]).'</a></div>';
+            }
+            if ($links!==[]) $secciones[]='<div class="admin-card admin-context-page__businesses"><h2>'.$def[0].'</h2>'.implode('',$links).'</div>';
+        }
+        $body=$secciones===[]?'<div class="admin-card admin-context-page__empty"><h2>Acceso administrativo no disponible</h2><p>No tienes módulos autorizados en los ámbitos disponibles.</p></div>':implode('',$secciones);
+        return '<section class="admin-context-page admin-page" aria-labelledby="multinegocio-home-title"><header class="admin-page__header"><div class="admin-page__intro"><h1 class="admin-page__title" id="multinegocio-home-title">Inicio</h1><p class="admin-page__subtitle">Abre Usuarios o Almacenes en un ámbito que tengas autorizado.</p></div></header>'.$body.'</section>';
     }
 
     /**

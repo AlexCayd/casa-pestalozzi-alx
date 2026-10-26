@@ -3,6 +3,8 @@
 namespace Services\Notifications;
 
 use Model\ActiveRecord;
+use Model\RegistroRestaurante;
+use Services\Security\ContextoNegocio;
 
 /**
  * Infraestructura genérica del buzón administrativo.
@@ -15,6 +17,21 @@ final class BuzonNotificacionesService
 {
     public const PRIORIDAD_NORMAL = 'normal';
     public const PRIORIDAD_ALTA = 'alta';
+
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
+
+    private static function unidadColumnas(): string
+    {
+        return ContextoNegocio::nuevo() ? 'unidad_id, ' : '';
+    }
+
+    private static function unidadValores(): string
+    {
+        return ContextoNegocio::nuevo() ? ContextoNegocio::unidad('restaurante') . ', ' : '';
+    }
 
     /** @param array<string, mixed> $datos */
     public static function crear(array $datos): int
@@ -50,8 +67,8 @@ final class BuzonNotificacionesService
 
         $stmt = $db->prepare(
             "INSERT INTO buzon_notificaciones
-                (tipo, modulo, entidad_tipo, entidad_id, prioridad, requiere_accion, visible_from, dedup_key)
-             VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), ?)
+                (" . self::unidadColumnas() . "tipo, modulo, entidad_tipo, entidad_id, prioridad, requiere_accion, visible_from, dedup_key)
+             VALUES (" . self::unidadValores() . "?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), ?)
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id),
                  prioridad = VALUES(prioridad), visible_from = VALUES(visible_from),
                  requiere_accion = VALUES(requiere_accion),
@@ -108,7 +125,7 @@ final class BuzonNotificacionesService
                         CASE WHEN SUM(requiere_accion = 1 AND prioridad = 'alta') > 0 THEN 'alta'
                              WHEN SUM(requiere_accion = 1) > 0 THEN 'normal' ELSE NULL END AS prioridad_maxima_accionable
                  FROM buzon_notificaciones
-                 WHERE cerrada_at IS NULL AND visible_from <= NOW()"
+                 WHERE cerrada_at IS NULL AND visible_from <= NOW()" . self::unidadSql()
             );
             if (!$resultado) {
                 throw new \RuntimeException(ActiveRecord::getDB()->error);
@@ -143,6 +160,9 @@ final class BuzonNotificacionesService
     {
         $db = ActiveRecord::getDB();
         $where = ["cerrada_at IS NULL", "visible_from <= NOW()"];
+        if (self::unidadSql() !== '') {
+            $where[] = preg_replace('/^\s*AND\s+/i', '', self::unidadSql());
+        }
         $types = '';
         $params = [];
         foreach (['tipo', 'modulo', 'entidad_tipo'] as $campo) {
@@ -198,7 +218,7 @@ final class BuzonNotificacionesService
             return false;
         }
         $stmt = ActiveRecord::getDB()->prepare(
-            'UPDATE buzon_notificaciones SET leida_at = COALESCE(leida_at, NOW()), updated_at = NOW() WHERE id = ? AND cerrada_at IS NULL'
+            'UPDATE buzon_notificaciones SET leida_at = COALESCE(leida_at, NOW()), updated_at = NOW() WHERE id = ? AND cerrada_at IS NULL' . self::unidadSql()
         );
         if (!$stmt) {
             return false;
@@ -229,7 +249,7 @@ final class BuzonNotificacionesService
             'UPDATE buzon_notificaciones
              SET cerrada_at = COALESCE(cerrada_at, NOW()), cerrada_por = NULLIF(?, 0),
                  cierre_motivo = ?, updated_at = NOW()
-             WHERE id = ? AND cerrada_at IS NULL'
+             WHERE id = ? AND cerrada_at IS NULL' . self::unidadSql()
         );
         if (!$stmt) {
             return false;
@@ -251,7 +271,7 @@ final class BuzonNotificacionesService
             'UPDATE buzon_notificaciones
              SET cerrada_at = COALESCE(cerrada_at, NOW()), cerrada_por = NULLIF(?, 0),
                  cierre_motivo = ?, updated_at = NOW()
-             WHERE entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL'
+             WHERE entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL' . self::unidadSql()
         );
         if (!$stmt) {
             return 0;
@@ -306,7 +326,7 @@ final class BuzonNotificacionesService
             'UPDATE buzon_notificaciones
              SET cerrada_at = COALESCE(cerrada_at, NOW()), cerrada_por = NULLIF(?, 0),
                  cierre_motivo = ?, updated_at = NOW()
-             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL'
+             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL' . self::unidadSql()
         );
         if (!$stmt) {
             return 0;
@@ -333,7 +353,7 @@ final class BuzonNotificacionesService
         $stmt = $db->prepare(
             'UPDATE buzon_notificaciones
              SET requiere_accion = ?, visible_from = LEAST(visible_from, NOW()), updated_at = NOW()
-             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL'
+             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL' . self::unidadSql()
         );
         if (!$stmt) {
             return 0;

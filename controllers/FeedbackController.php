@@ -19,7 +19,7 @@ class FeedbackController {
                 "SELECT ft.id, ft.ticket_id, ft.usado, t.nombre
                    FROM feedback_tokens ft
                    JOIN tickets t ON t.id = ft.ticket_id
-                  WHERE ft.token = '{$tokenEsc}'
+                  WHERE ft.token = '{$tokenEsc}'" . Ticket::filtroUnidad('ft') . Ticket::filtroUnidad('t') . "
                   LIMIT 1"
             );
             if ($result && $result->num_rows > 0) {
@@ -106,7 +106,7 @@ class FeedbackController {
             }
             $tokenEsc = Ticket::escaparString($token);
             $result   = Ticket::ejecutarSQL(
-                "SELECT id, ticket_id, usado FROM feedback_tokens WHERE token = '{$tokenEsc}' LIMIT 1"
+                "SELECT id, ticket_id, usado FROM feedback_tokens WHERE token = '{$tokenEsc}'" . Ticket::filtroUnidad() . " LIMIT 1"
             );
             $row = ($result && $result->num_rows > 0) ? $result->fetch_assoc() : null;
             if (!$row) {
@@ -117,7 +117,7 @@ class FeedbackController {
             // Se aparta el token ANTES de insertar y sólo si seguía libre: dos
             // envíos simultáneos con el mismo token no pueden pasar los dos.
             $tokenId = (int) ($row['id'] ?? 0);
-            Ticket::ejecutarSQL("UPDATE feedback_tokens SET usado = 1 WHERE id = {$tokenId} AND usado = 0");
+            Ticket::ejecutarSQL("UPDATE feedback_tokens SET usado = 1 WHERE id = {$tokenId} AND usado = 0" . Ticket::filtroUnidad());
             if (Ticket::getDB()->affected_rows < 1) {
                 $responder(false, 'Esta encuesta ya se respondió. ¡Gracias!');
                 return;
@@ -133,8 +133,8 @@ class FeedbackController {
 
         try {
             Ticket::ejecutarSQL(
-                "INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiempo_espera, experiencia_global, comentario)
-                 VALUES ({$tokenId}, {$ticketId}, {$cs}, {$am}, {$te}, {$eg}, {$com})"
+                "INSERT INTO feedback (" . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . "token_id, ticket_id, calidad_sabor, atencion_mesero, tiempo_espera, experiencia_global, comentario)
+                 VALUES (" . (\Services\Security\ContextoNegocio::nuevo()?Ticket::unidadRestaurante().',':'') . "{$tokenId}, {$ticketId}, {$cs}, {$am}, {$te}, {$eg}, {$com})"
             );
 
             $responder(true);
@@ -143,7 +143,7 @@ class FeedbackController {
             // pueda reintentar con el mismo enlace.
             if ($tokenId !== 'NULL') {
                 try {
-                    Ticket::ejecutarSQL("UPDATE feedback_tokens SET usado = 0 WHERE id = {$tokenId}");
+                    Ticket::ejecutarSQL("UPDATE feedback_tokens SET usado = 0 WHERE id = {$tokenId}" . Ticket::filtroUnidad());
                 } catch (\Throwable $ignorada) {
                 }
             }
@@ -175,7 +175,19 @@ class FeedbackController {
         }
 
         try {
-            $total = AreasMejora::guardar($payload);
+            if (\Services\Security\ContextoNegocio::nuevo()) {
+                // La integración existente corresponde exclusivamente a Restaurante.
+                $unidad = $payload['unidad_id'] ?? null;
+                $contexto = $payload['contexto'] ?? 'restaurante';
+                if ($contexto !== 'restaurante' || ($unidad !== null && (int)$unidad !== Ticket::unidadRestaurante())) {
+                    http_response_code(422);
+                    echo json_encode(['ok'=>false,'msg'=>'Ámbito de integración inválido']);
+                    return;
+                }
+                $total = \Services\Security\ContextoNegocio::en('restaurante',static fn()=>AreasMejora::guardar($payload));
+            } else {
+                $total = AreasMejora::guardar($payload);
+            }
         } catch (\Throwable $e) {
             http_response_code(500);
             echo json_encode(['ok' => false, 'msg' => 'Error al guardar: ' . $e->getMessage()]);

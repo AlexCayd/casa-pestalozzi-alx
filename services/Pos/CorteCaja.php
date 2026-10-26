@@ -130,13 +130,23 @@ final class CorteCaja
      * Ventas, propinas, métodos, los cinco más pedidos y las áreas de la
      * ventana. Mismas consultas que tenía el controlador, con el rango en
      * lugar de CURDATE().
+     *
+     * Con $unidad (esquema multinegocio) sólo cuentan los tickets, renglones,
+     * pagos y áreas de esa unidad vendedora; null es el esquema de una sola
+     * unidad.
      */
-    public static function resumen(string $desde, string $hasta): array
+    public static function resumen(string $desde, string $hasta, ?int $unidad = null): array
     {
         $db = ActiveRecord::getDB();
         $enVentana = "t.estado = 'cerrado'
             AND COALESCE(t.hora_cierre, t.hora_apertura) >= '{$desde}'
             AND COALESCE(t.hora_cierre, t.hora_apertura) < '{$hasta}'";
+        $deUnidad = $unidad !== null;
+        if ($deUnidad) {
+            $enVentana .= " AND t.unidad_id = {$unidad}";
+        }
+        $itemDeUnidad = $deUnidad ? " AND ti.unidad_id = {$unidad}" : '';
+        $itemConTicket = $deUnidad ? ' AND t.unidad_id = ti.unidad_id' : '';
 
         $numTickets = 0;
         $ventas = 0.0;
@@ -148,7 +158,7 @@ final class CorteCaja
             "SELECT t.metodo_pago, COALESCE(t.propina, 0) AS propina,
                     COALESCE((SELECT SUM(ti.precio * ti.cantidad)
                               FROM ticket_items ti
-                              WHERE ti.ticket_id = t.id AND ti.estado <> 'cancelado'), 0) AS total
+                              WHERE ti.ticket_id = t.id{$itemDeUnidad} AND ti.estado <> 'cancelado'), 0) AS total
                FROM tickets t
               WHERE {$enVentana}"
         );
@@ -170,7 +180,7 @@ final class CorteCaja
         $res = $db->query(
             "SELECT tp.metodo_pago, COALESCE(SUM(tp.monto), 0) AS monto
                FROM ticket_pagos tp
-               JOIN tickets t ON t.id = tp.ticket_id
+               JOIN tickets t ON t.id = tp.ticket_id" . ($deUnidad ? ' AND tp.unidad_id = t.unidad_id' : '') . "
               WHERE {$enVentana} AND t.metodo_pago = 'dividido'
               GROUP BY tp.metodo_pago"
         );
@@ -188,8 +198,8 @@ final class CorteCaja
         $res = $db->query(
             "SELECT ti.nombre, SUM(ti.cantidad) AS unidades, SUM(ti.precio * ti.cantidad) AS importe
                FROM ticket_items ti
-               JOIN tickets t ON t.id = ti.ticket_id
-              WHERE {$enVentana} AND ti.estado <> 'cancelado'
+               JOIN tickets t ON t.id = ti.ticket_id{$itemConTicket}
+              WHERE {$enVentana}{$itemDeUnidad} AND ti.estado <> 'cancelado'
               GROUP BY ti.nombre
               ORDER BY unidades DESC, importe DESC
               LIMIT 5"
@@ -202,9 +212,9 @@ final class CorteCaja
         $res = $db->query(
             "SELECT COALESCE(ap.nombre, 'Sin área') AS area, COALESCE(SUM(ti.precio * ti.cantidad), 0) AS importe
                FROM ticket_items ti
-               JOIN tickets t ON t.id = ti.ticket_id
-               LEFT JOIN areas_produccion ap ON ap.id = ti.area_id
-              WHERE {$enVentana} AND ti.estado <> 'cancelado'
+               JOIN tickets t ON t.id = ti.ticket_id{$itemConTicket}
+               LEFT JOIN areas_produccion ap ON ap.id = ti.area_id" . ($deUnidad ? ' AND ap.unidad_id = ti.unidad_id' : '') . "
+              WHERE {$enVentana}{$itemDeUnidad} AND ti.estado <> 'cancelado'
               GROUP BY ap.nombre
               ORDER BY importe DESC"
         );

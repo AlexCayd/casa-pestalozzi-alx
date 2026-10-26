@@ -133,6 +133,23 @@ class ImagenUploader
             return;
         }
 
+        // Un recurso compartido por ofertas o categorías sigue perteneciendo
+        // al catálogo aunque la fila que originó el reemplazo ya no lo use.
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            try {
+                $db=\Model\ActiveRecord::getDB();
+                $nombre=basename($rutaRelativa);
+                $stmt=$db->prepare("SELECT 1 FROM productos WHERE SUBSTRING_INDEX(img,'/',-1)=? UNION ALL SELECT 1 FROM categorias WHERE SUBSTRING_INDEX(img,'/',-1)=? LIMIT 1");
+                $stmt->execute([$nombre,$nombre]);
+                $referenciada=(bool)$stmt->get_result()->fetch_row();
+                $stmt->close();
+                if ($referenciada) return;
+            } catch (\Throwable) {
+                // Conservar el archivo si no podemos demostrar que está libre.
+                return;
+            }
+        }
+
         $archivo = self::CARPETA . basename($rutaRelativa);
         if (is_file($archivo)) {
             @unlink($archivo);

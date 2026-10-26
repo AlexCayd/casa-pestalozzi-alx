@@ -353,6 +353,7 @@ final class ReservacionAdministrativaService
             }
             $lockFecha = true;
             $db->begin_transaction();
+            if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigirUno(['reservations'=>'editar','pdv'=>'operar'],'restaurante',true);
             $transaccion = true;
 
             $existente = Reservacion::buscarPorRequestToken($requestToken);
@@ -470,7 +471,7 @@ final class ReservacionAdministrativaService
             if (!$lockHorario) {
                 return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
             }
-            $filaInicial = self::fila("SELECT id, fecha FROM reservaciones WHERE id = {$id} LIMIT 1");
+            $filaInicial = self::fila("SELECT id, fecha FROM reservaciones WHERE id = {$id}" . \Model\Reservacion::filtroUnidad() . " LIMIT 1");
             if (!$filaInicial) {
                 return ['ok' => false, 'codigo' => ReservacionService::RESERVACION_NO_EXISTE];
             }
@@ -485,6 +486,7 @@ final class ReservacionAdministrativaService
                 }
             }
             $db->begin_transaction();
+            if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('reservations','editar','restaurante',true);
             $transaccion = true;
             $fila = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$fila) {
@@ -592,7 +594,7 @@ final class ReservacionAdministrativaService
                            AND reemplazo.estado = 'pendiente_verificacion'
                          ORDER BY reemplazo.id DESC LIMIT 1) AS fecha_reemplazo_pendiente
                  FROM reservaciones AS r
-                 WHERE r.id = {$id}
+                 WHERE r.id = {$id}" . \Model\Reservacion::filtroUnidad('r') . "
                  LIMIT 1"
             );
             if (!$previa) {
@@ -613,6 +615,7 @@ final class ReservacionAdministrativaService
                 $locks[] = $fecha;
             }
             $db->begin_transaction();
+            if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('reservations','editar','restaurante',true);
             $transaccion = true;
             $fila = Reservacion::buscarFilaPorIdParaActualizar($id);
             if (!$fila) {
@@ -628,7 +631,7 @@ final class ReservacionAdministrativaService
             }
             $ticket = $db->query(
                 "SELECT t.id FROM tickets t
-                 WHERE t.reservacion_id = {$id}
+                 WHERE t.reservacion_id = {$id}" . \Model\Reservacion::filtroUnidad('t') . "
                    AND " . TicketMesa::condicionSqlAbierto('t') . "
                  LIMIT 1 FOR UPDATE"
             );
@@ -643,12 +646,12 @@ final class ReservacionAdministrativaService
 
             $pendiente = self::fila(
                 "SELECT id FROM reservaciones
-                 WHERE reemplaza_reservacion_id = {$id}
+                 WHERE reemplaza_reservacion_id = {$id}" . \Model\Reservacion::filtroUnidad() . "
                    AND estado = 'pendiente_verificacion'
                  ORDER BY id DESC LIMIT 1 FOR UPDATE"
             );
             if ($pendiente) {
-                self::ejecutar("UPDATE reservaciones SET estado = 'expirada', hold_expires_at = NULL, estado_changed_at = NOW() WHERE id = " . (int)$pendiente['id'] . " AND estado = 'pendiente_verificacion'");
+                self::ejecutar("UPDATE reservaciones SET estado = 'expirada', hold_expires_at = NULL, estado_changed_at = NOW() WHERE id = " . (int)$pendiente['id'] . " AND estado = 'pendiente_verificacion'" . \Model\Reservacion::filtroUnidad());
                 VerificacionContacto::invalidarPorReservaciones([(int)$pendiente['id']]);
             }
             if ((string)$fila['estado'] === 'pendiente_verificacion') {
@@ -660,7 +663,7 @@ final class ReservacionAdministrativaService
                                 hold_expires_at = NULL,
                                 motivo_cancelacion = NULLIF('{$motivoSql}', ''),
                                 estado_changed_at = NOW()
-                            WHERE id = {$id}
+                            WHERE id = {$id}" . \Model\Reservacion::filtroUnidad() . "
                             LIMIT 1");
             $db->commit();
             $transaccion = false;
@@ -985,7 +988,7 @@ final class ReservacionAdministrativaService
             "nota = NULLIF('" . ActiveRecord::escaparString($datos['nota']) . "', '')",
             "comentario_admin = NULLIF('" . ActiveRecord::escaparString($datos['comentario_admin']) . "', '')",
         ];
-        self::ejecutar("UPDATE reservaciones SET " . implode(', ', $sets) . " WHERE id = {$id} LIMIT 1");
+        self::ejecutar("UPDATE reservaciones SET " . implode(', ', $sets) . " WHERE id = {$id}" . \Model\Reservacion::filtroUnidad() . " LIMIT 1");
     }
 
     private static function errorDatos(string $fieldCode, string $field): array

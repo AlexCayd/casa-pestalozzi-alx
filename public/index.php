@@ -17,6 +17,7 @@ use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
+use Controllers\AdminAlmacenesController;
 use Controllers\AdminRecetasController;
 use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
@@ -25,6 +26,7 @@ use Controllers\AdminReservacionEstrategiaController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\AdminCataController;
 use Controllers\AdminUsersController;
+use Controllers\AdminUsuariosAmbitosController;
 use Controllers\AdminIaController;
 use Controllers\AuthController;
 use Controllers\HomeController;
@@ -47,6 +49,12 @@ $router = new Router();
 // del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
 // admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
+
+// Almacenes comparte controlador, motor, componentes y permisos por ámbito.
+foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
+    $router->get($baseAlmacenes.'/almacenes',[AdminAlmacenesController::class,'index']);
+    $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
+}
 
 // Home
 $router->get('/', [HomeController::class, 'index']);
@@ -88,6 +96,18 @@ $router->post('/api/integraciones/n8n/feedback/areas-mejora', [FeedbackControlle
 // agenda de catas se imprime en el servidor y el catering se cotiza conversando.
 
 // Admin
+$router->get('/admin/contexto', [\Controllers\AdminContextosController::class, 'cambiar']);
+$router->get('/admin/global', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/catalogo', static function ($router) { header('Location: /admin/global/almacenes?vista=catalogo',true,302); });
+$router->get('/admin/global/inventario', static function ($router) { header('Location: /admin/global/almacenes',true,302); });
+$router->get('/admin/global/configuracion', [\Controllers\AdminContextosController::class, 'pagina']);
+if (!\Classes\Auth::multinegocio()) {
+    $router->get('/admin/global/usuarios', [\Controllers\AdminContextosController::class, 'pagina']);
+}
+$router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/menu', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/inventario', static function ($router) { header('Location: /admin/panaderia/almacenes',true,302); });
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
@@ -291,19 +311,34 @@ $router->post('/admin/roles/crear', [AdminRolesController::class, 'crear']);
 $router->get('/admin/roles/editar', [AdminRolesController::class, 'editar']);
 $router->post('/admin/roles/editar', [AdminRolesController::class, 'editar']);
 $router->post('/admin/roles/eliminar', [AdminRolesController::class, 'eliminar']);
-$router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
-$router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
-$router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
-$router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-$router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-// Los administradores cambian contraseña; el personal de piso sólo puede
-// recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
-$router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
-$router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
-$router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
-$router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
-$router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
-$router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
+
+if (\Classes\Auth::multinegocio()) {
+    foreach (['restaurante' => '/admin/usuarios', 'global' => '/admin/global/usuarios', 'panaderia' => '/admin/panaderia/usuarios'] as $scope => $base) {
+        $router->get($base, [AdminUsuariosAmbitosController::class, 'index']);
+        $router->get($base . '/create', [AdminUsuariosAmbitosController::class, 'crear']);
+        $router->post($base . '/create', [AdminUsuariosAmbitosController::class, 'guardar']);
+        $router->get($base . '/edit', [AdminUsuariosAmbitosController::class, 'editar']);
+        $router->post($base . '/edit', [AdminUsuariosAmbitosController::class, 'guardar']);
+        $router->post($base . '/activate', [AdminUsuariosAmbitosController::class, 'activar']);
+        $router->post($base . '/deactivate', [AdminUsuariosAmbitosController::class, 'desactivar']);
+        $router->post($base . '/delete', [AdminUsuariosAmbitosController::class, 'eliminar']);
+        $router->post($base . '/regenerar-nip', [AdminUsuariosAmbitosController::class, 'regenerarNip']);
+    }
+} else {
+    $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
+    $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+    $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+    $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+    $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+    // Los administradores cambian contraseña; el personal de piso sólo puede
+    // recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
+    $router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+    $router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+    $router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
+    $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
+    $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
+    $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
+}
 
 
 

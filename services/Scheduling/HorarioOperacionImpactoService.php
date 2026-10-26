@@ -5,6 +5,7 @@ namespace Services\Scheduling;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
+use Model\RegistroRestaurante;
 use Services\Contact\ContactoService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
@@ -12,6 +13,7 @@ use Services\Notifications\ReservationNotificationContract;
 use Services\Reservations\ReservacionBuzonService;
 use Services\Reservations\ReservacionConfig;
 use Services\Security\ReservationAccessTokenService;
+use Services\Security\ContextoNegocio;
 
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.
@@ -41,6 +43,17 @@ final class HorarioOperacionImpactoService
         self::ESTADO_ITEM_MANUAL,
         self::ESTADO_ITEM_CLIENTE,
     ];
+
+    /** Scope fijo al negocio dueño de estos flujos; no deriva del cliente ni de la ruta. */
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
+
+    private static function unidadId(): int
+    {
+        return ContextoNegocio::unidad('restaurante');
+    }
 
     /** @return array{semanal: array<int, array<string, mixed>>, excepciones: array<string, array<string, mixed>>} */
     public static function snapshotActual(): array
@@ -162,10 +175,12 @@ final class HorarioOperacionImpactoService
 
         $db = ActiveRecord::getDB();
         $dedupKey = self::dedupKey($tipoOrigen, $origenId, $evaluacion);
+        $unidadColumn = ContextoNegocio::nuevo() ? 'unidad_id, ' : '';
+        $unidadValue = ContextoNegocio::nuevo() ? self::unidadId() . ', ' : '';
         $stmt = $db->prepare(
             "INSERT INTO horario_impactos
-                (tipo_origen, origen_id, estado, dedup_key, created_by)
-             VALUES (?, NULLIF(?, 0), 'pendiente', ?, NULLIF(?, 0))
+                ({$unidadColumn}tipo_origen, origen_id, estado, dedup_key, created_by)
+             VALUES ({$unidadValue}?, NULLIF(?, 0), 'pendiente', ?, NULLIF(?, 0))
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
         );
         if (!$stmt) {
@@ -194,15 +209,17 @@ final class HorarioOperacionImpactoService
         }
 
         $listaIds = implode(',', $ids);
+        $unidadColumn = ContextoNegocio::nuevo() ? 'unidad_id, ' : '';
+        $unidadValue = ContextoNegocio::nuevo() ? self::unidadId() . ', ' : '';
         $stmt = $db->prepare(
             "INSERT IGNORE INTO horario_impacto_reservaciones
-                (impacto_id, reservacion_id, estado)
-             SELECT ?, r.id,
+                ({$unidadColumn}impacto_id, reservacion_id, estado)
+             SELECT {$unidadValue}?, r.id,
                 CASE WHEN r.contacto_tipo IN ('email', 'telefono')
                            AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''
                      THEN 'pendiente_notificacion' ELSE 'sin_contacto' END
              FROM reservaciones r
-             WHERE r.id IN ({$listaIds})"
+             WHERE r.id IN ({$listaIds})" . self::unidadSql('r')
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar las reservaciones afectadas.');
@@ -236,9 +253,9 @@ final class HorarioOperacionImpactoService
                     ), 0) AS cantidad_seguimiento,
                     MIN(ir.impacto_id) AS primer_impacto_id
              FROM horario_impacto_reservaciones ir
-             JOIN horario_impactos i ON i.id = ir.impacto_id
+             JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
              WHERE i.estado = 'pendiente'
-               AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
+               AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')" . self::unidadSql('ir')
         );
         if (!$resultado) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
@@ -277,10 +294,10 @@ final class HorarioOperacionImpactoService
         $stmt = ActiveRecord::getDB()->prepare(
             "SELECT 1
              FROM horario_impactos i
-             JOIN horario_impacto_reservaciones ir ON ir.impacto_id = i.id
+             JOIN horario_impacto_reservaciones ir ON ir.impacto_id = i.id" . (ContextoNegocio::nuevo() ? ' AND ir.unidad_id=i.unidad_id' : '') . "
              WHERE i.id = ? AND i.estado = 'pendiente'
                AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
-             LIMIT 1"
+             " . self::unidadSql('i') . " LIMIT 1"
         );
         $stmt->bind_param('i', $impactoId);
         $stmt->execute();
@@ -305,9 +322,9 @@ final class HorarioOperacionImpactoService
                     ir.resolved_by, ir.resolved_at,
                     r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora, r.comensales
              FROM horario_impactos i
-             JOIN horario_impacto_reservaciones ir ON ir.impacto_id = i.id
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE i.id = ?
+             JOIN horario_impacto_reservaciones ir ON ir.impacto_id = i.id" . (ContextoNegocio::nuevo() ? ' AND ir.unidad_id=i.unidad_id' : '') . "
+             JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
+             WHERE i.id = ?" . self::unidadSql('i') . "
              ORDER BY
                  CASE WHEN r.contacto_tipo IN ('email', 'telefono')
                            AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''
@@ -390,9 +407,9 @@ final class HorarioOperacionImpactoService
                         r.estado AS reservacion_estado, r.nombre, r.contacto_tipo, r.contacto,
                         r.fecha, r.hora, r.comensales
                  FROM horario_impacto_reservaciones ir
-                 JOIN horario_impactos i ON i.id = ir.impacto_id
-                 JOIN reservaciones r ON r.id = ir.reservacion_id
-                 WHERE ir.id = ? LIMIT 1 FOR UPDATE"
+                 JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+                 JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
+                 WHERE ir.id = ?" . self::unidadSql('ir') . " LIMIT 1 FOR UPDATE"
             );
             $stmt->bind_param('i', $impactoReservacionId);
             $stmt->execute();
@@ -439,7 +456,7 @@ final class HorarioOperacionImpactoService
                      last_notification_at = NOW(),
                      notification_delivery_status = 'pending', notification_delivery_updated_at = NOW(),
                      resolved_by = NULL, resolved_at = NULL
-                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada')"
+                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada')" . self::unidadSql()
             );
             $stmt->bind_param('ssi', $token['hash'], $expira, $impactoReservacionId);
             if (!$stmt->execute() || $stmt->affected_rows !== 1) {
@@ -504,7 +521,7 @@ final class HorarioOperacionImpactoService
                 "UPDATE reservaciones
                  SET contacto_tipo = ?, contacto = ?
                  WHERE id = ? AND contacto_tipo = 'ninguno'
-                   AND (contacto IS NULL OR TRIM(contacto) = '')"
+                   AND (contacto IS NULL OR TRIM(contacto) = '')" . self::unidadSql()
             );
             $reservacion = (int)$fila['reservacion_id'];
             $stmt->bind_param('ssi', $tipo, $normalizado, $reservacion);
@@ -516,7 +533,7 @@ final class HorarioOperacionImpactoService
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'pendiente_notificacion', resolved_by = NULL, resolved_at = NULL
-                 WHERE id = ? AND estado = 'sin_contacto'"
+                 WHERE id = ? AND estado = 'sin_contacto'" . self::unidadSql()
             );
             $stmt->bind_param('i', $impactoReservacionId);
             $stmt->execute();
@@ -556,7 +573,7 @@ final class HorarioOperacionImpactoService
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'atendida_manual', resolved_by = NULLIF(?, 0),
                      resolved_at = NOW(), access_invalidated_at = NOW()
-                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
+                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')" . self::unidadSql()
             );
             $usuario = $adminId ?? 0;
             $stmt->bind_param('ii', $usuario, $impactoReservacionId);
@@ -600,7 +617,7 @@ final class HorarioOperacionImpactoService
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL
-                 WHERE id = ? AND estado = 'notificacion_preparada'"
+                 WHERE id = ? AND estado = 'notificacion_preparada'" . self::unidadSql()
             );
             $stmt->bind_param('ssi', $token['hash'], $expira, $impactoReservacionId);
             $stmt->execute();
@@ -633,7 +650,7 @@ final class HorarioOperacionImpactoService
              WHERE id = ? AND reservacion_id = ?
                AND estado = 'notificacion_preparada'
                AND access_invalidated_at IS NULL
-               AND access_expires_at > NOW()
+               AND access_expires_at > NOW()" . self::unidadSql() . "
              LIMIT 1 FOR UPDATE"
         );
         $stmt->bind_param('ii', $impactoReservacionId, $reservacionId);
@@ -652,7 +669,7 @@ final class HorarioOperacionImpactoService
         $stmt = $db->prepare(
             "SELECT ir.id, ir.impacto_id
              FROM horario_impacto_reservaciones ir
-             WHERE ir.reservacion_id = ? AND ir.estado = 'notificacion_preparada'
+             WHERE ir.reservacion_id = ? AND ir.estado = 'notificacion_preparada'" . self::unidadSql('ir') . "
              FOR UPDATE"
         );
         $stmt->bind_param('i', $reservacionId);
@@ -668,7 +685,7 @@ final class HorarioOperacionImpactoService
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'resuelta_por_cliente', resolved_by = NULL,
                      resolved_at = NOW(), access_invalidated_at = NOW()
-                 WHERE id = ? AND estado = 'notificacion_preparada'"
+                 WHERE id = ? AND estado = 'notificacion_preparada'" . self::unidadSql()
             );
             $id = (int)$fila['id'];
             $stmt->bind_param('i', $id);
@@ -714,8 +731,8 @@ final class HorarioOperacionImpactoService
             "SELECT ir.id, ir.estado, ir.access_expires_at,
                     r.comensales, r.contacto_tipo, r.contacto
              FROM horario_impacto_reservaciones ir
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE ir.impacto_id = ?
+             JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
+             WHERE ir.impacto_id = ?" . self::unidadSql('ir') . "
              FOR UPDATE"
         );
         if (!$stmt) {
@@ -768,15 +785,15 @@ final class HorarioOperacionImpactoService
         $stmt = ActiveRecord::getDB()->prepare(
             "SELECT ir.id
              FROM horario_impacto_reservaciones ir
-             JOIN horario_impactos i ON i.id = ir.impacto_id
-             JOIN reservaciones r ON r.id = ir.reservacion_id
+             JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+             JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
              WHERE ir.impacto_id = ? AND i.estado = 'pendiente'
                AND ir.estado = 'pendiente_notificacion'
                AND ir.notification_attempts = 0
                AND r.estado = 'confirmada'
                AND r.comensales <= ?
                AND r.contacto_tipo IN ('email', 'telefono')
-               AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''
+               AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''" . self::unidadSql('ir') . "
              ORDER BY ir.id ASC"
         );
         $maximo = ReservacionConfig::umbralGrupoGrande();
@@ -796,7 +813,7 @@ final class HorarioOperacionImpactoService
         return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $attempt): bool {
             $stmt = $db->prepare(
                 "SELECT notification_delivery_status FROM horario_impacto_reservaciones
-                 WHERE id = ? AND notification_attempts = ? FOR UPDATE"
+                 WHERE id = ? AND notification_attempts = ?" . self::unidadSql() . " FOR UPDATE"
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
@@ -827,7 +844,7 @@ final class HorarioOperacionImpactoService
                      access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
                      access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
                  WHERE id = ? AND notification_attempts = ?
-                   AND notification_delivery_status = 'pending'"
+                   AND notification_delivery_status = 'pending'" . self::unidadSql()
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
@@ -853,7 +870,7 @@ final class HorarioOperacionImpactoService
         $stmt = $db->prepare(
             "SELECT id, impacto_id
              FROM horario_impacto_reservaciones
-             WHERE id = ? AND estado = 'notificacion_preparada'
+             WHERE id = ? AND estado = 'notificacion_preparada'" . self::unidadSql() . "
              LIMIT 1 FOR UPDATE"
         );
         $stmt->bind_param('i', $impactoReservacionId);
@@ -867,7 +884,7 @@ final class HorarioOperacionImpactoService
             "UPDATE horario_impacto_reservaciones
              SET estado = 'resuelta_por_cliente', resolved_by = NULL,
                  resolved_at = NOW(), access_invalidated_at = NOW()
-             WHERE id = ? AND estado = 'notificacion_preparada'"
+             WHERE id = ? AND estado = 'notificacion_preparada'" . self::unidadSql()
         );
         $stmt->bind_param('i', $impactoReservacionId);
         $stmt->execute();
@@ -903,9 +920,9 @@ final class HorarioOperacionImpactoService
                     r.nombre, r.fecha, r.hora, r.comensales,
                     r.contacto_tipo, r.contacto, i.estado AS impacto_estado
              FROM horario_impacto_reservaciones ir
-             JOIN horario_impactos i ON i.id = ir.impacto_id
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE ir.id = ? LIMIT 1"
+             JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+             JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
+             WHERE ir.id = ?" . self::unidadSql('ir') . " LIMIT 1"
         );
         if (!$stmt) {
             return null;
@@ -953,7 +970,7 @@ final class HorarioOperacionImpactoService
         $db = ActiveRecord::getDB();
         try {
             $db->begin_transaction();
-            $stmt = $db->prepare('SELECT id, estado, fecha, hora FROM reservaciones WHERE id = ? LIMIT 1 FOR UPDATE');
+            $stmt = $db->prepare('SELECT id, estado, fecha, hora FROM reservaciones WHERE id = ?' . self::unidadSql() . ' LIMIT 1 FOR UPDATE');
             if (!$stmt) {
                 throw new \RuntimeException('No fue posible bloquear la reservación.');
             }
@@ -976,7 +993,7 @@ final class HorarioOperacionImpactoService
                 "SELECT id, impacto_id
                  FROM horario_impacto_reservaciones
                  WHERE reservacion_id = ?
-                   AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
+                   AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')" . self::unidadSql() . "
                  FOR UPDATE"
             );
             if (!$stmt) {
@@ -996,7 +1013,7 @@ final class HorarioOperacionImpactoService
                     "UPDATE horario_impacto_reservaciones
                      SET estado = 'atendida_manual', resolved_by = NULLIF(?, 0),
                          resolved_at = NOW(), access_invalidated_at = NOW()
-                     WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
+                     WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')" . self::unidadSql()
                 );
                 if (!$stmt) {
                     throw new \RuntimeException('No fue posible reconciliar la afectación.');
@@ -1035,14 +1052,14 @@ final class HorarioOperacionImpactoService
              LEFT JOIN (
                  SELECT impacto_id,
                         SUM(estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')) AS pendientes
-                 FROM horario_impacto_reservaciones
+                 FROM horario_impacto_reservaciones WHERE 1=1" . self::unidadSql() . "
                  GROUP BY impacto_id
              ) pendientes ON pendientes.impacto_id = i.id
              SET i.estado = CASE WHEN COALESCE(pendientes.pendientes, 0) = 0
                                  THEN 'resuelto' ELSE 'pendiente' END,
                  i.resolved_at = CASE WHEN COALESCE(pendientes.pendientes, 0) = 0
                                       THEN COALESCE(i.resolved_at, NOW()) ELSE NULL END
-             WHERE i.id = ?"
+             WHERE i.id = ?" . self::unidadSql('i')
         );
         $stmt->bind_param('i', $impactoId);
         $stmt->execute();
@@ -1057,7 +1074,7 @@ final class HorarioOperacionImpactoService
                  JOIN buzon_notificaciones bn
                    ON bn.tipo = 'reservacion_horario_afectado'
                   AND bn.entidad_tipo = 'horario_impacto_reservacion'
-                  AND bn.entidad_id = ir.id
+                  AND bn.entidad_id = ir.id" . (ContextoNegocio::nuevo() ? ' AND bn.unidad_id=ir.unidad_id' : '') . "
                  SET ir.notification_delivery_status = 'failed',
                      ir.notification_delivery_updated_at = NOW(),
                      ir.access_invalidated_at = COALESCE(ir.access_invalidated_at, NOW()),
@@ -1066,7 +1083,7 @@ final class HorarioOperacionImpactoService
                  WHERE bn.cerrada_at IS NULL
                    AND ir.notification_delivery_status = 'pending'
                    AND ir.notification_delivery_updated_at IS NOT NULL
-                   AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
+                   AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)" . self::unidadSql('ir') . self::unidadSql('bn')
             );
             if ($stmt) {
                 $stmt->execute();
@@ -1078,12 +1095,12 @@ final class HorarioOperacionImpactoService
              JOIN horario_impacto_reservaciones ir
                ON bn.tipo = 'reservacion_horario_afectado'
               AND bn.entidad_tipo = 'horario_impacto_reservacion'
-              AND bn.entidad_id = ir.id
+              AND bn.entidad_id = ir.id" . (ContextoNegocio::nuevo() ? ' AND bn.unidad_id=ir.unidad_id' : '') . "
              SET bn.requiere_accion = 1, bn.visible_from = LEAST(bn.visible_from, NOW()), bn.updated_at = NOW()
              WHERE bn.cerrada_at IS NULL
                AND ir.estado = 'notificacion_preparada'
                AND ir.access_expires_at IS NOT NULL
-               AND ir.access_expires_at <= NOW()"
+               AND ir.access_expires_at <= NOW()" . self::unidadSql('ir') . self::unidadSql('bn')
         );
         if ($stmt) {
             $stmt->execute();
@@ -1133,8 +1150,8 @@ final class HorarioOperacionImpactoService
                     ir.estado, ir.access_expires_at, ir.notification_attempts,
                     ir.last_notification_at, r.contacto_tipo, r.contacto, r.comensales
              FROM horario_impacto_reservaciones ir
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE ir.id = ? AND ir.impacto_id = ? LIMIT 1 FOR UPDATE"
+             JOIN reservaciones r ON r.id = ir.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . "
+             WHERE ir.id = ? AND ir.impacto_id = ?" . self::unidadSql('ir') . " LIMIT 1 FOR UPDATE"
         );
         $stmt->bind_param('ii', $impactoReservacionId, $impactoId);
         $stmt->execute();

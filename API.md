@@ -1,7 +1,10 @@
 # API de Casa Pestalozzi
 
-Inventario de los endpoints JSON del sistema, levantado de `public/index.php`
-(octubre de 2026).
+Referencia técnica de endpoints JSON. El registro ejecutable está en
+`public/index.php` y la autorización vigente en
+`services/Security/Permisos.php`/`PermisosUsuario.php`, subordinados al
+[contrato rector](docs/arquitectura.md). Las tablas de rutas de este inventario
+son una ayuda de lectura; no sustituyen el catálogo ni acreditan módulos pendientes.
 
 ## Dónde viven
 
@@ -10,31 +13,31 @@ No hay una carpeta de API. Las rutas viven en **dos archivos**:
 | Qué | Dónde |
 |---|---|
 | **Registro de rutas** (URL → `Controller::metodo`) | `public/index.php` |
-| **Quién puede llamarlas** | `services/Security/Permisos.php` → constantes `APIS`, `RUTAS`, `COMPARTIDAS`, `PUBLICAS` |
+| **Quién puede llamarlas** | `services/Security/Permisos.php` → `clasificarDirecto()` y catálogo de módulos; constantes auxiliares según la ruta |
 | Lógica de cada endpoint | `controllers/*Controller.php` → `services/` |
 
 `Router.php` compara la URL **exacta** y sólo conoce GET, POST y DELETE: no hay
 parámetros de ruta, los ids viajan por query string o en el cuerpo JSON. Una
 ruta que no esté registrada responde 404 (`ErrorController::noEncontrado`).
 
-En total hay **80 registros de API** (58 bajo `/api/`, 22 bajo `/admin/api/`);
-algunas URLs se registran dos veces, una por verbo.
+El número de registros cambia con cada módulo. Revisar las rutas exactas y sus
+verbos en el router al extender esta referencia; no deducir acceso de su prefijo.
 
 ## Cómo se protegen
 
-`Auth::proteger()` corre **antes** del ruteo y la decisión la toma
-`Permisos::decidir()`:
+`Auth::proteger()` corre antes del ruteo y usa `Permisos::clasificarDirecto()`
+con el perfil actual de permisos usuario/unidad/módulo:
 
-- **`/admin/api/*`**: se protege por **prefijo** con `Permisos::RUTAS`. Un
-  prefijo que no esté en esa lista sólo lo abren los roles de sistema
-  (`super_admin`, `admin`).
-- **`/api/*`**: se protege por **ruta exacta** con `Permisos::APIS`.
-  ⚠️ **Una `/api/...` que no esté en `APIS` queda pública.** Al añadir un
-  endpoint del personal hay que anotarlo ahí.
-- **Ver = GET/HEAD, editar = todo lo demás.** Un rol con el módulo sólo en
-  «ver» recibe 403 en un POST.
-- Las integraciones con n8n no usan sesión: se autentican con un secreto en
-  un header.
+- Las APIs públicas están clasificadas expresamente; una API privada desconocida
+  se deniega y no queda pública por omisión.
+- Una ruta administrativa necesita el módulo y nivel de su caso de uso; un nombre
+  de rol no concede acceso. Las rutas compartidas conservan sus controles propios.
+- GET/HEAD solicitan lectura; mutaciones exigen edición o el permiso operativo
+  correspondiente. Una sesión NIP no adquiere permisos administrativos.
+- Las integraciones n8n mantienen sus secretos de header y los endpoints públicos
+  de gestión mantienen sus tokens; no se les exige una sesión administrativa.
+- El servicio vuelve a verificar ámbito, permisos y pertenencia del recurso. Los
+  módulos futuros no se habilitan por agregar su ruta o su tabla.
 
 Nomenclatura de la columna **Acceso**:
 

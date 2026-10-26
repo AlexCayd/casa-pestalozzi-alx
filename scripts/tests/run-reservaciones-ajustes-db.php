@@ -21,6 +21,7 @@ if (!is_string($database) || !preg_match('/^cp_notifications_test_[a-f0-9]{12}$/
 }
 
 require $root . '/includes/app.php';
+notificationsTestAuthenticateStaff();
 
 // La base temporal la comparten todas las suites de la corrida: al salir, la
 // fila vuelve a los valores de ddl.sql pase lo que pase. Sin esto, el máximo de
@@ -33,7 +34,7 @@ register_shutdown_function(static function (): void {
             "UPDATE configuracion_reservaciones
                 SET max_comensales_publico = 12, whatsapp_reservas = NULL,
                     recordatorio_dia_anterior_activo = 0, hora_recordatorio = '18:00:00'
-              WHERE id = 1"
+              WHERE unidad_id = " . NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID . " AND id = 1"
         );
     }
 });
@@ -60,6 +61,7 @@ $limites = new ConfiguracionReservaciones([
     'max_comensales_publico' => 9,
     'whatsapp_reservas' => '525500000001',
 ]);
+notificationsTestAuthenticateStaff();
 $assert($limites->validarLimites(
     ReservacionConfig::MAX_COMENSALES_PUBLICO_MINIMO,
     ReservacionConfig::MAX_COMENSALES_PUBLICO_TOPE
@@ -81,6 +83,7 @@ $assert($tras['recordatorio_dia_anterior_activo'] === true, 'Guardar los límite
 $assert($tras['hora_recordatorio'] === '17:30', 'Guardar los límites cambió la hora del recordatorio.');
 
 // Y al revés: el recordatorio no debe tocar los límites.
+notificationsTestAuthenticateStaff();
 $otra = ReservacionNotificacionConfigService::guardar([
     'recordatorio_dia_anterior_activo' => false,
     'hora_recordatorio' => '19:00',
@@ -100,7 +103,7 @@ $assert(ReservacionConfig::whatsappNumero() === ReservacionConfig::whatsappRespa
 $db = \Model\ActiveRecord::getDB();
 $rechazado = false;
 try {
-    $rechazado = $db->query('UPDATE configuracion_reservaciones SET max_comensales_publico = 30 WHERE id = 1') === false;
+    $rechazado = $db->query('UPDATE configuracion_reservaciones SET max_comensales_publico = 30 WHERE unidad_id = ' . NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID . ' AND id = 1') === false;
 } catch (\mysqli_sql_exception $e) {
     $rechazado = true;
 }

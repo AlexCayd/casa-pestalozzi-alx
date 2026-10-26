@@ -47,6 +47,7 @@ const paths = {
     // dependencia — igual que con sankey.js y finanzas.js.
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
+    "src/js/admin/core/contextos.js",
     "src/js/admin/core/theme.js",
     // La llegada tras el login. Vive en components/ porque también la necesitan
     // el POS y los tableros, que la reciben por bundle.min.js (glob general);
@@ -111,6 +112,7 @@ const paths = {
   // admin.js, que el layout carga antes que cualquier bundle de módulo.
   adminReservationEstrategiaJs: "src/js/admin/reservations/estrategia.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
+  adminUsersDirectosJs: "src/js/admin/users-directos.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
@@ -324,6 +326,15 @@ function adminUsersJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminUsersDirectosJavascript() {
+  return src(paths.adminUsersDirectosJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("users-directos.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminCatasJavascript() {
   return src(paths.adminCatasJs)
     .pipe(sourcemaps.init())
@@ -450,6 +461,11 @@ function copyImages() {
   return src("assets/images/**/*").pipe(dest("public/build/images"));
 }
 
+// El menú preservado se publica sin recomprimir sus archivos verificados.
+function copyMenuImages() {
+  return src("src/images/menu-preservado/*.webp").pipe(dest("public/build/images"));
+}
+
 // Variantes de 720 px de las fotos grandes, para el `srcset` de la landing
 // (srcsetImagen() en includes/funciones.php, que sólo lo emite si la variante
 // existe). Las fotos vienen a ~1170 px: bien para un escritorio retina, pero un
@@ -521,6 +537,7 @@ function devWatch(done) {
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/reservations/estrategia.js", adminReservationEstrategiaJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
+  watch(paths.adminUsersDirectosJs, adminUsersDirectosJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
@@ -564,6 +581,7 @@ exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminReservationEstrategiaJs = adminReservationEstrategiaJavascript;
 exports.adminUsersJs = adminUsersJavascript;
+exports.adminUsersDirectosJs = adminUsersDirectosJavascript;
 exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
@@ -602,6 +620,7 @@ exports.dev = parallel(
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
+  adminUsersDirectosJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
@@ -614,6 +633,7 @@ exports.dev = parallel(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   devWatch,
 );
 
@@ -638,6 +658,7 @@ exports.build = series(
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
+  adminUsersDirectosJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
@@ -655,5 +676,8 @@ exports.build = series(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   imagenesResponsivas,
 );
+
+exports.menuImages = copyMenuImages;

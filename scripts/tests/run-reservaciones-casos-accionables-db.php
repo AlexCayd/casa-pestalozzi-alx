@@ -31,18 +31,19 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $ahora = ReservacionConfig::ahora();
 $fecha = $ahora->modify('+6 days')->format('Y-m-d');
 $creadas = [];
 
-$sembrar = static function (string $nombre, int $comensales, string $fechaReserva, string $hora, array $mesaIds, bool $conContacto = true) use ($db, &$creadas): int {
+$sembrar = static function (string $nombre, int $comensales, string $fechaReserva, string $hora, array $mesaIds, bool $conContacto = true) use ($db, &$creadas, $restaurantUnitId): int {
     $token = 'fx-casos-' . substr(md5($nombre . $fechaReserva . $hora), 0, 16);
     $tipo = $conContacto ? 'email' : 'ninguno';
     $contacto = $conContacto ? strtolower(str_replace(' ', '.', $nombre)) . '@example.test' : null;
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, ?, ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, ?, ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
     );
     $stmt->bind_param('sssssis', $nombre, $tipo, $contacto, $fechaReserva, $hora, $comensales, $token);
     $stmt->execute();
@@ -65,6 +66,7 @@ $tarjetaDe = static function (array $listado, int $id): ?array {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     $sinMesa = $sembrar('Casos Sin Mesa', 4, $fecha, '13:00:00', []);
     $sinContacto = $sembrar('Casos Sin Contacto', 2, $fecha, '13:30:00', [3], false);
     $reubicada = $sembrar('Casos Reubicada', 2, $fecha, '14:00:00', [2]);
@@ -120,7 +122,13 @@ try {
     }
 } finally {
     if ($creadas !== []) {
-        $db->query('DELETE FROM reservaciones WHERE id IN (' . implode(',', array_map('intval', $creadas)) . ')');
+        $ids = implode(',', array_map('intval', $creadas));
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_recordatorios WHERE reservacion_id IN ({$ids}) OR reservacion_raiz_id IN ({$ids})");
+        $db->query("DELETE FROM reservaciones WHERE id IN ({$ids})");
     }
 }
 

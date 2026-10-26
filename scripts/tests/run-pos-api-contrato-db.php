@@ -34,16 +34,17 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $fecha = ReservacionConfig::ahora()->modify('+4 days')->format('Y-m-d');
 $hoy = ReservacionConfig::fechaActual();
 $creadas = [];
 
-$sembrar = static function (string $nombre, int $comensales, string $hora, array $mesaIds) use ($db, $fecha, &$creadas): int {
+$sembrar = static function (string $nombre, int $comensales, string $hora, array $mesaIds) use ($db, $fecha, &$creadas, $restaurantUnitId): int {
     $token = 'fx-pos-api-' . substr(md5($nombre . $hora), 0, 16);
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, 'email', ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, 'email', ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
     );
     $correo = strtolower(str_replace(' ', '.', $nombre)) . '@example.test';
     $stmt->bind_param('ssssis', $nombre, $correo, $fecha, $hora, $comensales, $token);
@@ -76,6 +77,7 @@ $estadoMesa = static function (array $lectura, int $mesaId): array {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     $temprana = $sembrar('Comida Temprana', 2, '14:00:00', [2]);
     $cena = $sembrar('Cena Enfocada', 4, '19:00:00', [5]);
 
@@ -180,19 +182,26 @@ try {
         'La cancelación del POS no guardó su motivo.');
 
     // ── 10. Rutas nuevas: en el router y en la lista exacta del POS ───
-    $auth = (string)file_get_contents($root . '/classes/Auth.php');
     $index = (string)file_get_contents($root . '/public/index.php');
     foreach (['disponibilidad', 'crear', 'asignar-mesas', 'reasignar', 'comentario', 'reubicaciones/revisar'] as $accion) {
         $ruta = '/api/punto-de-venta/reservaciones/' . $accion;
-        $assert(str_contains($auth, "'{$ruta}'") && str_contains($index, "'{$ruta}'"),
-            "La ruta {$ruta} falta en Auth::APIS_POS o en el router: sin la lista quedaría pública.");
+        $clasificacion = \Services\Security\Permisos::clasificarDirecto($ruta);
+        $assert($clasificacion['tipo'] === 'modulos' && in_array('pdv', $clasificacion['modulos'], true)
+            && str_contains($index, "'{$ruta}'"),
+            "La ruta {$ruta} debe quedar registrada y protegida por el permiso directo del POS.");
     }
     $controlador = (string)file_get_contents($root . '/controllers/PosReservacionController.php');
     $assert(str_contains($controlador, "if (!Auth::esAdmin()) {\n            self::json(['ok' => false, 'codigo' => 'PERMISO_DENEGADO'], 403);")
         || str_contains($controlador, "'PERMISO_DENEGADO'], 403"), 'El comentario interno no está cerrado a administración en el servidor.');
 } finally {
     if ($creadas !== []) {
-        $db->query('DELETE FROM reservaciones WHERE id IN (' . implode(',', array_map('intval', $creadas)) . ')');
+        $ids = implode(',', array_map('intval', $creadas));
+        $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
+        $db->query("DELETE FROM reservacion_recordatorios WHERE reservacion_id IN ({$ids}) OR reservacion_raiz_id IN ({$ids})");
+        $db->query("DELETE FROM reservaciones WHERE id IN ({$ids})");
     }
 }
 

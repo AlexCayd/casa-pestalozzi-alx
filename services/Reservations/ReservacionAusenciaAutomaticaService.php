@@ -48,7 +48,7 @@ final class ReservacionAusenciaAutomaticaService
         $resultado = ActiveRecord::getDB()->query(
             "SELECT id
              FROM reservaciones
-             WHERE estado = 'confirmada'
+             WHERE estado = 'confirmada'" . \Model\Reservacion::filtroUnidad() . "
                AND fecha <= DATE('{$limiteSql}')
                AND TIMESTAMP(fecha, hora) < '{$limiteSql}'
              ORDER BY fecha ASC, hora ASC, id ASC

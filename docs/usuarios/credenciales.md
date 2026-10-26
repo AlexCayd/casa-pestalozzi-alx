@@ -1,55 +1,47 @@
 # Credenciales de desarrollo
 
-Estas credenciales son exclusivamente para desarrollo y QA. No deben
-reutilizarse en producción ni copiarse a tickets, capturas o documentación
-operativa.
-
 ## Administrador demo
 
-El seed SQL de pruebas crea este usuario:
+La identidad de demostración es `admin_demo`, superadministradora organizacional,
+activa en una instalación de desarrollo identificada. `database/development.sql`
+incluye solo su hash bcrypt, nunca la contraseña en texto claro. El instalador
+CLI activa su guard de sesión en `development`/`test`; si los archivos SQL se
+importan directamente en una base local nueva sin el marcador del instalador,
+el DML de desarrollo también crea la cuenta. Esa importación directa es solo
+para pruebas controladas, no sustituye el procedimiento CLI ni se ejecuta en
+producción. `deploy.sql` no la crea ni permite login de superadministrador
+mediante NIP.
 
-| Usuario | Contraseña | Rol | Acceso |
-| --- | --- | --- | --- |
-| `admin_demo` | `Pestalozzi2026` | `admin` | usuario + contraseña |
-
-La contraseña es un valor de desarrollo. Cámbiala antes de usar cualquier
-instalación fuera de QA.
+Seguir el [procedimiento único de instalación](../desarrollo/instalacion.md).
+El procedimiento CLI agrega las tres membresías solo cuando el instalador corre
+con la opción simulada en `development`/`test`. El comando
+[bootstrap-admin.php](../../scripts/desarrollo/bootstrap-admin.php) valida el
+hash frente al secreto local y deja una marca para impedir que se promueva una
+cuenta homónima ajena. La reejecución no restablece una contraseña cambiada;
+`--restablecer` expresa esa decisión solo en desarrollo/pruebas identificados.
 
 ## Usuarios de piso
 
-El seed PHP prepara estos usuarios de desarrollo:
+Crear usuarios operativos desde Usuarios con los permisos directos de piso
+necesarios. El servidor genera el NIP y lo muestra una sola vez. No copiar NIP a
+SQL, archivos, cookies, URL, logs, capturas ni almacenamiento del navegador.
 
-| Usuario | Nombre | Rol | Estado |
-| --- | --- | --- | --- |
-| `mesero1` | Carlos Hernández | `waiter` | activo |
-| `mesero2` | Valeria Ríos | `waiter` | activo |
-| `cocinero1` | Mariana López | `cook` | activo |
-| `mesero3` | Emilio Cárdenas | `waiter` | activo |
-| `mesero_inactivo` | Daniel Torres | `waiter` | inactivo |
+`NIP_LOOKUP_SECRET` vive en configuración local no versionada y debe permanecer
+estable. Cambiarlo exige preparar nuevamente las credenciales afectadas mediante
+el procedimiento autorizado; no se recuperan NIP anteriores desde hashes.
 
-Los NIP no se documentan como credenciales permanentes. Ejecuta el seed y
-entrega únicamente los NIP que muestre esa ejecución:
+Los usuarios sintéticos de fixtures no equivalen a credenciales activas. No usar
+el antiguo seed de roles como procedimiento alternativo de instalación.
 
-```text
-php scripts/seed-usuarios-prueba.php
-```
+## Comprobar el acceso
 
-La salida del seed pertenece a esa instalación concreta. Los NIP se guardan
-en la base de datos como `nip_hash` y `nip_lookup`; nunca se escribe el valor
-plano en SQL, archivos, cookies, URL, logs o almacenamiento del navegador.
+1. Abrir `/login` y la pestaña Contraseña para `admin_demo`.
+2. Introducir el secreto local configurado y verificar el selector de los tres ámbitos.
+3. Crear una cuenta exclusivamente POS/KDS/mapa operativo y comprobar su NIP.
+4. Agregar un permiso de panel exige contraseña y nueva autenticación; el NIP
+   anterior no debe ampliar una sesión a administración.
+5. Regenerar un NIP desde su flujo autorizado y comprobar que el anterior falla.
 
-El seed requiere `NIP_LOOKUP_SECRET` configurado en el entorno. La clave no
-debe versionarse y debe permanecer estable dentro de una instalación. Si se
-cambia, prepara nuevamente las credenciales de piso antes de intentar el
-login.
-
-## Login por rol
-
-1. Entra a `/login`.
-2. Usa la pestaña de contraseña con `admin_demo` para entrar al panel.
-3. Usa la pestaña de NIP con los cuatro dígitos entregados por el seed para
-   entrar como `waiter` o `cook`.
-
-Si una persona olvida su NIP, no existe una consulta del código actual:
-regenera la credencial desde la edición del usuario y entrega el nuevo valor
-cuando aparezca el modal de un solo consumo.
+La cuenta conocida de desarrollo no debe activarse automáticamente fuera de una
+instalación identificada. Mantener todos los secretos de despliegues reales fuera
+del repositorio y de esta documentación.

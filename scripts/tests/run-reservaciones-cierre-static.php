@@ -15,6 +15,7 @@ function assertClosureContract(bool $condition, string $message): void
 // La tabla de rutas vive en Permisos desde Roles y permisos.
 $auth = file_get_contents($root . '/services/Security/Permisos.php');
 $controller = file_get_contents($root . '/controllers/PuntoVentaController.php');
+$commercial = file_get_contents($root . '/services/Pos/Comercial.php');
 $posRaw = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $pos = is_string($posRaw) ? str_replace(["\r\n", "\r"], "\n", $posRaw) : $posRaw;
 $availability = file_get_contents($root . '/services/Reservations/DisponibilidadReservacionService.php');
@@ -51,7 +52,11 @@ assertClosureContract(
     'el cierre completo acepta propina explícita y conserva el fallback legado sin duplicar el cambio'
 );
 assertClosureContract(
-    str_contains($controller, "WHERE id = {\$itemId} AND estado = 'listo'")
+    str_contains($controller, "AND ti.estado IN ('enviado','en_preparacion','listo')")
+        && str_contains($controller, "TicketMesa::condicionSqlAbierto('t')")
+        && str_contains($controller, 'TicketItem::getDB()->affected_rows < 1')
+        && str_contains($commercial, "estado IN ('enviado','en_preparacion','listo')")
+        && str_contains($commercial, "t.estado=\\'abierto\\' AND t.closed_at IS NULL")
         && str_contains($controller, "estado NOT IN ('entregado','cancelado')"),
     'la entrega conserva los estados de entrega compatibles con cocina'
 );

@@ -14,11 +14,11 @@ Una reservación puede contener:
 
 Las notas son operativas. No se solicitan datos sensibles que no sean necesarios para la atención y no se usan las reservaciones para marketing no solicitado.
 
-## Acceso por rol
+## Acceso por permiso y ámbito
 
 El administrador autorizado puede consultar los datos de contacto cuando son necesarios para gestionar la reservación. El personal de piso y el punto de venta reciben los datos operativos necesarios para atenderla, pero no teléfono ni correo.
 
-El acceso se limita por sesión, rol y propósito. Una vista que no necesita contacto no debe recibir sus claves desde el backend, aunque el usuario tenga una sesión válida.
+El acceso se limita por sesión, ámbito, permiso directo y propósito; los roles internos no conceden acceso implícito. Una vista que no necesita contacto no debe recibir sus claves desde el backend, aunque el usuario tenga una sesión válida.
 
 ## Verificación de contacto
 
@@ -38,7 +38,7 @@ El repositorio no fija un plazo legal numérico. Cualquier plazo operativo debe 
 
 ## Desarrollo y versionado
 
-Los archivos de sesión son runtime y no se versionan. No se deben subir credenciales, códigos OTP, datos de contacto reales, exports de producción ni logs con PII a Git. Las credenciales de prueba se documentan por separado y sólo aplican a desarrollo.
+Los archivos de sesión son runtime y no se versionan. No se deben subir credenciales, códigos OTP, datos de contacto reales, exports de producción ni logs con PII a Git. El procedimiento de credenciales de desarrollo se documenta por separado; sus valores y secretos se aportan localmente y no se versionan.
 
 ## Derechos y contacto
 

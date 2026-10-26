@@ -52,6 +52,7 @@ $alta = static function (array $extra) use ($fecha, $hora, &$creadas): array {
 };
 
 try {
+    notificationsTestAuthenticateStaff();
     // Pedir «no asignar» ya no deja una reservación sin mesas.
     $sinPedir = $alta(['asignar_automaticamente' => '0']);
     $assert(($sinPedir['ok'] ?? false) === true && !empty($sinPedir['id']), 'El alta normal no se creó: ' . json_encode($sinPedir['codigo'] ?? null));
@@ -97,6 +98,11 @@ try {
 
     echo "Reservaciones: toda reservación confirmada tiene mesas OK\n";
 } finally {
+    $ids = $creadas !== [] ? implode(',', array_map('intval', $creadas)) : '0';
+    $db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$ids})");
+    $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id IN ({$ids})");
+    $db->query("DELETE FROM reservacion_reubicaciones WHERE reservacion_id IN ({$ids}) OR causa_reservacion_id IN ({$ids})");
+    $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN ({$ids})");
     foreach ($creadas as $id) {
         $db->query('DELETE FROM reservaciones WHERE id = ' . (int)$id);
     }

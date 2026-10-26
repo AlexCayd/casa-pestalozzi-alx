@@ -7,7 +7,7 @@
 
 namespace Model;
 
-class Mesa extends ActiveRecord {
+class Mesa extends RegistroRestaurante {
     protected static $tabla = 'mesas';
     protected static $columnasDB = ['id', 'numero', 'nombre', 'tipo', 'zona', 'capacidad', 'pos_x', 'pos_y', 'activo', 'reservable'];
 
@@ -35,7 +35,7 @@ class Mesa extends ActiveRecord {
              WHERE activo = 1
                AND reservable = 1
                AND tipo = 'mesa'
-               AND capacidad > 0
+               AND capacidad > 0" . self::filtroUnidad() . "
              ORDER BY numero ASC, id ASC"
         );
     }
@@ -55,7 +55,7 @@ class Mesa extends ActiveRecord {
                AND activo = 1
                AND reservable = 1
                AND tipo = 'mesa'
-               AND capacidad > 0
+               AND capacidad > 0" . self::filtroUnidad() . "
              ORDER BY FIELD(id, " . implode(',', $mesaIds) . ")"
         );
     }
@@ -77,7 +77,7 @@ class Mesa extends ActiveRecord {
              WHERE activo = 1
                AND reservable = 1
                AND tipo = 'mesa'
-               AND capacidad > 0
+               AND capacidad > 0" . self::filtroUnidad() . "
                {$where}
              ORDER BY id ASC
              FOR UPDATE"
@@ -94,7 +94,7 @@ class Mesa extends ActiveRecord {
 
         return self::consultarSQL(
             "SELECT id FROM mesas
-             WHERE id IN (" . implode(',', $mesaIds) . ")
+             WHERE id IN (" . implode(',', $mesaIds) . ")" . self::filtroUnidad() . "
              ORDER BY id ASC
              FOR UPDATE"
         );
@@ -104,7 +104,7 @@ class Mesa extends ActiveRecord {
     {
         return self::consultarSQL(
             "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
-             FROM mesas
+             FROM mesas WHERE 1=1" . self::filtroUnidad() . "
              ORDER BY numero ASC, id ASC"
         );
     }
@@ -117,7 +117,7 @@ class Mesa extends ActiveRecord {
              WHERE activo = 1
                AND reservable = 1
                AND tipo = 'mesa'
-               AND capacidad > 0"
+               AND capacidad > 0" . self::filtroUnidad()
         );
 
         if ($resultado === false) {

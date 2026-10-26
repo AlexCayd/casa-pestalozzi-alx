@@ -123,6 +123,7 @@
           <?php endforeach; ?>
 
           <form class="login-form login-form--nip" action="/login" method="post" novalidate id="login-nip-form"<?php echo $errorNip ? ' data-error' : ''; ?>>
+            <input type="hidden" name="login_csrf" value="<?php echo htmlspecialchars(\Services\Security\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>">
             <input type="password" name="nip" id="login-nip" class="login-nip-hidden"
                    inputmode="numeric" autocomplete="one-time-code" pattern="\d{4}" maxlength="4"
                    aria-label="NIP de acceso" aria-describedby="login-nip-estado">
@@ -185,6 +186,7 @@
           <?php endforeach; ?>
 
           <form class="login-form" action="/admin/login" method="post" novalidate id="login-admin-form">
+            <input type="hidden" name="login_csrf" value="<?php echo htmlspecialchars(\Services\Security\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>">
             <div class="login-field">
               <label class="login-field__label" for="login-username">Usuario</label>
               <input type="text" id="login-username" name="username"

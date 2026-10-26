@@ -84,6 +84,7 @@ final class ReservacionErrorCatalog
         'TOTAL_TICKET_NO_DISPONIBLE' => self::TIPO_ERROR,
         'TICKET_NO_VALIDO' => self::TIPO_ERROR,
         'TICKET_ITEMS_PENDIENTES' => self::TIPO_CONFLICTO,
+        'TICKET_TOTAL_CAMBIO' => self::TIPO_CONFLICTO,
         'TICKET_CON_CONSUMO' => self::TIPO_CONFLICTO,
         'TICKET_CIERRE_FALLIDO' => self::TIPO_ERROR,
         'PAGO_INVALIDO' => self::TIPO_ERROR,
@@ -1049,6 +1050,12 @@ final class ReservacionErrorCatalog
             'mensaje' => 'Selecciona un ticket válido para continuar.',
             'consecuencia' => 'No se realizó la operación.',
             'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'TICKET_TOTAL_CAMBIO' => [
+            'titulo' => 'La cuenta cambió',
+            'mensaje' => 'Actualiza el ticket y revisa el importe antes de cobrar.',
+            'consecuencia' => 'No se registró el pago ni se cerró el ticket.',
+            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
         ],
         'TICKET_ACTUALIZACION_FALLIDA' => [
             'titulo' => 'No se pudo actualizar el ticket',

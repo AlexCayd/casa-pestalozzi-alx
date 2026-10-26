@@ -11,6 +11,8 @@ require_once __DIR__ . '/_icons.php';
 // 'productos' era un alias local de 'products'. Se resuelve aquí y no en el
 // catálogo: es una clave de menú de este sidebar, no un icono distinto.
 $sidebarIconoModulo = static function (string $clave): string {
+    $alias = ['usuarios' => 'users', 'configuracion' => 'configuration', 'catalogo' => 'menu'];
+    $clave = $alias[$clave] ?? $clave;
     if ($clave === 'productos') {
         $clave = 'products';
     }
@@ -24,7 +26,7 @@ $sidebarIconoModulo = static function (string $clave): string {
 ?>
 <aside class="admin-sidebar" id="admin-sidebar" aria-label="Navegación de administración" data-admin-sidebar data-lenis-prevent>
     <div class="admin-sidebar__header">
-        <a class="admin-sidebar__brand" href="/admin" title="Casa Pestalozzi">
+        <a class="admin-sidebar__brand" href="<?php echo \Services\Security\Contextos::inicio($contextoActivo); ?>" title="Casa Pestalozzi">
             <span class="admin-sidebar__brand-mark" aria-hidden="true">CP</span>
             <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
                      Sin enlace: ya vamos dentro del <a> de la marca, y un <a>
@@ -51,11 +53,20 @@ $sidebarIconoModulo = static function (string $clave): string {
             data-admin-sidebar-close><?php echo admin_icon('cerrar', 18); ?></button>
     </div>
 
+    <?php include __DIR__ . '/_contexto.php'; ?>
     <nav class="admin-sidebar__nav">
         <?php foreach ($modules as $moduleKey => $module): ?>
+            <?php if (!empty($module['pendiente'])): ?>
+                <span class="admin-sidebar__link admin-context-pending" aria-disabled="true" title="Disponible en una etapa posterior">
+                    <span class="admin-sidebar__link-mark" aria-hidden="true"><?php echo $sidebarIconoModulo((string) $moduleKey); ?></span>
+                    <span class="admin-sidebar__link-text"><?php echo $module['title']; ?> <small>Pendiente</small></span>
+                </span>
+                <?php continue; ?>
+            <?php endif; ?>
             <a
                 class="admin-sidebar__link <?php echo $activeModule === $moduleKey ? 'is-active' : ''; ?>"
                 href="<?php echo $module['path']; ?>"
+                <?php echo $activeModule === $moduleKey ? 'aria-current="page"' : ''; ?>
                 title="<?php echo htmlspecialchars($module['title'], ENT_QUOTES, 'UTF-8'); ?>">
                 <span class="admin-sidebar__link-mark" aria-hidden="true">
                     <?php echo $sidebarIconoModulo((string) $moduleKey); ?>

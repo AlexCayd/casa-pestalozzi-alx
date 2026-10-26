@@ -31,6 +31,7 @@
 namespace Services\Analytics;
 
 use Model\ActiveRecord;
+use Services\Security\ContextoNegocio;
 
 final class ConsultasRapidas
 {
@@ -169,6 +170,7 @@ final class ConsultasRapidas
             $periodo['frase'] .= ' ' . $horario['frase'];
             $periodo['hora_sql'] = ' AND ' . $horario['sql'];
             $periodo['hora_q'] = ' ' . $horario['frase'];
+            $periodo['horario'] = ['desde' => $horario['desde'], 'hasta' => $horario['hasta'], 'dow' => $horario['dow'], 'frase' => $horario['frase']];
         }
 
         $quiereStock = (bool) preg_match('/\b(hay|queda|quedan|almacen|bodega|inventario|stock|existencia|existencias|tenemos)\b/u', $norma);
@@ -332,6 +334,7 @@ final class ConsultasRapidas
      */
     public static function responderEstructurada(string $intencion, ?int $id = null, ?int $opcion = null, ?string $periodo = null): array
     {
+        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::estructurada($intencion,$id,$periodo,$opcion);
         if (!in_array($intencion, self::INTENCIONES, true)) {
             return ['ok' => false, 'mensaje' => 'No reconozco esa consulta.'];
         }
@@ -339,6 +342,12 @@ final class ConsultasRapidas
         $base = ['ok' => true, 'consulta' => '', 'periodo' => $p, 'alternativas' => []];
 
         return self::ejecutar($intencion, $id !== null && $id > 0 ? $id : null, $opcion !== null && $opcion > 0 ? $opcion : null, $p, $base);
+    }
+
+    /** Frase mostrada y aceptada de vuelta por el intérprete canónico. */
+    public static function textoCanonico(string $intencion, ?string $nombre, ?string $opcion, array $periodo): string
+    {
+        return self::textoDe(self::partes($intencion, $nombre, $opcion, $periodo));
     }
 
     /**
@@ -351,6 +360,7 @@ final class ConsultasRapidas
      */
     public static function catalogo(): array
     {
+        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::catalogo();
         $db = ActiveRecord::getDB();
         $ventas = [[
             'valor' => 'ventas_total',
@@ -453,6 +463,7 @@ final class ConsultasRapidas
      */
     public static function capacidades(): array
     {
+        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::capacidades();
         $d = self::datosDeEjemplo();
         $hoy = self::periodo('hoy');
         $ayer = self::periodo('ayer');
@@ -583,6 +594,16 @@ final class ConsultasRapidas
      */
     private static function ejecutar(string $intencion, ?int $id, ?int $opcionId, array $periodo, array $base): array
     {
+        if (ContextoNegocio::nuevo()) {
+            return ConsultasRapidasRestaurante::estructurada(
+                $intencion,
+                $id,
+                $periodo['clave'] ?? null,
+                $opcionId,
+                $periodo['horario'] ?? null,
+                $base
+            );
+        }
         $entidad = null;
         $opcion = null;
         $opciones = [];
@@ -720,6 +741,38 @@ final class ConsultasRapidas
      */
     private static function sugerencias(array $parecidos, array $periodo): array
     {
+        if (ContextoNegocio::nuevo()) {
+            $salida = [];
+            $vistos = [];
+            foreach ($parecidos as $parecido) {
+                $id = (int)($parecido['id'] ?? 0);
+                $intent = (string)($parecido['intencion'] ?? '');
+                if ($id < 1 || !in_array($intent, ['stock', 'ventas_producto'], true)) continue;
+                $vistos[$intent . ':' . $id] = true;
+                $salida[] = [
+                    'motivo' => 'parecido', 'etiqueta' => (string)$parecido['nombre'],
+                    'tipo' => $intent === 'stock' ? 'stock' : 'ventas', 'texto' => (string)$parecido['nombre'],
+                    'consulta' => ['intencion' => $intent, 'id' => $id, 'opcion' => null, 'periodo' => $periodo['clave']],
+                ];
+            }
+            $catalogo = ConsultasRapidasRestaurante::catalogo();
+            foreach (['ventas' => 'ventas_producto', 'ingredientes' => 'stock'] as $bucket => $intent) {
+                foreach ($catalogo[$bucket] ?? [] as $entry) {
+                    $consulta = $entry['consulta'] ?? [];
+                    if (($consulta['intencion'] ?? null) !== $intent || empty($consulta['id'])) continue;
+                    $key = $intent . ':' . (int)$consulta['id'];
+                    if (isset($vistos[$key])) continue;
+                    $salida[] = [
+                        'motivo' => 'ejemplo', 'etiqueta' => (string)$entry['etiqueta'],
+                        'tipo' => $intent === 'stock' ? 'stock' : 'ventas', 'texto' => (string)$entry['etiqueta'],
+                        'consulta' => $consulta + ['periodo' => $periodo['clave']],
+                    ];
+                    $vistos[$key] = true;
+                    if (count($salida) >= 4) break 2;
+                }
+            }
+            return $salida;
+        }
         $salida = [];
         $vistas = [];
         foreach ($parecidos as $p) {
@@ -2034,6 +2087,24 @@ final class ConsultasRapidas
      */
     private static function coincidencias(string $tabla, string $termino, float $umbral = 0.72): array
     {
+        if (ContextoNegocio::nuevo()) {
+            if (!in_array($tabla, ['productos', 'categorias', 'ingredientes'], true)) return [];
+            if (!ConsultasRapidasRestaurante::permiteBusqueda($tabla)) return [];
+            $db = ContextoNegocio::db();
+            $unidad = ContextoNegocio::unidad('restaurante');
+            $sql = match ($tabla) {
+                'productos' => 'SELECT o.id, p.nombre FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=? AND o.activo=1 AND c.activo=1 ORDER BY o.orden,p.nombre,o.id',
+                'categorias' => 'SELECT id, nombre FROM categorias WHERE unidad_id=? AND activo=1 ORDER BY orden,nombre,id',
+                default => 'SELECT DISTINCT i.id,i.nombre FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1 ORDER BY i.nombre,i.id',
+            };
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param('i', $unidad);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $source = $res ? $res->fetch_all(\MYSQLI_ASSOC) : [];
+            $stmt->close();
+            return self::puntuarCoincidencias($source, $termino, $umbral);
+        }
         $db = ActiveRecord::getDB();
         $sql = match ($tabla) {
             'productos' => 'SELECT id, nombre FROM productos WHERE activo = 1',
@@ -2044,9 +2115,18 @@ final class ConsultasRapidas
         if (!$res) {
             return [];
         }
+        $source = [];
+        while ($row = $res->fetch_assoc()) $source[] = $row;
+        $res->free();
+        return self::puntuarCoincidencias($source, $termino, $umbral);
+    }
+
+    /** @param list<array{id:int|string,nombre:string}> $source */
+    private static function puntuarCoincidencias(array $source, string $termino, float $umbral): array
+    {
         $palabrasTermino = array_values(array_filter(explode(' ', $termino)));
         $salida = [];
-        while ($row = $res->fetch_assoc()) {
+        foreach ($source as $row) {
             $nombre = (string) $row['nombre'];
             $normNombre = self::normalizar($nombre);
             $palabrasNombre = array_values(array_filter(explode(' ', $normNombre), static fn ($p) => !in_array($p, ['de', 'del', 'la', 'el', 'a', 'al', 'con', 'y', 'en', 'los', 'las'], true)));
@@ -2087,7 +2167,6 @@ final class ConsultasRapidas
                 $salida[] = ['id' => (int) $row['id'], 'nombre' => $nombre, 'puntos' => round($puntos, 3), 'sobrantes' => $sobrantes];
             }
         }
-        $res->free();
         usort($salida, static fn ($a, $b) => $b['puntos'] <=> $a['puntos'] ?: strcmp($a['nombre'], $b['nombre']));
 
         return array_slice($salida, 0, 6);
@@ -2134,6 +2213,16 @@ final class ConsultasRapidas
      */
     private static function opcionesDe(int $productoId): array
     {
+        if (ContextoNegocio::nuevo()) {
+            $db = ContextoNegocio::db();
+            $unidad = ContextoNegocio::unidad('restaurante');
+            $stmt = $db->prepare('SELECT pv.id,pv.grupo,pv.nombre FROM producto_variantes pv JOIN ofertas_producto o ON o.id=pv.oferta_id AND o.unidad_id=pv.unidad_id WHERE pv.oferta_id=? AND pv.unidad_id=? AND o.activo=1 AND pv.activo=1 AND pv.predeterminada=0 ORDER BY pv.orden_grupo,pv.orden,pv.id');
+            $stmt->bind_param('ii', $productoId, $unidad);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(\MYSQLI_ASSOC);
+            $stmt->close();
+            return array_map(static fn ($row) => ['id' => (int)$row['id'], 'grupo' => (string)$row['grupo'], 'nombre' => (string)$row['nombre']], $rows);
+        }
         $res = ActiveRecord::getDB()->query(
             "SELECT id, grupo, nombre FROM producto_variantes
               WHERE producto_id = {$productoId} AND activo = 1 AND predeterminada = 0
@@ -2344,5 +2433,124 @@ final class ConsultasRapidas
         $redondo = round($v, 2);
 
         return rtrim(rtrim(number_format($redondo, 2, '.', ','), '0'), '.');
+    }
+}
+
+/** Consultas del esquema por unidad; jamás interpreta coincidencias por nombre como identidad. */
+final class ConsultasRapidasRestaurante
+{
+    private static function permite(array $modulos): bool
+    {
+        foreach ($modulos as $modulo) {
+            try { ContextoNegocio::exigir($modulo,'ver','restaurante'); return true; }
+            catch (\Services\Inventory\InventarioError $e) { if ($e->codigo !== 'PERMISO_DENEGADO') throw $e; }
+        }
+        return false;
+    }
+    private static function inicio(array $modulos=['analytics','ia']): array
+    {
+        if (ContextoNegocio::slug() !== 'restaurante') throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE','Las consultas están disponibles para Restaurante.');
+        if (!self::permite($modulos)) throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO','No tienes permiso para consultar estos datos de Restaurante.');
+        return [ContextoNegocio::db(),ContextoNegocio::unidad('restaurante')];
+    }
+    public static function permiteBusqueda(string $tabla): bool
+    {
+        return self::permite($tabla==='ingredientes'?['inventario','ia']:['analytics','ia','menu']);
+    }
+    private static function dinero(float $n): string { return '$'.number_format($n,2); }
+    private static function filas($s,array $args): array { $s->execute($args); return $s->get_result()->fetch_all(MYSQLI_ASSOC); }
+    public static function catalogo(): array
+    {
+        if(ContextoNegocio::slug()!=='restaurante')throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE','El catálogo está disponible para Restaurante.');if(!self::permite(['analytics','ia','menu','inventario','tickets']))throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO','No tienes permiso para consultar el catálogo de Restaurante.');$db=ContextoNegocio::db();$u=ContextoNegocio::unidad('restaurante');$ventas=[['valor'=>'ventas_total','etiqueta'=>'Todo el restaurante','grupo'=>'General','detalle'=>'Ventas totales','consulta'=>['intencion'=>'ventas_total','id'=>null,'opcion'=>null]]];
+        if(self::permite(['analytics','ia','menu'])){$s=$db->prepare('SELECT id,nombre,carta FROM categorias WHERE unidad_id=? AND activo=1 ORDER BY orden,nombre');foreach(self::filas($s,[$u]) as $r)$ventas[]=['valor'=>'ventas_categoria:'.$r['id'],'etiqueta'=>$r['nombre'],'grupo'=>'Categorías','detalle'=>$r['carta'],'consulta'=>['intencion'=>'ventas_categoria','id'=>(int)$r['id'],'opcion'=>null]];$s=$db->prepare('SELECT o.id oferta_id,p.nombre,c.nombre categoria FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=? AND o.activo=1 AND c.activo=1 ORDER BY o.orden,p.nombre');foreach(self::filas($s,[$u]) as $r)$ventas[]=['valor'=>'ventas_producto:'.$r['oferta_id'],'etiqueta'=>$r['nombre'],'grupo'=>'Platillos','detalle'=>$r['categoria'],'consulta'=>['intencion'=>'ventas_producto','id'=>(int)$r['oferta_id'],'opcion'=>null]];}
+        $ins=[];if(self::permite(['inventario','ia'])){$s=$db->prepare('SELECT DISTINCT i.id,i.nombre,i.unidad,i.activo FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.unidad_id=? ORDER BY i.activo DESC,i.nombre');foreach(self::filas($s,[$u]) as $r)$ins[]=['valor'=>'stock:'.$r['id'],'etiqueta'=>$r['nombre'],'grupo'=>(int)$r['activo']?'Ingredientes':'Inactivos','detalle'=>$r['unidad'],'consulta'=>['intencion'=>'stock','id'=>(int)$r['id'],'opcion'=>null]];}
+        return ['ventas'=>$ventas,'ingredientes'=>$ins];
+    }
+    public static function capacidades(): array
+    {
+        if(ContextoNegocio::slug()!=='restaurante')throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE','Las consultas están disponibles para Restaurante.');$puedeVentas=self::permite(['analytics','ia']);$puedeTickets=self::permite(['tickets','analytics','ia']);$puedeStock=self::permite(['inventario','ia']);if(!$puedeVentas&&!$puedeTickets&&!$puedeStock)throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO','No tienes permiso para consultar estos datos de Restaurante.');$titulos=['ventas_total'=>'Ventas totales','ventas_producto'=>'Ventas de un platillo','ventas_categoria'=>'Ventas por categoría','top'=>'Lo más vendido','ticket_promedio'=>'Ticket promedio y comensales','sin_venta'=>'Platillos sin venta','meseros'=>'Ventas por mesero','horas_pico'=>'Horas pico','cancelaciones'=>'Cancelaciones','stock'=>'Existencia de un ingrediente','consumo'=>'Consumo de un ingrediente','bajo_stock'=>'Lo que está por agotarse'];
+        $texto=static fn(string $t)=>['tipo'=>'texto','texto'=>$t];$hv=['tipo'=>'hueco','campo'=>'entidad','rotulo'=>'Platillo o categoría','catalogo'=>'ventas'];$hi=['tipo'=>'hueco','campo'=>'entidad','rotulo'=>'Ingrediente','catalogo'=>'ingredientes'];$hp=['tipo'=>'hueco','campo'=>'periodo','rotulo'=>'Periodo'];$sal=[];
+        foreach(ConsultasRapidas::INTENCIONES as $i){if(in_array($i,['stock','consumo','bajo_stock'],true)?!$puedeStock:(in_array($i,['meseros','horas_pico','cancelaciones'],true)?!$puedeTickets:!$puedeVentas))continue;$plantilla=[$texto($titulos[$i])];if(in_array($i,['ventas_producto','ventas_categoria'],true))$plantilla=[$texto('Ventas de '),$hv,$texto(' · '),$hp];elseif(in_array($i,['stock'],true))$plantilla=[$hi,$texto(' en almacén')];elseif($i==='consumo')$plantilla=[$texto('Consumo de '),$hi+['intencion'=>'consumo'],$texto(' · '),$hp];elseif(in_array($i,['ventas_total','top','ticket_promedio','sin_venta','meseros','horas_pico','cancelaciones','bajo_stock'],true))$plantilla=[$texto($titulos[$i].' · '),$hp];$sal[]=['intencion'=>$i,'titulo'=>$titulos[$i],'descripcion'=>'Consulta de datos registrados en Restaurante, delimitados por su unidad.','plantilla'=>$plantilla,'ejemplo'=>null,'ejemplos'=>[]];}
+        $grupos=['hoy'=>'Días','ayer'=>'Días','antier'=>'Días','semana'=>'Semanas','semana_pasada'=>'Semanas','7d'=>'Semanas','mes'=>'Meses','mes_pasado'=>'Meses','30d'=>'Meses'];$periodos=[];foreach(ConsultasRapidas::PERIODOS as $k=>$v)$periodos[]=['valor'=>$k,'etiqueta'=>$v,'grupo'=>$grupos[$k]??'Periodo','consulta'=>['periodo'=>$k]];
+        return ['intenciones'=>$sal,'periodos'=>$periodos];
+    }
+    public static function responder(string $texto,?string $clave): array
+    {
+        self::inicio(['analytics','ia','inventario','tickets','menu']); $norm=ConsultasRapidas::normalizar($texto);$periodo=$clave;
+        if($periodo===null){foreach(['semana_pasada'=>['semana pasada','semana anterior'],'mes_pasado'=>['mes pasado','mes anterior'],'ayer'=>['ayer'],'antier'=>['antier','anteayer'],'semana'=>['esta semana','semana'],'mes'=>['este mes'],'30d'=>['ultimos 30 dias'],'7d'=>['ultimos 7 dias']] as $k=>$terms)foreach($terms as $term)if(str_contains($norm,$term)){$periodo=$k;break 2;}}
+        $p=ConsultasRapidas::periodoDesde($periodo)??ConsultasRapidas::periodo('hoy');$int='ventas_total';$id=null;$cat=false;
+        if(preg_match('/cancel|cancelad/u',$norm))$int='cancelaciones';elseif(preg_match('/promedio|comensal|cubierto/u',$norm))$int='ticket_promedio';elseif(preg_match('/sin venta|sin vender/u',$norm))$int='sin_venta';elseif(preg_match('/meser|vendedor/u',$norm))$int='meseros';elseif(preg_match('/hora pico|mas concurrid|afluencia/u',$norm))$int='horas_pico';elseif(preg_match('/mas vendido|top|favorit/u',$norm))$int='top';elseif(preg_match('/consum|gastamos|usamos/u',$norm))$int='consumo';elseif(preg_match('/bajo stock|agot|minimo|reabastec/u',$norm))$int='bajo_stock';
+        $catalogo=self::catalogo();$lista=in_array($int,['stock','consumo'],true)?$catalogo['ingredientes']:$catalogo['ventas'];$opcion=null;
+        if(in_array($int,['stock','consumo','ventas_total'],true)||preg_match('/categoria|familia/u',$norm)||!in_array($int,['ticket_promedio','sin_venta','meseros','horas_pico','top','cancelaciones','bajo_stock'],true)){
+            $mejor=null;foreach($lista as $e){if($e['grupo']==='General')continue;$et=ConsultasRapidas::normalizar((string)$e['etiqueta']);if($et!==''&&str_contains($norm,$et)&&(!$mejor||mb_strlen($et)>mb_strlen($mejor['etiqueta_norm']))){$mejor=$e+['etiqueta_norm'=>$et];}}
+            if($mejor){$id=(int)substr($mejor['valor'],strpos($mejor['valor'],':')+1);if(isset($mejor['consulta']['intencion']))$int=$mejor['consulta']['intencion'];if($int==='ventas_producto')foreach(self::opcionesOferta($id) as $o)if(str_contains($norm,ConsultasRapidas::normalizar($o['nombre'])))$opcion=(int)$o['id'];$cat=$int==='ventas_categoria';}
+        }
+        if($int==='ventas_total'&&$id===null&&!preg_match('/\b(venta\w*|vend\w*|ingreso\w*|factur\w*|total)\b/u',$norm))return self::noEntendida($p);
+        return self::estructurada($int,$id,$p['clave'],$opcion);
+    }
+    public static function estructurada(string $int,?int $id,?string $periodo,?int $opcion=null,?array $horario=null,?array $base=null): array
+    {
+        if(!in_array($int,ConsultasRapidas::INTENCIONES,true))return ['ok'=>false,'mensaje'=>'No reconozco esa consulta.'];$module=in_array($int,['stock','consumo','bajo_stock'],true)?['inventario','ia']:(in_array($int,['meseros','horas_pico','cancelaciones'],true)?['tickets','analytics','ia']:['analytics','ia']);[$db,$u]=self::inicio($module);
+        $p=ConsultasRapidas::periodoDesde($periodo)??ConsultasRapidas::periodo('hoy');$desde=$p['desde'].' 00:00:00';$hasta=$p['hasta'].' 23:59:59';$name=null;$unidadMedida='';
+        $horaSql=self::horaSql($horario,'ti.created_at');
+        if($horario!==null){$p['horario']=$horario;$p['hora_sql']=$horaSql;$p['hora_q']=' '.(string)($horario['frase']??'');$p['frase'].=$p['hora_q'];}
+        $w="t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?";
+        $wVentas=$w.$horaSql;
+        $args=[$u,$desde,$hasta];$sql='';$title='';$rows=[];$detailRows=[];$amount=0.0;$units=0;$merma=0.0;
+        if($int==='ventas_total'||$int==='ticket_promedio'){$sql="SELECT COUNT(DISTINCT t.id) tickets,COALESCE(SUM(ti.precio*ti.cantidad),0) importe FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE {$w}";$rows=self::filas($db->prepare($sql),$args);$amount=(float)($rows[0]['importe']??0);$units=(int)($rows[0]['tickets']??0);$title=$int==='ventas_total'?'Ventas '.$p['frase']:'Ticket promedio';}
+        elseif($int==='ventas_producto'||$int==='ventas_categoria'){$column=$int==='ventas_producto'?'ti.oferta_id':'ti.categoria_id';if(!$id)return self::noEncontrado($int,$p,$base);$variant=null;if($int==='ventas_producto'){$s=$db->prepare('SELECT pv.id,pv.nombre,p.nombre producto FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN producto_variantes pv ON pv.oferta_id=o.id AND pv.unidad_id=o.unidad_id WHERE o.id=? AND o.unidad_id=? AND pv.id=? AND pv.activo=1 AND pv.predeterminada=0');if($opcion){$v=self::filas($s,[$id,$u,$opcion]);if(!$v)return self::noEncontrado($int,$p,$base);$variant=$v[0];$name=$variant['producto'];}else{$s=$db->prepare('SELECT p.nombre producto FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=?');$v=self::filas($s,[$id,$u]);if(!$v)return self::noEncontrado($int,$p,$base);$name=$v[0]['producto'];}}$sql="SELECT MAX(ti.nombre) nombre,SUM(ti.cantidad) unidades,SUM(ti.precio*ti.cantidad) importe,COUNT(DISTINCT t.id) tickets FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE {$wVentas} AND {$column}=?".($opcion&&$int==='ventas_producto'?' AND FIND_IN_SET(?,ti.variante_ids)':'')." GROUP BY {$column}";$queryArgs=array_merge($args,[$id]);if($opcion&&$int==='ventas_producto')$queryArgs[]=$opcion;$rows=self::filas($db->prepare($sql),$queryArgs);if(!$rows)return self::noEncontrado($int,$p,$base);$amount=(float)($rows[0]['importe']??0);$units=(int)($rows[0]['unidades']??0);if($int==='ventas_producto'){$title='Ventas de '.$name.($variant?' · '.$variant['nombre']:'');if(!$opcion){$s=$db->prepare("SELECT COALESCE(NULLIF(ti.variante,''),'') variante,SUM(ti.cantidad) unidades FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE ti.unidad_id=? AND ti.oferta_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?{$horaSql} GROUP BY variante ORDER BY unidades DESC");$detailRows=self::filas($s,[$u,$id,$desde,$hasta]);if(count($detailRows)===1&&$detailRows[0]['variante']==='')$detailRows=[];}}else{$s=$db->prepare('SELECT nombre FROM categorias WHERE id=? AND unidad_id=?');$c=self::filas($s,[$id,$u]);if(!$c)return self::noEncontrado($int,$p,$base);$name=$c[0]['nombre'];$title='Ventas de '.$name;$s=$db->prepare("SELECT ti.oferta_id,MAX(ti.nombre) nombre,SUM(ti.cantidad) unidades FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE ti.unidad_id=? AND ti.categoria_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?{$horaSql} GROUP BY ti.oferta_id ORDER BY unidades DESC LIMIT 6");$detailRows=self::filas($s,[$u,$id,$desde,$hasta]);}}
+        elseif($int==='top'){$sql="SELECT ti.oferta_id,MAX(ti.nombre) nombre,SUM(ti.cantidad) unidades,SUM(ti.precio*ti.cantidad) importe FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE {$wVentas} GROUP BY ti.oferta_id ORDER BY unidades DESC LIMIT 5";$rows=self::filas($db->prepare($sql),$args);$units=array_sum(array_map(static fn($r)=>(int)$r['unidades'],$rows));$amount=array_sum(array_map(static fn($r)=>(float)$r['importe'],$rows));$title='Lo más vendido';}
+        elseif($int==='sin_venta'){$sql="SELECT o.id oferta_id,p.nombre,c.nombre categoria FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=? AND o.activo=1 AND c.activo=1 AND NOT EXISTS(SELECT 1 FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE ti.oferta_id=o.id AND ti.unidad_id=o.unidad_id AND ti.estado<>'cancelado' AND t.estado='cerrado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?) ORDER BY c.orden,p.nombre LIMIT 10";$rows=self::filas($db->prepare($sql),[$u,$desde,$hasta]);$units=count($rows);$amount=(float)$units;$title='Platillos sin venta';}
+        elseif($int==='meseros'){$sql="SELECT q.mesero_id,COALESCE(u.nombre,'Sin mesero asignado') nombre,COUNT(*) tickets,SUM(q.importe) importe,SUM(q.propina) propinas FROM (SELECT t.id,t.mesero_id,t.propina,SUM(ti.precio*ti.cantidad) importe FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE {$w} GROUP BY t.id,t.mesero_id,t.propina) q LEFT JOIN usuarios u ON u.id=q.mesero_id GROUP BY q.mesero_id,u.nombre ORDER BY importe DESC LIMIT 8";$rows=self::filas($db->prepare($sql),$args);$amount=array_sum(array_map(static fn($r)=>(float)$r['importe'],$rows));$units=array_sum(array_map(static fn($r)=>(int)$r['tickets'],$rows));$title='Ventas por mesero';}
+        elseif($int==='horas_pico'){$sql="SELECT HOUR(t.hora_apertura) hora,COUNT(*) tickets,COALESCE(SUM(x.total),0) importe FROM tickets t LEFT JOIN (SELECT ticket_id,unidad_id,SUM(precio*cantidad) total FROM ticket_items WHERE unidad_id=? AND estado<>'cancelado' GROUP BY ticket_id,unidad_id) x ON x.ticket_id=t.id AND x.unidad_id=t.unidad_id WHERE t.unidad_id=? AND t.estado='cerrado' AND t.hora_apertura>=? AND t.hora_apertura<=? GROUP BY hora ORDER BY tickets DESC,hora";$rows=self::filas($db->prepare($sql),[$u,$u,$desde,$hasta]);$units=array_sum(array_map(static fn($r)=>(int)$r['tickets'],$rows));$amount=array_sum(array_map(static fn($r)=>(float)$r['importe'],$rows));$title='Horas pico';}
+        elseif($int==='cancelaciones'){$sql="SELECT ti.oferta_id,MAX(ti.nombre) nombre,SUM(ti.cantidad) unidades,SUM(ti.precio*ti.cantidad) importe FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado='cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=? GROUP BY ti.oferta_id ORDER BY importe DESC LIMIT 8";$rows=self::filas($db->prepare($sql),[$u,$desde,$hasta]);$units=array_sum(array_map(static fn($r)=>(int)$r['unidades'],$rows));$amount=array_sum(array_map(static fn($r)=>(float)$r['importe'],$rows));$title='Cancelaciones';}
+        elseif($int==='consumo'){$s=$db->prepare('SELECT id,nombre,unidad FROM ingredientes WHERE id=? AND EXISTS(SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.unidad_id=? AND aa.articulo_id=ingredientes.id AND a.activo=1)');$found=self::filas($s,[$id??0,$u]);if(!$found)return self::noEncontrado($int,$p,$base);$name=$found[0]['nombre'];$unidadMedida=$found[0]['unidad'];$sql="SELECT tipo,SUM(-delta) unidades,SUM(-delta*COALESCE(costo_unitario,0)) importe FROM movimientos_inventario WHERE unidad_id=? AND articulo_id=? AND tipo IN ('venta','merma','cancelacion') AND fecha>=? AND fecha<=? GROUP BY tipo ORDER BY tipo";$rows=self::filas($db->prepare($sql),[$u,$id,$desde,$hasta]);$ventas=array_values(array_filter($rows,static fn($r)=>in_array($r['tipo'],['venta','cancelacion'],true)));$units=max(0.0,array_sum(array_map(static fn($r)=>(float)$r['unidades'],$ventas)));$amount=array_sum(array_map(static fn($r)=>(float)$r['importe'],$ventas));$merma=max(0.0,array_sum(array_map(static fn($r)=>$r['tipo']==='merma'?(float)$r['unidades']:0.0,$rows)));$title='Consumo de '.$name;}
+        elseif(in_array($int,['stock','bajo_stock'],true)){if($int==='stock'&&!$id)return self::noEncontrado($int,$p,$base);$where=$int==='stock'?' AND i.id=?':'';$stockArgs=$int==='stock'?[$u,$id]:[$u];$sql="SELECT i.id,i.nombre,i.unidad,SUM(aa.saldo) saldo,SUM(aa.minimo) minimo,MAX(aa.saldo<=aa.minimo) alerta FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1{$where} GROUP BY i.id ORDER BY i.nombre";$rows=self::filas($db->prepare($sql),$stockArgs);$title=$int==='stock'?'Existencia de ingrediente':'Ingredientes bajo el mínimo';if($int==='bajo_stock')$rows=array_values(array_filter($rows,static fn($r)=>(bool)$r['alerta']));}
+        $primary=match($int){'ventas_total'=>self::dinero($amount),'ticket_promedio'=>self::dinero($units?$amount/$units:0),'ventas_producto','ventas_categoria','cancelaciones','sin_venta'=>(int)$units,'top'=>(int)($rows[0]['unidades']??0),'meseros'=>self::dinero((float)($rows[0]['importe']??0)),'horas_pico'=>number_format((int)($rows[0]['tickets']??0)),'stock','bajo_stock'=>number_format(count($rows)),'consumo'=>number_format((float)$units,3),default=>''};
+        $frase=match($int){'ventas_total'=>'Importe cobrado en tickets cerrados: '.self::dinero($amount).'.','ticket_promedio'=>number_format($units).' tickets cerrados; promedio '.self::dinero($units?$amount/$units:0).' por cuenta.','ventas_producto','ventas_categoria'=>$units?number_format($units).' unidades, por '.self::dinero($amount).'.':'No hay ventas registradas para el periodo.','top'=>$rows?$rows[0]['nombre'].' encabeza el periodo.':'No hay ventas cerradas para el periodo.','sin_venta'=>count($rows).' ofertas activas sin ventas registradas en el periodo.','meseros'=>$rows?'Ventas por mesero en tickets cerrados.':'No hay tickets cerrados para el periodo.','horas_pico'=>$rows?'Hora con mayor número de tickets cerrados: '.sprintf('%02d:00',(int)$rows[0]['hora']).'.':'No hay tickets cerrados para el periodo.','cancelaciones'=>$units?number_format($units).' unidades canceladas, por '.self::dinero($amount).'.':'No hay cancelaciones registradas.','consumo'=>number_format((float)$units,3).' '.$unidadMedida.' en ventas netas de cancelaciones.'.($merma>0?' Además, '.number_format($merma,3).' '.$unidadMedida.' de merma.':''),'stock','bajo_stock'=>$rows?'Existencia física de los almacenes de Restaurante.':'No hay existencias registradas.',default=>'Resultados registrados para el periodo.'};
+        $fuenteDetalle=$detailRows?:$rows;$detalle=[];foreach(array_slice($fuenteDetalle,0,8) as $r){if(isset($r['nombre']))$label=(string)$r['nombre'];elseif(isset($r['variante']))$label=$r['variante']!==''?(string)$r['variante']:'Como en la carta';elseif(isset($r['hora']))$label=sprintf('%02d:00',(int)$r['hora']);else $label=(string)($r['tipo']??'Artículo');$valor=isset($r['unidades'])?(float)$r['unidades']:(float)($r['saldo']??0);$medida=(string)($r['unidad']??($int==='consumo'?$unidadMedida:''));$valorTexto=$medida!==''?number_format($valor,3).' '.$medida:(string)$valor;if(isset($r['minimo'],$r['unidad']))$valorTexto.=' · mínimo '.number_format((float)$r['minimo'],3).' '.$r['unidad'];$fila=['etiqueta'=>$label,'valor'=>$valor,'valor_texto'=>$valorTexto];if(isset($r['oferta_id']))$fila['consulta']=['intencion'=>'ventas_producto','id'=>(int)$r['oferta_id'],'opcion'=>null];$detalle[]=$fila;}
+        $respuesta=['tipo'=>$int,'titulo'=>$title,'cifra'=>$primary,'unidad'=>match($int){'ventas_producto','ventas_categoria'=>'unidades vendidas','cancelaciones'=>'unidades canceladas','sin_venta'=>'ofertas','stock','bajo_stock'=>'artículos','consumo'=>$unidadMedida,default=>''},'frase'=>$frase,'comparacion'=>null,'detalle_titulo'=>match($int){'ventas_producto'=>$detalle?'Por opción':null,'ventas_categoria'=>$detalle?'Por platillo':null,'cancelaciones'=>$detalle?'Los más cancelados':null,'top'=>$detalle?'Top 5':null,default=>null},'detalle'=>$detalle,'enlace'=>['href'=>'/admin/analytics','texto'=>'Ver análisis']];
+        if(in_array($int,['stock','bajo_stock'],true))$respuesta=['tipo'=>$int,'titulo'=>$title,'cifra'=>$primary,'unidad'=>'artículos','frase'=>$frase,'detalle'=>$detalle,'enlace'=>['href'=>'/admin/inventario','texto'=>'Abrir inventario']];
+        if($int==='stock'&&$rows){$r=$rows[0];$name=(string)$r['nombre'];$saldo=(float)$r['saldo'];$min=(float)$r['minimo'];$unidad=(string)$r['unidad'];$estado=$saldo<=0?'agotado':(!empty($r['alerta'])?'bajo':'ok');$respuesta=['tipo'=>'stock','titulo'=>$r['nombre'],'cifra'=>number_format($saldo,3),'unidad'=>$unidad.' en almacén','estado'=>$estado,'frase'=>$saldo<=0?'Está agotado. Mínimo: '.number_format($min,3).' '.$unidad.'.':(!empty($r['alerta'])?'Al menos un almacén tiene existencias en o por debajo de su mínimo.':'Por encima del mínimo de '.number_format($min,3).' '.$unidad.'.'),'detalle_titulo'=>'Existencia física','detalle'=>[['etiqueta'=>'Existencia','valor'=>number_format($saldo,3).' '.$unidad],['etiqueta'=>'Mínimo','valor'=>number_format($min,3).' '.$unidad]],'enlace'=>['href'=>'/admin/inventario','texto'=>'Abrir inventario']];}
+        $actualComparar=self::metricaPeriodo($db,$u,$int,$id,$opcion,$p['desde'],$p['hasta'],$horario);$previoComparar=self::metricaPeriodo($db,$u,$int,$id,$opcion,$p['previo_desde'],$p['previo_hasta'],$horario);$comparacion=$actualComparar!==null&&$previoComparar!==null?self::comparacion($actualComparar,$previoComparar,(string)$p['previo_etiqueta'],in_array($int,['ventas_total','ticket_promedio'],true),$int==='cancelaciones'?'menos':($int==='consumo'?'neutro':'mas'),$int==='consumo'?static fn($x)=>number_format($x,3).' '.$unidadMedida:null):null;
+        if($comparacion!==null)$respuesta['comparacion']=$comparacion;
+        $plantilla=self::plantilla($int,$id,$opcion,$name,$variant['nombre']??null,$p);
+        $textoCanonico=ConsultasRapidas::textoCanonico($int,$name,$variant['nombre']??null,$p);
+        return ['ok'=>true,'consulta'=>(string)($base['consulta']??$title),'periodo'=>$p,'alternativas'=>[],'entendida'=>true,'interpretacion'=>['intencion'=>$int,'id'=>$id,'opcion'=>$opcion,'periodo'=>$p['clave'],'texto'=>$textoCanonico],'plantilla'=>$plantilla,'respuesta'=>$respuesta,'sugerencias'=>[]];
+    }
+    private static function horaSql(?array $horario,string $column): string
+    {
+        if($horario===null)return '';
+        if(!preg_match('/^(?:ti\.created_at)$/D',$column))return '';
+        $parts=[];$desde=$horario['desde']??null;$hasta=$horario['hasta']??null;$dow=$horario['dow']??null;
+        if(is_int($desde)&&is_int($hasta)&&$desde>=0&&$hasta<=23&&$desde<=$hasta)$parts[]="HOUR({$column}) BETWEEN {$desde} AND {$hasta}";
+        if(is_int($dow)&&$dow>=0&&$dow<=6)$parts[]="DAYOFWEEK({$column}) = ".($dow+1);
+        return $parts===[]?'':' AND '.implode(' AND ',$parts);
+    }
+    private static function noEncontrado(string $int,array $p,?array $base=null):array{return ['ok'=>true,'consulta'=>(string)($base['consulta']??''),'periodo'=>$p,'alternativas'=>[],'entendida'=>false,'interpretacion'=>['intencion'=>null,'id'=>null,'opcion'=>null,'periodo'=>$p['clave'],'texto'=>''],'plantilla'=>[],'respuesta'=>['tipo'=>'sin_resultado','titulo'=>'No encontré el registro','frase'=>'Elige un elemento del catálogo de Restaurante.'],'sugerencias'=>[]];}
+    private static function noEntendida(array $p):array{return ['ok'=>true,'consulta'=>'','periodo'=>$p,'alternativas'=>[],'entendida'=>false,'interpretacion'=>['intencion'=>null,'id'=>null,'opcion'=>null,'periodo'=>$p['clave'],'texto'=>''],'plantilla'=>[],'respuesta'=>['tipo'=>'sin_resultado','titulo'=>'¿Qué quieres consultar?','frase'=>'Elige un platillo o categoría, pregunta por las ventas del periodo, o consulta existencias.'],'sugerencias'=>[]];}
+    private static function plantilla(string $int,?int $id,?int $opcion,?string $nombre,?string $variante,array $periodo):array
+    {
+        $texto=static fn(string $t)=>['tipo'=>'texto','texto'=>$t];$periodos=[];$grupos=['hoy'=>'Días','ayer'=>'Días','antier'=>'Días','semana'=>'Semanas','semana_pasada'=>'Semanas','7d'=>'Semanas','mes'=>'Meses','mes_pasado'=>'Meses','30d'=>'Meses'];foreach(ConsultasRapidas::PERIODOS as $k=>$v)$periodos[]=['valor'=>$k,'etiqueta'=>$v,'grupo'=>$grupos[$k]??'Periodo','consulta'=>['periodo'=>$k]];$hp=['tipo'=>'hueco','campo'=>'periodo','rotulo'=>'Periodo','valor'=>$periodo['clave'],'etiqueta'=>$periodo['etiqueta'],'opciones'=>$periodos];$hv=['tipo'=>'hueco','campo'=>'entidad','rotulo'=>'Platillo o categoría','catalogo'=>'ventas','valor'=>'','etiqueta'=>''];$hi=['tipo'=>'hueco','campo'=>'entidad','rotulo'=>'Ingrediente','catalogo'=>'ingredientes','valor'=>'','etiqueta'=>''];
+        if($int==='ventas_total')return [$texto('Ventas de'),$hv+['valor'=>'ventas_total','etiqueta'=>'todo el restaurante'],$texto('·'),$hp];
+        if($int==='ventas_producto'||$int==='ventas_categoria'){$key=$int==='ventas_producto'?'ventas_producto:':'ventas_categoria:';$e=$hv+['valor'=>$key.(int)$id,'etiqueta'=>(string)$nombre];$p=[ $texto('Ventas de'),$e ];if($int==='ventas_producto'&&self::opcionesOferta((int)$id)){$opts=self::opcionesOferta((int)$id);$p[]=$texto('con');$p[]=['tipo'=>'hueco','campo'=>'opcion','rotulo'=>'Opción','valor'=>$opcion?(string)$opcion:'','etiqueta'=>$variante??'cualquier opción','opciones'=>$opts];}$p[]=$texto('·');$p[]=$hp;return $p;}
+        if($int==='stock')return [$hi+['valor'=>'stock:'.(int)$id,'etiqueta'=>(string)$nombre],$texto('en almacén')];
+        if($int==='consumo')return [$texto('Consumo de '),$hi+['valor'=>'stock:'.(int)$id,'etiqueta'=>(string)$nombre,'intencion'=>'consumo'],$texto('·'),$hp];
+        if(in_array($int,['ventas_total','top','ticket_promedio','sin_venta','meseros','horas_pico','cancelaciones'],true))return [$texto(match($int){'top'=>'Lo más vendido','ticket_promedio'=>'Ticket promedio','sin_venta'=>'Platillos sin venta','meseros'=>'Ventas por mesero','horas_pico'=>'Horas pico','cancelaciones'=>'Cancelaciones',default=>'Ventas'}),$texto('·'),$hp];
+        return [$texto('Ingredientes bajo el mínimo')];
+    }
+    private static function opcionesOferta(int $offer):array{if($offer<1)return [];$s=ContextoNegocio::db()->prepare('SELECT id,grupo,nombre FROM producto_variantes WHERE oferta_id=? AND unidad_id=? AND activo=1 AND predeterminada=0 ORDER BY orden_grupo,orden,id');$s->execute([$offer,ContextoNegocio::unidad('restaurante')]);$rows=$s->get_result()->fetch_all(MYSQLI_ASSOC);return array_map(static fn($r)=>['id'=>(int)$r['id'],'grupo'=>$r['grupo'],'nombre'=>$r['nombre'],'consulta'=>['intencion'=>'ventas_producto','id'=>$offer,'opcion'=>(int)$r['id']],],$rows);}
+    private static function metricaPeriodo(\mysqli $db,int $u,string $int,?int $id,?int $opcion,string $desde,string $hasta,?array $horario=null):?float
+    {
+        $d1=$desde.' 00:00:00';$d2=$hasta.' 23:59:59';
+        if(in_array($int,['ventas_total','ticket_promedio'],true)){$s=$db->prepare("SELECT COUNT(DISTINCT t.id) n,COALESCE(SUM(ti.precio*ti.cantidad),0) importe FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?");$s->execute([$u,$d1,$d2]);$r=$s->get_result()->fetch_assoc()?:[];$n=(int)($r['n']??0);$v=(float)($r['importe']??0);return $int==='ticket_promedio'?($n?$v/$n:null):$v;}
+        if(in_array($int,['ventas_producto','ventas_categoria'],true)&&$id){$col=$int==='ventas_producto'?'oferta_id':'categoria_id';$extra=$opcion&&$int==='ventas_producto'?' AND FIND_IN_SET(?,ti.variante_ids)':'';$extra.=self::horaSql($horario,'ti.created_at');$s=$db->prepare("SELECT COALESCE(SUM(ti.cantidad),0) v FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE ti.unidad_id=? AND ti.{$col}=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?{$extra}");$args=[$u,$id,$d1,$d2];if($opcion&&$int==='ventas_producto')$args[]=$opcion;$s->execute($args);return (float)($s->get_result()->fetch_assoc()['v']??0);}
+        if($int==='cancelaciones'){$s=$db->prepare("SELECT COALESCE(SUM(ti.cantidad),0) v FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id AND t.unidad_id=ti.unidad_id WHERE ti.unidad_id=? AND t.estado='cerrado' AND ti.estado='cancelado' AND COALESCE(t.hora_cierre,t.hora_apertura)>=? AND COALESCE(t.hora_cierre,t.hora_apertura)<=?");$s->execute([$u,$d1,$d2]);return (float)($s->get_result()->fetch_assoc()['v']??0);}
+        if($int==='consumo'&&$id){$s=$db->prepare("SELECT GREATEST(0,COALESCE(SUM(-delta),0)) v FROM movimientos_inventario WHERE unidad_id=? AND articulo_id=? AND tipo IN ('venta','cancelacion') AND fecha>=? AND fecha<=?");$s->execute([$u,$id,$d1,$d2]);return (float)($s->get_result()->fetch_assoc()['v']??0);}
+        return null;
+    }
+    private static function comparacion(float $actual,float $previo,string $contra,bool $dinero=false,string $sentido='mas',?callable $formato=null):?array
+    {
+        if($actual==0.0&&$previo==0.0)return null;$dif=$actual-$previo;$frente=str_starts_with($contra,'el ')?'frente al '.substr($contra,3):'frente a '.$contra;$magnitud=$formato?$formato(abs($dif)):($dinero?self::dinero(abs($dif)):(string)(int)round(abs($dif)));$tendencia=$dif>0?'sube':($dif<0?'baja':'igual');$lectura=$tendencia==='igual'||$sentido==='neutro'?'igual':((($tendencia==='sube')===($sentido==='mas'))?'bien':'mal');return ['texto'=>$dif==0.0?'Igual que '.$contra:($dif>0?'+':'−').$magnitud.' '.$frente,'tendencia'=>$tendencia,'lectura'=>$lectura];
     }
 }

@@ -169,8 +169,17 @@ $llegadaPendiente = \Classes\Auth::consumirLlegada();
         </div>
     </div>
 
-    <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
-    <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php
+    $modoDirectoPanel = ($contextoActivo ?? '') === 'restaurante' && !empty($modoMultinegocio) && \Classes\Auth::tienePanel();
+    $mostrarBuzonAdmin = ($contextoActivo ?? '') === 'restaurante'
+        && (empty($modoMultinegocio) || \Classes\Auth::puede('reservations', 'ver', 'restaurante'));
+    ?>
+    <?php if ($mostrarBuzonAdmin): ?>
+        <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
+    <?php endif; ?>
+    <?php if ((($contextoActivo ?? '') === 'restaurante' && empty($modoMultinegocio)) || $modoDirectoPanel): ?>
+        <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
+    <?php endif; ?>
 
     <?php /*
         Vendorizados en /build/js/vendor por `gulp copyVendorJs`, igual que en la

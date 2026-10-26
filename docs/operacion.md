@@ -1,7 +1,7 @@
 # Operación POS e impresión
 
-Fuente normativa del envío de comandas, impresión térmica y alertas visibles en
-el piso. La impresión es una copia física: el ticket y sus platillos se
+Contrato funcional del envío de comandas, impresión térmica y alertas de
+Restaurante, subordinado al [contrato rector](arquitectura.md). La impresión es una copia física: el ticket y sus platillos se
 persisten en PHP y alimentan el tablero de producción.
 
 ## Envío de comanda
@@ -19,23 +19,27 @@ fuente de verdad del pedido.
 
 ### Reintentos y duplicados
 
-El endpoint no recibe una clave de idempotencia ni deduplica tandas. Cada POST
-válido inserta los platillos de nuevo; el POS tampoco bloquea el botón mientras
-el POST está en curso. Un doble clic o reenvío tras una respuesta de red
-incierta puede duplicar el pedido. Antes de reenviar, revisa los platillos del
-ticket y el tablero de producción; no repitas una tanda sólo porque la impresión
-falló o la respuesta tardó.
+La comanda recibe una clave de idempotencia estable por actor y unidad. El
+servidor congela la solicitud y el resultado junto con los items y el consumo.
+Repetir el mismo contenido devuelve los IDs existentes sin descontar otra vez ni
+reimprimir; reutilizar la clave con contenido diferente se rechaza.
+
+El POS conserva la clave durante un fallo de red y evita envíos simultáneos.
+`ok: true` público requiere confirmación de la transacción comercial/inventario.
+Si la impresión falla después del commit, revisar la alerta y el tablero; no
+crear una comanda nueva para intentar recuperar el papel. La cancelación compensa
+los movimientos originales una sola vez, sin recalcular la receta actual.
 
 ## Servicio de impresión
 
-El ajuste global `configuracion_pos.impresion_activa` se controla en
+El ajuste local de Restaurante `configuracion_pos.impresion_activa` se controla en
 `/admin/configuracion/pos`. Pausarlo conserva las estaciones configuradas, pero
 no envía comandas ni cuentas ni muestra como pendientes las alertas antiguas.
 Los pedidos siguen guardándose, descontando inventario cuando corresponde y
 llegando al tablero de producción. La acción administrativa de imprimir una
 prueba de estación se mantiene disponible para diagnosticar antes de reanudar.
 
-La configuración global es distinta de `impresoras.activo`, que habilita cada
+La configuración por unidad es distinta de `impresoras.activo`, que habilita cada
 estación individual. Una falta de conexión o de impresora configurada se
 registra como resultado de impresión fallida, no como fallo del ticket.
 
@@ -47,7 +51,7 @@ POS la muestra en todas las tablets, incluida la respuesta inmediata al mesero
 que envió la comanda; las alertas pendientes se refrescan junto con el mapa.
 
 Las alertas visibles corresponden a las últimas 16 horas, con un máximo de 30.
-Cualquier usuario de piso puede marcarlas como atendidas; no se borran filas del
+Un usuario autorizado del POS de Restaurante puede marcarlas como atendidas; no se borran filas del
 pedido ni se cambia el ticket. Si falla una comanda, el aviso indica que el
 pedido ya está en el tablero y que se debe avisar al área y revisar la
 impresora. Si falla una cuenta, hay que revisar la estación y entregar la cuenta
