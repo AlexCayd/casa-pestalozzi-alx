@@ -4,6 +4,7 @@ namespace Classes;
 
 use Model\Rol;
 use Model\Usuario;
+use Services\Security\JwtIntegracion;
 use Services\Security\Permisos;
 use Services\Security\Contextos;
 use Services\Security\PermisosUsuario;
@@ -340,6 +341,15 @@ class Auth {
      * vuelve a la pantalla de donde salió con el aviso de sólo consulta.
      */
     public static function proteger(string $url): void {
+        // Máquina a máquina: sólo JWT, antes de mirar la sesión y sin abrirla.
+        // Va antes de la rama multinegocio: protegerDirecto() no conoce el tipo
+        // «integracion» y le exigiría sesión de personal.
+        $ruta = Permisos::clasificar($url);
+        if ($ruta['tipo'] === 'integracion') {
+            self::protegerIntegracion($url, $ruta['audiencia'] ?? null);
+            return;
+        }
+
         if (!Usuario::getDB()) self::negarJson(503,'No fue posible verificar el acceso.');
         try { $directo=self::multinegocio(); }
         catch (\Throwable) { self::negarJson(503,'No fue posible verificar el acceso.'); }
@@ -413,6 +423,48 @@ class Auth {
         }
 
         header('Location: ' . $destino);
+        exit;
+    }
+
+    /**
+     * La guardia de /api/integraciones/*: un JWT de n8n para la audiencia de
+     * esa ruta (API.md §9), o 401. No hay header heredado ni modo de
+     * transición. El motivo del rechazo va al log —sin el token— y nunca a la
+     * respuesta. Sin JWT_N8N_ENTRADA_SECRET responde 500: un despliegue mal
+     * configurado falla a la vista en vez de quedar abierto.
+     */
+    private static function protegerIntegracion(string $url, ?string $audiencia): void {
+        $token = JwtIntegracion::tokenDeLaPeticion();
+
+        if ($audiencia === null) {
+            $motivo = 'ruta sin audiencia en Permisos::INTEGRACIONES';
+        } elseif ($token === null) {
+            $motivo = 'sin Bearer';
+        } else {
+            try {
+                $resultado = JwtIntegracion::verificar($token, $audiencia);
+            } catch (\RuntimeException $e) {
+                error_log('Auth integracion ' . $url . ' - ' . $e->getMessage());
+                self::responderIntegracion(500, 'N8N_JWT_NO_CONFIGURADO');
+            }
+            if ($resultado['ok']) {
+                return;
+            }
+            $motivo = $resultado['motivo'] . ' (jti ' . (string) ($resultado['claims']['jti'] ?? '-') . ')';
+        }
+
+        error_log('Auth integracion ' . $url . ' - JWT rechazado: ' . $motivo);
+        self::responderIntegracion(401, 'N8N_JWT_INVALIDO');
+    }
+
+    private static function responderIntegracion(int $codigo, string $error): void {
+        http_response_code($codigo);
+        if ($codigo === 401) {
+            header('WWW-Authenticate: Bearer error="invalid_token"');
+        }
+        header('Cache-Control: no-store');
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'codigo' => $error]);
         exit;
     }
 

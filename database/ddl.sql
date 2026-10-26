@@ -26,6 +26,8 @@ CREATE TABLE roles (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE usuarios (
  id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) NOT NULL UNIQUE, nombre VARCHAR(120) NOT NULL,
+ -- Adonde llega el código del segundo paso (Services\Security\DosFactores). NULL si no aplica.
+ email VARCHAR(160) NULL,
  password_hash VARCHAR(255) NOT NULL, nip_hash VARCHAR(255), nip_lookup CHAR(64), activo TINYINT(1) NOT NULL DEFAULT 1,
  es_superadmin TINYINT(1) NOT NULL DEFAULT 0 CHECK(es_superadmin IN (0,1)),
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -508,7 +510,10 @@ CREATE TABLE configuracion_anuncio (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE configuracion_pos (
  unidad_id TINYINT UNSIGNED NOT NULL, id TINYINT UNSIGNED NOT NULL, mesero_editable TINYINT(1) NOT NULL DEFAULT 1,
- impresion_activa TINYINT(1) NOT NULL DEFAULT 1, max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4, updated_by INT NULL,
+ impresion_activa TINYINT(1) NOT NULL DEFAULT 1, max_tickets_barra TINYINT UNSIGNED NOT NULL DEFAULT 4,
+ -- Turnos del corte de caja: JSON [{nombre, inicio "HH:MM", fin "HH:MM"}] por inicio y sin solapes
+ -- (Services\Pos\CorteCaja). NULL o vacía = el corte sólo ofrece el día.
+ turnos_caja JSON NULL, updated_by INT NULL,
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY(unidad_id,id),
  FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
  CHECK(max_tickets_barra BETWEEN 1 AND 12)

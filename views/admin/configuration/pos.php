@@ -136,6 +136,51 @@ $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
         </form>
     </section>
 
+    <?php /* Turnos del corte de caja (Services\Pos\CorteCaja). Siempre se
+             pintan todas las filas: una vacía es un turno por dar de alta y
+             vaciar una es borrarlo, así que no hace falta JS para añadir ni
+             quitar. */ ?>
+    <section class="admin-panel admin-card admin-config-panel" aria-labelledby="pos-turnos-title">
+        <div class="admin-config-panel__head">
+            <div>
+                <h2 id="pos-turnos-title">Turnos del corte de caja</h2>
+                <p>El corte de la Caja del POS se puede ver por turno o del día entero. Cada turno suma los tickets cobrados entre su inicio y su fin, y son iguales todos los días.</p>
+            </div>
+        </div>
+
+        <form class="admin-pos-form" method="POST" action="/admin/configuracion/pos/turnos">
+            <div class="admin-turnos" role="group" aria-describedby="pos-turnos-ayuda">
+                <div class="admin-turnos__cabecera" aria-hidden="true">
+                    <span>Nombre</span><span>Inicio</span><span>Fin</span>
+                </div>
+                <?php for ($i = 0; $i < \Services\Pos\CorteCaja::MAX_TURNOS; $i++) : ?>
+                    <?php $turno = (array) ($configuracionPos['turnos_caja'][$i] ?? []); ?>
+                    <div class="admin-turnos__fila">
+                        <input type="text" name="turnos[<?php echo $i; ?>][nombre]" maxlength="40"
+                               placeholder="<?php echo $i === 0 ? 'ej. Matutino' : 'Turno ' . ($i + 1); ?>"
+                               aria-label="Nombre del turno <?php echo $i + 1; ?>"
+                               value="<?php echo $h($turno['nombre'] ?? ''); ?>">
+                        <input type="time" name="turnos[<?php echo $i; ?>][inicio]"
+                               aria-label="Inicio del turno <?php echo $i + 1; ?>"
+                               value="<?php echo $h($turno['inicio'] ?? ''); ?>">
+                        <input type="time" name="turnos[<?php echo $i; ?>][fin]"
+                               aria-label="Fin del turno <?php echo $i + 1; ?>"
+                               value="<?php echo $h($turno['fin'] ?? ''); ?>">
+                    </div>
+                <?php endfor; ?>
+            </div>
+
+            <p class="admin-field__hint" id="pos-turnos-ayuda">
+                Hasta <?php echo \Services\Pos\CorteCaja::MAX_TURNOS; ?> turnos que no se crucen. Si el fin es antes que el inicio, el turno pasa la medianoche (18:00 a 02:00) y cuenta en el día en que empieza. Para quitar un turno, deja su fila vacía. Sin turnos, el corte sólo ofrece el día completo.
+            </p>
+
+            <div class="admin-config-form-actions">
+                <p class="admin-form-status" aria-live="polite"></p>
+                <button type="submit" class="admin-btn admin-btn--primary">Guardar turnos</button>
+            </div>
+        </form>
+    </section>
+
     <?php /* El interruptor del servicio de impresión. Vivía en /admin/printers
              porque quien descubre que no sale el papel entra por ahí; se trajo
              aquí porque es un ajuste del POS —comparte fila con el de arriba en

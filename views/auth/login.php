@@ -50,31 +50,7 @@
 <body class="admin-body login-page" data-page="login">
 
   <main class="login-shell">
-    <?php /* La casa. Decorativo para el lector (aria-hidden): el nombre ya lo
-             dice el <title> y los dos titulares dicen qué hacer aquí. */ ?>
-    <div class="login-aside" aria-hidden="true">
-      <span class="login-aside__rotulo">Acceso del personal</span>
-
-      <div class="login-aside__centro">
-        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
-                 Sin enlace (el panel es aria-hidden: un <a> quedaría oculto al
-                 lector pero en el recorrido de tabulación) y en <span>: un <p>
-                 se llevaría el color atenuado de `.admin-body p`. */ ?>
-        <?php
-        $hcpEtiqueta = 'div';
-        $hcpNivel = 'span';
-        $hcpHref = '';
-        $hcpDosLineas = true;
-        $hcpClase = 'login-marca login-marca--aside';
-        $hcpAtributos = ['data-login-marca' => ''];
-        include __DIR__ . '/../templates/header-casa-pestalozzi.php';
-        ?>
-        <span class="login-aside__filete"></span>
-        <p class="login-aside__frase">Una mesa italiana con alma mexicana.</p>
-      </div>
-
-      <span class="login-aside__rotulo">Del Valle · México</span>
-    </div>
+    <?php include __DIR__ . '/_casa.php'; ?>
 
     <section class="login-panel" aria-label="Iniciar sesión">
       <div class="login-card">
@@ -517,42 +493,7 @@
         eye.setAttribute('aria-label', 'Mostrar contraseña');
       });
     })();
-
-    /*
-     * La llegada, primer tiempo: el nombre de la casa viaja de aquí al centro
-     * de la pantalla de destino (views/components/llegada.php), que lleva su
-     * marca con el mismo `view-transition-name`. Se nombra SÓLO al salir hacia
-     * otra pantalla: un NIP equivocado vuelve a este mismo login, y ahí el
-     * nombre no tiene adónde ir. Sin `activation` (navegadores sin la API de
-     * navegación) no se adivina el destino: la marca del velo entra fundiéndose.
-     */
-    (function () {
-      var marcas = document.querySelectorAll('[data-login-marca]');
-
-      function limpiar() {
-        for (var i = 0; i < marcas.length; i++) marcas[i].style.viewTransitionName = '';
-      }
-
-      window.addEventListener('pageswap', function (e) {
-        var entrada = e.activation && e.activation.entry;
-        if (!e.viewTransition || !entrada || !entrada.url) return;
-        var destino;
-        try { destino = new URL(entrada.url, location.href); } catch (error) { return; }
-        if (destino.origin !== location.origin || /^\/(admin\/)?login\/?$/.test(destino.pathname)) return;
-
-        for (var i = 0; i < marcas.length; i++) {
-          // La que esté a la vista: la de la columna de la casa o la de la
-          // tarjeta, según el ancho.
-          if (marcas[i].getClientRects().length) {
-            marcas[i].style.viewTransitionName = 'cp-marca';
-            break;
-          }
-        }
-        e.viewTransition.finished.then(limpiar, limpiar);
-      });
-
-      window.addEventListener('pageshow', limpiar);
-    })();
   </script>
+  <?php include __DIR__ . '/_salida-marca.php'; ?>
 </body>
 </html>

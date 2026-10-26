@@ -221,7 +221,8 @@ final class Permisos
 
     /**
      * APIs fuera de /admin/, por ruta EXACTA. Una /api/... que no esté aquí
-     * queda pública: al añadir un endpoint del personal hay que anotarlo.
+     * queda pública: al añadir un endpoint del personal hay que anotarlo. La
+     * excepción es /api/integraciones/, que niega por defecto (INTEGRACIONES).
      * (Antes eran las listas APIS_POS / APIS_AREA / APIS_PISO / APIS_ADMIN de
      * Classes\Auth; se movieron aquí para que la ruta y su módulo vivan juntos.)
      */
@@ -266,15 +267,39 @@ final class Permisos
     /** Pública aunque viva bajo /admin: el formulario de contraseña. */
     private const PUBLICAS = ['/admin/login'];
 
+    /**
+     * Integraciones máquina a máquina: ruta exacta → audiencia del JWT que
+     * tiene que traer (Services\Security\JwtIntegracion). Al revés que APIS,
+     * aquí se DENIEGA por defecto: toda ruta bajo PREFIJO_INTEGRACIONES exige
+     * JWT, y una que no esté en este mapa no tiene audiencia, así que ningún
+     * token la abre. Una integración nueva va bajo ese prefijo y se anota aquí.
+     */
+    public const PREFIJO_INTEGRACIONES = '/api/integraciones';
+    private const INTEGRACIONES = [
+        '/api/integraciones/n8n/feedback/areas-mejora' => 'feedback.areas-mejora',
+        '/api/integraciones/n8n/reservaciones/recordatorios/preparar' => 'reservaciones.recordatorios.preparar',
+        '/api/integraciones/n8n/reservaciones/recordatorios/reclamar' => 'reservaciones.recordatorios.reclamar',
+        '/api/integraciones/n8n/reservaciones/notificacion-resultado' => 'reservaciones.notificacion-resultado',
+    ];
+
     // ── Clasificación de rutas ────────────────────────────────────
 
     /**
      * Qué protege una ruta.
      *
-     * @return array{tipo: 'publica'|'compartida'|'modulos'|'solo_sistema', modulos: list<string>}
+     * Las integraciones llevan además `audiencia`: la del JWT que exigen, o
+     * null si la ruta no está en INTEGRACIONES (y entonces no entra nadie).
+     *
+     * @return array{tipo: 'publica'|'compartida'|'modulos'|'solo_sistema'|'integracion', modulos: list<string>, audiencia?: ?string}
      */
     public static function clasificar(string $url): array
     {
+        // Antes que nada: estas rutas viven bajo /api/, donde lo no anotado
+        // es público, y aquí tiene que ser justo lo contrario.
+        if (self::casa($url, self::PREFIJO_INTEGRACIONES)) {
+            return ['tipo' => 'integracion', 'modulos' => [], 'audiencia' => self::INTEGRACIONES[$url] ?? null];
+        }
+
         if (in_array($url, self::PUBLICAS, true)) {
             return ['tipo' => 'publica', 'modulos' => []];
         }
@@ -351,6 +376,11 @@ final class Permisos
 
         if ($ruta['tipo'] === 'publica') {
             return ['resultado' => 'libre', 'motivo' => ''];
+        }
+        // Una integración se autentica con su JWT (Auth::proteger() lo mira
+        // antes de llegar aquí), nunca con una sesión: ni la de sistema la abre.
+        if ($ruta['tipo'] === 'integracion') {
+            return ['resultado' => 'negar', 'motivo' => 'sin_modulo'];
         }
         if ($rol === null) {
             return ['resultado' => 'login', 'motivo' => ''];

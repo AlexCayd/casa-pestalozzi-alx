@@ -73,7 +73,7 @@ for (const responsibility of [
 }
 
 const config = source('docs/config.md');
-for (const token of ['APP_ENV', 'APP_TIMEZONE', 'DB_HOST', 'N8N_BASE_URL', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'N8N_RESERVATIONS_CALLBACK_SECRET']) {
+for (const token of ['APP_ENV', 'APP_TIMEZONE', 'DB_HOST', 'N8N_BASE_URL', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'JWT_N8N_ENTRADA_SECRET']) {
   assert.ok(config.includes(token), `configuración documenta ${token}`);
 }
 assert.match(config, /development.*test.*production/s);
@@ -101,7 +101,7 @@ for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Toleranc
 assert.match(reservations, /no garantiza disponibilidad/);
 
 const notifications = source('docs/reservaciones/notificaciones.md');
-for (const token of ['claimed: true', 'accepted|failed', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'N8N_RESERVATIONS_CALLBACK_SECRET', 'npm run test:notifications']) {
+for (const token of ['claimed: true', 'accepted|failed', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'JWT_N8N_ENTRADA_SECRET', 'npm run test:notifications']) {
   assert.ok(notifications.includes(token), `notificaciones documenta ${token}`);
 }
 assert.match(notifications, /accepted.*no\s+entrega|accepted.*sin confirmar entrega/s);

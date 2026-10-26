@@ -72,7 +72,21 @@ el timezone de los workflows con `America/Mexico_City`.
 | Sentido | Configuración privada PHP | Header | Asignación en n8n |
 |---|---|---|---|
 | PHP → n8n | `N8N_RESERVATIONS_WEBHOOK_SECRET` | `X-N8N-Secret` | Credencial Header Auth seleccionada en los Webhook de confirmación y cambio de horario |
-| n8n → PHP | `N8N_RESERVATIONS_CALLBACK_SECRET` | `X-N8N-Callback-Secret` | Otra credencial Header Auth en los HTTP Request de preparar, reclamar recordatorio y registrar resultados |
+| n8n → PHP | `JWT_N8N_ENTRADA_SECRET` | `Authorization: Bearer <jwt>` | Nodo **JWT** (*Sign*, HS256, passphrase) antes de cada HTTP Request a `/api/integraciones/*`: `iss: n8n`, el `aud` del endpoint, vida de 120 s y un `jti` aleatorio |
+
+Audiencias de n8n → PHP (`Permisos::INTEGRACIONES`; un token firmado para una
+no sirve en otra, y PHP rechaza cualquier header heredado):
+
+| Endpoint | `aud` |
+|---|---|
+| `/api/integraciones/n8n/reservaciones/recordatorios/preparar` | `reservaciones.recordatorios.preparar` |
+| `/api/integraciones/n8n/reservaciones/recordatorios/reclamar` | `reservaciones.recordatorios.reclamar` |
+| `/api/integraciones/n8n/reservaciones/notificacion-resultado` | `reservaciones.notificacion-resultado` |
+| `/api/integraciones/n8n/feedback/areas-mejora` | `feedback.areas-mejora` |
+
+⚠️ Los exports todavía llevan Header Auth en esos HTTP Request: el cambio a
+JWT se hace en la instancia (API.md §9.3, fase 6) y, hasta entonces, PHP los
+rechaza con 401.
 
 Los dos secretos son aleatorios, distintos entre sí y por entorno; también son
 distintos de la clave de cifrado y del token del runner. En los HTTP Request
@@ -121,7 +135,7 @@ bajo el mismo prefijo. Sólo `claimed:true` permite enviar; no reintentar ese PO
 El cambio de horario puede acusar recepción con `202`, que sólo acepta trabajo.
 Ambos reportan después del proveedor a
 `POST /api/integraciones/n8n/reservaciones/notificacion-resultado`, autenticados
-con `X-N8N-Callback-Secret`. El callback contiene `event`, `source_id`, `attempt`,
+con un JWT de audiencia `reservaciones.notificacion-resultado`. El callback contiene `event`, `source_id`, `attempt`,
 `channel` y `status`, con **`accepted|failed`**. Recordatorio puede añadir
 `retryable:true` exclusivamente ante rechazo inequívoco del proveedor.
 Nunca llamar `delivered` o `read` a la aceptación del proveedor.
@@ -132,6 +146,24 @@ Tras cinco minutos PHP recupera preparados no reclamados y rechazos explícitame
 reintentables, con máximo tres intentos técnicos y la misma fila funcional.
 Un claim sin resultado no se reintenta automáticamente: requiere revisar evidencia
 del proveedor. `accepted` nunca se recupera reenviando.
+
+### Código de acceso del panel (pendiente de workflow)
+
+El segundo paso del login de super admin y admin
+(`Services\Security\DosFactores`) manda el código a
+`POST /webhook/admin/codigo-acceso`, con `X-N8N-Secret`
+(`N8N_RESERVATIONS_WEBHOOK_SECRET`) como el resto de PHP → n8n:
+
+```json
+{ "tipo": "admin_codigo_acceso", "email": "…", "nombre": "…", "codigo": "482913", "vigencia_minutos": 10 }
+```
+
+El workflow sólo envía el correo y responde `202` con `{"ok":true,"accepted":true}`
+en cuanto el proveedor lo acepta; cualquier otra respuesta se toma por no
+enviado y la pantalla lo dice. No hay callback. El código no debe quedar en el
+historial de ejecuciones (*Save execution data* desactivado en este workflow).
+Todavía no existe el export: hasta crearlo, el código sólo se ve en pantalla
+fuera de `APP_ENV=production`.
 
 ## Importación, exportación y aceptación
 

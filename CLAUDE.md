@@ -56,6 +56,14 @@ conservan tokens y autenticación de integración. El selector y los campos ocul
 no conceden ámbito ni privilegios. Preservar CSRF, límites de intentos,
 reautenticación de credenciales y protección del último superadministrador activo.
 
+Toda ruta bajo `/api/integraciones/` exige JWT HS256 y deniega por defecto,
+antes de abrir sesión. Registrar su audiencia en `Permisos::INTEGRACIONES`;
+consultar [API](API.md#9-jwt-de-integraciones) y [configuración](docs/config.md).
+La política de segundo factor está en
+[credenciales](docs/usuarios/credenciales.md#segundo-factor-administrativo).
+El corte por turnos conserva la unidad vendedora de Restaurante; consultar
+[operación](docs/operacion.md#corte-de-caja-por-turnos).
+
 ## Datos e instalación
 
 El procedimiento único es `scripts/desarrollo/instalar.php`, documentado en

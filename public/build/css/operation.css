@@ -13907,6 +13907,74 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.85rem;
 }
 
+/* Selector de turno del corte (Configuración → POS). Reparten el ancho por
+   igual —base cero, como los destinos del cajón— para que el largo del nombre
+   no haga pesar más un turno que otro. El elegido va en el relleno sólido del
+   acento: es el único estado de la fila y tiene que leerse desde un brazo. */
+.mmodal-caja-turnos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  transition: opacity 0.15s ease;
+}
+.mmodal-caja-turnos.is-cargando {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.mmodal-caja-turnos .mmodal-caja-turno {
+  display: flex;
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--txt);
+  touch-action: manipulation;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=true] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=true] .mmodal-caja-turno__horas {
+  color: color-mix(in srgb, var(--on-accent) 72%, transparent);
+}
+@media (hover: hover) {
+  .mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=false]:hover {
+    border-color: var(--line-strong);
+  }
+}
+
+.mmodal-caja-turno__nombre {
+  font-family: var(--admin-font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mmodal-caja-turno__horas {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  color: var(--txt-faint);
+}
+
+.mmodal-caja .mmodal-caja-nota {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--txt-faint);
+  text-align: center;
+}
+
 .mmodal-caja-kpis {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -16076,7 +16144,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *     debajo del botón de mostrarla.
  * 52 px de alto: el objetivo táctil de las teclas del pad.
  */
-.login-form input[type=text],
+.login-form input[type=text]:not(.login-otp__input),
 .login-form input[type=password]:not(.login-nip-hidden) {
   width: 100%;
   height: 52px;
@@ -16322,6 +16390,249 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-wrap: balance;
 }
 
+.login-card .login-verif__sello {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: var(--login-gap-md);
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+.login-card .login-verif__sello svg {
+  stroke-width: 1.6;
+}
+
+.login-card .login-verif__correo {
+  font-family: var(--admin-font-mono);
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--admin-text);
+  word-break: break-all;
+}
+
+.login-otp {
+  position: relative;
+}
+
+/*
+ * Sin JS es el campo visible: mono, grande y espaciado para que seis cifras se
+ * cuenten de un vistazo. Gana a la regla de campos del panel (0,6,1) con
+ * `!important` acotado, como el resto de esta hoja.
+ */
+.login-form .login-otp__input {
+  height: 60px;
+  font-family: var(--admin-font-mono) !important;
+  font-size: 1.6rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.login-otp__celdas {
+  display: none;
+}
+
+.login-otp[data-listo] .login-otp__input {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  box-shadow: none !important;
+}
+.login-otp[data-listo] .login-otp__celdas {
+  display: flex;
+  gap: clamp(0.35rem, 1.4vw, 0.55rem);
+}
+
+.login-otp__celda {
+  position: relative;
+  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  place-items: center;
+  height: clamp(52px, 7.4vh, 62px);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.login-otp__celda:nth-child(3) {
+  margin-right: clamp(0.35rem, 1.4vw, 0.6rem);
+}
+.login-otp__celda.is-llena {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
+}
+.login-otp__celda.is-activa {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 18%, transparent);
+}
+.login-otp__celda.is-activa:not(.is-llena)::after {
+  content: "";
+  width: 2px;
+  height: 1.4em;
+  border-radius: 1px;
+  background: var(--admin-accent);
+  font-size: 1rem;
+  animation: login-cursor 1s steps(1) infinite;
+}
+
+@keyframes login-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+.login-form--otp[data-error] .login-otp__celdas {
+  animation: login-sacudida 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 140ms both;
+}
+
+.login-form--otp[data-error] .login-otp__celda {
+  border-color: color-mix(in srgb, var(--admin-danger-text) 60%, transparent);
+}
+
+.login-form--otp.is-enviando .login-otp__celda.is-llena {
+  animation: login-latido 820ms ease-in-out infinite alternate;
+}
+
+.login-card .login-otp__vence {
+  font-family: var(--admin-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-muted);
+  text-align: center;
+}
+.login-card .login-otp__vence.is-pronto {
+  color: var(--admin-warning-text);
+}
+.login-card .login-otp__vence.is-vencido {
+  color: var(--admin-danger-text);
+}
+
+.login-card .login-verif__pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 1.25rem;
+  margin-top: var(--login-gap-md);
+}
+
+.login-verif__pie .login-enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.25em;
+  transition: color var(--admin-t-fast) var(--admin-ease-out), text-decoration-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.login-verif__pie .login-enlace:not(:disabled):hover {
+  color: var(--admin-text);
+  text-decoration-color: currentColor;
+}
+.login-verif__pie .login-enlace:disabled {
+  color: var(--admin-faint);
+  cursor: default;
+}
+
+.login-enlace__espera {
+  margin-left: 0.3em;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * TEMPORAL — se retira en el deploy con su bloque de la vista. El código de
+ * pruebas tiene que leerse como lo que es, un andamio y no parte del producto:
+ * filete discontinuo en el tono de advertencia, la única caja de la pantalla
+ * que no es del cromo.
+ */
+.login-card .login-prueba {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  margin: 0 0 var(--login-gap-md);
+  padding: 0.85rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--admin-warning-text) 55%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-warning-text) 7%, var(--admin-bg));
+  text-align: left;
+}
+
+.login-prueba .login-prueba__rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--admin-warning-text);
+}
+
+.login-prueba .login-prueba__codigo {
+  grid-column: 1/-1;
+  font-family: var(--admin-font-mono);
+  font-size: 1.75rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-text);
+  user-select: all;
+}
+
+.login-prueba__hueco {
+  display: inline-block;
+  width: 0.5em;
+}
+
+.login-prueba .login-prueba__usar {
+  grid-row: 1;
+  grid-column: 2;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background var(--admin-t-fast) var(--admin-ease-out);
+}
+.login-prueba .login-prueba__usar:hover {
+  background: var(--admin-surface-soft);
+}
+
+.login-card .login-prueba__nota {
+  grid-column: 1/-1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--admin-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card {
     --login-fade: 120ms;
@@ -16340,6 +16651,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .login-card .login-alert,
   .login-form--nip[data-error] .login-nip-dots,
   .login-form--nip.is-enviando .login-nip-dot.is-on,
+  .login-form--otp[data-error] .login-otp__celdas,
+  .login-form--otp.is-enviando .login-otp__celda.is-llena,
   .login-form.is-enviando .login-submit__giro {
     animation: none;
   }

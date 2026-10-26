@@ -541,6 +541,53 @@
   gap: 18px;
 }
 
+// Turnos del corte de caja: una fila por turno, nombre ancho y las dos horas
+// a medida fija para que se lean en columna.
+.admin-turnos {
+  display: grid;
+  gap: 8px;
+
+  &__cabecera,
+  &__fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 9.5rem 9.5rem;
+    gap: 10px;
+  }
+
+  &__cabecera span {
+    font-family: var(--admin-font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--admin-muted);
+  }
+
+  // En el teléfono el nombre toma su renglón y las horas comparten el de abajo;
+  // la cabecera se queda sólo con «Inicio» y «Fin», que siguen en columna.
+  @media (max-width: 600px) {
+    &__cabecera {
+      grid-template-columns: 1fr 1fr;
+
+      span:first-child {
+        display: none;
+      }
+    }
+
+    &__fila {
+      grid-template-columns: 1fr 1fr;
+
+      input[type="text"] {
+        grid-column: 1 / -1;
+      }
+    }
+
+    &__fila + &__fila {
+      padding-top: 8px;
+      border-top: 1px solid var(--admin-border);
+    }
+  }
+}
+
 .admin-pos-setting__states {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

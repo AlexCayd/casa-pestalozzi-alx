@@ -41,6 +41,7 @@ use Controllers\PosReservacionController;
 use Controllers\AreaController;
 use Controllers\AdminConsultasController;
 use Controllers\AdminRolesController;
+use Controllers\PanaderiaController;
 
 $router = new Router();
 
@@ -85,6 +86,9 @@ $router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAcc
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/reclamar', [N8nReservationsController::class, 'reclamarRecordatorio']);
 $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
+// Áreas de mejora generadas por n8n. Exige JWT como toda /api/integraciones/*
+// (Permisos::INTEGRACIONES); antes era /api/feedback-n8n, con secreto opcional.
+$router->post('/api/integraciones/n8n/feedback/areas-mejora', [FeedbackController::class, 'recibirN8n']);
 
 // Catas y catering ya no tienen endpoints públicos. Eran los dos únicos
 // formularios anónimos de la landing —sin OTP, frenados sólo por CSRF de sesión,
@@ -139,6 +143,7 @@ $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, '
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
+$router->post('/admin/configuracion/pos/turnos', [AdminConfigurationController::class, 'guardarTurnos']);
 $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
@@ -378,13 +383,17 @@ $router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem'])
 // Feedback de clientes
 $router->get('/feedback',      [FeedbackController::class, 'index']);
 $router->post('/api/feedback', [FeedbackController::class, 'guardar']);
-$router->post('/api/feedback-n8n', [FeedbackController::class, 'recibirN8n']);
 
 // Login: NIP para personal de piso, usuario+contraseña para el admin
 $router->get('/login', [AuthController::class, 'login']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
+// Segundo paso de los roles de sistema (Services\Security\DosFactores).
+// Públicas a propósito: todavía no hay sesión, sólo el reto.
+$router->get('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion/reenviar', [AuthController::class, 'reenviarCodigo']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
 // Carta pública: JSON para la landing y los dos PDF para el comensal — la
@@ -394,6 +403,14 @@ $router->post('/logout', [AuthController::class, 'logout']);
 $router->get('/menu',         [MenuController::class, 'index']);
 $router->get('/menu/pdf',     [MenuController::class, 'pdf']);
 $router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
+
+// Sitio de la Panadería. Públicas: no cuelgan de /admin ni de /api. Una
+// subruta nueva se anota también en PanaderiaController::SECCIONES.
+$router->get('/panaderia',          [PanaderiaController::class, 'index']);
+$router->get('/panaderia/carta',    [PanaderiaController::class, 'carta']);
+$router->get('/panaderia/pedidos',  [PanaderiaController::class, 'pedidos']);
+$router->get('/panaderia/nosotros', [PanaderiaController::class, 'nosotros']);
+$router->get('/panaderia/contacto', [PanaderiaController::class, 'contacto']);
 
 // Para los buscadores. Rutas y no archivos porque llevan la URL del sitio
 // (SitioConfig::url()); ver SeoController.

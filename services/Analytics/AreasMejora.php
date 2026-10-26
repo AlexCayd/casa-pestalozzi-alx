@@ -152,7 +152,10 @@ class AreasMejora
         return is_string($url) ? trim($url) : '';
     }
 
-    /** Secreto compartido opcional para autenticar el POST entrante de n8n. */
+    /**
+     * Secreto que Sugerencias envía a n8n (X-N8N-Secret). Ya no autentica el
+     * POST entrante de áreas de mejora: ése exige JWT (Auth::proteger()).
+     */
     public static function secret(): string
     {
         $secret = $_ENV['N8N_SECRET'] ?? getenv('N8N_SECRET');

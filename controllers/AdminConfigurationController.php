@@ -16,6 +16,7 @@ use Services\Reservations\ReservacionConfig;
 use Model\ConfiguracionReservaciones;
 use Services\Notifications\ReservacionNotificacionConfigService;
 use Services\Configuration\ReporteSistemaService;
+use Services\Pos\CorteCaja;
 
 class AdminConfigurationController
 {
@@ -347,9 +348,11 @@ class AdminConfigurationController
     public static function pos(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
-        $alertas = $resultado === 'barras_actualizadas'
-            ? ['exito' => ['El tope de tickets por barra se actualizó.']]
-            : self::alertasResultado($resultado);
+        $alertas = match ($resultado) {
+            'barras_actualizadas' => ['exito' => ['El tope de tickets por barra se actualizó.']],
+            'turnos_actualizados' => ['exito' => ['Los turnos del corte de caja se actualizaron.']],
+            default => self::alertasResultado($resultado),
+        };
 
         try {
             $configuracion = ConfiguracionPos::obtenerOCrear()->valoresFormulario();
@@ -431,6 +434,40 @@ class AdminConfigurationController
         }
 
         self::renderPos(self::valoresPosTrasFallo(['max_tickets_barra' => $tope]), $alertas);
+    }
+
+    /**
+     * POST /admin/configuracion/pos/turnos — los turnos del corte de caja del
+     * POS. Formulario y sentencia propios, como el de barras. La lista entera
+     * se reemplaza: una fila vaciada es un turno borrado.
+     */
+    public static function guardarTurnos(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::POS_PATH);
+        }
+
+        $filas = is_array($_POST['turnos'] ?? null) ? $_POST['turnos'] : [];
+        $resultado = CorteCaja::normalizarTurnos($filas);
+        if ($resultado['errores'] !== []) {
+            // Se repinta lo que se tecleó, no lo validado: así no se pierde la
+            // fila que tenía el error.
+            self::renderPos(self::valoresPosTrasFallo(['turnos_caja' => array_values($filas)]), ['error' => $resultado['errores']]);
+            return;
+        }
+
+        $configuracion = new ConfiguracionPos(['updated_by' => self::usuarioAutenticadoId()]);
+        try {
+            if ($configuracion->guardarTurnosCaja($resultado['turnos'])) {
+                self::redirect(self::POS_PATH . '?resultado=turnos_actualizados');
+            }
+            $alertas = ['error' => ['No fue posible actualizar los turnos del corte de caja.']];
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarTurnos - ' . $e->getMessage());
+            $alertas = ['error' => ['No fue posible actualizar los turnos. Revisa que la columna `turnos_caja` exista en `configuracion_pos`.']];
+        }
+
+        self::renderPos(self::valoresPosTrasFallo(['turnos_caja' => $resultado['turnos']]), $alertas);
     }
 
     /**
@@ -691,6 +728,7 @@ class AdminConfigurationController
             'mesero_editable' => true,
             'impresion_activa' => true,
             'max_tickets_barra' => ConfiguracionPos::MAX_TICKETS_BARRA_PREDETERMINADO,
+            'turnos_caja' => [],
             'updated_at' => '',
         ];
     }

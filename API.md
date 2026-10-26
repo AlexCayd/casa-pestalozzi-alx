@@ -34,7 +34,7 @@ con el perfil actual de permisos usuario/unidad/módulo:
   de rol no concede acceso. Las rutas compartidas conservan sus controles propios.
 - GET/HEAD solicitan lectura; mutaciones exigen edición o el permiso operativo
   correspondiente. Una sesión NIP no adquiere permisos administrativos.
-- Las integraciones n8n mantienen sus secretos de header y los endpoints públicos
+- Las integraciones n8n entrantes exigen JWT HS256 y las salientes conservan sus contratos de transporte y los endpoints públicos
   de gestión mantienen sus tokens; no se les exige una sesión administrativa.
 - El servicio vuelve a verificar ámbito, permisos y pertenencia del recurso. Los
   módulos futuros no se habilitan por agregar su ruta o su tabla.
@@ -92,16 +92,18 @@ las de `gestionar`; se conservan por los enlaces ya enviados a clientes.
 
 | Método | Ruta | Controlador::acción | Acceso |
 |---|---|---|---|
-| POST | `/api/integraciones/n8n/reservaciones/recordatorios/preparar` | `N8nReservationsController::prepararRecordatorios` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/integraciones/n8n/reservaciones/recordatorios/reclamar` | `N8nReservationsController::reclamarRecordatorio` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/integraciones/n8n/reservaciones/notificacion-resultado` | `N8nReservationsController::notificacionResultado` | secreto: `X-N8N-Callback-Secret` |
-| POST | `/api/feedback-n8n` | `FeedbackController::recibirN8n` | secreto: `X-N8N-Secret` (**opcional**, ver nota) |
+| POST | `/api/integraciones/n8n/reservaciones/recordatorios/preparar` | `N8nReservationsController::prepararRecordatorios` | JWT, `aud: reservaciones.recordatorios.preparar` |
+| POST | `/api/integraciones/n8n/reservaciones/recordatorios/reclamar` | `N8nReservationsController::reclamarRecordatorio` | JWT, `aud: reservaciones.recordatorios.reclamar` |
+| POST | `/api/integraciones/n8n/reservaciones/notificacion-resultado` | `N8nReservationsController::notificacionResultado` | JWT, `aud: reservaciones.notificacion-resultado` |
+| POST | `/api/integraciones/n8n/feedback/areas-mejora` | `FeedbackController::recibirN8n` | JWT, `aud: feedback.areas-mejora` |
 
-- Las tres de reservaciones **rechazan** la llamada si el secreto
-  (`NotificationConfig::n8nCallbackSecret()`) está vacío.
-- ⚠️ `/api/feedback-n8n` **sólo exige el secreto si `N8N_SECRET` está
-  configurado** (`AreasMejora::secret()`). Con la variable vacía, cualquiera
-  puede escribir ahí. Conviene confirmar que en producción esté definida.
+- Las cuatro exigen `Authorization: Bearer <jwt>` firmado por n8n con
+  `JWT_N8N_ENTRADA_SECRET` (§9.2). Lo verifica `Auth::proteger()` antes del
+  ruteo; ya no se acepta `X-N8N-Callback-Secret` ni `X-N8N-Secret`.
+- Toda ruta bajo `/api/integraciones/` deniega por defecto: una que no esté
+  en `Permisos::INTEGRACIONES` responde 401 con cualquier token.
+- `/api/feedback-n8n` (secreto opcional) se retiró; áreas de mejora vive en
+  la ruta de arriba.
 
 ### Saliente: Asistente IA
 
@@ -231,10 +233,27 @@ servicio y consumidores. Las APIs privadas desconocidas se deniegan; un prefijo
 no concede acceso. Las tablas anteriores no son una auditoría de código para
 eliminación y no autorizan retirar endpoints.
 
-Las integraciones de reservaciones usan los secretos separados documentados en
-[notificaciones](docs/reservaciones/notificaciones.md). Otras integraciones
-conservan límites concretos: feedback entrante exige N8N_SECRET solo si está
-configurado; el disparador de áreas de mejora no añade autenticación propia.
-Revisar esa deuda por separado antes de un despliegue expuesto. No se declara
-implementado el antiguo plan JWT; su evaluación pendiente está en
-[backlog](docs/backlog.md).
+Las integraciones entrantes exigen JWT; consultar la sección 9 y [notificaciones](docs/reservaciones/notificaciones.md) para separar secretos y contratos por dirección.
+
+## 9. JWT de integraciones
+
+Las cuatro rutas de la sección 2 requieren `Authorization: Bearer <jwt>` con
+HS256, `iss=n8n`, una única `aud` exacta por endpoint, `iat`, `exp` y `jti`.
+`JwtIntegracion` valida firma, emisor, audiencia y caducidad, con tolerancia de
+30 segundos y vida máxima de 300 segundos. No mantiene un registro antireplay
+de `jti`; los callbacks conservan su deduplicación de negocio.
+
+`JWT_N8N_ENTRADA_SECRET` es obligatorio y tiene al menos 32 bytes aleatorios.
+No reutilizar secretos de salida. Una sesión administrativa no abre esas rutas;
+una integración desconocida se deniega. Los headers entrantes heredados se
+rechazan. La antigua ruta `/api/feedback-n8n` ya no está registrada.
+
+El helper de firma saliente usa `JWT_N8N_SALIDA_SECRET`, pero los consumidores
+actuales de reservaciones y segundo factor usan `N8nClient` con `X-N8N-Secret`
+y `N8N_RESERVATIONS_WEBHOOK_SECRET`; no declarar una migración saliente completa.
+Áreas de mejora y sugerencias conservan sus transportes específicos.
+
+Los exports de reservaciones todavía requieren adaptar en la instancia sus
+HTTP Request entrantes a JWT y a las URLs de la sección 2. Hasta hacerlo PHP
+los rechaza con 401. Validar en TEST sin credenciales reales antes de desplegar;
+ver [operación n8n](n8n/README.md). No existe modo mixto de autenticación entrante.

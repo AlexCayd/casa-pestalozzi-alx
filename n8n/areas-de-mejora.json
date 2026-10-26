@@ -104,7 +104,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:3000/api/feedback-n8n",
+        "url": "http://localhost:3000/api/integraciones/n8n/feedback/areas-mejora",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.parse($json.output[0].content[0].text) }}",

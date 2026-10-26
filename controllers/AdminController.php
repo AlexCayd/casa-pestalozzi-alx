@@ -625,7 +625,7 @@ class AdminController
      * Dispara el flujo de n8n desde el panel (boton en /admin/feedback).
      * Se invoca por fetch/AJAX y responde JSON. El webhook de n8n responde de
      * inmediato ("Workflow was started"); el flujo continua async y hace POST
-     * de vuelta a /api/feedback-n8n con las nuevas areas, que el front detecta
+     * de vuelta a /api/integraciones/n8n/feedback/areas-mejora con las nuevas areas, que el front detecta
      * mediante polling a feedbackAreas().
      */
     public static function feedbackRefresh(Router $router): void
