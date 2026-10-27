@@ -45,7 +45,7 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
 
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
-| Almacenes | Transferencias | Solicitud, envío y tránsito supervisable por Global; recepción confirmada entre ámbitos, parcial/diferencias/pérdida/rechazo/retorno; traslado interno directo autorizado; transiciones atómicas, sin doble recepción ni cargos financieros automáticos |
+| Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
 | Panadería | Menú administrativo y recetas | Reutilizar oferta, recetas versionadas y UI de Restaurante |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
 | Panadería | Tickets, pagos y finanzas | Snapshots, idempotencia, compensaciones e informes propios |

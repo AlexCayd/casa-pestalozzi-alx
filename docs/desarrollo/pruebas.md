@@ -6,6 +6,15 @@ registrarse en el informe de la revisión validada.
 
 ## Suites generales
 
+M0.5-B añade [fixtures ampliadas de Almacenes](fixtures-almacenes.md) y el
+[contrato de transferencias](../modulos/transferencias.md). Los runners aislados
+`run-m05b-fixtures.php` y `run-transferencias-m05b.php` exigen los mismos argumentos
+de origen; no migran la base activa. El segundo verifica cantidades exactas,
+permisos cruzados, versiones, compensación, rollback y carreras entre dos procesos.
+`pruebas-http-transferencias-m05b.php --fixture <archivo-privado>` verifica el
+flujo real con CSRF y segundo factor sobre el harness 3E. El cliente HTTP común
+vive en `scripts/tests/cliente-http-3e.php`; las aserciones 3E anteriores se conservan.
+
 M0 añade los contratos puros y dos runners DB con destino propio. Identificar
 host/base/entorno según la configuración local; nunca apuntar DDL a la base activa:
 

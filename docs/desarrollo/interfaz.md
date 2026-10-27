@@ -160,6 +160,30 @@ para identificar saldo negativo o alerta. El resumen cuenta artículos e
 identidades, sin sumar unidades heterogéneas. El estado «Sin asociación en la
 selección» mantiene visible la identidad maestra con saldo y mínimo cero.
 
+Transferencias amplía esta misma interfaz en Restaurante, Panadería y Global:
+`almacen-transferencias` usa el modal administrativo compartido y
+`views/admin/almacenes/_transferencias.php`. Solicitud multilínea, documentos,
+acciones e historial usan `details`/`summary`; los documentos pendientes aparecen
+abiertos. Estado, origen/destino y propietario se expresan con texto. Las acciones
+disponibles llegan del servidor según ámbito y estado; recepción, diferencia y
+retorno conservan explicaciones distintas sobre su efecto en existencias.
+
+Al agregar una línea, clonar controles nativos limpios, generar nombres/ids y
+labels únicos e invocar `AdminSelect.init(row)` después de insertarla; enfocar el
+combobox resultante o el select de respaldo. Al quitarla, devolver foco a
+«Agregar artículo». La apertura inicial por `vista=transferencias` despacha
+`admin:open-modal` desde el arranque de Almacenes en `DOMContentLoaded` (o de
+inmediato con documento completo), para que el gestor compartido reciba la
+apertura y gestione el foco. No adelantarla a la evaluación del bundle.
+
+Cantidades documentales son cadenas decimales del backend: conservar solicitado,
+enviado, recibido, retornado y tránsito sin recalcularlos con flotantes en JS.
+Los campos admiten milésimas; recepción/retorno muestran el tránsito como límite
+y ayuda por artículo. A 600 px o menos, las líneas del formulario pasan a una
+columna y cada fila de la tabla documental se apila con etiquetas `data-label`;
+el caption permanece visible, el encabezado se oculta y se elimina el ancho
+mínimo de tabla. Mantener unidades y cantidades legibles en ese formato.
+
 El [contrato de Almacenes](../modulos/almacenes.md) detalla selección autorizada,
 límites de escritura y comandos de verificación. Revisar también solo lectura,
 negativos, cero, teclado, temas y móvil sobre el harness desechable 3E.

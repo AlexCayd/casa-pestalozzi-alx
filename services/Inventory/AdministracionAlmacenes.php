@@ -74,7 +74,7 @@ final class AdministracionAlmacenes
                 $permitidas=$comando==='solicitar'?['clave','origen_id','destino_id','lineas','motivo']:['clave','transferencia_id','version','lineas','motivo'];
                 if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas)))throw new InventarioError('DATOS_INVALIDOS','Campos de transferencia no permitidos.');
                 $doc=array_intersect_key($datos,array_flip($permitidas));
-                if(isset($doc['lineas'])&&is_array($doc['lineas'])){
+                if(in_array($comando,['recibir','retornar'],true)&&isset($doc['lineas'])&&is_array($doc['lineas'])){
                     // Campos vacíos del formulario no declaran una recepción de cero.
                     $doc['lineas']=array_values(array_filter($doc['lineas'],static fn($l)=>!is_array($l)||!in_array($l['cantidad']??null,['','0','0.000'],true)));
                 }

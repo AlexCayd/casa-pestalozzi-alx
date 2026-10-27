@@ -39,6 +39,10 @@ function probarDatos3E(mysqli $db,string $root,int &$count): array
     $esperados=[1001=>'Almacén Central',1002=>'Cocina',1003=>'Producción',1004=>'Almacén de Suministros',1005=>'Barra y Maridaje',1006=>'Refrigeración',1007=>'Producto Terminado'];
     foreach($db->query('SELECT id,nombre FROM almacenes ORDER BY id')->fetch_all(MYSQLI_ASSOC) as $a)$assert(($esperados[(int)$a['id']]??null)===$a['nombre'],'Identidad física estable de almacén.');
     $assert((int)$db->query('SELECT COUNT(*) FROM ingredientes')->fetch_row()[0]===30,'El catálogo ampliado contiene treinta artículos.');
+    foreach([1001=>'23320.750',1002=>'11920.750',1003=>'2860.750'] as $articulo=>$saldo)$assert((string)$db->query('SELECT SUM(saldo) FROM almacen_articulos WHERE articulo_id='.$articulo)->fetch_row()[0]===$saldo,'Consolidado exacto de apertura del artículo '.$articulo);
+    $assert((string)$db->query('SELECT SUM(saldo) FROM almacen_articulos WHERE articulo_id=1001 AND almacen_id IN(1001,1002)')->fetch_row()[0]==='14920.000','La selección histórica Central/Cocina conserva su total.');
+    $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos aa WHERE version<>(SELECT COUNT(*) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id)')->fetch_row()[0]===0,'Las versiones de apertura cuentan movimientos reales.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM operaciones_inventario WHERE referencia REGEXP '^(\\\\[DEV\\\\]|DEV[ _-])'")->fetch_row()[0]===0,'Las referencias documentales no muestran prefijos DEV.');
     $assert((int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0]===51,'La apertura ampliada añade 27 movimientos trazables.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id WHERE aa.saldo<0 AND a.permitir_negativos=1')->fetch_row()[0]===1,'Un saldo negativo explícitamente autorizado.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos WHERE activo=0 AND saldo=0')->fetch_row()[0]===1,'Asociación inactiva sin existencias.');

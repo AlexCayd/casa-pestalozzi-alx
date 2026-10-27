@@ -138,7 +138,7 @@ final class Transferencias
     }
     private function almacenes(int $o,int $d): array
     {
-        $r=$this->sql('SELECT * FROM almacenes WHERE id IN(?,?) ORDER BY id FOR UPDATE',[$o,$d])->get_result()->fetch_all(MYSQLI_ASSOC);$a=[];
+        $r=$this->sql("SELECT a.* FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.id IN(?,?) AND u.slug IN('global','restaurante','panaderia') ORDER BY a.id FOR UPDATE",[$o,$d])->get_result()->fetch_all(MYSQLI_ASSOC);$a=[];
         foreach($r as $w){if(!(int)$w['activo'])throw new InventarioError('ALMACEN_INACTIVO','Un almacén está inactivo.');$a[(int)$w['id']]=$w;}
         if(count($a)!==2)throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontraron ambos almacenes.');
         return $a;

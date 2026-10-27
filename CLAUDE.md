@@ -97,8 +97,8 @@ Cada existencia pertenece a almacén y artículo. El único saldo físico vive e
 propio y autorización del [motor de Almacenes](docs/arquitectura.md#5-almacenes-e-inventario).
 Las cantidades y costos respetan DECIMAL y se transmiten como cadenas exactas.
 Las ventas guardan oferta y snapshots; consumo y compensación utilizan operaciones
-trazables en la misma transacción. Global no vende y las transferencias siguen
-pendientes.
+trazables en la misma transacción. Global no vende. Las transferencias siguen el
+[contrato de envío, recepción e incidencias](docs/modulos/transferencias.md).
 
 ## Build y pruebas
 

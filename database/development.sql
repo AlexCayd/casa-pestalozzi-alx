@@ -160,16 +160,16 @@ INSERT INTO ticket_items(id,unidad_id,ticket_id,oferta_id,producto_id,receta_id,
 INSERT INTO ticket_pagos(id,unidad_id,ticket_id,comensal,metodo_pago,monto,created_at) VALUES
  ('1001','2','1001','1','efectivo','70.00',@dev_cierre);
 INSERT INTO operaciones_inventario(id,unidad_id,tipo,actor_tipo,usuario_id,origen,clave_idempotencia,hash_solicitud,referencia,resultado,fecha) VALUES
- ('1001','1','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-global','3a2e406a1af5de836ae3a017c177af14a9500b45f2535f5774ee82a255b0caf8','dev-3e-apertura-global',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1002','2','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-restaurante','db18d811b284b482f07d2b1a1fb46d36d20c5b06c52c9456f20b926915740ac0','dev-3e-apertura-restaurante',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1003','3','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-panaderia','92c01ed0c20417dc651df29598717690dcb56aa02ee3ab6a24742fa11091d3be','dev-3e-apertura-panaderia',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1004','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-venta-cerrada','6586733af7b7c499f2f668154460cb8e6e7331709f1f2acfb128b310788d56b2','dev-3e-venta-cerrada',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1005','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-venta-cancelada','1e1e7fbb99827fa414844b4ff2cebed2d77f01459acd39f259dddbd0d559a7a5','dev-3e-venta-cancelada',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1006','2','cancelacion','automatizado',NULL,'fixture_desarrollo','dev-3e-compensacion','b7c8cd520e1191b7be19b7f0d460d9474a3310610514a566cf407cd9081a1c82','dev-3e-compensacion',JSON_OBJECT('fixture',true),@dev_cierre),
- ('1007','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-enviada','248c7a5eb231e93103c841de08102f4b86a62a2785f439c612cb65b5aa023d27','dev-3e-comanda-enviada',JSON_OBJECT('fixture',true),@dev_apertura),
- ('1008','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-preparacion','8759f64c6490a68c9af7457d5baf04e697c53c6139e723fc51685a59eaa0d882','dev-3e-comanda-preparacion',JSON_OBJECT('fixture',true),@dev_apertura),
- ('1009','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-lista','0fb66eb4730d68f4d65060edea59660d7c9c9d2aa0649ee6ccb4006746da8bbf','dev-3e-comanda-lista',JSON_OBJECT('fixture',true),@dev_apertura),
- ('1010','2','merma','automatizado',NULL,'fixture_desarrollo','dev-3e-merma-leche','a3df284979e88db0610451a8b2038120cd4025b0c3725d658faba1df857cf94d','dev-3e-merma-leche',JSON_OBJECT('fixture',true),@dev_apertura);
+ ('1001','1','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-global','3a2e406a1af5de836ae3a017c177af14a9500b45f2535f5774ee82a255b0caf8','apertura global',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1002','2','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-restaurante','db18d811b284b482f07d2b1a1fb46d36d20c5b06c52c9456f20b926915740ac0','apertura restaurante',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1003','3','entrada','automatizado',NULL,'fixture_desarrollo','dev-3e-apertura-panaderia','92c01ed0c20417dc651df29598717690dcb56aa02ee3ab6a24742fa11091d3be','apertura panaderia',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1004','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-venta-cerrada','6586733af7b7c499f2f668154460cb8e6e7331709f1f2acfb128b310788d56b2','venta cerrada',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1005','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-venta-cancelada','1e1e7fbb99827fa414844b4ff2cebed2d77f01459acd39f259dddbd0d559a7a5','venta cancelada',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1006','2','cancelacion','automatizado',NULL,'fixture_desarrollo','dev-3e-compensacion','b7c8cd520e1191b7be19b7f0d460d9474a3310610514a566cf407cd9081a1c82','compensacion',JSON_OBJECT('fixture',true),@dev_cierre),
+ ('1007','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-enviada','248c7a5eb231e93103c841de08102f4b86a62a2785f439c612cb65b5aa023d27','comanda enviada',JSON_OBJECT('fixture',true),@dev_apertura),
+ ('1008','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-preparacion','8759f64c6490a68c9af7457d5baf04e697c53c6139e723fc51685a59eaa0d882','comanda preparacion',JSON_OBJECT('fixture',true),@dev_apertura),
+ ('1009','2','venta','automatizado',NULL,'fixture_desarrollo','dev-3e-comanda-lista','0fb66eb4730d68f4d65060edea59660d7c9c9d2aa0649ee6ccb4006746da8bbf','comanda lista',JSON_OBJECT('fixture',true),@dev_apertura),
+ ('1010','2','merma','automatizado',NULL,'fixture_desarrollo','dev-3e-merma-leche','a3df284979e88db0610451a8b2038120cd4025b0c3725d658faba1df857cf94d','merma leche',JSON_OBJECT('fixture',true),@dev_apertura);
 INSERT INTO movimientos_inventario(id,operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,ticket_item_id,movimiento_origen_id,fecha) VALUES
  ('1001','1001','1','1001','1001','entrada','10000.000','fixture_3e','Dato simulado reproducible.','0.0200',NULL,NULL,@dev_cierre),
  ('1002','1001','1','1001','1002','entrada','5000.000','fixture_3e','Dato simulado reproducible.','0.0150',NULL,NULL,@dev_cierre),

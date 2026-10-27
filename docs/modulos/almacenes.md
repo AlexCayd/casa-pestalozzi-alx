@@ -95,8 +95,15 @@ La bitácora conserva actor, origen, clave, referencia y movimientos. El saldo d
 cada asociación corresponde a sus deltas; se corrige compensando, no editando
 movimientos históricos. Los fixtures de apertura cumplen esa misma integridad.
 
-No se implementan transferencias, producción ni variantes avanzadas de inventario.
-La distribución por almacén está construida. Transferencias aparece como pendiente, sin formulario ni endpoint nuevo; otras ampliaciones pertenecen al [backlog](../backlog.md).
+La acción **Transferencias** abre el modal compartido de solicitudes e historial,
+con pendientes primero y paginación de cien documentos. Los formularios exigen
+CSRF por contexto, clave idempotente, motivo y versión de cabecera. La solicitud
+admite varias líneas; enviar y recibir son confirmaciones físicas independientes.
+Recepciones parciales dejan incidencia; el retorno lo confirma el origen.
+El [contrato de transferencias](transferencias.md) define permisos, estados y
+conservación. Su historial documental incluye la contraparte; no expone saldo
+ajeno. Esta consulta no cambia al seleccionar almacenes de existencias.
+Producción y variantes avanzadas continúan en el [backlog](../backlog.md).
 El antiguo Inventario de Restaurante conserva sus consumidores operativos;
 Almacenes comparte el motor y no introduce escrituras paralelas de saldo.
 

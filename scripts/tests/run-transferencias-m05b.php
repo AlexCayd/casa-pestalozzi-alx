@@ -119,6 +119,12 @@ try{
   $id=(int)$l['id'];$m=$db->query("SELECT COALESCE(SUM(CASE WHEN tipo='transferencia_salida' THEN -delta ELSE 0 END),0) salida,COALESCE(SUM(CASE WHEN tipo='transferencia_entrada' AND movimiento_origen_id IS NULL THEN delta ELSE 0 END),0) recibida,COALESCE(SUM(CASE WHEN movimiento_origen_id IS NOT NULL THEN delta ELSE 0 END),0) retorno FROM movimientos_inventario WHERE transferencia_linea_id=$id")->fetch_assoc();
   $assert($m['salida']===$l['cantidad_enviada']&&$m['recibida']===$l['cantidad_recibida']&&$m['retorno']===$l['cantidad_retornada'],'Documento y ledger conservan salida/recepción/retorno por línea.');
  }
+ $consulta=$ok($serv['global']->consultar('global'),'Consolidado documental');$assert($consulta['transferencias_total']>0&&count($consulta['transferencias'])===$consulta['transferencias_total'],'Historial completo dentro de la primera página.');
+ $assert($serv['global']->consultar('global',0)['codigo']==='FILTRO_INVALIDO','Página inválida no accede a historial.');
+ $assert($serv['global']->consultar('global',2)['transferencias']===[],'Página posterior no repite documentos.');
+ foreach($ok($ro->consultar('restaurante'),'Historial solo lectura')['transferencias'] as $row)$assert($row['acciones']===[],'Lector no recibe acciones ejecutables.');
+ $h=(int)$db->query('SELECT MIN(id) FROM transferencia_historial')->fetch_row()[0];
+ foreach(['UPDATE transferencia_historial SET motivo=\'alterado\' WHERE id='.$h,'DELETE FROM transferencia_historial WHERE id='.$h] as $sql){$rechazado=false;try{$db->query($sql);}catch(mysqli_sql_exception){$rechazado=true;}$assert($rechazado,'Historial documental inmutable.');}
  echo "Transferencias M0.5-B: {$count} comprobaciones OK.\n";
 }finally{
  if($created&&$name!==$op['base']&&preg_match('/^cp_multinegocio_test_[a-f0-9]{20}$/D',$name)){$mark=$db->query('SELECT token FROM `'.$name.'`._cp_multinegocio_owner')->fetch_row()[0]??'';if(!hash_equals($token,(string)$mark))throw new RuntimeException('Propiedad no verificada.');$db->query('DROP DATABASE `'.$name.'`');echo "Base temporal propia eliminada.\n";}$db->close();
