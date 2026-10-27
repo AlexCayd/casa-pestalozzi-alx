@@ -7,11 +7,13 @@ final class AdministracionAlmacenes
 {
     private Almacenes $motor;
     private AlcanceInventario $alcance;
+    private Transferencias $transferencias;
 
     public function __construct(private \mysqli $db, int $actorId, string $nivelAuth)
     {
         $this->motor = new Almacenes($db, $actorId, $nivelAuth);
         $this->alcance = new AlcanceInventario($db, $actorId, $nivelAuth);
+        $this->transferencias = new Transferencias($db, $actorId, $nivelAuth);
     }
 
     public function consultar(string $ctx, array $filtros, string $vista = 'existencias'): array
@@ -39,7 +41,13 @@ final class AdministracionAlmacenes
         self::exigirResultado($movimientos);
         $catalogo = $this->catalogo($ctx, (string)($filtros['q']??''), (int)($filtros['pagina']??1));
         self::exigirResultado($catalogo);
-        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total']];
+        $paginaTransferencias=$filtros['transferencia_pagina']??'1';
+        if(!is_scalar($paginaTransferencias)||!preg_match('/^[1-9][0-9]{0,5}$/D',(string)$paginaTransferencias))throw new InventarioError('FILTRO_INVALIDO','Página de transferencias inválida.');
+        $transferencias=$this->transferencias->consultar($ctx,(int)$paginaTransferencias);
+        self::exigirResultado($transferencias);
+        $catalogoTransferencias=$this->catalogo($ctx);
+        self::exigirResultado($catalogoTransferencias);
+        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina']];
     }
 
     /** Datos maestros para elegir una asociación: no incluye existencias ajenas. */
@@ -61,6 +69,17 @@ final class AdministracionAlmacenes
     public function guardar(string $ctx, string $accion, array $datos): array
     {
         try {
+            if(str_starts_with($accion,'transferencia_')){
+                $comando=substr($accion,14);
+                $permitidas=$comando==='solicitar'?['clave','origen_id','destino_id','lineas','motivo']:['clave','transferencia_id','version','lineas','motivo'];
+                if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas)))throw new InventarioError('DATOS_INVALIDOS','Campos de transferencia no permitidos.');
+                $doc=array_intersect_key($datos,array_flip($permitidas));
+                if(isset($doc['lineas'])&&is_array($doc['lineas'])){
+                    // Campos vacíos del formulario no declaran una recepción de cero.
+                    $doc['lineas']=array_values(array_filter($doc['lineas'],static fn($l)=>!is_array($l)||!in_array($l['cantidad']??null,['','0','0.000'],true)));
+                }
+                return $this->transferencias->ejecutar($ctx,$comando,$doc);
+            }
             $permitidas=match($accion) {
                 'crear_almacen'=>['propietario','nombre','permitir_negativos'],
                 'configurar_almacen'=>['almacen_id','nombre','activo','permitir_negativos'],

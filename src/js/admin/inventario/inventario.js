@@ -363,9 +363,56 @@
             button.addEventListener('blur', hideLater);
             if (tip) { tip.addEventListener('pointerenter', keepOpen); tip.addEventListener('pointerleave', hideLater); }
         });
-        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', catalogo:'almacen-catalogo'}[workspace.dataset.initialView];
+        const request = workspace.querySelector('[data-transfer-request]');
+        if (request) {
+            const lines = request.querySelector('[data-transfer-lines]');
+            const original = lines.querySelector('[data-transfer-line]').cloneNode(true);
+            original.querySelectorAll('select').forEach(function (select) {
+                const wrapper = select.closest('.admin-select');
+                if (wrapper) { wrapper.parentNode.insertBefore(select, wrapper); wrapper.remove(); }
+                delete select.dataset.enhanced;
+                select.classList.remove('admin-select__native');
+                select.removeAttribute('tabindex');
+                select.removeAttribute('aria-hidden');
+            });
+            original.querySelectorAll('label').forEach(function (label) { label.removeAttribute('id'); });
+            let nextLine = 1;
+            request.querySelector('[data-transfer-add]').addEventListener('click', function () {
+                if (lines.children.length >= 100) return;
+                const row = original.cloneNode(true);
+                row.querySelectorAll('input, select').forEach(function (field) {
+                    const previous = field.id;
+                    field.name = field.name.replace('[0]', '[' + nextLine + ']');
+                    field.id = field.id.replace('-0', '-' + nextLine);
+                    row.querySelector('label[for="' + previous + '"]').htmlFor = field.id;
+                    field.value = '';
+                });
+                nextLine += 1;
+                row.querySelector('[data-transfer-remove]').hidden = false;
+                lines.appendChild(row);
+                if (window.AdminSelect) window.AdminSelect.init(row);
+                (row.querySelector('[role="combobox"]') || row.querySelector('select')).focus();
+            });
+            lines.addEventListener('click', function (event) {
+                const remove = event.target.closest('[data-transfer-remove]');
+                if (remove) {
+                    remove.closest('[data-transfer-line]').remove();
+                    request.querySelector('[data-transfer-add]').focus();
+                }
+            });
+            request.addEventListener('submit', function (event) {
+                const origin = request.querySelector('[name="origen_id"]');
+                const destination = request.querySelector('[name="destino_id"]');
+                destination.setCustomValidity(origin.value === destination.value ? 'Elige un destino distinto al origen.' : '');
+                if (!destination.checkValidity()) { event.preventDefault(); destination.reportValidity(); }
+            });
+            request.querySelectorAll('[name="origen_id"], [name="destino_id"]').forEach(function (field) {
+                field.addEventListener('change', function () { request.querySelector('[name="destino_id"]').setCustomValidity(''); });
+            });
+        }
+        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', catalogo:'almacen-catalogo', transferencias:'almacen-transferencias'}[workspace.dataset.initialView];
         if (initial) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootAlmacenes);
+    if (document.readyState !== 'complete') document.addEventListener('DOMContentLoaded', bootAlmacenes);
     else bootAlmacenes();
 })();

@@ -15,7 +15,7 @@ const selection = {
 };
 const workspace = {
     dataset: {initialView:'existencias'},
-    querySelector(selector){return selector === '[data-warehouse-selection]' ? selection : status;},
+    querySelector(selector){return selector === '[data-warehouse-selection]' ? selection : selector === '[data-selection-status]' ? status : null;},
     querySelectorAll(){return [];}
 };
 vm.runInNewContext(source, {document:{readyState:'complete', querySelector(){return workspace;}}});

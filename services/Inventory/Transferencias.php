@@ -102,11 +102,15 @@ final class Transferencias
     }
 
     /** Cabeceras y cantidades documentales; nunca expone saldo ajeno. */
-    public function consultar(string $ctx): array
+    public function consultar(string $ctx,int $pagina=1): array
     {
-        return TransaccionInventario::ejecutar($this->db,function()use($ctx){
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$pagina){
             $u=$this->alcance->autorizar($ctx,'ver',null,true)['unidad_id'];
-            $filas=$this->sql('SELECT t.*,o.nombre origen_nombre,d.nombre destino_nombre,uo.slug origen_contexto,ud.slug destino_contexto FROM transferencias t JOIN almacenes o ON o.id=t.almacen_origen_id JOIN almacenes d ON d.id=t.almacen_destino_id JOIN unidades uo ON uo.id=t.origen_unidad_id JOIN unidades ud ON ud.id=t.destino_unidad_id '.($ctx==='global'?'':'WHERE t.origen_unidad_id=? OR t.destino_unidad_id=? ').'ORDER BY t.id DESC LIMIT 100',$ctx==='global'?[]:[$u,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            if($pagina<1||$pagina>100000)throw new InventarioError('FILTRO_INVALIDO','Página de transferencias inválida.');
+            $where=$ctx==='global'?'':'WHERE t.origen_unidad_id=? OR t.destino_unidad_id=? ';
+            $params=$ctx==='global'?[]:[$u,$u];
+            $tot=$this->uno("SELECT COUNT(*) total,COALESCE(SUM(t.estado IN('solicitada','autorizada','enviada','incidencia')),0) pendientes FROM transferencias t ".$where,$params);
+            $filas=$this->sql('SELECT t.*,o.nombre origen_nombre,d.nombre destino_nombre,uo.slug origen_contexto,ud.slug destino_contexto FROM transferencias t JOIN almacenes o ON o.id=t.almacen_origen_id JOIN almacenes d ON d.id=t.almacen_destino_id JOIN unidades uo ON uo.id=t.origen_unidad_id JOIN unidades ud ON ud.id=t.destino_unidad_id '.$where."ORDER BY (t.estado IN('solicitada','autorizada','enviada','incidencia')) DESC,t.id DESC LIMIT 100 OFFSET ?",array_merge($params,[($pagina-1)*100]))->get_result()->fetch_all(MYSQLI_ASSOC);
             foreach($filas as &$t){
                 $t['lineas']=$this->sql('SELECT l.*,i.nombre,i.unidad FROM transferencia_lineas l JOIN ingredientes i ON i.id=l.articulo_id WHERE transferencia_id=? ORDER BY l.articulo_id',[$t['id']])->get_result()->fetch_all(MYSQLI_ASSOC);
                 foreach($t['lineas'] as &$l)$l['transito']=DecimalInventario::cantidad(DecimalInventario::leer($l['cantidad_enviada'])-DecimalInventario::leer($l['cantidad_recibida'])-DecimalInventario::leer($l['cantidad_retornada']));unset($l);
@@ -122,7 +126,7 @@ final class Transferencias
                 }catch(InventarioError){}
             }unset($t);
             $opciones=$this->sql("SELECT a.id,a.nombre,u.slug contexto FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.activo=1 AND u.slug IN('global','restaurante','panaderia') ORDER BY a.unidad_id,a.nombre")->get_result()->fetch_all(MYSQLI_ASSOC);
-            return ['transferencias'=>$filas,'contrapartes'=>$opciones];
+            return ['transferencias'=>$filas,'contrapartes'=>$opciones,'transferencias_total'=>(int)$tot['total'],'transferencias_pendientes'=>(int)$tot['pendientes'],'transferencias_pagina'=>$pagina];
         },'REPEATABLE READ');
     }
 

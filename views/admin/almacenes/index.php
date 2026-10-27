@@ -22,6 +22,7 @@ $modalInicio=static function(string $id,string $titulo) use($esc): void { ?>
 <?php };
 $modalFin=static function(): void { echo '</section></div>'; };
 $articulos=$existencias['articulos']??[];
+$transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTransferencias=$catalogoTransferencias??[];
 ?>
 <section class="admin-inventario admin-page almacen-workspace" data-almacenes-workspace data-initial-view="<?php echo $esc($vista); ?>">
   <header class="admin-page__header">
@@ -30,6 +31,7 @@ $articulos=$existencias['articulos']??[];
       <?php if($puedeEditar && $activos): ?><button type="button" class="admin-btn admin-btn--primary" data-admin-modal-open="almacen-asociar"><?php echo admin_icon('mas'); ?> Asociar artículo</button><?php endif; ?>
       <?php if($puedeCrearAlmacen): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-config"><?php echo admin_icon('inventario'); ?> Crear almacén</button><?php endif; ?>
       <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-config"><?php echo admin_icon('configuration'); ?> <?php echo $puedeEditar?'Configurar almacenes':'Ver almacenes'; ?></button>
+      <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-transferencias"><?php echo admin_icon('reloj'); ?> Transferencias</button>
     </div>
   </header>
   <?php include __DIR__.'/../partials/alertas.php'; ?>
@@ -47,7 +49,7 @@ $articulos=$existencias['articulos']??[];
     <?php if(!$opcionesAlmacen): ?><p class="admin-empty">Todavía no hay almacenes autorizados. Un administrador de Global puede crear el primero.</p><?php endif; ?>
     <p class="almacen-selection__status" role="status" aria-live="polite" data-selection-status><?php echo count($seleccionados); ?> almacenes en el alcance actual.</p>
   </form>
-  <div class="almacen-summary" aria-label="Resumen del alcance filtrado"><span><strong><?php echo (int)($existencias['total']??0); ?></strong> artículos</span><span><strong><?php echo (int)($existencias['total_alertas']??0); ?></strong> con saldo bajo mínimo</span><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-movimientos"><?php echo admin_icon('reloj'); ?> Consultar movimientos</button><span class="almacen-pending">Transferencias · Pendiente</span></div>
+  <div class="almacen-summary" aria-label="Resumen del alcance filtrado"><span><strong><?php echo (int)($existencias['total']??0); ?></strong> artículos</span><span><strong><?php echo (int)($existencias['total_alertas']??0); ?></strong> con saldo bajo mínimo</span><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-movimientos"><?php echo admin_icon('reloj'); ?> Consultar movimientos</button><span><?php $pendientes=(int)($transferenciasPendientes??0);echo $pendientes.' '.($pendientes===1?'transferencia pendiente':'transferencias pendientes'); ?></span></div>
   <section class="admin-panel almacen-list">
     <div class="almacen-section-head"><div><h3>Existencias por artículo</h3><p>Saldo y mínimos del alcance seleccionado. Las alertas se evalúan en cada almacén.</p></div><?php if($ctx==='global'): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-catalogo"><?php echo admin_icon('editar'); ?> Catálogo maestro</button><?php endif; ?></div>
     <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-filters"><?php $seleccionOculta(); ?>
@@ -101,4 +103,5 @@ $articulos=$existencias['articulos']??[];
     <div class="admin-table-wrap" data-scrollable><table class="admin-table"><thead><tr><th>Fecha / artículo</th><th>Almacén</th><th>Movimiento</th><th>Referencia</th></tr></thead><tbody><?php foreach($movimientos['movimientos'] as $m): ?><tr><td><?php echo $esc($m['articulo_nombre']); ?><small><?php echo $esc($m['fecha']); ?></small></td><td><?php echo $esc($m['almacen_nombre'].' · '.Contextos::NOMBRES[$m['slug']]); ?></td><td><?php echo $esc($m['tipo'].' · '.$m['delta'].' '.$m['unidad']); ?></td><td><?php echo $esc($m['referencia']); ?><small><?php echo $esc($m['nota']); ?></small></td></tr><?php endforeach; ?></tbody></table></div>
     <?php $mp=(int)$movimientos['pagina'];$mt=max(1,(int)ceil($movimientos['total']/$movimientos['por_pagina'])); ?><nav class="admin-pagination" aria-label="Paginación de movimientos"><span>Página <?php echo $mp; ?> de <?php echo $mt; ?></span><?php if($mp>1): ?><a href="<?php echo $esc($url('movimientos',['pagina'=>$mp-1])); ?>">Anterior</a><?php endif;if($mp<$mt): ?><a href="<?php echo $esc($url('movimientos',['pagina'=>$mp+1])); ?>">Siguiente</a><?php endif; ?></nav>
   <?php $modalFin(); ?>
+  <?php $modalInicio('almacen-transferencias','Transferencias entre almacenes');include __DIR__.'/_transferencias.php';$modalFin(); ?>
 </section>

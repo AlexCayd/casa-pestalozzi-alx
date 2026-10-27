@@ -1510,3 +1510,107 @@
     gap: 12px 18px;
   }
 }
+.almacen-transfer-wide {
+  grid-column: 1/-1;
+}
+
+.almacen-transfer-request,
+.almacen-transfer-document {
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--admin-gris-3);
+}
+
+.almacen-transfer-request > summary,
+.almacen-transfer-document > summary,
+.almacen-transfer-action > summary,
+.almacen-transfer-history > summary {
+  cursor: pointer;
+  padding-block: 0.65rem;
+}
+
+.almacen-transfer-document > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.almacen-transfer-document > p {
+  margin-block: 0.75rem;
+}
+
+.almacen-transfer-action,
+.almacen-transfer-history {
+  margin-block: 0.75rem;
+}
+
+.almacen-transfer-action form,
+.almacen-transfer-request form {
+  padding-block: 1rem;
+}
+
+.almacen-transfer-lines {
+  display: grid;
+  gap: 1rem;
+}
+
+.almacen-transfer-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.almacen-transfer-history ol {
+  padding-inline-start: 1.5rem;
+}
+
+.almacen-transfer-history li {
+  margin-block: 1rem;
+}
+
+.almacen-transfer-caption {
+  text-align: start;
+  padding-block: 0.75rem;
+  color: var(--admin-gris-8);
+}
+
+@media (max-width: 600px) {
+  .almacen-transfer-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .almacen-transfer-document .admin-table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .almacen-transfer-document .admin-table caption {
+    display: block;
+    white-space: normal;
+  }
+  .almacen-transfer-document .admin-table thead {
+    display: none;
+  }
+  .almacen-transfer-document .admin-table tbody {
+    display: block;
+  }
+  .almacen-transfer-document .admin-table tr {
+    display: grid;
+    border-bottom: 1px solid var(--admin-gris-3);
+    padding-block: 0.75rem;
+  }
+  .almacen-transfer-document .admin-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: auto;
+    border: 0;
+    white-space: normal;
+    padding: 0.5rem 0;
+  }
+  .almacen-transfer-document .admin-table td::before {
+    content: attr(data-label);
+    font-family: var(--admin-font-sans);
+    font-weight: 500;
+  }
+}

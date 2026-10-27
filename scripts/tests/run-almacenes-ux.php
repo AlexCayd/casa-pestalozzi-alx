@@ -23,9 +23,10 @@ $assert($x->query('//button[@data-stock-tip and @aria-label and @popovertarget]'
 $assert(str_contains($html,'Sin asociación en la selección'),'Estado sin asociación explícito.');
 $assert($x->query('//input[@name="almacen_ids[]" and @type="checkbox" and @checked]')->length===3,'Selección inicial múltiple visible.');
 $assert($x->query('//input[@name="version" and @value="3"]')->length===3,'Se conserva la versión de la asociación en formularios físicos.');
-$assert($x->query('//input[@name="clave"]')->length===3,'Cada operación conserva idempotencia.');
+$assert($x->query('//form[.//input[@name="accion" and (@value="entrada" or @value="merma" or @value="ajuste")]]//input[@name="clave"]')->length===3,'Cada operación física anterior conserva idempotencia.');
 foreach(['Entrada','Merma','Conteo físico'] as $label)$assert(str_contains($html,$label),'Acción explícita '.$label);
 $read=$render(false);$assert(!str_contains($read,'data-operation="entrada"')&&!str_contains($read,'data-admin-modal-open="almacen-asociar"'),'Solo lectura no tiene operaciones ejecutables.');
 $assert(str_contains($read,'Movimientos')&&str_contains($read,'data-stock-tip'),'Consulta conserva historial y distribución.');
-$assert(!str_contains($html,'accion" value="transfer'),'No se inventan formularios de transferencia.');
+$assert(str_contains($html,'accion" value="transferencia_solicitar"')&&str_contains($html,'name="lineas[0][cantidad]"'),'Solicitud de transferencia explícita con cantidades por línea.');
+$assert(!str_contains($read,'accion" value="transferencia_'),'Solo lectura consulta transferencias sin formularios de escritura.');
 echo "Almacenes representación: {$count} comprobaciones OK.\n";

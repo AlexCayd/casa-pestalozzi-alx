@@ -684,3 +684,44 @@
   .almacen-modal { padding: 10px; .admin-modal__dialog { padding: 20px; max-height: calc(100dvh - 20px); } }
   .almacen-summary { gap: 12px 18px; }
 }
+// Documentos de transferencia dentro del modal compartido del panel.
+.almacen-transfer-wide { grid-column: 1 / -1; }
+.almacen-transfer-request,
+.almacen-transfer-document { padding-block: 1rem; border-bottom: 1px solid var(--admin-gris-3); }
+.almacen-transfer-request > summary,
+.almacen-transfer-document > summary,
+.almacen-transfer-action > summary,
+.almacen-transfer-history > summary { cursor: pointer; padding-block: .65rem; }
+.almacen-transfer-document > summary { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.almacen-transfer-document > p { margin-block: .75rem; }
+.almacen-transfer-action,
+.almacen-transfer-history { margin-block: .75rem; }
+.almacen-transfer-action form,
+.almacen-transfer-request form { padding-block: 1rem; }
+.almacen-transfer-lines { display: grid; gap: 1rem; }
+.almacen-transfer-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 1rem; align-items: end; }
+.almacen-transfer-history ol { padding-inline-start: 1.5rem; }
+.almacen-transfer-history li { margin-block: 1rem; }
+.almacen-transfer-caption { text-align: start; padding-block: .75rem; color: var(--admin-gris-8); }
+@media (max-width: 600px) {
+    .almacen-transfer-line { grid-template-columns: minmax(0, 1fr); }
+    .almacen-transfer-document .admin-table {
+        display: block;
+        min-width: 0;
+        width: 100%;
+        caption { display: block; white-space: normal; }
+        thead { display: none; }
+        tbody { display: block; }
+        tr { display: grid; border-bottom: 1px solid var(--admin-gris-3); padding-block: .75rem; }
+        td {
+            display: flex;
+            justify-content: space-between;
+            gap: .75rem;
+            width: auto;
+            border: 0;
+            white-space: normal;
+            padding: .5rem 0;
+            &::before { content: attr(data-label); font-family: var(--admin-font-sans); font-weight: 500; }
+        }
+    }
+}

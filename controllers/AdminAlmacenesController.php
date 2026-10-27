@@ -19,9 +19,9 @@ final class AdminAlmacenesController
         ContextoNegocio::exigir('inventario','ver',$ctx);
         $base=self::base($ctx);
         $vista=is_string($_GET['vista']??null)?$_GET['vista']:'existencias';
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
         $filtros=[];
-        foreach (['q','negocio','almacen_id','articulo_id','desde','hasta','tipo','pagina'] as $campo) if (isset($_GET[$campo]) && $_GET[$campo]!=='') $filtros[$campo]=$_GET[$campo];
+        foreach (['q','negocio','almacen_id','articulo_id','desde','hasta','tipo','pagina','transferencia_pagina'] as $campo) if (isset($_GET[$campo]) && $_GET[$campo]!=='') $filtros[$campo]=$_GET[$campo];
         if(array_key_exists('almacen_ids',$_GET) || isset($_GET['seleccion'])) $filtros['almacen_ids']=$_GET['almacen_ids']??[];
         if (isset($_GET['solo_alertas'])) $filtros['solo_alertas']=true;
         $alertas=$_SESSION['_almacenes_flash'][$ctx]??[];
@@ -56,7 +56,7 @@ final class AdminAlmacenesController
         $accion=is_string($_POST['accion']??null)?$_POST['accion']:'';
         $resultado=self::servicio()->guardar($ctx,$accion,$_POST);
         $vista=is_string($_POST['volver_vista']??null)?$_POST['volver_vista']:'existencias';
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
         try {
             AdministracionAlmacenes::exigirResultado($resultado);
             $_SESSION['_almacenes_flash'][$ctx]=['exito'=>['Operación confirmada correctamente.']];
