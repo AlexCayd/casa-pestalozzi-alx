@@ -41,7 +41,11 @@ incluidas las que no tienen asociación en los almacenes elegidos: muestran sald
 y mínimo `0.000` y «Sin asociación en la selección». Restaurante y Panadería
 muestran las asociaciones locales seleccionadas. Saldos, mínimos, alertas,
 distribución e historial usan exclusivamente los IDs elegidos. La búsqueda y
-paginación siguen en servidor y conservan la selección. El resumen cuenta
+paginación siguen en servidor y conservan la selección.
+El orden predeterminado muestra primero artículos con alertas en el alcance
+seleccionado, antes de aplicar la paginación. Dentro de cada grupo conserva
+nombre alfabético e ID como desempate estable; también se aplica al buscar.
+El resumen cuenta
 identidades y artículos con alguna alerta; no suma piezas, gramos y litros
 como una misma magnitud ni cuenta varias veces un artículo por sus alertas físicas.
 

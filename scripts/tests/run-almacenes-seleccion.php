@@ -53,6 +53,19 @@ try{
  $ok($servicio->guardar('panaderia','entrada',['almacen_id'=>(string)$alm['pan'],'articulo_id'=>(string)$panArt,'cantidad'=>'9.009','clave'=>'ux-exclusivo-pan']),'Saldo exclusivo fuera de selección');
  $fuera=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['r1']],'articulo_id'=>$panArt]),'Identidad maestra bajo selección sin asociación');
  $assert($fuera['total']===1&&$fuera['total_alertas']===0&&$fuera['articulos'][0]['saldo_total']==='0.000'&&$fuera['articulos'][0]['minimo_total']==='0.000'&&$fuera['articulos'][0]['ambitos']===[],'Global conserva identidad, pero nunca saldos, mínimos o alertas de almacenes excluidos.');
+ $orden=[];
+ foreach(['000 sin alerta','AAA con alerta','ZZZ con alerta'] as $nombre){
+  $nuevo=$ok($servicio->guardar('global','crear_articulo',['nombre'=>$nombre,'unidad'=>'g','costo'=>'0.0000','activo'=>'1']),'Artículo para ordenar');$orden[$nombre]=(int)$nuevo['articulo_id'];
+  if($nombre!=='000 sin alerta')$ok($servicio->guardar('restaurante','asociar',['almacen_id'=>(string)$alm['r1'],'articulo_id'=>(string)$nuevo['articulo_id'],'minimo'=>'2.000']),'Alerta propia para ordenar');
+ }
+ foreach([1=>$orden['AAA con alerta'],2=>$art,3=>$orden['ZZZ con alerta']] as $pagina=>$esperado){
+  $prioridad=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['r1']],'por_pagina'=>1,'pagina'=>$pagina]),'Prioridad antes de paginar');
+  $assert($prioridad['articulos'][0]['articulo_id']===$esperado&&$prioridad['articulos'][0]['alerta'],'Alertas primero y orden alfabético estable entre alertas.');
+ }
+ $otraSeleccion=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['pan']],'por_pagina'=>1]),'Orden según almacenes seleccionados');
+ $assert($otraSeleccion['articulos'][0]['articulo_id']===$panArt,'Las alertas de un almacén excluido no conceden prioridad.');
+ $busqueda=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['r1']],'q'=>'con alerta']),'Prioridad durante búsqueda');
+ $assert(array_column($busqueda['articulos'],'articulo_id')===[$orden['AAA con alerta'],$orden['ZZZ con alerta']],'La búsqueda conserva el orden dentro del grupo de alertas.');
  echo "Almacenes selección: {$count} comprobaciones OK.\n";
 }finally{
  if($created&&$name!==$op['base']&&preg_match('/^cp_multinegocio_test_[a-f0-9]{20}$/D',$name)){$mark=$db->query('SELECT token FROM `'.$name.'`._cp_multinegocio_owner')->fetch_row()[0]??'';if(!hash_equals($token,(string)$mark))throw new RuntimeException('Propiedad no verificada.');$db->query('DROP DATABASE `'.$name.'`');echo "Base temporal propia eliminada.\n";}$db->close();

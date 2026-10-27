@@ -15,6 +15,7 @@ final class ConsultasAlmacen
             if(($f['estado']??'todos')==='activos') $predicado.=' AND a.activo=1 AND aa.activo=1 AND i.activo=1';
             elseif(($f['estado']??'todos')==='inactivos') $predicado.=' AND (a.activo=0 OR aa.activo=0 OR i.activo=0)';
             $sub='SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades u ON u.id=a.unidad_id WHERE aa.articulo_id=i.id AND '.$predicado;
+            $alertaSql='EXISTS ('.$sub.' AND aa.saldo<aa.minimo AND aa.activo=1 AND a.activo=1 AND i.activo=1)';
             $where=[]; $args=[];
             $sin=$f['sin_asociacion']??false;
             if($sin && $ctx!=='global') throw new InventarioError('FILTRO_INVALIDO','Artículos sin asociación se consultan desde Global.');
@@ -24,16 +25,17 @@ final class ConsultasAlmacen
                 $where[]='EXISTS ('.$sub.')'; $args=$param;
             }
             if(!empty($f['solo_alertas'])) {
-                $where[]='EXISTS ('.$sub.' AND aa.saldo<aa.minimo AND aa.activo=1 AND a.activo=1 AND i.activo=1)';
+                $where[]=$alertaSql;
                 array_push($args,...$param);
             }
             if(isset($f['articulo_id'])) { $where[]='i.id=?'; $args[]=$f['articulo_id']; }
             if(isset($f['q'])) { $where[]="i.nombre LIKE ? ESCAPE '!'"; $args[]=$this->buscar($f['q']); }
             $cond=$where?' WHERE '.implode(' AND ',$where):'';
             $total=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i'.$cond,$args)->get_result()->fetch_row()[0];
-            $alertasCond=($where?implode(' AND ',$where).' AND ':'').'EXISTS ('.$sub.' AND aa.saldo<aa.minimo AND aa.activo=1 AND a.activo=1 AND i.activo=1)';
+            $alertasCond=($where?implode(' AND ',$where).' AND ':'').$alertaSql;
             $totalAlertas=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i WHERE '.$alertasCond,array_merge($args,$param))->get_result()->fetch_row()[0];
-            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            // Ordenar antes de paginar: solo prioriza alertas del alcance elegido.
+            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             $mapa=[];
             foreach($articulos as $i) {
                 $id=(int)$i['articulo_id']; $i['articulo_id']=$id;
