@@ -16,13 +16,13 @@ SET @dev_manana=DATE_ADD(CURDATE(), INTERVAL 3 DAY);
 SET @dev_cierre=TIMESTAMP(@dev_ayer,'14:00:00');
 SET @dev_apertura=DATE_SUB(NOW(), INTERVAL 30 MINUTE);
 INSERT INTO usuarios(id,username,nombre,password_hash,activo,es_superadmin) VALUES
- ('1001','dev_global_inactivo','[DEV] Referencia Global','$2y$10$hatCLgX3ods3zFMmdoNrDuzv4MTcxJ7UaElssfBkHxAsP3NciI4dO','0','0'),
- ('1002','dev_restaurante_inactivo','[DEV] Referencia Restaurante','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
- ('1003','dev_panaderia_inactivo','[DEV] Referencia Panadería','$2y$10$ilOA3qCX9GoQL0wQPxnLruKlkE.qlyOUa.n/8zOD4ZdeftVzEEW4O','0','0'),
- ('1004','dev_mesero_1','[DEV] Mesero 1','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
- ('1005','dev_mesero_2','[DEV] Mesero 2','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
- ('1006','dev_mesero_3','[DEV] Mesero 3','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
- ('1007','dev_mesero_inactivo','[DEV] Mesero anterior','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0');
+ ('1001','referencia_global','Referencia Global','$2y$10$hatCLgX3ods3zFMmdoNrDuzv4MTcxJ7UaElssfBkHxAsP3NciI4dO','0','0'),
+ ('1002','referencia_restaurante','Referencia Restaurante','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1003','referencia_panaderia','Referencia Panadería','$2y$10$ilOA3qCX9GoQL0wQPxnLruKlkE.qlyOUa.n/8zOD4ZdeftVzEEW4O','0','0'),
+ ('1004','mesero_1','Mesero 1','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1005','mesero_2','Mesero 2','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1006','mesero_3','Mesero 3','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0'),
+ ('1007','mesero_inactivo','Mesero anterior','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.','0','0');
 -- Hash bcrypt de la credencial acordada para pruebas locales; nunca guardar el texto claro.
 -- Instalacion::ejecutar define la variable solo en su flujo CLI development/test.
 INSERT INTO usuarios(username,nombre,password_hash,activo,es_superadmin)
@@ -64,15 +64,19 @@ INSERT INTO usuario_unidad_facultades(usuario_id,unidad_id,facultad) VALUES
  ('1001','1','almacenes.crear'),
  ('1001','1','catalogo.editar');
 INSERT INTO ingredientes(id,nombre,unidad,costo,activo) VALUES
- ('1001','[DEV] Harina compartida','g','0.0200','1'),
- ('1002','[DEV] Leche compartida','ml','0.0150','1'),
- ('1003','[DEV] Café compartido','g','0.2500','1'),
- ('1004','[DEV] Bebida de avena','ml','0.0300','1'),
- ('1005','[DEV] Aguacate','g','0.0600','1');
+ ('1001','Harina compartida','g','0.0200','1'),
+ ('1002','Leche compartida','ml','0.0150','1'),
+ ('1003','Café compartido','g','0.2500','1'),
+ ('1004','Bebida de avena','ml','0.0300','1'),
+ ('1005','Aguacate','g','0.0600','1');
 INSERT INTO almacenes(id,unidad_id,nombre,permitir_negativos,activo) VALUES
- ('1001','1','[DEV] Almacén central','0','1'),
- ('1002','2','[DEV] Almacén Restaurante','1','1'),
- ('1003','3','[DEV] Almacén Panadería','0','1');
+ ('1001','1','Almacén Central','0','1'),
+ ('1002','2','Cocina','1','1'),
+ ('1003','3','Producción','0','1'),
+ ('1004','1','Almacén de Suministros','0','1'),
+ ('1005','2','Barra y Maridaje','0','1'),
+ ('1006','2','Refrigeración','0','1'),
+ ('1007','3','Producto Terminado','0','1');
 INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,activo,version) VALUES
  ('1001','1001','1','0.000','100.000','1','0'),
  ('1001','1002','1','0.000','100.000','1','0'),
@@ -86,20 +90,20 @@ INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,acti
  ('1002','1004','2','0.000','100.000','1','0'),
  ('1002','1005','2','0.000','100.000','1','0');
 INSERT INTO categorias(id,unidad_id,carta,nombre,activo,orden) VALUES
- ('1001','2','comida','[DEV] Pruebas Restaurante','1','9999'),
- ('1002','3','comida','[DEV] Pruebas Panadería','1','9999');
+ ('1001','2','comida','Pruebas Restaurante','1','9999'),
+ ('1002','3','comida','Pruebas Panadería','1','9999');
 INSERT INTO areas_produccion(id,unidad_id,nombre,slug,color,orden) VALUES
- ('10','3','[DEV] Panadería','dev-pan','#4267ac','1');
+ ('10','3','Panadería','dev-pan','#4267ac','1');
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
- ('1001','[DEV] Café con leche','Oferta sintética independiente del menú preservado.',NULL),
- ('1002','[DEV] Tostada de prueba','Oferta sintética para receta con subreceta.',NULL),
- ('1003','[DEV] Hogaza Panadería','Identidad sintética de Panadería; no copia el menú de Restaurante.',NULL);
+ ('1001','Café con leche','Oferta sintética independiente del menú preservado.',NULL),
+ ('1002','Tostada de prueba','Oferta sintética para receta con subreceta.',NULL),
+ ('1003','Hogaza Panadería','Identidad sintética de Panadería; no copia el menú de Restaurante.',NULL);
 INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
  ('1001','1001','2','1001','35.00','1','1','10000'),
  ('1002','1002','2','1001','45.00','3','1','10001'),
  ('1003','1003','3','1002','55.00','10','1','1');
 INSERT INTO subrecetas(id,unidad_id,nombre,version,rendimiento,unidad,activo) VALUES
- ('1001','2','[DEV] Porción de leche','1','100.000','ml','1');
+ ('1001','2','Porción de leche','1','100.000','ml','1');
 INSERT INTO subreceta_ingredientes(id,subreceta_id,unidad_id,articulo_id,cantidad) VALUES
  ('1001','1001','2','1002','100.000');
 INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES
@@ -132,27 +136,27 @@ INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES
  ('1001','1004','2','1002'),
  ('1002','1005','2','1002');
 INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado) VALUES
- ('1001','2','[DEV] Reserva futura','ninguno',NULL,@dev_manana,'13:00:00','2','Reserva sintética sin comunicación externa.','admin','confirmada'),
- ('1002','2','[DEV] Reserva completada','ninguno',NULL,@dev_ayer,'12:00:00','2','Registro sintético de atención.','admin','completada');
+ ('1001','2','Reserva futura','ninguno',NULL,@dev_manana,'13:00:00','2','Reserva sintética sin comunicación externa.','admin','confirmada'),
+ ('1002','2','Reserva completada','ninguno',NULL,@dev_ayer,'12:00:00','2','Registro sintético de atención.','admin','completada');
 INSERT INTO reservacion_mesas(id,unidad_id,reservacion_id,mesa_id,orden) VALUES
  ('1001','2','1001','1','1'),
  ('1002','2','1002','1','1');
 INSERT INTO tickets(id,unidad_id,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id) VALUES
- ('1001','2','2','[DEV] Venta cerrada',TIMESTAMP(@dev_ayer,'12:00:00'),@dev_cierre,@dev_cierre,'cerrado','efectivo','7.00','1002','1002'),
- ('1002','2','2','[DEV] Comanda enviada',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
- ('1003','2','2','[DEV] En preparación',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
- ('1004','2','2','[DEV] Lista para entregar',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002');
+ ('1001','2','2','Venta cerrada',TIMESTAMP(@dev_ayer,'12:00:00'),@dev_cierre,@dev_cierre,'cerrado','efectivo','7.00','1002','1002'),
+ ('1002','2','2','Comanda enviada',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
+ ('1003','2','2','En preparación',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002'),
+ ('1004','2','2','Lista para entregar',@dev_apertura,NULL,NULL,'abierto',NULL,'0.00',NULL,'1002');
 INSERT INTO ticket_mesas(id,unidad_id,ticket_id,mesa_id,orden) VALUES
  ('1001','2','1001','1','1'),
  ('1002','2','1002','2','1'),
  ('1003','2','1003','3','1'),
  ('1004','2','1004','4','1');
 INSERT INTO ticket_items(id,unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at) VALUES
- ('1001','2','1001','1001','1001','1001','[DEV] Café con leche','35.00','[DEV] Pruebas Restaurante','1001','1','Barra de Café','1','2',NULL,'1001','Normal','4.0000','entregado',TIMESTAMP(@dev_ayer,'12:05:00')),
- ('1002','2','1001','1002','1002','1002','[DEV] Tostada de prueba','45.00','[DEV] Pruebas Restaurante','1001','3','Cocina','1','1','Cancelación sintética compensada.',NULL,NULL,'1.9000','cancelado',TIMESTAMP(@dev_ayer,'12:06:00')),
- ('1003','2','1002','1001','1001','1001','[DEV] Café con leche','38.00','[DEV] Pruebas Restaurante','1001','1','Barra de Café',NULL,'1',NULL,'1002','Extra','4.7500','enviado',@dev_apertura),
- ('1004','2','1003','1002','1002','1002','[DEV] Tostada de prueba','45.00','[DEV] Pruebas Restaurante','1001','3','Cocina',NULL,'1',NULL,NULL,NULL,'1.9000','en_preparacion',@dev_apertura),
- ('1005','2','1004','1001','1001','1001','[DEV] Café con leche','35.00','[DEV] Pruebas Restaurante','1001','1','Barra de Café',NULL,'1',NULL,'1001','Normal','4.0000','listo',@dev_apertura);
+ ('1001','2','1001','1001','1001','1001','Café con leche','35.00','Pruebas Restaurante','1001','1','Barra de Café','1','2',NULL,'1001','Normal','4.0000','entregado',TIMESTAMP(@dev_ayer,'12:05:00')),
+ ('1002','2','1001','1002','1002','1002','Tostada de prueba','45.00','Pruebas Restaurante','1001','3','Cocina','1','1','Cancelación sintética compensada.',NULL,NULL,'1.9000','cancelado',TIMESTAMP(@dev_ayer,'12:06:00')),
+ ('1003','2','1002','1001','1001','1001','Café con leche','38.00','Pruebas Restaurante','1001','1','Barra de Café',NULL,'1',NULL,'1002','Extra','4.7500','enviado',@dev_apertura),
+ ('1004','2','1003','1002','1002','1002','Tostada de prueba','45.00','Pruebas Restaurante','1001','3','Cocina',NULL,'1',NULL,NULL,NULL,'1.9000','en_preparacion',@dev_apertura),
+ ('1005','2','1004','1001','1001','1001','Café con leche','35.00','Pruebas Restaurante','1001','1','Barra de Café',NULL,'1',NULL,'1001','Normal','4.0000','listo',@dev_apertura);
 INSERT INTO ticket_pagos(id,unidad_id,ticket_id,comensal,metodo_pago,monto,created_at) VALUES
  ('1001','2','1001','1','efectivo','70.00',@dev_cierre);
 INSERT INTO operaciones_inventario(id,unidad_id,tipo,actor_tipo,usuario_id,origen,clave_idempotencia,hash_solicitud,referencia,resultado,fecha) VALUES
@@ -191,35 +195,130 @@ INSERT INTO movimientos_inventario(id,operacion_id,unidad_id,almacen_id,articulo
  ('1022','1010','2','1002','1002','merma','-10.000','fixture_3e','Dato simulado reproducible.','0.0150',NULL,NULL,@dev_apertura),
  ('1023','1002','2','1002','1004','entrada','1000.000','fixture_3e','Existencia para opción de avena.','0.0300',NULL,NULL,@dev_cierre),
  ('1024','1002','2','1002','1005','entrada','1000.000','fixture_3e','Existencia para opción de aguacate.','0.0600',NULL,NULL,@dev_cierre);
+
+-- Escenarios M0.5-B: identidades canónicas, sin nuevas ofertas comerciales.
+INSERT INTO ingredientes(id,nombre,unidad,costo,activo) VALUES
+ (1006,'Azúcar','g','0.0180',1),
+ (1007,'Sal marina','g','0.0125',1),
+ (1008,'Mantequilla','g','0.1450',1),
+ (1009,'Huevo','pza','3.4500',1),
+ (1010,'Chocolate oscuro','g','0.1800',1),
+ (1011,'Levadura','g','0.0900',1),
+ (1012,'Aceite de oliva','ml','0.2100',1),
+ (1013,'Tomate','g','0.0325',1),
+ (1014,'Cebolla','g','0.0250',1),
+ (1015,'Queso fresco','g','0.1200',1),
+ (1016,'Limón','g','0.0280',1),
+ (1017,'Naranja','g','0.0210',1),
+ (1018,'Agua mineral','ml','0.0080',1),
+ (1019,'Té negro','g','0.4000',1),
+ (1020,'Canela','g','0.3100',1),
+ (1021,'Vainilla','ml','0.5500',1),
+ (1022,'Nuez','g','0.2800',1),
+ (1023,'Almendra','g','0.2950',1),
+ (1024,'Miel','ml','0.1400',1),
+ (1025,'Servilletas','pza','0.3500',1),
+ (1026,'Bolsas de papel','pza','1.2500',1),
+ (1027,'Cajas para pan','pza','4.7500',1),
+ (1028,'Jarabe de temporada','ml','0.0750',1),
+ (1029,'Cacao retirado','g','0.1600',0),
+ (1030,'Semillas de amapola','g','0.2300',1);
+INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,activo,version) VALUES
+ (1004,1001,1,0,'100.000',1,0),
+ (1004,1002,1,0,'100.000',1,0),
+ (1004,1003,1,0,'100.000',1,0),
+ (1005,1001,2,0,'100.000',1,0),
+ (1005,1002,2,0,'100.000',1,0),
+ (1005,1003,2,0,'100.000',1,0),
+ (1006,1001,2,0,'100.000',1,0),
+ (1006,1002,2,0,'100.000',1,0),
+ (1006,1003,2,0,'100.000',1,0),
+ (1007,1001,3,0,'100.000',1,0),
+ (1007,1002,3,0,'100.000',1,0),
+ (1007,1003,3,0,'100.000',1,0),
+ (1001,1006,1,0,'10.000',1,0),
+ (1002,1007,2,0,'10.000',1,0),
+ (1003,1008,3,0,'10.000',1,0),
+ (1004,1009,1,0,'10.000',1,0),
+ (1005,1010,2,0,'10.000',1,0),
+ (1006,1011,2,0,'10.000',1,0),
+ (1007,1012,3,0,'10.000',1,0),
+ (1001,1013,1,0,'10.000',1,0),
+ (1002,1014,2,0,'10.000',1,0),
+ (1003,1015,3,0,'10.000',1,0),
+ (1004,1016,1,0,'10.000',1,0),
+ (1005,1017,2,0,'10.000',1,0),
+ (1006,1018,2,0,'10.000',1,0),
+ (1007,1019,3,0,'10.000',1,0),
+ (1001,1020,1,0,'10.000',1,0),
+ (1002,1021,2,0,'10.000',1,0),
+ (1003,1022,3,0,'10.000',1,0),
+ (1004,1023,1,0,'10.000',1,0),
+ (1005,1024,2,0,'10.000',1,0),
+ (1006,1025,2,0,'10.000',1,0),
+ (1007,1026,3,0,'10.000',1,0),
+ (1001,1027,1,0,'10.000',1,0),
+ (1002,1028,2,0,'10.000',0,0),
+ (1003,1029,3,0,'10.000',1,0);
+INSERT INTO operaciones_inventario(id,unidad_id,tipo,actor_tipo,usuario_id,origen,clave_idempotencia,hash_solicitud,referencia,resultado,fecha) VALUES
+ (1011,2,'ajuste','automatizado',NULL,'fixture_desarrollo','m05b-conteo-sal',SHA2('m05b-conteo-sal',256),'m05b-conteo-sal',JSON_OBJECT('fixture',true),@dev_cierre);
+INSERT INTO movimientos_inventario(id,operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,fecha) VALUES
+ (1101,1001,1,1004,1001,'entrada','250.125','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1001),@dev_cierre),
+ (1102,1001,1,1004,1002,'entrada','250.125','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1002),@dev_cierre),
+ (1103,1001,1,1004,1003,'entrada','250.125','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1003),@dev_cierre),
+ (1104,1002,2,1005,1001,'entrada','25.250','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1001),@dev_cierre),
+ (1105,1002,2,1005,1002,'entrada','25.250','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1002),@dev_cierre),
+ (1106,1002,2,1005,1003,'entrada','25.250','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1003),@dev_cierre),
+ (1110,1003,3,1007,1001,'entrada','125.375','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1001),@dev_cierre),
+ (1111,1003,3,1007,1002,'entrada','125.375','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1002),@dev_cierre),
+ (1112,1003,3,1007,1003,'entrada','125.375','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1003),@dev_cierre),
+ (1113,1001,1,1001,1006,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.0180',@dev_cierre),
+ (1114,1011,2,1002,1007,'ajuste','-1.125','apertura_ampliada','Conteo físico sintético documentado.','0.0125',@dev_cierre),
+ (1115,1003,3,1003,1008,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.1450',@dev_cierre),
+ (1116,1001,1,1004,1009,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','3.4500',@dev_cierre),
+ (1117,1002,2,1006,1011,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.0900',@dev_cierre),
+ (1118,1003,3,1007,1012,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.2100',@dev_cierre),
+ (1119,1001,1,1001,1013,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.0325',@dev_cierre),
+ (1120,1002,2,1002,1014,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.0250',@dev_cierre),
+ (1121,1001,1,1004,1016,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.0280',@dev_cierre),
+ (1122,1002,2,1005,1017,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.0210',@dev_cierre),
+ (1123,1002,2,1006,1018,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.0080',@dev_cierre),
+ (1124,1003,3,1007,1019,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.4000',@dev_cierre),
+ (1125,1002,2,1002,1021,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.5500',@dev_cierre),
+ (1126,1003,3,1003,1022,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.2800',@dev_cierre),
+ (1127,1001,1,1004,1023,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.2950',@dev_cierre),
+ (1128,1002,2,1005,1024,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.1400',@dev_cierre),
+ (1129,1003,3,1007,1026,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','1.2500',@dev_cierre),
+ (1130,1001,1,1001,1027,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','4.7500',@dev_cierre);
 -- Los saldos se derivan de la bitácora creada dentro de esta misma transacción.
 UPDATE almacen_articulos aa
 SET saldo=(SELECT COALESCE(SUM(m.delta),0) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id AND m.unidad_id=aa.unidad_id),
  version=(SELECT COUNT(*) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id AND m.unidad_id=aa.unidad_id)
-WHERE aa.almacen_id IN (1001,1002,1003);
+WHERE aa.almacen_id BETWEEN 1001 AND 1007;
 INSERT INTO proveedores(id,unidad_id,nombre,activo) VALUES
- ('1001','2','[DEV] Proveedor Restaurante','1'),
- ('1002','3','[DEV] Proveedor Panadería','1');
+ ('1001','2','Proveedor Restaurante','1'),
+ ('1002','3','Proveedor Panadería','1');
 INSERT INTO ingrediente_proveedores(id,unidad_id,ingrediente_id,proveedor_id,costo,preferente) VALUES
  ('1001','2','1002','1001','0.0150','1'),
  ('1002','3','1001','1002','0.0200','1');
 INSERT INTO gastos_fijos(id,unidad_id,nombre,categoria,monto,activo) VALUES
- ('1001','2','[DEV] Renta simulada','renta','2000.00','1'),
- ('1002','3','[DEV] Servicios simulados','servicios','500.00','1');
+ ('1001','2','Renta simulada','renta','2000.00','1'),
+ ('1002','3','Servicios simulados','servicios','500.00','1');
 INSERT INTO operaciones_financieras(id,unidad_id,tipo,concepto,monto,ticket_id,usuario_id,fecha) VALUES
- ('1001','2','ingreso','[DEV] Cobro de venta sintética','70.00','1001',NULL,@dev_cierre),
- ('1002','2','egreso','[DEV] Compra menor simulada','50.00',NULL,NULL,@dev_cierre);
+ ('1001','2','ingreso','Cobro de venta sintética','70.00','1001',NULL,@dev_cierre),
+ ('1002','2','egreso','Compra menor simulada','50.00',NULL,NULL,@dev_cierre);
 INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo_espera,experiencia_global,comentario) VALUES
- ('1001','2','1001','5','4','4','5','[DEV] Opinión sintética sin datos personales.');
+ ('1001','2','1001','5','4','4','5','Opinión sintética sin datos personales.');
 INSERT INTO catas(id,unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES
- ('1001','2','[DEV] Cata de prueba','Evento sintético para verificar la agenda.',@dev_manana,'18:00:00','90','200.00','1');
+ ('1001','2','Cata de prueba','Evento sintético para verificar la agenda.',@dev_manana,'18:00:00','90','200.00','1');
 UPDATE configuracion_pos SET impresion_activa=0 WHERE unidad_id IN (2,3);
 -- Referencias locales de impresión para probar gestión y estados sin activar hardware.
 INSERT INTO impresoras(id,unidad_id,nombre,area_id,rol,conexion,host,puerto,dispositivo,ancho,activo) VALUES
- (101,2,'[DEV] Comanda Café',1,'comanda','red','127.0.0.1',9100,NULL,32,0),
- (102,2,'[DEV] Comanda Jugos',2,'comanda','red','127.0.0.1',9100,NULL,32,0),
- (103,2,'[DEV] Comanda Cocina',3,'comanda','red','127.0.0.1',9100,NULL,48,0),
- (104,2,'[DEV] Comanda Horno',4,'comanda','red','127.0.0.1',9100,NULL,48,0),
- (105,2,'[DEV] Cuenta Caja',NULL,'cuenta','red','127.0.0.1',9100,NULL,48,0);
+ (101,2,'Comanda Café',1,'comanda','red','127.0.0.1',9100,NULL,32,0),
+ (102,2,'Comanda Jugos',2,'comanda','red','127.0.0.1',9100,NULL,32,0),
+ (103,2,'Comanda Cocina',3,'comanda','red','127.0.0.1',9100,NULL,48,0),
+ (104,2,'Comanda Horno',4,'comanda','red','127.0.0.1',9100,NULL,48,0),
+ (105,2,'Cuenta Caja',NULL,'cuenta','red','127.0.0.1',9100,NULL,48,0);
 INSERT INTO historial_precios(id,unidad_id,oferta_id,articulo_id,precio_anterior,precio_nuevo,motivo,proveedor_id,created_at) VALUES
  (1001,2,1001,NULL,NULL,35.0000,'alta',NULL,@dev_cierre),
  (1002,2,1002,NULL,NULL,45.0000,'alta',NULL,@dev_cierre),
@@ -256,20 +355,20 @@ FROM (
 WHERE n<=365;
 ALTER TABLE cp_dev_serie ADD PRIMARY KEY(n);
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
- (1004,'[DEV] Cacao de temporada','Oferta sintética para ensayar variantes y analíticas; no forma parte del menú original.',NULL),
- (1005,'[DEV] Pan dulce de temporada','Oferta sintética para ensayar categoría y área de producción.',NULL);
+ (1004,'Cacao de temporada','Oferta sintética para ensayar variantes y analíticas; no forma parte del menú original.',NULL),
+ (1005,'Pan dulce de temporada','Oferta sintética para ensayar categoría y área de producción.',NULL);
 INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
  (1004,1004,2,15,85.00,1,1,10002),
  (1005,1005,2,15,70.00,4,0,10003);
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
- (1010,'[DEV] Asistente sin venta 01','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1011,'[DEV] Asistente sin venta 02','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1012,'[DEV] Asistente sin venta 03','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1013,'[DEV] Asistente sin venta 04','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1014,'[DEV] Asistente sin venta 05','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1015,'[DEV] Asistente sin venta 06','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1016,'[DEV] Asistente sin venta 07','Oferta activa sin tickets para probar el asistente local.',NULL),
- (1017,'[DEV] Asistente sin venta 08','Oferta activa sin tickets para probar el asistente local.',NULL);
+ (1010,'Asistente sin venta 01','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1011,'Asistente sin venta 02','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1012,'Asistente sin venta 03','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1013,'Asistente sin venta 04','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1014,'Asistente sin venta 05','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1015,'Asistente sin venta 06','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1016,'Asistente sin venta 07','Oferta activa sin tickets para probar el asistente local.',NULL),
+ (1017,'Asistente sin venta 08','Oferta activa sin tickets para probar el asistente local.',NULL);
 INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
  (1010,1010,2,1001,45.00,1,1,10100),(1011,1011,2,1001,50.00,1,1,10101),
  (1012,1012,2,1001,55.00,1,1,10102),(1013,1013,2,1001,60.00,1,1,10103),
@@ -281,27 +380,27 @@ INSERT INTO producto_variantes(id,oferta_id,unidad_id,grupo,nombre,precio_delta,
  (1012,1005,2,'Presentación','Individual',0.00,1,0,0,1),
  (1013,1005,2,'Presentación','Para compartir',35.00,0,0,1,1);
 INSERT INTO excepciones_operacion(unidad_id,fecha,tipo,motivo,hora_apertura,hora_cierre,activo) VALUES
- (2,DATE_SUB(CURDATE(),INTERVAL 14 DAY),'cerrado','[DEV] Cierre simulado de mantenimiento',NULL,NULL,1),
- (2,DATE_ADD(CURDATE(),INTERVAL 12 DAY),'horario_especial','[DEV] Servicio especial de prueba','10:00:00','18:00:00',1),
- (2,DATE_ADD(CURDATE(),INTERVAL 20 DAY),'cerrado','[DEV] Día festivo simulado',NULL,NULL,1);
+ (2,DATE_SUB(CURDATE(),INTERVAL 14 DAY),'cerrado','Cierre simulado de mantenimiento',NULL,NULL,1),
+ (2,DATE_ADD(CURDATE(),INTERVAL 12 DAY),'horario_especial','Servicio especial de prueba','10:00:00','18:00:00',1),
+ (2,DATE_ADD(CURDATE(),INTERVAL 20 DAY),'cerrado','Día festivo simulado',NULL,NULL,1);
 INSERT INTO configuracion_anuncio(unidad_id,id,mensaje,tipo,activo,fecha_inicio,fecha_fin,texto_enlace,url_enlace) VALUES
- (2,1,'[DEV] Especiales de temporada disponibles','novedad_menu',1,@dev_ahora_cobertura,DATE_ADD(@dev_ahora_cobertura,INTERVAL 30 DAY),'Ver menú',NULL),
- (3,1,'[DEV] Vitrina de prueba','aviso_operativo',0,NULL,NULL,NULL,NULL);
+ (2,1,'Especiales de temporada disponibles','novedad_menu',1,@dev_ahora_cobertura,DATE_ADD(@dev_ahora_cobertura,INTERVAL 30 DAY),'Ver menú',NULL),
+ (3,1,'Vitrina de prueba','aviso_operativo',0,NULL,NULL,NULL,NULL);
 INSERT INTO catas(id,unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES
- (1002,2,'[DEV] Cata primavera','Sesión histórica de muestra.','2026-03-21','18:00:00',90,250.00,0),
- (1003,2,'[DEV] Cata verano','Sesión histórica de muestra.','2026-06-20','18:30:00',90,280.00,0),
- (1004,2,'[DEV] Cata próxima','Evento futuro sin proveedor externo.',DATE_ADD(CURDATE(),INTERVAL 14 DAY),'18:00:00',90,300.00,1),
- (1005,2,'[DEV] Cata fin de temporada','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 45 DAY),'17:30:00',120,320.00,1),
- (1006,2,'[DEV] Cata de invierno','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 100 DAY),'18:00:00',120,350.00,1);
+ (1002,2,'Cata primavera','Sesión histórica de muestra.','2026-03-21','18:00:00',90,250.00,0),
+ (1003,2,'Cata verano','Sesión histórica de muestra.','2026-06-20','18:30:00',90,280.00,0),
+ (1004,2,'Cata próxima','Evento futuro sin proveedor externo.',DATE_ADD(CURDATE(),INTERVAL 14 DAY),'18:00:00',90,300.00,1),
+ (1005,2,'Cata fin de temporada','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 45 DAY),'17:30:00',120,320.00,1),
+ (1006,2,'Cata de invierno','Evento sintético de agenda.',DATE_ADD(CURDATE(),INTERVAL 100 DAY),'18:00:00',120,350.00,1);
 -- Estados históricos separados; sin contactos personales ni envíos externos.
 INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado,hold_expires_at,reemplaza_reservacion_id) VALUES
- (1003,2,'[DEV] Reserva cancelada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 2 DAY),'13:30:00',3,'[DEV] Cancelación anterior al servicio.','admin','cancelada',NULL,NULL),
- (1004,2,'[DEV] Reserva no presentada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 3 DAY),'14:00:00',2,'[DEV] Seguimiento de no-show.','admin','no_show',NULL,NULL),
- (1005,2,'[DEV] Retención expirada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 4 DAY),'15:00:00',2,'[DEV] Retención vencida.','landing','expirada',DATE_SUB(NOW(),INTERVAL 4 DAY),NULL),
- (1006,2,'[DEV] Solicitud pendiente','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 4 DAY),'13:30:00',2,'[DEV] Verificación sin mensajería.','landing','pendiente_verificacion',DATE_ADD(NOW(),INTERVAL 30 MINUTE),NULL),
- (1007,2,'[DEV] Reserva confirmada próxima','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'[DEV] Reserva confirmada para el salón.','admin','confirmada',NULL,NULL),
- (1008,2,'[DEV] Reserva anterior reubicada','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'[DEV] Registro antecedente de reubicación.','admin','reemplazada',NULL,1007),
- (1009,2,'[DEV] Reserva en curso','ninguno',NULL,CURDATE(),TIME(DATE_ADD(NOW(),INTERVAL 30 MINUTE)),2,'[DEV] Servicio operativo de muestra.','admin','en_curso',NULL,NULL);
+ (1003,2,'Reserva cancelada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 2 DAY),'13:30:00',3,'Cancelación anterior al servicio.','admin','cancelada',NULL,NULL),
+ (1004,2,'Reserva no presentada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 3 DAY),'14:00:00',2,'Seguimiento de no-show.','admin','no_show',NULL,NULL),
+ (1005,2,'Retención expirada','ninguno',NULL,DATE_SUB(CURDATE(),INTERVAL 4 DAY),'15:00:00',2,'Retención vencida.','landing','expirada',DATE_SUB(NOW(),INTERVAL 4 DAY),NULL),
+ (1006,2,'Solicitud pendiente','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 4 DAY),'13:30:00',2,'Verificación sin mensajería.','landing','pendiente_verificacion',DATE_ADD(NOW(),INTERVAL 30 MINUTE),NULL),
+ (1007,2,'Reserva confirmada próxima','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'Reserva confirmada para el salón.','admin','confirmada',NULL,NULL),
+ (1008,2,'Reserva anterior reubicada','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 5 DAY),'14:00:00',4,'Registro antecedente de reubicación.','admin','reemplazada',NULL,1007),
+ (1009,2,'Reserva en curso','ninguno',NULL,CURDATE(),TIME(DATE_ADD(NOW(),INTERVAL 30 MINUTE)),2,'Servicio operativo de muestra.','admin','en_curso',NULL,NULL);
 INSERT INTO reservacion_mesas(id,unidad_id,reservacion_id,mesa_id,orden) VALUES
  (1003,2,1007,2,1),
  (1005,2,1009,5,1);
@@ -311,7 +410,7 @@ INSERT INTO reservacion_reubicaciones(id,unidad_id,reservacion_id,causa_reservac
 -- vigente, dos o tres líneas por ticket, franjas dentro del horario semanal,
 -- grupos con coocurrencia para lift y variantes con precio congelado.
 INSERT INTO tickets(id,unidad_id,unidad_tipo,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id)
-SELECT 2000+s.n,2,'negocio',2+MOD(s.n,5),CONCAT('[DEV] Venta histórica ',LPAD(s.n,3,'0')),
+SELECT 2000+s.n,2,'negocio',2+MOD(s.n,5),CONCAT('Venta histórica ',LPAD(s.n,3,'0')),
        TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),
        DATE_ADD(TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),INTERVAL 45+MOD(s.n,46) MINUTE),
        DATE_ADD(TIMESTAMP(s.dia,MAKETIME(s.hora,s.minuto,0)),INTERVAL 45+MOD(s.n,46) MINUTE),
@@ -336,7 +435,7 @@ INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nom
 SELECT 2,2000+l.n,o.id,o.producto_id,NULL,p.nombre,
        o.precio+COALESCE(pv.precio_delta,0),c.nombre,o.categoria_id,o.area_id,a.nombre,
        1+MOD(l.n+l.linea-1,2+MOD(l.n,5)),1+MOD(l.n+l.linea,3),
-       IF(l.linea=3,'[DEV] Renglón cancelado antes de producción.',NULL),
+       IF(l.linea=3,'Renglón cancelado antes de producción.',NULL),
        pv.id,IF(pv.id IS NULL,NULL,CONCAT(pv.grupo,': ',pv.nombre)),NULL,
        IF(l.linea=3 AND MOD(l.n,10)=0,'cancelado','entregado'),
        DATE_ADD(t.hora_apertura,INTERVAL 10+l.linea*3 MINUTE)
@@ -364,17 +463,17 @@ FROM cp_dev_serie s JOIN tickets tk ON tk.id=2000+s.n AND tk.metodo_pago='dividi
 JOIN (SELECT ticket_id,unidad_id,SUM(precio*cantidad) total FROM ticket_items WHERE unidad_id=2 AND estado<>'cancelado' GROUP BY ticket_id,unidad_id) totales ON totales.ticket_id=tk.id AND totales.unidad_id=tk.unidad_id;
 INSERT INTO operaciones_financieras(id,unidad_id,tipo,concepto,monto,ticket_id,usuario_id,fecha)
 SELECT 3000+s.n,2,'egreso',
-       CASE MOD(s.n,5) WHEN 0 THEN '[DEV] Servicio de operación simulado' WHEN 1 THEN '[DEV] Insumos sin artículo inventariable' WHEN 2 THEN '[DEV] Mantenimiento simulado' WHEN 3 THEN '[DEV] Nómina de ejemplo' ELSE '[DEV] Gasto de operación' END,
+       CASE MOD(s.n,5) WHEN 0 THEN 'Servicio de operación simulado' WHEN 1 THEN 'Insumos sin artículo inventariable' WHEN 2 THEN 'Mantenimiento simulado' WHEN 3 THEN 'Nómina de ejemplo' ELSE 'Gasto de operación' END,
        ROUND(250.00+MOD(s.n*791,45000)/100,2),NULL,NULL,DATE_SUB(@dev_ahora_cobertura,INTERVAL s.n*10 DAY)
 FROM cp_dev_serie s WHERE s.n<=36;
 INSERT INTO gastos_fijos(id,unidad_id,nombre,categoria,monto,activo) VALUES
- (1003,2,'[DEV] Nómina mensual','nomina',12000.00,1),
- (1004,2,'[DEV] Insumos mensuales','insumos',3500.00,1),
- (1005,2,'[DEV] Servicios mensuales','servicios',1800.00,1),
- (1006,2,'[DEV] Otros gastos mensuales','otros',750.00,1);
+ (1003,2,'Nómina mensual','nomina',12000.00,1),
+ (1004,2,'Insumos mensuales','insumos',3500.00,1),
+ (1005,2,'Servicios mensuales','servicios',1800.00,1),
+ (1006,2,'Otros gastos mensuales','otros',750.00,1);
 INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo_espera,experiencia_global,comentario,created_at)
 SELECT 2000+s.n,2,2000+s.n,3+MOD(s.n,3),3+MOD(s.n*2,3),2+MOD(s.n,4),3+MOD(s.n*3,3),
-       '[DEV] Opinión agregada de demostración, sin datos personales.',DATE_ADD(t.closed_at,INTERVAL 5 MINUTE)
+       'Opinión agregada de demostración, sin datos personales.',DATE_ADD(t.closed_at,INTERVAL 5 MINUTE)
 FROM cp_dev_serie s JOIN tickets t ON t.id=2000+s.n
 WHERE MOD(s.n,5)=0;
 DROP TEMPORARY TABLE cp_dev_lineas;
@@ -393,9 +492,9 @@ CROSS JOIN (SELECT 9 hora UNION ALL SELECT 13 UNION ALL SELECT 17 UNION ALL SELE
 WHERE (DAYOFWEEK(DATE_ADD(DATE_SUB(CURDATE(),INTERVAL 7 DAY),INTERVAL d.dia_idx DAY))<>2 OR h.hora>=13) AND (DAYOFWEEK(DATE_ADD(DATE_SUB(CURDATE(),INTERVAL 7 DAY),INTERVAL d.dia_idx DAY))<>1 OR h.hora<19);
 ALTER TABLE cp_dev_revpash ADD PRIMARY KEY(ticket_id), ADD UNIQUE KEY uq_cp_dev_revpash_dia_hora(fecha,hora);
 INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado)
-SELECT 4101+r.dia_idx,2,CONCAT('[DEV] Reserva semanal ',DAYNAME(r.fecha)),'ninguno',NULL,r.fecha,'13:00:00',
+SELECT 4101+r.dia_idx,2,CONCAT('Reserva semanal ',DAYNAME(r.fecha)),'ninguno',NULL,r.fecha,'13:00:00',
        CASE WHEN r.dia_idx=4 THEN 6 WHEN r.dia_idx=0 THEN 2 ELSE 2+MOD(r.dia_idx,3) END,
-       '[DEV] Caso de ocupación completada; sin contacto ni proveedor externo.','admin','completada'
+       'Caso de ocupación completada; sin contacto ni proveedor externo.','admin','completada'
 FROM (SELECT dia_idx,DATE_ADD(DATE_SUB(CURDATE(),INTERVAL 7 DAY),INTERVAL dia_idx DAY) fecha
       FROM (SELECT 0 dia_idx UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) dias) r;
 INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden)
@@ -407,9 +506,9 @@ INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden) VALUES (2,
 -- Tres reservas futuras muestran grupos de 2, 3 y 4 mesas. Fechas distintas
 -- y mesas exclusivas evitan solapamientos, sin alterar el mapa físico.
 INSERT INTO reservaciones(id,unidad_id,nombre,contacto_tipo,contacto,fecha,hora,comensales,nota,origen,estado) VALUES
- (1010,2,'[DEV] Grupo futuro de dos mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 7 DAY),'13:00:00',6,'[DEV] Reserva agrupada; capacidad asignada 8.','admin','confirmada'),
- (1011,2,'[DEV] Grupo futuro de tres mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 8 DAY),'14:00:00',10,'[DEV] Reserva agrupada; capacidad asignada 12.','admin','confirmada'),
- (1012,2,'[DEV] Grupo futuro de cuatro mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 9 DAY),'15:00:00',14,'[DEV] Reserva agrupada; capacidad asignada 16.','admin','confirmada');
+ (1010,2,'Grupo futuro de dos mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 7 DAY),'13:00:00',6,'Reserva agrupada; capacidad asignada 8.','admin','confirmada'),
+ (1011,2,'Grupo futuro de tres mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 8 DAY),'14:00:00',10,'Reserva agrupada; capacidad asignada 12.','admin','confirmada'),
+ (1012,2,'Grupo futuro de cuatro mesas','ninguno',NULL,DATE_ADD(CURDATE(),INTERVAL 9 DAY),'15:00:00',14,'Reserva agrupada; capacidad asignada 16.','admin','confirmada');
 INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden) VALUES
  (2,1010,1,1),(2,1010,2,2),
  (2,1011,3,1),(2,1011,4,2),(2,1011,5,3),
@@ -417,7 +516,7 @@ INSERT INTO reservacion_mesas(unidad_id,reservacion_id,mesa_id,orden) VALUES
 INSERT INTO tickets(id,unidad_id,unidad_tipo,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id)
 SELECT r.ticket_id,2,'negocio',
        CASE WHEN r.dia_idx=4 AND r.hora=13 THEN 6 WHEN r.dia_idx=0 THEN 1+MOD(r.ticket_id,2) WHEN r.dia_idx>=4 THEN 3+MOD(r.ticket_id,2) ELSE 2+MOD(r.ticket_id,3) END,
-       CONCAT('[DEV] RevPASH ',DAYNAME(r.fecha),' ',LPAD(r.hora,2,'0'),':00'),
+       CONCAT('RevPASH ',DAYNAME(r.fecha),' ',LPAD(r.hora,2,'0'),':00'),
        TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),
        DATE_ADD(TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),INTERVAL 45+MOD(r.ticket_id*11,40) MINUTE),
        DATE_ADD(TIMESTAMP(r.fecha,MAKETIME(r.hora,MOD(r.ticket_id*13,35),0)),INTERVAL 45+MOD(r.ticket_id*11,40) MINUTE),
@@ -427,7 +526,7 @@ FROM cp_dev_revpash r;
 INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at)
 SELECT 2,r.ticket_id,o.id,o.producto_id,NULL,p.nombre,o.precio,c.nombre,c.id,o.area_id,a.nombre,
        1+MOD(r.ticket_id+l.linea-1,5),IF(l.linea=1 AND r.dia_idx>=4,2,1),
-       IF(l.linea=3,'[DEV] Ítem de cortesía cancelado antes de producción.',NULL),NULL,NULL,NULL,
+       IF(l.linea=3,'Ítem de cortesía cancelado antes de producción.',NULL),NULL,NULL,NULL,
        IF(l.linea=3 AND MOD(r.ticket_id,3)=0,'cancelado','entregado'),
        DATE_ADD(t.hora_apertura,INTERVAL 5+l.linea*4 MINUTE)
 FROM cp_dev_revpash r JOIN tickets t ON t.id=r.ticket_id AND t.unidad_id=2
@@ -497,7 +596,7 @@ FROM (SELECT d.dia_no,d.fecha,d.total_ventas,d.minutos_abierto,d.hora_inicio,n.v
 WHERE x.dia_no>0 OR DATE_ADD(DATE_ADD(TIMESTAMP(x.fecha,x.hora_inicio),INTERVAL FLOOR((x.venta_no-1)*GREATEST(x.minutos_abierto-60,0)/x.total_ventas) MINUTE),INTERVAL 25+MOD(x.ticket_id,31) MINUTE)<=NOW();
 ALTER TABLE cp_dev_asistente ADD PRIMARY KEY(ticket_id), ADD KEY idx_cp_dev_asistente_fecha(fecha);
 INSERT INTO tickets(id,unidad_id,unidad_tipo,comensales,nombre,hora_apertura,closed_at,hora_cierre,estado,metodo_pago,propina,reservacion_id,mesero_id)
-SELECT a.ticket_id,2,'negocio',a.comensales,CONCAT('[DEV] Asistente ',DATE_FORMAT(a.fecha,'%Y-%m-%d'),' #',a.venta_no),
+SELECT a.ticket_id,2,'negocio',a.comensales,CONCAT('Asistente ',DATE_FORMAT(a.fecha,'%Y-%m-%d'),' #',a.venta_no),
        DATE_ADD(TIMESTAMP(a.fecha,a.hora_inicio),INTERVAL FLOOR((a.venta_no-1)*GREATEST(a.minutos_abierto-60,0)/a.total_ventas) MINUTE),
        DATE_ADD(DATE_ADD(TIMESTAMP(a.fecha,a.hora_inicio),INTERVAL FLOOR((a.venta_no-1)*GREATEST(a.minutos_abierto-60,0)/a.total_ventas) MINUTE),INTERVAL 25+MOD(a.ticket_id,31) MINUTE),
        DATE_ADD(DATE_ADD(TIMESTAMP(a.fecha,a.hora_inicio),INTERVAL FLOOR((a.venta_no-1)*GREATEST(a.minutos_abierto-60,0)/a.total_ventas) MINUTE),INTERVAL 25+MOD(a.ticket_id,31) MINUTE),
@@ -506,7 +605,7 @@ FROM cp_dev_asistente a;
 INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,costo_unitario,estado,created_at)
 SELECT 2,a.ticket_id,o.id,o.producto_id,NULL,p.nombre,o.precio,c.nombre,c.id,o.area_id,ar.nombre,
        1+MOD(a.ticket_id+l.linea-1,a.comensales),1+MOD(a.ticket_id+l.linea,3),
-       IF(l.linea>1 AND MOD(a.ticket_id+l.linea,41)=0,'[DEV] Cancelación anterior a producción.',NULL),NULL,NULL,NULL,
+       IF(l.linea>1 AND MOD(a.ticket_id+l.linea,41)=0,'Cancelación anterior a producción.',NULL),NULL,NULL,NULL,
        IF(l.linea>1 AND MOD(a.ticket_id+l.linea,41)=0,'cancelado','entregado'),
        DATE_ADD(t.hora_apertura,INTERVAL 4+l.linea*2 MINUTE)
 FROM cp_dev_asistente a JOIN tickets t ON t.id=a.ticket_id AND t.unidad_id=2
@@ -537,9 +636,9 @@ FROM tickets t JOIN ticket_items i ON i.ticket_id=t.id AND i.unidad_id=t.unidad_
 WHERE t.unidad_id=2 AND t.id BETWEEN 10000 AND 19999 AND t.metodo_pago='dividido' GROUP BY t.id,t.hora_cierre;
 INSERT INTO feedback(id,unidad_id,ticket_id,calidad_sabor,atencion_mesero,tiempo_espera,experiencia_global,comentario,created_at)
 SELECT 30000+(a.ticket_id-10000),2,a.ticket_id,3+MOD(a.ticket_id,3),3+MOD(a.ticket_id*2,3),2+MOD(a.ticket_id,4),3+MOD(a.ticket_id*3,3),
-       '[DEV] Comentario agregado del fixture de desarrollo, sin datos personales.',DATE_ADD(t.closed_at,INTERVAL 5 MINUTE)
+       'Comentario agregado del fixture de desarrollo, sin datos personales.',DATE_ADD(t.closed_at,INTERVAL 5 MINUTE)
 FROM cp_dev_asistente a JOIN tickets t ON t.id=a.ticket_id AND t.unidad_id=2 WHERE MOD(a.venta_no,5)=0;
 DROP TEMPORARY TABLE cp_dev_asistente;
 DROP TEMPORARY TABLE cp_dev_asistente_dias;
-INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-3e-v6');
+INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-m05b-v1');
 COMMIT;

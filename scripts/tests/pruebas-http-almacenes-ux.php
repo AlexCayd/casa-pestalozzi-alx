@@ -33,7 +33,7 @@ try{
  $history=$request('/admin/global/almacenes?'.http_build_query(['vista'=>'movimientos','almacen_ids'=>[$r]]));
  $doc=new DOMDocument();libxml_use_internal_errors(true);$doc->loadHTML('<?xml encoding="utf-8" ?>'.$history['body']);libxml_clear_errors();$x=new DOMXPath($doc);
  $rows=$x->query('//*[@id="almacen-movimientos"]//tbody/tr');$assert($history['status']===200&&$rows->length>0,'Historial contextual tiene resultados reales.');
- foreach($rows as $row)$assert(str_contains($row->textContent,'Almacén Restaurante')&&!str_contains($row->textContent,'Almacén Panadería'),'Cada movimiento pertenece a la selección.');
+ foreach($rows as $row)$assert(str_contains($row->textContent,'Cocina')&&!str_contains($row->textContent,'Producción'),'Cada movimiento pertenece a la selección.');
  $request('/logout',[]);
  $account=$fixture['cuentas']['lectura_global'];$login($account['username'],$account['password']);$read=$request('/admin/global/almacenes');
  $doc=new DOMDocument();$doc->loadHTML('<?xml encoding="utf-8" ?>'.$read['body']);$x=new DOMXPath($doc);
