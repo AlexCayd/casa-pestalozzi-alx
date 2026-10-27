@@ -7,7 +7,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -312,7 +312,7 @@ DELIMITER ;
 CREATE TABLE transferencias (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, almacen_origen_id BIGINT UNSIGNED NOT NULL, origen_unidad_id TINYINT UNSIGNED NOT NULL,
  almacen_destino_id BIGINT UNSIGNED NOT NULL, destino_unidad_id TINYINT UNSIGNED NOT NULL, solicitante_id INT NOT NULL,
- emisor_id INT NULL, receptor_id INT NULL, estado ENUM('solicitada','enviada','recibida','cancelada','rechazada','incidencia') NOT NULL DEFAULT 'solicitada',
+ emisor_id INT NULL, receptor_id INT NULL, estado ENUM('solicitada','autorizada','enviada','recibida','cancelada','rechazada','incidencia','cerrada') NOT NULL DEFAULT 'solicitada',
  version BIGINT UNSIGNED NOT NULL DEFAULT 0, creada_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, enviada_at DATETIME NULL, recibida_at DATETIME NULL,
  FOREIGN KEY(almacen_origen_id,origen_unidad_id) REFERENCES almacenes(id,unidad_id) ON DELETE RESTRICT,
  FOREIGN KEY(almacen_destino_id,destino_unidad_id) REFERENCES almacenes(id,unidad_id) ON DELETE RESTRICT,
@@ -334,6 +334,20 @@ CREATE TABLE transferencia_historial (
  actor_id INT NULL, fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, motivo VARCHAR(255) NULL,
  FOREIGN KEY(transferencia_id) REFERENCES transferencias(id) ON DELETE RESTRICT, FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE transferencia_comandos (
+ actor_id INT NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL, clave VARCHAR(120) NOT NULL,
+ hash_solicitud CHAR(64) NOT NULL, transferencia_id BIGINT UNSIGNED NULL, resultado JSON NULL,
+ PRIMARY KEY(actor_id,unidad_id,clave),
+ FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(transferencia_id) REFERENCES transferencias(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+DELIMITER //
+CREATE TRIGGER trg_transferencia_historial_update BEFORE UPDATE ON transferencia_historial FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Historial de transferencia inmutable'; END//
+CREATE TRIGGER trg_transferencia_historial_delete BEFORE DELETE ON transferencia_historial FOR EACH ROW
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Historial de transferencia inmutable'; END//
+DELIMITER ;
 CREATE TABLE operaciones_financieras (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, tipo ENUM('ingreso','egreso') NOT NULL,
  concepto VARCHAR(160) NOT NULL, monto DECIMAL(12,2) NOT NULL, ticket_id INT NULL, usuario_id INT NULL, fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
