@@ -130,6 +130,40 @@ y campo. No aplicar min-height genérico a radios. Comprobar reglas posteriores
 antes de duplicar variantes/disabled. ActiveRecord comparte alertas estáticas:
 no concatenar la misma lista obtenida desde dos modelos.
 
+## Selector de contexto y Almacenes
+
+`views/admin/partials/_contexto.php` muestra icono, nombre y chevron con el sidebar
+expandido; en escritorio contraído conserva solo el icono centrado. El popover
+usa la capa superior para evitar recortes del sidebar. Sus enlaces proceden de
+`contextosDisponibles` del servidor y conservan `/admin/contexto` y la autorización
+existente; el selector no concede acceso por sí mismo. `src/js/admin/core/contextos.js`
+gestiona ArrowUp/ArrowDown, Home/End y Escape con devolución de foco al disparador.
+Escape en el selector no cierra el drawer móvil. En móvil, incluido un viewport
+de 320 px y una preferencia previa de escritorio contraído, el control recupera
+nombre y chevron y el popover conserva margen respecto al viewport. El respaldo
+`noscript` usa un select nativo etiquetado y botón de envío.
+
+Almacenes reutiliza tokens, tipografías, iconos y modales administrativos sin una
+biblioteca visual nueva. La pantalla única agrupa tarjetas de almacén por
+propietario, ofrece selección múltiple con aplicación explícita y anuncia cambios
+pendientes mediante `role="status"`. La protección cliente de la última casilla
+complementa la validación del servidor; no la sustituye. Búsqueda, paginación e
+historial conservan la selección. Configuración, catálogo e historial se muestran
+en modales; las URLs anteriores con `vista` siguen abriendo el modal adecuado.
+
+En Global, las barras usan magnitudes absolutas para la proporción y rayado para
+negativos. El saldo neto exacto procede del backend; nunca se obtiene sumando
+anchos o valores de coma flotante. Las etiquetas textuales y botones de detalle
+siguen disponibles con cero. Los detalles se abren por hover, foco y pulsación,
+admiten recorrerlos con el puntero y cierran con Escape. No depender del color
+para identificar saldo negativo o alerta. El resumen cuenta artículos e
+identidades, sin sumar unidades heterogéneas. El estado «Sin asociación en la
+selección» mantiene visible la identidad maestra con saldo y mínimo cero.
+
+El [contrato de Almacenes](../modulos/almacenes.md) detalla selección autorizada,
+límites de escritura y comandos de verificación. Revisar también solo lectura,
+negativos, cero, teclado, temas y móvil sobre el harness desechable 3E.
+
 ## Piso, reservaciones y POS
 
 Shell/header compartido: POS, KDS y selector de estación. Conservar geometría,
