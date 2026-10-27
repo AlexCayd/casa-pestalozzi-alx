@@ -16,14 +16,20 @@ final class AdministracionAlmacenes
 
     public function consultar(string $ctx, array $filtros, string $vista = 'existencias'): array
     {
-        $comunes = array_intersect_key($filtros, array_flip(['q','negocio','almacen_id','pagina']));
+        $comunes = array_intersect_key($filtros, array_flip(['q','negocio','almacen_id','almacen_ids','articulo_id','pagina']));
         $comunes['por_pagina'] = 25;
         $existencias = $this->motor->consultarExistencias($ctx, $comunes + (!empty($filtros['solo_alertas']) ? ['solo_alertas'=>true] : []));
         self::exigirResultado($existencias);
-        $almacenes = $this->motor->consultarAlmacenes($ctx, array_intersect_key($comunes,array_flip($vista==='almacenes'?['q','negocio','almacen_id','pagina']:['negocio','almacen_id'])) + ['por_pagina'=>$vista==='almacenes'?25:100]);
+        $almacenes = $this->motor->consultarAlmacenes($ctx, array_intersect_key($comunes,array_flip($vista==='almacenes'?['q','negocio','almacen_id','almacen_ids','pagina']:['negocio','almacen_id','almacen_ids'])) + ['por_pagina'=>$vista==='almacenes'?25:100]);
         self::exigirResultado($almacenes);
         $opciones = $this->motor->consultarAlmacenes($ctx, ['por_pagina'=>100]);
         self::exigirResultado($opciones);
+        for($pagina=2;count($opciones['almacenes'])<$opciones['total'];$pagina++) {
+            $siguiente=$this->motor->consultarAlmacenes($ctx,['por_pagina'=>100,'pagina'=>$pagina]);
+            self::exigirResultado($siguiente);
+            if(!$siguiente['almacenes']) break;
+            array_push($opciones['almacenes'],...$siguiente['almacenes']);
+        }
         if(isset($filtros['almacen_id']) && !in_array((int)$filtros['almacen_id'],array_map(static fn($a)=>(int)$a['almacen_id'],$opciones['almacenes']),true)) {
             $elegido=$this->motor->consultarAlmacenes($ctx,['almacen_id'=>$filtros['almacen_id']]);
             self::exigirResultado($elegido);
@@ -65,7 +71,7 @@ final class AdministracionAlmacenes
                 'entrada','ajuste','merma'=>['almacen_id','articulo_id','cantidad','costo_unitario','version','clave','motivo','nota'],
                 default=>throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.'),
             };
-            if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
+            if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
             $id = static fn(string $campo): int => self::id($datos[$campo]??null);
             switch ($accion) {
                 case 'crear_almacen':

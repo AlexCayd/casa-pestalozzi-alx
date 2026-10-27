@@ -21,13 +21,14 @@ final class AdminAlmacenesController
         $vista=is_string($_GET['vista']??null)?$_GET['vista']:'existencias';
         if (!in_array($vista,['existencias','almacenes','movimientos','catalogo'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
         $filtros=[];
-        foreach (['q','negocio','almacen_id','desde','hasta','tipo','pagina'] as $campo) if (isset($_GET[$campo]) && $_GET[$campo]!=='') $filtros[$campo]=$_GET[$campo];
+        foreach (['q','negocio','almacen_id','articulo_id','desde','hasta','tipo','pagina'] as $campo) if (isset($_GET[$campo]) && $_GET[$campo]!=='') $filtros[$campo]=$_GET[$campo];
+        if(array_key_exists('almacen_ids',$_GET) || isset($_GET['seleccion'])) $filtros['almacen_ids']=$_GET['almacen_ids']??[];
         if (isset($_GET['solo_alertas'])) $filtros['solo_alertas']=true;
         $alertas=$_SESSION['_almacenes_flash'][$ctx]??[];
         unset($_SESSION['_almacenes_flash'][$ctx]);
         $datos=['existencias'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'almacenes'=>['almacenes'=>[],'total'=>0], 'movimientos'=>['movimientos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'catalogo'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>100], 'opcionesAlmacen'=>[], 'totalOpcionesAlmacen'=>0];
         try {
-            foreach ($filtros as $v) if (!is_scalar($v)) throw new InventarioError('FILTRO_INVALIDO','Los filtros no son válidos.');
+            foreach ($filtros as $campo=>$v) if ($campo!=='almacen_ids' && !is_scalar($v)) throw new InventarioError('FILTRO_INVALIDO','Los filtros no son válidos.');
             $datos=self::servicio()->consultar($ctx,$filtros,$vista);
         } catch (\Throwable $e) {
             http_response_code($e instanceof InventarioError && in_array($e->codigo,['PERMISO_DENEGADO','AMBITO_DENEGADO','RECURSO_NO_ENCONTRADO'],true)?403:422);
@@ -42,7 +43,7 @@ final class AdminAlmacenesController
             'puedeEditar'=>Auth::puede('inventario','editar',$ctx),
             'puedeCrearAlmacen'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('almacenes.crear',$facultades,true),
             'puedeCatalogo'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('catalogo.editar',$facultades,true),
-            'csrf'=>self::csrfContexto($ctx), 'styles'=>['/build/css/admin/inventario.css'], 'scripts'=>[],
+            'csrf'=>self::csrfContexto($ctx), 'styles'=>['/build/css/admin/inventario.css'], 'scripts'=>['/build/js/admin/inventario.js'],
         ]));
     }
 
@@ -60,7 +61,12 @@ final class AdminAlmacenesController
             AdministracionAlmacenes::exigirResultado($resultado);
             $_SESSION['_almacenes_flash'][$ctx]=['exito'=>['Operación confirmada correctamente.']];
         } catch (\Throwable $e) { $_SESSION['_almacenes_flash'][$ctx]=['error'=>[$e instanceof InventarioError?$e->getMessage():'No se confirmó la operación.']]; }
-        header('Location: '.self::base($ctx).'?vista='.$vista,true,303);
+        $volver=[];
+        if(is_string($_POST['volver_filtros']??null) && strlen($_POST['volver_filtros'])<=8000) {
+            parse_str($_POST['volver_filtros'],$volver);
+            $volver=array_intersect_key($volver,array_flip(['q','almacen_ids','solo_alertas','desde','hasta','tipo','pagina']));
+        }
+        header('Location: '.self::base($ctx).'?'.http_build_query(['vista'=>$vista]+$volver),true,303);
     }
 
     public static function base(string $ctx): string { return '/admin/'.($ctx==='restaurante'?'':$ctx.'/').'almacenes'; }

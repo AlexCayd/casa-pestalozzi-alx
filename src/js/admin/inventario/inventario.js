@@ -294,3 +294,78 @@
         boot();
     }
 })();
+
+// Almacenes comparte modales del panel; el servidor mantiene alcance y saldos.
+(function () {
+    function bootAlmacenes() {
+        const workspace = document.querySelector('[data-almacenes-workspace]');
+        if (!workspace) return;
+        const selection = workspace.querySelector('[data-warehouse-selection]');
+        const status = workspace.querySelector('[data-selection-status]');
+        if (selection) {
+            selection.addEventListener('change', function (event) {
+                if (!event.target.matches('input[name="almacen_ids[]"]')) return;
+                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
+                if (!checked.length) {
+                    event.target.checked = true;
+                    status.textContent = 'Mantén al menos un almacén seleccionado.';
+                } else {
+                    status.textContent = checked.length + ' seleccionados. Aplica la selección para actualizar los resultados.';
+                }
+            });
+            selection.addEventListener('submit', function (event) {
+                const boxes = selection.querySelectorAll('input[name="almacen_ids[]"]');
+                if (boxes.length && !selection.querySelector('input[name="almacen_ids[]"]:checked')) {
+                    event.preventDefault(); status.textContent = 'Selecciona al menos un almacén.'; boxes[0].focus();
+                }
+            });
+        }
+        workspace.querySelectorAll('[data-warehouse-picker]').forEach(function (picker) {
+            const modal = picker.closest('[data-admin-modal]');
+            let operation = 'entrada';
+            function update() {
+                modal.querySelectorAll('[data-warehouse-panel]').forEach(function (panel) {
+                    panel.hidden = panel.dataset.warehousePanel !== picker.value;
+                    panel.querySelectorAll('details[data-operation]').forEach(function (details) {
+                        details.open = details.dataset.operation === operation;
+                    });
+                });
+            }
+            picker.addEventListener('change', update);
+            modal.addEventListener('admin:modal-opened', function (event) {
+                operation = (event.detail.trigger && event.detail.trigger.dataset.operation) || 'entrada'; update();
+            });
+        });
+        workspace.querySelectorAll('[data-stock-tip]').forEach(function (button) {
+            const tip = document.getElementById(button.getAttribute('popovertarget'));
+            let hideTimer;
+            function keepOpen() { window.clearTimeout(hideTimer); }
+            function hideLater() {
+                keepOpen();
+                hideTimer = window.setTimeout(function () {
+                    const focused = document.activeElement;
+                    const relatedFocus = focused && focused.getAttribute('popovertarget') === (tip && tip.id);
+                    if (!relatedFocus && tip && !tip.matches(':hover') && tip.matches(':popover-open')) tip.hidePopover();
+                }, 180);
+            }
+            function show() {
+                if (!tip || !tip.showPopover) return;
+                keepOpen();
+                tip.showPopover();
+                const rect = button.getBoundingClientRect();
+                tip.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 12)) + 'px';
+                tip.style.top = Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - tip.offsetHeight - 12)) + 'px';
+            }
+            button.addEventListener('pointerenter', show);
+            button.addEventListener('focus', show);
+            button.addEventListener('click', function (event) { event.preventDefault(); show(); });
+            button.addEventListener('pointerleave', hideLater);
+            button.addEventListener('blur', hideLater);
+            if (tip) { tip.addEventListener('pointerenter', keepOpen); tip.addEventListener('pointerleave', hideLater); }
+        });
+        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', catalogo:'almacen-catalogo'}[workspace.dataset.initialView];
+        if (initial) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootAlmacenes);
+    else bootAlmacenes();
+})();
