@@ -12,6 +12,15 @@ final class PermisosUsuario
         if (!isset(Contextos::NOMBRES[$contexto])) return [];
         $modulos = Permisos::MODULOS;
         unset($modulos['roles']);
+        $modulos['menu']['ruta'] = match ($contexto) {
+            'global' => '/admin/global/productos',
+            'panaderia' => '/admin/panaderia/menu',
+            default => '/admin/menu',
+        };
+        if ($contexto === 'global') {
+            $modulos['menu']['titulo'] = 'Productos comerciales';
+            $modulos['menu']['detalle'] = 'Identidades maestras y uso comercial autorizado; Global no vende.';
+        }
         $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
         foreach ($modulos as $key => &$modulo) {

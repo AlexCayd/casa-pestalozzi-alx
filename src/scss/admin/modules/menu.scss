@@ -13,6 +13,23 @@
 .admin-menu {
   min-width: 0;
 
+  &__fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+  }
+
+  &__catalogo {
+    display: grid;
+    gap: 16px;
+    margin-block: 20px;
+    overflow-wrap: anywhere;
+
+    h2 { font-size: 20px; }
+    p, ul { margin-block: 12px; }
+  }
+
   // El .admin-card compartido no trae padding: se lo damos aquí, igual que
   // inventario, recetas y finanzas. Sin esto los campos de los formularios
   // (platillo, categoría, usuarios, impresoras) tocaban el borde de la tarjeta.

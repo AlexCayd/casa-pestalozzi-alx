@@ -818,12 +818,14 @@ class AdminController
     {
         $secciones=[];
         foreach (['users'=>['Usuarios','Gestiona cuentas y permisos directos.','usuarios'],
+                  'menu'=>['Productos comerciales y menú','Consulta identidades y ofertas comerciales autorizadas.','menu'],
                   'inventario'=>['Almacenes','Consulta existencias y operaciones físicas autorizadas.','almacenes']] as $modulo=>$def) {
             $links=[];
             foreach ($contextos as $contexto) {
                 if (!Auth::puede($modulo,'ver',(string)$contexto)) continue;
                 $nombre=\Services\Security\Contextos::NOMBRES[$contexto]??$contexto;
                 $path=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/'.$def[2];
+                if ($modulo === 'menu' && $contexto === 'global') $path='/admin/global/productos';
                 $links[]='<div class="admin-context-page__business"><div><h3>'.htmlspecialchars($nombre,ENT_QUOTES,'UTF-8')
                     .'</h3><p>'.$def[1].'</p></div><a class="admin-btn admin-btn--secondary" href="'
                     .htmlspecialchars($path,ENT_QUOTES,'UTF-8').'">Abrir '.strtolower($def[0]).'</a></div>';
@@ -831,7 +833,7 @@ class AdminController
             if ($links!==[]) $secciones[]='<div class="admin-card admin-context-page__businesses"><h2>'.$def[0].'</h2>'.implode('',$links).'</div>';
         }
         $body=$secciones===[]?'<div class="admin-card admin-context-page__empty"><h2>Acceso administrativo no disponible</h2><p>No tienes módulos autorizados en los ámbitos disponibles.</p></div>':implode('',$secciones);
-        return '<section class="admin-context-page admin-page" aria-labelledby="multinegocio-home-title"><header class="admin-page__header"><div class="admin-page__intro"><h1 class="admin-page__title" id="multinegocio-home-title">Inicio</h1><p class="admin-page__subtitle">Abre Usuarios o Almacenes en un ámbito que tengas autorizado.</p></div></header>'.$body.'</section>';
+        return '<section class="admin-context-page admin-page" aria-labelledby="multinegocio-home-title"><header class="admin-page__header"><div class="admin-page__intro"><h1 class="admin-page__title" id="multinegocio-home-title">Inicio</h1><p class="admin-page__subtitle">Abre un módulo en un ámbito que tengas autorizado.</p></div></header>'.$body.'</section>';
     }
 
     /**

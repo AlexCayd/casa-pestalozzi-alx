@@ -547,6 +547,24 @@
 .admin-menu {
   min-width: 0;
 }
+.admin-menu__fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.admin-menu__catalogo {
+  display: grid;
+  gap: 16px;
+  margin-block: 20px;
+  overflow-wrap: anywhere;
+}
+.admin-menu__catalogo h2 {
+  font-size: 20px;
+}
+.admin-menu__catalogo p, .admin-menu__catalogo ul {
+  margin-block: 12px;
+}
 .admin-menu .admin-card {
   padding: clamp(18px, 2.4vw, 26px);
 }

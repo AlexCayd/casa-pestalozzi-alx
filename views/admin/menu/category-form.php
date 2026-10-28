@@ -1,10 +1,18 @@
 <?php
+    $menuBase = $menuBase ?? '/admin/menu';
+    $menuPuedeEditar = $menuPuedeEditar ?? true;
+    $menuContexto = $menuContexto ?? 'restaurante';
+    $menuRecetas = $menuRecetas ?? true;
+    $menuVariantes = $menuVariantes ?? true;
+    $menuCsrf = $menuCsrf ?? '';
+
     use Model\CategoriasMenu;
 
     $alertas = $alertas ?? [];
     $accion = $accion ?? 'Guardar cambios';
     // El catálogo de cartas lo pasa el controlador; el respaldo evita que
     // un render parcial deje el grupo de pastillas vacío y sin poder guardar.
+    $cartas = $menuCartas ?? $cartas ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : CategoriasMenu::CARTAS;
     $cartaActual = CategoriasMenu::normalizarCarta($categoria->carta ?? null);
 ?>
@@ -14,9 +22,9 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Categorías</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Categoría'); ?></h2>
-            <p class="admin-page__subtitle">Una categoría agrupa platillos y decide en cuál de las dos cartas se imprimen.</p>
+            <p class="admin-page__subtitle">Una categoría agrupa las ofertas de este negocio y determina su carta.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu/categorias">
+        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="m15 18-6-6 6-6"/>
             </svg>
@@ -44,6 +52,7 @@
         <?php endif; ?>
 
         <form class="admin-menu__form" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
             <label for="nombre">Nombre de la categoría</label>
             <input type="text" id="nombre" name="nombre" maxlength="40"
                    value="<?php echo htmlspecialchars($categoria->nombre ?? ''); ?>" required>
@@ -90,8 +99,8 @@
             </div>
 
             <div class="admin-menu__form-actions">
-                <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary"><?php echo htmlspecialchars($accion); ?></button>
-                <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu/categorias">Cancelar</a>
+                <button type="submit" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?> class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary"><?php echo htmlspecialchars($accion); ?></button>
+                <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Cancelar</a>
             </div>
         </form>
     </section>
