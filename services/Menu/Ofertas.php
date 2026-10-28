@@ -14,6 +14,7 @@ final class Ofertas
             ContextoNegocio::exigir('menu','editar',$ctx);
             $unidad=ContextoNegocio::vendedora($ctx); $db=ActiveRecord::getDB();
             $categoria=(int)($datos['categoria_id']??0); $area=(int)($datos['area_id']??0); $precio=$datos['precio']??null;
+            try { $precio=ImporteOferta::normalizar($precio); } catch (\InvalidArgumentException $e) { return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'PRECIO_INVALIDO']; }
             $activo=isset($datos['activo'])?(int)(bool)$datos['activo']:1; $orden=(int)($datos['orden']??0);
             if ($productoId<1 || $categoria<1 || $area<1 || !is_numeric($precio) || (float)$precio<0) return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'DATOS_INVALIDOS'];
             return ContextoNegocio::transaccion(static function () use ($db,$productoId,$unidad,$ctx,$categoria,$area,$precio,$activo,$orden): array {
@@ -27,10 +28,10 @@ final class Ofertas
                 if (!$stmt) throw new \RuntimeException($db->error);
                 $stmt->bind_param('ii',$productoId,$unidad); self::ejecutar($stmt); $existente=$stmt->get_result()->fetch_row(); $stmt->close();
                 if ($existente) return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'OFERTA_YA_EXISTE','id'=>(int)$existente[0],'oferta_id'=>(int)$existente[0],'producto_id'=>$productoId,'unidad_id'=>$unidad];
-                $precio=(float)$precio;
+
                 $stmt=$db->prepare("INSERT INTO ofertas_producto (producto_id,unidad_id,unidad_tipo,categoria_id,precio,area_id,activo,orden) VALUES (?,?,'negocio',?,?,?,?,?)");
                 if (!$stmt) throw new \RuntimeException($db->error);
-                $stmt->bind_param('iiidiii',$productoId,$unidad,$categoria,$precio,$area,$activo,$orden); self::ejecutar($stmt); $id=(int)$db->insert_id; $stmt->close();
+                $stmt->bind_param('iiisiii',$productoId,$unidad,$categoria,$precio,$area,$activo,$orden); self::ejecutar($stmt); $id=(int)$db->insert_id; $stmt->close();
                 return ['id'=>$id,'oferta_id'=>$id,'producto_id'=>$productoId,'unidad_id'=>$unidad];
             });
         });

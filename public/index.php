@@ -105,7 +105,18 @@ if (!\Classes\Auth::multinegocio()) {
     $router->get('/admin/global/usuarios', [\Controllers\AdminContextosController::class, 'pagina']);
 }
 $router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
-$router->get('/admin/panaderia/menu', [\Controllers\AdminContextosController::class, 'pagina']);
+// M1: un único controlador comercial para ambas unidades vendedoras.
+foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
+    $router->get('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
+}
+foreach (['create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
+    $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
+}
+$router->get('/admin/global/productos', [AdminMenuController::class, 'globalIndex']);
+$router->get('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
+$router->post('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
+$router->get('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
+$router->post('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
 $router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
 $router->get('/admin/panaderia/inventario', static function ($router) { header('Location: /admin/panaderia/almacenes',true,302); });
 $router->get('/admin', [AdminController::class, 'index']);

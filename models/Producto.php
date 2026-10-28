@@ -26,6 +26,8 @@ class Producto extends ActiveRecord {
         'area_id', 'activo'
     ];
 
+    public bool $confirmar_identidad = false;
+    public ?string $identidad_huella = null;
     public $id;
     public $nombre;
     public $descripcion;
@@ -522,6 +524,8 @@ class ProductoMultinegocio extends Producto
     protected static $columnasDB = ['id', 'nombre', 'descripcion', 'img', 'categoria_id', 'precio', 'area_id', 'activo', 'orden'];
 
     /** `id` permanece como alias de oferta_id para las interfaces existentes. */
+    public bool $confirmar_identidad = false;
+    public ?string $identidad_huella = null;
     public $id;
     public $oferta_id;
     public $producto_id;
@@ -563,12 +567,12 @@ class ProductoMultinegocio extends Producto
             $stmt->close();
             $categoria = (int)$this->categoria_id;
             $area = (int)$this->area_id;
-            $precio = (float)$this->precio;
+            $precio = \Services\Menu\ImporteOferta::normalizar($this->precio);
             $activo = (int)$this->activo;
             $orden = (int)$this->orden;
             $stmt = $db->prepare("INSERT INTO ofertas_producto (producto_id, unidad_id, unidad_tipo, categoria_id, precio, area_id, activo, orden) VALUES (?, ?, 'negocio', ?, ?, ?, ?, ?)");
             if (!$stmt) throw new \RuntimeException($db->error);
-            $stmt->bind_param('iiidiii', $productoId, $unidad, $categoria, $precio, $area, $activo, $orden);
+            $stmt->bind_param('iiisiii', $productoId, $unidad, $categoria, $precio, $area, $activo, $orden);
             self::ejecutar($stmt);
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
@@ -593,6 +597,8 @@ class ProductoMultinegocio extends Producto
         $db = self::getDB();
         $resultado = ContextoNegocio::transaccion(function () use ($db, $unidad, $oferta, $ctx) {
             ContextoNegocio::exigir('menu', 'editar', $ctx, true);
+            $lock = $db->prepare('SELECT p.id FROM productos p JOIN ofertas_producto o ON o.producto_id=p.id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
+            $lock->execute([$oferta, $unidad]); $lock->get_result()->fetch_all(); $lock->close();
             $stmt = $db->prepare('SELECT o.producto_id, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
             if (!$stmt) throw new \RuntimeException($db->error);
             $stmt->bind_param('ii', $oferta, $unidad);
@@ -607,8 +613,10 @@ class ProductoMultinegocio extends Producto
             $img = $this->img;
             $cambioIdentidad = $nombre !== (string)$actual['nombre'] || $descripcion !== $actual['descripcion'] || $img !== $actual['img'];
             if ($cambioIdentidad && (int)$actual['ofertas'] > 1) {
-                ContextoNegocio::facultad('catalogo.editar', 'global', 'menu', true);
+                ContextoNegocio::facultad(\Services\Menu\CatalogoComercial::FACULTAD, 'global', 'menu', true);
+                if (!$this->confirmar_identidad) throw new \RuntimeException('Confirma el cambio de identidad compartida.');
             }
+            if ($cambioIdentidad && $this->identidad_huella !== null && !hash_equals(\Services\Menu\CatalogoComercial::huella($actual), $this->identidad_huella)) throw new \RuntimeException('La identidad cambió. Recarga el formulario.');
             if ($cambioIdentidad) {
                 $stmt = $db->prepare('UPDATE productos SET nombre=?, descripcion=?, img=? WHERE id=? LIMIT 1');
                 if (!$stmt) throw new \RuntimeException($db->error);
@@ -617,13 +625,13 @@ class ProductoMultinegocio extends Producto
                 $stmt->close();
             }
             $categoria = (int)$this->categoria_id;
-            $precio = (float)$this->precio;
+            $precio = \Services\Menu\ImporteOferta::normalizar($this->precio);
             $area = (int)$this->area_id;
             $activo = (int)$this->activo;
             $orden = (int)$this->orden;
             $stmt = $db->prepare('UPDATE ofertas_producto SET categoria_id=?, precio=?, area_id=?, activo=?, orden=? WHERE id=? AND unidad_id=? LIMIT 1');
             if (!$stmt) throw new \RuntimeException($db->error);
-            $stmt->bind_param('idiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
+            $stmt->bind_param('isiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
             self::ejecutar($stmt);
             $stmt->close();
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
@@ -817,19 +825,12 @@ public static function find($id)
         if (!trim((string)$this->nombre)) static::setAlerta('error', 'El nombre del platillo es obligatorio');
         if (!trim((string)$this->descripcion)) static::setAlerta('error', 'La descripción es obligatoria');
         if ((int)$this->categoria_id < 1) static::setAlerta('error', 'La categoría es obligatoria');
-        if ($this->precio === '' || $this->precio === null || !is_numeric($this->precio) || (float)$this->precio < 0) static::setAlerta('error', 'El precio debe ser un número válido');
+        try { \Services\Menu\ImporteOferta::normalizar($this->precio); } catch (\InvalidArgumentException $e) { static::setAlerta('error', $e->getMessage()); }
                 if ((int)$this->area_id < 1) static::setAlerta('error', 'El área de producción es obligatoria');
-        if (trim((string)$this->nombre) !== '' && self::nombreRepetido(trim((string)$this->nombre), (int)($this->oferta_id ?: $this->id))) static::setAlerta('error', 'Ya existe una oferta con ese nombre en este negocio');
+        if (mb_strlen((string)$this->nombre) > 120) static::setAlerta('error', 'El nombre admite hasta 120 caracteres');
         return static::$alertas;
     }
 
-    private static function nombreRepetido(string $nombre,int $oferta): bool
-    {
-        $unidad=ContextoNegocio::unidad(ContextoNegocio::slug()); $nombre=self::escaparString($nombre);
-        $sql="SELECT o.id FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.unidad_id={$unidad} AND p.nombre='{$nombre}'";
-        if ($oferta>0) $sql.=' AND o.id<>'.(int)$oferta;
-        $res=self::getDB()->query($sql.' LIMIT 1'); return $res && $res->num_rows>0;
-    }
     private static function validarReferenciasLocales(\mysqli $db, int $categoria, int $area, int $unidad): void
     {
         $stmt = $db->prepare('SELECT (SELECT COUNT(*) FROM categorias WHERE id=? AND unidad_id=?), (SELECT COUNT(*) FROM areas_produccion WHERE id=? AND unidad_id=?)');

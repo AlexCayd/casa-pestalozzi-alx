@@ -16,6 +16,7 @@ INSERT INTO facultades(clave,solo_global,descripcion) VALUES
  ('usuarios.gestionar',0,'Gestionar cuentas dentro del alcance autorizado.'),
  ('permisos.delegar',0,'Delegar permisos dentro del alcance autorizado.'),
  ('almacenes.crear',1,'Crear almacenes para cualquier unidad desde Global.'),
+ ('comercial.identidad.editar',1,'Editar identidades comerciales compartidas; no concede precios locales.'),
  ('catalogo.editar',1,'Editar el catálogo maestro compartido.'),
  ('transferencias.solicitar',0,'Solicitar transferencias autorizadas.'),
  ('transferencias.enviar',0,'Enviar transferencias desde almacenes autorizados.'),
