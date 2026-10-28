@@ -174,3 +174,29 @@ n8n, README y CLAUDE. Para cambios documentales comprobar también PRODUCT, API,
 database/ANALITICAS y classes/Impresion/README: esos archivos quedan fuera de su
 recorrido automático. Revisar enlaces internos y referencias a rutas retiradas.
 No modificar pruebas para permitir una limpieza incompatible con sus consumidores.
+
+
+## Menú y catálogo comercial M1
+
+```sh
+npm run test:menu:m1 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
+npm run test:menu:m1-ui
+php scripts/tests/pruebas-http-menu-m1.php --fixture <ruta-privada-del-harness-3e>
+```
+
+El runner M1 crea y limpia una base aleatoria marcada desde los cuatro SQL
+versionados. Verifica nuevas identidades, oferta explícita, independencia,
+permisos/revocación, facultad separada de inventario, precios exactos, retiro con
+ventas, referencias de imágenes, fallos después de la primera escritura y carreras
+entre dos procesos. No selecciona ni migra la base activa identificada por argumentos.
+
+El cliente HTTP 3E incorpora perfiles `menu/ver` y `menu/editar`. La suite M1
+verifica CSRF contextual, IDs manipulados, categorías ajenas, asociación, edición
+maestra con confirmación y huella, fotos pendientes/confirmadas y retiro de sus
+archivos propios, además de PDFs públicos y superficies futuras bloqueadas.
+Sus datos viven únicamente durante el harness. El cliente común admite multipart
+para imágenes efímeras sin exponer credenciales. La prueba UI usa el componente
+real de confirmación en JSDOM, disponible en las dependencias bloqueadas.
+Completar con recorrido real de temas, teclado, categorías, filtros, modal,
+Global, Restaurante y Panadería en escritorio y móvil; las capturas quedan fuera
+de Git. Resultados de la revisión en [Catálogo y Menú](../modulos/catalogo-comercial.md).

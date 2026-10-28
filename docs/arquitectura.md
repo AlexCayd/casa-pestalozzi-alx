@@ -4,7 +4,7 @@
 
 M0 integra segundo factor administrativo por privilegios efectivos (superadmin
 y permisos directos de panel), JWT HS256 para integraciones entrantes y corte
-de caja por turnos de Restaurante. No libera nuevos módulos comerciales.
+de caja por turnos de Restaurante. M1 incorpora la administración comercial compartida descrita en [Catálogo y Menú](modulos/catalogo-comercial.md).
 Los contratos detallados se desarrollan en [credenciales](usuarios/credenciales.md),
 [API](../API.md#9-jwt-de-integraciones) y [operación](operacion.md#corte-de-caja-por-turnos).
 Las rutas públicas `/panaderia`, `/panaderia/carta`, `/panaderia/pedidos`,
@@ -17,7 +17,7 @@ Este documento es la única fuente normativa para alcance, arquitectura, propied
 
 Casa Pestalozzi es una aplicación web PHP 8 MVC con MySQL. Una identidad compartida puede trabajar en tres ámbitos: Global, Restaurante y Panadería. Global es administrativo y no vende. Restaurante y Panadería son negocios distintos con oferta, almacenes, operaciones comerciales y finanzas propias.
 
-El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. No exige completar el catálogo administrativo, POS, recetas, tickets, pagos o finanzas de Panadería ni los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
+El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. M1 completa el catálogo administrativo y Menú de Panadería y la administración de identidades comerciales de Global. POS, recetas administrativas completas, tickets, pagos y finanzas de Panadería siguen pendientes; también los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
 
 ## 2. Arquitectura de aplicación
 
@@ -41,7 +41,7 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
 | Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
-| Menú y ofertas | Global no vende | Funcional; menú original preservado | Esquema y datos sintéticos preparados; UI administrativa pendiente |
+| Menú y ofertas | Catálogo comercial funcional en `/admin/global/productos`, sin venta ni edición de precios locales | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
 | Recetas y variantes | Servicios compartidos; sin producción Global | Funcionales en los flujos existentes | Modelo/servicios preparados; experiencia comercial pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
@@ -162,3 +162,26 @@ El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa sol
 - [Instalación](desarrollo/instalacion.md), [desarrollo](desarrollo/desarrollo.md), [pruebas](desarrollo/pruebas.md), [backlog](backlog.md), [índice documental](desarrollo/clasificacion-documental.md) y [guía técnica de interfaz](desarrollo/interfaz.md).
 - Referencias funcionales subordinadas: [Usuarios](usuarios/usuarios.md), [permisos](usuarios/roles-y-permisos.md), [Almacenes](modulos/almacenes.md), [reservaciones](reservaciones/reservaciones.md), [notificaciones](reservaciones/notificaciones.md), [operación](operacion.md), [privacidad](privacidad/privacidad.md), [configuración](config.md) y [API](../API.md).
 - Referencia técnica de organización de código: §§2 y 11 de este documento y los contratos del código. Los documentos históricos de etapas anteriores no son procedimientos vigentes.
+
+
+## 10. Administración comercial M1
+
+El [contrato de Catálogo y Menú](modulos/catalogo-comercial.md) registra la auditoría,
+propiedad, rutas, autorización y aceptación. `productos` conserva la identidad;
+`ofertas_producto` conserva condiciones locales y retiro lógico. No se fusionan
+identidades por nombre ni se copian ofertas entre negocios. Categoría/carta y área
+se validan por unidad; Global nunca crea ofertas.
+
+`menu/ver` Global consulta identidades; su uso comercial se muestra exclusivamente
+en negocios con `menu/ver`. Escribir datos maestros exige `menu/editar` Global y
+`comercial.identidad.editar`, independiente de `catalogo.editar` inventariable.
+Una identidad compartida exige además confirmación explícita de impacto, bloqueo
+y huella vigente. El administrador local sin esa facultad modifica solo su oferta.
+La navegación, el CSRF y el destino de login son contextuales; la sesión no acepta
+IDs de unidad u oferta enviados para sustituir el recurso de la ruta.
+
+Las instalaciones nuevas incorporan la facultad desde `deploy.sql`. Para una
+instalación existente, el despliegue aditivo está en
+`database/actualizaciones/m1-facultad-comercial.sql`; no concede facultades a
+usuarios ni requiere migrar datos del menú. Las pruebas nunca lo aplican a la
+base activa. M2 y M3 permanecen fuera de esta entrega.

@@ -32,6 +32,7 @@ final class Ofertas
                 $stmt=$db->prepare("INSERT INTO ofertas_producto (producto_id,unidad_id,unidad_tipo,categoria_id,precio,area_id,activo,orden) VALUES (?,?,'negocio',?,?,?,?,?)");
                 if (!$stmt) throw new \RuntimeException($db->error);
                 $stmt->bind_param('iiisiii',$productoId,$unidad,$categoria,$precio,$area,$activo,$orden); self::ejecutar($stmt); $id=(int)$db->insert_id; $stmt->close();
+                if (!\Model\HistorialPrecio::registrar(['unidad_id'=>$unidad,'oferta_id'=>$id,'articulo_id'=>null,'precio_anterior'=>null,'precio_nuevo'=>$precio,'motivo'=>'alta'], true)) throw new \RuntimeException('No se pudo preparar el histórico de la oferta.');
                 return ['id'=>$id,'oferta_id'=>$id,'producto_id'=>$productoId,'unidad_id'=>$unidad];
             });
         });

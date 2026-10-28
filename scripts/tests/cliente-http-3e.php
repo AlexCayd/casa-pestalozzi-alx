@@ -8,7 +8,8 @@ final class ClienteInstalacion3E
  public function request(string $method,string $path,?array $data=null): array
  {
   if(!str_starts_with($path,'/')||str_starts_with($path,'//'))throw new RuntimeException('Ruta fuera del harness.');
-  curl_setopt_array($this->curl,[CURLOPT_URL=>'http://127.0.0.1:8094'.$path,CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_POSTFIELDS=>$method==='POST'?http_build_query($data??[]):null,CURLOPT_HTTPHEADER=>['Accept: text/html,application/json,application/pdf','Content-Type: application/x-www-form-urlencoded']]);
+  $multipart=$data!==null&&count(array_filter($data,static fn($v)=>$v instanceof CURLFile))>0;
+  curl_setopt_array($this->curl,[CURLOPT_URL=>'http://127.0.0.1:8094'.$path,CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_POSTFIELDS=>$method==='POST'?($multipart?$data:http_build_query($data??[])):null,CURLOPT_HTTPHEADER=>$multipart?['Accept: text/html,application/json,application/pdf']:['Accept: text/html,application/json,application/pdf','Content-Type: application/x-www-form-urlencoded']]);
   $raw=curl_exec($this->curl);if(!is_string($raw))throw new RuntimeException('No respondió el servidor HTTP de pruebas.');$size=(int)curl_getinfo($this->curl,CURLINFO_HEADER_SIZE);$head=substr($raw,0,$size);$body=substr($raw,$size);preg_match('/^Location:\s*([^\r\n]+)/mi',$head,$loc);
   return ['status'=>(int)curl_getinfo($this->curl,CURLINFO_RESPONSE_CODE),'body'=>$body,'location'=>trim($loc[1]??''),'json'=>json_decode($body,true)];
  }

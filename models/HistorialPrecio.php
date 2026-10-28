@@ -45,9 +45,9 @@ class HistorialPrecio extends ActiveRecord {
      * cero", que es falso en un alta— y usuario_id en 0, que ni existe en
      * usuarios y hace fallar la llave foránea.
      */
-    public static function registrar(array $datos): bool
+    public static function registrar(array $datos, bool $coordinada = false): bool
     {
-        if (ContextoNegocio::nuevo()) return HistorialPrecioMultinegocio::registrar($datos);
+        if (ContextoNegocio::nuevo()) return HistorialPrecioMultinegocio::registrar($datos, $coordinada);
         $sql = 'INSERT INTO ' . static::$tabla .
             ' (entidad, ref_id, precio_anterior, precio_nuevo, motivo, proveedor_id, usuario_id)
               VALUES (?, ?, ?, ?, ?, ?, ?)';
@@ -122,7 +122,7 @@ class HistorialPrecioMultinegocio extends HistorialPrecio
     public $oferta_id;
     public $articulo_id;
 
-    public static function registrar(array $datos): bool
+    public static function registrar(array $datos, bool $coordinada = false): bool
     {
         $unidad=(int)($datos['unidad_id']??0);
         $oferta=$datos['oferta_id']??null;
@@ -170,16 +170,19 @@ class HistorialPrecioMultinegocio extends HistorialPrecio
             $stmt=$db->prepare('INSERT INTO historial_precios (unidad_id,oferta_id,articulo_id,precio_anterior,precio_nuevo,motivo,proveedor_id,usuario_id) VALUES (?,?,?,?,?,?,?,?)');
             if (!$stmt) throw new \RuntimeException($db->error);
             $anterior=$datos['precio_anterior']??null;
-            $nuevo=(float)$datos['precio_nuevo'];
+            $nuevo=(string)$datos['precio_nuevo'];
             $motivo=(string)$datos['motivo'];
             $usuario=ContextoNegocio::actorId() ?: null;
-            $stmt->bind_param('iiiddsii',$unidad,$oferta,$articulo,$anterior,$nuevo,$motivo,$proveedor,$usuario);
+            $stmt->bind_param('iiisssii',$unidad,$oferta,$articulo,$anterior,$nuevo,$motivo,$proveedor,$usuario);
             if (!$stmt->execute()) { $error=$stmt->error; $stmt->close(); throw new \RuntimeException($error); }
             $stmt->close();
             return ['registrado'=>true];
         });
 
-        return !empty($resultado['ok']) && !empty($resultado['confirmado']) && !empty($resultado['registrado']);
+        // El coordinador comercial publica éxito únicamente después de su commit.
+        $confirmada = !empty($resultado['ok']) && !empty($resultado['confirmado']);
+        $preparada = $coordinada && !empty($resultado['pendiente']) && ($resultado['ok'] ?? null) === null;
+        return ($confirmada || $preparada) && !empty($resultado['registrado']);
     }
 
     public static function historial(string $entidad,int $refId,int $limite=20): array

@@ -34,6 +34,14 @@ final class AdministracionMenu
             http_response_code(419);
             exit('La sesión del formulario venció. Recarga la página.');
         }
+        if ($post) {
+            foreach (['nombre','descripcion','precio','categoria_id','area_id','orden','activo','id','producto_id','carta','identidad_huella','confirmar_identidad','quitar_imagen','imagen_pendiente'] as $campo) {
+                if (isset($_POST[$campo]) && !is_scalar($_POST[$campo])) {
+                    http_response_code(422);
+                    exit('El formulario contiene un dato con formato inválido.');
+                }
+            }
+        }
     }
 
     public static function vista(): array

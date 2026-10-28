@@ -171,7 +171,7 @@ class AdminMenuController
 
                 if ($resultado && $resultado['resultado']) {
                     $foto->confirmar();
-                    HistorialPrecios::registrarAlta(
+                    if (!ContextoNegocio::nuevo()) HistorialPrecios::registrarAlta(
                         HistorialPrecio::ENTIDAD_PRODUCTO,
                         (int) $resultado['id'],
                         $platillo->precio
@@ -230,7 +230,7 @@ class AdminMenuController
                     $foto->confirmar();
                     // registrar() no escribe si el precio no cambió, así que
                     // guardar sólo la descripción no ensucia el histórico.
-                    HistorialPrecios::registrar(
+                    if (!ContextoNegocio::nuevo()) HistorialPrecios::registrar(
                         HistorialPrecio::ENTIDAD_PRODUCTO,
                         (int) $platillo->id,
                         $precioAnterior,
@@ -347,9 +347,7 @@ class AdminMenuController
         $categoria = new CategoriasMenu();
         $categoria->sincronizar(array_intersect_key($_POST, array_flip(['nombre','carta'])));
         $categoria->activo = 1;
-        // sincronizar() copia lo que venga; normalizar aquí es lo que impide
-        // que un POST a mano meta una categoría en una carta inexistente.
-        $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
+        // Una carta desconocida debe mostrar validación, no cambiar silenciosamente de destino.
 
         $alertas = $categoria->validar();
         $imagen = $_FILES['imagen'] ?? null;
@@ -368,6 +366,7 @@ class AdminMenuController
         }
 
         if (!empty($alertas)) {
+            if (isset($ruta) && $ruta) ImagenUploader::eliminar($ruta);
             foreach ($alertas['error'] ?? [] as $error) {
                 CategoriasMenu::setAlerta('error', $error);
             }
@@ -404,7 +403,6 @@ class AdminMenuController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $categoria->sincronizar(array_intersect_key($_POST, array_flip(['nombre','carta'])));
             $categoria->activo = isset($_POST['activo']) ? 1 : 0;
-            $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
             $categoria->img = $imagenActual;
 
             $alertas = $categoria->validar();
@@ -493,7 +491,8 @@ class AdminMenuController
         $pagina = max(1, (int)($_GET['page'] ?? 1));
         $alertas = [];
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $resultado = Ofertas::crear((int)($_POST['producto_id'] ?? 0), ContextoNegocio::slug(), $_POST);
+            $datos = array_replace($_POST, ['activo'=>isset($_POST['activo']) ? 1 : 0]);
+            $resultado = Ofertas::crear((int)($_POST['producto_id'] ?? 0), ContextoNegocio::slug(), $datos);
             if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
                 Producto::setAlerta('exito', 'Oferta asociada correctamente');
                 self::index($router);
@@ -536,6 +535,11 @@ class AdminMenuController
         $alertas = []; $foto = null;
         $huella = CatalogoComercial::huella($actual);
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!CatalogoComercial::puedeEditar()) {
+                http_response_code(403);
+                echo 'No tienes autorización para editar identidades comerciales.';
+                return;
+            }
             ContextoNegocio::facultad(CatalogoComercial::FACULTAD, 'global', 'menu');
             $producto->nombre = is_string($_POST['nombre'] ?? null) ? trim($_POST['nombre']) : '';
             $producto->descripcion = is_string($_POST['descripcion'] ?? null) ? trim($_POST['descripcion']) : '';

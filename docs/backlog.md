@@ -33,6 +33,11 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
   optimizaciones. Revisar agrupación por categoría/identidad cuando se renombre
   el catálogo; no modificar snapshots históricos para unificar series.
 
+M1 entrega [Catálogo comercial y Menú](modulos/catalogo-comercial.md): administración
+local de ofertas y categorías, asociación de identidades y edición maestra Global
+con facultad comercial independiente. La carta pública y ventas de Panadería
+siguen pendientes; no habilitar sus acciones desde Menú.
+
 ## Mejoras de funcionalidades existentes
 
 | Módulo | Mejora | Límite |
@@ -46,7 +51,7 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
 | Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
-| Panadería | Menú administrativo y recetas | Reutilizar oferta, recetas versionadas y UI de Restaurante |
+| Panadería | M2: recetas administrativas completas | Menú M1 completado; reutilizar recetas versionadas sobre ofertas propias |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
 | Panadería | Tickets, pagos y finanzas | Snapshots, idempotencia, compensaciones e informes propios |
 | Global | Dashboards consolidados | Lectura autorizada, sin ventas Global ni doble conteo |

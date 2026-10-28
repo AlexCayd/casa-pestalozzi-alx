@@ -289,3 +289,25 @@ formato −$1,234.56. No cargar Chart.js para barra de gastos ni formatear en vi
 Editar fuentes, compilar y revisar diff de bundles. Verificar temas, móvil,
 tablet, escritorio, teclado, foco, solo consulta, errores y reduced-motion.
 Consultar [pruebas](pruebas.md); reglas de negocio permanecen en backend.
+
+
+## Catálogo comercial y Menú M1
+
+Restaurante y Panadería comparten `views/admin/menu/`, configuración de
+`AdministracionMenu` y el CSS existente. La ruta efectiva prepara enlaces,
+cartas, permisos y acciones. Panadería informa recetas/producción pendientes y
+oculta editores de recetas, variantes, históricos y PDF aún no disponibles.
+El formulario conserva la foto pendiente y la previsualización existente.
+
+Global usa `/admin/global/productos` para identidades comerciales: fichas con ID,
+datos maestros y ofertas de negocios consultables, sin edición de precios locales.
+`/admin/global/catalogo` sigue siendo inventariable. La ficha maestra reutiliza
+el formulario del producto ocultando condiciones locales. Los datos compartidos
+explican el impacto y exigen marcar confirmación; sin facultad son consulta.
+
+Solo lectura oculta altas/ediciones destructivas y deshabilita controles de
+mutación; el servidor revalida toda petición. Confirmación escrita del modal
+compartido hace visible su ranura personalizada, enfoca el campo y habilita la
+acción solo al coincidir el nombre. Se verificó en navegador la cancelación y
+el nombre requerido, además de temas, selector, escritorio y móvil a 390 px.
+Ver evidencia y límites en el [contrato del módulo](../modulos/catalogo-comercial.md).

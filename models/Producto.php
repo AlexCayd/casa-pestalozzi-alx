@@ -28,6 +28,7 @@ class Producto extends ActiveRecord {
 
     public bool $confirmar_identidad = false;
     public ?string $identidad_huella = null;
+    public $orden = 0;
     public $id;
     public $nombre;
     public $descripcion;
@@ -550,6 +551,7 @@ class ProductoMultinegocio extends Producto
         if ($ctx === 'global') {
             return ['resultado' => false, 'id' => 0];
         }
+        if ($this->validar()) return ['resultado' => false, 'id' => 0];
         $unidad = ContextoNegocio::unidad($ctx);
         $db = self::getDB();
         $resultado = ContextoNegocio::transaccion(function () use ($db, $unidad, $ctx) {
@@ -576,6 +578,7 @@ class ProductoMultinegocio extends Producto
             self::ejecutar($stmt);
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
+            self::registrarPrecio($ofertaId, $unidad, null, $precio);
             return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
         });
         $payload = self::transaccionResultado($resultado);
@@ -591,6 +594,7 @@ class ProductoMultinegocio extends Producto
     {
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'editar', $ctx);
+        if ($this->validar()) return false;
         $unidad = ContextoNegocio::unidad($ctx);
         $oferta = (int)($this->oferta_id ?: $this->id);
         if ($oferta < 1 || $ctx === 'global') return false;
@@ -599,7 +603,7 @@ class ProductoMultinegocio extends Producto
             ContextoNegocio::exigir('menu', 'editar', $ctx, true);
             $lock = $db->prepare('SELECT p.id FROM productos p JOIN ofertas_producto o ON o.producto_id=p.id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
             $lock->execute([$oferta, $unidad]); $lock->get_result()->fetch_all(); $lock->close();
-            $stmt = $db->prepare('SELECT o.producto_id, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
+            $stmt = $db->prepare('SELECT o.producto_id, o.precio AS precio_anterior, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
             if (!$stmt) throw new \RuntimeException($db->error);
             $stmt->bind_param('ii', $oferta, $unidad);
             self::ejecutar($stmt);
@@ -634,6 +638,7 @@ class ProductoMultinegocio extends Producto
             $stmt->bind_param('isiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
             self::ejecutar($stmt);
             $stmt->close();
+            if ((string)$actual['precio_anterior'] !== $precio) self::registrarPrecio($oferta, $unidad, $actual['precio_anterior'], $precio);
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
         });
         $payload = self::transaccionResultado($resultado);
@@ -829,6 +834,14 @@ public static function find($id)
                 if ((int)$this->area_id < 1) static::setAlerta('error', 'El área de producción es obligatoria');
         if (mb_strlen((string)$this->nombre) > 120) static::setAlerta('error', 'El nombre admite hasta 120 caracteres');
         return static::$alertas;
+    }
+
+    private static function registrarPrecio(int $oferta, int $unidad, ?string $anterior, string $nuevo): void
+    {
+        if (!HistorialPrecio::registrar(['unidad_id'=>$unidad,'oferta_id'=>$oferta,'articulo_id'=>null,
+            'precio_anterior'=>$anterior,'precio_nuevo'=>$nuevo,'motivo'=>$anterior===null?'alta':'edicion'], true)) {
+            throw new \RuntimeException('No se pudo preparar el histórico de la oferta.');
+        }
     }
 
     private static function validarReferenciasLocales(\mysqli $db, int $categoria, int $area, int $unidad): void
