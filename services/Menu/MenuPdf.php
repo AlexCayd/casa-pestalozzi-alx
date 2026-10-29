@@ -96,7 +96,7 @@ class MenuPdf
         $db=\Model\ActiveRecord::getDB();
         $s=$db->prepare('SELECT slug FROM cartas WHERE unidad_id=? AND slug=? AND activo=1');$s->execute([$unidad,$carta]);
         if (!$s->get_result()->fetch_row()) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no existe o está inactiva en este negocio.');
-        $s=$db->prepare('SELECT c.id,c.nombre AS categoria,p.nombre,p.descripcion,o.precio FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN cartas ca ON ca.unidad_id=c.unidad_id AND ca.slug=c.carta JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND ca.slug=? AND ca.activo=1 AND c.activo=1 AND o.activo=1 ORDER BY c.orden,c.id,o.orden,o.id');
+        $s=$db->prepare('SELECT c.id,c.nombre AS categoria,p.nombre,p.descripcion,o.precio FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN cartas ca ON ca.unidad_id=c.unidad_id AND ca.slug=c.carta JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND ca.slug=? AND ca.activo=1 AND c.activo=1 AND o.activo=1 ORDER BY c.orden,c.id,o.orden,o.id');
         $s->execute([$unidad,$carta]);$grupos=[];
         foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
             $id=(int)$row['id'];if(!isset($grupos[$id]))$grupos[$id]=['nombre'=>$row['categoria'],'platillos'=>[]];

@@ -45,9 +45,9 @@ CREATE TABLE IF NOT EXISTS receta_origen_casa (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE OR REPLACE VIEW productos_oferta AS
  SELECT p.id,o.id AS oferta_id,p.created_at,p.updated_at,
- CASE WHEN pn.oferta_id IS NOT NULL AND JSON_EXTRACT(pp.datos,'$.reglas.nombre')=true THEN JSON_UNQUOTE(pn.valor) ELSE p.nombre END AS nombre,
- CASE WHEN pd.oferta_id IS NOT NULL AND JSON_EXTRACT(pp.datos,'$.reglas.descripcion')=true THEN JSON_UNQUOTE(pd.valor) ELSE p.descripcion END AS descripcion,
- CASE WHEN pi.oferta_id IS NOT NULL AND JSON_EXTRACT(pp.datos,'$.reglas.img')=true THEN CASE WHEN JSON_TYPE(pi.valor)='NULL' THEN NULL ELSE JSON_UNQUOTE(pi.valor) END ELSE p.img END AS img
+ CASE WHEN pn.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.nombre'))='true' THEN JSON_UNQUOTE(pn.valor) ELSE p.nombre END AS nombre,
+ CASE WHEN pd.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.descripcion'))='true' THEN JSON_UNQUOTE(pd.valor) ELSE p.descripcion END AS descripcion,
+ CASE WHEN pi.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.img'))='true' THEN CASE WHEN JSON_TYPE(pi.valor)='NULL' THEN NULL ELSE JSON_UNQUOTE(pi.valor) END ELSE p.img END AS img
  FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id
  LEFT JOIN producto_estandares pe ON pe.producto_id=p.id
  LEFT JOIN producto_publicaciones pp ON pp.id=pe.publicacion_id

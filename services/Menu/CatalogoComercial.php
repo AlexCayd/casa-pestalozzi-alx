@@ -18,7 +18,7 @@ final class CatalogoComercial
     }
 
     /** Los filtros y recuentos solo consideran ofertas que el actor puede consultar. */
-    public static function listar(string $q, int $pagina, string $negocio = '', string $uso = ''): array
+    public static function listar(string $q, int $pagina, string $negocio = '', string $uso = '',string $tipo=''): array
     {
         $perfil=ContextoNegocio::exigir('menu','ver','global');
         $negocios=[];
@@ -30,15 +30,20 @@ final class CatalogoComercial
         $where='(p.nombre LIKE ? ESCAPE \'!\' OR p.descripcion LIKE ? ESCAPE \'!\' OR p.id=?)';
         $like='%'.str_replace(['!','%','_'],['!!','!%','!_'],mb_substr(trim($q),0,100)).'%';
         $params=[$like,$like,ctype_digit($q)?(int)$q:0];
+        if(!in_array($tipo,['','estandar','compartido','exclusivo','sin_receta'],true))throw new \RuntimeException('Filtro de administración inválido.');
+        if($tipo!==''){
+            if($tipo==='sin_receta')$where.=" AND NOT EXISTS(SELECT 1 FROM producto_estandares pe JOIN producto_publicaciones pp ON pp.id=pe.publicacion_id WHERE pe.producto_id=p.id AND JSON_EXTRACT(pp.datos,'$.receta_version_id')>0)";
+            else {$where.=" AND EXISTS(SELECT 1 FROM producto_estandares pe WHERE pe.producto_id=p.id AND JSON_UNQUOTE(JSON_EXTRACT(pe.borrador,'$.tipo'))=?)";$params[]=$tipo;}
+        }
         if ($negocio!=='' || $uso!=='') { $where.=' AND '.($uso==='sin'?'NOT ':'').$exists; array_push($params,...$unidades); }
         $db=ActiveRecord::getDB();
         $s=$db->prepare('SELECT COUNT(*) FROM productos p WHERE '.$where);$s->execute($params);$total=(int)$s->get_result()->fetch_row()[0];
         $paginas=max(1,(int)ceil($total/30));$pagina=max(1,min($pagina,$paginas));
         $s=$db->prepare('SELECT p.id,p.nombre,p.descripcion,p.img FROM productos p WHERE '.$where.' ORDER BY p.nombre,p.id LIMIT 30 OFFSET ?');
         $s->execute([...$params,($pagina-1)*30]);$items=$s->get_result()->fetch_all(MYSQLI_ASSOC);
-        foreach ($items as &$item) $item['usos']=self::usos((int)$item['id']);
+        foreach ($items as &$item){$item['usos']=self::usos((int)$item['id']);$c=ProductosCasa::configuracion((int)$item['id']);$d=ProductosCasa::dato($c['borrador']??null);$item['administracion']=$d['tipo']??'local';$item['estado_casa']=$c?($c['publicacion_id']?'Publicado':'Borrador'):'Local';$item['receta_casa']=!empty($d['receta_version_id']);}
         unset($item);
-        return ['identidades'=>$items,'totalIdentidades'=>$total,'pagina'=>$pagina,'paginas'=>$paginas,'negociosConsulta'=>array_keys($negocios),'negocioFiltro'=>$negocio,'usoFiltro'=>$uso];
+        return ['identidades'=>$items,'totalIdentidades'=>$total,'pagina'=>$pagina,'paginas'=>$paginas,'negociosConsulta'=>array_keys($negocios),'negocioFiltro'=>$negocio,'usoFiltro'=>$uso,'tipoFiltro'=>$tipo];
     }
 
     /** Selección de identidades sin revelar ofertas de otros negocios. */
@@ -88,6 +93,7 @@ final class CatalogoComercial
         ContextoNegocio::facultad(self::FACULTAD, 'global', 'menu');
         return ContextoNegocio::transaccion(static function () use ($id, $datos, $huella, $confirmado): array {
             ContextoNegocio::facultad(self::FACULTAD, 'global', 'menu', true);
+            if(ProductosCasa::configuracion($id))throw new \RuntimeException('Este producto se administra mediante borrador y publicación de la casa.');
             $db = ActiveRecord::getDB();
             $s = $db->prepare('SELECT id,nombre,descripcion,img FROM productos WHERE id=? FOR UPDATE');
             $s->execute([$id]); $actual = $s->get_result()->fetch_assoc();

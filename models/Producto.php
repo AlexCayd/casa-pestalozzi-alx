@@ -28,6 +28,7 @@ class Producto extends ActiveRecord {
 
     public bool $confirmar_identidad = false;
     public ?string $identidad_huella = null;
+    public array $restaurar_casa = [];
     public $orden = 0;
     public $id;
     public $nombre;
@@ -594,6 +595,10 @@ class ProductoMultinegocio extends Producto
     {
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'editar', $ctx);
+        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) {
+            $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,(int)($this->oferta_id?:$this->id),['nombre'=>$this->nombre,'descripcion'=>$this->descripcion,'img'=>$this->img,'precio'=>$this->precio,'activo'=>$this->activo,'categoria_id'=>$this->categoria_id,'area_id'=>$this->area_id,'orden'=>$this->orden],$this->restaurar_casa);
+            return !empty($r['ok']) && !empty($r['confirmado']);
+        }
         if ($this->validar()) return false;
         $unidad = ContextoNegocio::unidad($ctx);
         $oferta = (int)($this->oferta_id ?: $this->id);
@@ -683,19 +688,19 @@ public static function find($id)
     public static function catalogoPos(): array
     {
         ContextoNegocio::exigir('pdv','operar',ContextoNegocio::slug());
-        return self::consultarSQL('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, o.precio, o.categoria_id, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, ap.slug AS area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug()) . ' AND o.activo=1 AND c.activo=1 ORDER BY c.orden, c.id, o.orden, o.id');
+        return self::consultarSQL('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, o.precio, o.categoria_id, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, ap.slug AS area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug()) . ' AND o.activo=1 AND c.activo=1 ORDER BY c.orden, c.id, o.orden, o.id');
     }
 
     private static function baseSelect(): string
     {
         $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
-        return 'SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img, ap.slug AS area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id LEFT JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad;
+        return 'SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img, ap.slug AS area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id LEFT JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad;
     }
 
     private static function agrupar(string $filtro): array
     {
         $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
-        $res = self::getDB()->query('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad . $filtro . ' ORDER BY c.orden, c.id, o.orden, o.id');
+        $res = self::getDB()->query('SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad . $filtro . ' ORDER BY c.orden, c.id, o.orden, o.id');
         $grupos = [];
         if (!$res) return [];
         while ($fila = $res->fetch_object()) {
@@ -720,7 +725,7 @@ public static function find($id)
     {
         ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
         $where = self::condicionesAdmin($filtros);
-        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
+        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
         if ($where) $sql .= ' AND ' . implode(' AND ', $where);
         $res = self::getDB()->query($sql);
         if (!$res) return 0;
@@ -741,7 +746,7 @@ public static function find($id)
     {
         ContextoNegocio::exigir('productos','ver',ContextoNegocio::slug());
         $where = self::condicionesRecetas($filtros);
-        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id LEFT JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
+        $sql = 'SELECT COUNT(*) FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id LEFT JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id=' . ContextoNegocio::unidad(ContextoNegocio::slug());
         if ($where) $sql .= ' AND ' . implode(' AND ', $where);
         $res = self::getDB()->query($sql);
         if (!$res) return 0;
@@ -790,6 +795,7 @@ public static function find($id)
     public function alternarVisibilidad(): bool
     {
         $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
+        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) { $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,$id,['activo'=>1-(int)$this->activo]);return !empty($r['ok'])&&!empty($r['confirmado']); }
         $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
             ContextoNegocio::exigir('menu','editar',$ctx,true);
             $stmt=$db->prepare('UPDATE ofertas_producto SET activo=1-activo WHERE id=? AND unidad_id=? LIMIT 1');
@@ -805,6 +811,7 @@ public static function find($id)
     public function retirar(): bool
     {
         $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
+        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) { $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,$id,['activo'=>0]);return !empty($r['ok'])&&!empty($r['confirmado']); }
         $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
             ContextoNegocio::exigir('menu','editar',$ctx,true);
             $stmt=$db->prepare('SELECT id FROM ofertas_producto WHERE id=? AND unidad_id=? LIMIT 1 FOR UPDATE');

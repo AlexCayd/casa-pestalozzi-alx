@@ -120,6 +120,10 @@ foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','ma
 $router->get('/admin/global/productos', [AdminMenuController::class, 'globalIndex']);
 $router->get('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
 $router->post('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
+$router->get('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->post('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->get('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->post('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
 $router->get('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
 $router->post('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
 $router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);

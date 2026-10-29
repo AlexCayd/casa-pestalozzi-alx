@@ -21,6 +21,13 @@
     $identidadMaestra = $identidadMaestra ?? false;
     $identidadEditable = ($identidadEditable ?? true) && $menuPuedeEditar;
     $identidadCompartida = $identidadCompartida ?? false;
+    $casaPolitica=$casaPolitica??null;$casaLocales=$casaLocales??[];
+    $campoCasa=static fn(string $campo):bool => $casaPolitica ? !empty($casaPolitica['reglas'][$campo])&&$menuPuedeEditar : $identidadEditable;
+    $estadoCasa=static function(string $campo)use($casaPolitica,$casaLocales,$campoCasa):void {
+        if(!$casaPolitica)return;
+        echo '<p class="admin-field__hint">'.($campoCasa($campo)?(array_key_exists($campo,$casaLocales)?'Personalización permitida · Usando valor propio':'Personalización permitida · Usando versión de la casa'):'Definido por Global').'</p>';
+        if($campoCasa($campo)&&array_key_exists($campo,$casaLocales))echo '<label><input type="checkbox" name="restaurar_casa[]" value="'.$campo.'"> Volver a la versión de la casa</label>';
+    };
     $esNuevo = empty($platillo->id);
 
     require_once __DIR__ . '/../partials/_icons.php';
@@ -111,19 +118,19 @@
         <fieldset class="admin-menu__fieldset" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?>><section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-            <?php if ($identidadCompartida) : ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a una identidad compartida. <?php echo $identidadEditable ? 'Cambiarlos afecta a todos los negocios que la utilizan.' : 'Solo puedes modificar las condiciones de tu oferta; la identidad requiere autorización Global.'; ?></p><?php endif; ?>
+            <?php if($casaPolitica): ?><p class="admin-badge admin-badge--neutral">Producto de la casa</p><?php elseif ($identidadCompartida) : ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a una identidad compartida. <?php echo $identidadEditable ? 'Cambiarlos afecta a todos los negocios que la utilizan.' : 'Solo puedes modificar las condiciones de tu oferta; la identidad requiere autorización Global.'; ?></p><?php endif; ?>
             <input type="hidden" name="identidad_huella" value="<?php echo htmlspecialchars($identidadHuella ?? '', ENT_QUOTES); ?>">
             <div class="admin-form-grid">
                 <div class="admin-field admin-form-grid__full">
                     <label class="admin-field__label" for="nombre">Nombre del platillo</label>
-                    <input type="text" id="nombre" name="nombre" <?php echo $identidadEditable ? '' : 'readonly'; ?> maxlength="120" required
+                    <?php $estadoCasa('nombre'); ?><input type="text" id="nombre" name="nombre" <?php echo $campoCasa('nombre') ? '' : 'readonly'; ?> maxlength="120" required
                            value="<?php echo htmlspecialchars($platillo->nombre ?? ''); ?>">
                     <p class="admin-field__hint">La identidad se reconoce por su identificador permanente; el nombre puede coincidir con otro producto.</p>
                 </div>
 
                 <div class="admin-field admin-form-grid__full">
                     <label class="admin-field__label" for="descripcion">Descripción</label>
-                    <textarea id="descripcion" name="descripcion" <?php echo $identidadEditable ? '' : 'readonly'; ?> rows="3" required><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
+                    <?php $estadoCasa('descripcion'); ?><textarea id="descripcion" name="descripcion" <?php echo $campoCasa('descripcion') ? '' : 'readonly'; ?> rows="3" <?= $casaPolitica?'':'required' ?>><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
                     <p class="admin-field__hint"><?php echo $menuContexto === 'restaurante' ? 'Es el texto que ve el comensal en la carta y en el PDF.' : 'Descripción de la identidad comercial compartida.'; ?></p>
                 </div>
 
@@ -158,7 +165,7 @@
                          sustituyen los botones, con vista previa al instante. Quién
                          decide cuál de los dos se ve es menu.scss, por el
                          [data-admin-theme] que el layout pone antes de pintar. */ ?>
-                <fieldset class="admin-menu__fieldset admin-form-grid__full" <?php echo $identidadEditable ? '' : 'disabled'; ?>>
+                <?php $estadoCasa('img'); ?><fieldset class="admin-menu__fieldset admin-form-grid__full" <?php echo $campoCasa('img') ? '' : 'disabled'; ?>>
                 <div class="admin-field admin-form-grid__full admin-foto<?php echo !empty($fotoErrores) ? ' has-error' : ''; ?>"
                      data-foto-platillo
                      data-estado="<?php echo $fotoEstado; ?>"
@@ -232,7 +239,7 @@
                 </div>
 
                 </fieldset>
-                <?php if ($identidadCompartida && $identidadEditable) : ?>
+                <?php if (!$casaPolitica && $identidadCompartida && $identidadEditable) : ?>
                 <label class="admin-field admin-form-grid__full"><span><input type="checkbox" name="confirmar_identidad" value="1"> Autorizo cambiar los datos maestros para todos los negocios que utilizan esta identidad.</span></label>
                 <?php endif; ?>
                 <?php if (!$identidadMaestra) : ?>
@@ -252,7 +259,7 @@
 
                 <div class="admin-field">
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
-                    <input type="number" id="precio" name="precio" step="0.01" min="0" required
+                    <?php $estadoCasa('precio'); ?><input type="number" id="precio" name="precio" step="0.01" min="0" required <?= $casaPolitica&&!$campoCasa('precio')?'readonly':'' ?>
                            value="<?php echo htmlspecialchars((string) ($platillo->precio ?? '')); ?>">
                     <?php if (!empty($platillo->id) && $menuContexto === 'restaurante') : ?>
                         <p class="admin-field__hint">
@@ -269,10 +276,11 @@
 
                 <label class="admin-field"><span class="admin-field__label">Orden local</span><input type="number" name="orden" step="1" value="<?php echo (int)($platillo->orden ?? 0); ?>"></label>
                 <label class="admin-switch admin-form-grid__full">
-                    <input type="checkbox" name="activo" value="1" <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
+                    <input type="checkbox" name="activo" value="1" <?= $casaPolitica&&!$campoCasa('activo')?'disabled':'' ?> <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
                     <span class="admin-switch__label"><?php echo $menuContexto === 'panaderia' ? 'Oferta disponible en Panadería' : 'Platillo activo (visible en la carta y vendible en el punto de venta)'; ?></span>
                 </label>
+                <?php if($casaPolitica&&!$campoCasa('activo')&&(int)$platillo->activo): ?><input type="hidden" name="activo" value="1"><?php endif; ?><?php $estadoCasa('activo'); ?>
                 <?php endif; ?>
             </div>
         </section></fieldset>
