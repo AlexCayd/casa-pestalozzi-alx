@@ -24,4 +24,20 @@ function probarMenuM11(mysqli $db,string $root,callable $a):void
     $actor=$_SESSION['id'];$_SESSION['id']=$reader['id'];
     try{$a(Services\Menu\MenuPdf::biblioteca()===[],'Global no hereda lectura de cartas ajenas');$denied=false;try{Services\Menu\MenuPdf::datosAdministrativos('panaderia','comida');}catch(Services\Inventory\InventarioError){$denied=true;}$a($denied,'PDF verifica permiso propietario en servidor');}
     finally{$_SESSION['id']=$actor;}
+    $super=$_SESSION['id'];$serv=new Services\Inventory\AdministracionAlmacenes($db,$super,'contrasena');
+    $r=$serv->guardar('panaderia','crear_articulo',['nombre'=>'Artículo de aceptación M1.1','unidad'=>'pza','costo'=>'1.2345','activo'=>'1']);
+    $a(!empty($r['ok'])&&!empty($r['confirmado']),'Alta rápida requiere y utiliza ambas autorizaciones');$article=(int)$r['articulo_id'];
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM almacen_articulos WHERE articulo_id=?',[$article])->fetch_row()[0]===0,'Alta rápida no inventa asociación ni stock');
+    $r=$serv->guardar('panaderia','crear_articulo',['nombre'=>'Artículo de aceptación M1.1','unidad'=>'pza','costo'=>'1.2345','activo'=>'1']);
+    $a(($r['codigo']??'')==='ARTICULO_DUPLICADO','Duplicado informa identidad existente');
+    $local=FixtureAutorizacion3B::usuario($db,'m11_local',['panaderia'=>['permisos'=>['inventario'=>'editar']]]);
+    $r=(new Services\Inventory\AdministracionAlmacenes($db,$local['id'],'contrasena'))->guardar('panaderia','crear_articulo',['nombre'=>'No autorizado','unidad'=>'pza','costo'=>'1.0000']);
+    $a(empty($r['ok']),'Edición local no concede facultad Global');
+    $global=FixtureAutorizacion3B::usuario($db,'m11_global',['global'=>['permisos'=>['inventario'=>'editar'],'facultades'=>['catalogo.editar']]]);
+    $r=(new Services\Inventory\AdministracionAlmacenes($db,$global['id'],'contrasena'))->guardar('panaderia','crear_articulo',['nombre'=>'Sin ámbito local','unidad'=>'pza','costo'=>'1.0000']);
+    $a(empty($r['ok']),'Facultad Global no sustituye permiso local');
+    $warehouses=(new Services\Inventory\Almacenes($db,$super,'contrasena'))->consultarAlmacenes('restaurante');
+    $a(count($warehouses['almacenes'])===3,'Tres almacenes propios sin cruces');
+    $fridge=array_values(array_filter($warehouses['almacenes'],static fn($row)=>(int)$row['almacen_id']===1006))[0];
+    $a((int)$fridge['total_articulos']>0&&(int)$fridge['agotados']>0&&(int)$fridge['bajo_minimo']>0,'Indicadores físicos distinguen artículos agotados y mínimos');
 }

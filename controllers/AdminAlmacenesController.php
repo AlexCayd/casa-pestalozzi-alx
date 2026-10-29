@@ -42,6 +42,7 @@ final class AdminAlmacenesController
             'contextoAlmacenes'=>$ctx,'nombreContexto'=>Contextos::NOMBRES[$ctx], 'base'=>$base,'vista'=>$vista,'filtros'=>$filtros,'alertas'=>$alertas,
             'puedeEditar'=>Auth::puede('inventario','editar',$ctx),
             'puedeCrearAlmacen'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('almacenes.crear',$facultades,true),
+            'puedeNuevoArticulo'=>Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$perfil['ambitos']['global']['facultades']??[],true),
             'puedeCatalogo'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('catalogo.editar',$facultades,true),
             'csrf'=>self::csrfContexto($ctx), 'styles'=>['/build/css/admin/inventario.css'], 'scripts'=>['/build/js/admin/inventario.js'],
         ]));

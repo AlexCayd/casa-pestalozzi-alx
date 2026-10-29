@@ -102,7 +102,7 @@ final class AdministracionAlmacenes
                 case 'crear_articulo':
                 case 'editar_articulo':
                     $articulo=['nombre'=>self::texto($datos,'nombre'),'unidad'=>self::texto($datos,'unidad'),'costo'=>self::texto($datos,'costo'),'activo'=>isset($datos['activo'])];
-                    return $accion==='crear_articulo' ? $this->motor->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
+                    return $accion==='crear_articulo' ? $this->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
                 case 'asociar':
                     return $this->motor->asociarArticulo($ctx,$id('almacen_id'),$id('articulo_id'),self::texto($datos,'minimo'));
                 case 'configurar_asociacion':
@@ -124,6 +124,18 @@ final class AdministracionAlmacenes
                     throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.');
             }
         } catch (\Throwable $e) { return Almacenes::errorLectura($e) + ['confirmado'=>false]; }
+    }
+
+    /** Alta rápida local con ambas autorizaciones, sin asociación ni saldo implícitos. */
+    private function crearArticulo(string $ctx,array $articulo): array
+    {
+        if ($ctx==='global') return $this->motor->crearArticulo('global',$articulo);
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$articulo):array {
+            $this->alcance->autorizar($ctx,'editar',null,true);
+            $r=$this->motor->crearArticulo('global',$articulo);
+            if (empty($r['confirmado']) && !(($r['ok']??null)===null && !empty($r['pendiente']))) throw new InventarioError($r['codigo']??'ALTA_RECHAZADA',$r['mensaje']??'No se pudo crear el artículo.');
+            return $r;
+        });
     }
 
     public static function exigirResultado(array $resultado): void

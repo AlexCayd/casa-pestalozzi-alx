@@ -43,10 +43,17 @@ siguen pendientes; no habilitar sus acciones desde Menú.
 | Módulo | Mejora | Límite |
 |---|---|---|
 | Usuarios | Presentación y filtros adicionales | Mantener permisos directos, delegación y componentes compartidos |
-| Almacenes | Gráficas de distribución, filtros y UX avanzada | El consolidado seguirá siendo una consulta sin saldo virtual |
+| Almacenes | Refinamientos posteriores a M1.1 | Barras por negocio, indicadores físicos y alta rápida con doble autorización ya disponibles; mantener consulta sin saldo virtual |
 | Restaurante | Refinamientos posteriores de pantallas e informes | Preservar contratos operativos y precisión de importes |
 
 ## Funcionalidades nuevas pendientes
+
+M1.1 entrega PDF privado Panadería y biblioteca Global autorizada. La publicación
+pública Panadería, sus recetas completas, POS y producción siguen pendientes.
+Validación histórica pendiente: adaptar `run-contextos-isolated.php` al esquema de
+permisos directos; revisar expectativa temporal de `run-pos-api-contrato-db.php`;
+actualizar fixtures de impresión POS (`unidad_id`) y llevar múltiple (actor 0).
+Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|

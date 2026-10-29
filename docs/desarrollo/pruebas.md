@@ -1,5 +1,21 @@
 # Pruebas y criterios de aceptación
 
+## M1.1: inicios, catálogo, PDF y Almacenes
+
+```text
+npm run test:menu:m11 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
+npm run test:menu:m11-ui
+php scripts/tests/pruebas-http-m11.php --fixture <ruta-privada-del-harness-3e>
+```
+
+El runner M1.1 amplía M1 sin quitar sus 52 aserciones y conserva creación/limpieza
+de la base marcada. Comprueba PDF por dueño, vacío/inactivo, filtros, alta rápida
+con doble autorización y métricas físicas. La prueba JS ejecuta el archivo real
+de inventario y verifica milésimas con BigInt, negativos, precisión y confirmación.
+HTTP usa únicamente el harness 3E identificado. Resultados, fallos históricos
+reproducidos en el commit base y evidencia visual en
+[refinamiento M1.1](../modulos/catalogo-comercial.md#refinamiento-m11).
+
 El [contrato rector](../arquitectura.md) fija los criterios de entrega. Este documento
 identifica comandos y alcance; los números y resultados de cada ejecución deben
 registrarse en el informe de la revisión validada.

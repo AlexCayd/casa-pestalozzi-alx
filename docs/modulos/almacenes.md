@@ -1,5 +1,25 @@
 # Almacenes
 
+## Refinamiento M1.1
+
+Las tarjetas físicas se distribuyen en una cuadrícula responsive dentro de cada
+propietario. Muestran artículos activos asociados, bajo mínimo y agotados (saldo
+menor o igual a cero); los indicadores no suman cantidades de unidades diferentes.
+Las barras funcionan en los tres contextos sobre almacenes autorizados y
+seleccionados. Comparan magnitudes absolutas, identifican negativos con rayado y
+muestran el saldo neto aparte; el detalle accesible indica dueño, saldo, unidad,
+mínimo y alerta. También hay etiquetas operables con teclado para saldos cero.
+
+`Nuevo artículo` exige `inventario/editar` local y Global más `catalogo.editar`.
+El servidor vuelve a comprobar ambos permisos dentro de la transacción. Crea solo
+la identidad compartida: asociarla y registrar entrada son pasos explícitos.
+Los duplicados conservan `ARTICULO_DUPLICADO`; editar el maestro sigue en Global.
+`Registrar entrada` abre un selector de artículos de la página consultada. Para
+otros artículos se utiliza la búsqueda. Si hay varios almacenes operables, el
+operador debe elegir uno. Entrada, merma y conteo presentan una estimación decimal
+exacta a milésimas y confirmación con artículo, almacén y resultado; el servidor
+conserva la autoridad sobre permisos, saldo, negativos e idempotencia.
+
 Contrato funcional de la interfaz administrativa compartida de Global,
 Restaurante y Panadería. Se apoya en el [motor 3C](../arquitectura.md#5-almacenes-e-inventario)
 y en el [contrato rector](../arquitectura.md); no implementa un motor por ámbito.

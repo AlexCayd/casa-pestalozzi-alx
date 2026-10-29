@@ -166,6 +166,15 @@ El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa sol
 
 ## 10. Administración comercial M1
 
+M1.1 añade inicios autorizados Global/Panadería, catálogo paginado y una biblioteca
+privada de PDF por vendedor. `InicioAdministrativo` proyecta enlaces desde permisos
+reales; no habilita módulos pendientes. `MenuPdf` mantiene la plantilla pública de
+Restaurante y valida contexto, carta, estado y contenido antes de emitir un PDF
+administrativo. La autorización Global exige también lectura del negocio dueño.
+El alta rápida inventariable local exige edición local y edición Global con
+`catalogo.editar`; no crea asociación ni existencias. Detalles y resultados actuales
+en [Catálogo y Menú](modulos/catalogo-comercial.md#refinamiento-m11).
+
 El [contrato de Catálogo y Menú](modulos/catalogo-comercial.md) registra la auditoría,
 propiedad, rutas, autorización y aceptación. `productos` conserva la identidad;
 `ofertas_producto` conserva condiciones locales y retiro lógico. No se fusionan

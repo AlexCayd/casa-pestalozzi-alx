@@ -1,5 +1,124 @@
 # Catálogo comercial y Menú
 
+## Refinamiento M1.1
+
+Rama `codex/m11-refinamiento-menus-ux`, base `7ebb36b492a018cfd925cac6c07f048542570c83`.
+Entregas: A `f6ca88f` (inicios), B `1a9ee11` (catálogo), C `ca1064e`
+(PDF/fixtures) y D `Refina Almacenes y documenta validación de M1.1` (consultar
+`git log -4 --oneline` para su hash). Sin push ni merge. El cierre D incluye
+fuentes, assets, pruebas y estas siete referencias vigentes; no añade una segunda
+documentación histórica. El inventario exacto de archivos se obtiene con
+`git diff --name-only 7ebb36b HEAD`.
+
+### Comportamiento y rutas
+
+`/admin/global` y `/admin/panaderia` usan tarjetas compartidas con permisos reales
+y enlaces a módulos operativos. Restaurante conserva su dashboard. El catálogo
+`/admin/global/productos` presenta 30 identidades por página, búsqueda y filtros
+por negocio autorizado y uso (con/sin oferta visible). Las cuentas sin lectura
+del negocio no ven sus usos ni pueden filtrar por él. La ficha y edición maestra
+conservan confirmación de impacto y huella concurrente de M1.
+
+| Ruta PDF | Propietario y carta |
+|---|---|
+| `/admin/panaderia/menu/pdf` | Panadería, comida |
+| `/admin/global/menus` | Biblioteca autorizada |
+| `/admin/global/menus/restaurante` | Restaurante, comida |
+| `/admin/global/menus/maridaje` | Restaurante, maridaje |
+| `/admin/global/menus/panaderia` | Panadería, comida |
+
+Los PDF privados usan las ofertas/categorías/cartas activas del dueño validado y
+el mismo `items-pdf.php`. El título Panadería es propio. Una carta ajena,
+inexistente, sin contenido o distinta de la ruta fija se rechaza; no se sustituye
+silenciosamente por comida. Los PDF públicos `/menu/pdf` y `/maridaje/pdf`
+conservan datos y plantilla Restaurante. No hay publicación pública Panadería.
+Los documentos privados llevan `Cache-Control: private, no-store`.
+
+### Matriz de permisos
+
+| Operación | Requisitos |
+|---|---|
+| Acceso rápido | Lectura real del módulo/contexto destino |
+| Catálogo Global | `menu/ver` Global; usos limitados por `menu/ver` del dueño |
+| Cambio maestro comercial | `menu/editar` Global + `comercial.identidad.editar`; confirmación si compartida |
+| PDF local | `menu/ver` del dueño vendedor |
+| Biblioteca/PDF Global | `menu/ver` Global y del dueño |
+| Almacenes y barras | `inventario/ver` sobre propietarios autorizados |
+| Nuevo artículo desde negocio | `inventario/editar` local y Global + `catalogo.editar` |
+| Operación física | `inventario/editar` dueño del único almacén seleccionado |
+
+Cambios principales: controladores AdminContextos/AdminMenu/AdminAlmacenes;
+servicios InicioAdministrativo, CatalogoComercial, MenuPdf, AdministracionAlmacenes
+y ConsultasAlmacen; vistas contextos/menu/almacenes/sidebar; fuentes SCSS y JS de
+esos módulos y sus compilados; rutas, seeds y runners M1.1. Se reutilizan servicios
+de autorización, transacciones, stock y componentes visuales actuales.
+
+### Datos, PDF y aislamiento
+
+Los [fixtures vigentes](../desarrollo/fixtures-almacenes.md#fixtures-comerciales-m11)
+añaden 12 ofertas sintéticas Panadería: 13 en total, 12 activas, cuatro categorías.
+Los 112 originales y sus imágenes permanecen íntegros; no se crean recetas,
+producción ni stock. Las dos instalaciones independientes pasan 957 comprobaciones.
+PDF reales guardados fuera de Git: `m11-restaurante.pdf` (6 páginas),
+`m11-maridaje.pdf` (2) y `m11-panaderia.pdf` (2). Extracción de texto confirma rol de
+canela/brownie, ausencia de ofertas Restaurante y exclusión de Pan de chocolate
+inactivo. La segunda página Panadería conserva la paginación por categoría de la
+plantilla, con Focaccia. Se inspeccionaron visualmente sus dos páginas y la primera
+Restaurante, sin recortes ni superposición. No se sustituyó la plantilla original.
+
+### Validación actual
+
+| Suite | Resultado |
+|---|---|
+| PHP general / JS general / build | PASS (avisos deprecación Sass/Node del tooling existente) |
+| Inicio M1.1 / UI decimal | 9 comprobaciones / PASS |
+| Menú M1 + extensión M1.1 | 74 comprobaciones PASS (52 existentes conservadas) |
+| HTTP M1 / HTTP M1.1 | 47 / 47 PASS |
+| Contextos puro / autorización 3B | 252 / 128 PASS |
+| Almacenes 3C / concurrencia / selección | 158 / 17 / 70 PASS |
+| Almacenes representación / selección JS | 16 / PASS |
+| Fixtures M0.5-B / Transferencias | 378 / 114 PASS |
+| HTTP instalación / Almacenes UX / Transferencias | 121 / 39 / 35 PASS |
+| Instalaciones 3E | 957 PASS |
+| Preservación menú puro / DB / PDF reservaciones | 34 / 7 casos / PASS |
+
+`test:notifications` y su variante `--migrations` pasan 15 de 16 runners, pero
+fallan en `run-pos-api-contrato-db.php`: mesa de cena libre a las 18:30 en vez de
+próxima. `test:contextos:db` falla por columna retirada `usuarios.rol`.
+`test:pos-print-alerts` falla por `unidad_id` ausente en su fixture y
+`test:pos-llevar` por actor 0 no autenticado. **Los cuatro fallos se reprodujeron
+también en una copia temporal del commit base 7ebb36b**, con vendor local y bases
+aisladas. No son resultados PASS ni se redujeron aserciones para ocultarlos.
+No se modifica POS ni el modelo de permisos para satisfacer fixtures antiguos.
+Las bases temporales se limpian; no se ejecutó DDL sobre la base activa.
+Los runners que exigen paquete privado histórico mantienen la limitación
+documentada en M1: no se inventó ni reconstruyó esa referencia.
+
+### Evidencia visual y límites
+
+Capturas reales privadas bajo la carpeta de visualizaciones del chat (fuera de
+Git): `m11-home-global.png`, `m11-home-panaderia.png`,
+`m11-home-panaderia-movil.png`, `m11-catalogo-listado.png`,
+`m11-catalogo-ficha.png`, `m11-biblioteca-pdf.png`,
+`m11-almacenes-restaurante.png`, `m11-almacenes-panaderia.png`,
+`m11-almacenes-global.png`, `m11-alta-articulo.png`,
+`m11-grafica-tooltip.png`, `m11-operacion-fisica.png` y
+`m11-confirmacion-fisica.png`, `m11-biblioteca-pdf-claro.png`,
+`m11-almacenes-movil-claro.png` y `m11-catalogo-movil-claro.png`. Las páginas PDF
+se renderizan además en PNG para inspección. El visor PDF del navegador integrado
+mostró un lienzo vacío: no se presenta esa captura como validación visual; se
+usaron el PDF descargado, su texto y los PNG renderizados. Se revisan temas
+claro/oscuro, móvil 390×844 sin desbordamiento horizontal, foco y confirmación;
+las comprobaciones visuales no se deducen de un HTTP 200.
+
+No hay migración M1.1 para bases existentes ni reaplicación de development.sql.
+Los seeds nuevos son exclusivos de instalaciones nuevas development/test.
+Persisten los límites de M1: M2, POS y producción Panadería, integraciones,
+credenciales externas, impresoras físicas, reinicio y restauración no certificados.
+El cierre verifica cuatro commits en la rama indicada y árbol Git limpio. Se
+retiran el servidor, las bases de fixtures, sesiones y copia temporal del baseline;
+se conservan las capturas y PDF de evidencia fuera del repositorio.
+
 ## M1-A: auditoría y contrato previo
 
 Base local y remota `branch-leo`: `404df872a387f59ee7a7a43d30d4f463e4d33259`.
@@ -214,7 +333,7 @@ La aceptación local no certifica SMTP, Meta, n8n, impresoras físicas, reinicio
 restauración. No se implementa M2/M3 ni integraciones externas.
 
 Deuda conservada: fachadas mononegocio con consumidores de pruebas históricas;
-publicación/PDF y producción de Panadería pendientes del contrato correspondiente;
+publicación pública y producción de Panadería pendientes del contrato correspondiente;
 los consumidores mononegocio del histórico conservan su API. En multinegocio,
 alta/asociación/cambio de precio y su histórico se confirman en una transacción.
 No se refactorizan consumidores ajenos a M1.

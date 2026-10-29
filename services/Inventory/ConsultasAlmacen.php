@@ -72,7 +72,10 @@ final class ConsultasAlmacen
             if(($f['estado']??'todos')!=='todos') { $scope.=' AND a.activo=?'; $args[]=($f['estado']==='activos'?1:0); }
             $from=' FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE '.$scope;
             $total=(int)$this->sql('SELECT COUNT(*)'.$from,$args)->get_result()->fetch_row()[0];
-            $rows=$this->sql('SELECT a.id AS almacen_id,a.nombre,a.unidad_id,u.slug,a.activo,a.permitir_negativos'.$from.' ORDER BY u.id,a.nombre,a.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            $indicadores="(SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1) AS total_articulos,
+                (SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1 AND a.activo=1 AND aa.saldo<aa.minimo) AS bajo_minimo,
+                (SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1 AND a.activo=1 AND aa.saldo<=0) AS agotados";
+            $rows=$this->sql('SELECT a.id AS almacen_id,a.nombre,a.unidad_id,u.slug,a.activo,a.permitir_negativos,'.$indicadores.$from.' ORDER BY u.id,a.nombre,a.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             return ['codigo'=>'ALMACENES_CONSULTADOS','total'=>$total,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'almacenes'=>$rows];
         });
     }

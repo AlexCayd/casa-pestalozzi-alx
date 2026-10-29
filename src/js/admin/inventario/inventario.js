@@ -336,6 +336,33 @@
                 operation = (event.detail.trigger && event.detail.trigger.dataset.operation) || 'entrada'; update();
             });
         });
+        workspace.querySelectorAll('form[data-stock-operation]').forEach(function (form) {
+            const input = form.querySelector('[name="cantidad"]');
+            const output = form.querySelector('[data-stock-preview]');
+            const originalDescription = form.dataset.confirmDescription || '';
+            function mil(valor) {
+                if (!/^-?\d{1,9}(?:\.\d{1,3})?$/.test(valor)) return null;
+                const negativo = valor[0] === '-';
+                const partes = (negativo ? valor.slice(1) : valor).split('.');
+                const n = BigInt(partes[0]) * 1000n + BigInt((partes[1] || '').padEnd(3, '0'));
+                return negativo ? -n : n;
+            }
+            function pintar() {
+                const saldo = mil(form.dataset.stockSaldo || '');
+                const cantidad = mil(input.value);
+                if (saldo === null || cantidad === null || (form.dataset.stockOperation !== 'ajuste' && cantidad <= 0n)) {
+                    output.textContent = 'Escribe una cantidad válida con hasta tres decimales.';
+                    form.dataset.confirmDescription = originalDescription;
+                    return;
+                }
+                const resultado = form.dataset.stockOperation === 'ajuste' ? cantidad : saldo + (form.dataset.stockOperation === 'merma' ? -cantidad : cantidad);
+                const abs = resultado < 0n ? -resultado : resultado;
+                const texto = (resultado < 0n ? '-' : '') + (abs / 1000n) + '.' + (abs % 1000n).toString().padStart(3, '0') + ' ' + form.dataset.stockUnidad;
+                output.textContent = 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
+                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + input.value + ' ' + form.dataset.stockUnidad + ' · Resultado estimado: ' + texto;
+            }
+            if (input && output) { input.addEventListener('input', pintar); pintar(); }
+        });
         workspace.querySelectorAll('[data-stock-tip]').forEach(function (button) {
             const tip = document.getElementById(button.getAttribute('popovertarget'));
             let hideTimer;

@@ -31,5 +31,12 @@ try{
  $a($lector->request('GET','/admin/global/menus/panaderia')['status']===403,'Global sin permiso propietario no lee PDF');
  $a($admin->request('GET','/admin/panaderia/menu/pdf?carta=maridaje')['status']===404,'PDF rechaza carta ajena sin fallback');
  $a($admin->request('GET','/admin/panaderia/menu/pdf?carta=inventada')['status']===404,'PDF rechaza carta inexistente');
+ foreach(['/admin/almacenes','/admin/panaderia/almacenes','/admin/global/almacenes'] as $base){$r=$admin->request('GET',$base);$a($valid($r),'Almacenes completo '.$base);$a(str_contains($r['body'],'class="almacen-bar"'),'Distribución accesible '.$base);$a(str_contains($r['body'],'agotados'),'Indicadores por almacén '.$base);}
+ $base='/admin/panaderia/almacenes';$r=$admin->request('GET',$base);$a(str_contains($r['body'],'Nuevo artículo')&&str_contains($r['body'],'Registrar entrada'),'Acciones principales visibles');
+ $a(str_contains($r['body'],'Elige un almacén físico'),'No operar por defecto sobre el primero de varios almacenes');
+ $nuevo=ClienteInstalacion3E::form($r['body'],'crear_articulo');$nuevo['nombre']='Artículo HTTP M1.1 '.bin2hex(random_bytes(4));$nuevo['unidad']='pza';$nuevo['costo']='1.2345';$nuevo['activo']='1';
+ $post=$admin->request('POST',$base.'/operacion',$nuevo);$a($post['status']===303,'Alta rápida local usa PRG');$r=$admin->request('GET',$post['location']);$a(str_contains($r['body'],'Operación confirmada correctamente'),'Alta local con facultad Global confirmada');
+ $operator=new ClienteInstalacion3E();$clients[]=$operator;$operator->login($f['cuentas']['operador_panaderia']);$r=$operator->request('GET',$base);$a(!str_contains($r['body'],'almacen-nuevo-articulo'),'Sin facultad no aparece alta maestra');
+ $nuevo['admin_csrf']=ClienteInstalacion3E::token($r['body']);$nuevo['nombre']='Alta no autorizada '.bin2hex(random_bytes(4));$post=$operator->request('POST',$base.'/operacion',$nuevo);$r=$operator->request('GET',$post['location']);$a(!str_contains($r['body'],'Operación confirmada correctamente'),'Servidor no concede alta por inventario local');
  echo "HTTP M1.1: {$n} comprobaciones OK.\n";
 }finally{foreach($clients as $c)$c->close();}

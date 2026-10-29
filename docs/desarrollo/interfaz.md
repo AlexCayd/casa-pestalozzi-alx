@@ -1,5 +1,19 @@
 # Guía técnica de interfaz
 
+## Componentes M1.1
+
+Los inicios Global y Panadería comparten `contextos/_accesos.php`: tarjetas con SVG
+del repertorio administrativo, título, explicación y enlace autorizado. El inicio
+Restaurante mantiene su dashboard. Se proyectan únicamente módulos operativos;
+transferencias enlaza al espacio de Almacenes. El catálogo Global utiliza tabla
+compacta, filtros y paginación; la ficha conserva confirmación de impacto maestro.
+La biblioteca PDF reutiliza las mismas tarjetas y el servicio de documentos.
+Almacenes agrupa tarjetas en filas por propietario, conserva búsqueda visible,
+acciones físicas explícitas y modales compartidos. Las barras usan color para
+distribución, rayado para negativos y texto para alertas. Las etiquetas también
+abren el detalle con foco de teclado. Temas claro/oscuro, foco, Escape y móvil se
+revisan en navegador; los assets compilados se entregan junto a las fuentes.
+
 El acceso administrativo tiene dos pasos: contraseña y código, sin acceso al
 panel mientras el reto está pendiente. El recuadro de código solo existe en
 `development`/`test` explícitos; consultar [credenciales](../usuarios/credenciales.md).

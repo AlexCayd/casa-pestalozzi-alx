@@ -1067,6 +1067,7 @@
 }
 
 .almacen-owner {
+  grid-column: 1/-1;
   border: 0;
   padding: 0;
   margin: 18px 0 0;
@@ -1080,9 +1081,9 @@
 }
 
 .almacen-cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
 }
 
 .almacen-choice {
@@ -1613,4 +1614,30 @@
     font-family: var(--admin-font-sans);
     font-weight: 500;
   }
+}
+.almacen-choice__body small {
+  display: block;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.almacen-choice__metrics {
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-muted);
+}
+
+.almacen-entry-picker {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.almacen-entry-picker .admin-btn {
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+}
+
+.almacen-actions {
+  flex-wrap: wrap;
 }
