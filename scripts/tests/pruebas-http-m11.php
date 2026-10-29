@@ -19,5 +19,12 @@ try{
  $a(!str_contains($r['body'],'href="/admin/panaderia/recetas"'),'No enlazar módulo pendiente');
  $r=$lector->request('GET','/admin/global');$a(!str_contains($r['body'],'contexto=restaurante'),'Home no revela acceso a negocio ajeno');
  $a($lector->request('GET','/admin/panaderia')['status']===403,'Home extranjero denegado');
+ $r=$admin->request('GET','/admin/global/productos?negocio=panaderia&uso=con');$a($valid($r),'Filtro autorizado de catálogo');
+ $a(str_contains($r['body'],'admin-catalogo-table')&&str_contains($r['body'],'Hogaza Panadería'),'Listado compacto con oferta propia');
+ $a(!str_contains($r['body'],'Aceitunas Temperadas con Aceite'),'No incluir oferta exclusiva de otro negocio bajo filtro');
+ $a($lector->request('GET','/admin/global/productos?negocio=panaderia')['status']===403,'Filtro no concede acceso a negocio ajeno');
+ $r=$lector->request('GET','/admin/global/productos?uso=con');$a($valid($r)&&str_contains($r['body'],'No hay identidades que coincidan'),'Recuentos no filtran ofertas ajenas');
+ $r=$admin->request('GET','/admin/global/productos?page=2');$a($valid($r)&&str_contains($r['body'],'Página 2 de'),'Paginación real de catálogo');
+ $r=$admin->request('GET','/admin/global/productos?q=1003');$a($valid($r)&&str_contains($r['body'],'Hogaza Panadería'),'Buscar por identificador permanente');
  echo "HTTP M1.1: {$n} comprobaciones OK.\n";
 }finally{foreach($clients as $c)$c->close();}

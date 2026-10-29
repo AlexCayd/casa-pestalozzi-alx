@@ -1637,3 +1637,48 @@ html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:no
 .admin-table .admin-menu__foto {
   order: -1;
 }
+
+.admin-catalogo-filters {
+  flex-wrap: wrap;
+}
+.admin-catalogo-filters .admin-field:first-child {
+  flex: 2 1 220px;
+}
+
+.admin-catalogo-table td:first-child {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+
+.admin-catalogo-table .admin-table__cell-sub {
+  max-width: 56ch;
+  white-space: normal;
+}
+
+@media (max-width: 700px) {
+  .admin-catalogo-table {
+    min-width: 0;
+  }
+  .admin-catalogo-table, .admin-catalogo-table tbody, .admin-catalogo-table tr, .admin-catalogo-table td {
+    display: block;
+  }
+  .admin-catalogo-table thead {
+    display: none;
+  }
+  .admin-catalogo-table tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+  .admin-catalogo-table td {
+    padding: 6px 0;
+    max-width: none;
+    border: 0;
+  }
+  .admin-catalogo-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    color: var(--admin-muted);
+    margin-bottom: 4px;
+  }
+}

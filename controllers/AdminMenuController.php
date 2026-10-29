@@ -514,12 +514,12 @@ class AdminMenuController
         ContextoNegocio::exigir('menu', 'ver', 'global');
         $q = is_string($_GET['q'] ?? null) ? $_GET['q'] : '';
         $pagina = max(1, (int)($_GET['page'] ?? 1));
-        $identidades = CatalogoComercial::identidades($q, $pagina);
-        foreach ($identidades as &$identidad) $identidad['usos'] = CatalogoComercial::usos((int)$identidad['id']);
-        unset($identidad);
-        self::render('menu/global', ['title'=>'Productos comerciales', 'topbarSection'=>'Productos comerciales',
-            'identidades'=>$identidades, 'q'=>$q, 'pagina'=>$pagina,
-            'identidadEditable'=>CatalogoComercial::puedeEditar(), 'alertas'=>Producto::getAlertas()]);
+        $negocio=is_string($_GET['negocio']??null)?$_GET['negocio']:'';
+        $uso=is_string($_GET['uso']??null)?$_GET['uso']:'';
+        try { $listado=CatalogoComercial::listar($q,$pagina,$negocio,$uso); }
+        catch (\Services\Inventory\InventarioError $e) { http_response_code(403); echo htmlspecialchars($e->getMessage()); return; }
+        self::render('menu/global', array_merge($listado, ['title'=>'Productos comerciales', 'topbarSection'=>'Productos comerciales',
+            'q'=>$q,'identidadEditable'=>CatalogoComercial::puedeEditar(), 'alertas'=>Producto::getAlertas()]));
     }
 
     /** El formulario compartido oculta condiciones locales en modo maestro. */

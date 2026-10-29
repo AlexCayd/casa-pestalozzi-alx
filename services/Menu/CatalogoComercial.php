@@ -17,6 +17,30 @@ final class CatalogoComercial
         catch (\Throwable $e) { return false; }
     }
 
+    /** Los filtros y recuentos solo consideran ofertas que el actor puede consultar. */
+    public static function listar(string $q, int $pagina, string $negocio = '', string $uso = ''): array
+    {
+        $perfil=ContextoNegocio::exigir('menu','ver','global');
+        $negocios=[];
+        foreach (['restaurante','panaderia'] as $slug) if (PermisosUsuario::permitido($perfil,$slug,'menu','ver')) $negocios[$slug]=(int)$perfil['ambitos'][$slug]['id'];
+        if (($negocio!=='' && !isset($negocios[$negocio])) || !in_array($uso,['','con','sin'],true)) throw new \Services\Inventory\InventarioError('FILTRO_INVALIDO','El filtro no corresponde a un negocio autorizado.');
+        $unidades=$negocio!==''?[$negocios[$negocio]]:array_values($negocios);
+        $scope=$unidades?'o.unidad_id IN ('.implode(',',array_fill(0,count($unidades),'?')).')':'0=1';
+        $exists='EXISTS (SELECT 1 FROM ofertas_producto o WHERE o.producto_id=p.id AND '.$scope.')';
+        $where='(p.nombre LIKE ? ESCAPE \'!\' OR p.descripcion LIKE ? ESCAPE \'!\' OR p.id=?)';
+        $like='%'.str_replace(['!','%','_'],['!!','!%','!_'],mb_substr(trim($q),0,100)).'%';
+        $params=[$like,$like,ctype_digit($q)?(int)$q:0];
+        if ($negocio!=='' || $uso!=='') { $where.=' AND '.($uso==='sin'?'NOT ':'').$exists; array_push($params,...$unidades); }
+        $db=ActiveRecord::getDB();
+        $s=$db->prepare('SELECT COUNT(*) FROM productos p WHERE '.$where);$s->execute($params);$total=(int)$s->get_result()->fetch_row()[0];
+        $paginas=max(1,(int)ceil($total/30));$pagina=max(1,min($pagina,$paginas));
+        $s=$db->prepare('SELECT p.id,p.nombre,p.descripcion,p.img FROM productos p WHERE '.$where.' ORDER BY p.nombre,p.id LIMIT 30 OFFSET ?');
+        $s->execute([...$params,($pagina-1)*30]);$items=$s->get_result()->fetch_all(MYSQLI_ASSOC);
+        foreach ($items as &$item) $item['usos']=self::usos((int)$item['id']);
+        unset($item);
+        return ['identidades'=>$items,'totalIdentidades'=>$total,'pagina'=>$pagina,'paginas'=>$paginas,'negociosConsulta'=>array_keys($negocios),'negocioFiltro'=>$negocio,'usoFiltro'=>$uso];
+    }
+
     /** Selección de identidades sin revelar ofertas de otros negocios. */
     public static function identidades(string $busqueda = '', int $pagina = 1): array
     {
