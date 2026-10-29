@@ -1057,9 +1057,9 @@
 .almacen-selection {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 0 20px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
+  gap: 0 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--admin-border);
 }
 .almacen-selection > .almacen-section-head, .almacen-selection > .almacen-selection__status, .almacen-selection > .admin-empty {
@@ -1070,14 +1070,14 @@
   grid-column: 1/-1;
   border: 0;
   padding: 0;
-  margin: 18px 0 0;
+  margin: 12px 0 0;
   min-width: 0;
 }
 .almacen-owner legend {
   font-size: 12px;
   font-weight: 700;
   color: var(--admin-muted);
-  margin-bottom: 9px;
+  margin-bottom: 8px;
 }
 
 .almacen-cards {
@@ -1090,21 +1090,26 @@
   position: relative;
   display: flex;
   min-width: min(100%, 210px);
-  min-height: 96px;
+  min-height: 76px;
   max-width: 100%;
   align-items: center;
   cursor: pointer;
-  gap: 12px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .almacen-choice input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--admin-text);
-  flex-shrink: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .almacen-choice:has(input:checked) {
   border-color: var(--admin-text);
@@ -1122,8 +1127,10 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
+  line-height: 1.35;
 }
 .almacen-choice strong {
+  display: block;
   font-size: 14px;
   overflow-wrap: anywhere;
 }
@@ -1132,6 +1139,11 @@
   color: var(--admin-muted);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .almacen-choice {
+    transition: none;
+  }
+}
 .almacen-selection__status {
   color: var(--admin-muted);
   font-size: 12px;
@@ -1617,8 +1629,8 @@
 }
 .almacen-choice__body small {
   display: block;
-  line-height: 1.5;
-  margin-top: 4px;
+  line-height: 1.4;
+  margin-top: 2px;
 }
 
 .almacen-choice__metrics {

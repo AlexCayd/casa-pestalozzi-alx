@@ -40,9 +40,9 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   <?php include __DIR__.'/../partials/alertas.php'; ?>
   <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-selection" data-warehouse-selection>
     <input type="hidden" name="seleccion" value="1">
-    <?php if(!empty($filtros['q'])): ?><input type="hidden" name="q" value="<?php echo $esc($filtros['q']); ?>"><?php endif; ?>
-    <?php if(!empty($filtros['solo_alertas'])): ?><input type="hidden" name="solo_alertas" value="1"><?php endif; ?>
-    <div class="almacen-section-head"><div><h3>Almacenes en consulta</h3><p>Puedes combinar varios. Cada operación física se registra en uno solo.</p></div><button type="submit" class="admin-btn admin-btn--secondary">Aplicar selección</button></div>
+    <?php foreach(['q','negocio','articulo_id','desde','hasta','tipo','solo_alertas'] as $campo): if(!isset($filtros[$campo])||$filtros[$campo]==='')continue; ?><input type="hidden" name="<?php echo $campo; ?>" value="<?php echo $esc($filtros[$campo]); ?>"><?php endforeach; ?>
+    <?php if($vista!=='existencias'): ?><input type="hidden" name="vista" value="<?php echo $esc($vista); ?>"><?php endif; ?>
+    <div class="almacen-section-head"><div><h3>Almacenes en consulta</h3><p>Combina almacenes para consultar. Cada operación física se registra en uno solo.</p></div><div class="almacen-actions"><button type="button" class="admin-btn admin-btn--secondary" data-warehouse-all hidden>Seleccionar todos</button><button type="submit" class="admin-btn admin-btn--secondary">Aplicar selección</button></div></div>
     <?php foreach(Contextos::NOMBRES as $slug=>$nombre): $grupo=array_values(array_filter($opcionesAlmacen,static fn($a)=>$a['slug']===$slug)); if(!$grupo)continue; ?>
     <fieldset class="almacen-owner"><legend><?php echo $esc($nombre); ?></legend><div class="almacen-cards">
       <?php foreach($grupo as $a): $aId=(int)$a['almacen_id']; ?>

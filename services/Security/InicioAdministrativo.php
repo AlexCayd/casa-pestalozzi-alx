@@ -7,7 +7,11 @@ final class InicioAdministrativo
 {
     public static function preparar(array $perfil, string $ctx, string $nivel, array $documentos = []): array
     {
-        $puede = static fn(string $slug, string $mod): bool => PermisosUsuario::decidir($perfil, $slug, $mod, 'ver', $nivel)['ok'];
+        $puede = static fn(string $slug, string $mod): bool => $nivel==='contrasena' && PermisosUsuario::decidir($perfil, $slug, $mod, 'ver', $nivel)['ok'];
+        if ($ctx==='restaurante') {
+            return self::restaurante(static fn(string $mod):bool => $puede($ctx,$mod)
+                && ($mod!=='users' || in_array('usuarios.gestionar',$perfil['ambitos'][$ctx]['facultades']??[],true)));
+        }
         $administracion = [];
         $base = $ctx === 'restaurante' ? '/admin' : '/admin/'.$ctx;
         $defs = [
@@ -33,5 +37,18 @@ final class InicioAdministrativo
         $secciones[]=['titulo'=>$ctx==='global'?'Administración':'Tus módulos','tarjetas'=>$administracion,'vacio'=>'No hay módulos disponibles con tus permisos actuales.'];
         if ($ctx==='global') $secciones[]=['titulo'=>'Menús','tarjetas'=>$documentos,'vacio'=>'No hay cartas PDF disponibles para tus negocios autorizados.'];
         return ['inicioContexto'=>$ctx,'seccionesInicio'=>$secciones];
+    }
+
+    /** El mismo componente de tarjetas; las rutas proceden del catálogo autorizado. */
+    public static function restaurante(callable $puede): array
+    {
+        $tarjetas=[];
+        foreach (PermisosUsuario::catalogo('restaurante') as $mod=>$def) {
+            if ($mod==='reservations_map' || !$puede($mod)) continue;
+            $tarjetas[]=['titulo'=>$mod==='inventario'?'Almacenes':$def['titulo'],
+                'descripcion'=>$mod==='inventario'?'Consulta existencias y registra operaciones físicas.':$def['detalle'],
+                'icono'=>$mod==='productos'?'products':$mod,'ruta'=>$def['ruta'],'accion'=>'Abrir'];
+        }
+        return ['inicioContexto'=>'restaurante','seccionesInicio'=>[['titulo'=>'Tus módulos','tarjetas'=>$tarjetas,'vacio'=>'No hay módulos disponibles con tus permisos actuales.']]];
     }
 }

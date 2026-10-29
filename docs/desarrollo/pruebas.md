@@ -1,5 +1,21 @@
 # Pruebas y criterios de aceptación
 
+## M1.1-E
+
+`run-inicio-m11.php` amplía la matriz con quince módulos Restaurante, cuenta sin
+Analíticas, iconos y rechazo PIN. `test:js` y `test:menu:m11-ui` incorporan
+`run-almacenes-auto-selection.cjs` y conservan todas las aserciones de selección
+anteriores. Los temporizadores controlados comprueban una sola consulta por
+ráfaga, envío manual, vuelta por historial, todos, vacío y filtros GET.
+
+```text
+php scripts/tests/pruebas-http-m11-e.php --fixture <ruta-privada-del-harness-3e>
+```
+
+Esta matriz usa solo el harness identificado, no conecta a SQL y no escribe
+operaciones físicas. Resultados, evidencia y limitaciones en la
+[guía de interfaz](interfaz.md#m11-e-inicio-restaurante-y-seleccion-compacta).
+
 ## M1.1: inicios, catálogo, PDF y Almacenes
 
 ```text

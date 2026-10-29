@@ -175,6 +175,13 @@ El alta rápida inventariable local exige edición local y edición Global con
 `catalogo.editar`; no crea asociación ni existencias. Detalles y resultados actuales
 en [Catálogo y Menú](modulos/catalogo-comercial.md#refinamiento-m11).
 
+M1.1-E completa el inicio Restaurante en `/admin` con el mismo componente y sus
+permisos reales; `/admin/analytics` conserva el dashboard. El selector vuelve al
+inicio y el sidebar lo ofrece primero. La selección compacta de Almacenes es una
+mejora progresiva del mismo GET: JavaScript agrupa cambios y el botón mantiene
+la alternativa nativa. No modifica la frontera de autorización ni el inventario.
+Contrato y validación en [guía de interfaz](desarrollo/interfaz.md#m11-e-inicio-restaurante-y-seleccion-compacta).
+
 El [contrato de Catálogo y Menú](modulos/catalogo-comercial.md) registra la auditoría,
 propiedad, rutas, autorización y aceptación. `productos` conserva la identidad;
 `ofertas_producto` conserva condiciones locales y retiro lógico. No se fusionan

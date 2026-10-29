@@ -303,6 +303,21 @@
         const selection = workspace.querySelector('[data-warehouse-selection]');
         const status = workspace.querySelector('[data-selection-status]');
         if (selection) {
+            let timer, submitting = false;
+            const all = selection.querySelector('[data-warehouse-all]');
+            function schedule() {
+                window.clearTimeout(timer);
+                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
+                status.textContent = checked.length + ' seleccionados. La consulta se actualizará automáticamente.';
+                timer = window.setTimeout(function () { selection.requestSubmit(); }, 600);
+            }
+            if (all) {
+                all.hidden = false;
+                all.addEventListener('click', function () {
+                    selection.querySelectorAll('input[name="almacen_ids[]"]').forEach(function (box) { box.checked = true; });
+                    schedule();
+                });
+            }
             selection.addEventListener('change', function (event) {
                 if (!event.target.matches('input[name="almacen_ids[]"]')) return;
                 const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
@@ -310,15 +325,22 @@
                     event.target.checked = true;
                     status.textContent = 'Mantén al menos un almacén seleccionado.';
                 } else {
-                    status.textContent = checked.length + ' seleccionados. Aplica la selección para actualizar los resultados.';
+                    schedule();
                 }
             });
             selection.addEventListener('submit', function (event) {
+                window.clearTimeout(timer);
                 const boxes = selection.querySelectorAll('input[name="almacen_ids[]"]');
                 if (boxes.length && !selection.querySelector('input[name="almacen_ids[]"]:checked')) {
                     event.preventDefault(); status.textContent = 'Selecciona al menos un almacén.'; boxes[0].focus();
+                    return;
                 }
+                if (submitting) { event.preventDefault(); return; }
+                submitting = true;
+                status.textContent = 'Actualizando la consulta…';
             });
+            window.addEventListener('pageshow', function () { submitting = false; });
+            window.addEventListener('pagehide', function () { window.clearTimeout(timer); });
         }
         workspace.querySelectorAll('[data-warehouse-picker]').forEach(function (picker) {
             const modal = picker.closest('[data-admin-modal]');

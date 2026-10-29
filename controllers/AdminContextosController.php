@@ -26,7 +26,7 @@ final class AdminContextosController
         if (Auth::multinegocio()) {
             if ($contexto === 'restaurante') {
                 $habilitados=\Services\Security\ContextoNegocio::modulosHabilitados($contexto);
-                return array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
+                return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
             }
             $base='/admin/'.$contexto;
             $entradas=[];
@@ -37,7 +37,7 @@ final class AdminContextosController
             return $entradas;
         }
         if ($contexto === 'restaurante') {
-            return $restaurante;
+            return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + $restaurante;
         }
         if ($contexto === 'global') {
             $entradas = ['inicio' => 'Negocios', 'catalogo' => 'Catálogo maestro', 'inventario' => 'Inventario consolidado', 'usuarios' => 'Usuarios', 'configuracion' => 'Configuración general'];

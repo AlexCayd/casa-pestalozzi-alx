@@ -1,10 +1,73 @@
 # Guía técnica de interfaz
 
+## M1.1-E: inicio Restaurante y selección compacta
+
+Rama `codex/m11-refinamiento-menus-ux`; HEAD inicial
+`029a5ab07de6b2fa00cb76fdeaf1a15129449b79`. Commit de cierre:
+`Completa Home Restaurante y selección compacta de M1.1-E` (hash/HEAD final en
+`git log -1 --oneline`). Sin push ni merge; árbol limpio al cierre.
+
+`/admin` muestra Inicio · Restaurante y el selector de contexto lleva a esa ruta.
+`/admin/analytics` conserva el dashboard, sus métricas y recursos. El inicio usa
+`InicioAdministrativo` y los parciales contextos existentes; quince accesos posibles
+en el orden del catálogo, filtrados por autorización vigente. Usuarios exige su
+facultad actual. PIN no abre el panel. No se añade un permiso Inicio. El sidebar
+Restaurante incorpora Inicio primero, con su SVG existente y estado activo.
+Punto de venta y Producción usan las rutas operativas ya autorizadas del catálogo,
+`/punto-de-venta` y `/area`, sin conceder configuración ni operación por navegar.
+
+Las tarjetas de Almacenes conservan controles checkbox nativos, visualmente
+recortados a 1 px, y etiqueta clicable completa. Selección: borde de texto y fondo
+suave; deselección: borde atenuado y superficie base. El foco rodea la tarjeta;
+Tab y Espacio siguen operando el control nativo y su estado anunciado. No se usa
+`display:none`. La transición de fondo/borde respeta movimiento reducido.
+Altura medida en escritorio: aproximadamente 78.5 px frente a las tarjetas de
+M1.1 de aproximadamente 98 px, según contenido/ancho. Global conserva grupos de
+2/3/2, Restaurante tres por fila y Panadería dos cuando caben.
+
+Con JavaScript, los cambios se agrupan durante 600 ms antes de enviar el mismo
+formulario GET. No se duplica un envío pendiente y volver mediante historial
+restablece el control. Seleccionar todos conserva todos los IDs autorizados.
+La última tarjeta no se puede deseleccionar. El botón Aplicar selección permanece
+operativo como alternativa nativa: sin JavaScript el formulario conserva el mismo
+contrato GET. Se conservan búsqueda, alertas y demás filtros del alcance; se
+descartan páginas y el antiguo ID único al emitir la selección múltiple explícita.
+No cambian consultas, permisos, saldos, movimientos, costos ni operaciones físicas.
+
+Archivos: `controllers/AdminController.php`, `AdminContextosController.php`;
+`services/Security/InicioAdministrativo.php`; `views/admin/almacenes/index.php`;
+`src/scss/admin/modules/inventario.scss`, `src/js/admin/inventario/inventario.js`
+y sus tres compilados CSS/JS/map; `package.json`; pruebas `run-inicio-m11.php`,
+`run-almacenes-selection-ui.cjs`, `run-almacenes-auto-selection.cjs`,
+`pruebas-http-m11-e.php`; esta guía, arquitectura y guía de pruebas vigentes.
+
+Validación: PHP general, JS general y build PASS; Inicio 15, Contextos puro 252,
+Usuarios 40, autorización 3B 128, selección de Almacenes 70, representación 16,
+HTTP M1.1-E 25 y HTTP UX Almacenes 39 comprobaciones PASS. JS comprueba agrupación,
+doble envío, selección múltiple/vacía/todos, filtros, fallback manual y tooltip.
+HTTP comprueba Home con/sin Analíticas, selector, dashboard, PIN y 3/7/2 tarjetas.
+`test:contextos:db` reproduce el fallo histórico `usuarios.rol`; los otros tres
+fallos históricos registrados en M1.1 no se reensayan ni se presentan como PASS.
+No se rebajan aserciones ni se cambian fixtures de otros dominios.
+
+Capturas reales fuera de Git, en la carpeta de visualizaciones de este chat:
+`m11-e-home-restaurante-oscuro.png`, `m11-e-home-restaurante-claro.png`,
+`m11-e-home-restaurante-movil.png`, `m11-e-sidebar-inicio.png`,
+`m11-e-almacenes-global.png`, `m11-e-almacenes-restaurante.png`,
+`m11-e-almacenes-panaderia.png`, `m11-e-almacenes-seleccion.png`,
+`m11-e-almacenes-movil.png` y `m11-e-foco-teclado.png`.
+Se verifican temas claro/oscuro, teclado y tamaño 390×844 sin desbordamiento.
+La interacción móvil usa navegador a tamaño de teléfono; no certifica hardware
+táctil físico ni un lector de pantalla externo. El fallback se verifica mediante
+el formulario GET nativo y HTTP; no se desactiva JavaScript global del navegador.
+El servidor, sesiones y base temporal se limpian al terminar. M1.2 no se inicia.
+
 ## Componentes M1.1
 
 Los inicios Global y Panadería comparten `contextos/_accesos.php`: tarjetas con SVG
 del repertorio administrativo, título, explicación y enlace autorizado. El inicio
-Restaurante mantiene su dashboard. Se proyectan únicamente módulos operativos;
+Restaurante comparte este inicio desde M1.1-E y mantiene el dashboard en Analíticas.
+Se proyectan únicamente módulos operativos;
 transferencias enlaza al espacio de Almacenes. El catálogo Global utiliza tabla
 compacta, filtros y paginación; la ficha conserva confirmación de impacto maestro.
 La biblioteca PDF reutiliza las mismas tarjetas y el servicio de documentos.

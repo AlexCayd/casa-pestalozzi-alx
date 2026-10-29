@@ -93,38 +93,21 @@ class AdminController
                 header('Location: ' . Auth::destinoPorRol(), true, 302);
                 exit;
             }
-            if (Auth::puede('analytics', 'ver', 'restaurante')) {
-                self::analytics($router);
-                return;
-            }
-            $habilitados = \Services\Security\ContextoNegocio::modulosHabilitados('restaurante');
-            foreach ($habilitados as $modulo) {
-                if (!Auth::puede($modulo, 'ver', 'restaurante')) continue;
-                $definicion = \Services\Security\PermisosUsuario::catalogo('restaurante')[$modulo] ?? null;
-                if (is_array($definicion) && !empty($definicion['ruta'])) {
-                    header('Location: ' . $definicion['ruta'], true, 302);
-                    exit;
-                }
-            }
-            $destino = Auth::destinoPorRol();
-            if ($destino === '/admin' || $destino === '/login?resultado=sin_acceso') {
-                header('Location: /login?resultado=sin_acceso', true, 302);
-                exit;
-            }
-            header('Location: ' . $destino, true, 302);
-            exit;
+            AdminContextosController::inicioSeguro();
+            return;
         }
         if (!in_array('restaurante', Auth::contextos(), true)) {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
         }
-        // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
-        // que sí tenga, en vez de en una pantalla que no puede ver.
-        if (!Auth::puede('analytics')) {
+        // El inicio administrativo conserva la frontera frente al acceso operativo.
+        $rol = Auth::rolActual();
+        if (\Services\Security\Permisos::acceso($rol['sistema'], $rol['permisos']) !== 'contrasena') {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
         }
-        self::analytics($router);
+        $inicio = \Services\Security\InicioAdministrativo::restaurante(static fn(string $mod):bool => Auth::puede($mod));
+        self::render('contextos/inicio', $inicio + ['nombreInicio'=>'Restaurante','activeModule'=>'inicio','title'=>'Inicio','topbarSection'=>'Inicio']);
     }
 
     public static function analytics(Router $router): void
