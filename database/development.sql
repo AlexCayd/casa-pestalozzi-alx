@@ -91,13 +91,13 @@ INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,acti
  ('1002','1005','2','0.000','100.000','1','0');
 INSERT INTO categorias(id,unidad_id,carta,nombre,activo,orden) VALUES
  ('1001','2','comida','Pruebas Restaurante','1','9999'),
- ('1002','3','comida','Pruebas Panadería','1','9999');
+ ('1002','3','comida','Panes artesanales','1','1');
 INSERT INTO areas_produccion(id,unidad_id,nombre,slug,color,orden) VALUES
  ('10','3','Panadería','dev-pan','#4267ac','1');
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
  ('1001','Café con leche','Oferta sintética independiente del menú preservado.',NULL),
  ('1002','Tostada de prueba','Oferta sintética para receta con subreceta.',NULL),
- ('1003','Hogaza Panadería','Identidad sintética de Panadería; no copia el menú de Restaurante.',NULL);
+ ('1003','Hogaza Panadería','Hogaza de corteza crujiente y miga suave, ideal para compartir.',NULL);
 INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
  ('1001','1001','2','1001','35.00','1','1','10000'),
  ('1002','1002','2','1001','45.00','3','1','10001'),
@@ -642,3 +642,33 @@ DROP TEMPORARY TABLE cp_dev_asistente;
 DROP TEMPORARY TABLE cp_dev_asistente_dias;
 INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-m05b-v1');
 COMMIT;
+
+-- M1.1: ofertas comerciales independientes de Panadería; no generan producción ni existencias.
+INSERT INTO categorias(id,unidad_id,carta,nombre,activo,orden) VALUES
+ (1201,3,'comida','Bollería',1,2),(1202,3,'comida','Dulces de la casa',1,3),(1203,3,'comida','Panes salados',1,4);
+INSERT INTO productos(id,nombre,descripcion,img) VALUES
+ (1201,'Rol de canela','Masa suave con canela y glaseado ligero.',NULL),
+ (1202,'Concha de vainilla','Pan dulce con cubierta crujiente de vainilla.',NULL),
+ (1203,'Concha de chocolate','Pan dulce con cubierta de cacao.',NULL),
+ (1204,'Croissant','Hojaldre de mantequilla con capas ligeras.',NULL),
+ (1205,'Pan de masa madre','Pan de fermentación lenta con miga abierta.',NULL),
+ (1206,'Baguette','Barra de corteza delgada y crujiente.',NULL),
+ (1207,'Focaccia','Pan con aceite de oliva y romero.',NULL),
+ (1208,'Hogaza integral','Mezcla de harinas integrales y semillas.',NULL),
+ (1209,'Galleta de chocolate','Galleta con trozos de chocolate oscuro.',NULL),
+ (1210,'Brownie','Bizcocho de cacao con centro suave.',NULL),
+ (1211,'Panqué de limón','Rebanada de panqué con glaseado de limón.',NULL),
+ (1212,'Pan de chocolate','Masa hojaldrada con relleno de chocolate.',NULL);
+INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
+ (1201,1201,3,1201,'38.00',10,1,2),
+ (1202,1202,3,1201,'24.00',10,1,3),
+ (1203,1203,3,1201,'26.00',10,1,4),
+ (1204,1204,3,1201,'42.00',10,1,5),
+ (1205,1205,3,1002,'85.00',10,1,6),
+ (1206,1206,3,1002,'48.00',10,1,7),
+ (1207,1207,3,1203,'62.00',10,1,8),
+ (1208,1208,3,1002,'90.00',10,1,9),
+ (1209,1209,3,1202,'32.00',10,1,10),
+ (1210,1210,3,1202,'45.00',10,1,11),
+ (1211,1211,3,1202,'40.00',10,1,12),
+ (1212,1212,3,1201,'46.00',10,0,13);

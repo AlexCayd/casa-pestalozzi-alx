@@ -95,7 +95,8 @@ try {
     $inv=new ClienteInstalacion3E();$clients[]=$inv;$inv->login($f['cuentas']['administrador_global']);
     $r=$inv->request('GET','/admin/global/productos/edit?id='.$sharedPid);$assert($valid($r)&&!str_contains($r['body'],'name="confirmar_identidad"'),'Facultad inventariable no abre edición comercial');
     $r=$inv->request('POST','/admin/global/productos/edit?id='.$sharedPid,['menu_csrf'=>ClienteInstalacion3E::token($r['body'],'menu_csrf')]);$assert($r['status']===403,'Servidor deniega facultad comercial ausente');
-    foreach(['/admin/panaderia/recetas','/admin/panaderia/menu/variantes','/admin/panaderia/menu/pdf'] as $path)$assert($admin->request('GET',$path)['status']!==200,'No habilitar fases futuras '.$path);
+    foreach(['/admin/panaderia/recetas','/admin/panaderia/menu/variantes'] as $path)$assert($admin->request('GET',$path)['status']!==200,'No habilitar fases futuras '.$path);
+    $panPdf=$admin->request('GET','/admin/panaderia/menu/pdf');$assert($panPdf['status']===200&&str_starts_with($panPdf['body'],'%PDF-'),'PDF administrativo Panadería M1.1 funcional');
     foreach(['/menu/pdf','/maridaje/pdf'] as $path){$r=$anon->request('GET',$path);$assert($r['status']===200&&str_starts_with($r['body'],'%PDF-'),'PDF Restaurante '.$path);}
     echo "HTTP Menú M1: {$n} comprobaciones OK.\n";
 } finally {foreach($clients as $c)$c->close();}

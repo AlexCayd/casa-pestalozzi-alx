@@ -52,7 +52,7 @@ final class AdministracionMenu
             $s = ActiveRecord::getDB()->prepare('SELECT slug,nombre FROM cartas WHERE unidad_id=? AND activo=1 ORDER BY orden,slug');
             $s->execute([ContextoNegocio::vendedora()]);
             $cartas = [];
-            foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $c) $cartas[$c['slug']] = ['titulo'=>$c['nombre'],'corto'=>$c['nombre'],'ayuda'=>'Carta administrativa de Panadería; publicación pendiente.'];
+            foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $c) $cartas[$c['slug']] = ['titulo'=>$c['nombre'],'corto'=>$c['nombre'],'ayuda'=>'Carta propia de Panadería; PDF administrativo disponible.'];
         }
         return [
             'menuBase' => self::base(), 'menuContexto' => $ctx,
@@ -61,7 +61,7 @@ final class AdministracionMenu
             'menuRecetas' => $ctx === 'restaurante' && Auth::puede('productos', 'ver', $ctx),
             'menuVariantes' => $ctx === 'restaurante',
             'menuSubtitulo' => $ctx === 'panaderia'
-                ? 'Productos, precios y disponibilidad de Panadería. La publicación, las recetas y las ventas se habilitarán en una etapa posterior.'
+                ? 'Productos, precios y disponibilidad de Panadería. PDF propio disponible. Las recetas y las ventas se habilitarán en una etapa posterior.'
                 : 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.',
         ];
     }

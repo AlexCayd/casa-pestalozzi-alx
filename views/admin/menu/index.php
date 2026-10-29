@@ -145,6 +145,7 @@
             <p class="admin-page__subtitle"><?php echo $esc($menuSubtitulo ?? 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.'); ?></p>
         </div>
         <div class="admin-menu__actions admin-actions">
+            <?php if ($menuContexto==='panaderia') : ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/pdf">Ver PDF del menú</a><?php endif; ?>
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Categorías</a>
             <?php if ($menuPuedeEditar) : ?>
             <a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/asociar">Asociar existente</a>

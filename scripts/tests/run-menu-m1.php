@@ -42,6 +42,7 @@ try {
     if (session_status()!==PHP_SESSION_ACTIVE) session_start();
     $super=FixtureAutorizacion3B::usuario($db,'m1_super',[],true);
     $_SESSION=['id'=>$super['id'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];
+    if (isset($extensionM11) && is_callable($extensionM11)) $extensionM11($db,$root,$assert);
     $before=$db->query('SELECT id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden FROM ofertas_producto WHERE unidad_id=2 ORDER BY id')->fetch_all(MYSQLI_ASSOC);
     $rest=ContextoNegocio::en('restaurante',static fn()=>Producto::todos());
     $original=$rest[0]; $pid=(int)$original->producto_id;

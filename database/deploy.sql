@@ -25,7 +25,7 @@ INSERT INTO facultades(clave,solo_global,descripcion) VALUES
 ON DUPLICATE KEY UPDATE solo_global=VALUES(solo_global),descripcion=VALUES(descripcion);
 INSERT INTO cartas(unidad_id,slug,nombre,orden,activo) VALUES
  (2,'comida','Comida',1,1),(2,'maridaje','Maridaje',2,1),(2,'temporada','Temporada',3,1),
- (3,'comida','Comida',1,1),(3,'maridaje','Maridaje',2,1),(3,'temporada','Temporada',3,1)
+ (3,'comida','Menú de Panadería',1,1),(3,'maridaje','Maridaje',2,1),(3,'temporada','Temporada',3,1)
 ON DUPLICATE KEY UPDATE nombre=VALUES(nombre),orden=VALUES(orden),activo=VALUES(activo);
 INSERT INTO configuracion_pos(unidad_id,id) VALUES (2,1),(3,1) ON DUPLICATE KEY UPDATE id=VALUES(id);
 INSERT INTO configuracion_paleta(unidad_id,id) VALUES (2,1),(3,1) ON DUPLICATE KEY UPDATE id=VALUES(id);

@@ -112,6 +112,11 @@ foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asocia
 foreach (['create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
+$router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
+$router->get('/admin/global/menus', [AdminMenuController::class,'biblioteca']);
+foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','maridaje'],'panaderia'=>['panaderia','comida']] as $segmento=>$documento) {
+    $router->get('/admin/global/menus/'.$segmento,static function($router)use($documento):void { \Services\Menu\MenuPdf::streamAdministrativo($documento[0],$documento[1]); });
+}
 $router->get('/admin/global/productos', [AdminMenuController::class, 'globalIndex']);
 $router->get('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
 $router->post('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);

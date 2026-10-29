@@ -26,5 +26,10 @@ try{
  $r=$lector->request('GET','/admin/global/productos?uso=con');$a($valid($r)&&str_contains($r['body'],'No hay identidades que coincidan'),'Recuentos no filtran ofertas ajenas');
  $r=$admin->request('GET','/admin/global/productos?page=2');$a($valid($r)&&str_contains($r['body'],'Página 2 de'),'Paginación real de catálogo');
  $r=$admin->request('GET','/admin/global/productos?q=1003');$a($valid($r)&&str_contains($r['body'],'Hogaza Panadería'),'Buscar por identificador permanente');
+ $r=$admin->request('GET','/admin/global/menus');$a($valid($r),'Biblioteca Global funcional');
+ foreach(['restaurante','maridaje','panaderia'] as $doc){$a(str_contains($r['body'],'/admin/global/menus/'.$doc),'Biblioteca incluye documento '.$doc);$pdf=$admin->request('GET','/admin/global/menus/'.$doc);$a($pdf['status']===200&&str_starts_with($pdf['body'],'%PDF-'),'PDF real '.$doc);file_put_contents(dirname($argv[2]).'/m11-'.$doc.'.pdf',$pdf['body']);}
+ $a($lector->request('GET','/admin/global/menus/panaderia')['status']===403,'Global sin permiso propietario no lee PDF');
+ $a($admin->request('GET','/admin/panaderia/menu/pdf?carta=maridaje')['status']===404,'PDF rechaza carta ajena sin fallback');
+ $a($admin->request('GET','/admin/panaderia/menu/pdf?carta=inventada')['status']===404,'PDF rechaza carta inexistente');
  echo "HTTP M1.1: {$n} comprobaciones OK.\n";
 }finally{foreach($clients as $c)$c->close();}

@@ -55,7 +55,7 @@ $assert(str_contains($importador, "\$img = \$categoria['img']") && str_contains(
 
 // 3 · El PDF no tiene pieza de temporada y no se rompe si se la piden.
 $pdf = $leer('services/Menu/MenuPdf.php');
-$assert(str_contains($pdf, 'if (!isset(self::PIEZAS[$carta]))'), 'MenuPdf cae a la carta de comida ante una carta sin papel.');
+$assert(str_contains($pdf, 'if (!isset(self::PIEZAS[$carta]))') && str_contains($pdf, 'CARTA_INVALIDA'), 'MenuPdf rechaza cartas sin papel sin sustituir el documento.');
 
 // 4 · La vitrina sale de la base, no de un arreglo en el JS.
 $gallery = $leer('src/js/modules/gallery.js');

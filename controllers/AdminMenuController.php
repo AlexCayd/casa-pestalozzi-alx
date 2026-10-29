@@ -140,14 +140,26 @@ class AdminMenuController
     public static function pdf(Router $router): void
     {
         AdministracionMenu::autorizar();
-        MenuPdf::stream(CategoriasMenu::CARTA_COMIDA);
+        MenuPdf::streamAdministrativo('restaurante',CategoriasMenu::CARTA_COMIDA);
     }
 
     /** PDF de la carta de maridaje (la pública es MenuController::pdfMaridaje). */
     public static function pdfMaridaje(Router $router): void
     {
         AdministracionMenu::autorizar();
-        MenuPdf::stream(CategoriasMenu::CARTA_MARIDAJE);
+        MenuPdf::streamAdministrativo('restaurante',CategoriasMenu::CARTA_MARIDAJE);
+    }
+
+    public static function pdfPanaderia(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        MenuPdf::streamAdministrativo('panaderia','comida');
+    }
+
+    public static function biblioteca(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        self::render('menu/biblioteca',['activeModule'=>'menus','title'=>'Menús PDF','topbarSection'=>'Menús PDF','documentos'=>MenuPdf::biblioteca()]);
     }
 
     public static function create(Router $router): void

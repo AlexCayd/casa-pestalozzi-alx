@@ -341,6 +341,7 @@ final class Permisos
     public static function clasificarDirecto(string $url): array
     {
         if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
+        if (self::casa($url, '/admin/global/menus')) return ['tipo'=>'modulos','modulos'=>['menu']];
         if (self::casa($url, '/admin/global/productos')) return ['tipo'=>'modulos','modulos'=>['menu']];
         $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
         if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
