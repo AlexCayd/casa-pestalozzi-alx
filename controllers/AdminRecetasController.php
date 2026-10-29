@@ -18,7 +18,9 @@ use Model\Producto;
 use Model\Subreceta;
 use Services\Menu\RecetasOferta;
 use Services\Security\ContextoNegocio;
+use Services\Inventory\AlmacenesConsumo;
 use Services\Inventory\DecimalInventario;
+use Services\Security\AdminCsrfService;
 use MVC\Router;
 
 class AdminRecetasController
@@ -155,7 +157,9 @@ class AdminRecetasController
             return;
         }
 
-        $alertas = [];
+        $alertas = Producto::getAlertas();
+        $aviso = $_SERVER['REQUEST_METHOD'] === 'GET' ? self::consumirAvisoGuardado() : null;
+        if ($aviso !== null) $alertas['exito'][] = $aviso;
         $volver = self::volverSeguro($_GET['volver'] ?? null);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -177,6 +181,12 @@ class AdminRecetasController
                     'volverUrl' => $volver ?? self::PATH,
                 ]);
                 return;
+            }
+
+            // Sin almacén de consumo la venta se rechaza: se vuelve a la receta a elegirlo.
+            if ($componentes > 0 && AlmacenesConsumo::pendientes($ctx, (int) $producto->id) > 0) {
+                $_SESSION[self::AVISO_GUARDADO] = 'Receta guardada. Falta elegir de qué almacén sale cada ingrediente.';
+                self::redirect(self::urlReceta((int) $producto->id, $volver) . '#almacenes');
             }
 
             /*
@@ -217,6 +227,8 @@ class AdminRecetasController
             'ingredientes' => $ingredientes,
             'subrecetas' => $subrecetas,
             'componentes' => RecetasOferta::componentes($ctx, (int) $producto->id),
+            'almacenesConsumo' => AlmacenesConsumo::paraFormulario($ctx, (int) $producto->id),
+            'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
@@ -338,6 +350,30 @@ class AdminRecetasController
 
     // ── Persistencia de recetas ──────────────────────────────
     /** Convierte el formulario actual a DTO y delega la versión a RecetasOferta. */
+    /** POST: almacén de consumo de cada artículo que la receta o sus variantes descuentan. */
+    public static function almacenes(Router $router): void
+    {
+        $ctx = ContextoNegocio::slug();
+        $id = self::validarId($_GET['id'] ?? null, $router);
+        $volver = self::volverSeguro($_GET['volver'] ?? null);
+        $resultado = AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)
+            ? AlmacenesConsumo::guardar($ctx, $id, is_array($_POST['almacen'] ?? null) ? $_POST['almacen'] : [])
+            : ['ok' => false, 'mensaje' => 'La sesión del formulario venció. Vuelve a elegir los almacenes.'];
+        if (empty($resultado['ok'])) {
+            Producto::setAlerta('error', $resultado['mensaje'] ?? 'No se pudieron guardar los almacenes.');
+            $_SERVER['REQUEST_METHOD'] = 'GET';
+            self::receta($router);
+            return;
+        }
+        $_SESSION[self::AVISO_GUARDADO] = 'Almacenes de consumo guardados.';
+        self::redirect($volver ?? self::urlReceta($id, null));
+    }
+
+    private static function urlReceta(int $id, ?string $volver): string
+    {
+        return self::PATH . '/editar?id=' . $id . ($volver !== null ? '&volver=' . rawurlencode($volver) : '');
+    }
+
     private static function guardarComponentes(string $ctx, int $ofertaId): array
     {
         // Cada componente llega como "tipo:ref" (p. ej. "ingrediente:5") en comp[]

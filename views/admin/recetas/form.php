@@ -11,6 +11,9 @@
     // lleva `action`: se envía a esta misma URL, con su `volver`, y al guardar
     // el controlador redirige a esa lista.
     $volverUrl = (string) ($volverUrl ?? '/admin/recetas');
+    $almacenesConsumo = is_array($almacenesConsumo ?? null) ? $almacenesConsumo : [];
+    $pendientesAlmacen = count(array_filter($almacenesConsumo, static fn(array $f): bool => $f['almacen_id'] === null));
+    $volverQuery = $volverUrl !== '/admin/recetas' ? '&volver=' . rawurlencode($volverUrl) : '';
 
     // Catálogo de opciones para el buscador de componentes (ingredientes + subrecetas).
     $opciones = [];
@@ -73,9 +76,14 @@
                     <strong><?php echo $prod->activo ? 'Activo' : 'Inactivo'; ?></strong>
                 </div>
             </div>
-            <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/edit?id=<?php echo (int) $prod->id; ?>">
-                Editar datos del platillo
-            </a>
+            <div class="admin-actions">
+                <?php if (\Classes\Auth::puede('menu', 'ver')) : ?>
+                    <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/variantes?id=<?php echo (int) $prod->id; ?>">Variantes</a>
+                <?php endif; ?>
+                <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/edit?id=<?php echo (int) $prod->id; ?>">
+                    Editar datos del platillo
+                </a>
+            </div>
         </section>
     <?php endif; ?>
 
@@ -151,6 +159,51 @@
             <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">Cancelar</a>
         </div>
     </form>
+
+    <?php if ($prod && $almacenesConsumo !== []) : ?>
+        <?php /* Formulario aparte: la lista sale de la receta y las variantes ya
+                 guardadas. Sin fila, ConsumoOferta rechaza la venta; no hay respaldo. */ ?>
+        <form method="POST" action="/admin/recetas/almacenes?id=<?php echo (int) $prod->id . htmlspecialchars($volverQuery, ENT_QUOTES, 'UTF-8'); ?>" id="almacenes" class="admin-panel admin-card admin-recipe">
+            <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+            <div class="admin-recipe__head">
+                <div>
+                    <span class="admin-recipe__eyebrow">Inventario</span>
+                    <h3>¿De dónde sale cada ingrediente?</h3>
+                    <p>Incluye los ingredientes de la receta, de sus subrecetas y los que agregan o cambian sus <a href="/admin/menu/variantes?id=<?php echo (int) $prod->id; ?>">variantes</a>. Al vender se descuenta del almacén elegido.</p>
+                    <?php if ($pendientesAlmacen > 0) : ?>
+                        <p class="admin-recipe__aviso" role="status"><?php echo $pendientesAlmacen === 1 ? 'Falta 1 ingrediente' : 'Faltan ' . $pendientesAlmacen . ' ingredientes'; ?> por asignar: mientras tanto el POS no puede vender este platillo.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table admin-table--compact">
+                    <thead><tr><th>Ingrediente</th><th>Almacén de consumo</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($almacenesConsumo as $fila) : $campo = 'almacen-' . (int) $fila['articulo_id']; ?>
+                        <tr>
+                            <td><label for="<?php echo $campo; ?>"><strong><?php echo htmlspecialchars($fila['nombre']); ?></strong></label> <span class="admin-table__cell-sub"><?php echo htmlspecialchars($fila['unidad']); ?></span></td>
+                            <td>
+                                <?php if ($fila['opciones'] === []) : ?>
+                                    <span class="admin-table__cell-sub">No está en ningún almacén activo. <a href="/admin/almacenes">Asócialo en Almacenes</a>.</span>
+                                <?php else : ?>
+                                    <select id="<?php echo $campo; ?>" name="almacen[<?php echo (int) $fila['articulo_id']; ?>]" required>
+                                        <option value="" <?php echo $fila['almacen_id'] === null ? 'selected' : ''; ?>>Elige un almacén</option>
+                                        <?php foreach ($fila['opciones'] as $almacenId => $almacenNombre) : ?>
+                                            <option value="<?php echo (int) $almacenId; ?>" <?php echo $fila['almacen_id'] === (int) $almacenId ? 'selected' : ''; ?>><?php echo htmlspecialchars($almacenNombre); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="admin-form-grid__actions admin-recipe__actions">
+                <button type="submit" class="admin-btn admin-btn--primary">Guardar almacenes</button>
+            </div>
+        </form>
+    <?php endif; ?>
 </section>
 
 <?php include __DIR__ . '/_ingredient-picker-modal.php'; ?>

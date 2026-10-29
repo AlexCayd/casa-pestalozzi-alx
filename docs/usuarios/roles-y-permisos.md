@@ -51,6 +51,27 @@ el formulario y el conjunto que valida la delegación. `solo_global` limita las
 facultades de crear almacenes físicos o editar el catálogo maestro al ámbito
 Global. Poseer lectura consolidada no concede escritura sobre almacenes ajenos.
 
+## Perfiles sugeridos
+
+`PerfilesSugeridos::PERFILES` define atajos de formulario, no roles. Al elegir uno,
+`users-directos.js` ajusta los controles existentes; lo guardado siguen siendo
+permisos y facultades directos que `AccesosUsuario` valida contra el techo del actor.
+El servidor no lee `perfil_sugerido`, no persiste el perfil y cambiar una definición
+no altera usuarios guardados.
+
+| Perfil | Asignación |
+|---|---|
+| Mesero | Restaurante: `pdv` en `operar`. Entra con NIP. |
+| Administrador de Restaurante | Restaurante completo: panel en `editar`, piso en `operar` y todas sus facultades |
+| Administrador de Panadería | Panadería completa: panel en `editar` y todas sus facultades |
+| Acceso total | Global, Restaurante y Panadería completos, sin `es_superadmin` |
+
+Panadería no tiene módulos de piso, por lo que no ofrece perfil de mesero. Solo
+aparecen los perfiles cuyos ámbitos gestiona el actor. Las opciones de cada módulo
+ya llegan recortadas a su techo: un perfil completo baja al máximo disponible y lo
+avisa, y un nivel concreto que el actor no puede delegar queda sin acceso. La
+interfaz marca el perfil que coincide con la selección, o Personalizado.
+
 ## Cómo decide el backend
 
 `public/index.php` llama a `Auth::proteger()` antes del ruteo.

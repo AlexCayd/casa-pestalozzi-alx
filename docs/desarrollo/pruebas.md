@@ -52,6 +52,17 @@ npm run test:js
 npm run test:notifications
 ```
 
+`run-variantes-consumo.php` crea una base aislada con DDL/deploy y recorre una
+variante que sustituye un artículo: venta rechazada sin almacén de consumo,
+validación de asignaciones y permisos, descuento del artículo sustituto en el
+almacén elegido y snapshot bajo el mismo producto. Se ejecuta con
+`--host`, `--base` y `--entorno` iguales a `includes/.env`.
+
+`run-usuarios-perfiles.cjs`, dentro de `test:js`, renderiza el formulario real de
+Usuarios con PHP y lo ejercita con jsdom: perfiles, techo del actor, credencial
+calculada, envío y detección de Personalizado. jsdom llega como dependencia
+transitiva del lockfile; si se retira, la prueba falla al cargarlo.
+
 Las pruebas de notificaciones crean y eliminan sus propias bases aisladas. La
 variante `--migrations` puede informar que los scripts históricos están retirados
 y comprobar el DDL vigente; ese mensaje no acredita que se hayan reaplicado esas

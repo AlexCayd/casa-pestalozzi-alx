@@ -45,6 +45,10 @@ mismo servicio que valida el backend; las facultades exclusivas de Global no
 aparecen como opciones de un negocio. El actor no puede delegar derechos por
 encima de su techo en el contexto desde el que administra.
 
+Para agilizar el alta, la sección **Perfil sugerido** rellena ámbitos, módulos y
+facultades de un paso; después pueden ajustarse antes de guardar. Su contrato
+está en [perfiles sugeridos](roles-y-permisos.md#perfiles-sugeridos).
+
 Las mutaciones pasan por `UsuarioService`/`AccesosUsuario`, validan CSRF y vuelven
 a comprobar identidad, delegación y datos dentro de su transacción. Estado de
 cuenta y revocaciones se releen en las siguientes peticiones protegidas. La

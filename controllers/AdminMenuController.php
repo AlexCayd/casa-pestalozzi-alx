@@ -19,10 +19,13 @@ use Model\Producto;
 use MVC\Router;
 use Services\Menu\CategoriaMenuService;
 use Services\Menu\FotoPlatillo;
+use Services\Inventory\AlmacenesConsumo;
 use Services\Inventory\HistorialPrecios;
+use Services\Inventory\InventarioError;
 use Services\Menu\MenuPdf;
 use Services\Menu\Variantes;
 use Services\Security\AdminCsrfService;
+use Services\Security\ContextoNegocio;
 
 class AdminMenuController
 {
@@ -611,6 +614,13 @@ class AdminMenuController
         $resultado = Variantes::guardar((int) $productoId, $grupos);
         if (!$resultado['ok']) {
             http_response_code(422);
+        } else {
+            // Un artículo que entra por variante sin almacén de consumo haría rechazar la venta.
+            try {
+                $resultado['almacenes_pendientes'] = AlmacenesConsumo::pendientes(ContextoNegocio::slug(), (int) $productoId);
+            } catch (InventarioError) {
+                // Sin permiso de Recetas no se puede consultar ni corregir desde aquí.
+            }
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
     }

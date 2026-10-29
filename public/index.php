@@ -242,6 +242,7 @@ $router->get('/admin/api/historial-precios', [AdminInventarioController::class, 
 $router->get('/admin/recetas',                       [AdminRecetasController::class, 'index']);
 $router->get('/admin/recetas/editar',                [AdminRecetasController::class, 'receta']);
 $router->post('/admin/recetas/editar',               [AdminRecetasController::class, 'receta']);
+$router->post('/admin/recetas/almacenes',            [AdminRecetasController::class, 'almacenes']);
 $router->get('/admin/recetas/subrecetas',            [AdminRecetasController::class, 'subrecetas']);
 $router->get('/admin/recetas/subrecetas/create',     [AdminRecetasController::class, 'subrecetaCreate']);
 $router->post('/admin/recetas/subrecetas/create',    [AdminRecetasController::class, 'subrecetaCreate']);

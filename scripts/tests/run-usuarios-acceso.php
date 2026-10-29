@@ -127,5 +127,13 @@ comprobar(str_contains($usuariosDocs, 'NIP_LOOKUP_SECRET'), 'La documentación c
 comprobar(str_contains($credenciales, 'bootstrap-admin.php') && str_contains($credenciales, 'DEV_SUPERADMIN_PASSWORD') && str_contains($credenciales, '--restablecer'), 'Las credenciales de desarrollo explican el bootstrap explícito, el secreto local y el restablecimiento controlado.');
 comprobar(!preg_match('/INSERT\s+INTO\s+usuarios/i', $ddl), 'El DDL contiene registros de usuarios.');
 
+// Perfiles sugeridos: deben seguir al catálogo vigente y no tocar la cuenta protegida.
+$perfiles = \Services\Users\PerfilesSugeridos::class;
+comprobar($perfiles::inconsistencias() === [], 'Un perfil sugerido usa un módulo o nivel inexistente: ' . implode('; ', $perfiles::inconsistencias()));
+comprobar(array_keys($perfiles::disponibles(['restaurante'])) === ['mesero', 'admin_restaurante'], 'Restaurante no ofrece exactamente mesero y administrador.');
+comprobar(array_keys($perfiles::disponibles(['panaderia'])) === ['admin_panaderia'], 'Panadería ofrece un perfil sin módulos de piso.');
+comprobar(isset($perfiles::disponibles(['global', 'restaurante', 'panaderia'])['acceso_total']), 'Global completo no ofrece acceso total.');
+comprobar(!str_contains(file_get_contents($root . '/services/Users/PerfilesSugeridos.php'), "'es_superadmin' =>"), 'Un perfil sugerido intenta asignar es_superadmin.');
+
 NipService::usarGenerador(null);
 echo "OK: contratos de acceso de usuarios\n";
