@@ -1,0 +1,21 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__,2).'/vendor/autoload.php';
+use Services\Security\InicioAdministrativo;
+$n=0;$a=static function(bool $ok,string $m)use(&$n):void{if(!$ok)throw new RuntimeException($m);$n++;};
+$p=['activo'=>true,'ambitos'=>['global'=>['permisos'=>['menu'=>'ver'],'facultades'=>[]],'panaderia'=>['permisos'=>['menu'=>'editar','inventario'=>'ver'],'facultades'=>[]]]];
+$global=InicioAdministrativo::preparar($p,'global','contrasena');
+$a(array_column($global['seccionesInicio'],'titulo')===['Negocios','Administración','Menús'],'Tres secciones Global');
+$a(count($global['seccionesInicio'][0]['tarjetas'])===1,'Solo negocios autorizados');
+$a($global['seccionesInicio'][0]['tarjetas'][0]['ruta']==='/admin/contexto?contexto=panaderia','Cambio por mecanismo existente');
+$a(count($global['seccionesInicio'][1]['tarjetas'])===1,'No conceder módulos Global por permiso local');
+$pan=InicioAdministrativo::preparar($p,'panaderia','contrasena');
+$routes=array_column($pan['seccionesInicio'][0]['tarjetas'],'ruta');
+$a(in_array('/admin/panaderia/menu',$routes,true),'Menú propio');
+$a(in_array('/admin/panaderia/almacenes?vista=transferencias',$routes,true),'Transferencias usa recorrido existente');
+$a(count($routes)===3,'Sin enlaces a POS ni recetas pendientes');
+$p['activo']=false;$empty=InicioAdministrativo::preparar($p,'panaderia','contrasena');
+$a($empty['seccionesInicio'][0]['tarjetas']===[],'Revocación de cuenta');
+$p['activo']=true;$nip=InicioAdministrativo::preparar($p,'panaderia','nip');
+$a($nip['seccionesInicio'][0]['tarjetas']===[],'NIP no abre panel');
+echo "Inicio M1.1: {$n} comprobaciones OK.\n";

@@ -89,10 +89,14 @@ final class AdminContextosController
     public static function inicioSeguro(): void
     {
         header('Cache-Control: no-store, private');
-        AdminController::render('__inicio-multinegocio', [
+        $ctx=\Services\Security\ContextoNegocio::slug();
+        $perfil=\Services\Security\PermisosUsuario::cargar(\Services\Security\ContextoNegocio::actorId());
+        $inicio=\Services\Security\InicioAdministrativo::preparar($perfil,$ctx,\Services\Security\ContextoNegocio::nivelAuth());
+        AdminController::render('contextos/inicio', array_merge($inicio, [
+            'nombreInicio'=>Contextos::NOMBRES[$ctx],
             'activeModule' => 'inicio',
             'title' => 'Inicio',
             'topbarSection' => 'Inicio',
-        ]);
+        ]));
     }
 }
