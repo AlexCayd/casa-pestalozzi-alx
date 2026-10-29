@@ -281,7 +281,7 @@ final class Comercial
         $lock = $bloquear ? ' FOR UPDATE' : '';
         $stmt = self::sql($db,
             'SELECT o.id oferta_id,o.producto_id,o.precio,c.id categoria_id,c.nombre categoria,ap.id area_id,ap.nombre area_nombre,p.nombre,p.img,r.id receta_id
-               FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id
+               FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id
                JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id
                JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id
                LEFT JOIN recetas r ON r.oferta_id=o.id AND r.unidad_id=o.unidad_id AND r.activo=1

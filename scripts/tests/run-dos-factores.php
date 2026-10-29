@@ -55,11 +55,12 @@ $assert(DosFactores::esperaReenvio(['enviado' => $ahora - DosFactores::ESPERA_RE
 $assert(DosFactores::esperaReenvio(['enviado' => 0, 'envios' => DosFactores::ENVIOS], $ahora) === -1, 'tope de envíos por reto');
 
 // ── mostrarCodigo(): nunca con APP_ENV=production ───────────
-// Vacío también enseña: los .env de hoy no declaran APP_ENV.
-foreach (['development' => true, 'test' => true, '' => true, 'production' => false, ' Production ' => false] as $valor => $esperado) {
+foreach (['development' => true, 'test' => true, '' => false, 'desconocido' => false, 'production' => false, ' Production ' => false] as $valor => $esperado) {
     $entorno($valor);
     $assert(DosFactores::mostrarCodigo() === $esperado, "mostrarCodigo con APP_ENV={$valor}");
 }
+unset($_ENV['APP_ENV']); putenv('APP_ENV');
+$assert(!DosFactores::mostrarCodigo(), 'APP_ENV ausente no muestra el código');
 
 // ── enviar(): contrato con n8n ──────────────────────────────
 $capturas = [];
@@ -157,7 +158,7 @@ $assert(Permisos::clasificar('/login/verificacion')['tipo'] === 'publica', 'la v
 
 $controlador = $leer('controllers/AuthController.php');
 $loginAdmin = substr($controlador, (int) strpos($controlador, 'function loginAdmin'), 2500);
-$assert(strpos($loginAdmin, 'DosFactores::aplica') < strpos($loginAdmin, 'Auth::login'), 'la contraseña de sistema abre el reto antes que cualquier sesión');
+$assert(strpos($loginAdmin, 'DosFactores::requiere') < strpos($loginAdmin, 'Auth::login'), 'la contraseña administrativa abre el reto antes que cualquier sesión');
 
 $vista = $leer('views/auth/dos-factores.php');
 $assert(str_contains($vista, 'autocomplete="one-time-code"') && str_contains($vista, 'inputmode="numeric"'), 'el campo admite autocompletar del código');

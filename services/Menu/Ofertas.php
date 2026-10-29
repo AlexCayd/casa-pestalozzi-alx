@@ -14,6 +14,7 @@ final class Ofertas
             ContextoNegocio::exigir('menu','editar',$ctx);
             $unidad=ContextoNegocio::vendedora($ctx); $db=ActiveRecord::getDB();
             $categoria=(int)($datos['categoria_id']??0); $area=(int)($datos['area_id']??0); $precio=$datos['precio']??null;
+            try { $precio=ImporteOferta::normalizar($precio); } catch (\InvalidArgumentException $e) { return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'PRECIO_INVALIDO']; }
             $activo=isset($datos['activo'])?(int)(bool)$datos['activo']:1; $orden=(int)($datos['orden']??0);
             if ($productoId<1 || $categoria<1 || $area<1 || !is_numeric($precio) || (float)$precio<0) return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'DATOS_INVALIDOS'];
             return ContextoNegocio::transaccion(static function () use ($db,$productoId,$unidad,$ctx,$categoria,$area,$precio,$activo,$orden): array {
@@ -22,15 +23,19 @@ final class Ofertas
                 if (!$stmt) throw new \RuntimeException($db->error);
                 $stmt->bind_param('i',$productoId); self::ejecutar($stmt); $existe=(bool)$stmt->get_result()->fetch_row(); $stmt->close();
                 if (!$existe) return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'PRODUCTO_NO_EXISTE'];
+                ProductosCasa::exigirDestino($productoId,$ctx);
+                $oficial=ProductosCasa::publicada($productoId);
+                if($oficial!==null){if(!$oficial['reglas']['precio'])$precio=$oficial['precio'];if(!$oficial['reglas']['activo'])$activo=$oficial['activo'];}
                 self::validarLocal($db,$categoria,$area,$unidad);
                 $stmt=$db->prepare('SELECT id FROM ofertas_producto WHERE producto_id=? AND unidad_id=? LIMIT 1');
                 if (!$stmt) throw new \RuntimeException($db->error);
                 $stmt->bind_param('ii',$productoId,$unidad); self::ejecutar($stmt); $existente=$stmt->get_result()->fetch_row(); $stmt->close();
                 if ($existente) return ['ok'=>false,'confirmado'=>false,'pendiente'=>false,'codigo'=>'OFERTA_YA_EXISTE','id'=>(int)$existente[0],'oferta_id'=>(int)$existente[0],'producto_id'=>$productoId,'unidad_id'=>$unidad];
-                $precio=(float)$precio;
+
                 $stmt=$db->prepare("INSERT INTO ofertas_producto (producto_id,unidad_id,unidad_tipo,categoria_id,precio,area_id,activo,orden) VALUES (?,?,'negocio',?,?,?,?,?)");
                 if (!$stmt) throw new \RuntimeException($db->error);
-                $stmt->bind_param('iiidiii',$productoId,$unidad,$categoria,$precio,$area,$activo,$orden); self::ejecutar($stmt); $id=(int)$db->insert_id; $stmt->close();
+                $stmt->bind_param('iiisiii',$productoId,$unidad,$categoria,$precio,$area,$activo,$orden); self::ejecutar($stmt); $id=(int)$db->insert_id; $stmt->close();
+                if (!\Model\HistorialPrecio::registrar(['unidad_id'=>$unidad,'oferta_id'=>$id,'articulo_id'=>null,'precio_anterior'=>null,'precio_nuevo'=>$precio,'motivo'=>'alta'], true)) throw new \RuntimeException('No se pudo preparar el histórico de la oferta.');
                 return ['id'=>$id,'oferta_id'=>$id,'producto_id'=>$productoId,'unidad_id'=>$unidad];
             });
         });
@@ -41,7 +46,7 @@ final class Ofertas
     {
         return ContextoNegocio::en($ctx,static function () use ($ofertaId,$ctx): ?array {
             ContextoNegocio::exigir('menu','ver',$ctx); $unidad=ContextoNegocio::vendedora($ctx);
-            $stmt=ActiveRecord::getDB()->prepare('SELECT o.id,o.id AS oferta_id,o.producto_id,o.unidad_id,p.nombre,p.descripcion,p.img,o.categoria_id,o.precio,o.area_id,o.activo,o.orden FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? LIMIT 1');
+            $stmt=ActiveRecord::getDB()->prepare('SELECT o.id,o.id AS oferta_id,o.producto_id,o.unidad_id,p.nombre,p.descripcion,p.img,o.categoria_id,o.precio,o.area_id,o.activo,o.orden FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id WHERE o.id=? AND o.unidad_id=? LIMIT 1');
             if (!$stmt) throw new \RuntimeException(ActiveRecord::getDB()->error);
             $stmt->bind_param('ii',$ofertaId,$unidad); self::ejecutar($stmt); $row=$stmt->get_result()->fetch_assoc()?:null; $stmt->close();
             if (!$row) return null;
@@ -50,7 +55,7 @@ final class Ofertas
         });
     }
 
-    private static function validarLocal(\mysqli $db,int $categoria,int $area,int $unidad): void
+    public static function validarLocal(\mysqli $db,int $categoria,int $area,int $unidad): void
     {
         $stmt=$db->prepare('SELECT (SELECT COUNT(*) FROM categorias WHERE id=? AND unidad_id=?),(SELECT COUNT(*) FROM areas_produccion WHERE id=? AND unidad_id=?)');
         if (!$stmt) throw new \RuntimeException($db->error);

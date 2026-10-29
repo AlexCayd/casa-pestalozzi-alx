@@ -451,6 +451,10 @@
             campo.appendChild(input);
             campo.appendChild(pista);
             custom.appendChild(campo);
+            // Sin contenido adicional la ranura estaba oculta: el nombre debe
+            // poder escribirse antes de habilitar la confirmación.
+            custom.hidden = false;
+            custom.removeAttribute('aria-hidden');
 
             function normalizar(valor) {
                 return String(valor == null ? '' : valor).trim().toLocaleLowerCase('es');

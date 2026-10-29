@@ -545,7 +545,8 @@
 .admin-recetas .admin-card {
   padding: clamp(18px, 2.4vw, 26px);
 }
-.admin-recetas .admin-panel + .admin-panel {
+.admin-recetas .admin-panel + .admin-panel,
+.admin-recetas form + .admin-panel {
   margin-top: 18px;
 }
 .admin-recetas__resumen {
@@ -663,6 +664,10 @@
   color: var(--admin-muted);
   font-size: 13px;
   line-height: 1.5;
+}
+.admin-recipe__head .admin-recipe__aviso {
+  color: var(--admin-warning-text);
+  font-weight: 600;
 }
 .admin-recipe__eyebrow {
   display: inline-block;

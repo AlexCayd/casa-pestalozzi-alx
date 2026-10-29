@@ -18,5 +18,30 @@ node_modules
 AGENTS.md
 storage/sessions/
 tmp/menu-preservacion/
-PRODUCT.md
 skills-lock.json
+
+# Entorno privado; conservar plantillas de configuración
+.env.*
+!.env.example
+!.env.*.example
+
+# Residuos locales y de ejecución (no excluyen fixtures ni recursos del build)
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+sess_*
+/tmp/
+/storage/logs/
+/storage/cache/
+/.cache/
+/.phpunit.cache/
+/.phpunit.result.cache
+/coverage/
+/test-results/
+/playwright-report/
+/backups-locales/

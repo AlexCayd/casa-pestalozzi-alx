@@ -54,7 +54,7 @@ y capacidades; evitar copiar una interfaz completa para cada negocio.
 
 Conservar el selector bajo el logotipo y el nombre visible del ámbito activo.
 No rediseñar Restaurante como parte de un módulo funcional nuevo. Preferir los
-componentes descritos en `CLAUDE.md`; no usar diálogos nativos `alert`, `confirm`
+componentes de la [guía de interfaz](interfaz.md); no usar diálogos nativos `alert`, `confirm`
 o `prompt`. Verificar escritorio, móvil, teclado, solo consulta y errores.
 
 ## DDL, DML y fixtures

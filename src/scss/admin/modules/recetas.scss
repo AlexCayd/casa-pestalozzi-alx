@@ -15,7 +15,8 @@
   }
 
   // Separación entre paneles apilados dentro del formulario.
-  .admin-panel + .admin-panel {
+  .admin-panel + .admin-panel,
+  form + .admin-panel {
     margin-top: 18px;
   }
 
@@ -169,6 +170,12 @@
       color: var(--admin-muted);
       font-size: 13px;
       line-height: 1.5;
+    }
+
+    // Sin almacén la venta se rechaza: se lee como advertencia, no como ayuda.
+    .admin-recipe__aviso {
+      color: var(--admin-warning-text);
+      font-weight: 600;
     }
   }
 

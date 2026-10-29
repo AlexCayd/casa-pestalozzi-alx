@@ -208,6 +208,7 @@ class CategoriaMenuServiceMultinegocio extends CategoriaMenuService
     {
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'editar', $ctx);
+        if ($categoria->validar()) return ['ok'=>false,'codigo'=>self::ERROR_GUARDADO,'categoria'=>$categoria];
         if ($ctx === 'global') return ['ok'=>false,'codigo'=>self::ERROR_GUARDADO,'categoria'=>$categoria];
         $unidad = ContextoNegocio::unidad($ctx); $db = ActiveRecord::getDB();
         $resultado = ContextoNegocio::transaccion(function () use ($db,$unidad,$categoria) {
@@ -230,6 +231,7 @@ class CategoriaMenuServiceMultinegocio extends CategoriaMenuService
     public static function actualizar(CategoriasMenu $categoria): array
     {
         $ctx=ContextoNegocio::slug(); ContextoNegocio::exigir('menu','editar',$ctx);
+        if ($categoria->validar()) return ['ok'=>false,'codigo'=>self::ERROR_GUARDADO,'categoria'=>$categoria];
         $id=(int)$categoria->id; $unidad=ContextoNegocio::unidad($ctx);
         if ($id<1 || $ctx==='global') { ImagenUploader::eliminar($categoria->img); return ['ok'=>false,'codigo'=>self::NO_EXISTE,'categoria'=>$categoria]; }
         $db=ActiveRecord::getDB(); $imagenAnterior=null;

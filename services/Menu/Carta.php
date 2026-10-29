@@ -247,7 +247,7 @@ class CartaMultinegocio
         $unidad = self::unidadRestaurante();
         $db = Producto::getDB(); $filtro = '';
         if ($carta !== null) $filtro = " AND c.carta='" . Producto::escaparString(CategoriasMenu::normalizarCarta($carta)) . "'";
-        $res = $db->query("SELECT c.id cat_id,c.nombre cat_nombre,c.img cat_img,o.id oferta_id,o.producto_id,p.nombre,p.descripcion,o.precio,p.img FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1{$filtro} ORDER BY c.orden,c.id,o.orden,o.id");
+        $res = $db->query("SELECT c.id cat_id,c.nombre cat_nombre,c.img cat_img,o.id oferta_id,o.producto_id,p.nombre,p.descripcion,o.precio,p.img FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1{$filtro} ORDER BY c.orden,c.id,o.orden,o.id");
         if (!$res) return [];
         $out=[];
         while ($row=$res->fetch_assoc()) {
@@ -273,7 +273,7 @@ class CartaMultinegocio
     {
         ContextoNegocio::exigir('pdv','operar',ContextoNegocio::slug());
         $ctx=ContextoNegocio::slug(); $unidad=ContextoNegocio::vendedora($ctx);
-        $res=Producto::getDB()->query("SELECT c.id cat_id,c.nombre cat_nombre,o.id oferta_id,p.nombre,o.precio,ap.slug area_slug FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1 ORDER BY c.orden,c.id,o.orden,o.id");
+        $res=Producto::getDB()->query("SELECT c.id cat_id,c.nombre cat_nombre,o.id oferta_id,p.nombre,o.precio,ap.slug area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1 ORDER BY c.orden,c.id,o.orden,o.id");
         if (!$res) return [];
         try { $variantes=Variantes::paraPos(); } catch (\Throwable $e) { error_log('Carta::paraPos - variantes no disponibles: '.$e->getMessage()); $variantes=[]; }
         $out=[];

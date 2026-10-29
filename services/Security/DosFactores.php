@@ -9,7 +9,7 @@ use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 
 /**
- * Segundo paso del acceso de los roles de sistema (super admin y admin): tras
+ * Segundo paso del acceso administrativo según privilegios efectivos: tras
  * la contraseña correcta NO se abre sesión; se abre un reto en $_SESSION y se
  * manda un código de 6 dígitos al correo de la cuenta. Sólo quien lo teclea
  * entra (AuthController::verificacion).
@@ -34,19 +34,23 @@ final class DosFactores
         return Permisos::esSistema($rol);
     }
 
+    /** La política 3B depende de privilegios efectivos, nunca del rol heredado. */
+    public static function requiere(Usuario $usuario): bool
+    {
+        if (!Auth::multinegocio()) return self::aplica((string)$usuario->rol);
+        $perfil = PermisosUsuario::cargar((int)$usuario->id);
+        return !empty($perfil['activo']) && PermisosUsuario::tipoAcceso($perfil) === Permisos::ACCESO_CONTRASENA;
+    }
+
     /**
-     * TEMPORAL — retirar en el deploy junto con el recuadro de
-     * views/auth/dos-factores.php: mientras no haya correos de prueba, el
-     * código se pinta en la pantalla. Se oculta sólo con APP_ENV=production
-     * ESCRITO: NotificationConfig toma un APP_ENV vacío por production, y los
-     * .env de hoy no lo declaran, así que con esa regla nadie podría entrar.
-     * Red por si se olvida retirarlo: el deploy declara APP_ENV=production.
+     * Solo los entornos explícitos de desarrollo y prueba permiten visualizar
+     * el código. Un entorno ausente o desconocido nunca abre esta facilidad.
      */
     public static function mostrarCodigo(): bool
     {
         $entorno = $_ENV['APP_ENV'] ?? getenv('APP_ENV');
 
-        return strtolower(trim((string) $entorno)) !== NotificationConfig::PRODUCTION;
+        return in_array(strtolower(trim((string) $entorno)), ['development', 'test'], true);
     }
 
     /** Abre el reto tras la contraseña correcta y manda el primer código. */
@@ -182,6 +186,13 @@ final class DosFactores
 
         $resultado = self::comprobar($reto, trim($codigo), time());
         if ($resultado === 'ok') {
+            if (Auth::multinegocio()) {
+                $usuario = Usuario::find((int)$reto['id']);
+                if (!$usuario || !self::requiere($usuario)) {
+                    self::cancelar();
+                    return ['resultado' => 'revocado'];
+                }
+            }
             self::cancelar();
             return ['resultado' => 'ok', 'id' => (int) $reto['id']];
         }

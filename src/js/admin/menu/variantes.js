@@ -1022,7 +1022,17 @@
             guardado = JSON.stringify(serializar());
             mostrarErrores([]);
             pintarTodo();
-            aviso('Variantes guardadas. El POS las toma al recargar el mapa.', 'success');
+            var pendientes = Number(res.almacenes_pendientes) || 0;
+            if (pendientes > 0) {
+                // Persistente: hasta asignar el almacén, el POS rechaza la venta de este platillo.
+                window.AppNotice && window.AppNotice.show({
+                    variant: 'warning',
+                    timeout: 0,
+                    text: 'Variantes guardadas. Falta elegir de qué almacén sale ' + (pendientes === 1 ? '1 ingrediente' : pendientes + ' ingredientes') + ': asígnalo en «Receta base». Mientras tanto el POS no puede vender este platillo.'
+                });
+            } else {
+                aviso('Variantes guardadas. El POS las toma al recargar el mapa.', 'success');
+            }
         }).catch(function () {
             guardando = false;
             pintarBarra();

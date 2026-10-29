@@ -1,5 +1,20 @@
 # Permisos directos y ámbitos
 
+## Productos y recetas de la casa M1.2
+
+Estandarizar exige `menu/editar` Global y la facultad existente
+`comercial.identidad.editar`. Publicar revalida además Menú de cada negocio
+impactado; aplicar receta exige `productos/editar` local. Seleccionar orígenes
+exige `inventario/editar` del propietario. Un administrador Global sin facultad
+puede supervisar según sus lecturas, pero no crear ni publicar estándares.
+`menu/editar` local solo permite personalizaciones autorizadas; tampoco permite
+alterar las reglas oficiales. Los permisos se recargan bajo bloqueo antes del
+commit. El superadministrador conserva su excepción organizacional.
+
+La adaptación de recetas de casa dentro de Menú usa el permiso ya existente de
+Recetas (`productos`), sin habilitar el módulo completo de Panadería ni su POS.
+
+
 El nombre del archivo se conserva para no romper referencias históricas. La
 fuente efectiva desde 3B es la asignación directa, no el rol. El
 [contrato rector](../arquitectura.md) rige esta implementación y su expansión.
@@ -51,6 +66,27 @@ el formulario y el conjunto que valida la delegación. `solo_global` limita las
 facultades de crear almacenes físicos o editar el catálogo maestro al ámbito
 Global. Poseer lectura consolidada no concede escritura sobre almacenes ajenos.
 
+## Perfiles sugeridos
+
+`PerfilesSugeridos::PERFILES` define atajos de formulario, no roles. Al elegir uno,
+`users-directos.js` ajusta los controles existentes; lo guardado siguen siendo
+permisos y facultades directos que `AccesosUsuario` valida contra el techo del actor.
+El servidor no lee `perfil_sugerido`, no persiste el perfil y cambiar una definición
+no altera usuarios guardados.
+
+| Perfil | Asignación |
+|---|---|
+| Mesero | Restaurante: `pdv` en `operar`. Entra con NIP. |
+| Administrador de Restaurante | Restaurante completo: panel en `editar`, piso en `operar` y todas sus facultades |
+| Administrador de Panadería | Panadería completa: panel en `editar` y todas sus facultades |
+| Acceso total | Global, Restaurante y Panadería completos, sin `es_superadmin` |
+
+Panadería no tiene módulos de piso, por lo que no ofrece perfil de mesero. Solo
+aparecen los perfiles cuyos ámbitos gestiona el actor. Las opciones de cada módulo
+ya llegan recortadas a su techo: un perfil completo baja al máximo disponible y lo
+avisa, y un nivel concreto que el actor no puede delegar queda sin acceso. La
+interfaz marca el perfil que coincide con la selección, o Personalizado.
+
 ## Cómo decide el backend
 
 `public/index.php` llama a `Auth::proteger()` antes del ruteo.
@@ -83,4 +119,4 @@ Ver [pruebas de aceptación](../desarrollo/pruebas.md).
 - [Usuarios y acceso](usuarios.md).
 - [Contrato técnico 3B](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Instalación y bootstrap](../desarrollo/instalacion.md).
-- [Clasificación de antecedentes](../desarrollo/clasificacion-documental.md).
+- [Índice documental](../desarrollo/clasificacion-documental.md).

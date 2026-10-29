@@ -7,6 +7,7 @@ use MVC\Router;
 use Services\Security\AdminCsrfService;
 use Services\Security\Contextos;
 use Services\Security\PermisosUsuario;
+use Services\Users\PerfilesSugeridos;
 use Services\Users\UsuarioService;
 
 /** Interfaz única de permisos directos, compartida por los tres ámbitos. */
@@ -233,6 +234,7 @@ final class AdminUsuariosAmbitosController
             'catalogos' => $catalogos,
             'facultadesPorAmbito' => self::facultadesPorAmbito($actor, $contexto, $ambitos),
             'techosPorAmbito' => self::techosPorAmbito($actor, $contexto, $ambitos),
+            'perfilesSugeridos' => PerfilesSugeridos::disponibles($ambitos),
             'identityEditable' => $identidadEditable && $puedeEditar,
             'puedeEditar' => $puedeEditar,
             'esCompartida' => $esCompartida,

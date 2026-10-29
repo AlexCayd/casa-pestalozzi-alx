@@ -26,16 +26,18 @@ final class AdminContextosController
         if (Auth::multinegocio()) {
             if ($contexto === 'restaurante') {
                 $habilitados=\Services\Security\ContextoNegocio::modulosHabilitados($contexto);
-                return array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
+                return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
             }
             $base='/admin/'.$contexto;
             $entradas=[];
             if (Auth::puede('inventario','ver',$contexto)) $entradas['inventario']=['title'=>'Almacenes','path'=>$base.'/almacenes'];
+            if (Auth::puede('menu','ver',$contexto)) $entradas['menu']=['title'=>$contexto==='global'?'Productos de la casa':'Menú','path'=>$base.($contexto==='global'?'/productos':'/menu')];
+            if ($contexto==='global' && Auth::puede('menu','ver',$contexto)) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];
             if (Auth::puede('users','ver',$contexto)) $entradas['users']=['title'=>'Usuarios','path'=>$base.'/usuarios'];
             return $entradas;
         }
         if ($contexto === 'restaurante') {
-            return $restaurante;
+            return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + $restaurante;
         }
         if ($contexto === 'global') {
             $entradas = ['inicio' => 'Negocios', 'catalogo' => 'Catálogo maestro', 'inventario' => 'Inventario consolidado', 'usuarios' => 'Usuarios', 'configuracion' => 'Configuración general'];
@@ -88,10 +90,15 @@ final class AdminContextosController
     public static function inicioSeguro(): void
     {
         header('Cache-Control: no-store, private');
-        AdminController::render('__inicio-multinegocio', [
+        $ctx=\Services\Security\ContextoNegocio::slug();
+        $perfil=\Services\Security\PermisosUsuario::cargar(\Services\Security\ContextoNegocio::actorId());
+        $documentos=$ctx==='global' && Auth::puede('menu','ver','global') ? \Services\Menu\MenuPdf::biblioteca() : [];
+        $inicio=\Services\Security\InicioAdministrativo::preparar($perfil,$ctx,\Services\Security\ContextoNegocio::nivelAuth(),$documentos);
+        AdminController::render('contextos/inicio', array_merge($inicio, [
+            'nombreInicio'=>Contextos::NOMBRES[$ctx],
             'activeModule' => 'inicio',
             'title' => 'Inicio',
             'topbarSection' => 'Inicio',
-        ]);
+        ]));
     }
 }

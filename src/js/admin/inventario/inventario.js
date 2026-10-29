@@ -294,3 +294,174 @@
         boot();
     }
 })();
+
+// Almacenes comparte modales del panel; el servidor mantiene alcance y saldos.
+(function () {
+    function bootAlmacenes() {
+        const workspace = document.querySelector('[data-almacenes-workspace]');
+        if (!workspace) return;
+        const selection = workspace.querySelector('[data-warehouse-selection]');
+        const status = workspace.querySelector('[data-selection-status]');
+        if (selection) {
+            let timer, submitting = false;
+            const all = selection.querySelector('[data-warehouse-all]');
+            function schedule() {
+                window.clearTimeout(timer);
+                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
+                status.textContent = checked.length + ' seleccionados. La consulta se actualizará automáticamente.';
+                timer = window.setTimeout(function () { selection.requestSubmit(); }, 600);
+            }
+            if (all) {
+                all.hidden = false;
+                all.addEventListener('click', function () {
+                    selection.querySelectorAll('input[name="almacen_ids[]"]').forEach(function (box) { box.checked = true; });
+                    schedule();
+                });
+            }
+            selection.addEventListener('change', function (event) {
+                if (!event.target.matches('input[name="almacen_ids[]"]')) return;
+                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
+                if (!checked.length) {
+                    event.target.checked = true;
+                    status.textContent = 'Mantén al menos un almacén seleccionado.';
+                } else {
+                    schedule();
+                }
+            });
+            selection.addEventListener('submit', function (event) {
+                window.clearTimeout(timer);
+                const boxes = selection.querySelectorAll('input[name="almacen_ids[]"]');
+                if (boxes.length && !selection.querySelector('input[name="almacen_ids[]"]:checked')) {
+                    event.preventDefault(); status.textContent = 'Selecciona al menos un almacén.'; boxes[0].focus();
+                    return;
+                }
+                if (submitting) { event.preventDefault(); return; }
+                submitting = true;
+                status.textContent = 'Actualizando la consulta…';
+            });
+            window.addEventListener('pageshow', function () { submitting = false; });
+            window.addEventListener('pagehide', function () { window.clearTimeout(timer); });
+        }
+        workspace.querySelectorAll('[data-warehouse-picker]').forEach(function (picker) {
+            const modal = picker.closest('[data-admin-modal]');
+            let operation = 'entrada';
+            function update() {
+                modal.querySelectorAll('[data-warehouse-panel]').forEach(function (panel) {
+                    panel.hidden = panel.dataset.warehousePanel !== picker.value;
+                    panel.querySelectorAll('details[data-operation]').forEach(function (details) {
+                        details.open = details.dataset.operation === operation;
+                    });
+                });
+            }
+            picker.addEventListener('change', update);
+            modal.addEventListener('admin:modal-opened', function (event) {
+                operation = (event.detail.trigger && event.detail.trigger.dataset.operation) || 'entrada'; update();
+            });
+        });
+        workspace.querySelectorAll('form[data-stock-operation]').forEach(function (form) {
+            const input = form.querySelector('[name="cantidad"]');
+            const output = form.querySelector('[data-stock-preview]');
+            const originalDescription = form.dataset.confirmDescription || '';
+            function mil(valor) {
+                if (!/^-?\d{1,9}(?:\.\d{1,3})?$/.test(valor)) return null;
+                const negativo = valor[0] === '-';
+                const partes = (negativo ? valor.slice(1) : valor).split('.');
+                const n = BigInt(partes[0]) * 1000n + BigInt((partes[1] || '').padEnd(3, '0'));
+                return negativo ? -n : n;
+            }
+            function pintar() {
+                const saldo = mil(form.dataset.stockSaldo || '');
+                const cantidad = mil(input.value);
+                if (saldo === null || cantidad === null || (form.dataset.stockOperation !== 'ajuste' && cantidad <= 0n)) {
+                    output.textContent = 'Escribe una cantidad válida con hasta tres decimales.';
+                    form.dataset.confirmDescription = originalDescription;
+                    return;
+                }
+                const resultado = form.dataset.stockOperation === 'ajuste' ? cantidad : saldo + (form.dataset.stockOperation === 'merma' ? -cantidad : cantidad);
+                const abs = resultado < 0n ? -resultado : resultado;
+                const texto = (resultado < 0n ? '-' : '') + (abs / 1000n) + '.' + (abs % 1000n).toString().padStart(3, '0') + ' ' + form.dataset.stockUnidad;
+                output.textContent = 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
+                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + input.value + ' ' + form.dataset.stockUnidad + ' · Resultado estimado: ' + texto;
+            }
+            if (input && output) { input.addEventListener('input', pintar); pintar(); }
+        });
+        workspace.querySelectorAll('[data-stock-tip]').forEach(function (button) {
+            const tip = document.getElementById(button.getAttribute('popovertarget'));
+            let hideTimer;
+            function keepOpen() { window.clearTimeout(hideTimer); }
+            function hideLater() {
+                keepOpen();
+                hideTimer = window.setTimeout(function () {
+                    const focused = document.activeElement;
+                    const relatedFocus = focused && focused.getAttribute('popovertarget') === (tip && tip.id);
+                    if (!relatedFocus && tip && !tip.matches(':hover') && tip.matches(':popover-open')) tip.hidePopover();
+                }, 180);
+            }
+            function show() {
+                if (!tip || !tip.showPopover) return;
+                keepOpen();
+                tip.showPopover();
+                const rect = button.getBoundingClientRect();
+                tip.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 12)) + 'px';
+                tip.style.top = Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - tip.offsetHeight - 12)) + 'px';
+            }
+            button.addEventListener('pointerenter', show);
+            button.addEventListener('focus', show);
+            button.addEventListener('click', function (event) { event.preventDefault(); show(); });
+            button.addEventListener('pointerleave', hideLater);
+            button.addEventListener('blur', hideLater);
+            if (tip) { tip.addEventListener('pointerenter', keepOpen); tip.addEventListener('pointerleave', hideLater); }
+        });
+        const request = workspace.querySelector('[data-transfer-request]');
+        if (request) {
+            const lines = request.querySelector('[data-transfer-lines]');
+            const original = lines.querySelector('[data-transfer-line]').cloneNode(true);
+            original.querySelectorAll('select').forEach(function (select) {
+                const wrapper = select.closest('.admin-select');
+                if (wrapper) { wrapper.parentNode.insertBefore(select, wrapper); wrapper.remove(); }
+                delete select.dataset.enhanced;
+                select.classList.remove('admin-select__native');
+                select.removeAttribute('tabindex');
+                select.removeAttribute('aria-hidden');
+            });
+            original.querySelectorAll('label').forEach(function (label) { label.removeAttribute('id'); });
+            let nextLine = 1;
+            request.querySelector('[data-transfer-add]').addEventListener('click', function () {
+                if (lines.children.length >= 100) return;
+                const row = original.cloneNode(true);
+                row.querySelectorAll('input, select').forEach(function (field) {
+                    const previous = field.id;
+                    field.name = field.name.replace('[0]', '[' + nextLine + ']');
+                    field.id = field.id.replace('-0', '-' + nextLine);
+                    row.querySelector('label[for="' + previous + '"]').htmlFor = field.id;
+                    field.value = '';
+                });
+                nextLine += 1;
+                row.querySelector('[data-transfer-remove]').hidden = false;
+                lines.appendChild(row);
+                if (window.AdminSelect) window.AdminSelect.init(row);
+                (row.querySelector('[role="combobox"]') || row.querySelector('select')).focus();
+            });
+            lines.addEventListener('click', function (event) {
+                const remove = event.target.closest('[data-transfer-remove]');
+                if (remove) {
+                    remove.closest('[data-transfer-line]').remove();
+                    request.querySelector('[data-transfer-add]').focus();
+                }
+            });
+            request.addEventListener('submit', function (event) {
+                const origin = request.querySelector('[name="origen_id"]');
+                const destination = request.querySelector('[name="destino_id"]');
+                destination.setCustomValidity(origin.value === destination.value ? 'Elige un destino distinto al origen.' : '');
+                if (!destination.checkValidity()) { event.preventDefault(); destination.reportValidity(); }
+            });
+            request.querySelectorAll('[name="origen_id"], [name="destino_id"]').forEach(function (field) {
+                field.addEventListener('change', function () { request.querySelector('[name="destino_id"]').setCustomValidity(''); });
+            });
+        }
+        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', catalogo:'almacen-catalogo', transferencias:'almacen-transferencias'}[workspace.dataset.initialView];
+        if (initial) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
+    }
+    if (document.readyState !== 'complete') document.addEventListener('DOMContentLoaded', bootAlmacenes);
+    else bootAlmacenes();
+})();

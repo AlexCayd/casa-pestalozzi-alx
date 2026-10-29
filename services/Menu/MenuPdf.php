@@ -48,11 +48,8 @@ class MenuPdf
         string $carta = CategoriasMenu::CARTA_COMIDA,
         ?string $nombreArchivo = null
     ): void {
-        $carta = CategoriasMenu::normalizarCarta($carta);
-        // Los especiales de temporada son una carta válida pero sin papel:
-        // pedirlos aquí no puede romper con un índice indefinido.
         if (!isset(self::PIEZAS[$carta])) {
-            $carta = CategoriasMenu::CARTA_COMIDA;
+            throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta solicitada no tiene un documento PDF.');
         }
         $pieza = self::PIEZAS[$carta];
 
@@ -83,6 +80,68 @@ class MenuPdf
             ];
         }
 
+        self::emitir($pieza,$categorias,$nombreArchivo);
+    }
+
+    /** Documento privado: el propietario es una constante de ruta, nunca un parámetro GET. */
+    public static function datosAdministrativos(string $contexto, string $carta): array
+    {
+        \Services\Security\ContextoNegocio::exigir('menu','ver',$contexto);
+        $unidad=\Services\Security\ContextoNegocio::vendedora($contexto);
+        if (($contexto==='panaderia' && $carta!=='comida') || !isset(self::PIEZAS[$carta])) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no tiene un PDF disponible.');
+        $pieza=$contexto==='panaderia'?[
+            'rotulo'=>'MENÚ DE PANADERÍA','bajada'=>'Panes y dulces de la casa',
+            'archivo'=>'menu-panaderia-casa-pestalozzi.pdf','vacio'=>'No hay ofertas disponibles para imprimir.',
+        ]:self::PIEZAS[$carta];
+        $db=\Model\ActiveRecord::getDB();
+        $s=$db->prepare('SELECT slug FROM cartas WHERE unidad_id=? AND slug=? AND activo=1');$s->execute([$unidad,$carta]);
+        if (!$s->get_result()->fetch_row()) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no existe o está inactiva en este negocio.');
+        $s=$db->prepare('SELECT c.id,c.nombre AS categoria,p.nombre,p.descripcion,o.precio FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN cartas ca ON ca.unidad_id=c.unidad_id AND ca.slug=c.carta JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND ca.slug=? AND ca.activo=1 AND c.activo=1 AND o.activo=1 ORDER BY c.orden,c.id,o.orden,o.id');
+        $s->execute([$unidad,$carta]);$grupos=[];
+        foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+            $id=(int)$row['id'];if(!isset($grupos[$id]))$grupos[$id]=['nombre'=>$row['categoria'],'platillos'=>[]];
+            $grupos[$id]['platillos'][]=(object)['nombre'=>$row['nombre'],'descripcion'=>$row['descripcion'],'precio'=>$row['precio']];
+        }
+        if (!$grupos) throw new \Services\Inventory\InventarioError('CARTA_VACIA','No hay ofertas disponibles para imprimir esta carta.');
+        return ['pieza'=>$pieza,'categorias'=>array_values($grupos),'contexto'=>$contexto,'carta'=>$carta];
+    }
+
+    public static function streamAdministrativo(string $contexto, string $carta): void
+    {
+        try {
+            if (isset($_GET['carta']) && (!is_string($_GET['carta']) || $_GET['carta']!==$carta)) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no corresponde al documento solicitado.');
+            $datos=self::datosAdministrativos($contexto,$carta);
+            header('Cache-Control: private, no-store');
+            self::emitir($datos['pieza'],$datos['categorias']);
+        } catch (\Services\Inventory\InventarioError $e) {
+            http_response_code(in_array($e->codigo,['CARTA_INVALIDA','CARTA_VACIA','AMBITO_NO_VENDEDOR'],true)?404:403);
+            echo htmlspecialchars($e->getMessage(),ENT_QUOTES,'UTF-8');
+        }
+    }
+
+    public static function biblioteca(): array
+    {
+        $perfil=\Services\Security\ContextoNegocio::exigir('menu','ver','global');$docs=[];
+        foreach (self::definiciones() as $doc) {
+            if (!\Services\Security\PermisosUsuario::permitido($perfil,$doc['contexto'],'menu','ver')) continue;
+            try { self::datosAdministrativos($doc['contexto'],$doc['carta']); }
+            catch (\Services\Inventory\InventarioError $e) { if(in_array($e->codigo,['CARTA_VACIA','CARTA_INVALIDA'],true))continue; throw $e; }
+            $docs[]=$doc+['titulo'=>($doc['contexto']==='panaderia'?'Panadería':'Restaurante').' · '.$doc['nombre'],'descripcion'=>'Carta del negocio, solo consulta.','icono'=>'menu','accion'=>'Ver PDF'];
+        }
+        return $docs;
+    }
+
+    private static function definiciones(): array
+    {
+        return [
+            ['contexto'=>'restaurante','carta'=>'comida','nombre'=>'Menú principal','ruta'=>'/admin/global/menus/restaurante'],
+            ['contexto'=>'restaurante','carta'=>'maridaje','nombre'=>'Maridaje','ruta'=>'/admin/global/menus/maridaje'],
+            ['contexto'=>'panaderia','carta'=>'comida','nombre'=>'Menú de Panadería','ruta'=>'/admin/global/menus/panaderia'],
+        ];
+    }
+
+    private static function emitir(array $pieza,array $categorias,?string $nombreArchivo=null): void
+    {
         // La clase vive en services/Menu; la raíz del proyecto está dos niveles arriba.
         $projectRoot = realpath(dirname(__DIR__, 2));
         if ($projectRoot === false) {

@@ -122,10 +122,10 @@ $assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cart
 $assert(!str_contains($deploy,'admin_demo'),'deploy.sql no activa la cuenta superadministradora de desarrollo.');
 $development=$leer('database/development.sql');
 $cuentasDevelopment=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
-    ? preg_match_all("/\('\\d+','(dev_[^']+)','\\[DEV\\][^']+','[^']+','(\\d+)','(\\d+)'\)/i",$referencias[1],$filas,PREG_SET_ORDER)
+    ? preg_match_all("/\('\\d+','([^']+)','[^']+','[^']+','(\\d+)','(\\d+)'\)/i",$referencias[1],$filas,PREG_SET_ORDER)
     : 0;
 $nombresCuentas=array_column($filas??[],1);
-$cuentasEsperadas=['dev_global_inactivo','dev_restaurante_inactivo','dev_panaderia_inactivo','dev_mesero_1','dev_mesero_2','dev_mesero_3','dev_mesero_inactivo'];
+$cuentasEsperadas=['referencia_global','referencia_restaurante','referencia_panaderia','mesero_1','mesero_2','mesero_3','mesero_inactivo'];
 $soloReferencias=$cuentasDevelopment===7 && $nombresCuentas===$cuentasEsperadas
     && !array_filter($filas,static fn(array $fila): bool=>$fila[2]!=='0'||$fila[3]!=='0');
 $assert($soloReferencias,'Development conserva las tres identidades de referencia y añade solo cuatro meseros históricos inactivos sin privilegios.');

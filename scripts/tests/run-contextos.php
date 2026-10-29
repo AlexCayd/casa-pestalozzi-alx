@@ -24,7 +24,8 @@ $sidebar = file_get_contents($raiz . '/views/admin/partials/_sidebar.php');
 $layout = file_get_contents($raiz . '/views/admin/layout.php');
 $selector = file_get_contents($raiz . '/views/admin/partials/_contexto.php');
 $assert(str_contains($sidebar, "include __DIR__ . '/_contexto.php'") && !str_contains($layout, "partials/_contexto.php"), 'Selector único en sidebar');
-$assert(!str_contains($selector, '<button') && str_contains($selector, 'data-context-select'), 'Selección directa sin botón adicional');
+$assert(str_contains($selector, 'data-context-trigger') && str_contains($selector, 'popover') && str_contains($selector, '$contextosDisponibles'), 'Selector accesible en capa superior con contextos autorizados');
+$assert(str_contains($selector,'<noscript>') && str_contains($selector,'data-context-select'), 'Conserva navegación con formulario sin JavaScript');
 
 $index = file_get_contents(dirname(__DIR__, 2) . '/public/index.php');
 preg_match_all("/\\\$router->(?:get|post|delete)\\('([^']+)'/", $index, $rutas);

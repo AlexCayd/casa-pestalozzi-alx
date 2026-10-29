@@ -1,5 +1,22 @@
 # Operación POS e impresión
 
+## Corte de caja por turnos
+
+`GET /api/corte-caja[?fecha=YYYY-MM-DD&turno=N|dia]` usa
+`Services\Pos\CorteCaja`. Es lectura, no persiste arqueos. Configuración → POS
+guarda hasta cuatro turnos sin solapes en `configuracion_pos.turnos_caja`.
+Las ventanas son semiabiertas `[desde,hasta)`; un turno 18:00–02:00 pertenece
+al día en que comienza. Sin turnos, el corte sigue siendo diario.
+
+Solo suma tickets cerrados por `COALESCE(hora_cierre,hora_apertura)`, excluyendo
+items cancelados y tickets abiertos. Totales, ranking, áreas y métodos de pago
+comparten ventana y unidad vendedora. Los pagos divididos usan `ticket_pagos`.
+Finanzas conserva su histórico diario con el mismo criterio de cobro; no
+migrar el POS a Panadería ni habilitar sus APIs comerciales pendientes.
+
+Pruebas: `run-corte-turnos.php` para ventanas/configuración y la aceptación
+aislada de instalación/HTTP para persistencia y operación comercial.
+
 Contrato funcional del envío de comandas, impresión térmica y alertas de
 Restaurante, subordinado al [contrato rector](arquitectura.md). La impresión es una copia física: el ticket y sus platillos se
 persisten en PHP y alimentan el tablero de producción.
@@ -78,6 +95,14 @@ disponibilidad de reservaciones; sí en ventas. Cobertura en
 
 Las reservaciones también se operan aquí, en el cajón y la ficha del mapa: ver
 [Reservaciones](reservaciones/reservaciones.md#la-operacion-en-el-pos).
+
+## Corte de caja
+
+GET /api/corte-caja es solo lectura: no persiste arqueos. Consultas del día
+usan tickets cerrados y DATE(COALESCE(hora_cierre, hora_apertura)); el top de
+cinco productos por unidades usa ese mismo universo. El histórico del panel
+repite parte de las consultas: al cambiar su definición revisar también
+AdminFinanzasController::cortes, sin crear un contrato paralelo.
 
 ## Verificación
 

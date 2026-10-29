@@ -112,3 +112,37 @@
   .admin-context-page__recipe summary span { display: block; margin-left: 0; }
   .admin-context-switch { align-items: flex-start; flex-direction: column; }
 }
+
+/* Selector de ámbito: disparador compartido y menú en la capa superior. */
+.admin-context-switch { display: block; }
+.admin-body .admin-context-switch__trigger { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--admin-sidebar-border); border-radius: var(--admin-radius-md); color: var(--admin-sidebar-link); background: var(--admin-sidebar-hover-bg); font: 600 13px var(--admin-font-sans); cursor: pointer;
+  &:hover { color: var(--admin-text); background: var(--admin-surface-soft); }
+  &:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 3px; }
+}
+.admin-context-switch__icon { width: 20px; display: flex; justify-content: center; flex-shrink: 0; }
+.admin-context-switch__name { flex: 1; text-align: left; }
+.admin-context-switch__chevron { display: flex; }
+.admin-context-menu { position: fixed; inset: auto; margin: 0; width: 260px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface); color: var(--admin-text); box-shadow: var(--admin-shadow-lg); font: 13px var(--admin-font-sans);
+  p { margin: 8px 12px; color: var(--admin-muted); font-size: 11px; }
+  a { display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 44px; color: var(--admin-text); text-decoration: none; border-radius: 6px; span { flex: 1; } }
+  a:hover, a:focus-visible, a[aria-current] { background: var(--admin-surface-soft); }
+  a:focus-visible { outline: 2px solid var(--admin-text); outline-offset: -2px; }
+}
+@media(min-width: 993px) {
+  .admin-sidebar-collapsed .admin-context-switch__trigger, .is-sidebar-collapsed .admin-context-switch__trigger { padding: 12px; justify-content: center; width: 48px; margin-inline: auto; gap: 0; }
+  .admin-sidebar-collapsed .admin-context-switch__name, .admin-sidebar-collapsed .admin-context-switch__chevron, .is-sidebar-collapsed .admin-context-switch__name, .is-sidebar-collapsed .admin-context-switch__chevron { display: none; }
+}
+
+
+.admin-home__section { margin-block: 24px; }
+.admin-access-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.admin-body .admin-access {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px;
+  padding: 20px; color: var(--admin-text); text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  &:hover { transform: translateY(-2px); border-color: var(--admin-border); box-shadow: var(--admin-shadow-md); }
+  &:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 4px; }
+  &__copy { display: grid; gap: 6px; strong { font-size: 17px; } > span { color: var(--admin-muted); font-size: 13px; line-height: 1.5; } }
+  &__action { grid-column: 2; display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .admin-body .admin-access { transition: none; &:hover { transform: none; } } }

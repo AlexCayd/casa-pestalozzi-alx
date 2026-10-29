@@ -78,7 +78,7 @@ final class Almacenes
             $unidad=array_key_exists('unidad',$datos)?self::medida($datos['unidad']):$a['unidad'];
             if($unidad!==$a['unidad'] && $this->uno('SELECT 1 FROM movimientos_inventario WHERE articulo_id=? LIMIT 1 FOR SHARE',[$id])) throw new InventarioError('UNIDAD_INMUTABLE','La unidad no puede cambiar después de registrar movimientos.');
             $activo=array_key_exists('activo',$datos)?self::booleano($datos['activo']):(int)$a['activo'];
-            if(!$activo && $this->uno('SELECT 1 FROM almacen_articulos WHERE articulo_id=? AND saldo<>0 LIMIT 1 FOR SHARE',[$id])) throw new InventarioError('EXISTENCIAS_PENDIENTES','El artículo tiene existencias pendientes.');
+            if(!$activo && ($this->uno('SELECT 1 FROM almacen_articulos WHERE articulo_id=? AND saldo<>0 LIMIT 1 FOR SHARE',[$id]) || $this->uno("SELECT 1 FROM transferencia_lineas l JOIN transferencias t ON t.id=l.transferencia_id WHERE l.articulo_id=? AND t.estado IN('solicitada','autorizada','enviada','incidencia') LIMIT 1 FOR SHARE",[$id]))) throw new InventarioError('EXISTENCIAS_PENDIENTES','El artículo tiene existencias o transferencias pendientes.');
             $nombre=array_key_exists('nombre',$datos)?self::texto($datos['nombre'],120):$a['nombre'];
             $costo=array_key_exists('costo',$datos)?DecimalInventario::formato(DecimalInventario::leer($datos['costo'],4),4):$a['costo'];
             try { $this->sql('UPDATE ingredientes SET nombre=?,unidad=?,costo=?,activo=? WHERE id=?',[$nombre,$unidad,$costo,$activo,$id]); }
@@ -108,6 +108,7 @@ final class Almacenes
             if(!$a) throw new InventarioError('ASOCIACION_NO_EXISTE','El artículo no está asociado a este almacén.');
             $activo=array_key_exists('activo',$datos)?self::booleano($datos['activo']):(int)$a['activo'];
             if(!$activo && DecimalInventario::leer($a['saldo'],3,true)!==0) throw new InventarioError('EXISTENCIAS_PENDIENTES','La asociación tiene existencias pendientes.');
+            if(!$activo && $this->uno("SELECT 1 FROM transferencia_lineas l JOIN transferencias t ON t.id=l.transferencia_id WHERE l.articulo_id=? AND (t.almacen_origen_id=? OR t.almacen_destino_id=?) AND t.estado IN('solicitada','autorizada','enviada','incidencia') LIMIT 1 FOR SHARE",[$articulo,$almacen,$almacen])) throw new InventarioError('EXISTENCIAS_PENDIENTES','La asociación tiene transferencias pendientes.');
             $min=array_key_exists('minimo',$datos)?DecimalInventario::cantidad(DecimalInventario::leer($datos['minimo'])):$a['minimo'];
             $this->sql('UPDATE almacen_articulos SET minimo=?,activo=?,version=version+1 WHERE almacen_id=? AND articulo_id=?',[$min,$activo,$almacen,$articulo]);
             return ['codigo'=>'ASOCIACION_CONFIGURADA','almacen_id'=>$almacen,'articulo_id'=>$articulo];
@@ -217,6 +218,7 @@ final class Almacenes
                 foreach($d['lineas'] as $l) {
                     $original=$this->uno('SELECT * FROM movimientos_inventario WHERE id=? AND unidad_id=? FOR UPDATE',[$l['movimiento_id'],$alcance['unidad_id']]);
                     if(!$original || DecimalInventario::leer($original['delta'],3,true)>=0) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró la salida original autorizada.');
+                    if($original['transferencia_linea_id']!==null) throw new InventarioError('OPERACION_INVALIDA','Las transferencias se compensan mediante su flujo de retorno.');
                     $original['cantidad']=$l['cantidad'];
                     $original['movimiento_id']=(int)$original['id'];
                     $lineas[]=$original;
@@ -363,7 +365,7 @@ final class Almacenes
     private function sinPendientes(int $id): void
     {
         if($this->uno('SELECT 1 FROM almacen_articulos WHERE almacen_id=? AND saldo<>0 LIMIT 1 FOR UPDATE',[$id])
-            || $this->uno("SELECT 1 FROM transferencias WHERE (almacen_origen_id=? OR almacen_destino_id=?) AND estado IN ('solicitada','enviada','incidencia') LIMIT 1 FOR SHARE",[$id,$id])) {
+            || $this->uno("SELECT 1 FROM transferencias WHERE (almacen_origen_id=? OR almacen_destino_id=?) AND estado IN ('solicitada','autorizada','enviada','incidencia') LIMIT 1 FOR SHARE",[$id,$id])) {
             throw new InventarioError('EXISTENCIAS_PENDIENTES','El almacén tiene existencias u operaciones pendientes.');
         }
     }

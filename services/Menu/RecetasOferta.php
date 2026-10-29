@@ -36,13 +36,17 @@ final class RecetasOferta
             return ContextoNegocio::en($ctx, static function () use ($db, $ctx, $unidadId, $ofertaId, $normalizados): array {
                 return ContextoNegocio::transaccion(static function () use ($db, $ctx, $unidadId, $ofertaId, $normalizados): array {
                     ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-                    $ofertaLock = $db->prepare('SELECT id FROM ofertas_producto WHERE id = ? AND unidad_id = ? FOR UPDATE');
+                    $ofertaLock = $db->prepare('SELECT id,producto_id FROM ofertas_producto WHERE id = ? AND unidad_id = ? FOR UPDATE');
                     $ofertaLock->bind_param('ii', $ofertaId, $unidadId);
-                    if (!$ofertaLock->execute() || !$ofertaLock->get_result()->fetch_assoc()) {
+                    if (!$ofertaLock->execute() || !($ofertaCasa=$ofertaLock->get_result()->fetch_assoc())) {
                         $ofertaLock->close();
                         throw new InventarioError('OFERTA_DENEGADA', 'La oferta no pertenece al negocio activo.');
                     }
                     $ofertaLock->close();
+                    if(!ProductosCasa::permite((int)$ofertaCasa['producto_id'],'receta'))throw new InventarioError('CAMPO_PROTEGIDO','Receta: Definido por Global.');
+                    $oficialCasa=ProductosCasa::publicada((int)$ofertaCasa['producto_id']);
+                    if($oficialCasa&&$normalizados===[]&&!empty($oficialCasa['requiere_receta']))throw new InventarioError('RECETA_REQUERIDA','Este producto requiere receta.');
+                    if($oficialCasa){RecetasCasa::validarAdaptacion($ofertaId,$unidadId,$normalizados);ProductosCasa::personalizacion($ofertaId,'receta',$normalizados===[]?'sin':'adaptada');}
                     foreach ($normalizados as $comp) {
                         if ($comp['subreceta_id'] !== null) {
                             self::exigirSubrecetaLocal($db, $comp['subreceta_id'], $unidadId);

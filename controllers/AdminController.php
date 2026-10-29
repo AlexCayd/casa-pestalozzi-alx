@@ -93,38 +93,21 @@ class AdminController
                 header('Location: ' . Auth::destinoPorRol(), true, 302);
                 exit;
             }
-            if (Auth::puede('analytics', 'ver', 'restaurante')) {
-                self::analytics($router);
-                return;
-            }
-            $habilitados = \Services\Security\ContextoNegocio::modulosHabilitados('restaurante');
-            foreach ($habilitados as $modulo) {
-                if (!Auth::puede($modulo, 'ver', 'restaurante')) continue;
-                $definicion = \Services\Security\PermisosUsuario::catalogo('restaurante')[$modulo] ?? null;
-                if (is_array($definicion) && !empty($definicion['ruta'])) {
-                    header('Location: ' . $definicion['ruta'], true, 302);
-                    exit;
-                }
-            }
-            $destino = Auth::destinoPorRol();
-            if ($destino === '/admin' || $destino === '/login?resultado=sin_acceso') {
-                header('Location: /login?resultado=sin_acceso', true, 302);
-                exit;
-            }
-            header('Location: ' . $destino, true, 302);
-            exit;
+            AdminContextosController::inicioSeguro();
+            return;
         }
         if (!in_array('restaurante', Auth::contextos(), true)) {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
         }
-        // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
-        // que sí tenga, en vez de en una pantalla que no puede ver.
-        if (!Auth::puede('analytics')) {
+        // El inicio administrativo conserva la frontera frente al acceso operativo.
+        $rol = Auth::rolActual();
+        if (\Services\Security\Permisos::acceso($rol['sistema'], $rol['permisos']) !== 'contrasena') {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
         }
-        self::analytics($router);
+        $inicio = \Services\Security\InicioAdministrativo::restaurante(static fn(string $mod):bool => Auth::puede($mod));
+        self::render('contextos/inicio', $inicio + ['nombreInicio'=>'Restaurante','activeModule'=>'inicio','title'=>'Inicio','topbarSection'=>'Inicio']);
     }
 
     public static function analytics(Router $router): void
@@ -803,35 +786,10 @@ class AdminController
         $modoMultinegocio = Auth::multinegocio();
         $modules = AdminContextosController::navegacion($contextoActivo, $modules);
 
-        if ($view === '__inicio-multinegocio') {
-            $content = self::inicioMultinegocio($contextosDisponibles);
-        } else {
-            ob_start();
-            include_once __DIR__ . "/../views/admin/{$view}.php";
-            $content = ob_get_clean();
-        }
-
+        ob_start();
+        include_once __DIR__ . "/../views/admin/{$view}.php";
+        $content = ob_get_clean();
         include_once __DIR__ . '/../views/admin/layout.php';
-    }
-
-    private static function inicioMultinegocio(array $contextos): string
-    {
-        $secciones=[];
-        foreach (['users'=>['Usuarios','Gestiona cuentas y permisos directos.','usuarios'],
-                  'inventario'=>['Almacenes','Consulta existencias y operaciones físicas autorizadas.','almacenes']] as $modulo=>$def) {
-            $links=[];
-            foreach ($contextos as $contexto) {
-                if (!Auth::puede($modulo,'ver',(string)$contexto)) continue;
-                $nombre=\Services\Security\Contextos::NOMBRES[$contexto]??$contexto;
-                $path=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/'.$def[2];
-                $links[]='<div class="admin-context-page__business"><div><h3>'.htmlspecialchars($nombre,ENT_QUOTES,'UTF-8')
-                    .'</h3><p>'.$def[1].'</p></div><a class="admin-btn admin-btn--secondary" href="'
-                    .htmlspecialchars($path,ENT_QUOTES,'UTF-8').'">Abrir '.strtolower($def[0]).'</a></div>';
-            }
-            if ($links!==[]) $secciones[]='<div class="admin-card admin-context-page__businesses"><h2>'.$def[0].'</h2>'.implode('',$links).'</div>';
-        }
-        $body=$secciones===[]?'<div class="admin-card admin-context-page__empty"><h2>Acceso administrativo no disponible</h2><p>No tienes módulos autorizados en los ámbitos disponibles.</p></div>':implode('',$secciones);
-        return '<section class="admin-context-page admin-page" aria-labelledby="multinegocio-home-title"><header class="admin-page__header"><div class="admin-page__intro"><h1 class="admin-page__title" id="multinegocio-home-title">Inicio</h1><p class="admin-page__subtitle">Abre Usuarios o Almacenes en un ámbito que tengas autorizado.</p></div></header>'.$body.'</section>';
     }
 
     /**

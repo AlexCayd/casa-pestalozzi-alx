@@ -89,6 +89,17 @@
   max-width: none;
 }
 
+.admin-users-form__direct-fields .admin-users-form__field.admin-users-access-status-card {
+  align-self: start;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px 16px;
+}
+
+.admin-users-panel [data-user-preset-status] {
+  margin: 12px 0 0;
+}
+
 .admin-users-access-status-grid {
   display: grid;
   grid-column: 1/-1;

@@ -1,6 +1,64 @@
 # Arquitectura de Casa Pestalozzi
 
+## Contrato de estandarización M1.2
+
+Base aprobada M1.1-E `a0562c344c0c66c7d197a03a5bd350006ff6742e`, rama
+`codex/m12-estandarizacion-productos-recetas`. La adhesión de un producto es
+explícita; sin configuración de la casa conserva íntegramente el contrato M1.
+Identidad, ámbito vendedor y facultad de administración son conceptos separados.
+Global requiere `menu/editar` y `comercial.identidad.editar` para estandarizar;
+publicar exige además edición de Menú de todos los negocios afectados. Las
+recetas operativas exigen los permisos locales de Recetas correspondientes.
+
+La configuración guarda un borrador y una referencia a una publicación inmutable.
+La publicación contiene valores oficiales, seis reglas individuales (nombre,
+descripción, imagen, precio, receta, disponibilidad), destinos y versión. Una
+personalización por oferta existe o no existe: JSON permite distinguir valor
+vacío, null explícito y regreso al oficial mediante eliminación de la entrada.
+La presentación efectiva se resuelve mediante una vista por oferta, sin duplicar
+productos. Precio/disponibilidad se publican también en las columnas operativas
+existentes de la oferta, en la misma transacción y con historial de precios.
+Categoría/carta, área y orden siguen siendo locales. Una exclusividad obliga a un
+único destino; no concede edición local. Destinos incompletos solo se guardan como
+borrador. Desasociar retira la oferta, nunca borra su historia.
+
+La publicación bloquea primero identidad/configuración y después ofertas en orden,
+revalida permisos y revisión, y registra actor, fecha, cambios y clave de solicitud.
+El acuse solo sucede tras commit; repetir la misma solicitud no publica dos veces.
+Cambios de política preservan las personalizaciones autorizadas; las protegidas
+dejan de aplicarse y la vista previa explica el valor oficial que entrará en vigor.
+Las imágenes publicadas, históricas y personalizadas conservan referencias: una
+personalización nunca elimina el archivo oficial.
+
+Recetas de la casa: borrador de ingredientes compartidos, cantidades canónicas y
+rendimiento exactos; publicaciones inmutables. No referencian subrecetas privadas.
+Las subpreparaciones estándar se representan inicialmente como ingredientes
+desglosados, sin introducir otro motor de producción. Activar una versión produce
+una receta operativa nueva por oferta y registra su origen estándar. El consumo
+continúa usando `ticket_items.receta_id` y los componentes inmutables de esa versión.
+No modifica partidas/comandas anteriores. Se rechaza toda publicación conjunta
+si falta un origen físico local activo para algún ingrediente, si hay ajustes de
+variantes incompatibles o si un componente no se expresa exactamente a milésimas
+por porción. No se crean asociaciones, saldos ni movimientos para completar recetas.
+La receta adaptada y sin receta son estados explícitos; adaptar requiere permiso
+de Recetas local y autorización de la política vigente. Panadería no habilita POS.
+
+La migración es aditiva e idempotente, compartida por instalaciones nuevas y pruebas
+temporales. No modifica productos, precios, imágenes ni recetas preservados. No se
+aplica a la base activa durante esta entrega. Se amplían fachadas de escritura,
+lecturas del menú/PDF/POS y referencias de imagen; snapshots, stock, compensación,
+pagos y analítica histórica conservan sus contratos. No se introduce reescritura SQL.
+
 **Estado rector posterior a 3E · 25 de octubre de 2026**
+
+M0 integra segundo factor administrativo por privilegios efectivos (superadmin
+y permisos directos de panel), JWT HS256 para integraciones entrantes y corte
+de caja por turnos de Restaurante. M1 incorpora la administración comercial compartida descrita en [Catálogo y Menú](modulos/catalogo-comercial.md).
+Los contratos detallados se desarrollan en [credenciales](usuarios/credenciales.md),
+[API](../API.md#9-jwt-de-integraciones) y [operación](operacion.md#corte-de-caja-por-turnos).
+Las rutas públicas `/panaderia`, `/panaderia/carta`, `/panaderia/pedidos`,
+`/panaderia/nosotros` y `/panaderia/contacto` son un andamio de navegación
+sin tienda, pedidos ni ventas funcionales. Sus APIs comerciales siguen bloqueadas.
 
 Este documento es la única fuente normativa para alcance, arquitectura, propiedad, seguridad, datos y reglas de desarrollo. Describe la implementación de esta revisión: una entidad o pantalla existente por sí sola no significa que un módulo esté funcional. Las guías enlazadas explican procedimientos y detalles técnicos subordinados; si una referencia contradice estas decisiones, debe actualizarse antes de ampliar el módulo.
 
@@ -8,7 +66,7 @@ Este documento es la única fuente normativa para alcance, arquitectura, propied
 
 Casa Pestalozzi es una aplicación web PHP 8 MVC con MySQL. Una identidad compartida puede trabajar en tres ámbitos: Global, Restaurante y Panadería. Global es administrativo y no vende. Restaurante y Panadería son negocios distintos con oferta, almacenes, operaciones comerciales y finanzas propias.
 
-El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. No exige completar el catálogo administrativo, POS, recetas, tickets, pagos o finanzas de Panadería ni los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
+El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. M1 completa el catálogo administrativo y Menú de Panadería y la administración de identidades comerciales de Global. POS, recetas administrativas completas, tickets, pagos y finanzas de Panadería siguen pendientes; también los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
 
 ## 2. Arquitectura de aplicación
 
@@ -32,13 +90,14 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
 | Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
-| Menú y ofertas | Global no vende | Funcional; menú original preservado | Esquema y datos sintéticos preparados; UI administrativa pendiente |
-| Recetas y variantes | Servicios compartidos; sin producción Global | Funcionales en los flujos existentes | Modelo/servicios preparados; experiencia comercial pendiente |
+| Menú y ofertas | Productos de la casa M1.2: estándares, políticas y publicación; Global no vende | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
+| Recetas y variantes | Recetario estándar versionado M1.2; sin producción Global | Recetas operativas y variantes existentes; aplicación de estándares | Adaptación de estándares dentro de Menú; módulo completo M2 pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
 | Finanzas y analítica | Lecturas consolidadas pendientes | Flujos existentes conservados; validar límites en su guía | Modelo/fixtures preparados; operación pendiente |
 | Asistente IA | Asistente organizacional pendiente | Integración existente sujeta a sus límites externos | Pendiente |
-| Transferencias, producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
+| Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
+| Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
 
 **Funcional** significa flujo respaldado por persistencia, autorización del servidor, interfaz o API real y pruebas de aceptación. **Preparado** significa que existen entidades o servicios parciales sin recorrido completo. **Pendiente** significa que el flujo no debe inferirse ni activarse por una ruta, tabla o fixture.
 
@@ -64,15 +123,15 @@ La guía técnica está en [Usuarios](usuarios/usuarios.md), [permisos directos]
 
 `Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, ajustes, conteos, mermas, consumos y compensaciones deben ser trazables. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
 
-Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y configuran negativos si tienen permiso. No implementar transferencias, producción ni variantes avanzadas como parte de 3E. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
+Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y configuran negativos si tienen permiso. Transferencias incorpora solicitud, autorización, envío, recepción parcial, incidencias y retornos con contexto propietario; véase su [contrato](modulos/transferencias.md). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
 
 ## 6. Catálogo, productos, cartas, ofertas y menú preservado
 
 `productos` contiene identidad descriptiva que puede compartirse. `ofertas_producto` representa una decisión comercial propia del negocio: precio, categoría, disponibilidad, orden y área de producción. Cartas, categorías, áreas, ofertas, recetas y variantes se validan en el ámbito correcto. No fusionar productos solo por nombre ni clonar una oferta de Restaurante en Panadería sin una decisión comercial explícita.
 
-Las recetas/versiones, subrecetas y variantes pertenecen a la oferta. Los ajustes de variante identifican componentes concretos. Consultar una receta no permite acceder al inventario de otra unidad. Las ventas y el consumo resuelven el origen de stock del negocio vendedor sin fallback a otros almacenes.
+Las recetas/versiones, subrecetas y variantes pertenecen a la oferta. Los ajustes de variante identifican componentes concretos. Consultar una receta no permite acceder al inventario de otra unidad. Las ventas y el consumo resuelven el origen de stock del negocio vendedor sin fallback a otros almacenes. Ese origen (`oferta_consumos`) se elige a mano en la receta, con `productos/editar`, para cada artículo que la receta activa, sus subrecetas o las variantes que agregan o sustituyen pueden descontar, entre almacenes activos del negocio donde el artículo está asociado. Sin él, la comanda se rechaza completa.
 
-El DML preserva el menú original de Restaurante: 112 productos y sus 112 ofertas, IDs y relaciones, 15 categorías, 3 cartas, 4 áreas de producción y disponibilidad/orden/precios/descripciones originales. Las 13 imágenes propias están versionadas y se sirven desde los assets de aplicación; el fallback de categoría continúa disponible. Los productos y ofertas `[DEV]` son adiciones independientes para escenarios de prueba y no alteran esos 112 registros. Panadería usa una oferta sintética propia en desarrollo, no una copia del menú real.
+El DML preserva el menú original de Restaurante: 112 productos y sus 112 ofertas, IDs y relaciones, 15 categorías, 3 cartas, 4 áreas de producción y disponibilidad/orden/precios/descripciones originales. Las 13 imágenes propias están versionadas y se sirven desde los assets de aplicación; el fallback de categoría continúa disponible. Los productos y ofertas sintéticos (IDs desde 1000, sin prefijos visibles) son adiciones independientes para escenarios de prueba y no alteran esos 112 registros. Panadería usa una oferta sintética propia en desarrollo, no una copia del menú real.
 
 ## 7. Tickets, operación y consumo
 
@@ -144,11 +203,50 @@ Antes de trabajar, leer este documento y `CLAUDE.md`, identificar ámbito/propie
 
 Toda función nueva se integra con identidad, autorización, propiedad y visuales existentes. No crear autenticación, stock, oferta, tickets o UI paralelos. Cambios arquitectónicos requieren decisión justificada aquí y actualización de referencias técnicas. Separar correcciones de defectos, mejoras de lo existente y funcionalidades nuevas en el [backlog](backlog.md). Un defecto crítico no se difiere como UX.
 
-Transferencias requieren contrato de envío, recepción total/parcial, diferencias, pérdida, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Producción, catering, POS comercial de Panadería, paneles financieros Global, asistente Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
+El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería, paneles financieros Global, asistente Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
 
 ## 14. Documentación vigente
 
 - Este archivo: contrato rector y única fuente de decisiones de arquitectura/alcance.
-- [Instalación](desarrollo/instalacion.md), [desarrollo](desarrollo/desarrollo.md), [pruebas](desarrollo/pruebas.md), [backlog](backlog.md), [clasificación documental](desarrollo/clasificacion-documental.md) e [informe de entrega](desarrollo/entrega-3e.md).
+- [Instalación](desarrollo/instalacion.md), [desarrollo](desarrollo/desarrollo.md), [pruebas](desarrollo/pruebas.md), [backlog](backlog.md), [índice documental](desarrollo/clasificacion-documental.md) y [guía técnica de interfaz](desarrollo/interfaz.md).
 - Referencias funcionales subordinadas: [Usuarios](usuarios/usuarios.md), [permisos](usuarios/roles-y-permisos.md), [Almacenes](modulos/almacenes.md), [reservaciones](reservaciones/reservaciones.md), [notificaciones](reservaciones/notificaciones.md), [operación](operacion.md), [privacidad](privacidad/privacidad.md), [configuración](config.md) y [API](../API.md).
 - Referencia técnica de organización de código: §§2 y 11 de este documento y los contratos del código. Los documentos históricos de etapas anteriores no son procedimientos vigentes.
+
+
+## 10. Administración comercial M1
+
+M1.1 añade inicios autorizados Global/Panadería, catálogo paginado y una biblioteca
+privada de PDF por vendedor. `InicioAdministrativo` proyecta enlaces desde permisos
+reales; no habilita módulos pendientes. `MenuPdf` mantiene la plantilla pública de
+Restaurante y valida contexto, carta, estado y contenido antes de emitir un PDF
+administrativo. La autorización Global exige también lectura del negocio dueño.
+El alta rápida inventariable local exige edición local y edición Global con
+`catalogo.editar`; no crea asociación ni existencias. Detalles y resultados actuales
+en [Catálogo y Menú](modulos/catalogo-comercial.md#refinamiento-m11).
+
+M1.1-E completa el inicio Restaurante en `/admin` con el mismo componente y sus
+permisos reales; `/admin/analytics` conserva el dashboard. El selector vuelve al
+inicio y el sidebar lo ofrece primero. La selección compacta de Almacenes es una
+mejora progresiva del mismo GET: JavaScript agrupa cambios y el botón mantiene
+la alternativa nativa. No modifica la frontera de autorización ni el inventario.
+Contrato y validación en [guía de interfaz](desarrollo/interfaz.md#m11-e-inicio-restaurante-y-seleccion-compacta).
+
+El [contrato de Catálogo y Menú](modulos/catalogo-comercial.md) registra la auditoría,
+propiedad, rutas, autorización y aceptación. `productos` conserva la identidad;
+`ofertas_producto` conserva condiciones locales y retiro lógico. No se fusionan
+identidades por nombre ni se copian ofertas entre negocios. Categoría/carta y área
+se validan por unidad; Global nunca crea ofertas.
+
+`menu/ver` Global consulta identidades; su uso comercial se muestra exclusivamente
+en negocios con `menu/ver`. Escribir datos maestros exige `menu/editar` Global y
+`comercial.identidad.editar`, independiente de `catalogo.editar` inventariable.
+Una identidad compartida exige además confirmación explícita de impacto, bloqueo
+y huella vigente. El administrador local sin esa facultad modifica solo su oferta.
+La navegación, el CSRF y el destino de login son contextuales; la sesión no acepta
+IDs de unidad u oferta enviados para sustituir el recurso de la ruta.
+
+Las instalaciones nuevas incorporan la facultad desde `deploy.sql`. Para una
+instalación existente, el despliegue aditivo está en
+`database/actualizaciones/m1-facultad-comercial.sql`; no concede facultades a
+usuarios ni requiere migrar datos del menú. Las pruebas nunca lo aplican a la
+base activa. M2 y M3 permanecen fuera de esta entrega.

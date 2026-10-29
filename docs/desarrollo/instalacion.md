@@ -1,5 +1,27 @@
 # Instalación de desarrollo
 
+## Actualización M1.2
+
+Para instalaciones existentes, la ampliación aditiva está en
+`database/actualizaciones/m12-estandares.sql`; el mismo bloque está incorporado al
+DDL de instalación nueva. Crea ocho tablas, la vista `productos_oferta` y triggers
+de inmutabilidad. La migración se comprobó dos veces consecutivas con MariaDB de
+XAMPP; no transforma ni adhiere productos existentes. Preparar respaldo y ensayar
+en una copia antes de aplicarla en una instalación operativa. Esta entrega no
+migró la base activa. La compatibilidad del DDL con otros motores debe verificarse
+antes del despliegue (usa `CREATE TRIGGER IF NOT EXISTS`).
+
+`development.sql` solo corresponde a instalaciones nuevas desechables. Sus seis
+adhesiones M1.2 son explícitas y sintéticas: Rol de canela, Croissant, Focaccia,
+Café americano, Concha de chocolate y Galleta de chocolate. Hay 138 productos,
+142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
+productos originales siguen íntegros; permanecen 7 almacenes, 47 asociaciones
+físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
+rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes
+de Focaccia son fotografías de contexto de Panadería reutilizadas para probar
+personalización. No se crean credenciales activas adicionales mediante SQL.
+
+
 Esta guía es el procedimiento único para reconstruir la aplicación desde los
 archivos versionados. El [contrato rector](../arquitectura.md) define su alcance.
 No utiliza la base antigua ni el paquete privado de preservación de Etapa 2.
@@ -28,8 +50,7 @@ npm ci
 El repositorio configura `legacy-peer-deps=true` en `.npmrc`, de modo que
 `npm ci` utiliza el archivo de bloqueo versionado y ejecuta los scripts de
 instalación requeridos por dependencias nativas como Sharp. No usar
-`--ignore-scripts`: impediría preparar esos recursos para el build. No implica
-aceptar la modificación ajena de `package-lock.json` del checkout original.
+`--ignore-scripts`: impediría preparar esos recursos para el build. Conservar el archivo de bloqueo de la revisión elegida.
 
 ## 2. Configurar el entorno local
 
@@ -94,8 +115,9 @@ necesario antes de cualquier limpieza explícita.
 
 La identidad es `admin_demo`, activa y superadministradora organizacional. El
 seed SQL contiene el hash bcrypt de la contraseña de desarrollo acordada; su
-inserción está condicionada a la variable de sesión que establece el instalador
-CLI identificado. El bootstrap valida la contraseña local contra ese hash y
+inserción bajo CLI está condicionada al guard del instalador identificado.
+La importación SQL directa sin marcador también activa la cuenta; se reserva
+a pruebas controladas sobre bases locales nuevas, nunca a producción. El bootstrap valida la contraseña local contra ese hash y
 registra la propiedad de la cuenta. La cuenta tiene membresías Global,
 Restaurante y Panadería, no tiene NIP y no existe una ruta pública para crear
 superadministradores. Si se usa `--sin-simulados`, el bootstrap crea la cuenta
@@ -165,3 +187,16 @@ Ensayar esta guía dos veces con nombres nuevos independientes, verificando men�
 movimientos/saldos, login, permisos y flujo comercial. Registrar los nombres
 sintéticos o sus identificadores de prueba y el resultado, sin publicar secretos.
 No declarar la rama lista para merge hasta completar esa evidencia.
+
+## Cobertura de fixtures
+
+El DML de desarrollo reúne datos base, analítica anual, RevPASH, recetas/variantes,
+especiales de temporada y ventas recientes del Asistente. Usa entidades canónicas,
+no agregados a5 ni stock maestro duplicado. Los especiales originales son parte
+del menú preservado; los ejemplos adicionales tienen ofertas sintéticas propias.
+Las impresoras de ejemplo están inactivas y apuntan a loopback. Hay escenarios
+de reservas multimesa, pagos divididos, cancelaciones y costos desconocidos.
+No copiar INSERTs de revisiones anteriores.
+
+Los resultados y conteos de una ejecución se registran fuera de la documentación
+operativa; verificar el DML de la revisión elegida con run-instalacion-3e.php.

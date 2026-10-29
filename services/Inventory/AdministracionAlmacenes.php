@@ -7,23 +7,31 @@ final class AdministracionAlmacenes
 {
     private Almacenes $motor;
     private AlcanceInventario $alcance;
+    private Transferencias $transferencias;
 
     public function __construct(private \mysqli $db, int $actorId, string $nivelAuth)
     {
         $this->motor = new Almacenes($db, $actorId, $nivelAuth);
         $this->alcance = new AlcanceInventario($db, $actorId, $nivelAuth);
+        $this->transferencias = new Transferencias($db, $actorId, $nivelAuth);
     }
 
     public function consultar(string $ctx, array $filtros, string $vista = 'existencias'): array
     {
-        $comunes = array_intersect_key($filtros, array_flip(['q','negocio','almacen_id','pagina']));
+        $comunes = array_intersect_key($filtros, array_flip(['q','negocio','almacen_id','almacen_ids','articulo_id','pagina']));
         $comunes['por_pagina'] = 25;
         $existencias = $this->motor->consultarExistencias($ctx, $comunes + (!empty($filtros['solo_alertas']) ? ['solo_alertas'=>true] : []));
         self::exigirResultado($existencias);
-        $almacenes = $this->motor->consultarAlmacenes($ctx, array_intersect_key($comunes,array_flip($vista==='almacenes'?['q','negocio','almacen_id','pagina']:['negocio','almacen_id'])) + ['por_pagina'=>$vista==='almacenes'?25:100]);
+        $almacenes = $this->motor->consultarAlmacenes($ctx, array_intersect_key($comunes,array_flip($vista==='almacenes'?['q','negocio','almacen_id','almacen_ids','pagina']:['negocio','almacen_id','almacen_ids'])) + ['por_pagina'=>$vista==='almacenes'?25:100]);
         self::exigirResultado($almacenes);
         $opciones = $this->motor->consultarAlmacenes($ctx, ['por_pagina'=>100]);
         self::exigirResultado($opciones);
+        for($pagina=2;count($opciones['almacenes'])<$opciones['total'];$pagina++) {
+            $siguiente=$this->motor->consultarAlmacenes($ctx,['por_pagina'=>100,'pagina'=>$pagina]);
+            self::exigirResultado($siguiente);
+            if(!$siguiente['almacenes']) break;
+            array_push($opciones['almacenes'],...$siguiente['almacenes']);
+        }
         if(isset($filtros['almacen_id']) && !in_array((int)$filtros['almacen_id'],array_map(static fn($a)=>(int)$a['almacen_id'],$opciones['almacenes']),true)) {
             $elegido=$this->motor->consultarAlmacenes($ctx,['almacen_id'=>$filtros['almacen_id']]);
             self::exigirResultado($elegido);
@@ -33,7 +41,13 @@ final class AdministracionAlmacenes
         self::exigirResultado($movimientos);
         $catalogo = $this->catalogo($ctx, (string)($filtros['q']??''), (int)($filtros['pagina']??1));
         self::exigirResultado($catalogo);
-        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total']];
+        $paginaTransferencias=$filtros['transferencia_pagina']??'1';
+        if(!is_scalar($paginaTransferencias)||!preg_match('/^[1-9][0-9]{0,5}$/D',(string)$paginaTransferencias))throw new InventarioError('FILTRO_INVALIDO','Página de transferencias inválida.');
+        $transferencias=$this->transferencias->consultar($ctx,(int)$paginaTransferencias);
+        self::exigirResultado($transferencias);
+        $catalogoTransferencias=$this->catalogo($ctx);
+        self::exigirResultado($catalogoTransferencias);
+        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina']];
     }
 
     /** Datos maestros para elegir una asociación: no incluye existencias ajenas. */
@@ -55,6 +69,17 @@ final class AdministracionAlmacenes
     public function guardar(string $ctx, string $accion, array $datos): array
     {
         try {
+            if(str_starts_with($accion,'transferencia_')){
+                $comando=substr($accion,14);
+                $permitidas=$comando==='solicitar'?['clave','origen_id','destino_id','lineas','motivo']:['clave','transferencia_id','version','lineas','motivo'];
+                if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas)))throw new InventarioError('DATOS_INVALIDOS','Campos de transferencia no permitidos.');
+                $doc=array_intersect_key($datos,array_flip($permitidas));
+                if(in_array($comando,['recibir','retornar'],true)&&isset($doc['lineas'])&&is_array($doc['lineas'])){
+                    // Campos vacíos del formulario no declaran una recepción de cero.
+                    $doc['lineas']=array_values(array_filter($doc['lineas'],static fn($l)=>!is_array($l)||!in_array($l['cantidad']??null,['','0','0.000'],true)));
+                }
+                return $this->transferencias->ejecutar($ctx,$comando,$doc);
+            }
             $permitidas=match($accion) {
                 'crear_almacen'=>['propietario','nombre','permitir_negativos'],
                 'configurar_almacen'=>['almacen_id','nombre','activo','permitir_negativos'],
@@ -65,7 +90,7 @@ final class AdministracionAlmacenes
                 'entrada','ajuste','merma'=>['almacen_id','articulo_id','cantidad','costo_unitario','version','clave','motivo','nota'],
                 default=>throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.'),
             };
-            if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
+            if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
             $id = static fn(string $campo): int => self::id($datos[$campo]??null);
             switch ($accion) {
                 case 'crear_almacen':
@@ -77,7 +102,7 @@ final class AdministracionAlmacenes
                 case 'crear_articulo':
                 case 'editar_articulo':
                     $articulo=['nombre'=>self::texto($datos,'nombre'),'unidad'=>self::texto($datos,'unidad'),'costo'=>self::texto($datos,'costo'),'activo'=>isset($datos['activo'])];
-                    return $accion==='crear_articulo' ? $this->motor->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
+                    return $accion==='crear_articulo' ? $this->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
                 case 'asociar':
                     return $this->motor->asociarArticulo($ctx,$id('almacen_id'),$id('articulo_id'),self::texto($datos,'minimo'));
                 case 'configurar_asociacion':
@@ -99,6 +124,18 @@ final class AdministracionAlmacenes
                     throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.');
             }
         } catch (\Throwable $e) { return Almacenes::errorLectura($e) + ['confirmado'=>false]; }
+    }
+
+    /** Alta rápida local con ambas autorizaciones, sin asociación ni saldo implícitos. */
+    private function crearArticulo(string $ctx,array $articulo): array
+    {
+        if ($ctx==='global') return $this->motor->crearArticulo('global',$articulo);
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$articulo):array {
+            $this->alcance->autorizar($ctx,'editar',null,true);
+            $r=$this->motor->crearArticulo('global',$articulo);
+            if (empty($r['confirmado']) && !(($r['ok']??null)===null && !empty($r['pendiente']))) throw new InventarioError($r['codigo']??'ALTA_RECHAZADA',$r['mensaje']??'No se pudo crear el artículo.');
+            return $r;
+        });
     }
 
     public static function exigirResultado(array $resultado): void

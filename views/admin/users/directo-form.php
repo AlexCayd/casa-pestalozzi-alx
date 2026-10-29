@@ -7,6 +7,7 @@ $permitidos = is_array($ambitosPermitidos ?? null) ? $ambitosPermitidos : [];
 $catalogos = is_array($catalogos ?? null) ? $catalogos : [];
 $facultadesPorAmbito = is_array($facultadesPorAmbito ?? null) ? $facultadesPorAmbito : [];
 $techosPorAmbito = is_array($techosPorAmbito ?? null) ? $techosPorAmbito : [];
+$perfilesSugeridos = is_array($perfilesSugeridos ?? null) ? $perfilesSugeridos : [];
 $identityEditable = !empty($identityEditable);
 $puedeEditar = !empty($puedeEditar);
 $esEdicion = !empty($usuario['id']);
@@ -105,6 +106,36 @@ $formData = $_POST ?? [];
             </div>
         </section>
 
+        <?php if (!$esSuper && $permitidos !== [] && $perfilesSugeridos !== []) : ?>
+            <?php /* Sin JavaScript el perfil no puede rellenar nada: la sección nace oculta
+                     y users-directos.js la muestra. El servidor ignora perfil_sugerido. */ ?>
+            <section class="admin-menu__panel admin-menu__panel--form admin-users-panel admin-panel admin-card" data-user-presets hidden>
+                <div class="admin-menu__panel-head"><div><h3>Perfil sugerido</h3><p>Rellena ámbitos, módulos y facultades de un solo paso. Puedes ajustarlos antes de guardar.</p></div></div>
+                <fieldset class="admin-pills">
+                    <legend class="admin-pills__legend">Tipo de usuario</legend>
+                    <div class="admin-pills__group">
+                        <?php foreach ($perfilesSugeridos as $clavePerfil => $perfilSugerido) : ?>
+                            <label class="admin-pill">
+                                <input type="radio" name="perfil_sugerido" value="<?php echo $esc($clavePerfil); ?>" data-user-preset="<?php echo $esc(json_encode($perfilSugerido['ambitos'], JSON_UNESCAPED_UNICODE)); ?>">
+                                <span class="admin-pill__body">
+                                    <span class="admin-pill__title"><?php echo $esc($perfilSugerido['titulo']); ?></span>
+                                    <span class="admin-pill__hint"><?php echo $esc($perfilSugerido['detalle']); ?></span>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                        <label class="admin-pill">
+                            <input type="radio" name="perfil_sugerido" value="personalizado" data-user-preset-custom>
+                            <span class="admin-pill__body">
+                                <span class="admin-pill__title">Personalizado</span>
+                                <span class="admin-pill__hint">Elige cada ámbito y módulo a mano.</span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
+                <p class="admin-users-form__hint" data-user-preset-status role="status" aria-live="polite">Elegir un perfil reemplaza la selección actual. Solo se asignan los niveles y facultades que tú puedes delegar.</p>
+            </section>
+        <?php endif; ?>
+
         <section class="admin-menu__panel admin-menu__panel--form admin-users-panel admin-panel admin-card">
             <div class="admin-menu__panel-head"><div><h3>Ámbitos y módulos</h3><p>La ausencia de permiso significa que no hay acceso a ese módulo.</p></div></div>
             <?php if ($esSuper) : ?>
@@ -146,7 +177,7 @@ $formData = $_POST ?? [];
                                             <tr data-module-row data-group="<?php echo $piso ? 'piso' : 'panel'; ?>">
                                                 <td><strong><?php echo $esc($modulo['titulo']); ?></strong><?php if ($modulo['detalle'] !== '') : ?><span class="admin-table__cell-sub"><?php echo $esc($modulo['detalle']); ?></span><?php endif; ?></td>
                                                 <td><label class="admin-sr-only" for="scope-<?php echo $esc($slug . '-' . $clave); ?>">Nivel para <?php echo $esc($modulo['titulo']); ?> en <?php echo $esc($nombreScope); ?></label>
-                                                    <select id="scope-<?php echo $esc($slug . '-' . $clave); ?>" <?php echo $nivelProtegido ? '' : 'name="ambitos[' . $esc($slug) . '][permisos][' . $esc($clave) . ']"'; ?> data-module-level <?php echo $nivelProtegido ? 'data-protected="1" disabled aria-describedby="scope-note-' . $esc($slug . '-' . $clave) . '"' : ''; ?>>
+                                                    <select id="scope-<?php echo $esc($slug . '-' . $clave); ?>" <?php echo $nivelProtegido ? '' : 'name="ambitos[' . $esc($slug) . '][permisos][' . $esc($clave) . ']"'; ?> data-module-level data-module="<?php echo $esc($clave); ?>" data-max-level="<?php echo $piso ? 'operar' : 'editar'; ?>" <?php echo $nivelProtegido ? 'data-protected="1" disabled aria-describedby="scope-note-' . $esc($slug . '-' . $clave) . '"' : ''; ?>>
                                                         <option value="" <?php echo $value === '' ? 'selected' : ''; ?>>Sin acceso</option>
                                                         <?php foreach ($permitidosNiveles as $nivelPermitido) : ?><option value="<?php echo $esc($nivelPermitido); ?>" <?php echo $value === $nivelPermitido ? 'selected' : ''; ?>><?php echo $nivelPermitido === 'operar' ? 'Operativo' : ($nivelPermitido === 'ver' ? 'Lectura' : 'Edición'); ?></option><?php endforeach; ?>
                                                         <?php if ($nivelProtegido) : ?><option value="<?php echo $esc($value); ?>" selected>Asignación protegida</option><?php endif; ?>

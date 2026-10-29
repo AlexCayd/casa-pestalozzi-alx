@@ -11,7 +11,7 @@ require_once __DIR__ . '/_icons.php';
 // 'productos' era un alias local de 'products'. Se resuelve aquí y no en el
 // catálogo: es una clave de menú de este sidebar, no un icono distinto.
 $sidebarIconoModulo = static function (string $clave): string {
-    $alias = ['usuarios' => 'users', 'configuracion' => 'configuration', 'catalogo' => 'menu'];
+    $alias = ['usuarios' => 'users', 'configuracion' => 'configuration', 'catalogo' => 'menu', 'menus' => 'menu'];
     $clave = $alias[$clave] ?? $clave;
     if ($clave === 'productos') {
         $clave = 'products';

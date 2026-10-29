@@ -131,7 +131,7 @@ try {
             'efectivo',
             (float)$caso['propina'],
             $caso['pagos'],
-            0
+            NOTIFICATIONS_TEST_STAFF_ID
         );
         assertDbClosure(($resultado['ok'] ?? false) === true, 'fallo de cierre: ' . json_encode($resultado));
         $fila = assertClosedContract($db, $ticketId, (float)$caso['propina']);
@@ -169,7 +169,7 @@ try {
             ['comensal' => 1, 'metodo' => 'efectivo', 'monto' => 180.0],
             ['comensal' => 2, 'metodo' => 'tarjeta', 'monto' => 180.0],
         ],
-        0
+        NOTIFICATIONS_TEST_STAFF_ID
     );
     assertDbClosure(($multimesaResultado['ok'] ?? false) === true, 'fallo de cierre multimesa');
     $filaMultimesa = assertClosedContract($db, $multimesaId, 0.0);
@@ -210,7 +210,7 @@ try {
         'efectivo',
         0.0,
         [],
-        0
+        NOTIFICATIONS_TEST_STAFF_ID
     );
     assertDbClosure(($reservacionResultado['ok'] ?? false) === true, 'fallo de cierre de ticket asociado a reservación');
     $filaReservacion = assertClosedContract($db, $reservacionTicketId, 0.0);
@@ -241,6 +241,7 @@ try {
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } finally {
     foreach ($ticketIds as $ticketId) {
+        $db->query("DELETE FROM feedback_tokens WHERE ticket_id = {$ticketId}");
         $db->query("DELETE FROM ticket_pagos WHERE ticket_id = {$ticketId}");
         $db->query("DELETE FROM ticket_items WHERE ticket_id = {$ticketId}");
         $db->query("DELETE FROM ticket_mesas WHERE ticket_id = {$ticketId}");

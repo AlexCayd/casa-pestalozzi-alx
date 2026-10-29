@@ -13,21 +13,26 @@
 namespace Controllers;
 
 use Classes\ImagenUploader;
+use Services\Menu\AdministracionMenu;
+use Services\Menu\CatalogoComercial;
+use Services\Menu\Ofertas;
+use Services\Security\ContextoNegocio;
 use Model\CategoriasMenu;
 use Model\HistorialPrecio;
 use Model\Producto;
 use MVC\Router;
 use Services\Menu\CategoriaMenuService;
 use Services\Menu\FotoPlatillo;
+use Services\Inventory\AlmacenesConsumo;
 use Services\Inventory\HistorialPrecios;
+use Services\Inventory\InventarioError;
 use Services\Menu\MenuPdf;
 use Services\Menu\Variantes;
 use Services\Security\AdminCsrfService;
+use Services\Security\ContextoNegocio;
 
 class AdminMenuController
 {
-    private const CATEGORIES_PATH = '/admin/menu/categorias';
-    private const ITEMS_PATH = '/admin/menu';
     private const MENU_CSS = '/build/css/admin/menu.css';
 
     /**
@@ -42,6 +47,7 @@ class AdminMenuController
     /** Listado de platillos con pestañas de categoría. */
     public static function index(Router $router): void
     {
+        AdministracionMenu::autorizar();
         $todasLasCategorias = CategoriasMenu::ordenadas();
         $categoriasMap = [];
         $categoriasFoto = [];
@@ -90,11 +96,14 @@ class AdminMenuController
 
         $offset = ($paginaActual - 1) * $porPagina;
         $platillos = Producto::buscarAdmin($filtros, $porPagina, $offset);
+        $politicasCasa=[];
+        foreach($platillos as $platillo){$oficial=\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id);if($oficial)$politicasCasa[(int)$platillo->id]=$oficial['reglas'];}
 
         $data = [
             'title' => 'Menú',
             'topbarSection' => 'Menú',
             'platillos' => $platillos,
+            'politicasCasa' => $politicasCasa,
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
             'categoriasFoto' => $categoriasFoto,
@@ -119,14 +128,14 @@ class AdminMenuController
             'totalPaginas' => $totalPaginas,
             'totalMenu' => $totalMenu,
             'porPagina' => $porPagina,
-            'partialUrl' => AdminController::filterUrl('/admin/menu', array_merge(
+            'partialUrl' => AdminController::filterUrl(AdministracionMenu::base(), array_merge(
                 $filtros,
                 $paginaActual > 1 ? ['page' => $paginaActual] : []
             )),
         ];
 
         if (AdminController::isPartialRequest()) {
-            AdminController::renderPartial('menu/index', array_merge($data, ['partialOnly' => true]));
+            AdminController::renderPartial('menu/index', array_merge($data, array_merge(AdministracionMenu::vista(), ['partialOnly' => true])));
             return;
         }
 
@@ -136,17 +145,32 @@ class AdminMenuController
     /** PDF de la carta de comida (la pública es MenuController::pdf). */
     public static function pdf(Router $router): void
     {
-        MenuPdf::stream(CategoriasMenu::CARTA_COMIDA);
+        AdministracionMenu::autorizar();
+        MenuPdf::streamAdministrativo('restaurante',CategoriasMenu::CARTA_COMIDA);
     }
 
     /** PDF de la carta de maridaje (la pública es MenuController::pdfMaridaje). */
     public static function pdfMaridaje(Router $router): void
     {
-        MenuPdf::stream(CategoriasMenu::CARTA_MARIDAJE);
+        AdministracionMenu::autorizar();
+        MenuPdf::streamAdministrativo('restaurante',CategoriasMenu::CARTA_MARIDAJE);
+    }
+
+    public static function pdfPanaderia(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        MenuPdf::streamAdministrativo('panaderia','comida');
+    }
+
+    public static function biblioteca(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        self::render('menu/biblioteca',['activeModule'=>'menus','title'=>'Menús PDF','topbarSection'=>'Menús PDF','documentos'=>MenuPdf::biblioteca()]);
     }
 
     public static function create(Router $router): void
     {
+        AdministracionMenu::autorizar();
         $platillo = new Producto();
         $alertas = [];
         $foto = null;
@@ -165,7 +189,7 @@ class AdminMenuController
 
                 if ($resultado && $resultado['resultado']) {
                     $foto->confirmar();
-                    HistorialPrecios::registrarAlta(
+                    if (!ContextoNegocio::nuevo()) HistorialPrecios::registrarAlta(
                         HistorialPrecio::ENTIDAD_PRODUCTO,
                         (int) $resultado['id'],
                         $platillo->precio
@@ -175,7 +199,7 @@ class AdminMenuController
                     return;
                 }
 
-                Producto::setAlerta('error', 'No se pudo guardar el platillo. Revisa que el nombre no esté repetido.');
+                Producto::setAlerta('error', 'No se pudo guardar el platillo. Verifica los datos y el contexto.');
                 $alertas = Producto::getAlertas();
             }
 
@@ -187,10 +211,12 @@ class AdminMenuController
 
     public static function edit(Router $router): void
     {
+        AdministracionMenu::autorizar();
         $id = self::validarId($_GET['id'] ?? null, $router);
         $platillo = Producto::find($id);
 
         if (!$platillo) {
+            http_response_code(404);
             Producto::setAlerta('error', 'El platillo no existe');
             self::index($router);
             return;
@@ -205,9 +231,18 @@ class AdminMenuController
             $precioAnterior = $platillo->precio;
             $imagenActual = $platillo->img;
 
+            $identidadActual = ['nombre'=>$platillo->nombre,'descripcion'=>$platillo->descripcion,'img'=>$imagenActual];
+            $casa=\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id);
             self::sincronizarPlatillo($platillo);
-            $alertas = $platillo->validar();
-            $foto = FotoPlatillo::desdeFormulario($platillo, $imagenActual, $_POST, $_FILES);
+            $alertas = $casa?[]:$platillo->validar();
+            $bloqueada = !$casa && CatalogoComercial::compartida((int)$platillo->producto_id) && !CatalogoComercial::puedeEditar();
+            if($casa&&!$casa['reglas']['img']&&(!empty($_POST['quitar_imagen'])||!empty($_POST['imagen_pendiente'])||ImagenUploader::seEnvioArchivo($_FILES['imagen']??null)))$alertas['error'][]='Imagen: Definido por Global.';
+            if ($bloqueada) {
+                $intento = $platillo->nombre !== $identidadActual['nombre'] || $platillo->descripcion !== $identidadActual['descripcion'] || !empty($_POST['quitar_imagen']) || !empty($_POST['imagen_pendiente']) || ImagenUploader::seEnvioArchivo($_FILES['imagen'] ?? null);
+                if ($intento) $alertas['error'][] = 'No tienes autorización para cambiar esta identidad compartida.';
+            }
+            $fotoBloqueada=$bloqueada||($casa&&!$casa['reglas']['img']);
+            $foto = FotoPlatillo::desdeFormulario($platillo, $imagenActual, $fotoBloqueada ? [] : $_POST, $fotoBloqueada ? [] : $_FILES);
             $alertas = self::sumarErrores($alertas, $foto->errores());
 
             if (empty($alertas)) {
@@ -217,7 +252,7 @@ class AdminMenuController
                     $foto->confirmar();
                     // registrar() no escribe si el precio no cambió, así que
                     // guardar sólo la descripción no ensucia el histórico.
-                    HistorialPrecios::registrar(
+                    if (!ContextoNegocio::nuevo()) HistorialPrecios::registrar(
                         HistorialPrecio::ENTIDAD_PRODUCTO,
                         (int) $platillo->id,
                         $precioAnterior,
@@ -235,13 +270,15 @@ class AdminMenuController
             $foto->revertir($platillo);
         }
 
+        if(!empty($alertas)&&\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id))http_response_code(422);
         self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas, $foto);
     }
 
     public static function delete(Router $router): void
     {
+        AdministracionMenu::autorizar();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::ITEMS_PATH);
+            self::redirect(AdministracionMenu::base());
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
@@ -286,8 +323,9 @@ class AdminMenuController
      */
     public static function toggle(Router $router): void
     {
+        AdministracionMenu::autorizar();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::ITEMS_PATH);
+            self::redirect(AdministracionMenu::base());
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
@@ -306,6 +344,7 @@ class AdminMenuController
 
     public static function categories(Router $router): void
     {
+        AdministracionMenu::autorizar();
         self::render('menu/categories', [
             'title' => 'Categorías del menú',
             'topbarSection' => 'Menú / Categorías',
@@ -323,16 +362,15 @@ class AdminMenuController
      */
     public static function categoryCreate(Router $router): void
     {
+        AdministracionMenu::autorizar();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::CATEGORIES_PATH);
+            self::redirect((AdministracionMenu::base() . '/categorias'));
         }
 
         $categoria = new CategoriasMenu();
-        $categoria->sincronizar($_POST);
+        $categoria->sincronizar(array_intersect_key($_POST, array_flip(['nombre','carta'])));
         $categoria->activo = 1;
-        // sincronizar() copia lo que venga; normalizar aquí es lo que impide
-        // que un POST a mano meta una categoría en una carta inexistente.
-        $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
+        // Una carta desconocida debe mostrar validación, no cambiar silenciosamente de destino.
 
         $alertas = $categoria->validar();
         $imagen = $_FILES['imagen'] ?? null;
@@ -351,6 +389,7 @@ class AdminMenuController
         }
 
         if (!empty($alertas)) {
+            if (isset($ruta) && $ruta) ImagenUploader::eliminar($ruta);
             foreach ($alertas['error'] ?? [] as $error) {
                 CategoriasMenu::setAlerta('error', $error);
             }
@@ -371,6 +410,7 @@ class AdminMenuController
 
     public static function categoryEdit(Router $router): void
     {
+        AdministracionMenu::autorizar();
         $id = self::validarId($_GET['id'] ?? null, $router);
         $categoria = CategoriasMenu::find($id);
 
@@ -384,9 +424,8 @@ class AdminMenuController
         $imagenActual = $categoria->img;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $categoria->sincronizar($_POST);
+            $categoria->sincronizar(array_intersect_key($_POST, array_flip(['nombre','carta'])));
             $categoria->activo = isset($_POST['activo']) ? 1 : 0;
-            $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
             $categoria->img = $imagenActual;
 
             $alertas = $categoria->validar();
@@ -433,8 +472,9 @@ class AdminMenuController
 
     public static function categoryDelete(Router $router): void
     {
+        AdministracionMenu::autorizar();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::CATEGORIES_PATH);
+            self::redirect((AdministracionMenu::base() . '/categorias'));
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
@@ -465,10 +505,101 @@ class AdminMenuController
 
     // ── Internos ───────────────────────────────────────────────────────────
 
+    /** Una identidad existente recibe condiciones locales explícitas, sin copiar ofertas. */
+    public static function asociar(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        ContextoNegocio::vendedora();
+        $q = is_string($_GET['q'] ?? null) ? $_GET['q'] : '';
+        $pagina = max(1, (int)($_GET['page'] ?? 1));
+        $alertas = [];
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $datos = array_replace($_POST, ['activo'=>isset($_POST['activo']) ? 1 : 0]);
+            $resultado = Ofertas::crear((int)($_POST['producto_id'] ?? 0), ContextoNegocio::slug(), $datos);
+            if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
+                Producto::setAlerta('exito', 'Oferta asociada correctamente');
+                self::index($router);
+                return;
+            }
+            $alertas['error'][] = 'No se pudo asociar la oferta: comprueba precio, categoría, área y que no exista ya en este negocio.';
+        }
+        self::render('menu/asociar', [
+            'title'=>'Asociar producto existente', 'topbarSection'=>'Menú / Asociar producto',
+            'identidades'=>CatalogoComercial::identidades($q, $pagina),
+            'categorias'=>CategoriasMenu::ordenadas(), 'areas'=>self::areas(),
+            'q'=>$q, 'pagina'=>$pagina, 'alertas'=>$alertas,
+        ]);
+    }
+
+    public static function globalIndex(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        ContextoNegocio::exigir('menu', 'ver', 'global');
+        $q = is_string($_GET['q'] ?? null) ? $_GET['q'] : '';
+        $pagina = max(1, (int)($_GET['page'] ?? 1));
+        $negocio=is_string($_GET['negocio']??null)?$_GET['negocio']:'';
+        $uso=is_string($_GET['uso']??null)?$_GET['uso']:'';
+        $tipo=is_string($_GET['tipo']??null)?$_GET['tipo']:'';
+        try { $listado=CatalogoComercial::listar($q,$pagina,$negocio,$uso,$tipo); }
+        catch (\Services\Inventory\InventarioError $e) { http_response_code(403); echo htmlspecialchars($e->getMessage()); return; }
+        self::render('menu/global', array_merge($listado, ['title'=>'Productos de la casa', 'topbarSection'=>'Productos de la casa',
+            'q'=>$q,'identidadEditable'=>CatalogoComercial::puedeEditar(), 'alertas'=>Producto::getAlertas()]));
+    }
+
+    /** El formulario compartido oculta condiciones locales en modo maestro. */
+    public static function globalEdit(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        ContextoNegocio::exigir('menu', 'ver', 'global');
+        $id = (int)($_GET['id'] ?? 0);
+        if(\Services\Menu\ProductosCasa::configuracion($id)){header('Location: /admin/global/productos/casa?id='.$id,true,302);return;}
+        $actual = CatalogoComercial::identidad($id);
+        if (!$actual) { http_response_code(404); self::globalIndex($router); return; }
+        $producto = new Producto();
+        $producto->sincronizar($actual);
+        $alertas = []; $foto = null;
+        $huella = CatalogoComercial::huella($actual);
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!CatalogoComercial::puedeEditar()) {
+                http_response_code(403);
+                echo 'No tienes autorización para editar identidades comerciales.';
+                return;
+            }
+            ContextoNegocio::facultad(CatalogoComercial::FACULTAD, 'global', 'menu');
+            $producto->nombre = is_string($_POST['nombre'] ?? null) ? trim($_POST['nombre']) : '';
+            $producto->descripcion = is_string($_POST['descripcion'] ?? null) ? trim($_POST['descripcion']) : '';
+            $huella = is_string($_POST['identidad_huella'] ?? null) ? $_POST['identidad_huella'] : '';
+            $foto = FotoPlatillo::desdeFormulario($producto, $actual['img'], $_POST, $_FILES);
+            $alertas = self::sumarErrores([], $foto->errores());
+            if ($producto->nombre === '' || mb_strlen($producto->nombre) > 120 || $producto->descripcion === '') $alertas['error'][] = 'Nombre y descripción son obligatorios; máximo 120 caracteres para nombre.';
+            if (!$alertas) {
+                $r = CatalogoComercial::actualizar($id, ['nombre'=>$producto->nombre,'descripcion'=>$producto->descripcion,'img'=>$producto->img], $huella, ($_POST['confirmar_identidad'] ?? '') === '1');
+                if (!empty($r['ok']) && !empty($r['confirmado'])) {
+                    $foto->confirmar(); Producto::setAlerta('exito', 'Identidad comercial actualizada'); self::globalIndex($router); return;
+                }
+                $alertas['error'][] = 'No se pudo guardar. Confirma el impacto compartido o recarga si otra persona modificó la identidad.';
+            }
+            $foto->revertir($producto);
+        }
+        self::render('menu/form', ['title'=>'Datos maestros', 'topbarSection'=>'Productos de la casa / Datos maestros',
+            'platillo'=>$producto, 'accion'=>'Guardar datos maestros', 'categorias'=>[], 'areas'=>[],
+            'identidadMaestra'=>true, 'identidadCompartida'=>true, 'identidadEditable'=>CatalogoComercial::puedeEditar(),
+            'identidadHuella'=>$huella, 'usos'=>CatalogoComercial::usos($id), 'alertas'=>$alertas,
+            'foto'=>$foto ? $foto->vista() : FotoPlatillo::vistaInicial($actual['img'])]);
+    }
+
     private static function sincronizarPlatillo(Producto $platillo): void
     {
         $img = $platillo->img;
-        $platillo->sincronizar($_POST);
+        $campos = array_intersect_key($_POST, array_flip(['nombre','descripcion','categoria_id','area_id','precio','orden']));
+        $platillo->sincronizar($campos);
+        if (ContextoNegocio::nuevo()) {
+            $platillo->confirmar_identidad = ($_POST['confirmar_identidad'] ?? '') === '1';
+            $platillo->identidad_huella = is_string($_POST['identidad_huella'] ?? null) ? $_POST['identidad_huella'] : '';
+            $restaurar=$_POST['restaurar_casa']??[];
+            if(!is_array($restaurar)||array_filter($restaurar,static fn($v)=>!is_string($v)))throw new \RuntimeException('La personalización no es válida.');
+            $platillo->restaurar_casa=$restaurar;
+        }
         // La foto no se escribe desde el formulario como texto: la decide
         // FotoPlatillo con lo que se sube. Sin esto, un campo `img` añadido a
         // mano al POST se copiaría tal cual a la columna.
@@ -515,6 +646,12 @@ class AdminMenuController
             'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => $accion,
+            'identidadCompartida' => !empty($platillo->producto_id) && CatalogoComercial::compartida((int)$platillo->producto_id),
+            'identidadEditable' => empty($platillo->producto_id) || !CatalogoComercial::compartida((int)$platillo->producto_id) || CatalogoComercial::puedeEditar(),
+            'identidadHuella' => $platillo->identidad_huella ?? CatalogoComercial::huella(['nombre'=>$platillo->nombre,'descripcion'=>$platillo->descripcion,'img'=>$platillo->img]),
+            'casaPolitica'=>!empty($platillo->producto_id)?\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id):null,
+            'casaLocales'=>!empty($platillo->oferta_id)?\Services\Menu\ProductosCasa::locales((int)$platillo->oferta_id):[],
+            'menuRecetaCasa'=>!empty($platillo->producto_id)&&\Classes\Auth::puede('productos','ver',ContextoNegocio::slug()),
             'foto' => $foto ? $foto->vista() : FotoPlatillo::vistaInicial($platillo->img),
         ]);
     }
@@ -522,6 +659,7 @@ class AdminMenuController
     /** Áreas de producción, para las pestañas del formulario. */
     public static function areas(): array
     {
+        if (ContextoNegocio::nuevo()) ContextoNegocio::exigirUno(['menu'=>'ver','productos'=>'ver'], ContextoNegocio::slug());
         $areas = [];
         $db = Producto::getDB();
         $where = \Services\Security\ContextoNegocio::nuevo()
@@ -558,10 +696,11 @@ class AdminMenuController
      */
     public static function variantes(Router $router): void
     {
+        AdministracionMenu::autorizar();
         $id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $platillo = $id ? Producto::find($id) : null;
         if (!$platillo) {
-            header('Location: ' . self::ITEMS_PATH, true, 302);
+            header('Location: ' . AdministracionMenu::base(), true, 302);
             exit;
         }
 
@@ -590,6 +729,7 @@ class AdminMenuController
     /** POST /admin/api/menu/variantes — guarda todos los grupos de un platillo. */
     public static function guardarVariantes(Router $router): void
     {
+        ContextoNegocio::exigir('menu', 'editar', 'restaurante');
         header('Content-Type: application/json; charset=utf-8');
         $datos = json_decode((string) file_get_contents('php://input'), true);
         $datos = is_array($datos) ? $datos : [];
@@ -611,6 +751,13 @@ class AdminMenuController
         $resultado = Variantes::guardar((int) $productoId, $grupos);
         if (!$resultado['ok']) {
             http_response_code(422);
+        } else {
+            // Un artículo que entra por variante sin almacén de consumo haría rechazar la venta.
+            try {
+                $resultado['almacenes_pendientes'] = AlmacenesConsumo::pendientes(ContextoNegocio::slug(), (int) $productoId);
+            } catch (InventarioError) {
+                // Sin permiso de Recetas no se puede consultar ni corregir desde aquí.
+            }
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
     }
@@ -642,7 +789,7 @@ class AdminMenuController
             'activeModule' => 'menu',
             'styles' => [self::MENU_CSS],
             'scripts' => [],
-        ], $data));
+        ], AdministracionMenu::vista(), $data));
     }
 
     /**
@@ -679,7 +826,7 @@ class AdminMenuController
         // Lista cerrada: un valor desconocido vuelve a «todos» en vez de a una
         // lista de pendientes vacía que celebraría algo que no se ha hecho.
         $pendiente = $_GET['pendiente'] ?? '';
-        $pendiente = is_string($pendiente) && in_array($pendiente, self::PENDIENTES, true) ? $pendiente : '';
+        $pendiente = ContextoNegocio::slug() === 'restaurante' && is_string($pendiente) && in_array($pendiente, self::PENDIENTES, true) ? $pendiente : '';
 
         return [
             'q' => $q,

@@ -1,0 +1,50 @@
+<?php
+require __DIR__.'/soporte-m12.php';
+use Services\Menu\ProductosCasa as P;
+use Services\Menu\RecetasCasa as R;
+use Services\Security\ContextoNegocio as C;
+m12Pruebas(static function(mysqli $db,string $root,callable $a){
+    $no=static function(callable $fn,string $m)use($a){try{$r=$fn();$ok=is_array($r)&&empty($r['ok']);}catch(Throwable){$ok=true;}$a($ok,$m);};
+    $d=['nombre'=>'Pan estándar de prueba','descripcion'=>'Receta de prueba aislada.','precio'=>'45.12','activo'=>0,'reglas'=>[],'negocios'=>[]];
+    foreach(['restaurante','panaderia'] as $ctx){$u=C::unidad($ctx);$d['negocios'][$ctx]=['categoria_id'=>(int)$db->query('SELECT id FROM categorias WHERE unidad_id='.$u.' LIMIT 1')->fetch_row()[0],'area_id'=>(int)$db->query('SELECT id FROM areas_produccion WHERE unidad_id='.$u.' LIMIT 1')->fetch_row()[0],'precio'=>'45.12','activo'=>0];}
+    $r=P::crear($d,'crear_recetas_m12_00001');$id=(int)$r['producto_id'];$v=P::vistaPrevia($id);$a(!empty(P::publicar($id,1,$v['huella'],'publicar_recetas_m12_01',true)['ok']),'Preparar ofertas explícitas sin activar');
+    $raw=['rendimiento'=>'2.000','unidad'=>'pza','componentes'=>[['articulo_id'=>1001,'cantidad'=>'20.000','unidad'=>'g']]];
+    $a(!empty(R::guardar($id,$raw,0)['ok']),'Guardar receta borrador');
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_casa_versiones WHERE producto_id=?',[$id])->fetch_row()[0]===0,'Guardar no publica');
+    $v=R::previa($id);$no(fn()=>R::publicar($id,1,$v['huella'],'publicar_receta_sin_origen_1',true),'Publicación incompatible sin origen rechazada');
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_casa_versiones WHERE producto_id=?',[$id])->fetch_row()[0]===0,'Rollback también del estándar');
+    $offers=P::ofertas($id);$map=[];foreach($offers as $o)$map[$o['id']]=[1001=>$o['slug']==='restaurante'?1002:1003];
+    $saldo=$db->query('SELECT almacen_id,articulo_id,saldo,version FROM almacen_articulos ORDER BY almacen_id,articulo_id')->fetch_all(MYSQLI_ASSOC);
+    $a(!empty(R::origenes($id,$map)['ok']),'Asignación explícita de orígenes propios');
+    $v=R::previa($id);$r=R::publicar($id,1,$v['huella'],'publicar_receta_estandar_01',true);$a(!empty($r['ok']),'Primera versión publicada y activada conjuntamente');$version=(int)$r['version_id'];
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_origen_casa WHERE version_id=?',[$version])->fetch_row()[0]===2,'Misma receta estándar vinculada a dos operativas');
+    $a($saldo===$db->query('SELECT almacen_id,articulo_id,saldo,version FROM almacen_articulos ORDER BY almacen_id,articulo_id')->fetch_all(MYSQLI_ASSOC),'Receta y mapeo no alteran stock');
+    $a(array_unique(array_column($db->execute_query('SELECT c.cantidad FROM receta_componentes c JOIN receta_origen_casa r ON r.receta_id=c.receta_id WHERE r.version_id=?',[$version])->fetch_all(MYSQLI_ASSOC),'cantidad'))===['10.000'],'Rendimiento convertido exactamente por porción');
+    $historico=$db->execute_query('SELECT c.* FROM receta_componentes c JOIN receta_origen_casa r ON r.receta_id=c.receta_id WHERE r.version_id=? ORDER BY c.id',[$version])->fetch_all(MYSQLI_ASSOC);
+    $no(fn()=>Services\Menu\RecetasOferta::guardar('restaurante',(int)$offers[0]['id'],[['tipo'=>'ingrediente','ref_id'=>1001,'cantidad'=>'1.000']]),'Edición local protegida rechazada');
+    $raw['componentes'][0]['cantidad']='30.000';$rr=R::borrador($id);R::guardar($id,$raw,(int)$rr['revision']);$v=R::previa($id);$r=R::publicar($id,(int)$v['receta']['revision'],$v['huella'],'publicar_receta_estandar_02',true);$a(!empty($r['ok']),'Nueva versión publicada');
+    $a($historico===$db->execute_query('SELECT c.* FROM receta_componentes c JOIN receta_origen_casa r ON r.receta_id=c.receta_id WHERE r.version_id=? ORDER BY c.id',[$version])->fetch_all(MYSQLI_ASSOC),'Componentes históricos inmutables');
+    $no(fn()=>$db->execute_query('UPDATE receta_casa_versiones SET rendimiento=? WHERE id=?',['9.000',$version]),'SQL no modifica versión publicada');
+    $no(fn()=>$db->execute_query('DELETE FROM receta_casa_componentes WHERE version_id=?',[$version]),'SQL no elimina componentes publicados');
+    $no(fn()=>$db->execute_query('INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (?,?,?)',[$version,1002,'1.000']),'SQL no amplía versión publicada');
+    $no(fn()=>R::publicar($id,(int)$v['receta']['revision'],$v['huella'],'publicar_receta_estandar_02',true),'Doble envío obsoleto no crea versión');
+    $no(fn()=>R::guardar($id,['rendimiento'=>'1.000','componentes'=>[['articulo_id'=>999999,'cantidad'=>'1.000']]],(int)R::borrador($id)['revision']),'Ingrediente inexistente');
+    $no(fn()=>R::normalizar(['rendimiento'=>'3.000','componentes'=>[['articulo_id'=>1001,'cantidad'=>'1.000']]]),'No redondear milésimas implícitamente');
+    $no(fn()=>R::normalizar(['rendimiento'=>'1.000','componentes'=>[['tipo'=>'subreceta','subreceta_id'=>1001,'cantidad'=>'1.000']]]),'No utilizar subreceta privada Global');
+    // Activación comercial y consumo real de Restaurante, congelando receta de la partida.
+    $v=P::vistaPrevia($id);$d=$v['borrador'];$d['activo']=1;P::guardar($id,$d,(int)$v['configuracion']['revision']);$v=P::vistaPrevia($id);P::publicar($id,(int)$v['configuracion']['revision'],$v['huella'],'activar_producto_receta_m12',true);
+    $rest=array_values(array_filter($offers,fn($o)=>$o['slug']==='restaurante'))[0];
+    $db->query("INSERT INTO tickets(unidad_id,comensales,nombre,estado) VALUES(2,1,'Prueba consumo estándar','abierto')");$ticket=(int)$db->insert_id;
+    $antes=(string)$db->query('SELECT saldo FROM almacen_articulos WHERE almacen_id=1002 AND articulo_id=1001')->fetch_row()[0];
+    $sale=Services\Pos\Comercial::enviarComanda($ticket,[['oferta_id'=>(int)$rest['id'],'cantidad'=>1]],'comanda_estandar_m12_01','restaurante');$a(!empty($sale['ok']),'POS consume la receta estándar activa');
+    $despues=$db->query('SELECT saldo FROM almacen_articulos WHERE almacen_id=1002 AND articulo_id=1001')->fetch_row()[0];$a(Services\Inventory\DecimalInventario::leer($antes)-Services\Inventory\DecimalInventario::leer($despues)===15000,'Consumo real de 15 g desde Cocina');
+    $snapshot=$db->execute_query('SELECT * FROM ticket_items WHERE ticket_id=?',[$ticket])->fetch_assoc();$a((int)$db->execute_query('SELECT version_id FROM receta_origen_casa WHERE receta_id=?',[$snapshot['receta_id']])->fetch_row()[0]===(int)$r['version_id'],'Snapshot identifica versión aplicada');
+    $v=P::vistaPrevia($id);$d=$v['borrador'];$d['reglas']['receta']=true;P::guardar($id,$d,(int)$v['configuracion']['revision']);$v=P::vistaPrevia($id);P::publicar($id,(int)$v['configuracion']['revision'],$v['huella'],'permitir_adaptacion_m12_01',true);
+    $a(!empty(Services\Menu\RecetasOferta::guardar('restaurante',(int)$rest['id'],[['tipo'=>'ingrediente','ref_id'=>1001,'cantidad'=>'8.000']])['ok']),'Adaptación autorizada');
+    $a(P::locales((int)$rest['id'])['receta']==='adaptada','Modo adaptado registrado');
+    $a(!empty(R::volver('restaurante',(int)$rest['id'])['ok']),'Regreso a versión de la casa');
+    $a($snapshot===$db->execute_query('SELECT * FROM ticket_items WHERE ticket_id=?',[$ticket])->fetch_assoc(),'Snapshot anterior no se reescribe');
+    $raw['componentes'][0]['cantidad']='40.000';R::guardar($id,$raw,(int)R::borrador($id)['revision']);$v=R::previa($id);$race=m12Carrera($db,'receta',[$id,(int)$v['receta']['revision'],$v['huella'],'receta_concurrente_m12',true]);
+    $a(count(array_filter($race,fn($r)=>!empty($r['ok'])))===1,'Dos procesos publicando receta tienen un único ganador');
+    $a($snapshot===$db->execute_query('SELECT * FROM ticket_items WHERE ticket_id=?',[$ticket])->fetch_assoc(),'Nueva receta estándar no cambia la comanda en curso');
+});

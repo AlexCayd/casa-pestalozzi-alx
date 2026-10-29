@@ -10,28 +10,32 @@ final class ConsultasAlmacen
     public function existencias(string $ctx,array $filtros=[]): array
     {
         return $this->leer(function () use($ctx,$filtros) {
-            [$f,$scope,$param]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','articulo_id','pagina','por_pagina','solo_alertas','sin_asociacion','estado']);
+            [$f,$scope,$param]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','almacen_ids','articulo_id','pagina','por_pagina','solo_alertas','sin_asociacion','estado']);
             $predicado=$scope;
             if(($f['estado']??'todos')==='activos') $predicado.=' AND a.activo=1 AND aa.activo=1 AND i.activo=1';
             elseif(($f['estado']??'todos')==='inactivos') $predicado.=' AND (a.activo=0 OR aa.activo=0 OR i.activo=0)';
             $sub='SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades u ON u.id=a.unidad_id WHERE aa.articulo_id=i.id AND '.$predicado;
+            $alertaSql='EXISTS ('.$sub.' AND aa.saldo<aa.minimo AND aa.activo=1 AND a.activo=1 AND i.activo=1)';
             $where=[]; $args=[];
             $sin=$f['sin_asociacion']??false;
-            if($sin && ($ctx!=='global' || isset($f['negocio']) || isset($f['almacen_id']))) throw new InventarioError('FILTRO_INVALIDO','Artículos sin asociación se consultan desde el consolidado Global sin filtro físico.');
+            if($sin && $ctx!=='global') throw new InventarioError('FILTRO_INVALIDO','Artículos sin asociación se consultan desde Global.');
             if($sin) {
                 $where[]='NOT EXISTS (SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades u ON u.id=a.unidad_id WHERE aa.articulo_id=i.id AND '.$scope.')'; $args=$param;
             } elseif($ctx!=='global' || isset($f['negocio']) || isset($f['almacen_id']) || ($f['estado']??'todos')!=='todos') {
                 $where[]='EXISTS ('.$sub.')'; $args=$param;
             }
             if(!empty($f['solo_alertas'])) {
-                $where[]='EXISTS ('.$sub.' AND aa.saldo<aa.minimo AND aa.activo=1 AND a.activo=1 AND i.activo=1)';
+                $where[]=$alertaSql;
                 array_push($args,...$param);
             }
             if(isset($f['articulo_id'])) { $where[]='i.id=?'; $args[]=$f['articulo_id']; }
             if(isset($f['q'])) { $where[]="i.nombre LIKE ? ESCAPE '!'"; $args[]=$this->buscar($f['q']); }
             $cond=$where?' WHERE '.implode(' AND ',$where):'';
             $total=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i'.$cond,$args)->get_result()->fetch_row()[0];
-            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            $alertasCond=($where?implode(' AND ',$where).' AND ':'').$alertaSql;
+            $totalAlertas=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i WHERE '.$alertasCond,array_merge($args,$param))->get_result()->fetch_row()[0];
+            // Ordenar antes de paginar: solo prioriza alertas del alcance elegido.
+            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             $mapa=[];
             foreach($articulos as $i) {
                 $id=(int)$i['articulo_id']; $i['articulo_id']=$id;
@@ -56,19 +60,22 @@ final class ConsultasAlmacen
             }
             foreach($mapa as &$i) $i['ambitos']=array_values($i['ambitos']);
             unset($i);
-            return ['codigo'=>'EXISTENCIAS_CONSULTADAS','contexto'=>$ctx,'total'=>$total,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'articulos'=>array_values($mapa)];
+            return ['codigo'=>'EXISTENCIAS_CONSULTADAS','contexto'=>$ctx,'total'=>$total,'total_alertas'=>$totalAlertas,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'articulos'=>array_values($mapa)];
         });
     }
 
     public function almacenes(string $ctx,array $filtros=[]): array
     {
         return $this->leer(function () use($ctx,$filtros) {
-            [$f,$scope,$args]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','pagina','por_pagina','estado']);
+            [$f,$scope,$args]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','almacen_ids','pagina','por_pagina','estado']);
             if(isset($f['q'])) { $scope.=" AND a.nombre LIKE ? ESCAPE '!'"; $args[]=$this->buscar($f['q']); }
             if(($f['estado']??'todos')!=='todos') { $scope.=' AND a.activo=?'; $args[]=($f['estado']==='activos'?1:0); }
             $from=' FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE '.$scope;
             $total=(int)$this->sql('SELECT COUNT(*)'.$from,$args)->get_result()->fetch_row()[0];
-            $rows=$this->sql('SELECT a.id AS almacen_id,a.nombre,a.unidad_id,u.slug,a.activo,a.permitir_negativos'.$from.' ORDER BY u.id,a.nombre,a.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            $indicadores="(SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1) AS total_articulos,
+                (SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1 AND a.activo=1 AND aa.saldo<aa.minimo) AS bajo_minimo,
+                (SELECT COUNT(*) FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id WHERE aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1 AND i.activo=1 AND a.activo=1 AND aa.saldo<=0) AS agotados";
+            $rows=$this->sql('SELECT a.id AS almacen_id,a.nombre,a.unidad_id,u.slug,a.activo,a.permitir_negativos,'.$indicadores.$from.' ORDER BY u.id,a.nombre,a.id LIMIT ? OFFSET ?',array_merge($args,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             return ['codigo'=>'ALMACENES_CONSULTADOS','total'=>$total,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'almacenes'=>$rows];
         });
     }
@@ -76,7 +83,7 @@ final class ConsultasAlmacen
     public function movimientos(string $ctx,array $filtros=[]): array
     {
         return $this->leer(function () use($ctx,$filtros) {
-            [$f,$scope,$args]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','articulo_id','pagina','por_pagina','desde','hasta','tipo']);
+            [$f,$scope,$args]=$this->filtros($ctx,$filtros,['q','negocio','almacen_id','almacen_ids','articulo_id','pagina','por_pagina','desde','hasta','tipo']);
             if(isset($f['articulo_id'])) { $scope.=' AND m.articulo_id=?'; $args[]=$f['articulo_id']; }
             if(isset($f['q'])) { $scope.=" AND i.nombre LIKE ? ESCAPE '!'"; $args[]=$this->buscar($f['q']); }
             foreach(['desde','hasta'] as $limite) if(isset($f[$limite])) {
@@ -113,6 +120,22 @@ final class ConsultasAlmacen
             $scope.=' AND u.slug=?'; $args[]=$f['negocio'];
         }
         foreach(['almacen_id','articulo_id'] as $id) if(isset($f[$id])) $f[$id]=$this->entero($f[$id],1,PHP_INT_MAX);
+        if(array_key_exists('almacen_ids',$f)) {
+            if(!is_array($f['almacen_ids']) || count($f['almacen_ids'])>1000 || isset($f['almacen_id'])) throw new InventarioError('FILTRO_INVALIDO','Selecciona al menos un almacén y usa un único filtro de selección.');
+            if(!$f['almacen_ids']) {
+                $total=(int)$this->sql('SELECT COUNT(*) FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE '.$scope,$args)->get_result()->fetch_row()[0];
+                if($total>0) throw new InventarioError('FILTRO_INVALIDO','Mantén al menos un almacén seleccionado.');
+                $scope.=' AND 1=0';
+            } else {
+            $ids=array_values(array_unique(array_map(fn($id)=>$this->entero($id,1,PHP_INT_MAX),$f['almacen_ids'])));
+            $marks=implode(',',array_fill(0,count($ids),'?'));
+            $rows=$this->sql("SELECT a.id,a.unidad_id,u.slug FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.id IN ({$marks})",$ids)->get_result()->fetch_all(MYSQLI_ASSOC);
+            if(count($rows)!==count($ids)) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró alguno de los almacenes autorizados.');
+            foreach($rows as $alm) if(!in_array($alm['slug'],['global','restaurante','panaderia'],true) || ($ctx!=='global' && (int)$alm['unidad_id']!==$ambito['unidad_id']) || (isset($f['negocio']) && $f['negocio']!==$alm['slug'])) throw new InventarioError('AMBITO_DENEGADO','La selección contiene un almacén ajeno al ámbito autorizado.');
+            $f['almacen_ids']=$ids;
+            $scope.=' AND a.id IN ('.$marks.')'; array_push($args,...$ids);
+            }
+        }
         if(isset($f['almacen_id'])) {
             $alm=$this->sql("SELECT a.unidad_id,u.slug FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.id=? AND u.slug IN ('global','restaurante','panaderia')",[$f['almacen_id']])->get_result()->fetch_assoc();
             if(!$alm || ($ctx!=='global' && (int)$alm['unidad_id']!==$ambito['unidad_id']) || (isset($f['negocio']) && $f['negocio']!==$alm['slug'])) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró el almacén autorizado.');

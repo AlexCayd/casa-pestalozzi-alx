@@ -1,6 +1,6 @@
 # Notificaciones de reservaciones
 
-Fuente normativa del transporte de confirmaciones, recordatorios y cambios de
+Referencia técnica subordinada a [Arquitectura](../arquitectura.md) del transporte de confirmaciones, recordatorios y cambios de
 horario. PHP decide elegibilidad, estado, contacto, token, intento y resolución;
 n8n valida el contrato y transporta el mensaje por Email o WhatsApp. n8n no
 consulta MySQL ni cambia reservaciones, horarios, mesas, capacidad o seguimiento.
