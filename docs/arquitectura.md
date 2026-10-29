@@ -1,5 +1,54 @@
 # Arquitectura de Casa Pestalozzi
 
+## Contrato de estandarización M1.2
+
+Base aprobada M1.1-E `a0562c344c0c66c7d197a03a5bd350006ff6742e`, rama
+`codex/m12-estandarizacion-productos-recetas`. La adhesión de un producto es
+explícita; sin configuración de la casa conserva íntegramente el contrato M1.
+Identidad, ámbito vendedor y facultad de administración son conceptos separados.
+Global requiere `menu/editar` y `comercial.identidad.editar` para estandarizar;
+publicar exige además edición de Menú de todos los negocios afectados. Las
+recetas operativas exigen los permisos locales de Recetas correspondientes.
+
+La configuración guarda un borrador y una referencia a una publicación inmutable.
+La publicación contiene valores oficiales, seis reglas individuales (nombre,
+descripción, imagen, precio, receta, disponibilidad), destinos y versión. Una
+personalización por oferta existe o no existe: JSON permite distinguir valor
+vacío, null explícito y regreso al oficial mediante eliminación de la entrada.
+La presentación efectiva se resuelve mediante una vista por oferta, sin duplicar
+productos. Precio/disponibilidad se publican también en las columnas operativas
+existentes de la oferta, en la misma transacción y con historial de precios.
+Categoría/carta, área y orden siguen siendo locales. Una exclusividad obliga a un
+único destino; no concede edición local. Destinos incompletos solo se guardan como
+borrador. Desasociar retira la oferta, nunca borra su historia.
+
+La publicación bloquea primero identidad/configuración y después ofertas en orden,
+revalida permisos y revisión, y registra actor, fecha, cambios y clave de solicitud.
+El acuse solo sucede tras commit; repetir la misma solicitud no publica dos veces.
+Cambios de política preservan las personalizaciones autorizadas; las protegidas
+dejan de aplicarse y la vista previa explica el valor oficial que entrará en vigor.
+Las imágenes publicadas, históricas y personalizadas conservan referencias: una
+personalización nunca elimina el archivo oficial.
+
+Recetas de la casa: borrador de ingredientes compartidos, cantidades canónicas y
+rendimiento exactos; publicaciones inmutables. No referencian subrecetas privadas.
+Las subpreparaciones estándar se representan inicialmente como ingredientes
+desglosados, sin introducir otro motor de producción. Activar una versión produce
+una receta operativa nueva por oferta y registra su origen estándar. El consumo
+continúa usando `ticket_items.receta_id` y los componentes inmutables de esa versión.
+No modifica partidas/comandas anteriores. Se rechaza toda publicación conjunta
+si falta un origen físico local activo para algún ingrediente, si hay ajustes de
+variantes incompatibles o si un componente no se expresa exactamente a milésimas
+por porción. No se crean asociaciones, saldos ni movimientos para completar recetas.
+La receta adaptada y sin receta son estados explícitos; adaptar requiere permiso
+de Recetas local y autorización de la política vigente. Panadería no habilita POS.
+
+La migración es aditiva e idempotente, compartida por instalaciones nuevas y pruebas
+temporales. No modifica productos, precios, imágenes ni recetas preservados. No se
+aplica a la base activa durante esta entrega. Se amplían fachadas de escritura,
+lecturas del menú/PDF/POS y referencias de imagen; snapshots, stock, compensación,
+pagos y analítica histórica conservan sus contratos. No se introduce reescritura SQL.
+
 **Estado rector posterior a 3E · 25 de octubre de 2026**
 
 M0 integra segundo factor administrativo por privilegios efectivos (superadmin
