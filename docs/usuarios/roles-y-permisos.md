@@ -1,5 +1,20 @@
 # Permisos directos y ámbitos
 
+## Productos y recetas de la casa M1.2
+
+Estandarizar exige `menu/editar` Global y la facultad existente
+`comercial.identidad.editar`. Publicar revalida además Menú de cada negocio
+impactado; aplicar receta exige `productos/editar` local. Seleccionar orígenes
+exige `inventario/editar` del propietario. Un administrador Global sin facultad
+puede supervisar según sus lecturas, pero no crear ni publicar estándares.
+`menu/editar` local solo permite personalizaciones autorizadas; tampoco permite
+alterar las reglas oficiales. Los permisos se recargan bajo bloqueo antes del
+commit. El superadministrador conserva su excepción organizacional.
+
+La adaptación de recetas de casa dentro de Menú usa el permiso ya existente de
+Recetas (`productos`), sin habilitar el módulo completo de Panadería ni su POS.
+
+
 El nombre del archivo se conserva para no romper referencias históricas. La
 fuente efectiva desde 3B es la asignación directa, no el rol. El
 [contrato rector](../arquitectura.md) rige esta implementación y su expansión.

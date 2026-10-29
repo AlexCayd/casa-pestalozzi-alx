@@ -161,6 +161,10 @@ class AdminRecetasController
         $aviso = $_SERVER['REQUEST_METHOD'] === 'GET' ? self::consumirAvisoGuardado() : null;
         if ($aviso !== null) $alertas['exito'][] = $aviso;
         $volver = self::volverSeguro($_GET['volver'] ?? null);
+        $oficialCasa=\Services\Menu\ProductosCasa::publicada((int)$producto->producto_id);
+        if($oficialCasa&&$_SERVER['REQUEST_METHOD']==='GET'&&\Classes\Auth::puede('menu','ver',$ctx)){
+            header('Location: '.\Services\Menu\AdministracionMenu::base().'/casa-receta?id='.(int)$producto->id,true,302);return;
+        }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
@@ -178,6 +182,7 @@ class AdminRecetasController
                     'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
                     'alertas' => Producto::getAlertas(),
                     'accion' => 'Guardar receta',
+                    'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
                     'volverUrl' => $volver ?? self::PATH,
                 ]);
                 return;
@@ -231,6 +236,7 @@ class AdminRecetasController
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
+            'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
             'volverUrl' => $volver ?? self::PATH,
         ]);

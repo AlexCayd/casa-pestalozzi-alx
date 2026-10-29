@@ -11,14 +11,15 @@ const selected = () => boxes.filter(box => box.checked);
 const selection = {
     addEventListener(name, handler){handlers[name]=handler;},
     querySelectorAll(selector){return selector.endsWith(':checked') ? selected() : boxes;},
-    querySelector(){return selected()[0] || null;}
+    querySelector(selector){return selector === '[data-warehouse-all]' ? null : selected()[0] || null;},
+    requestSubmit(){handlers.submit({preventDefault(){}});}
 };
 const workspace = {
     dataset: {initialView:'existencias'},
     querySelector(selector){return selector === '[data-warehouse-selection]' ? selection : selector === '[data-selection-status]' ? status : null;},
     querySelectorAll(){return [];}
 };
-vm.runInNewContext(source, {document:{readyState:'complete', querySelector(){return workspace;}}});
+vm.runInNewContext(source, {window:{setTimeout(){return 1;},clearTimeout(){},addEventListener(){}},document:{readyState:'complete', querySelector(){return workspace;}}});
 boxes[0].checked=false;handlers.change({target:boxes[0]});
 assert.equal(selected().length,2,'Se permite combinar dos almacenes');
 assert.match(status.textContent,/2 seleccionados/,'El cambio pendiente se anuncia sin fingir resultados actualizados');

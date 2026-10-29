@@ -1,4 +1,11 @@
 <?php
+    $menuBase = $menuBase ?? '/admin/menu';
+    $menuPuedeEditar = $menuPuedeEditar ?? true;
+    $menuContexto = $menuContexto ?? 'restaurante';
+    $menuRecetas = $menuRecetas ?? true;
+    $menuVariantes = $menuVariantes ?? true;
+    $menuCsrf = $menuCsrf ?? '';
+
     require_once __DIR__ . '/../partials/_icons.php';
     /**
      * Listado de platillos con pestañas de categoría.
@@ -19,6 +26,7 @@
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $categoriasMap = $categoriasMap ?? [];
     $categoriasFoto = is_array($categoriasFoto ?? null) ? $categoriasFoto : [];
+    $cartas = $menuCartas ?? $cartas ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
     $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
     $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'carta' => '', 'categoria' => '', 'pendiente' => ''];
@@ -38,7 +46,7 @@
     $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
     $dinero = static fn ($v): string => '$' . number_format((float) $v, 2);
 
-    $buildItemsUrl = static function (int $page) use ($filtros): string {
+    $buildItemsUrl = static function (int $page) use ($filtros, $menuBase): string {
         $params = [];
 
         foreach ($filtros as $key => $value) {
@@ -49,13 +57,13 @@
 
         $params['page'] = $page;
 
-        return '/admin/menu?' . http_build_query($params);
+        return $menuBase . '?' . http_build_query($params);
     };
 
     // Cambiar de carta suelta la categoría y la página —las pestañas de abajo
     // son otras— y conserva la búsqueda por nombre y el pendiente. Sin $carta
     // vuelve a las dos.
-    $buildCartaUrl = static function (string $carta) use ($filtros): string {
+    $buildCartaUrl = static function (string $carta) use ($filtros, $menuBase): string {
         $params = [];
 
         foreach ($filtros as $key => $value) {
@@ -68,11 +76,11 @@
             $params['carta'] = $carta;
         }
 
-        return '/admin/menu' . (empty($params) ? '' : '?' . http_build_query($params));
+        return $menuBase . (empty($params) ? '' : '?' . http_build_query($params));
     };
 
     // Las pestañas de categoría conservan la carta: sólo reemplazan `categoria`.
-    $buildTabUrl = static function (int $categoriaId) use ($filtros): string {
+    $buildTabUrl = static function (int $categoriaId) use ($filtros, $menuBase): string {
         $params = [];
 
         foreach ($filtros as $key => $value) {
@@ -85,20 +93,20 @@
             $params['categoria'] = $categoriaId;
         }
 
-        return '/admin/menu' . (empty($params) ? '' : '?' . http_build_query($params));
+        return $menuBase . (empty($params) ? '' : '?' . http_build_query($params));
     };
 
     // Las tarjetas-filtro conservan carta y categoría —la sección que se está
     // mirando— y sueltan la búsqueda y la página: pulsar «Con receta» es pedir
     // la lista de pendientes de ESA sección, entera y desde el principio.
-    $buildPendienteUrl = static function (string $pendiente) use ($filtros): string {
+    $buildPendienteUrl = static function (string $pendiente) use ($filtros, $menuBase): string {
         $params = array_filter([
             'carta' => (string) ($filtros['carta'] ?? ''),
             'categoria' => (string) ($filtros['categoria'] ?? ''),
             'pendiente' => $pendiente,
         ], static fn ($v): bool => $v !== '');
 
-        return '/admin/menu' . (empty($params) ? '' : '?' . http_build_query($params));
+        return $menuBase . (empty($params) ? '' : '?' . http_build_query($params));
     };
 
     // Lo que se está viendo ahora, para que los formularios de la fila
@@ -134,16 +142,20 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Menú</h2>
-            <p class="admin-page__subtitle">Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.</p>
+            <p class="admin-page__subtitle"><?php echo $esc($menuSubtitulo ?? 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.'); ?></p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="/admin/menu/categorias">Categorías</a>
-            <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create" title="Nuevo platillo">
+            <?php if ($menuContexto==='panaderia') : ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/pdf">Ver PDF del menú</a><?php endif; ?>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Categorías</a>
+            <?php if ($menuPuedeEditar) : ?>
+            <a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/asociar">Asociar existente</a>
+            <a class="admin-btn admin-btn--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/create" title="Nuevo platillo">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
                 </svg>
                 <span>Nuevo platillo</span>
             </a>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -208,12 +220,14 @@
                    data-reactive-page><span><?php echo htmlspecialchars((string) ($categoria->nombre ?? '')); ?></span></a>
             </span>
         <?php endforeach; ?>
-        <span class="admin-tabs__tab admin-tabs__tab--add">
+        <?php if ($menuPuedeEditar) : ?><span class="admin-tabs__tab admin-tabs__tab--add">
             <label for="cat-nueva-toggle" title="Nueva categoría"><span>+</span></label>
-        </span>
+        </span><?php endif; ?>
     </nav>
 
-    <form class="admin-cat-inline" method="POST" action="/admin/menu/categorias/create">
+    <?php if ($menuPuedeEditar) : ?>
+    <form class="admin-cat-inline" method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias/create">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
         <div class="admin-cat-inline__field">
             <label class="admin-cat-inline__label" for="cat-nueva-nombre">Nueva categoría</label>
             <input type="text" id="cat-nueva-nombre" name="nombre" maxlength="40" required
@@ -252,7 +266,9 @@
         </button>
         <span class="admin-cat-inline__hint">Aparecerá como pestaña al instante. La imagen se asigna después, en Categorías.</span>
     </form>
+    <?php endif; ?>
 
+    <?php if ($menuContexto === 'panaderia') : ?><p class="admin-field__hint"><?php echo number_format($resSinReceta); ?> oferta(s) sin receta. Recetas y producción administrativas pendientes de habilitar.</p><?php endif; ?>
     <?php /* Cabecera del listado: dos tarjetas-filtro y el buscador en UNA fila.
              Las tarjetas eran dos cajas anchas con un número cada una; ahora
              dicen cuánto falta —«30 de 107 con receta» y su barra— y, al
@@ -291,13 +307,14 @@
                     'activa' => $enPendientes,
                 ],
             ];
+            if (!$menuRecetas) { array_pop($feTarjetas); $feTarjetas[0]['nota'] = 'Ofertas locales'; }
             include __DIR__ . '/../partials/_filtros-estado.php';
         ?>
 
         <form
             class="admin-filters admin-filtro-buscar"
             method="GET"
-            action="/admin/menu"
+            action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>"
             aria-label="Buscar platillos"
             data-reactive-filters
             data-reactive-target="#items-results"
@@ -377,7 +394,7 @@
                     $tcTexto = 'Quedan ' . number_format($restoMenu) . ($restoMenu === 1 ? ' platillo' : ' platillos') . ' sin receta en el resto del menú.';
                     $tcParcial = true;
                     $tcAcciones = [
-                        ['href' => '/admin/menu?pendiente=receta', 'texto' => 'Ver los que faltan', 'primaria' => true],
+                        ['href' => $menuBase . '?pendiente=receta', 'texto' => 'Ver los que faltan', 'primaria' => true],
                         ['href' => $buildPendienteUrl(''), 'texto' => 'Volver a la lista'],
                     ];
                     include __DIR__ . '/../partials/_tareas-completas.php';
@@ -508,7 +525,7 @@
                     <tbody>
                         <?php foreach ($platillos as $platillo) : ?>
                             <?php $opcionesVariante = (int) (($variantesPorProducto ?? [])[(int) $platillo->id] ?? 0); ?>
-                            <tr data-row-href="/admin/menu/edit?id=<?php echo (int) $platillo->id; ?>">
+                            <tr data-row-href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>">
                                 <?php
                                     // Lo que la carta enseñará: la foto propia o, si no hay,
                                     // la de la categoría (Carta::publica entrega las dos).
@@ -565,15 +582,16 @@
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo $esc($catNombre); ?></span>
                                     <span class="admin-table__cell-sub admin-menu__area"><?php echo $esc($areasMap[(int) $platillo->area_id] ?? 'Sin área'); ?></span>
                                 </td>
-                                <td class="admin-menu__col-visible">
+                                <td class="admin-menu__col-visible"><?php if(isset($politicasCasa[(int)$platillo->id])): ?><small class="admin-table__cell-sub"><?= !empty($politicasCasa[(int)$platillo->id]['activo'])?'Producto de la casa':'Definido por Global' ?></small><?php endif; ?>
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos
                                             fallaba la validación al faltarle area_id. La query de la
                                             acción devuelve a esta misma página del mismo filtro. */ ?>
-                                    <form method="POST" action="/admin/menu/toggle<?php echo $esc($sufijoLista); ?>">
+                                    <form method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/toggle<?php echo $esc($sufijoLista); ?>">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
                                         <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                         <button
                                             type="submit"
-                                            class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
+                                            <?php echo $menuPuedeEditar && (!isset($politicasCasa[(int)$platillo->id]) || !empty($politicasCasa[(int)$platillo->id]['activo'])) ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
                                             title="<?php echo $platillo->activo ? 'Ocultar platillo' : 'Mostrar platillo'; ?>"
                                             aria-label="<?php echo $platillo->activo ? 'Ocultar platillo ' : 'Mostrar platillo '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
@@ -591,40 +609,46 @@
                                     <div class="admin-table-actions admin-menu__acciones">
                                         <?php /* Las variantes tienen editor propio: ajustan la receta
                                                  y el precio, y necesitan la vista previa del POS. */ ?>
+                                        <?php if ($menuVariantes && (!isset($politicasCasa[(int)$platillo->id]) || (!empty($politicasCasa[(int)$platillo->id]['precio']) && !empty($politicasCasa[(int)$platillo->id]['receta'])))) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
-                                            href="/admin/menu/variantes?id=<?php echo (int) $platillo->id; ?>"
+                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/variantes?id=<?php echo (int) $platillo->id; ?>"
                                             title="<?php echo $opcionesVariante > 0 ? 'Variantes' : 'Agregar variantes'; ?>"
                                             aria-label="<?php echo $opcionesVariante > 0 ? 'Variantes de ' : 'Agregar variantes a '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
                                             <?php echo admin_icon('variantes', 18); ?>
                                         </a>
+                                        <?php endif; ?>
+                                        <?php if ($menuPuedeEditar) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
-                                            href="/admin/menu/edit?id=<?php echo (int) $platillo->id; ?>"
+                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>"
                                             title="Editar"
                                             aria-label="Editar platillo <?php echo $esc($platillo->nombre); ?>"
                                         >
                                             <?php echo admin_icon('editar', 18); ?>
                                         </a>
-                                        <form method="POST" action="/admin/menu/delete<?php echo $esc($sufijoLista); ?>"
+                                        <form method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/delete<?php echo $esc($sufijoLista); ?>"
                                               class="admin-menu__accion-destructiva"
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar platillo"
                                               data-confirm-title="¿Eliminar «<?php echo $esc($platillo->nombre); ?>»?"
                                               data-confirm-require="<?php echo $esc($platillo->nombre); ?>"
-                                              data-confirm-description="Saldrá de la carta pública, del PDF y del punto de venta."
-                                              data-confirm-consequence="Esta acción no se puede deshacer.">
+                                              data-confirm-description="Se desactivará únicamente la oferta de este negocio."
+                                              data-confirm-consequence="Puedes reactivar la oferta desde su ficha. El historial se conserva.">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
                                             <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                             <button
                                                 type="submit"
                                                 class="admin-icon-button admin-icon-button--danger"
+                                                <?= isset($politicasCasa[(int)$platillo->id])&&empty($politicasCasa[(int)$platillo->id]['activo'])?'disabled':'' ?>
                                                 title="Eliminar"
                                                 aria-label="Eliminar platillo <?php echo $esc($platillo->nombre); ?>"
                                             >
                                                 <?php echo admin_icon('basura', 18); ?>
                                             </button>
                                         </form>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>

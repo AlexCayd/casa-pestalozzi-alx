@@ -30,7 +30,7 @@ try {
  }
  $floor=new ClienteInstalacion3E();$clients[]=$floor;$assert(in_array($floor->login($fixture['cuentas']['piso_nip'],true)['status'],[302,303],true),'NIP abre acceso operativo');$assert($valid($floor->request('GET','/punto-de-venta')),'NIP abre POS Restaurante');$assert($floor->request('GET','/admin/almacenes')['status']===403,'NIP no abre Almacenes administrativos');
  $assert($readers['restaurante']->request('GET',$bases['panaderia'])['status']===403,'La membresía Restaurante no abre Panadería');
- $assert($admin->request('GET','/admin/panaderia/menu')['status']===503,'Menú Panadería continúa pendiente sin escrituras parciales');
+ $assert($valid($admin->request('GET','/admin/panaderia/menu')),'Menú Panadería M1 permite consulta administrativa real');
  $assert($valid($admin->request('GET','/admin/menu'))&&$valid($admin->request('GET','/admin/recetas')),'Restaurante conserva menú y recetas');
  foreach(['/panaderia','/panaderia/carta','/panaderia/pedidos','/panaderia/nosotros','/panaderia/contacto'] as $path){
   $r=$anon->request('GET',$path);$assert($valid($r)&&str_contains($r['body'],'noindex'),'Andamio público sin tienda '.$path);

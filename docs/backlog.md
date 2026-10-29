@@ -1,5 +1,16 @@
 # Backlog posterior a 3E
 
+## Estado posterior a M1.2
+
+Productos de la casa, políticas por campo y recetas estándar versionadas quedan
+implementados. M2 debe completar la experiencia integral de Recetas de Panadería
+sobre estas mismas recetas operativas; no requiere otra reestructuración de
+identidades/versiones. Siguen pendientes POS de Panadería, producción por lotes,
+subpreparaciones estándar como entidad versionada propia y módulos consolidados.
+Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
+cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
+
+
 El [contrato rector](arquitectura.md) distingue funciones operativas, contratos
 preparados y módulos pendientes. Este backlog no autoriza implementarlos como
 parte del cierre ni convierte una tabla existente en un módulo terminado.
@@ -33,20 +44,32 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
   optimizaciones. Revisar agrupación por categoría/identidad cuando se renombre
   el catálogo; no modificar snapshots históricos para unificar series.
 
+M1 entrega [Catálogo comercial y Menú](modulos/catalogo-comercial.md): administración
+local de ofertas y categorías, asociación de identidades y edición maestra Global
+con facultad comercial independiente. La carta pública y ventas de Panadería
+siguen pendientes; no habilitar sus acciones desde Menú.
+
 ## Mejoras de funcionalidades existentes
 
 | Módulo | Mejora | Límite |
 |---|---|---|
 | Usuarios | Presentación y filtros adicionales | Mantener permisos directos, delegación y componentes compartidos |
-| Almacenes | Gráficas de distribución, filtros y UX avanzada | El consolidado seguirá siendo una consulta sin saldo virtual |
+| Almacenes | Refinamientos posteriores a M1.1 | Barras por negocio, indicadores físicos y alta rápida con doble autorización ya disponibles; mantener consulta sin saldo virtual |
 | Restaurante | Refinamientos posteriores de pantallas e informes | Preservar contratos operativos y precisión de importes |
 
 ## Funcionalidades nuevas pendientes
 
+M1.1 entrega PDF privado Panadería y biblioteca Global autorizada. La publicación
+pública Panadería, sus recetas completas, POS y producción siguen pendientes.
+Validación histórica pendiente: adaptar `run-contextos-isolated.php` al esquema de
+permisos directos; revisar expectativa temporal de `run-pos-api-contrato-db.php`;
+actualizar fixtures de impresión POS (`unidad_id`) y llevar múltiple (actor 0).
+Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
+
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
 | Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
-| Panadería | Menú administrativo y recetas | Reutilizar oferta, recetas versionadas y UI de Restaurante |
+| Panadería | M2: recetas administrativas completas | Menú M1 completado; reutilizar recetas versionadas sobre ofertas propias |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
 | Panadería | Tickets, pagos y finanzas | Snapshots, idempotencia, compensaciones e informes propios |
 | Global | Dashboards consolidados | Lectura autorizada, sin ventas Global ni doble conteo |

@@ -1,5 +1,105 @@
 # Guía técnica de interfaz
 
+## Productos y recetas de la casa M1.2
+
+Se conserva la identidad visual de Restaurante y los componentes compartidos:
+encabezado, filtros, tabla compacta, selectores, botones, alertas, confirmación y
+temas. La ficha Global separa información, negocios, personalización, receta e
+historial. El recetario se consulta dentro de Productos de la casa. No hay un
+modal que concentre la configuración: solo se confirma allí la publicación.
+
+Los campos locales explican «Definido por Global» o «Personalización permitida»,
+su valor oficial/personalizado y el regreso a la casa. Disponibilidad protegida y
+eliminación local quedan deshabilitadas en la tabla; las variantes protegidas no
+ofrecen una acción de edición. Las categorías, áreas y orden siguen disponibles.
+Los ingredientes se agregan con el selector compartido, IDs únicos y foco en la
+fila nueva. El teclado abre y cierra el selector con Enter/Escape.
+
+Se inspeccionaron escritorio (1280), tableta (768) y móvil (390), temas claro y
+oscuro, campos readonly, imágenes, foco y menú de ingredientes. No hubo overflow
+del documento en las vistas comprobadas (375/390 y 753/768). Las tablas de impacto
+mantienen su desplazamiento dentro del contenedor. Los estilos nuevos no añaden
+animaciones y respetan la preferencia de movimiento reducido del panel. Capturas
+reales y alcance de la validación en [Pruebas](pruebas.md#cierre-m12).
+
+
+## M1.1-E: inicio Restaurante y selección compacta
+
+Rama `codex/m11-refinamiento-menus-ux`; HEAD inicial
+`029a5ab07de6b2fa00cb76fdeaf1a15129449b79`. Commit de cierre:
+`Completa Home Restaurante y selección compacta de M1.1-E` (hash/HEAD final en
+`git log -1 --oneline`). Sin push ni merge; árbol limpio al cierre.
+
+`/admin` muestra Inicio · Restaurante y el selector de contexto lleva a esa ruta.
+`/admin/analytics` conserva el dashboard, sus métricas y recursos. El inicio usa
+`InicioAdministrativo` y los parciales contextos existentes; quince accesos posibles
+en el orden del catálogo, filtrados por autorización vigente. Usuarios exige su
+facultad actual. PIN no abre el panel. No se añade un permiso Inicio. El sidebar
+Restaurante incorpora Inicio primero, con su SVG existente y estado activo.
+Punto de venta y Producción usan las rutas operativas ya autorizadas del catálogo,
+`/punto-de-venta` y `/area`, sin conceder configuración ni operación por navegar.
+
+Las tarjetas de Almacenes conservan controles checkbox nativos, visualmente
+recortados a 1 px, y etiqueta clicable completa. Selección: borde de texto y fondo
+suave; deselección: borde atenuado y superficie base. El foco rodea la tarjeta;
+Tab y Espacio siguen operando el control nativo y su estado anunciado. No se usa
+`display:none`. La transición de fondo/borde respeta movimiento reducido.
+Altura medida en escritorio: aproximadamente 78.5 px frente a las tarjetas de
+M1.1 de aproximadamente 98 px, según contenido/ancho. Global conserva grupos de
+2/3/2, Restaurante tres por fila y Panadería dos cuando caben.
+
+Con JavaScript, los cambios se agrupan durante 600 ms antes de enviar el mismo
+formulario GET. No se duplica un envío pendiente y volver mediante historial
+restablece el control. Seleccionar todos conserva todos los IDs autorizados.
+La última tarjeta no se puede deseleccionar. El botón Aplicar selección permanece
+operativo como alternativa nativa: sin JavaScript el formulario conserva el mismo
+contrato GET. Se conservan búsqueda, alertas y demás filtros del alcance; se
+descartan páginas y el antiguo ID único al emitir la selección múltiple explícita.
+No cambian consultas, permisos, saldos, movimientos, costos ni operaciones físicas.
+
+Archivos: `controllers/AdminController.php`, `AdminContextosController.php`;
+`services/Security/InicioAdministrativo.php`; `views/admin/almacenes/index.php`;
+`src/scss/admin/modules/inventario.scss`, `src/js/admin/inventario/inventario.js`
+y sus tres compilados CSS/JS/map; `package.json`; pruebas `run-inicio-m11.php`,
+`run-almacenes-selection-ui.cjs`, `run-almacenes-auto-selection.cjs`,
+`pruebas-http-m11-e.php`; esta guía, arquitectura y guía de pruebas vigentes.
+
+Validación: PHP general, JS general y build PASS; Inicio 15, Contextos puro 252,
+Usuarios 40, autorización 3B 128, selección de Almacenes 70, representación 16,
+HTTP M1.1-E 25 y HTTP UX Almacenes 39 comprobaciones PASS. JS comprueba agrupación,
+doble envío, selección múltiple/vacía/todos, filtros, fallback manual y tooltip.
+HTTP comprueba Home con/sin Analíticas, selector, dashboard, PIN y 3/7/2 tarjetas.
+`test:contextos:db` reproduce el fallo histórico `usuarios.rol`; los otros tres
+fallos históricos registrados en M1.1 no se reensayan ni se presentan como PASS.
+No se rebajan aserciones ni se cambian fixtures de otros dominios.
+
+Capturas reales fuera de Git, en la carpeta de visualizaciones de este chat:
+`m11-e-home-restaurante-oscuro.png`, `m11-e-home-restaurante-claro.png`,
+`m11-e-home-restaurante-movil.png`, `m11-e-sidebar-inicio.png`,
+`m11-e-almacenes-global.png`, `m11-e-almacenes-restaurante.png`,
+`m11-e-almacenes-panaderia.png`, `m11-e-almacenes-seleccion.png`,
+`m11-e-almacenes-movil.png` y `m11-e-foco-teclado.png`.
+Se verifican temas claro/oscuro, teclado y tamaño 390×844 sin desbordamiento.
+La interacción móvil usa navegador a tamaño de teléfono; no certifica hardware
+táctil físico ni un lector de pantalla externo. El fallback se verifica mediante
+el formulario GET nativo y HTTP; no se desactiva JavaScript global del navegador.
+El servidor, sesiones y base temporal se limpian al terminar. M1.2 no se inicia.
+
+## Componentes M1.1
+
+Los inicios Global y Panadería comparten `contextos/_accesos.php`: tarjetas con SVG
+del repertorio administrativo, título, explicación y enlace autorizado. El inicio
+Restaurante comparte este inicio desde M1.1-E y mantiene el dashboard en Analíticas.
+Se proyectan únicamente módulos operativos;
+transferencias enlaza al espacio de Almacenes. El catálogo Global utiliza tabla
+compacta, filtros y paginación; la ficha conserva confirmación de impacto maestro.
+La biblioteca PDF reutiliza las mismas tarjetas y el servicio de documentos.
+Almacenes agrupa tarjetas en filas por propietario, conserva búsqueda visible,
+acciones físicas explícitas y modales compartidos. Las barras usan color para
+distribución, rayado para negativos y texto para alertas. Las etiquetas también
+abren el detalle con foco de teclado. Temas claro/oscuro, foco, Escape y móvil se
+revisan en navegador; los assets compilados se entregan junto a las fuentes.
+
 El acceso administrativo tiene dos pasos: contraseña y código, sin acceso al
 panel mientras el reto está pendiente. El recuadro de código solo existe en
 `development`/`test` explícitos; consultar [credenciales](../usuarios/credenciales.md).
@@ -289,3 +389,25 @@ formato −$1,234.56. No cargar Chart.js para barra de gastos ni formatear en vi
 Editar fuentes, compilar y revisar diff de bundles. Verificar temas, móvil,
 tablet, escritorio, teclado, foco, solo consulta, errores y reduced-motion.
 Consultar [pruebas](pruebas.md); reglas de negocio permanecen en backend.
+
+
+## Catálogo comercial y Menú M1
+
+Restaurante y Panadería comparten `views/admin/menu/`, configuración de
+`AdministracionMenu` y el CSS existente. La ruta efectiva prepara enlaces,
+cartas, permisos y acciones. Panadería informa recetas/producción pendientes y
+oculta editores de recetas, variantes, históricos y PDF aún no disponibles.
+El formulario conserva la foto pendiente y la previsualización existente.
+
+Global usa `/admin/global/productos` para identidades comerciales: fichas con ID,
+datos maestros y ofertas de negocios consultables, sin edición de precios locales.
+`/admin/global/catalogo` sigue siendo inventariable. La ficha maestra reutiliza
+el formulario del producto ocultando condiciones locales. Los datos compartidos
+explican el impacto y exigen marcar confirmación; sin facultad son consulta.
+
+Solo lectura oculta altas/ediciones destructivas y deshabilita controles de
+mutación; el servidor revalida toda petición. Confirmación escrita del modal
+compartido hace visible su ranura personalizada, enfoca el campo y habilita la
+acción solo al coincidir el nombre. Se verificó en navegador la cancelación y
+el nombre requerido, además de temas, selector, escritorio y móvil a 390 px.
+Ver evidencia y límites en el [contrato del módulo](../modulos/catalogo-comercial.md).

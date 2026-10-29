@@ -75,10 +75,10 @@ try {
  $db->query('UPDATE configuracion_pos SET impresion_activa=0');
  $nipSecret=bin2hex(random_bytes(32));$_ENV['NIP_LOOKUP_SECRET']=$nipSecret;putenv('NIP_LOOKUP_SECRET='.$nipSecret);$phase='actores de pruebas';$accounts=[];
  foreach(['global','restaurante','panaderia'] as $ctx){
-  $accounts['lectura_'.$ctx]=servir3eCuenta($db,'lectura_'.$ctx,$ctx,['users'=>'ver','inventario'=>'ver'],['usuarios.gestionar']);
-  $accounts['operador_'.$ctx]=servir3eCuenta($db,'operador_'.$ctx,$ctx,['inventario'=>'editar']);
+  $accounts['lectura_'.$ctx]=servir3eCuenta($db,'lectura_'.$ctx,$ctx,['users'=>'ver','inventario'=>'ver','menu'=>'ver'],['usuarios.gestionar']);
+  $accounts['operador_'.$ctx]=servir3eCuenta($db,'operador_'.$ctx,$ctx,['inventario'=>'editar','menu'=>'editar']);
  }
- $accounts['administrador_global']=servir3eCuenta($db,'administrador_global','global',['users'=>'editar','inventario'=>'editar'],['usuarios.gestionar','permisos.delegar','almacenes.crear','catalogo.editar']);
+ $accounts['administrador_global']=servir3eCuenta($db,'administrador_global','global',['users'=>'editar','inventario'=>'editar','menu'=>'editar'],['usuarios.gestionar','permisos.delegar','almacenes.crear','catalogo.editar']);
  $nip=str_pad((string)random_int(0,9999),4,'0',STR_PAD_LEFT);$accounts['piso_nip']=servir3eCuenta($db,'piso','restaurante',['pdv'=>'operar','area'=>'operar','reservations_map'=>'operar'],[],$nip);
  $sessionOwner=bin2hex(random_bytes(24));$sessionPath=$temp.DIRECTORY_SEPARATOR.'cp-instalacion-3e-session-'.bin2hex(random_bytes(12));if(!mkdir($sessionPath,0700))throw new RuntimeException('No se creó la carpeta privada de sesiones.');file_put_contents($sessionPath.DIRECTORY_SEPARATOR.'owner',$sessionOwner,LOCK_EX);
  $fixture=['url'=>'http://127.0.0.1:8094/','base_temporal'=>$name,'admin_demo'=>['username'=>'admin_demo'],'cuentas'=>$accounts,'fixture'=>['almacen_global'=>1001,'almacen_restaurante'=>1002,'almacen_panaderia'=>1003,'articulo_harina'=>1001,'articulo_leche'=>1002,'articulo_cafe'=>1003,'mesa_libre'=>1005,'oferta_restaurante'=>1001,'oferta_panaderia'=>1003,'variante_extra'=>1002,'area_panaderia'=>10],'session_path'=>$sessionPath];

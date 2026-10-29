@@ -439,6 +439,8 @@ final class Variantes
                 return ContextoNegocio::transaccion(static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
                     ContextoNegocio::exigir('menu', 'editar', $ctx, true);
                     self::exigirOferta($db, $productoId, $unidadId, true);
+                    $maestro=ProductosCasa::sql('SELECT producto_id FROM ofertas_producto WHERE id=? AND unidad_id=?',[$productoId,$unidadId])->get_result()->fetch_row();
+                    if($maestro&&(!ProductosCasa::permite((int)$maestro[0],'precio')||!ProductosCasa::permite((int)$maestro[0],'receta')))throw new \RuntimeException('Global protege el precio o la receta; no se pueden cambiar sus variantes localmente.');
                     $existentes = [];
                     $sel = $db->prepare('SELECT id FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? FOR UPDATE');
                     $sel->bind_param('ii', $productoId, $unidadId);

@@ -91,13 +91,13 @@ INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,acti
  ('1002','1005','2','0.000','100.000','1','0');
 INSERT INTO categorias(id,unidad_id,carta,nombre,activo,orden) VALUES
  ('1001','2','comida','Pruebas Restaurante','1','9999'),
- ('1002','3','comida','Pruebas Panadería','1','9999');
+ ('1002','3','comida','Panes artesanales','1','1');
 INSERT INTO areas_produccion(id,unidad_id,nombre,slug,color,orden) VALUES
  ('10','3','Panadería','dev-pan','#4267ac','1');
 INSERT INTO productos(id,nombre,descripcion,img) VALUES
  ('1001','Café con leche','Oferta sintética independiente del menú preservado.',NULL),
  ('1002','Tostada de prueba','Oferta sintética para receta con subreceta.',NULL),
- ('1003','Hogaza Panadería','Identidad sintética de Panadería; no copia el menú de Restaurante.',NULL);
+ ('1003','Hogaza Panadería','Hogaza de corteza crujiente y miga suave, ideal para compartir.',NULL);
 INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
  ('1001','1001','2','1001','35.00','1','1','10000'),
  ('1002','1002','2','1001','45.00','3','1','10001'),
@@ -641,4 +641,121 @@ FROM cp_dev_asistente a JOIN tickets t ON t.id=a.ticket_id AND t.unidad_id=2 WHE
 DROP TEMPORARY TABLE cp_dev_asistente;
 DROP TEMPORARY TABLE cp_dev_asistente_dias;
 INSERT INTO esquema_versiones(version) VALUES ('datos-desarrollo-m05b-v1');
+COMMIT;
+
+-- M1.1: ofertas comerciales independientes de Panadería; no generan producción ni existencias.
+INSERT INTO categorias(id,unidad_id,carta,nombre,activo,orden) VALUES
+ (1201,3,'comida','Bollería',1,2),(1202,3,'comida','Dulces de la casa',1,3),(1203,3,'comida','Panes salados',1,4);
+INSERT INTO productos(id,nombre,descripcion,img) VALUES
+ (1201,'Rol de canela','Masa suave con canela y glaseado ligero.',NULL),
+ (1202,'Concha de vainilla','Pan dulce con cubierta crujiente de vainilla.',NULL),
+ (1203,'Concha de chocolate','Pan dulce con cubierta de cacao.',NULL),
+ (1204,'Croissant','Hojaldre de mantequilla con capas ligeras.',NULL),
+ (1205,'Pan de masa madre','Pan de fermentación lenta con miga abierta.',NULL),
+ (1206,'Baguette','Barra de corteza delgada y crujiente.',NULL),
+ (1207,'Focaccia','Pan con aceite de oliva y romero.',NULL),
+ (1208,'Hogaza integral','Mezcla de harinas integrales y semillas.',NULL),
+ (1209,'Galleta de chocolate','Galleta con trozos de chocolate oscuro.',NULL),
+ (1210,'Brownie','Bizcocho de cacao con centro suave.',NULL),
+ (1211,'Panqué de limón','Rebanada de panqué con glaseado de limón.',NULL),
+ (1212,'Pan de chocolate','Masa hojaldrada con relleno de chocolate.',NULL);
+INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
+ (1201,1201,3,1201,'38.00',10,1,2),
+ (1202,1202,3,1201,'24.00',10,1,3),
+ (1203,1203,3,1201,'26.00',10,1,4),
+ (1204,1204,3,1201,'42.00',10,1,5),
+ (1205,1205,3,1002,'85.00',10,1,6),
+ (1206,1206,3,1002,'48.00',10,1,7),
+ (1207,1207,3,1203,'62.00',10,1,8),
+ (1208,1208,3,1002,'90.00',10,1,9),
+ (1209,1209,3,1202,'32.00',10,1,10),
+ (1210,1210,3,1202,'45.00',10,1,11),
+ (1211,1211,3,1202,'40.00',10,1,12),
+ (1212,1212,3,1201,'46.00',10,0,13);
+
+-- M1.2: adhesión explícita de identidades sintéticas; originales y stock intactos.
+START TRANSACTION;
+INSERT INTO productos(id,nombre,descripcion,img) VALUES (1401,'Café americano','Café de la casa preparado al momento.',NULL);
+INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
+ (1401,1401,2,9,'35.00',1,1,10020),(1402,1201,2,1,'40.00',3,1,10021),(1403,1204,2,1,'42.00',3,1,10022),(1404,1207,2,2,'62.00',3,1,10023),(1405,1209,2,9,'34.00',1,1,10024);
+UPDATE productos SET img='build/images/panaderia.webp' WHERE id=1207;
+INSERT INTO recetas_casa(producto_id,borrador,revision) VALUES (1201,'{"rendimiento":"10.000","unidad":"pza","componentes":[{"articulo_id":1001,"cantidad":"800.000","unidad":"g","porcion":"80.000"},{"articulo_id":1002,"cantidad":"250.000","unidad":"ml","porcion":"25.000"}]}',2);
+INSERT INTO receta_casa_versiones(id,producto_id,version,rendimiento,unidad,usuario_id) VALUES (1401,1201,1,'10.000','pza',1001);
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1401,1001,'800.000');
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1401,1002,'250.000');
+UPDATE receta_casa_versiones SET publicada=1 WHERE id=1401;
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1401,1402,2,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1401,2,1001,'80.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1402,1001,2,1002);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1401,2,1002,'25.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1402,1002,2,1002);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1401,1401);
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1402,1201,3,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1402,3,1001,'80.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1201,1001,3,1003);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1402,3,1002,'25.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1201,1002,3,1003);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1402,1401);
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1401,1201,1,'{"nombre":"Rol de canela","descripcion":"Masa suave con canela y glaseado ligero.","img":null,"precio":"38.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":false,"img":false,"precio":true,"receta":false,"activo":true},"negocios":{"restaurante":{"categoria_id":1,"area_id":3,"precio":"40.00","activo":1,"orden":0},"panaderia":{"categoria_id":1201,"area_id":10,"precio":"38.00","activo":1,"orden":0}},"receta_version_id":1401,"requiere_receta":true}','{}',1001,'fixture_m12_publicado_1201',SHA2('fixture_m12_1201',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1201,'{"nombre":"Rol de canela","descripcion":"Masa suave con canela y glaseado ligero.","img":null,"precio":"38.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":false,"img":false,"precio":true,"receta":false,"activo":true},"negocios":{"restaurante":{"categoria_id":1,"area_id":3,"precio":"40.00","activo":1,"orden":0},"panaderia":{"categoria_id":1201,"area_id":10,"precio":"38.00","activo":1,"orden":0}},"receta_version_id":1401,"requiere_receta":true}',2,1401,'fixture_m12_creado_1201',SHA2('fixture_m12_creado_1201',256));
+INSERT INTO recetas_casa(producto_id,borrador,revision) VALUES (1204,'{"rendimiento":"10.000","unidad":"pza","componentes":[{"articulo_id":1001,"cantidad":"900.000","unidad":"g","porcion":"90.000"},{"articulo_id":1002,"cantidad":"300.000","unidad":"ml","porcion":"30.000"}]}',2);
+INSERT INTO receta_casa_versiones(id,producto_id,version,rendimiento,unidad,usuario_id) VALUES (1402,1204,1,'10.000','pza',1001);
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1402,1001,'900.000');
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1402,1002,'300.000');
+UPDATE receta_casa_versiones SET publicada=1 WHERE id=1402;
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1403,1403,2,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1403,2,1001,'90.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1403,1001,2,1002);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1403,2,1002,'30.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1403,1002,2,1002);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1403,1402);
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1404,1204,3,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1404,3,1001,'90.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1204,1001,3,1003);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1404,3,1002,'30.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1204,1002,3,1003);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1404,1402);
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1402,1204,1,'{"nombre":"Croissant","descripcion":"Hojaldre de mantequilla con capas ligeras.","img":null,"precio":"42.00","activo":1,"tipo":"estandar","reglas":{"nombre":false,"descripcion":false,"img":false,"precio":false,"receta":false,"activo":false},"negocios":{"restaurante":{"categoria_id":1,"area_id":3,"precio":"42.00","activo":1,"orden":0},"panaderia":{"categoria_id":1201,"area_id":10,"precio":"42.00","activo":1,"orden":0}},"receta_version_id":1402,"requiere_receta":true}','{}',1001,'fixture_m12_publicado_1204',SHA2('fixture_m12_1204',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1204,'{"nombre":"Croissant","descripcion":"Hojaldre de mantequilla con capas ligeras.","img":null,"precio":"42.00","activo":1,"tipo":"estandar","reglas":{"nombre":false,"descripcion":false,"img":false,"precio":false,"receta":false,"activo":false},"negocios":{"restaurante":{"categoria_id":1,"area_id":3,"precio":"42.00","activo":1,"orden":0},"panaderia":{"categoria_id":1201,"area_id":10,"precio":"42.00","activo":1,"orden":0}},"receta_version_id":1402,"requiere_receta":true}',2,1402,'fixture_m12_creado_1204',SHA2('fixture_m12_creado_1204',256));
+INSERT INTO recetas_casa(producto_id,borrador,revision) VALUES (1207,'{"rendimiento":"8.000","unidad":"pza","componentes":[{"articulo_id":1001,"cantidad":"1000.000","unidad":"g","porcion":"125.000"}]}',2);
+INSERT INTO receta_casa_versiones(id,producto_id,version,rendimiento,unidad,usuario_id) VALUES (1403,1207,1,'8.000','pza',1001);
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1403,1001,'1000.000');
+UPDATE receta_casa_versiones SET publicada=1 WHERE id=1403;
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1405,1404,2,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1405,2,1001,'125.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1404,1001,2,1002);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1405,1403);
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1406,1207,3,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1406,3,1001,'125.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1207,1001,3,1003);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1406,1403);
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1403,1207,1,'{"nombre":"Focaccia","descripcion":"Pan con aceite de oliva y romero.","img":"build/images/panaderia.webp","precio":"62.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":false,"img":true,"precio":false,"receta":false,"activo":true},"negocios":{"restaurante":{"categoria_id":2,"area_id":3,"precio":"62.00","activo":1,"orden":0},"panaderia":{"categoria_id":1203,"area_id":10,"precio":"62.00","activo":1,"orden":0}},"receta_version_id":1403,"requiere_receta":true}','{}',1001,'fixture_m12_publicado_1207',SHA2('fixture_m12_1207',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1207,'{"nombre":"Focaccia","descripcion":"Pan con aceite de oliva y romero.","img":"build/images/panaderia.webp","precio":"62.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":false,"img":true,"precio":false,"receta":false,"activo":true},"negocios":{"restaurante":{"categoria_id":2,"area_id":3,"precio":"62.00","activo":1,"orden":0},"panaderia":{"categoria_id":1203,"area_id":10,"precio":"62.00","activo":1,"orden":0}},"receta_version_id":1403,"requiere_receta":true}',2,1403,'fixture_m12_creado_1207',SHA2('fixture_m12_creado_1207',256));
+INSERT INTO recetas_casa(producto_id,borrador,revision) VALUES (1209,'{"rendimiento":"20.000","unidad":"pza","componentes":[{"articulo_id":1001,"cantidad":"400.000","unidad":"g","porcion":"20.000"},{"articulo_id":1002,"cantidad":"100.000","unidad":"ml","porcion":"5.000"}]}',2);
+INSERT INTO receta_casa_versiones(id,producto_id,version,rendimiento,unidad,usuario_id) VALUES (1404,1209,1,'20.000','pza',1001);
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1404,1001,'400.000');
+INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (1404,1002,'100.000');
+UPDATE receta_casa_versiones SET publicada=1 WHERE id=1404;
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1407,1405,2,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1407,2,1001,'20.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1405,1001,2,1002);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1407,2,1002,'5.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1405,1002,2,1002);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1407,1404);
+INSERT INTO recetas(id,oferta_id,unidad_id,version,activo) VALUES (1408,1209,3,1,1);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1408,3,1001,'20.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1209,1001,3,1003);
+INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (1408,3,1002,'5.000');
+INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES (1209,1002,3,1003);
+INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (1408,1404);
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1404,1209,1,'{"nombre":"Galleta de chocolate","descripcion":"Galleta con trozos de chocolate oscuro.","img":null,"precio":"32.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":true,"img":false,"precio":true,"receta":true,"activo":true},"negocios":{"restaurante":{"categoria_id":9,"area_id":1,"precio":"34.00","activo":1,"orden":0},"panaderia":{"categoria_id":1202,"area_id":10,"precio":"32.00","activo":1,"orden":0}},"receta_version_id":1404,"requiere_receta":true}','{}',1001,'fixture_m12_publicado_1209',SHA2('fixture_m12_1209',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1209,'{"nombre":"Galleta de chocolate","descripcion":"Galleta con trozos de chocolate oscuro.","img":null,"precio":"32.00","activo":1,"tipo":"compartido","reglas":{"nombre":false,"descripcion":true,"img":false,"precio":true,"receta":true,"activo":true},"negocios":{"restaurante":{"categoria_id":9,"area_id":1,"precio":"34.00","activo":1,"orden":0},"panaderia":{"categoria_id":1202,"area_id":10,"precio":"32.00","activo":1,"orden":0}},"receta_version_id":1404,"requiere_receta":true}',2,1404,'fixture_m12_creado_1209',SHA2('fixture_m12_creado_1209',256));
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1405,1401,1,'{"nombre":"Café americano","descripcion":"Café de la casa preparado al momento.","img":null,"precio":"35.00","activo":1,"tipo":"exclusivo","reglas":{"nombre":true,"descripcion":true,"img":true,"precio":true,"receta":true,"activo":true},"negocios":{"restaurante":{"categoria_id":9,"area_id":1,"precio":"35.00","activo":1,"orden":0}},"receta_version_id":0,"requiere_receta":false}','{}',1001,'fixture_m12_publicado_1401',SHA2('fixture_m12_1401',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1401,'{"nombre":"Café americano","descripcion":"Café de la casa preparado al momento.","img":null,"precio":"35.00","activo":1,"tipo":"exclusivo","reglas":{"nombre":true,"descripcion":true,"img":true,"precio":true,"receta":true,"activo":true},"negocios":{"restaurante":{"categoria_id":9,"area_id":1,"precio":"35.00","activo":1,"orden":0}},"receta_version_id":0,"requiere_receta":false}',2,1405,'fixture_m12_creado_1401',SHA2('fixture_m12_creado_1401',256));
+INSERT INTO producto_publicaciones(id,producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (1406,1203,1,'{"nombre":"Concha de chocolate","descripcion":"Pan dulce con cubierta de cacao.","img":null,"precio":"26.00","activo":1,"tipo":"exclusivo","reglas":{"nombre":true,"descripcion":true,"img":true,"precio":true,"receta":true,"activo":true},"negocios":{"panaderia":{"categoria_id":1201,"area_id":10,"precio":"26.00","activo":1,"orden":0}},"receta_version_id":0,"requiere_receta":false}','{}',1001,'fixture_m12_publicado_1203',SHA2('fixture_m12_1203',256));
+INSERT INTO producto_estandares(producto_id,borrador,revision,publicacion_id,clave_creacion,creacion_hash) VALUES (1203,'{"nombre":"Concha de chocolate","descripcion":"Pan dulce con cubierta de cacao.","img":null,"precio":"26.00","activo":1,"tipo":"exclusivo","reglas":{"nombre":true,"descripcion":true,"img":true,"precio":true,"receta":true,"activo":true},"negocios":{"panaderia":{"categoria_id":1201,"area_id":10,"precio":"26.00","activo":1,"orden":0}},"receta_version_id":0,"requiere_receta":false}',2,1406,'fixture_m12_creado_1203',SHA2('fixture_m12_creado_1203',256));
+INSERT INTO oferta_personalizaciones(oferta_id,campo,valor,usuario_id) VALUES (1207,'img','"build/images/panaderia-vitrina.webp"',1001);
+INSERT INTO historial_precios(unidad_id,oferta_id,precio_anterior,precio_nuevo,motivo,usuario_id) SELECT unidad_id,id,NULL,precio,'alta',1001 FROM ofertas_producto WHERE id BETWEEN 1401 AND 1405;
+INSERT INTO oferta_personalizaciones(oferta_id,campo,valor,usuario_id) VALUES (1402,'precio','"40.00"',1001),(1405,'precio','"34.00"',1001);
+INSERT INTO esquema_versiones(version) VALUES ('datos-estandares-m12-v1');
 COMMIT;

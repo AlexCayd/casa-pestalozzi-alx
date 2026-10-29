@@ -1,4 +1,11 @@
 <?php
+    $menuBase = $menuBase ?? '/admin/menu';
+    $menuPuedeEditar = $menuPuedeEditar ?? true;
+    $menuContexto = $menuContexto ?? 'restaurante';
+    $menuRecetas = $menuRecetas ?? true;
+    $menuVariantes = $menuVariantes ?? true;
+    $menuCsrf = $menuCsrf ?? '';
+
 /**
  * Editor de variantes de un platillo.
  *
@@ -41,7 +48,7 @@ $datosJson = $editorVariantes !== null
             </p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/menu">
+            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
                 Menú
             </a>

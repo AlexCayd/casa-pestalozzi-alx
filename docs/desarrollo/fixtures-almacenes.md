@@ -38,8 +38,22 @@ Se eliminan prefijos visibles de nombres, usuarios, snapshots, comentarios y
 referencias documentales. `admin_demo`, hash, guard de instalación, entorno,
 claves internas y marcas de propiedad mantienen su contrato. La identidad
 sintética se verifica por ID y entorno, nunca por prefijo. No se añaden productos
-comerciales: siguen intactos los 112 originales y las 13 identidades sintéticas
-previas; Panadería no habilita ventas.
+comerciales de Restaurante: siguen intactos los 112 originales. M1.1 amplía
+exclusivamente el menú sintético Panadería; no habilita ventas.
+
+## Fixtures comerciales M1.1
+
+`development.sql` añade 12 identidades/ofertas Panadería (IDs 1201–1212), sin
+imágenes, recetas, producción, asociaciones inventariables ni movimientos nuevos.
+Con la hogaza existente hay 13 ofertas: 12 activas y una inactiva para probar su
+exclusión del PDF. Categorías: Panes artesanales (1002), Bollería (1201), Dulces
+de la casa (1202) y Panes salados (1203). Precios y orden son locales.
+Ejemplos: rol de canela, conchas, croissant, baguette, focaccia, brownie y panqué.
+Totales de instalación nueva: 137 productos/ofertas (112 originales y 25
+sintéticos), 20 categorías; Almacenes conserva 7 físicos, 30 artículos, 47
+asociaciones, 11 operaciones y 51 movimientos. No reaplicar este seed a bases
+existentes. La etiqueta de carta comida Panadería se actualiza en instalaciones
+nuevas; su slug y propiedad permanecen.
 
 Validación reproducible:
 
