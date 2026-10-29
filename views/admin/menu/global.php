@@ -8,6 +8,7 @@ $linkPagina=static fn(int $p):string=>'?'.http_build_query(['q'=>$q,'negocio'=>$
         <p class="admin-page__subtitle">Administra los productos que utilizan Restaurante y Panadería, sus precios y las características que pueden personalizar.</p>
     </div><?php if($identidadEditable): ?><a class="admin-btn admin-btn--primary" href="/admin/global/productos/create">Nuevo producto</a><?php endif; ?></header>
     <?php include __DIR__.'/../partials/alertas.php'; ?>
+    <p><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/recetario">Recetario de la casa</a></p>
     <form class="admin-filters admin-catalogo-filters" method="GET">
         <label class="admin-field">Administración<select name="tipo"><option value="">Todos</option><?php foreach(\Services\Menu\ProductosCasa::TIPOS+['sin_receta'=>'Sin receta'] as $value=>$label): ?><option value="<?= $value ?>" <?= $tipoFiltro===$value?'selected':'' ?>><?= $esc($label) ?></option><?php endforeach; ?></select></label>
         <label class="admin-field"><span class="admin-field__label">Buscar identidad</span><input type="search" name="q" value="<?= $esc($q) ?>" placeholder="Nombre, descripción o identificador" maxlength="100"></label>
@@ -24,7 +25,7 @@ $linkPagina=static fn(int $p):string=>'?'.http_build_query(['q'=>$q,'negocio'=>$
             <td data-label="Administración"><?= $esc(\Services\Menu\ProductosCasa::TIPOS[$p['administracion']]??'Administración local') ?><small>#<?= (int)$p['id'] ?></small></td>
             <td data-label="Negocios con oferta"><?php if(!$p['usos']): ?>Sin ofertas consultables<?php endif; ?><?php foreach($p['usos'] as $uso): ?><span class="admin-badge admin-badge--neutral"><?= $uso['slug']==='panaderia'?'Panadería':'Restaurante' ?></span> <?php endforeach; ?></td>
             <td data-label="Estado y receta"><?= $esc($p['estado_casa']) ?><small><?= $p['receta_casa']?'Receta estándar':'Sin receta estándar' ?></small></td>
-            <td data-label="Acción"><a class="admin-btn admin-btn--secondary" href="<?= $esc($menuBase) ?>/edit?id=<?= (int)$p['id'] ?>" aria-label="Abrir ficha de <?= $esc($p['nombre']) ?>">Ver producto</a><?php if($p['administracion']==='local'&&$identidadEditable): ?><a class="almacen-text-button" href="/admin/global/productos/casa?id=<?= (int)$p['id'] ?>">Convertir a producto de la casa</a><?php endif; ?></td>
+            <td data-label="Acción"><a class="admin-btn admin-btn--secondary" href="<?= $esc($menuBase) ?>/edit?id=<?= (int)$p['id'] ?>" aria-label="Abrir ficha de <?= $esc($p['nombre']) ?>">Ver producto</a><?php if($p['administracion']==='local'&&$identidadEditable): ?><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/casa?id=<?= (int)$p['id'] ?>">Convertir a producto de la casa</a><?php endif; ?></td>
         </tr><?php endforeach; ?></tbody>
     </table></div>
     <?php if (!$identidades): ?><p class="admin-empty">No hay identidades que coincidan. Cambia la búsqueda o limpia los filtros.</p><?php endif; ?>

@@ -49,6 +49,7 @@ se comprueban contra los ingredientes y cantidades nuevas y sus orígenes locale
 No se habilita POS ni producción por lotes de Panadería. El editor de adaptación
 de un producto estándar dentro de Menú no libera el módulo completo de Recetas M2.
 
+Recetario: `/admin/global/productos/recetario`, con búsqueda y paginación.
 Rutas: `/admin/global/productos/receta?id=…`,
 `/admin/menu/casa-receta?id=…` y `/admin/panaderia/menu/casa-receta?id=…`.
 El identificador local es de oferta; el Global identifica el producto. Los formularios

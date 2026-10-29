@@ -18,7 +18,7 @@ final class PermisosUsuario
             default => '/admin/menu',
         };
         if ($contexto === 'global') {
-            $modulos['menu']['titulo'] = 'Productos comerciales';
+            $modulos['menu']['titulo'] = 'Productos de la casa';
             $modulos['menu']['detalle'] = 'Identidades maestras y uso comercial autorizado; Global no vende.';
         }
         $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';

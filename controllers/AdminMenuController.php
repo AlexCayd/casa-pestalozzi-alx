@@ -93,11 +93,14 @@ class AdminMenuController
 
         $offset = ($paginaActual - 1) * $porPagina;
         $platillos = Producto::buscarAdmin($filtros, $porPagina, $offset);
+        $politicasCasa=[];
+        foreach($platillos as $platillo){$oficial=\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id);if($oficial)$politicasCasa[(int)$platillo->id]=$oficial['reglas'];}
 
         $data = [
             'title' => 'Menú',
             'topbarSection' => 'Menú',
             'platillos' => $platillos,
+            'politicasCasa' => $politicasCasa,
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
             'categoriasFoto' => $categoriasFoto,
@@ -210,6 +213,7 @@ class AdminMenuController
         $platillo = Producto::find($id);
 
         if (!$platillo) {
+            http_response_code(404);
             Producto::setAlerta('error', 'El platillo no existe');
             self::index($router);
             return;
@@ -263,6 +267,7 @@ class AdminMenuController
             $foto->revertir($platillo);
         }
 
+        if(!empty($alertas)&&\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id))http_response_code(422);
         self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas, $foto);
     }
 
@@ -573,7 +578,7 @@ class AdminMenuController
             }
             $foto->revertir($producto);
         }
-        self::render('menu/form', ['title'=>'Datos maestros', 'topbarSection'=>'Productos comerciales / Datos maestros',
+        self::render('menu/form', ['title'=>'Datos maestros', 'topbarSection'=>'Productos de la casa / Datos maestros',
             'platillo'=>$producto, 'accion'=>'Guardar datos maestros', 'categorias'=>[], 'areas'=>[],
             'identidadMaestra'=>true, 'identidadCompartida'=>true, 'identidadEditable'=>CatalogoComercial::puedeEditar(),
             'identidadHuella'=>$huella, 'usos'=>CatalogoComercial::usos($id), 'alertas'=>$alertas,

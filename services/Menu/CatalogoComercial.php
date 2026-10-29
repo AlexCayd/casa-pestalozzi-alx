@@ -30,7 +30,7 @@ final class CatalogoComercial
         $where='(p.nombre LIKE ? ESCAPE \'!\' OR p.descripcion LIKE ? ESCAPE \'!\' OR p.id=?)';
         $like='%'.str_replace(['!','%','_'],['!!','!%','!_'],mb_substr(trim($q),0,100)).'%';
         $params=[$like,$like,ctype_digit($q)?(int)$q:0];
-        if(!in_array($tipo,['','estandar','compartido','exclusivo','sin_receta'],true))throw new \RuntimeException('Filtro de administración inválido.');
+        if(!in_array($tipo,['','estandar','compartido','exclusivo','sin_receta'],true))ProductosCasa::error('FILTRO_INVALIDO','Filtro de administración inválido.');
         if($tipo!==''){
             if($tipo==='sin_receta')$where.=" AND NOT EXISTS(SELECT 1 FROM producto_estandares pe JOIN producto_publicaciones pp ON pp.id=pe.publicacion_id WHERE pe.producto_id=p.id AND JSON_EXTRACT(pp.datos,'$.receta_version_id')>0)";
             else {$where.=" AND EXISTS(SELECT 1 FROM producto_estandares pe WHERE pe.producto_id=p.id AND JSON_UNQUOTE(JSON_EXTRACT(pe.borrador,'$.tipo'))=?)";$params[]=$tipo;}

@@ -125,6 +125,7 @@ $router->post('/admin/global/productos/create', [\Controllers\AdminProductosCasa
 $router->get('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
 $router->post('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
 $router->get('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
+$router->get('/admin/global/productos/recetario', [\Controllers\AdminProductosCasaController::class, 'recetario']);
 $router->post('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
 $router->get('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
 $router->post('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);

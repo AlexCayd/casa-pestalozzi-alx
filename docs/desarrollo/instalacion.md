@@ -1,5 +1,27 @@
 # Instalación de desarrollo
 
+## Actualización M1.2
+
+Para instalaciones existentes, la ampliación aditiva está en
+`database/actualizaciones/m12-estandares.sql`; el mismo bloque está incorporado al
+DDL de instalación nueva. Crea ocho tablas, la vista `productos_oferta` y triggers
+de inmutabilidad. La migración se comprobó dos veces consecutivas con MariaDB de
+XAMPP; no transforma ni adhiere productos existentes. Preparar respaldo y ensayar
+en una copia antes de aplicarla en una instalación operativa. Esta entrega no
+migró la base activa. La compatibilidad del DDL con otros motores debe verificarse
+antes del despliegue (usa `CREATE TRIGGER IF NOT EXISTS`).
+
+`development.sql` solo corresponde a instalaciones nuevas desechables. Sus seis
+adhesiones M1.2 son explícitas y sintéticas: Rol de canela, Croissant, Focaccia,
+Café americano, Concha de chocolate y Galleta de chocolate. Hay 138 productos,
+142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
+productos originales siguen íntegros; permanecen 7 almacenes, 47 asociaciones
+físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
+rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes
+de Focaccia son fotografías de contexto de Panadería reutilizadas para probar
+personalización. No se crean credenciales activas adicionales mediante SQL.
+
+
 Esta guía es el procedimiento único para reconstruir la aplicación desde los
 archivos versionados. El [contrato rector](../arquitectura.md) define su alcance.
 No utiliza la base antigua ni el paquete privado de preservación de Etapa 2.

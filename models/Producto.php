@@ -597,6 +597,7 @@ class ProductoMultinegocio extends Producto
         ContextoNegocio::exigir('menu', 'editar', $ctx);
         if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) {
             $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,(int)($this->oferta_id?:$this->id),['nombre'=>$this->nombre,'descripcion'=>$this->descripcion,'img'=>$this->img,'precio'=>$this->precio,'activo'=>$this->activo,'categoria_id'=>$this->categoria_id,'area_id'=>$this->area_id,'orden'=>$this->orden],$this->restaurar_casa);
+            if(empty($r['ok']))self::setAlerta('error',$r['mensaje']??'No se pudo guardar la personalización.');
             return !empty($r['ok']) && !empty($r['confirmado']);
         }
         if ($this->validar()) return false;

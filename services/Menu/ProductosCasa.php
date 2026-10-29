@@ -35,7 +35,7 @@ final class ProductosCasa
         $reglas=[];foreach(self::CAMPOS as $campo=>$label)$reglas[$campo]=!empty($d['reglas'][$campo]);
         $negocios=$d['negocios']??[];if(!is_array($negocios)||array_diff(array_keys($negocios),['restaurante','panaderia']))self::error('NEGOCIO_INVALIDO','Elige solo negocios vendedores.');
         if($tipo==='exclusivo'&&count($negocios)!==1)self::error('EXCLUSIVIDAD_INVALIDA','Un producto exclusivo requiere un único negocio.');
-        foreach($negocios as $ctx=>&$n){if(!is_array($n))self::error('DESTINO_INVALIDO','Completa las condiciones del negocio.');$n=['categoria_id'=>(int)($n['categoria_id']??0),'area_id'=>(int)($n['area_id']??0),'precio'=>ImporteOferta::normalizar($n['precio']??$d['precio']??'0.00'),'activo'=>(int)!empty($n['activo']),'orden'=>(int)($n['orden']??0)];}unset($n);
+        foreach($negocios as $ctx=>&$n){if(!is_array($n)||array_filter($n,static fn($v)=>$v!==null&&!is_scalar($v)))self::error('DESTINO_INVALIDO','Completa las condiciones del negocio.');$n=['categoria_id'=>(int)($n['categoria_id']??0),'area_id'=>(int)($n['area_id']??0),'precio'=>ImporteOferta::normalizar($n['precio']??$d['precio']??'0.00'),'activo'=>(int)!empty($n['activo']),'orden'=>(int)($n['orden']??0)];}unset($n);
         $img=$d['img']??null;if($img!==null&&(!is_string($img)||!preg_match('~^/?(?:build/images/|assets/img/)[a-zA-Z0-9_./-]+$~D',$img)||str_contains($img,'..')))self::error('IMAGEN_INVALIDA','La imagen debe proceder del cargador de imágenes.');
         return ['nombre'=>$nombre,'descripcion'=>$descripcion,'img'=>$img,'precio'=>ImporteOferta::normalizar($d['precio']??'0.00'),'activo'=>(int)!empty($d['activo']),'tipo'=>$tipo,'reglas'=>$reglas,'negocios'=>$negocios,'receta_version_id'=>(int)($d['receta_version_id']??0),'requiere_receta'=>!empty($d['requiere_receta'])];
     }
@@ -69,7 +69,7 @@ final class ProductosCasa
         $recetas=self::sql('SELECT r.id,r.oferta_id,r.version,l.version_id FROM recetas r JOIN ofertas_producto o ON o.id=r.oferta_id LEFT JOIN receta_origen_casa l ON l.receta_id=r.id WHERE o.producto_id=? AND r.activo=1 ORDER BY r.id',[$id])->get_result()->fetch_all(MYSQLI_ASSOC);
         $impacto=[];$porNegocio=[];foreach($ofertas as $o)$porNegocio[$o['slug']]=$o;
         foreach(array_unique([...array_keys($d['negocios']),...array_keys($porNegocio)]) as $ctx){$o=$porNegocio[$ctx]??null;$local=$o?self::locales((int)$o['id']):[];$n=$d['negocios'][$ctx]??null;$despues=[];
-            foreach(['nombre','descripcion','img','precio','activo'] as $campo){$valor=$d[$campo];if($n&&$d['reglas'][$campo]){$valor=array_key_exists($campo,$local)?$local[$campo]:((in_array($campo,['precio','activo'],true))?($c['publicacion_id']===null&&$o?$o[$campo]:$n[$campo]):$valor);}if(!$n&&$campo==='activo')$valor=0;$despues[$campo]=$valor;}
+            foreach(['nombre','descripcion','img','precio','activo'] as $campo){$valor=$d[$campo];if($n&&$d['reglas'][$campo]){$valor=array_key_exists($campo,$local)?$local[$campo]:((in_array($campo,['precio','activo'],true))?($c['publicacion_id']===null&&$o?$o[$campo]:($o?$d[$campo]:$n[$campo])):$valor);}if(!$n&&$campo==='activo')$valor=0;$despues[$campo]=$valor;}
             $impacto[]=['negocio'=>$ctx,'antes'=>$o,'despues'=>$despues,'retirada'=>$n===null];
         }
         return ['configuracion'=>$c,'borrador'=>$d,'anterior'=>$anterior,'ofertas'=>$ofertas,'personalizaciones'=>$personalizaciones,'recetas'=>$recetas,'impacto'=>$impacto,'huella'=>hash('sha256',self::json([$c,$p,$ofertas,$personalizaciones,$recetas]))];
@@ -94,13 +94,15 @@ final class ProductosCasa
             foreach($existentes as $ctx=>$o)if(!isset($d['negocios'][$ctx]))self::sql('UPDATE ofertas_producto SET activo=0 WHERE id=?',[$o['id']]);
             foreach($d['negocios'] as $ctx=>$n){
                 $u=C::vendedora($ctx);Ofertas::validarLocal(ActiveRecord::getDB(),$n['categoria_id'],$n['area_id'],$u);
-                if(!isset($existentes[$ctx])){ $r=Ofertas::crear($id,$ctx,$n);if(empty($r['id']))self::error('OFERTA_INVALIDA','No se pudo preparar la oferta.');$o=self::sql('SELECT * FROM ofertas_producto WHERE id=?',[$r['id']])->get_result()->fetch_assoc(); }
+                $nueva=!isset($existentes[$ctx]);
+                if($nueva){ $r=Ofertas::crear($id,$ctx,$n);if(empty($r['id']))self::error('OFERTA_INVALIDA','No se pudo preparar la oferta.');$o=self::sql('SELECT * FROM ofertas_producto WHERE id=?',[$r['id']])->get_result()->fetch_assoc(); }
                 else $o=$existentes[$ctx];
+                foreach(['precio','activo'] as $campo)if($nueva&&$d['reglas'][$campo]&&(string)$n[$campo]!== (string)$d[$campo])self::personalizacion((int)$o['id'],$campo,$n[$campo]);
                 // Adoptar no destruye condiciones locales cuando la política permite conservarlas.
                 foreach(['precio','activo'] as $campo)if($c['publicacion_id']===null&&isset($existentes[$ctx])&&$d['reglas'][$campo])self::personalizacion((int)$o['id'],$campo,$o[$campo]);
                 if($c['publicacion_id']===null&&$d['reglas']['receta']&&self::sql('SELECT id FROM recetas WHERE oferta_id=? AND activo=1',[$o['id']])->get_result()->fetch_row())self::personalizacion((int)$o['id'],'receta','adaptada');
                 foreach(self::CAMPOS as $campo=>$label)if(!$d['reglas'][$campo])self::sql('DELETE FROM oferta_personalizaciones WHERE oferta_id=? AND campo=?',[$o['id'],$campo]);
-                $local=self::locales((int)$o['id']);$precio=ImporteOferta::normalizar($local['precio']??($d['reglas']['precio']?$n['precio']:$d['precio']));$activo=(int)($local['activo']??($d['reglas']['activo']?$n['activo']:$d['activo']));
+                $local=self::locales((int)$o['id']);$precio=ImporteOferta::normalizar($local['precio']??$d['precio']);$activo=(int)($local['activo']??$d['activo']);
                 self::precio((int)$o['id'],(int)$o['unidad_id'],(string)$o['precio'],$precio);
                 // Las categorías, áreas y orden de ofertas existentes no se reemplazan al publicar.
                 self::sql('UPDATE ofertas_producto SET precio=?,activo=? WHERE id=?',[$precio,$activo,$o['id']]);
@@ -126,7 +128,7 @@ final class ProductosCasa
         if(!C::en($ctx,static fn()=>HistorialPrecio::registrar(['unidad_id'=>$unidad,'oferta_id'=>$oferta,'articulo_id'=>null,'precio_anterior'=>$antes,'precio_nuevo'=>$nuevo,'motivo'=>'edicion'],true)))self::error('HISTORIAL_INVALIDO','No se pudo registrar el precio.');
     }
     public static function guardarLocal(string $ctx,int $oferta,array $datos,array $restaurar=[]): array {
-        C::exigir('menu','editar',$ctx);if(array_diff($restaurar,array_keys(self::CAMPOS)))self::error('CAMPO_INVALIDO','La personalización no es válida.');
+        C::exigir('menu','editar',$ctx);if(array_diff($restaurar,['nombre','descripcion','img','precio','activo']))self::error('CAMPO_INVALIDO','La receta se restaura desde su preparación; revisa los campos del producto.');
         return C::transaccion(static function()use($ctx,$oferta,$datos,$restaurar){
             C::exigir('menu','editar',$ctx,true);$u=C::vendedora($ctx);
             $o=self::sql('SELECT * FROM ofertas_producto WHERE id=? AND unidad_id=?',[$oferta,$u])->get_result()->fetch_assoc();if(!$o)self::error('OFERTA_DENEGADA','La oferta no pertenece al negocio.');

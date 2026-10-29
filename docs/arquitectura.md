@@ -90,8 +90,8 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
 | Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
-| Menú y ofertas | Catálogo comercial funcional en `/admin/global/productos`, sin venta ni edición de precios locales | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
-| Recetas y variantes | Servicios compartidos; sin producción Global | Funcionales en los flujos existentes | Modelo/servicios preparados; experiencia comercial pendiente |
+| Menú y ofertas | Productos de la casa M1.2: estándares, políticas y publicación; Global no vende | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
+| Recetas y variantes | Recetario estándar versionado M1.2; sin producción Global | Recetas operativas y variantes existentes; aplicación de estándares | Adaptación de estándares dentro de Menú; módulo completo M2 pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
 | Finanzas y analítica | Lecturas consolidadas pendientes | Flujos existentes conservados; validar límites en su guía | Modelo/fixtures preparados; operación pendiente |

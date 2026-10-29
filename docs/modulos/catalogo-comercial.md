@@ -1,5 +1,55 @@
 # Catálogo comercial y Menú
 
+## Estado vigente M1.2
+
+Productos de la casa conserva `/admin/global/productos`: búsqueda, filtros por
+administración/negocio/uso, paginación y fichas de página completa. El recetario
+estándar se encuentra en `/admin/global/productos/recetario`. Crear y convertir
+un producto local usan `/create` y `/casa?id=…`; editar un producto adherido abre
+esta última ficha. Los productos anteriores mantienen su experiencia local.
+
+La identidad comercial no se duplica al compartirla. Global publica valores
+oficiales y seis reglas: nombre, descripción, imagen, precio, receta y disponibilidad.
+Estándar, compartido y exclusivo son configuraciones de interfaz; la autorización
+se verifica por campo en el servidor. Exclusivo permite un solo negocio y no
+concede edición. Global no vende. Categoría/carta, área y orden son locales.
+
+Guardar borrador no crea ofertas ni afecta la operación. Publicar exige revisión,
+huella del estado leído, clave de idempotencia y confirmación. La vista previa
+muestra valores oficiales y efectivos antes/después por negocio, personalizaciones
+conservadas/retiradas y cambios de política. El historial guarda actor, fecha,
+versión e impacto inmutable. Retirar un destino desactiva su oferta.
+
+`productos_oferta` resuelve nombre/descripcion/imagen efectivos para Menú, carta,
+PDF, POS y consultas de ofertas actuales. El precio obligatorio se materializa
+en `ofertas_producto.precio` DECIMAL(8,2), junto con su historial en la misma
+transacción; no se recalculan importes con floats. Las consultas históricas siguen
+sus snapshots. Vacío y null explícito son valores locales distintos de ausencia;
+volver a la casa elimina la personalización. Las referencias publicadas y locales
+impiden borrar fotografías oficiales o históricas todavía utilizadas.
+
+| Acción | Permisos efectivos requeridos |
+|---|---|
+| Consultar catálogo/recetario Global | `menu/ver` Global; ofertas limitadas por lectura del propietario |
+| Crear/editar estándar | `menu/editar` Global y `comercial.identidad.editar` |
+| Publicar producto | Los anteriores y `menu/editar` en cada negocio afectado |
+| Personalizar oferta | `menu/editar` del dueño y regla vigente habilitada |
+| Publicar receta y aplicarla | Facultad Global, Menú de los destinos y `productos/editar` local |
+| Adaptar/volver a receta | `productos/editar` local; desde Menú también `menu/editar`; adaptar exige regla |
+| Elegir origen de consumo | Facultad Global, `productos/editar` e `inventario/editar` del dueño |
+
+No hay privilegios implícitos por pertenecer a Global ni por editar Menú. La
+revocación se comprueba de nuevo bajo bloqueo; IDs y contexto del cliente no
+conceden acceso. CSRF se valida por ámbito. Todos los formularios protegidos
+conservan controles legibles y acciones locales válidas.
+
+Ver [Recetas](recetas.md), [arquitectura](../arquitectura.md) y el
+[informe de validación M1.2](../desarrollo/pruebas.md#cierre-m12).
+
+Las secciones M1/M1.1 siguientes documentan sus verificaciones previas; las reglas
+y resultados M1.2 de esta sección y del cierre prevalecen sobre ese estado anterior.
+
+
 ## Refinamiento M1.1
 
 Rama `codex/m11-refinamiento-menus-ux`, base `7ebb36b492a018cfd925cac6c07f048542570c83`.

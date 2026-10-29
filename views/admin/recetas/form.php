@@ -79,7 +79,9 @@
         </section>
     <?php endif; ?>
 
+    <?php if(!empty($recetaCasaProtegida)): ?><p>Definido por Global. Usando receta estándar; la preparación se consulta en Productos de la casa.</p><?php endif; ?>
     <form method="POST" data-recipe-builder>
+    <fieldset class="admin-menu__fieldset" <?= !empty($recetaCasaProtegida)?'disabled':'' ?>>
         <section class="admin-panel admin-card admin-recipe">
             <div class="admin-recipe__head">
                 <div>
@@ -150,7 +152,7 @@
             <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
             <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">Cancelar</a>
         </div>
-    </form>
+    </fieldset></form>
 </section>
 
 <?php include __DIR__ . '/_ingredient-picker-modal.php'; ?>

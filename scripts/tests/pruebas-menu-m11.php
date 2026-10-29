@@ -4,7 +4,8 @@ function probarMenuM11(mysqli $db,string $root,callable $a):void
 {
     $a((int)$db->query('SELECT COUNT(*) FROM ofertas_producto WHERE unidad_id=3')->fetch_row()[0]===13,'Trece ofertas propias de Panadería');
     $a((int)$db->query('SELECT COUNT(*) FROM categorias WHERE unidad_id=3')->fetch_row()[0]===4,'Cuatro categorías locales naturales');
-    $a((int)$db->query('SELECT COUNT(*) FROM recetas WHERE unidad_id=3')->fetch_row()[0]===1,'Sin nuevas recetas de producción');
+    $a((int)$db->query('SELECT COUNT(*) FROM recetas WHERE unidad_id=3')->fetch_row()[0]===5,'Receta previa y cuatro estándares M1.2, sin producción por lotes');
+    $a((int)$db->query('SELECT COUNT(*) FROM recetas r JOIN receta_origen_casa c ON c.receta_id=r.id WHERE r.unidad_id=3')->fetch_row()[0]===4,'Cuatro recetas Panadería con origen estándar explícito');
     $pan=Services\Menu\MenuPdf::datosAdministrativos('panaderia','comida');
     $names=[];foreach($pan['categorias'] as $cat)foreach($cat['platillos'] as $p)$names[]=$p->nombre;
     $a(count($names)===12&&in_array('Rol de canela',$names,true),'PDF contiene doce ofertas disponibles propias');

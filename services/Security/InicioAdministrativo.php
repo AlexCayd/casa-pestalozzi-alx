@@ -16,7 +16,7 @@ final class InicioAdministrativo
         $base = $ctx === 'restaurante' ? '/admin' : '/admin/'.$ctx;
         $defs = [
             'inventario'=>['Almacenes','Consulta existencias y registra operaciones físicas.','inventario',$base.'/almacenes'],
-            'menu'=>[$ctx==='global'?'Productos comerciales':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
+            'menu'=>[$ctx==='global'?'Productos de la casa':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
             'transferencias'=>['Transferencias','Consulta envíos, recepciones e incidencias.','transferencias',$base.'/almacenes?vista=transferencias'],
             'users'=>['Usuarios','Consulta el equipo y sus accesos autorizados.','users',$base.'/usuarios'],
         ];

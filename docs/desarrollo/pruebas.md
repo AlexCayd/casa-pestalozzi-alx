@@ -1,5 +1,89 @@
 # Pruebas y criterios de aceptación
 
+## Cierre M1.2
+
+Rama `codex/m12-estandarizacion-productos-recetas`, base aprobada M1.1-E
+`a0562c344c0c66c7d197a03a5bd350006ff6742e`. Fases A `3f5447d`, B `3eb1acc`,
+C `a9e375c`; D es el commit de interfaz, fixtures y cierre de esta rama.
+El HEAD final se obtiene con `git rev-parse HEAD`; el informe entregado fuera del
+repositorio registra su hash exacto y el inventario completo sin autorreferencia.
+
+| Prueba ejecutada | Resultado M1.2 |
+|---|---|
+| Estructura/migración repetida y fixtures | 16 PASS |
+| Productos estándar: publicación, política, concurrencia, permisos/adopción/restauración | 39 PASS |
+| Recetas maestras: versiones, rollback, adaptación, concurrencia y consumo POS real | 29 PASS |
+| Filas dinámicas de ingredientes con selector real | PASS |
+| PHP general / JS general / build | PASS; deprecaciones existentes Sass/Node |
+| Menú M1 + M1.1 | 75 PASS; 52 aserciones originales conservadas |
+| HTTP M1 / M1.1 / M1.1-E | 47 / 47 / 25 PASS |
+| HTTP M1.2 | 43 PASS |
+| Contextos puro / Autorización 3B / Usuarios 3E.1 | 263 / 128 / 40 PASS |
+| Instalación reproducible (dos bases) | 957 PASS |
+| Almacenes / selección / concurrencia | 158 / 70 / 17 PASS |
+| Transferencias / fixtures M0.5-B | 114 / 378 PASS |
+| HTTP instalación / Transferencias | 121 / 35 PASS |
+| Preservación Menú puro / DB | 34 / 7 casos PASS |
+| PDF de reservaciones | PASS |
+| Notificaciones y POS incluido, DDL y variante migrations | 16 de 16 PASS en ambas ejecuciones actuales |
+| POS print alerts histórico | FAIL: fixture sin `unidad_id` |
+| POS llevar histórico | FAIL: fixture con actor 0 |
+| Contextos DB histórico | FAIL: columna retirada `usuarios.rol` |
+
+Los tres fallos históricos anteriores mantienen los errores ya reproducidos sobre
+la base previa durante M1.1; sus runners y contratos afectados no se alteraron.
+La incidencia temporal del POS a las 18:30 documentada en M1.1 no se reprodujo en
+las ejecuciones actuales: se informa PASS de esta ejecución, sin afirmar que se
+haya reparado aquella incidencia. No se reconstruyeron los paquetes privados
+retirados de suites 3A/3D. Simulaciones locales no certifican servicios externos.
+
+Todas las pruebas SQL crean bases aleatorias identificadas, verifican propiedad
+y limpian sus recursos. La base activa no recibió migraciones, fixtures ni pruebas.
+HTTP usa `servir-instalacion-3e.php`, su fixture privado y cuentas efímeras.
+Las pruebas nuevas incluyen datos inválidos, permisos revocados, Global sin facultad,
+solo lectura, superadministrador, CSRF, cambio de contexto, reglas manipuladas e
+IDs ajenos. Los componentes históricos de recetas y snapshots permanecen intactos;
+el POS descuenta de Cocina la versión operativa aplicada y Panadería no consume
+almacenes ajenos.
+
+```text
+php scripts/tests/run-estandares-estructura-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-estandares-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-recetas-casa-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+npm run test:menu:m12-ui
+php scripts/tests/pruebas-http-m12.php --fixture <ruta-privada-del-harness-3e>
+```
+
+La migración aditiva añade `producto_estandares`, `producto_publicaciones`,
+`oferta_personalizaciones`, `producto_cambios_locales`, `recetas_casa`,
+`receta_casa_versiones`, `receta_casa_componentes` y `receta_origen_casa`, además de
+`productos_oferta` y triggers de inmutabilidad. Contrato/matriz de permisos en
+[Catálogo](../modulos/catalogo-comercial.md#estado-vigente-m12) y
+[Recetas](../modulos/recetas.md). Archivo SQL:
+`database/actualizaciones/m12-estandares.sql`, incluido también en el DDL nuevo.
+
+Defectos corregidos durante aceptación: carrera de creación de identidad, ámbito
+del historial de precios, resolución SQL de booleanos/imagen null, receta anterior
+activa al publicar sin receta, cierre SQL inmutable de componentes, errores HTTP
+sin filtrar, reglas manipuladas, IDs extranjeros, selectores duplicados y restauración
+de precio que persistía incorrectamente al republicar. Se conserva una única fuente
+oficial y personalizaciones explícitas; ninguna solución crea stock o almacenes.
+
+La revisión real cubrió Global, Restaurante y Panadería, escritorio/tableta/móvil,
+claro/oscuro, foco, teclado y controles protegidos. Evidencia privada fuera de Git en
+`C:/Users/leona/.codex/visualizations/2026/10/28/01a180d0-2909-7a11-ab40-bc53fa4d8fde/`:
+`m12-global-desktop.png`, `m12-global-desktop-claro.png`,
+`m12-restaurante-precio-local.png`, `m12-panaderia-mobile-claro.png` y
+`m12-receta-mobile-claro.png`. Los flujos se comprobaron con la instalación temporal;
+no se presenta esta revisión como certificación de otros navegadores o motores SQL.
+
+El inventario exacto de archivos de las cuatro fases se obtiene con
+`git diff --name-only a0562c344c0c66c7d197a03a5bd350006ff6742e HEAD`.
+El cierre conserva la rama limpia, sin push ni merge; los otros worktrees quedan
+intactos. La preparación de despliegue y las fichas culinarias productivas están
+pendientes de la operación, fuera de estas pruebas.
+
+
 ## M1.1-E
 
 `run-inicio-m11.php` amplía la matriz con quince módulos Restaurante, cuenta sin

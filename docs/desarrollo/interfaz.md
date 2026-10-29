@@ -1,5 +1,28 @@
 # Guía técnica de interfaz
 
+## Productos y recetas de la casa M1.2
+
+Se conserva la identidad visual de Restaurante y los componentes compartidos:
+encabezado, filtros, tabla compacta, selectores, botones, alertas, confirmación y
+temas. La ficha Global separa información, negocios, personalización, receta e
+historial. El recetario se consulta dentro de Productos de la casa. No hay un
+modal que concentre la configuración: solo se confirma allí la publicación.
+
+Los campos locales explican «Definido por Global» o «Personalización permitida»,
+su valor oficial/personalizado y el regreso a la casa. Disponibilidad protegida y
+eliminación local quedan deshabilitadas en la tabla; las variantes protegidas no
+ofrecen una acción de edición. Las categorías, áreas y orden siguen disponibles.
+Los ingredientes se agregan con el selector compartido, IDs únicos y foco en la
+fila nueva. El teclado abre y cierra el selector con Enter/Escape.
+
+Se inspeccionaron escritorio (1280), tableta (768) y móvil (390), temas claro y
+oscuro, campos readonly, imágenes, foco y menú de ingredientes. No hubo overflow
+del documento en las vistas comprobadas (375/390 y 753/768). Las tablas de impacto
+mantienen su desplazamiento dentro del contenedor. Los estilos nuevos no añaden
+animaciones y respetan la preferencia de movimiento reducido del panel. Capturas
+reales y alcance de la validación en [Pruebas](pruebas.md#cierre-m12).
+
+
 ## M1.1-E: inicio Restaurante y selección compacta
 
 Rama `codex/m11-refinamiento-menus-ux`; HEAD inicial

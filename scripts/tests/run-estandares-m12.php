@@ -25,6 +25,9 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $no(fn()=>P::crear($d,'crear_sin_facultad_m12_1'),'Local no estandariza');
     $a(!empty(P::guardarLocal('panaderia',$oid,[],['descripcion'])['ok']),'Retirar personalización');
     $a($db->execute_query('SELECT descripcion FROM productos_oferta WHERE oferta_id=?',[$oid])->fetch_row()[0]===$d['descripcion'],'Volver al oficial sin copiar valor');
+    $a(!empty(P::guardarLocal('panaderia',$oid,[],['precio'])['ok']),'Restaurar precio oficial');
+    $_SESSION['id']=$super;$v=P::vistaPrevia($id);$a(!empty(P::publicar($id,(int)$v['configuracion']['revision'],$v['huella'],'republicar_precio_restaurado',true)['ok']),'Republicar después de restaurar');
+    $a($db->execute_query('SELECT precio FROM ofertas_producto WHERE id=?',[$oid])->fetch_row()[0]===$d['precio'],'El precio restaurado no recupera el valor inicial del negocio');
     $_SESSION['id']=$super;$v=P::vistaPrevia($id);$d['precio']='51.99';$d['reglas']['precio']=false;$d['reglas']['nombre']=false;
     $a(!empty(P::guardar($id,$d,(int)$v['configuracion']['revision'])['ok']),'Editar borrador');$v=P::vistaPrevia($id);$r=P::publicar($id,(int)$v['configuracion']['revision'],$v['huella'],'publicar_m12_productos_02',true);$a(!empty($r['ok']),'Revocar precio local mediante publicación');
     $a(array_unique(array_column(P::ofertas($id),'precio'))===['51.99'],'Precio oficial aplicado a ambos negocios');
@@ -38,4 +41,16 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $race=m12Carrera($db,'crear',[$ex,'crear_concurrente_m12_0001']);$a(!empty($race[0]['ok'])&&!empty($race[1]['ok'])&&$race[0]['producto_id']===$race[1]['producto_id'],'Dos procesos no duplican identidad');
     $rid=(int)$race[0]['producto_id'];$v=P::vistaPrevia($rid);$race=m12Carrera($db,'producto',[$rid,1,$v['huella'],'publicacion_concurrente_m12',true]);
     $a(!empty($race[0]['ok'])&&!empty($race[1]['ok'])&&$race[0]['publicacion_id']===$race[1]['publicacion_id'],'Dos publicaciones simultáneas tienen una única versión e idempotencia');
+    $lector=FixtureAutorizacion3B::usuario($db,'m12_lector',['global'=>['permisos'=>['menu'=>'ver']]]);$_SESSION['id']=$lector['id'];
+    $no(fn()=>P::crear($d,'crear_lector_m12_0001'),'Solo lectura no estandariza');
+    $administrador=FixtureAutorizacion3B::usuario($db,'m12_global',['global'=>['permisos'=>['menu'=>'editar']]]);$_SESSION['id']=$administrador['id'];
+    $no(fn()=>P::crear($d,'crear_sin_facultad_0002'),'Administrador Global requiere facultad explícita');
+    $_SESSION['id']=$local['id'];$db->execute_query("UPDATE usuario_unidad_permisos SET nivel='ver' WHERE usuario_id=? AND modulo='menu'",[$local['id']]);
+    $no(fn()=>P::guardarLocal('panaderia',$oid,['descripcion'=>'Revocado']),'Permiso revocado rechaza escritura');
+    $_SESSION['id']=$super;$prevReceta=$db->query('SELECT id FROM recetas WHERE oferta_id=1003 AND activo=1')->fetch_row()[0];
+    $adopcion=$ex;$adopcion['tipo']='exclusivo';$adopcion['negocios']=['panaderia'=>$d['negocios']['panaderia']];$adopcion['reglas']['receta']=true;
+    $a(!empty(P::crear($adopcion,'adoptar_local_m12_0001',1003)['ok']),'Adopción explícita de producto local');
+    $v=P::vistaPrevia(1003);$a(!empty(P::publicar(1003,1,$v['huella'],'adoptar_publicacion_0001',true)['ok']),'Publicación de adopción');
+    $a((string)$db->query('SELECT id FROM recetas WHERE oferta_id=1003 AND activo=1')->fetch_row()[0]===(string)$prevReceta&&P::locales(1003)['receta']==='adaptada','Adopción conserva receta operativa autorizada');
+    $no(fn()=>P::guardarLocal('panaderia',1003,[],['receta']),'Restaurar receta requiere flujo operativo explícito');
 });

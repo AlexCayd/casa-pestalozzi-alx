@@ -1,5 +1,16 @@
 # Backlog posterior a 3E
 
+## Estado posterior a M1.2
+
+Productos de la casa, políticas por campo y recetas estándar versionadas quedan
+implementados. M2 debe completar la experiencia integral de Recetas de Panadería
+sobre estas mismas recetas operativas; no requiere otra reestructuración de
+identidades/versiones. Siguen pendientes POS de Panadería, producción por lotes,
+subpreparaciones estándar como entidad versionada propia y módulos consolidados.
+Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
+cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
+
+
 El [contrato rector](arquitectura.md) distingue funciones operativas, contratos
 preparados y módulos pendientes. Este backlog no autoriza implementarlos como
 parte del cierre ni convierte una tabla existente en un módulo terminado.

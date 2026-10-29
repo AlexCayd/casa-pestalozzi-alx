@@ -582,7 +582,7 @@
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo $esc($catNombre); ?></span>
                                     <span class="admin-table__cell-sub admin-menu__area"><?php echo $esc($areasMap[(int) $platillo->area_id] ?? 'Sin área'); ?></span>
                                 </td>
-                                <td class="admin-menu__col-visible">
+                                <td class="admin-menu__col-visible"><?php if(isset($politicasCasa[(int)$platillo->id])): ?><small class="admin-table__cell-sub"><?= !empty($politicasCasa[(int)$platillo->id]['activo'])?'Producto de la casa':'Definido por Global' ?></small><?php endif; ?>
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos
                                             fallaba la validación al faltarle area_id. La query de la
                                             acción devuelve a esta misma página del mismo filtro. */ ?>
@@ -591,7 +591,7 @@
                                         <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                         <button
                                             type="submit"
-                                            <?php echo $menuPuedeEditar ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
+                                            <?php echo $menuPuedeEditar && (!isset($politicasCasa[(int)$platillo->id]) || !empty($politicasCasa[(int)$platillo->id]['activo'])) ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
                                             title="<?php echo $platillo->activo ? 'Ocultar platillo' : 'Mostrar platillo'; ?>"
                                             aria-label="<?php echo $platillo->activo ? 'Ocultar platillo ' : 'Mostrar platillo '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
@@ -609,7 +609,7 @@
                                     <div class="admin-table-actions admin-menu__acciones">
                                         <?php /* Las variantes tienen editor propio: ajustan la receta
                                                  y el precio, y necesitan la vista previa del POS. */ ?>
-                                        <?php if ($menuVariantes) : ?>
+                                        <?php if ($menuVariantes && (!isset($politicasCasa[(int)$platillo->id]) || (!empty($politicasCasa[(int)$platillo->id]['precio']) && !empty($politicasCasa[(int)$platillo->id]['receta'])))) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
                                             href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/variantes?id=<?php echo (int) $platillo->id; ?>"
@@ -641,6 +641,7 @@
                                             <button
                                                 type="submit"
                                                 class="admin-icon-button admin-icon-button--danger"
+                                                <?= isset($politicasCasa[(int)$platillo->id])&&empty($politicasCasa[(int)$platillo->id]['activo'])?'disabled':'' ?>
                                                 title="Eliminar"
                                                 aria-label="Eliminar platillo <?php echo $esc($platillo->nombre); ?>"
                                             >
