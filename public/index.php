@@ -124,6 +124,12 @@ $router->get('/admin/global/productos/create', [\Controllers\AdminProductosCasaC
 $router->post('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
 $router->get('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
 $router->post('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->get('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
+$router->post('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
+$router->get('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->post('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->get('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->post('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
 $router->get('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
 $router->post('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
 $router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);

@@ -643,6 +643,7 @@ class AdminMenuController
             'identidadHuella' => $platillo->identidad_huella ?? CatalogoComercial::huella(['nombre'=>$platillo->nombre,'descripcion'=>$platillo->descripcion,'img'=>$platillo->img]),
             'casaPolitica'=>!empty($platillo->producto_id)?\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id):null,
             'casaLocales'=>!empty($platillo->oferta_id)?\Services\Menu\ProductosCasa::locales((int)$platillo->oferta_id):[],
+            'menuRecetaCasa'=>!empty($platillo->producto_id)&&\Classes\Auth::puede('productos','ver',ContextoNegocio::slug()),
             'foto' => $foto ? $foto->vista() : FotoPlatillo::vistaInicial($platillo->img),
         ]);
     }

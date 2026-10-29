@@ -44,7 +44,9 @@ final class RecetasOferta
                     }
                     $ofertaLock->close();
                     if(!ProductosCasa::permite((int)$ofertaCasa['producto_id'],'receta'))throw new InventarioError('CAMPO_PROTEGIDO','Receta: Definido por Global.');
-                    if(ProductosCasa::publicada((int)$ofertaCasa['producto_id']))ProductosCasa::personalizacion($ofertaId,'receta',$normalizados===[]?'sin':'adaptada');
+                    $oficialCasa=ProductosCasa::publicada((int)$ofertaCasa['producto_id']);
+                    if($oficialCasa&&$normalizados===[]&&!empty($oficialCasa['requiere_receta']))throw new InventarioError('RECETA_REQUERIDA','Este producto requiere receta.');
+                    if($oficialCasa){RecetasCasa::validarAdaptacion($ofertaId,$unidadId,$normalizados);ProductosCasa::personalizacion($ofertaId,'receta',$normalizados===[]?'sin':'adaptada');}
                     foreach ($normalizados as $comp) {
                         if ($comp['subreceta_id'] !== null) {
                             self::exigirSubrecetaLocal($db, $comp['subreceta_id'], $unidadId);

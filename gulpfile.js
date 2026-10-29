@@ -290,6 +290,10 @@ function adminRecetasJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminCasaJavascript() {
+  return src('src/js/admin/menu/casa.js').pipe(sourcemaps.init()).pipe(concat('casa.js')).pipe(terser()).pipe(sourcemaps.write('.')).pipe(dest('./public/build/js/admin'));
+}
+
 function adminInventarioJavascript() {
   return src(paths.adminInventarioJs)
     .pipe(sourcemaps.init())
@@ -578,6 +582,7 @@ exports.adminAreaJs = adminAreaJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
+exports.adminCasaJs = adminCasaJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminReservationEstrategiaJs = adminReservationEstrategiaJavascript;
 exports.adminUsersJs = adminUsersJavascript;
@@ -617,6 +622,7 @@ exports.dev = parallel(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
+  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
@@ -655,6 +661,7 @@ exports.build = series(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
+  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,

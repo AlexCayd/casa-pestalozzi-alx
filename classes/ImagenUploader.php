@@ -141,6 +141,7 @@ class ImagenUploader
                 $nombre=basename($rutaRelativa);
                 $uso=$db->prepare("SELECT 1 FROM producto_estandares WHERE JSON_SEARCH(borrador,'one',?) IS NOT NULL UNION ALL SELECT 1 FROM producto_publicaciones WHERE JSON_SEARCH(datos,'one',?) IS NOT NULL UNION ALL SELECT 1 FROM oferta_personalizaciones WHERE campo='img' AND JSON_SEARCH(valor,'one',?) IS NOT NULL LIMIT 1");
                 $uso->execute(['%'.$nombre,'%'.$nombre,'%'.$nombre]);if($uso->get_result()->fetch_row())return;
+                $hist=$db->prepare("SELECT 1 FROM producto_publicaciones WHERE JSON_SEARCH(impacto,'one',?) IS NOT NULL UNION ALL SELECT 1 FROM producto_cambios_locales WHERE JSON_SEARCH(datos,'one',?) IS NOT NULL LIMIT 1");$hist->execute(['%'.$nombre,'%'.$nombre]);if($hist->get_result()->fetch_row())return;
                 $stmt=$db->prepare("SELECT 1 FROM productos WHERE SUBSTRING_INDEX(img,'/',-1)=? UNION ALL SELECT 1 FROM categorias WHERE SUBSTRING_INDEX(img,'/',-1)=? LIMIT 1");
                 $stmt->execute([$nombre,$nombre]);
                 $referenciada=(bool)$stmt->get_result()->fetch_row();

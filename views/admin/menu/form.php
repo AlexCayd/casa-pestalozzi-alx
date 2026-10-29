@@ -288,7 +288,8 @@
         <div class="admin-form-grid__actions">
             <?php if ($menuPuedeEditar && (!$identidadMaestra || $identidadEditable)) : ?><button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button><?php endif; ?>
             <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">Cancelar</a>
-            <?php if (!$esNuevo && !$identidadMaestra && $menuRecetas) : ?>
+            <?php if($casaPolitica&&!empty($menuRecetaCasa)): ?><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase,ENT_QUOTES) ?>/casa-receta?id=<?= (int)$platillo->id ?>"><?= ($casaLocales['receta']??'')==='adaptada'?'Receta adaptada':($casaPolitica['receta_version_id']?'Usando receta estándar':'Sin receta') ?></a>
+            <?php elseif (!$esNuevo && !$identidadMaestra && $menuRecetas) : ?>
                 <a class="admin-btn admin-btn--secondary" href="/admin/recetas/editar?id=<?php echo (int) $platillo->id; ?>">Editar receta</a>
             <?php endif; ?>
         </div>

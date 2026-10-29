@@ -25,3 +25,17 @@ function m12Pruebas(callable $pruebas): void {
         $db->close();if(session_status()===PHP_SESSION_ACTIVE)session_destroy();
     }
 }
+function m12Carrera(mysqli $db,string $accion,array $args): array {
+    $base=$db->query('SELECT DATABASE()')->fetch_row()[0];$token=$db->query('SELECT token FROM _cp_multinegocio_owner')->fetch_row()[0];$jobs=[];$out=[];
+    try{
+        for($i=0;$i<2;$i++){
+            $proc=proc_open([PHP_BINARY,__DIR__.'/worker-m12.php'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,dirname(__DIR__,2));if(!is_resource($proc))throw new RuntimeException('No se inició el worker M1.2.');
+            $a=$args;if($accion==='receta')$a[3].='_'.$i;
+            fwrite($pipes[0],json_encode(['base'=>$base,'token'=>$token,'actor'=>$_SESSION['id'],'accion'=>$accion,'args'=>$a],JSON_THROW_ON_ERROR)."\n");fflush($pipes[0]);
+            if(trim((string)fgets($pipes[1]))!=='READY')throw new RuntimeException('Worker M1.2 no listo.');$jobs[]=[$proc,$pipes];
+        }
+        foreach($jobs as [$proc,$pipes]){fwrite($pipes[0],"GO\n");fflush($pipes[0]);}
+        foreach($jobs as [$proc,$pipes]){$json=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);foreach($pipes as $pipe)fclose($pipe);$code=proc_close($proc);if($code!==0)throw new RuntimeException('Worker M1.2 falló: '.substr($err,0,200));$out[]=json_decode($json,true,512,JSON_THROW_ON_ERROR);}
+        $jobs=[];return $out;
+    }finally{foreach($jobs as [$proc,$pipes]){if(is_resource($proc))proc_terminate($proc);foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);if(is_resource($proc))proc_close($proc);}}
+}
