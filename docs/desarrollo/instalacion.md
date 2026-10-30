@@ -200,3 +200,27 @@ No copiar INSERTs de revisiones anteriores.
 
 Los resultados y conteos de una ejecución se registran fuera de la documentación
 operativa; verificar el DML de la revisión elegida con run-instalacion-3e.php.
+
+## Actualización aditiva M2
+
+Para una instalación existente en M1.2, aplicar
+`database/actualizaciones/m2-articulos.sql` antes de desplegar los consumidores M2.
+El bloque equivalente forma parte de `database/ddl.sql` para instalaciones nuevas.
+No ejecutar el instalador de desarrollo sobre la base operativa. El SQL es
+repetible, añade tablas/triggers/columnas con guardas y no pobla recetas, capacidades,
+productos ni saldos. No concede permisos ni deduce asociaciones por nombre.
+
+Antes del despliegue operativo, obtener respaldo consistente y comprobar su
+restauración en otro destino. Ensayar allí la actualización, conteos/hashes de
+productos, ofertas, publicaciones y tickets, igualdad de saldo/ledger e imágenes.
+MySQL confirma DDL fuera de una transacción: ante fallo no usar un down que borre
+versiones; recuperar desde el respaldo en destino verificado y revisar el punto
+de corte. Esta entrega ensayó instalación nueva y actualización repetida solo en
+bases aleatorias propias. No aplicó SQL ni certificó restauración de la base activa.
+
+Ejecutar `composer dump-autoload` y `npm run build` en el checkout de despliegue.
+No hay nuevas dependencias. Asociar las preparaciones antiguas manualmente desde
+Artículos antes de retirar sus adaptadores; mantener sus referencias históricas.
+Las capacidades de producción previa requieren existencias registradas por un
+proceso físico autorizado: publicar recetas no las genera. Ver
+[Arquitectura](../arquitectura.md).

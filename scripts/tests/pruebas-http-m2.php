@@ -1,0 +1,53 @@
+<?php
+declare(strict_types=1);
+/** Recorrido HTTP M2 sobre el harness 3E identificado; nunca la base configurada. */
+if(PHP_SAPI!=='cli')exit(1);
+$root=dirname(__DIR__,2);require $root.'/vendor/autoload.php';require __DIR__.'/cliente-http-3e.php';
+Dotenv\Dotenv::createImmutable($root.'/includes')->safeLoad();
+if(count($argv)!==3||$argv[1]!=='--fixture')throw new RuntimeException('Uso: --fixture ARCHIVO_PRIVADO_DEL_HARNESS.');
+$f=json_decode((string)file_get_contents($argv[2]),true,512,JSON_THROW_ON_ERROR);$base=$f['base_temporal']??'';
+if(($f['url']??'')!=='http://127.0.0.1:8094/'||!preg_match('/^cp_multinegocio_test_[a-f0-9]{20}$/D',$base)||$base===($_ENV['DB_NAME']??''))throw new RuntimeException('El harness no está identificado.');
+mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
+$db=new mysqli($_ENV['DB_HOST'],$_ENV['DB_USER'],$_ENV['DB_PASS'],$base,(int)($_ENV['DB_PORT']??3306));$db->set_charset('utf8mb4');
+$mark=$db->query('SELECT entorno,propietario_token FROM instalacion_desarrollo WHERE id=1')->fetch_assoc();$owner=$db->query('SELECT token FROM _cp_multinegocio_owner')->fetch_row()[0];
+if(($mark['entorno']??'')!=='test'||!hash_equals((string)$mark['propietario_token'],(string)$owner))throw new RuntimeException('La base no pertenece al harness.');
+use Services\Inventory\Articulos as A;
+use Services\Security\ContextoNegocio as C;
+$n=0;$clients=[];$a=static function(bool $ok,string $m)use(&$n){if(!$ok)throw new RuntimeException($m);$n++;};
+$valid=static fn($r)=>$r['status']===200&&!preg_match('/Fatal error|Warning:|Uncaught /',$r['body']);
+try{
+    Model\ActiveRecord::setDB($db);session_start();$actor=(int)$db->query("SELECT id FROM usuarios WHERE username='admin_demo'")->fetch_row()[0];$_SESSION=['id'=>$actor,'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];
+    $u=C::unidad('panaderia');$motor=new Services\Inventory\Almacenes($db,$actor,'contrasena');
+    $r=$motor->crearArticulo('global',['nombre'=>'Artículo de recorrido HTTP M2 '.bin2hex(random_bytes(3)),'unidad'=>'pza','costo'=>'0.0000']);$a(!empty($r['ok']),'Preparar identidad única');$id=(int)$r['articulo_id'];
+    $r=A::configurar('panaderia',$id,['componente'=>1,'elaborable'=>1,'almacenable'=>1,'produccion_previa'=>1],0);$a(!empty($r['ok']),'Preparar capacidades sin saldos');
+    $db->query("INSERT INTO productos(nombre) VALUES('Presentaciones HTTP M2')");$producto=(int)$db->insert_id;$o=$db->execute_query('SELECT categoria_id,area_id FROM ofertas_producto WHERE unidad_id=? LIMIT 1',[$u])->fetch_assoc();
+    $db->execute_query('INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo) VALUES(?,?,?,?,?,0)',[$producto,$u,$o['categoria_id'],'50.00',$o['area_id']]);$oferta=(int)$db->insert_id;
+    $lector=$f['cuentas']['lectura_panaderia'];$db->execute_query('INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE nivel=VALUES(nivel)',[$lector['id'],$u,'productos','ver']);
+    $huellaSaldo=static fn()=>hash('sha256',json_encode($db->query('SELECT * FROM almacen_articulos ORDER BY almacen_id,articulo_id')->fetch_all(MYSQLI_ASSOC)));$saldoAntes=$huellaSaldo();$movimientos=(int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0];
+    session_destroy();
+    $admin=new ClienteInstalacion3E();$clients[]=$admin;$admin->login(['username'=>'admin_demo','password'=>$_ENV['DEV_SUPERADMIN_PASSWORD']??getenv('DEV_SUPERADMIN_PASSWORD')]);
+    $path='/admin/panaderia/recetas/articulos/editar?id='.$id;
+    foreach(['/admin/recetas/articulos','/admin/panaderia/recetas/articulos','/admin/global/recetas/articulos',$path,'/admin/global/productos/presentaciones?id=1201','/admin/panaderia/menu/variantes?id=1003'] as $p)$a($valid($admin->request('GET',$p)),'Lectura funcional '.$p);
+    $a($admin->request('GET','/admin/panaderia/recetas/articulos/editar?id[]=1')['status']===400,'ID estructurado rechazado');
+    $a($admin->request('GET','/admin/panaderia/recetas/articulos/editar?id=999999')['status']===404,'Artículo inexistente sin detalle interno');
+    $a($admin->request('GET','/admin/panaderia/menu/presentaciones?id=1001')['status']===404,'Oferta ajena rechazada');
+    $page=$admin->request('GET',$path);$csrf=ClienteInstalacion3E::token($page['body'],'m2_csrf');$config=ClienteInstalacion3E::form($page['body'],'configurar');$bad=$config;$bad['m2_csrf']='invalido';
+    $a($admin->request('POST',$path,$bad)['status']===403,'CSRF contextual inválido rechazado');
+    $r=$admin->request('POST',$path,$config);$a($r['status']===303,'Guardar capacidades con PRG');$page=$admin->request('GET',$path);$config=ClienteInstalacion3E::form($page['body'],'configurar');
+    $data=['m2_csrf'=>$csrf,'revision'=>$config['revision'],'clave'=>bin2hex(random_bytes(20)),'accion'=>'prever','rendimiento'=>'2.000','unidad'=>'pza','procedencia'=>'Recorrido HTTP aislado','componentes'=>[['articulo_id'=>1001,'cantidad'=>'10.000','unidad'=>'g','modalidad'=>'almacenado','merma'=>'0.000']]];
+    $preview=$admin->request('POST',$path,$data);$a($valid($preview)&&str_contains($preview['body'],'Previsión de consumo'),'Previsión sin movimiento desde formulario');
+    $data['huella']=ClienteInstalacion3E::token($preview['body'],'huella');$data['accion']='publicar';$data['confirmar']='1';$r=$admin->request('POST',$path,$data);$a($r['status']===303,'Publicar elaboración por HTTP');
+    $a($admin->request('POST',$path,$data)['status']===303,'Doble envío de publicación idempotente');
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM articulo_recetas WHERE articulo_id=?',[$id])->fetch_row()[0]===1,'Una sola versión tras replay');
+    $data['clave']=bin2hex(random_bytes(20));$a($admin->request('POST',$path,$data)['status']===422,'Revisión obsoleta no publica otra versión');
+    $pathP='/admin/panaderia/menu/presentaciones?id='.$oferta;$page=$admin->request('GET',$pathP);$pd=['m2_csrf'=>ClienteInstalacion3E::token($page['body'],'m2_csrf'),'revision'=>'0','clave'=>bin2hex(random_bytes(20)),'accion'=>'prever','presentacion_clave'=>'pieza','nombre'=>'Pieza terminada','precio'=>'50.00','componentes'=>[['articulo_id'=>$id,'cantidad'=>'1.000','unidad'=>'pza','modalidad'=>'almacenado']]];
+    $pr=$admin->request('POST',$pathP,$pd);$a($valid($pr)&&str_contains($pr['body'],'Desconocido'),'Costo desconocido explícito en previsión');$pd['accion']='publicar';$pd['confirmar']='1';$r=$admin->request('POST',$pathP,$pd);$a($r['status']===303,'Guardar presentación fuera de venta');
+    $pd['revision']='1';$pd['activo']='1';$pd['clave']=bin2hex(random_bytes(20));$a($admin->request('POST',$pathP,$pd)['status']===422,'No habilitar presentación sin origen y producción previa');
+    $consulta=new ClienteInstalacion3E();$clients[]=$consulta;$consulta->login($lector);$read=$consulta->request('GET',$path);$a($valid($read)&&str_contains($read['body'],'Solo consulta')&&!str_contains($read['body'],'>Guardar capacidades<'),'Lectura sin acciones de escritura');
+    $readConfig=ClienteInstalacion3E::form($read['body'],'configurar');$a(in_array($consulta->request('POST',$path,$readConfig)['status'],[403,303],true),'Solo consulta no guarda por POST');
+    $a(in_array($consulta->request('GET','/admin/recetas/articulos/editar?id='.$id)['status'],[403,303],true),'Cuenta Panadería no accede al contexto Restaurante');
+    $db->execute_query('DELETE FROM usuario_unidad_permisos WHERE usuario_id=? AND unidad_id=? AND modulo=?',[$lector['id'],$u,'productos']);$a(in_array($consulta->request('GET',$path)['status'],[403,303],true),'Revocación en sesión abierta efectiva');
+    $a($saldoAntes===$huellaSaldo()&&(int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0]===$movimientos,'El recorrido administrativo no crea saldos ni movimientos');
+    $a((int)$db->query('SELECT COUNT(*) FROM productos WHERE id<1000')->fetch_row()[0]===112,'Menú original preservado');
+    echo "HTTP M2: {$n} comprobaciones OK.\n";
+}finally{foreach($clients as $c)$c->close();if(session_status()===PHP_SESSION_ACTIVE)session_destroy();$db->close();}

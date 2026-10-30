@@ -1,12 +1,12 @@
 # Backlog posterior a 3E
 
-## Estado posterior a M1.2
+## Estado posterior a M2
 
 Productos de la casa, políticas por campo y recetas estándar versionadas quedan
-implementados. M2 debe completar la experiencia integral de Recetas de Panadería
-sobre estas mismas recetas operativas; no requiere otra reestructuración de
-identidades/versiones. Siguen pendientes POS de Panadería, producción por lotes,
-subpreparaciones estándar como entidad versionada propia y módulos consolidados.
+implementados. M2 incorpora artículos unificados, elaboraciones anidadas e
+inmutables, presentaciones y variantes administrativas de Panadería, con un único
+resolvedor y snapshots históricos. Siguen pendientes POS de Panadería (M3),
+producción física por lotes (M2.5) y módulos consolidados.
 Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 
@@ -60,7 +60,9 @@ siguen pendientes; no habilitar sus acciones desde Menú.
 ## Funcionalidades nuevas pendientes
 
 M1.1 entrega PDF privado Panadería y biblioteca Global autorizada. La publicación
-pública Panadería, sus recetas completas, POS y producción siguen pendientes.
+pública Panadería, POS y producción física siguen pendientes. M2 completa sus
+recetas administrativas; la revisión culinaria de datos de cada negocio sigue
+siendo una tarea operativa previa a su uso real.
 Validación histórica pendiente: adaptar `run-contextos-isolated.php` al esquema de
 permisos directos; revisar expectativa temporal de `run-pos-api-contrato-db.php`;
 actualizar fixtures de impresión POS (`unidad_id`) y llevar múltiple (actor 0).
@@ -69,14 +71,14 @@ Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
 | Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
-| Panadería | M2: recetas administrativas completas | Menú M1 completado; reutilizar recetas versionadas sobre ofertas propias |
+| Artículos | Retiro progresivo de adaptadores anteriores | Asociaciones explícitas verificadas, cero escritores anteriores y suites de regresión antes del retiro; conservar tablas históricas |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
 | Panadería | Tickets, pagos y finanzas | Snapshots, idempotencia, compensaciones e informes propios |
 | Global | Dashboards consolidados | Lectura autorizada, sin ventas Global ni doble conteo |
 | Global | Tickets y finanzas consolidados | Contratos de propietario y agregación; no prometidos operativos |
 | Global | Asistente organizacional | Definir/validar primero asistentes locales; herramientas y SQL con ámbito y permisos de servidor |
 | Inventario | Producción y transformación de ingredientes | Definir entradas/salidas, rendimiento, costo, merma y trazabilidad sin duplicar saldos |
-| Inventario | Botellas abiertas/cerradas y variantes complejas | Definir alcance y aceptación; no inferir soporte desde entidades existentes |
+| Inventario | M2.5: ejecución física de apertura y transformación | M2 ya modela botella sellada, vino abierto, copa y variantes; registrar entradas/salidas, rendimiento real y costo sin apertura automática al vender |
 | Nuevos dominios | Catering | Requiere alcance, entidades, reglas y aceptación propios |
 | Comercial | Devoluciones adicionales | Definir cancelación/devolución de venta cobrada de Panadería; no ampliar la cancelación vigente por inferencia |
 | Usuarios | Plantillas futuras | Requieren decisión arquitectónica explícita; hoy solo permisos directos |

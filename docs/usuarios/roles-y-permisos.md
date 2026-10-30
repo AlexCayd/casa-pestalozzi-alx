@@ -12,7 +12,8 @@ alterar las reglas oficiales. Los permisos se recargan bajo bloqueo antes del
 commit. El superadministrador conserva su excepción organizacional.
 
 La adaptación de recetas de casa dentro de Menú usa el permiso ya existente de
-Recetas (`productos`), sin habilitar el módulo completo de Panadería ni su POS.
+Recetas (`productos`), y M2 habilita también artículos y elaboraciones administrativas de Panadería.
+Su POS permanece fuera del alcance.
 
 
 El nombre del archivo se conserva para no romper referencias históricas. La
@@ -120,3 +121,23 @@ Ver [pruebas de aceptación](../desarrollo/pruebas.md).
 - [Contrato técnico 3B](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Instalación y bootstrap](../desarrollo/instalacion.md).
 - [Índice documental](../desarrollo/clasificacion-documental.md).
+
+## Artículos, presentaciones y variantes M2
+
+`productos/ver` permite consultar artículos, versiones y previsiones del contexto.
+`productos/editar` permite configurar capacidades locales y publicar elaboraciones;
+no modifica saldos, precio comercial ni políticas. Publicar elaboraciones Global
+requiere además `comercial.identidad.editar`; configurar capacidades Global exige
+Inventario y `catalogo.editar`. La ficha muestra únicamente acciones autorizadas.
+
+Presentaciones y ajustes de composición requieren `menu/editar` y
+`productos/editar` del negocio y la política M1.2 aplicable. Los deltas de precio
+revalidan la política de precio separadamente. Una opción nominal sin ajustes no
+concede permisos de receta ni se bloquea por una receta protegida. Publicar un
+estándar revalida destinos y facultad Global en servidor bajo bloqueo.
+
+Elegir orígenes operativos conserva `productos/editar`, sin autorizar movimientos
+ni nuevas asociaciones físicas. Los orígenes oficiales mantienen el requisito
+adicional de Inventario del coordinador M1.2. Revocaciones en sesiones abiertas,
+IDs de negocio/oferta manipulados y CSRF se comprueban en servidor, incluyendo
+la API contextual de variantes de Panadería. No se conceden permisos por migración.

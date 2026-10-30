@@ -251,7 +251,7 @@ instalación existente, el despliegue aditivo está en
 usuarios ni requiere migrar datos del menú. Las pruebas nunca lo aplican a la
 base activa. M2 y M3 permanecen fuera de esta entrega.
 
-## 15. M2: contrato de evolución de artículos (previo al esquema)
+## 15. M2: arquitectura unificada de artículos
 
 Base aprobada disponible localmente: `baf089b` (`main` y `origin/main`), integración
 M1.2. Trabajo en `codex/m2-articulos-recetas-unificados`, worktree propio bajo
@@ -367,5 +367,38 @@ solo resuelve esa previsión y no valoriza movimientos de transformación.
    transaccional: recuperación es restaurar respaldo en otro destino verificado,
    nunca ejecutar un down que pierda versiones o movimientos.
 
-Esta sección es el contrato previo, no una declaración de aceptación. El cierre
-y las limitaciones verificadas se registran en la guía de pruebas vigente.
+Este contrato se implementa mediante `Articulos`, `ResolucionArticulos` y
+`PresentacionesOferta`. El cierre, las pruebas y las limitaciones verificadas se
+registran en [Pruebas](desarrollo/pruebas.md#cierre-m2).
+
+### Persistencia final y transición M2
+
+El único maestro operativo continúa físicamente en `ingredientes`: sus claves son
+las de Almacenes y proveedores. `articulo_configuraciones` añade capacidades por
+unidad, incluida `produccion_previa`, sin poblarlas por deducción. La capacidad de
+elaborar no selecciona automáticamente una receta ni un modo de consumo.
+`articulo_recetas` y sus componentes contienen las versiones cerradas; la FK de
+cada componente apunta a una versión concreta local o Global. Global no puede
+referenciar una receta privada. Los triggers impiden mutar versiones publicadas.
+
+`oferta_presentaciones` conserva la unicidad comercial producto/negocio;
+`presentacion_versiones/componentes` permiten botella, copa o montajes mixtos.
+`presentacion_estandares` conserva la publicación oficial y su configuración de
+referencia para aplicar las políticas por campo M1.2. La publicación oficial
+bloquea el producto y confirma todos sus destinos en una transacción. No hay
+una ruta local para sobrepasar una composición o precio protegidos.
+
+`articulo_correspondencias` enlaza preparaciones antiguas mediante selección
+manual de IDs; congela su edición anterior. `receta_componentes_articulos` y
+`receta_casa_composiciones` fijan versiones nativas en contratos anteriores.
+Las preparaciones aún pendientes se adaptan en memoria al resolvedor único;
+no se generan saldos ni otro catálogo. El alta de nuevas preparaciones conduce al
+catálogo común. No se borran recetas antiguas referenciadas por tickets.
+
+`ticket_item_resoluciones` conserva composición ejecutada, variantes, etapas y
+huella semántica SHA256. `articulo_comandos` registra idempotencia por unidad.
+La comanda registra snapshot y movimientos en la misma transacción; el reintento
+lee ese hecho y la cancelación compensa el ledger original una sola vez. Las
+cantidades nativas se exigen exactas a milésimas; la frontera heredada conserva
+su redondeo half-up para no cambiar ventas existentes. Los costos son decimales o
+`null`; la valorización física sigue perteneciendo al motor de Almacenes.

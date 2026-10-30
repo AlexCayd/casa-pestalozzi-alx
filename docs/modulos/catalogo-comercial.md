@@ -1,5 +1,9 @@
 # Catálogo comercial y Menú
 
+Estado actual: [Presentaciones y variantes M2](#presentaciones-y-variantes-m2).
+Las secciones M1 y M1.2 conservan la evidencia histórica de sus entregas.
+
+
 ## Estado vigente M1.2
 
 Productos de la casa conserva `/admin/global/productos`: búsqueda, filtros por
@@ -387,3 +391,42 @@ publicación pública y producción de Panadería pendientes del contrato corres
 los consumidores mononegocio del histórico conservan su API. En multinegocio,
 alta/asociación/cambio de precio y su histórico se confirman en una transacción.
 No se refactorizan consumidores ajenos a M1.
+
+## Presentaciones y variantes M2
+
+Este apartado actualiza las restricciones de las entregas M1/M1.2 descritas arriba:
+Panadería ya dispone de artículos, elaboraciones y variantes administrativas;
+continúan pendientes su carta pública, POS, pagos y producción física.
+
+Una identidad de `productos` mantiene una oferta por negocio. Sus presentaciones
+son hijas de esa oferta; cada una tiene referencia permanente, nombre, precio y
+composición versionada. Botella y copa no exigen dos productos ni dos ofertas del
+mismo producto/negocio. Las relaciones usan IDs explícitos, nunca nombres.
+
+Rutas locales: `/admin/menu/presentaciones?id=<oferta>` y
+`/admin/panaderia/menu/presentaciones?id=<oferta>`. Guardar fuera de venta,
+asignar orígenes propios y habilitar después evita publicar una venta incompleta.
+La previsión distingue servicio/producción prevista y costo desconocido.
+Global usa `/admin/global/productos/presentaciones?id=<producto>`: revisa todos
+los destinos y publica atómicamente con confirmación y huella. Las reglas M1.2
+permiten conservar personalizaciones de composición, precio y disponibilidad
+cuando la política lo autoriza; cambiar la receta de un artículo no cambia una
+versión de presentación ya fijada.
+
+Las variantes conservan grupos, opciones, selección obligatoria, predeterminadas,
+orden, deltas de precio y IDs. Pueden agregar, quitar o sustituir artículos y
+preparaciones visibles, con cantidades decimales y versión de destino explícita.
+Solo se expanden ramas virtuales alcanzables. No se puede retirar harina de una
+pieza ya producida; una variante de servicio agrega crema o cambia un componente
+visible. Los cambios de precio y composición se autorizan por separado. Nombres y
+opciones sin ajustes siguen permitidos cuando las políticas no los restringen.
+El editor existente se comparte con `/admin/panaderia/menu/variantes?id=<oferta>`.
+
+Carta Restaurante, PDF y POS leen la misma proyección de nombres/precios/IDs de
+presentaciones. Si una oferta tiene presentaciones configuradas, la venta exige
+una presentación vigente y autorizada; no permite eludirla enviando solo la oferta.
+`presentacion_id` se añade al carrito y a la comanda; las líneas antiguas sin ese
+campo conservan su huella de idempotencia. El snapshot comercial y operativo
+impide que una nueva versión cambie las ventas anteriores. Ver
+[operación](../operacion.md#comandas-y-presentaciones-m2) y
+[pruebas](../desarrollo/pruebas.md#cierre-m2).

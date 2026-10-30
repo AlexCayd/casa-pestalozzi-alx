@@ -46,8 +46,8 @@ El POS Restaurante continúa tomando `ticket_items.receta_id` al enviar la coman
 el consumo y las compensaciones usan esa versión y los movimientos congelados.
 Las nuevas recetas no reescriben snapshots ni componentes históricos. Las variantes
 se comprueban contra los ingredientes y cantidades nuevas y sus orígenes locales.
-No se habilita POS ni producción por lotes de Panadería. El editor de adaptación
-de un producto estándar dentro de Menú no libera el módulo completo de Recetas M2.
+No se habilita POS ni producción por lotes de Panadería. M2 habilita el catálogo y las elaboraciones administrativas de Panadería,
+conservando estos contratos de oferta como adaptadores.
 
 Recetario: `/admin/global/productos/recetario`, con búsqueda y paginación.
 Rutas: `/admin/global/productos/receta?id=…`,
@@ -56,3 +56,40 @@ El identificador local es de oferta; el Global identifica el producto. Los formu
 comparten el parcial de ingredientes, estilos del Menú y confirmación del panel.
 Pruebas independientes: `run-recetas-casa-m12.php`; incluye consumo real desde Cocina,
 publicación concurrente, receta histórica, inmutabilidad SQL y snapshot de comanda.
+
+## Artículos y elaboraciones M2
+
+El catálogo compartido se abre desde `/admin/recetas/articulos`,
+`/admin/panaderia/recetas/articulos` o `/admin/global/recetas/articulos`.
+La ficha `/editar?id=…` identifica un artículo operativo, no un producto de venta.
+El alta maestra sigue en Almacenes con sus permisos existentes. En cada ficha se
+configuran capacidades combinables, se consulta el historial, se prepara una
+composición y se revisa su previsión antes de confirmar la publicación inmutable.
+
+Cada componente exige cantidad/unidad y modalidad. `almacenado` descuenta el
+artículo y detiene el desglose. `desglosar` referencia una versión publicada y
+escala por su rendimiento y merma. Puede contener otros artículos elaborados:
+no existen un motor para ingredientes y otro para subpreparaciones. Se rechazan
+ciclos por artículo, dimensiones incompatibles, versiones ajenas, rendimientos
+inválidos y cantidades que no puedan expresarse en la precisión física.
+
+Marcar «Se elabora antes de vender» distingue planificación y servicio: la venta
+requiere existencias previas del artículo almacenado incluso si el almacén
+permite negativos. Publicar la elaboración no registra producción. Una botella
+sellada puede producir conceptualmente 750 ml de vino abierto; la copa consume
+150 ml abiertos. La apertura física se reserva para M2.5.
+
+Las preparaciones antiguas se asocian manualmente al artículo correspondiente en
+el catálogo, con confirmación. Se exige la misma unidad para conservar sus
+cantidades, se guarda correspondencia única y se fijan versiones de los usos
+vigentes. Después se editan desde su artículo; los históricos siguen disponibles.
+No se deduplican nombres ni se copian automáticamente productos comerciales.
+
+Las recetas de la casa pueden fijar elaboraciones Global. Publicar, adaptar y
+volver al estándar conservan revisión, huella, confirmación, permisos y rollback
+de todos los negocios. Los orígenes se validan sobre los artículos físicos
+resultantes, no sobre una preparación virtual intermedia.
+
+Ver [arquitectura](../arquitectura.md),
+[catálogo](catalogo-comercial.md#presentaciones-y-variantes-m2) y
+[pruebas](../desarrollo/pruebas.md#cierre-m2).

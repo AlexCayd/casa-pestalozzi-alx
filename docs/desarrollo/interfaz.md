@@ -411,3 +411,26 @@ compartido hace visible su ranura personalizada, enfoca el campo y habilita la
 acción solo al coincidir el nombre. Se verificó en navegador la cancelación y
 el nombre requerido, además de temas, selector, escritorio y móvil a 390 px.
 Ver evidencia y límites en el [contrato del módulo](../modulos/catalogo-comercial.md).
+
+## Artículos y composiciones M2
+
+El catálogo y las fichas se comparten entre contextos. Reutilizan sidebar, topbar,
+temas, paneles, botones, formularios, tablas desplazables y selector del admin.
+No se sustituye el recetario existente de Restaurante. Los enlaces conectan
+Almacenes, artículos, recetas, presentaciones y variantes sin duplicar fichas por
+negocio. Panadería informa que su configuración no habilita POS ni producción.
+
+El parcial `_articulo-componentes.php` sirve para elaboraciones y presentaciones;
+los índices de filas no se reutilizan después de quitar/agregar. Artículo/unidad
+se sincronizan y solo se ofrecen versiones del artículo seleccionado. El modo
+desde existencias deshabilita el selector nativo de versión, incluido su envío.
+La última fila se conserva, las altas reciben foco y el estado anuncia cambios.
+El formulario bloquea doble envío y conserva errores, confirmación y revisión.
+La previsualización reutiliza `_articulo-prevision.php`, con costo desconocido
+explícito y sin simular movimientos. La consulta deja controles de escritura
+inactivos; el servidor mantiene las mismas restricciones.
+
+Las pruebas reales y los archivos de evidencia están en
+[Pruebas M2](pruebas.md#cierre-m2): escritorio 1280, tableta 768 y móvil 390;
+claro/oscuro; teclado; publicación de versión y variante; comparación con la
+pantalla conservada de Recetas Restaurante. Se mantuvieron sus tokens y jerarquía.

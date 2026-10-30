@@ -152,3 +152,29 @@ históricos. Completar con build, `npm run test:php`, `npm run test:js` y prueba
 de contextos. Revisar ambos temas, escritorio, móvil, teclado, selección pendiente,
 cero, negativos, identidades sin asociación y solo lectura. No incorporar rutas
 personales de capturas al repositorio.
+
+## Frontera con artículos M2
+
+`ingredientes.id` sigue siendo la clave de cada artículo físico y del ledger.
+Las capacidades y elaboraciones no crean asociaciones, entradas, saldos ni
+transferencias. Configurar una receta no convierte ingredientes en producto
+terminado. Los orígenes de consumo continúan siendo explícitos y del mismo
+negocio, sin escoger un almacén alternativo. Una preparación virtual exige los
+orígenes de sus hojas; una almacenada exige el de la preparación.
+
+Elegir un origen en el editor operativo conserva el permiso `productos/editar`;
+no permite dar de alta asociaciones ni modificar existencias. El coordinador
+Global de recetas conserva su validación adicional de Inventario para fijar
+orígenes oficiales. El alta de artículos, costo, unidad y operaciones físicas
+mantiene sus permisos y facultades existentes. La unidad maestra no puede
+cambiar cuando existan composiciones históricas que dependan de ella.
+
+Los artículos de producción previa se consumen desde existencias disponibles:
+el POS no fabrica ni permite reemplazar ese requisito con saldo negativo.
+El resto conserva la política del almacén. El snapshot M2 no sustituye el ledger:
+la comanda y su inventario se confirman juntos; las compensaciones vuelven a las
+cantidades y costos de los movimientos originales. `null` expresa costo
+insuficientemente conocido y no se transforma silenciosamente en cero.
+
+M2.5 deberá registrar entradas/salidas de transformación, lotes, rendimiento real,
+mermas y costos congelados. M2 ofrece composición y previsión, sin esos movimientos.
