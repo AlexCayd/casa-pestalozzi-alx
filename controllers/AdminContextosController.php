@@ -32,6 +32,7 @@ final class AdminContextosController
             $entradas=[];
             if (Auth::puede('inventario','ver',$contexto)) $entradas['inventario']=['title'=>'Almacenes','path'=>$base.'/almacenes'];
             if (Auth::puede('menu','ver',$contexto)) $entradas['menu']=['title'=>$contexto==='global'?'Productos de la casa':'Menú','path'=>$base.($contexto==='global'?'/productos':'/menu')];
+            if (Auth::puede('productos','ver',$contexto)) $entradas['productos']=['title'=>'Artículos y recetas','path'=>$base.'/recetas/articulos'];
             if ($contexto==='global' && Auth::puede('menu','ver',$contexto)) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];
             if (Auth::puede('users','ver',$contexto)) $entradas['users']=['title'=>'Usuarios','path'=>$base.'/usuarios'];
             return $entradas;

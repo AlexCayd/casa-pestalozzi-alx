@@ -54,7 +54,6 @@ final class AlmacenesConsumo
         $db = ActiveRecord::getDB();
         return ContextoNegocio::en($ctx, static fn(): array => ContextoNegocio::transaccion(static function () use ($db, $ctx, $unidadId, $ofertaId, $asignacion): array {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-            ContextoNegocio::exigir('inventario', 'editar', $ctx, true);
             $oferta = $db->prepare('SELECT id FROM ofertas_producto WHERE id=? AND unidad_id=? FOR UPDATE');
             $oferta->execute([$ofertaId, $unidadId]);
             if (!$oferta->get_result()->fetch_row()) throw new InventarioError('OFERTA_DENEGADA', 'La oferta no pertenece al negocio activo.');

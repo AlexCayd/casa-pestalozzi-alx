@@ -30,6 +30,7 @@ $datosJson = $editorVariantes !== null
 <section
     class="admin-variantes admin-page"
     data-variantes-editor
+    data-variantes-url="<?= $menuContexto==='panaderia'?'/admin/panaderia/api/menu/variantes':'/admin/api/menu/variantes' ?>"
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
     <header class="admin-page__header">
@@ -37,7 +38,7 @@ $datosJson = $editorVariantes !== null
             <span class="admin-page__eyebrow">Menú · Variantes</span>
             <h1 class="admin-page__title"><?php echo $h($platillo->nombre ?? ''); ?></h1>
             <p class="admin-page__subtitle">
-                Las opciones que el mesero elige al tomar la orden. Cada una puede mover el precio y ajustar la receta, y el inventario se descuenta con la receta que resulta.
+                <?= $menuContexto==='panaderia'?'Configura opciones, precios y ajustes de servicio. La venta en el POS de Panadería se habilitará en una etapa posterior.':'Las opciones que el mesero elige al tomar la orden. Cada una puede mover el precio y ajustar la receta, y el inventario se descuenta con la receta que resulta.' ?>
             </p>
             <p class="admin-variantes__ficha">
                 <span>Precio base <strong class="admin-num">$<?php echo number_format($precioBase, 2); ?></strong></span>
@@ -52,8 +53,8 @@ $datosJson = $editorVariantes !== null
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
                 Menú
             </a>
-            <a class="admin-btn admin-btn--ghost" href="/admin/recetas/editar?id=<?php echo (int) ($platillo->id ?? 0); ?>">
-                Receta base
+            <a class="admin-btn admin-btn--ghost" href="<?= $menuContexto==='panaderia'?'/admin/panaderia/menu/presentaciones':'/admin/recetas/editar' ?>?id=<?php echo (int) ($platillo->id ?? 0); ?>">
+                <?= $menuContexto==='panaderia'?'Presentaciones del producto':'Receta base' ?>
             </a>
         </div>
     </header>
@@ -70,7 +71,7 @@ $datosJson = $editorVariantes !== null
         <div class="admin-variantes__errores" data-variantes-errores role="alert" hidden></div>
 
         <div class="admin-variantes__layout">
-            <div class="admin-variantes__main">
+            <fieldset class="admin-variantes__main m2-fieldset" <?= $menuPuedeEditar?'':'disabled' ?>>
                 <?php /* Sin aria-live: el editor se repinta entero en cada cambio de
                          estructura, y una región viva aquí le leería al lector de
                          pantalla todos los grupos cada vez. Lo que hay que anunciar
@@ -82,7 +83,7 @@ $datosJson = $editorVariantes !== null
                     <p class="admin-variantes__nuevo-texto">Empieza en blanco o desde una plantilla; después ajusta nombres, precios y receta.</p>
                     <div class="admin-variantes__plantillas" data-variantes-plantillas></div>
                 </section>
-            </div>
+            </fieldset>
 
             <?php /* data-scrollable: la columna tiene tope y scroll propio mientras va
                      pegada; motion.js sólo le cede la rueda frente a Lenis cuando
@@ -103,8 +104,8 @@ $datosJson = $editorVariantes !== null
         <div class="admin-variantes__barra" data-variantes-barra>
             <p class="admin-variantes__estado" data-variantes-estado aria-live="polite">Sin cambios</p>
             <div class="admin-variantes__barra-acciones">
-                <button type="button" class="admin-btn admin-btn--ghost" data-variantes-descartar disabled>Descartar</button>
-                <button type="button" class="admin-btn admin-btn--primary" data-variantes-guardar disabled>
+                <button type="button" class="admin-btn admin-btn--ghost" data-variantes-descartar disabled <?= $menuPuedeEditar?'':'hidden' ?>>Descartar</button>
+                <button type="button" class="admin-btn admin-btn--primary" data-variantes-guardar disabled <?= $menuPuedeEditar?'':'hidden' ?>>
                     Guardar variantes
                     <kbd class="admin-variantes__kbd" aria-hidden="true">Ctrl S</kbd>
                 </button>

@@ -142,6 +142,8 @@
                         ajustes: (o.ajustes || []).map(function (a) {
                             return {
                                 accion: a.accion,
+                                modalidad_destino: a.modalidad_destino || 'almacenado',
+                                receta_destino_id: a.receta_destino_id || null,
                                 tipo: a.tipo,
                                 ref_id: a.ref_id,
                                 cantidad: Number(a.cantidad) || 0,
@@ -164,18 +166,20 @@
                     return {
                         id: o.id || 0,
                         nombre: o.nombre.trim(),
-                        precio_delta: Number(o.precio_delta) || 0,
+                        precio_delta: String(o.precio_delta || '0'),
                         predeterminada: !!o.predeterminada,
                         activo: !!o.activo,
                         ajustes: o.ajustes.map(function (a) {
                             return {
                                 accion: a.accion,
+                                modalidad_destino: a.modalidad_destino || 'almacenado',
+                                receta_destino_id: a.receta_destino_id || null,
                                 tipo: a.tipo,
                                 ref_id: a.ref_id,
-                                cantidad: Number(a.cantidad) || 0,
+                                cantidad: String(a.cantidad || '0'),
                                 nuevo_tipo: a.accion === 'sustituir' ? a.nuevo_tipo : null,
                                 nuevo_ref_id: a.accion === 'sustituir' ? a.nuevo_ref_id : null,
-                                nueva_cantidad: a.accion === 'sustituir' ? (Number(a.nueva_cantidad) || 0) : null
+                                nueva_cantidad: a.accion === 'sustituir' ? String(a.nueva_cantidad || '0') : null
                             };
                         })
                     };
@@ -459,6 +463,15 @@
                 '<input type="number" inputmode="decimal" min="0" step="any" value="' + (a.nueva_cantidad || '') + '" data-campo-ajuste="nueva_cantidad" data-g="' + gi + '" data-o="' + oi + '" data-a="' + ai + '">' +
                 '<span class="admin-vajuste__unidad">' + esc(unidadDe(a.nuevo_tipo, a.nuevo_ref_id)) + '</span></label>';
         }
+        if (a.accion !== 'quitar') {
+            var destino = a.accion === 'sustituir' ? a.nuevo_ref_id : a.ref_id;
+            var versionOptions = '<option value="">Desde existencias del artículo</option>';
+            (datos.versiones_articulos || []).forEach(function (v) {
+                if (Number(v.articulo_id) !== Number(destino)) return;
+                versionOptions += '<option value="' + v.id + '"' + (Number(a.receta_destino_id) === Number(v.id) ? ' selected' : '') + '>' + esc(v.nombre + ' · v' + v.version + ' · ' + (v.slug === 'global' ? 'Casa' : v.slug)) + '</option>';
+            });
+            html += '<label class="admin-field">Consumo del artículo que entra<select data-m2-variante-version data-g="' + gi + '" data-o="' + oi + '" data-a="' + ai + '">' + versionOptions + '</select></label>';
+        }
         html += '</div><button type="button" class="admin-vajuste__borrar" data-borrar-ajuste data-g="' + gi + '" data-o="' + oi + '" data-a="' + ai + '" aria-label="Quitar este ajuste">' + icono('cerrar', 14) + '</button></li>';
         return html;
     }
@@ -482,7 +495,7 @@
             '<input type="text" maxlength="60" value="' + esc(o.nombre) + '" placeholder="Nombre de la opción" data-campo="nombre" data-g="' + gi + '" data-o="' + oi + '"></label>' +
             '<label class="admin-vopcion__precio"><span class="admin-vopcion__signo" aria-hidden="true">$</span>' +
             '<span class="admin-visually-hidden">Cambio de precio</span>' +
-            '<input type="number" inputmode="decimal" step="0.5" value="' + (o.precio_delta || 0) + '" data-campo="precio_delta" data-g="' + gi + '" data-o="' + oi + '"></label>' +
+            '<input type="number" inputmode="decimal" step="0.5" value="' + (o.precio_delta || 0) + '" ' + (datos.puede_precio === false ? ' disabled' : '') + ' data-campo="precio_delta" data-g="' + gi + '" data-o="' + oi + '"></label>' +
             // El resumen se recorta con puntos suspensivos en la fila; el
             // `title` devuelve la frase entera al pasar el puntero.
             '<button type="button" class="admin-vopcion__receta" aria-expanded="' + (abierto ? 'true' : 'false') + '" title="' + esc(resumen) + '" data-toggle-receta data-g="' + gi + '" data-o="' + oi + '">' +
@@ -495,6 +508,8 @@
                 '<label class="admin-switch admin-vopcion__activo"><input type="checkbox" ' + (o.activo ? 'checked' : '') + (o.predeterminada ? ' disabled' : '') + ' data-campo="activo" data-g="' + gi + '" data-o="' + oi + '">' +
                 '<span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>' +
                 '<span class="admin-switch__label">Disponible en el POS</span></label></div>';
+            if (datos.puede_composicion === false) html += '<p class="admin-field__hint">Composición protegida: se requiere permiso de Recetas y autorización de Global.</p>';
+            html += '<fieldset class="admin-vopcion__composicion"' + (datos.puede_composicion === false ? ' disabled' : '') + '>';
             if (o.ajustes.length) {
                 html += '<ol class="admin-vajustes">';
                 o.ajustes.forEach(function (a, ai) { html += pintarAjuste(a, gi, oi, ai); });
@@ -512,7 +527,7 @@
             if (o.ajustes.some(function (a) { return a.accion === 'sustituir'; })) {
                 html += '<p class="admin-vopcion__nota">«Cambiar» reemplaza la parte indicada de lo que lleve el platillo, también lo que sume otra opción: con 120 de 120 ml de leche, un «Grande» con almendra lleva toda su leche de almendra.</p>';
             }
-            html += '</div>';
+            html += '</fieldset></div>';
         }
         return html + '</li>';
     }
@@ -596,11 +611,12 @@
     function pintarPreview() {
         var sel = opcionesSeleccionadas();
         var precio = (Number(datos.precio) || 0) + sel.elegidas.reduce(function (s, o) { return s + (Number(o.precio_delta) || 0); }, 0);
+        var precioMostrado = datos.usa_presentaciones ? 'Según presentación' : dinero(precio);
         var rotulo = sel.elegidas.filter(function (o) { return !o.predeterminada; }).map(function (o) { return o.nombre; }).join(' · ');
 
         var html = '<div class="admin-vpos">' +
             '<div class="admin-vpos__cabeza"><span class="admin-vpos__nombre">' + esc(datos.nombre) + '</span>' +
-            '<span class="admin-vpos__precio admin-num">' + dinero(precio) + '</span></div>';
+            '<span class="admin-vpos__precio admin-num">' + precioMostrado + '</span></div>';
         var visibles = 0;
         estado.grupos.forEach(function (g) {
             var activas = g.opciones.filter(function (o) { return o.activo; });
@@ -626,13 +642,14 @@
         }
         html += '<div class="admin-vpos__linea"><span class="admin-vpos__linea-label">En la comanda</span><span class="admin-vpos__linea-texto">1 × ' + esc(datos.nombre) +
             (rotulo ? '<strong>' + esc(rotulo) + '</strong>' : '') + '</span></div>';
-        html += '<button type="button" class="admin-vpos__agregar" disabled>' + (sel.faltan.length ? 'Falta elegir ' + esc(sel.faltan.join(', ')) : 'Agregar · ' + dinero(precio)) + '</button></div>';
+        html += '<button type="button" class="admin-vpos__agregar" disabled>' + (sel.faltan.length ? 'Falta elegir ' + esc(sel.faltan.join(', ')) : 'Agregar · ' + precioMostrado) + '</button></div>';
         cPos.innerHTML = html;
 
         pintarReceta(sel.elegidas, precio);
     }
 
     function pintarReceta(elegidas, precio) {
+        if (datos.usa_presentaciones || datos.composicion_unificada || elegidas.some(function (o) { return o.ajustes.some(function (a) { return !!a.receta_destino_id; }); })) { cReceta.innerHTML = '<p class="admin-vreceta__vacia">El consumo y el costo dependen de la presentación y sus versiones. <a href="' + esc(datos.url_presentaciones) + '">Revisar composición y orígenes</a>. Los costos desconocidos no se presentan como cero.</p>'; return; }
         var baseT = explotar([]);
         var t = explotar(elegidas);
         var ids = Object.keys(t);
@@ -734,6 +751,11 @@
             var campo = t.getAttribute('data-campo');
             o[campo] = campo === 'precio_delta' ? (t.value === '' ? 0 : Number(t.value)) : t.value;
             pintarPreview(); pintarBarra();
+            return;
+        }
+        if (t.hasAttribute('data-m2-variante-version')) {
+            var meta = (op(t.getAttribute('data-g'), t.getAttribute('data-o')) || {ajustes: []}).ajustes[Number(t.getAttribute('data-a'))];
+            if (meta) { meta.receta_destino_id = t.value ? Number(t.value) : null; meta.modalidad_destino = t.value ? 'desglosar' : 'almacenado'; pintarBarra(); }
             return;
         }
         if (t.hasAttribute('data-campo-ajuste')) {
@@ -994,7 +1016,7 @@
 
         guardando = true;
         pintarBarra();
-        fetch('/admin/api/menu/variantes', {
+        fetch(raiz.dataset.variantesUrl || '/admin/api/menu/variantes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             body: JSON.stringify({ admin_csrf: csrf, producto_id: datos.producto_id, grupos: serializar() })

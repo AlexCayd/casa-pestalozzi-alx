@@ -718,7 +718,7 @@ class AdminMenuController
             'platillo' => $platillo,
             'categoriasMap' => self::mapaCategorias(),
             'editorVariantes' => $editor,
-            'adminCsrfToken' => AdminCsrfService::token(),
+            'adminCsrfToken' => ContextoNegocio::slug()==='panaderia'?hash_hmac('sha256','variantes:panaderia',AdminCsrfService::token()):AdminCsrfService::token(),
             'alertas' => $alertas,
             'styles' => [self::MENU_CSS, '/build/css/admin/variantes.css'],
             'scripts' => ['/build/js/admin/variantes.js'],
@@ -728,12 +728,14 @@ class AdminMenuController
     /** POST /admin/api/menu/variantes — guarda todos los grupos de un platillo. */
     public static function guardarVariantes(Router $router): void
     {
-        ContextoNegocio::exigir('menu', 'editar', 'restaurante');
+        $ctx=ContextoNegocio::slug();ContextoNegocio::exigir('menu', 'editar', $ctx);
         header('Content-Type: application/json; charset=utf-8');
         $datos = json_decode((string) file_get_contents('php://input'), true);
         $datos = is_array($datos) ? $datos : [];
 
-        if (!AdminCsrfService::validar(isset($datos['admin_csrf']) ? (string) $datos['admin_csrf'] : null)) {
+        $csrfRecibido=is_string($datos['admin_csrf']??null)?$datos['admin_csrf']:'';
+        $csrfValido=$ctx==='panaderia'?hash_equals(hash_hmac('sha256','variantes:panaderia',AdminCsrfService::token()),$csrfRecibido):AdminCsrfService::validar($csrfRecibido);
+        if (!$csrfValido) {
             http_response_code(419);
             echo json_encode(['ok' => false, 'errores' => ['La sesión del editor venció. Recarga la página; tus cambios siguen en pantalla hasta entonces.']], JSON_UNESCAPED_UNICODE);
             return;

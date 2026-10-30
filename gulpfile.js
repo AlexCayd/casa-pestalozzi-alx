@@ -105,7 +105,7 @@ const paths = {
     "src/js/modules/punto-de-venta.js",
   ],
   adminAreaJs: "src/js/admin/area/area.js",
-  adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
+  adminRecetasJs: ["src/js/admin/recetas/recipe-builder.js", "src/js/admin/recetas/articulos.js"],
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   // Casos del panel estratégico. ConfirmationModal y AppNotice ya llegan en

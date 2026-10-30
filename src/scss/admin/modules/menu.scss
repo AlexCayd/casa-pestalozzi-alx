@@ -1391,3 +1391,5 @@
 }
 
 .admin-catalogo-table td > small { display: block; margin-top: 6px; color: var(--admin-muted); }
+.casa-componente--versionada { grid-template-columns: minmax(0, 2fr) minmax(100px, 1fr) minmax(0, 2fr) auto; }
+@media (max-width: 800px) { .casa-componente--versionada { grid-template-columns: minmax(0, 1fr) auto; .admin-field { grid-column: 1 / -1; } } }

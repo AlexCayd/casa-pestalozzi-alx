@@ -72,9 +72,10 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Operación</span>
             <h2 class="admin-page__title">Recetas</h2>
-            <p class="admin-page__subtitle">Define qué ingredientes y subrecetas consume cada platillo. Al venderse, su receta descuenta el inventario automáticamente. Los datos del platillo (nombre, precio, categoría) se editan en Menú.</p>
+            <p class="admin-page__subtitle">Consulta la composición de cada platillo y sus orígenes. Los artículos y sus elaboraciones se administran desde una identidad compartida; la configuración de venta determina el consumo. Nombre, precio y categoría se editan en Menú.</p>
         </div>
         <div class="admin-actions">
+            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/articulos">Artículos y elaboraciones</a>
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="/admin/recetas/subrecetas">Subrecetas</a>
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="/admin/inventario">Inventario</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create">

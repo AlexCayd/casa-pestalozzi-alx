@@ -186,6 +186,7 @@ final class Permisos
         '/admin/ia' => ['ia'],
         '/admin/menu' => ['menu'],
         '/admin/api/menu' => ['menu'],
+        '/admin/panaderia/api/menu' => ['menu'],
         '/admin/recetas' => ['productos'],
         '/admin/productos' => ['productos'],
         '/admin/inventario' => ['inventario'],

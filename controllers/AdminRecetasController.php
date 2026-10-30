@@ -265,34 +265,8 @@ class AdminRecetasController
 
     public static function subrecetaCreate(Router $router): void
     {
-        $ctx = ContextoNegocio::slug();
-        ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-        $subreceta = new Subreceta();
-        $alertas = [];
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $subreceta->sincronizar($_POST);
-            $subreceta->activo = isset($_POST['activo']) ? 1 : 0;
-            $alertas = $subreceta->validar();
-
-            if (empty($alertas)) {
-                $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
-                if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
-                    Subreceta::setAlerta('exito', 'Subreceta creada correctamente');
-                    self::subrecetas($router);
-                    return;
-                }
-                if (!empty($resultado['pendiente'])) {
-                    Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
-                } else {
-                    $subreceta->id = null;
-                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
-                }
-                $alertas = Subreceta::getAlertas();
-            }
-        }
-
-        self::renderSubrecetaForm($subreceta, $alertas, 'Crear subreceta', 'Nueva subreceta', []);
+        ContextoNegocio::exigir('productos','editar',null,true);
+        header('Location: '.\Services\Inventory\Articulos::base(ContextoNegocio::slug()),true,303);
     }
 
     public static function subrecetaEdit(Router $router): void
@@ -301,6 +275,9 @@ class AdminRecetasController
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
         $subreceta = Subreceta::find($id, $ctx);
+        $vinculo=Subreceta::getDB()->execute_query('SELECT articulo_id FROM articulo_correspondencias WHERE subreceta_id=? AND unidad_id=?',[$id,ContextoNegocio::unidad($ctx)])->fetch_row();
+        if($vinculo){header('Location: '.\Services\Inventory\Articulos::base($ctx).'/editar?id='.(int)$vinculo[0],true,303);return;}
+
 
         if (!$subreceta) {
             Subreceta::setAlerta('error', 'La subreceta no existe');

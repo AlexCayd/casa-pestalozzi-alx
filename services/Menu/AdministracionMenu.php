@@ -61,9 +61,9 @@ final class AdministracionMenu
             'menuCsrf' => self::token(), 'menuCartas' => $cartas,
             'menuPuedeEditar' => Auth::puede('menu', 'editar', $ctx),
             'menuRecetas' => $ctx === 'restaurante' && Auth::puede('productos', 'ver', $ctx),
-            'menuVariantes' => $ctx === 'restaurante',
+            'menuVariantes' => in_array($ctx,['restaurante','panaderia'],true),
             'menuSubtitulo' => $ctx === 'panaderia'
-                ? 'Productos, precios y disponibilidad de Panadería. PDF propio disponible. Las recetas y las ventas se habilitarán en una etapa posterior.'
+                ? 'Productos, precios, presentaciones y elaboraciones de Panadería. PDF propio disponible; el punto de venta y la producción física permanecen pendientes.'
                 : 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.',
         ];
     }

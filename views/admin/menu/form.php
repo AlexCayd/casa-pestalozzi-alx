@@ -106,6 +106,7 @@
             Volver
         </a>
     </header>
+    <?php if(!$esNuevo && \Classes\Auth::puede('productos','ver',$menuContexto)): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase.'/presentaciones?id='.(int)$platillo->id,ENT_QUOTES,'UTF-8') ?>">Presentaciones y consumo de artículos</a></p><?php endif; ?>
 
     <?php if ($identidadMaestra) : ?>
     <section class="admin-card"><h3>Ofertas consultables</h3>

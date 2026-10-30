@@ -451,4 +451,21 @@ $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 // texto plano.
 $router->notFound([ErrorController::class, 'noEncontrado']);
 
+$router->get('/admin/panaderia/menu/variantes',[AdminMenuController::class,'variantes']);
+$router->post('/admin/panaderia/api/menu/variantes',[AdminMenuController::class,'guardarVariantes']);
+$router->get('/admin/global/productos/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+$router->post('/admin/global/productos/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+// M2: las mismas vistas de artículos y presentaciones se parametrizan por contexto.
+foreach (['restaurante','global','panaderia'] as $ambitoM2) {
+    $baseM2=$ambitoM2==='restaurante'?'/admin':'/admin/'.$ambitoM2;
+    $router->get($baseM2.'/recetas/articulos',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->post($baseM2.'/recetas/articulos',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->get($baseM2.'/recetas/articulos/editar',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->post($baseM2.'/recetas/articulos/editar',[\Controllers\AdminArticulosController::class,'despachar']);
+    if($ambitoM2!=='global'){
+        $router->get($baseM2.'/menu/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+        $router->post($baseM2.'/menu/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+    }
+}
+
 $router->comprobarRutas();

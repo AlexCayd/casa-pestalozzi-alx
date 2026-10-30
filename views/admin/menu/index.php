@@ -609,7 +609,7 @@
                                     <div class="admin-table-actions admin-menu__acciones">
                                         <?php /* Las variantes tienen editor propio: ajustan la receta
                                                  y el precio, y necesitan la vista previa del POS. */ ?>
-                                        <?php if ($menuVariantes && (!isset($politicasCasa[(int)$platillo->id]) || (!empty($politicasCasa[(int)$platillo->id]['precio']) && !empty($politicasCasa[(int)$platillo->id]['receta'])))) : ?>
+                                        <?php if ($menuVariantes) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
                                             href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/variantes?id=<?php echo (int) $platillo->id; ?>"
