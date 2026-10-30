@@ -7,6 +7,7 @@ use Model\ActiveRecord;
 use Services\Inventory\Almacenes;
 use Services\Inventory\InventarioError;
 use Services\Menu\Variantes;
+use Services\Menu\PresentacionesOferta;
 use Services\Security\ContextoNegocio;
 
 /** Operaciones comerciales POS. La ruta conserva el contrato HTTP; este servicio
@@ -66,13 +67,17 @@ final class Comercial
                         if (!($variantes['ok'] ?? false)) {
                             throw new InventarioError('VARIANTE_INVALIDA', (string)($variantes['error'] ?? 'Revisa las opciones del producto.'));
                         }
-                        $precio = round((float)$oferta['precio'] + (float)$variantes['delta'], 2);
-                        if ($precio <= 0) {
+                        if(($linea['presentacion_id']??null)===null && self::sql($db,'SELECT id FROM oferta_presentaciones WHERE oferta_id=? AND unidad_id=? LIMIT 1',[(int)$oferta['oferta_id'],$unidad])->get_result()->fetch_row())throw new InventarioError('PRESENTACION_REQUERIDA','Selecciona una presentación de venta configurada.');
+                        $presentacion = ($linea['presentacion_id']??null) !== null
+                            ? PresentacionesOferta::paraVenta($ctx,(int)$oferta['oferta_id'],$linea['presentacion_id'],$variantes['ids'],(int)$linea['cantidad']) : null;
+                        $precio = bcadd($presentacion['version']['precio'] ?? (string)$oferta['precio'], (string)$variantes['delta'], 2);
+                        if (bccomp($precio,'0',2)<=0 || bccomp($precio,'999999.99',2)>0) {
                             throw new InventarioError('PRECIO_INVALIDO', 'El precio calculado de una oferta no es válido.');
                         }
                         $resueltas[] = $linea + [
+                            'resolucion_articulos' => $presentacion,
                             'producto_id' => (int)$oferta['producto_id'],
-                            'nombre' => (string)$oferta['nombre'],
+                            'nombre' => mb_substr((string)$oferta['nombre'] . ($presentacion ? ' · '.$presentacion['version']['nombre'] : ''),0,120),
                             'precio' => $precio,
                             'categoria' => (string)$oferta['categoria'],
                             'categoria_id' => (int)$oferta['categoria_id'],
@@ -89,6 +94,10 @@ final class Comercial
                     $almacenes = new Almacenes($db, $actor, ContextoNegocio::nivelAuth());
                     foreach ($resueltas as $linea) {
                         $itemId = self::insertarItem($db, $ticketId, $unidad, $linea);
+                        if ($linea['resolucion_articulos'] !== null) {
+                            $configuracion=$linea['resolucion_articulos'];
+                            PresentacionesOferta::congelar($itemId,(int)$linea['oferta_id'],$unidad,(int)$configuracion['version']['id'],$configuracion['plan']);
+                        }
                         $consumo = $almacenes->consumirVenta($ctx, $itemId);
                         if (($consumo['ok'] ?? true) === false) {
                             throw new InventarioError((string)($consumo['codigo'] ?? 'CONSUMO_FALLIDO'), (string)($consumo['mensaje'] ?? 'No se pudo registrar el consumo de inventario.'));
@@ -271,7 +280,9 @@ final class Comercial
             if ($nota !== null && (!is_string($nota) || mb_strlen($nota) > 280 || str_contains($nota, "\0"))) throw new InventarioError('NOTA_INVALIDA', 'La nota de cocina no es válida.');
             if ($oferta === false || $cantidad === false) throw new InventarioError('ITEM_INVALIDO', 'La oferta o cantidad de la comanda no es válida.');
             $ids = array_values(array_unique(array_map('intval', $variantes))); sort($ids, SORT_NUMERIC);
-            $out[] = ['oferta_id' => (int)$oferta, 'cantidad' => (int)$cantidad, 'comensal' => $comensal === null ? null : (int)$comensal, 'nota' => $nota !== null && trim($nota) !== '' ? trim($nota) : null, 'variantes' => $ids];
+            $presentacion=$item['presentacion_id']??null;
+            if($presentacion!==null && filter_var($presentacion,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])===false)throw new InventarioError('PRESENTACION_INVALIDA','Selecciona una presentación válida.');
+            $out[] = ($presentacion===null?[]:['presentacion_id'=>(int)$presentacion])+['oferta_id' => (int)$oferta, 'cantidad' => (int)$cantidad, 'comensal' => $comensal === null ? null : (int)$comensal, 'nota' => $nota !== null && trim($nota) !== '' ? trim($nota) : null, 'variantes' => $ids];
         }
         return $out;
     }
@@ -296,7 +307,7 @@ final class Comercial
         $stmt = self::sql($db,
             "INSERT INTO ticket_items(unidad_id,ticket_id,oferta_id,producto_id,receta_id,nombre,precio,categoria,categoria_id,area_id,area_nombre,comensal,cantidad,nota,variante_ids,variante,estado)
              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'enviado')",
-            [$unidad,$ticketId,$i['oferta_id'],$i['producto_id'],$i['receta_id'],$i['nombre'],number_format($i['precio'],2,'.',''),$i['categoria'],$i['categoria_id'],$i['area_id'],$i['area_nombre'],$i['comensal'],$i['cantidad'],$i['nota'],$i['variante_ids'] ? implode(',',$i['variante_ids']) : null,$i['variante']]
+            [$unidad,$ticketId,$i['oferta_id'],$i['producto_id'],$i['receta_id'],$i['nombre'],$i['precio'],$i['categoria'],$i['categoria_id'],$i['area_id'],$i['area_nombre'],$i['comensal'],$i['cantidad'],$i['nota'],$i['variante_ids'] ? implode(',',$i['variante_ids']) : null,$i['variante']]
         );
         return (int)$db->insert_id;
     }

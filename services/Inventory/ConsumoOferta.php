@@ -6,7 +6,6 @@ namespace Services\Inventory;
 /** Resuelve snapshots comerciales a líneas internas del motor 3C. */
 final class ConsumoOferta
 {
-    private const ESCALA = 18;
 
     /** Bloquea el item y su ticket, validando ámbito y estado comercial. */
     public static function ticketItem(\mysqli $db, int $unidadId, int $ticketItemId, bool $reversion = false, bool $permitirEntregado = false): array
@@ -42,111 +41,57 @@ final class ConsumoOferta
         if ((int)$item['unidad_id'] !== $unidadId || (int)$item['oferta_id'] < 1) {
             throw new InventarioError('OFERTA_NO_AUTORIZADA', 'La oferta del item no pertenece al negocio vendedor.');
         }
-        $cantidadTicket = self::enteroPositivo((string)$item['cantidad'], 255, 'CANTIDAD_INVALIDA');
-        $ofertaId = (int)$item['oferta_id'];
-        $componenteBase = [];
-        $tieneReceta = $item['receta_id'] !== null;
-
-        if ($tieneReceta) {
-            $recetaId = (int)$item['receta_id'];
-            $receta = self::uno($db, 'SELECT id FROM recetas WHERE id=? AND oferta_id=? AND unidad_id=? LIMIT 1 FOR SHARE', [$recetaId,$ofertaId,$unidadId]);
-            if (!$receta) throw new InventarioError('RECETA_INVALIDA', 'La versión de receta del item no pertenece a su oferta.');
-            $stmt = $db->prepare('SELECT articulo_id,subreceta_id,cantidad FROM receta_componentes WHERE receta_id=? AND unidad_id=? ORDER BY id FOR SHARE');
-            if (!$stmt) throw new \RuntimeException($db->error);
-            $stmt->bind_param('ii',$recetaId,$unidadId);
-            self::ejecutar($stmt);
-            $result = $stmt->get_result();
-            while ($row = $result->fetch_assoc()) {
-                $tipo = $row['articulo_id'] !== null ? 'ingrediente' : 'subreceta';
-                $ref = (int)($row['articulo_id'] ?? $row['subreceta_id']);
-                self::sumarComponente($componenteBase,$tipo,$ref,self::cantidadInterna((string)$row['cantidad']));
-            }
-            $stmt->close();
-            if ($componenteBase === []) throw new InventarioError('RECETA_INCOMPLETA', 'El item tiene una versión de receta sin componentes.');
+        $snapshot=$db->execute_query('SELECT snapshot,huella,unidad_id,oferta_id FROM ticket_item_resoluciones WHERE ticket_item_id=?',[(int)$item['id']])->fetch_assoc();
+        if($snapshot){
+            if((int)$snapshot['unidad_id']!==$unidadId || (int)$snapshot['oferta_id']!==(int)$item['oferta_id'] || !hash_equals($snapshot['huella'],Articulos::huella(json_decode($snapshot['snapshot'],true,512,JSON_THROW_ON_ERROR))))throw new InventarioError('SNAPSHOT_INVALIDO','La resolución congelada no corresponde a la venta.');
+            $plan=json_decode($snapshot['snapshot'],true,512,JSON_THROW_ON_ERROR);
+            $lineas=array_map(static fn($l)=>array_intersect_key($l,array_flip(['almacen_id','articulo_id','cantidad','costo_unitario'])),$plan['lineas']);
+            return ['consume'=>$plan['consume'],'lineas'=>$lineas,'costo_unitario'=>$plan['costo_unitario']];
         }
-
-        $ids = self::idsVariantes($item['variante_ids'] === null ? '' : (string)$item['variante_ids']);
-        $opciones = [];
-        if ($ids !== []) {
-            $in = implode(',',array_fill(0,count($ids),'?'));
-            $stmt = $db->prepare("SELECT id,grupo FROM producto_variantes WHERE oferta_id=? AND unidad_id=? AND id IN ({$in}) ORDER BY id FOR SHARE");
-            if (!$stmt) throw new \RuntimeException($db->error);
-            $types = 'ii' . str_repeat('i',count($ids));
-            $params = array_merge([$ofertaId,$unidadId],$ids);
-            self::bind($stmt,$types,$params);
-            self::ejecutar($stmt);
-            $result = $stmt->get_result();
-            while ($row=$result->fetch_assoc()) $opciones[(int)$row['id']] = (string)$row['grupo'];
-            $stmt->close();
-            if (count($opciones) !== count($ids)) throw new InventarioError('VARIANTE_INVALIDA', 'Una variante del snapshot no pertenece a la oferta.');
-            if (count(array_unique(array_values($opciones))) !== count($opciones)) throw new InventarioError('VARIANTE_INVALIDA', 'El snapshot contiene más de una opción del mismo grupo.');
+        $cantidadTicket=self::enteroPositivo((string)$item['cantidad'],255,'CANTIDAD_INVALIDA');$oferta=(int)$item['oferta_id'];
+        $virtuales=[];$recetasLegadas=[];
+        $nodo=static function(?int $articulo,?int $sub,string $cantidad,?int $version=null)use($db,$unidadId,&$virtuales,&$recetasLegadas):array{
+            if($articulo!==null){$a=Articulos::cargarArticulo($articulo,$unidadId);return ['articulo_id'=>$articulo,'cantidad'=>$cantidad,'unidad'=>$a['unidad']??'','modalidad'=>$version?'desglosar':'almacenado','version_receta_id'=>$version];}
+            if(!$sub)throw new InventarioError('COMPONENTE_INVALIDO','La composición contiene una referencia inválida.');
+            $m=$db->execute_query('SELECT articulo_id FROM articulo_correspondencias WHERE subreceta_id=? AND unidad_id=?',[$sub,$unidadId])->fetch_assoc();
+            if($m && !$version){$a=Articulos::cargarArticulo((int)$m['articulo_id'],$unidadId);return ['articulo_id'=>(int)$m['articulo_id'],'cantidad'=>$cantidad,'unidad'=>$a['unidad']??'','modalidad'=>'almacenado','version_receta_id'=>null];}
+            if($m && $version){$a=Articulos::cargarArticulo((int)$m['articulo_id'],$unidadId);return ['articulo_id'=>(int)$m['articulo_id'],'cantidad'=>$cantidad,'unidad'=>$a['unidad']??'','modalidad'=>'desglosar','version_receta_id'=>$version];}
+            $s=self::uno($db,'SELECT * FROM subrecetas WHERE id=? AND unidad_id=? FOR SHARE',[$sub,$unidadId]);if(!$s||!(int)$s['activo'])throw new InventarioError('SUBRECETA_INVALIDA','La preparación está inactiva o pertenece a otro negocio.');
+            // Referencia temporal del adaptador: no crea una identidad ni saldo.
+            $ref=4294967296+$sub;$virtuales[$ref]=['unidad'=>$s['unidad'],'activo'=>1,'componente'=>1,'costo'=>null];$componentes=[];
+            foreach($db->execute_query('SELECT si.articulo_id,si.cantidad,i.unidad FROM subreceta_ingredientes si JOIN ingredientes i ON i.id=si.articulo_id WHERE si.subreceta_id=? AND si.unidad_id=? ORDER BY si.id',[$sub,$unidadId])->fetch_all(MYSQLI_ASSOC) as $h)$componentes[]=$h+['modalidad'=>'almacenado','version_receta_id'=>null];
+            $recetasLegadas[$ref]=['articulo_id'=>$ref,'unidad_id'=>$unidadId,'publicada'=>1,'rendimiento'=>$s['rendimiento'],'unidad'=>$s['unidad'],'componentes'=>$componentes,'subreceta_origen_id'=>$sub];
+            return ['articulo_id'=>$ref,'cantidad'=>$cantidad,'unidad'=>$s['unidad'],'modalidad'=>'desglosar','version_receta_id'=>$ref];
+        };
+        $base=[];
+        if($item['receta_id']!==null){
+            if(!self::uno($db,'SELECT id FROM recetas WHERE id=? AND oferta_id=? AND unidad_id=? FOR SHARE',[(int)$item['receta_id'],$oferta,$unidadId]))throw new InventarioError('RECETA_INVALIDA','La receta del snapshot no pertenece a su oferta.');
+            $rows=$db->execute_query('SELECT rc.articulo_id,rc.subreceta_id,rc.cantidad,ca.articulo_id articulo_unificado_id,ca.version_receta_id FROM receta_componentes rc LEFT JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id WHERE rc.receta_id=? AND rc.unidad_id=? ORDER BY rc.id',[(int)$item['receta_id'],$unidadId])->fetch_all(MYSQLI_ASSOC);
+            if(!$rows)throw new InventarioError('RECETA_INCOMPLETA','La receta no tiene componentes.');
+            foreach($rows as $r)$base[]=$nodo($r['articulo_unificado_id']!==null?(int)$r['articulo_unificado_id']:($r['articulo_id']===null?null:(int)$r['articulo_id']),$r['subreceta_id']===null?null:(int)$r['subreceta_id'],$r['cantidad'],$r['version_receta_id']===null?null:(int)$r['version_receta_id']);
         }
-
-        $actual = $componenteBase;
-        if ($ids !== []) {
-            $in = implode(',',array_fill(0,count($ids),'?'));
-            $stmt = $db->prepare(
-                "SELECT va.variante_id,va.articulo_id,va.subreceta_id,va.cantidad,va.accion,va.articulo_nuevo_id,va.subreceta_nueva_id,va.nueva_cantidad "
-                . "FROM variante_ajustes va JOIN producto_variantes pv ON pv.id=va.variante_id AND pv.oferta_id=va.oferta_id AND pv.unidad_id=va.unidad_id "
-                . "WHERE va.oferta_id=? AND va.unidad_id=? AND va.variante_id IN ({$in}) ORDER BY va.id FOR SHARE"
-            );
-            if (!$stmt) throw new \RuntimeException($db->error);
-            $types='ii'.str_repeat('i',count($ids)); $params=array_merge([$ofertaId,$unidadId],$ids);
-            self::bind($stmt,$types,$params); self::ejecutar($stmt);
-            $ajustes=$stmt->get_result()->fetch_all(MYSQLI_ASSOC); $stmt->close();
-            $sustituciones=[];
-            foreach ($ajustes as $aj) {
-                $tipo=$aj['articulo_id']!==null?'ingrediente':'subreceta';
-                $ref=(int)($aj['articulo_id']??$aj['subreceta_id']);
-                $clave=self::clave($tipo,$ref); $monto=self::cantidadInterna((string)$aj['cantidad']);
-                if ($aj['accion']==='sustituir') { $sustituciones[]=$aj; continue; }
-                $antes=$actual[$clave]??self::cero();
-                $actual[$clave]=$aj['accion']==='quitar'?self::maxCero(bcsub($antes,$monto,self::ESCALA)):bcadd($antes,$monto,self::ESCALA);
-            }
-            foreach ($sustituciones as $aj) {
-                $tipo=$aj['articulo_id']!==null?'ingrediente':'subreceta';
-                $ref=(int)($aj['articulo_id']??$aj['subreceta_id']);
-                $nuevoTipo=$aj['articulo_nuevo_id']!==null?'ingrediente':($aj['subreceta_nueva_id']!==null?'subreceta':null);
-                $nuevoRef=(int)($aj['articulo_nuevo_id']??$aj['subreceta_nueva_id']??0);
-                if ($nuevoTipo===null || $nuevoRef<1 || ($nuevoTipo===$tipo && $nuevoRef===$ref)) throw new InventarioError('VARIANTE_INVALIDA','La sustitución del snapshot no es válida.');
-                $cantidad=self::cantidadInterna((string)$aj['cantidad']);
-                $nueva=self::cantidadInterna((string)$aj['nueva_cantidad']);
-                $clave=self::clave($tipo,$ref); $base=$componenteBase[$clave]??self::cero(); $presente=$actual[$clave]??self::cero();
-                $venta=bccomp($base,'0',self::ESCALA)>0
-                    ? bcmul($presente,bccomp($cantidad,$base,self::ESCALA)>=0?'1':bcdiv($cantidad,$base,self::ESCALA),self::ESCALA)
-                    : $cantidad;
-                $entra=bccomp($cantidad,'0',self::ESCALA)>0?bcmul($venta,bcdiv($nueva,$cantidad,self::ESCALA),self::ESCALA):self::cero();
-                $actual[$clave]=self::maxCero(bcsub($presente,$venta,self::ESCALA));
-                $claveNueva=self::clave($nuevoTipo,$nuevoRef);
-                $actual[$claveNueva]=bcadd($actual[$claveNueva]??self::cero(),$entra,self::ESCALA);
+        $ids=self::idsVariantes($item['variante_ids']===null?'':(string)$item['variante_ids']);$ajustes=[];
+        if($ids){$in=implode(',',array_fill(0,count($ids),'?'));$params=array_merge([$oferta,$unidadId],$ids);
+            $ops=$db->execute_query("SELECT id,grupo FROM producto_variantes WHERE oferta_id=? AND unidad_id=? AND id IN ($in) ORDER BY id FOR SHARE",$params)->fetch_all(MYSQLI_ASSOC);
+            if(count($ops)!==count($ids)||count(array_unique(array_column($ops,'grupo')))!==count($ops))throw new InventarioError('VARIANTE_INVALIDA','Las opciones no pertenecen a la oferta o repiten un grupo.');
+            $rows=$db->execute_query("SELECT * FROM variante_ajustes WHERE oferta_id=? AND unidad_id=? AND variante_id IN ($in) ORDER BY id",$params)->fetch_all(MYSQLI_ASSOC);
+            foreach($rows as $r){
+                $version=$r['receta_destino_id']===null?null:(int)$r['receta_destino_id'];
+                $h=$nodo($r['articulo_id']===null?null:(int)$r['articulo_id'],$r['subreceta_id']===null?null:(int)$r['subreceta_id'],$r['cantidad'],$r['accion']==='agregar'?$version:null);$h['accion']=$r['accion'];$h['etapa']='servicio';
+                if($r['accion']==='sustituir')$h['nuevo']=$nodo($r['articulo_nuevo_id']===null?null:(int)$r['articulo_nuevo_id'],$r['subreceta_nueva_id']===null?null:(int)$r['subreceta_nueva_id'],$r['nueva_cantidad'],$version);
+                $ajustes[]=$h;
             }
         }
-
-        $porArticulo=[];
-        foreach ($actual as $clave=>$monto) {
-            if (bccomp($monto,'0',self::ESCALA)<=0) continue;
-            [$tipo,$refTexto]=explode(':',$clave,2); $ref=(int)$refTexto;
-            if ($tipo==='ingrediente') self::sumarArticulo($porArticulo,$ref,$monto);
-            else self::explotarSubreceta($db,$unidadId,$ref,$monto,$porArticulo);
-        }
-        if ($porArticulo===[]) {
-            return ['consume'=>false,'lineas'=>[],'costo_unitario'=>null];
-        }
-
-        ksort($porArticulo,SORT_NUMERIC);
-        $articulos=self::articulos($db,array_keys($porArticulo));
-        $almacenes=self::almacenesOferta($db,$ofertaId,$unidadId,array_keys($porArticulo));
-        $lineas=[]; $costoTotal=self::cero();
-        foreach ($porArticulo as $articuloId=>$porcion) {
-            if (!isset($articulos[$articuloId])) throw new InventarioError('ARTICULO_INACTIVO','La receta referencia un artículo inexistente o inactivo.');
-            if (!isset($almacenes[$articuloId])) throw new InventarioError('ALMACEN_ORIGEN_FALTANTE','La oferta no tiene almacén de consumo para un artículo de su receta.');
-            $cantidadTicketExacta=bcmul($porcion,(string)$cantidadTicket,self::ESCALA);
-            $cantidadFinal=self::redondearCantidad($cantidadTicketExacta);
-            $costo=self::costoCuatro((string)$articulos[$articuloId]['costo']);
-            $costoTotal=bcadd($costoTotal,bcmul($porcion,$costo,self::ESCALA),self::ESCALA);
-            $lineas[]=['almacen_id'=>(int)$almacenes[$articuloId]['almacen_id'],'articulo_id'=>(int)$articuloId,'cantidad'=>$cantidadFinal,'costo_unitario'=>$costo];
-        }
-        return ['consume'=>true,'lineas'=>$lineas,'costo_unitario'=>self::redondearCosto($costoTotal)];
+        $cargarArticulo=static fn($id)=>$virtuales[$id]??Articulos::cargarArticulo($id,$unidadId);
+        $cargarReceta=static fn($id)=>$recetasLegadas[$id]??Articulos::cargarReceta($id,$unidadId);
+        $raices=ResolucionArticulos::aplicarVariantes($base,$ajustes,$unidadId,$cargarArticulo,$cargarReceta,true);
+        $previa=ResolucionArticulos::resolver($raices,$unidadId,$cargarArticulo,$cargarReceta,[],false,true);
+        $origenes=self::almacenesOferta($db,$oferta,$unidadId,array_values(array_unique(array_column($previa['lineas'],'articulo_id'))));foreach($origenes as &$o){$o['unidad_id']=$unidadId;$o['activo']=1;}unset($o);
+        foreach($raices as &$r)$r['cantidad']=DecimalInventario::cantidad(DecimalInventario::leer(bcmul($r['cantidad'],(string)$cantidadTicket,3)));unset($r);
+        $plan=ResolucionArticulos::resolver($raices,$unidadId,$cargarArticulo,$cargarReceta,$origenes,true,true);$plan['costo_unitario']=$previa['costo_unitario'];$plan['receta_legada_id']=$item['receta_id'];$plan['opciones']=$ids;$plan['ajustes']=$ajustes;$plan['composicion_base']=$base;$plan['subrecetas_pendientes']=$recetasLegadas;
+        \Services\Menu\PresentacionesOferta::exigirExistenciasPrevias($plan,$unidadId);
+        $lineas=array_map(static fn($l)=>array_intersect_key($l,array_flip(['almacen_id','articulo_id','cantidad','costo_unitario'])),$plan['lineas']);
+        return ['consume'=>$plan['consume'],'lineas'=>$lineas,'costo_unitario'=>$plan['costo_unitario'],'snapshot'=>$plan];
     }
 
     /** Originales venta y saldo de compensación para reversión idempotente. */
@@ -167,33 +112,6 @@ final class ConsumoOferta
             if ($restante>0) $lineas[]=['movimiento_id'=>$id,'cantidad'=>DecimalInventario::cantidad($restante)];
         }
         return $lineas;
-    }
-
-    private static function explotarSubreceta(\mysqli $db,int $unidadId,int $id,string $monto,array &$porArticulo): void
-    {
-        $sub=self::uno($db,'SELECT id,rendimiento,activo FROM subrecetas WHERE id=? AND unidad_id=? LIMIT 1 FOR SHARE',[$id,$unidadId]);
-        if (!$sub || !(int)$sub['activo']) throw new InventarioError('SUBRECETA_INVALIDA','La receta utiliza una subreceta inexistente, ajena o inactiva.');
-        $rendimiento=self::cantidadInterna((string)$sub['rendimiento']);
-        if (bccomp($rendimiento,'0',self::ESCALA)<=0) throw new InventarioError('SUBRECETA_INCOMPLETA','La subreceta no tiene un rendimiento válido.');
-        $stmt=$db->prepare('SELECT articulo_id,cantidad FROM subreceta_ingredientes WHERE subreceta_id=? AND unidad_id=? ORDER BY id FOR SHARE');
-        if (!$stmt) throw new \RuntimeException($db->error);
-        $stmt->bind_param('ii',$id,$unidadId); self::ejecutar($stmt); $rows=$stmt->get_result()->fetch_all(MYSQLI_ASSOC); $stmt->close();
-        if ($rows===[]) throw new InventarioError('SUBRECETA_INCOMPLETA','La subreceta no tiene componentes inventariables.');
-        foreach ($rows as $row) {
-            $q=bcmul($monto,self::cantidadInterna((string)$row['cantidad']),self::ESCALA);
-            $q=bcdiv($q,$rendimiento,self::ESCALA);
-            self::sumarArticulo($porArticulo,(int)$row['articulo_id'],$q);
-        }
-    }
-
-    private static function articulos(\mysqli $db,array $ids): array
-    {
-        if ($ids===[]) return [];
-        $in=implode(',',array_fill(0,count($ids),'?')); $stmt=$db->prepare("SELECT id,costo,activo FROM ingredientes WHERE id IN ({$in}) ORDER BY id FOR SHARE");
-        if (!$stmt) throw new \RuntimeException($db->error);
-        self::bind($stmt,str_repeat('i',count($ids)),$ids); self::ejecutar($stmt); $out=[];
-        foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) if ((int)$row['activo']===1) $out[(int)$row['id']]=$row;
-        $stmt->close(); return $out;
     }
 
     private static function almacenesOferta(\mysqli $db,int $ofertaId,int $unidadId,array $articulos): array
@@ -220,38 +138,6 @@ final class ConsumoOferta
         return $ids;
     }
 
-    private static function sumarComponente(array &$map,string $tipo,int $id,string $cantidad): void
-    {
-        if (!in_array($tipo,['ingrediente','subreceta'],true) || $id<1) throw new InventarioError('RECETA_INCOMPLETA','Hay un componente inválido en la receta.');
-        $key=self::clave($tipo,$id); $map[$key]=bcadd($map[$key]??self::cero(),$cantidad,self::ESCALA);
-    }
-    private static function sumarArticulo(array &$map,int $id,string $cantidad): void
-    {
-        if ($id<1) throw new InventarioError('ARTICULO_INVALIDO','La receta referencia un artículo inválido.');
-        $map[$id]=bcadd($map[$id]??self::cero(),$cantidad,self::ESCALA);
-    }
-    private static function clave(string $tipo,int $id): string { return $tipo.':'.$id; }
-    private static function cantidadInterna(string $s): string { return bcadd(DecimalInventario::cantidad(DecimalInventario::leer($s)),self::cero(),self::ESCALA); }
-    private static function cero(): string { return '0.' . str_repeat('0',self::ESCALA); }
-    private static function maxCero(string $v): string { return bccomp($v,'0',self::ESCALA)<0?self::cero():$v; }
-
-    private static function redondearCantidad(string $cantidad): string
-    {
-        $sumado=bcadd($cantidad,'0.000500000000000000',self::ESCALA);
-        $miles=bcmul($sumado,'1000',0);
-        if (bccomp($miles,(string)DecimalInventario::MAX_CANTIDAD,0)>0) throw new InventarioError('DECIMAL_FUERA_RANGO','El consumo supera DECIMAL(12,3).');
-        $escalado=(int)$miles;
-        if (bccomp($cantidad,'0',self::ESCALA)>0 && $escalado===0) throw new InventarioError('CANTIDAD_DEMASIADO_PEQUENA','El consumo positivo es menor a la precisión de inventario.');
-        return DecimalInventario::cantidad($escalado);
-    }
-    private static function costoCuatro(string $costo): string { return DecimalInventario::formato(DecimalInventario::leer($costo,4),4); }
-    private static function redondearCosto(string $costo): string
-    {
-        $sumado=bcadd($costo,'0.000050000000000000',self::ESCALA);
-        $unidades=bcmul($sumado,'10000',0);
-        if (bccomp($unidades,'9999999999',0)>0) throw new InventarioError('DECIMAL_FUERA_RANGO','El costo unitario supera DECIMAL(10,4).');
-        return DecimalInventario::formato(DecimalInventario::leer(DecimalInventario::formato((int)$unidades,4),4),4);
-    }
     private static function enteroPositivo(string $s,int $max,string $codigo): int
     {
         if (!preg_match('/^[1-9][0-9]{0,2}$/D',$s) || (int)$s>$max) throw new InventarioError($codigo,'La cantidad del item no es válida.');

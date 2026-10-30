@@ -249,11 +249,13 @@ class CartaMultinegocio
         if ($carta !== null) $filtro = " AND c.carta='" . Producto::escaparString(CategoriasMenu::normalizarCarta($carta)) . "'";
         $res = $db->query("SELECT c.id cat_id,c.nombre cat_nombre,c.img cat_img,o.id oferta_id,o.producto_id,p.nombre,p.descripcion,o.precio,p.img FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1{$filtro} ORDER BY c.orden,c.id,o.orden,o.id");
         if (!$res) return [];
-        $out=[];
+        $out=[];$presentacionesPorOferta=PresentacionesOferta::paraCartas($unidad);
         while ($row=$res->fetch_assoc()) {
             $cid=(int)$row['cat_id'];
             if (!isset($out[$cid])) $out[$cid]=['id'=>$cid,'label'=>$row['cat_nombre'],'img'=>$row['cat_img']?'/'.ltrim($row['cat_img'],'/'):null,'dishes'=>[]];
-            $out[$cid]['dishes'][]=['n'=>$row['nombre'],'d'=>(string)$row['descripcion'],'p'=>(float)$row['precio'],'img'=>$row['img']?'/'.ltrim($row['img'],'/'):null];
+            $dish=['n'=>$row['nombre'],'d'=>(string)$row['descripcion'],'p'=>(float)$row['precio'],'img'=>$row['img']?'/'.ltrim($row['img'],'/'):null];
+            $presentaciones=($presentacionesPorOferta[(int)$row['oferta_id']]??['configurada'=>false,'presentaciones'=>[]]);
+            if($presentaciones['configurada']){foreach($presentaciones['presentaciones'] as $p){$d=$dish;$d['n']=mb_substr($dish['n'].' · '.$p['nombre'],0,120);$d['p']=(float)$p['precio'];$out[$cid]['dishes'][]=$d;}}else $out[$cid]['dishes'][]=$dish;
         }
         $res->free(); return array_values($out);
     }
@@ -276,12 +278,13 @@ class CartaMultinegocio
         $res=Producto::getDB()->query("SELECT c.id cat_id,c.nombre cat_nombre,o.id oferta_id,p.nombre,o.precio,ap.slug area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1 ORDER BY c.orden,c.id,o.orden,o.id");
         if (!$res) return [];
         try { $variantes=Variantes::paraPos(); } catch (\Throwable $e) { error_log('Carta::paraPos - variantes no disponibles: '.$e->getMessage()); $variantes=[]; }
-        $out=[];
+        $out=[];$presentacionesPorOferta=PresentacionesOferta::paraCartas($unidad);
         while ($row=$res->fetch_assoc()) {
             $cid=(int)$row['cat_id']; if (!isset($out[$cid])) $out[$cid]=['id'=>$cid,'label'=>$row['cat_nombre'],'dishes'=>[]];
             $oid=(int)$row['oferta_id']; $dish=['id'=>$oid,'oferta_id'=>$oid,'n'=>$row['nombre'],'p'=>(float)$row['precio'],'area'=>$row['area_slug']];
             if (!empty($variantes[$oid])) $dish['g']=$variantes[$oid];
-            $out[$cid]['dishes'][]=$dish;
+            $presentaciones=($presentacionesPorOferta[$oid]??['configurada'=>false,'presentaciones'=>[]]);
+            if($presentaciones['configurada']){foreach($presentaciones['presentaciones'] as $p){$opcion=$dish;$opcion['presentacion_id']=(int)$p['id'];$opcion['n']=mb_substr($dish['n'].' · '.$p['nombre'],0,120);$opcion['p']=$p['precio'];$out[$cid]['dishes'][]=$opcion;}}else $out[$cid]['dishes'][]=$dish;
         }
         $res->free(); return array_values($out);
     }

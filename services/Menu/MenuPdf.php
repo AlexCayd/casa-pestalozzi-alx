@@ -96,11 +96,12 @@ class MenuPdf
         $db=\Model\ActiveRecord::getDB();
         $s=$db->prepare('SELECT slug FROM cartas WHERE unidad_id=? AND slug=? AND activo=1');$s->execute([$unidad,$carta]);
         if (!$s->get_result()->fetch_row()) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no existe o está inactiva en este negocio.');
-        $s=$db->prepare('SELECT c.id,c.nombre AS categoria,p.nombre,p.descripcion,o.precio FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN cartas ca ON ca.unidad_id=c.unidad_id AND ca.slug=c.carta JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND ca.slug=? AND ca.activo=1 AND c.activo=1 AND o.activo=1 ORDER BY c.orden,c.id,o.orden,o.id');
-        $s->execute([$unidad,$carta]);$grupos=[];
-        foreach ($s->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $s=$db->prepare('SELECT c.id,c.nombre AS categoria,p.nombre,p.descripcion,o.precio,o.id oferta_id FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id JOIN cartas ca ON ca.unidad_id=c.unidad_id AND ca.slug=c.carta JOIN areas_produccion a ON a.id=o.area_id AND a.unidad_id=o.unidad_id WHERE o.unidad_id=? AND ca.slug=? AND ca.activo=1 AND c.activo=1 AND o.activo=1 ORDER BY c.orden,c.id,o.orden,o.id');
+        $s->execute([$unidad,$carta]);$rowsPdf=$s->get_result()->fetch_all(MYSQLI_ASSOC);$s->close();$grupos=[];$presentacionesPorOferta=PresentacionesOferta::paraCartas($unidad);
+        foreach ($rowsPdf as $row) {
             $id=(int)$row['id'];if(!isset($grupos[$id]))$grupos[$id]=['nombre'=>$row['categoria'],'platillos'=>[]];
-            $grupos[$id]['platillos'][]=(object)['nombre'=>$row['nombre'],'descripcion'=>$row['descripcion'],'precio'=>$row['precio']];
+            $presentaciones=($presentacionesPorOferta[(int)$row['oferta_id']]??['configurada'=>false,'presentaciones'=>[]]);
+            if($presentaciones['configurada']){foreach($presentaciones['presentaciones'] as $p)$grupos[$id]['platillos'][]=(object)['nombre'=>mb_substr($row['nombre'].' · '.$p['nombre'],0,120),'descripcion'=>$row['descripcion'],'precio'=>$p['precio']];}else $grupos[$id]['platillos'][]=(object)['nombre'=>$row['nombre'],'descripcion'=>$row['descripcion'],'precio'=>$row['precio']];
         }
         if (!$grupos) throw new \Services\Inventory\InventarioError('CARTA_VACIA','No hay ofertas disponibles para imprimir esta carta.');
         return ['pieza'=>$pieza,'categorias'=>array_values($grupos),'contexto'=>$contexto,'carta'=>$carta];
