@@ -250,3 +250,122 @@ instalación existente, el despliegue aditivo está en
 `database/actualizaciones/m1-facultad-comercial.sql`; no concede facultades a
 usuarios ni requiere migrar datos del menú. Las pruebas nunca lo aplican a la
 base activa. M2 y M3 permanecen fuera de esta entrega.
+
+## 15. M2: contrato de evolución de artículos (previo al esquema)
+
+Base aprobada disponible localmente: `baf089b` (`main` y `origin/main`), integración
+M1.2. Trabajo en `codex/m2-articulos-recetas-unificados`, worktree propio bajo
+`tmp/m2-articulos-recetas-unificados`. No se alteran otros worktrees. El checkout
+original conserva su modificación de AdminMenuController. La base tiene un import
+duplicado de ContextoNegocio que impide compilar ese controlador; se corrige antes
+de validar M2. No se hace push, merge ni DDL sobre la base configurada.
+
+### Auditoría y matriz de compatibilidad
+
+| Estructura / consumidores | Autoridad actual | Evolución acordada |
+|---|---|---|
+| ingredientes; Ingrediente, Almacenes, ConsultasAlmacen, proveedores | Identidad operativa, unidad, estado y costo referencial | Reutilizar IDs y FK como catálogo maestro de artículos; el nombre físico es compatibilidad, no un segundo catálogo |
+| almacen_articulos; operaciones/movimientos_inventario; Transferencias | Único saldo por almacén/artículo, ledger y costo congelado | Sin reconstrucción, copias ni nuevas existencias al configurar recetas |
+| productos, ofertas_producto, productos_oferta; CatalogoComercial, Ofertas, ProductosCasa | Identidad comercial y condiciones locales | Conservar unicidad producto/negocio y añadir presentaciones hijas con composición versionada; ninguna unión por nombre |
+| producto_estandares, publicaciones, personalizaciones | Gobernanza M1.2, revisión/huella/confirmación/idempotencia | Conservar coordinador y políticas por campo; configuración operativa local nunca levanta una protección Global |
+| recetas, receta_componentes; RecetasOferta | Versiones por oferta y FK de ticket_items | Mantener como referencias históricas y adaptador de entrada; el resolvedor de artículos es compartido |
+| subrecetas, subreceta_ingredientes; Subreceta | Preparaciones privadas, desglose de un nivel | Asociación explícita a identidad operativa; nueva elaboración mediante versiones de artículos, sin deducir identidad por nombre |
+| recetas_casa, receta_casa_versiones/componentes, receta_origen_casa; RecetasCasa | Estándar comercial publicado y aplicación atómica | Preservar publicación M1.2 y su vínculo histórico; recetas de artículos Global no conceden inventario ni edición local |
+| producto_variantes, variante_ajustes; Variantes, editor JS, POS | Grupos, selección, precio, DTO ingrediente/subreceta | Reutilizar opciones/IDs; adaptar componentes a artículos. Separar permisos de precio y composición; ajustes de servicio no reescriben producción |
+| oferta_consumos; AlmacenesConsumo, ConsumoOferta | Almacén explícito por oferta/artículo y negocio | Reutilizar los mismos orígenes físicos al resolver presentaciones; sin fallback |
+| Comercial, ticket_items, KDS, impresión, HistorialTickets | Snapshot comercial, receta, variantes y costo | Congelar resolución ejecutada; movimiento y snapshot en la transacción actual; compensar ledger original |
+| Finance/DiagnosticoFinanciero, Analytics, Inventario, PDF | Hechos históricos y proyección comercial | No recalcular históricos con recetas nuevas; presentación conserva identidad comercial y precio autorizado |
+| AdminMenu/AdminProductosCasa/AdminRecetas/AdminAlmacenes; views/admin y rutas public/index.php | Formularios y navegación existentes | Extender con vínculos a artículo, elaboración, presentaciones y previsión; mismas tablas, botones, temas y CSRF, sin duplicar por negocio |
+| scripts/tests/run-{menu,recetas-casa,estandares,almacenes,restaurante}*, suites PHP/JS | Contratos de regresión | Preservar aserciones, añadir bases desechables y casos M2; separar fallos previos documentados |
+
+### Modelo y reglas de composición
+
+`ingredientes` sigue siendo la identidad operativa única. Las capacidades pertenecen
+a una configuración por unidad y se combinan (comprar, componer, elaborar,
+almacenar); no hay discriminador de tipo. Nombre/unidad pertenecen al maestro;
+capacidad y receta propia al negocio; precio/categoría al comercio; saldo al
+almacén. Compartir identidad no comparte receta privada, permisos ni existencias.
+
+Las recetas de artículo tienen resultado, propietario, versión, rendimiento/unidad,
+procedencia, actor y estado. Cada componente referencia un artículo y, cuando se
+desglosa, una versión concreta de su elaboración. Una versión publicada no se
+actualiza ni elimina; una modificación crea otra. Las referencias a versiones
+previas se conservan incluso al publicar una nueva. Publicar no produce stock.
+
+Las presentaciones dependen de una oferta. Su versión describe uno o varios
+artículos operativos y la modalidad explícita de cada uno: `almacenado` detiene el
+desglose, `desglosar` exige receta fijada. La etapa distingue elaboración y servicio.
+Botella sellada y vino abierto son artículos distintos relacionados por una receta
+de transformación prevista; vender una copa no abre una botella automáticamente.
+Rol de canela almacenado consume piezas, y croissant con crema consume pieza más
+complemento. M2.5 registrará producción, lotes y valorización; M3 habilitará POS
+Panadería. M2 no habilita ninguno de esos motores.
+
+```mermaid
+erDiagram
+    ingredientes ||--o{ articulo_configuraciones : capacidades_por_unidad
+    ingredientes ||--o{ articulo_recetas : resultado
+    articulo_recetas ||--|{ articulo_receta_componentes : version_inmutable
+    ingredientes ||--o{ articulo_receta_componentes : componente
+    productos ||--o{ ofertas_producto : identidad_comercial
+    ofertas_producto ||--o{ oferta_presentaciones : condiciones_de_venta
+    oferta_presentaciones ||--o{ presentacion_versiones : configuracion
+    presentacion_versiones ||--|{ presentacion_componentes : composicion
+    ingredientes ||--o{ presentacion_componentes : articulo
+    ingredientes ||--o{ almacen_articulos : saldo_fisico
+    ofertas_producto ||--o{ oferta_consumos : origen_explicito
+```
+
+### Resolución, variantes y costos
+
+El resolvedor prepara datos sin movimientos: negocio, oferta/presentación, versión,
+opciones y ajustes, cantidades/unidades, etapa, ruta de versiones y orígenes. Valida
+actividad, pertenencia local o Global, dimensiones, rendimiento positivo, ciclos
+por artículo (también indirectos), profundidad máxima y presupuesto de componentes.
+Usa decimales exactos y convierte únicamente g/kg y ml/l; piezas no se convierten
+a masa/volumen. Rechaza un resultado menor que la precisión física admitida.
+
+```mermaid
+flowchart LR
+    A[Oferta y presentación autorizadas] --> B[Versiones y opciones seleccionadas]
+    B --> C[Ajustes de servicio permitidos]
+    C --> D{Modalidad del componente}
+    D -->|almacenado| E[Artículo físico y origen propio]
+    D -->|desglosar| F[Versión fija y rendimiento]
+    F --> D
+    E --> G[Plan exacto y costo conocido o desconocido]
+    G --> H[Comanda: snapshot y motor Almacenes en una transacción]
+    H --> I[Cancelación: compensación de movimientos originales]
+```
+
+Una variante comercial sin ajustes no requiere autorización de receta. Un delta
+requiere política comercial; un cambio de composición requiere política de receta.
+No se permite quitar o sustituir ingredientes internos de un artículo almacenado.
+La sustitución de una preparación se aplica al componente visible antes del desglose.
+Los complementos se agregan en servicio. Las opciones siguen validándose en servidor.
+
+Costo referencial y costo físico se conservan separados: desconocido se representa
+con null, nunca cero implícito. Para producción futura el contrato será entradas
+consumidas con costos congelados / rendimiento real, más costos explícitos; M2
+solo resuelve esa previsión y no valoriza movimientos de transformación.
+
+### Migración y retiro de adaptadores
+
+1. Respaldo consistente externo y verificación de restauración antes del despliegue.
+2. DDL aditivo reproducible; no renombrar ni borrar tablas/FK históricas.
+3. Asociar identidades únicamente mediante IDs de origen y correspondencia única.
+   Una coincidencia de nombre nunca basta; asociaciones ambiguas quedan pendientes.
+4. Mantener los 112 productos, imágenes, precios/categorías/cartas, publicaciones,
+   tickets, snapshots, membresías y el ledger sin UPDATE de normalización histórica.
+5. Nuevos flujos escriben versiones de artículos/presentaciones. Los lectores
+   existentes entran mediante adaptadores al mismo contrato de resolución.
+6. Un adaptador legado solo puede retirarse cuando no quedan escritores ni ventas
+   nuevas dependientes, todas las referencias tienen correspondencia verificada y
+   las suites M1.2/POS/Almacenes pasan. Las tablas históricas no se eliminan.
+7. Validar instalación nueva y actualización repetida en bases temporales distintas;
+   comparar hashes/conteos y saldo contra ledger antes/después. DDL MySQL no es
+   transaccional: recuperación es restaurar respaldo en otro destino verificado,
+   nunca ejecutar un down que pierda versiones o movimientos.
+
+Esta sección es el contrato previo, no una declaración de aceptación. El cierre
+y las limitaciones verificadas se registran en la guía de pruebas vigente.
