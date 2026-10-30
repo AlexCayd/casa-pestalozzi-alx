@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-function m12Pruebas(callable $pruebas): void {
+function m12Pruebas(callable $pruebas,string $etiqueta="M1.2"): void {
     if(PHP_SAPI!=='cli')exit(1);
     $root=dirname(__DIR__,2);require_once $root.'/vendor/autoload.php';
     require_once $root.'/scripts/multinegocio/SqlArchivo.php';require_once __DIR__.'/fixture-3b.php';
@@ -19,9 +19,9 @@ function m12Pruebas(callable $pruebas): void {
         Model\ActiveRecord::setDB($db);if(session_status()!==PHP_SESSION_ACTIVE)session_start();
         $u=FixtureAutorizacion3B::usuario($db,'m12_super',[],true);
         $_SESSION=['id'=>$u['id'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];
-        $pruebas($db,$root,$a);echo "M1.2: {$n} comprobaciones OK.\n";
+        $pruebas($db,$root,$a);echo "{$etiqueta}: {$n} comprobaciones OK.\n";
     } finally {
-        if($created&&$name!==($_ENV['DB_NAME']??'')&&hash_equals($token,(string)$db->query('SELECT token FROM _cp_multinegocio_owner')->fetch_row()[0])){$db->query('DROP DATABASE `'.$name.'`');echo "Base temporal M1.2 propia eliminada.\n";}
+        if($created&&$name!==($_ENV['DB_NAME']??'')&&hash_equals($token,(string)$db->query('SELECT token FROM _cp_multinegocio_owner')->fetch_row()[0])){$db->query('DROP DATABASE `'.$name.'`');echo "Base temporal {$etiqueta} propia eliminada.\n";}
         $db->close();if(session_status()===PHP_SESSION_ACTIVE)session_destroy();
     }
 }

@@ -4,6 +4,8 @@ namespace Services\Menu;
 use Services\Security\ContextoNegocio as C;
 use Services\Inventory\DecimalInventario as D;
 use Model\ActiveRecord;
+use Services\Inventory\Articulos as A;
+use Services\Inventory\ResolucionArticulos as R;
 
 /** Publicaciones inmutables y activación mediante recetas operativas existentes. */
 final class RecetasCasa
@@ -22,7 +24,13 @@ final class RecetasCasa
             // Cantidad de lote / rendimiento. Rechazar, no redondear silenciosamente.
             $numerador=$cantidad*1000;if($numerador%$rendimiento!==0)ProductosCasa::error('PRECISION_INVALIDA','La cantidad por porción debe poder expresarse exactamente con tres decimales.');
             $porcion=intdiv($numerador,$rendimiento);if($porcion<=0)ProductosCasa::error('PRECISION_INVALIDA','La porción debe ser al menos una milésima.');
-            $out[$i]=['articulo_id'=>(int)$i,'cantidad'=>D::cantidad($cantidad),'unidad'=>$item['unidad'],'porcion'=>D::cantidad($porcion)];
+            $modo=$c['modalidad']??'almacenado';$referencia=$c['version_receta_id']??null;$referencia=$referencia===''||$referencia==='0'?null:$referencia;
+            if(!in_array($modo,['almacenado','desglosar'],true))ProductosCasa::error('MODALIDAD_INVALIDA','Selecciona cómo se consume el artículo.');
+            if($modo==='desglosar'){
+                $receta=A::cargarReceta((int)$referencia,C::unidad('global'));
+                if(!$receta||empty($receta['global'])||empty($receta['publicada'])||(int)$receta['articulo_id']!==(int)$i)ProductosCasa::error('VERSION_DENEGADA','Una receta oficial solo utiliza versiones publicadas de Global.');
+            }elseif($referencia!==null)ProductosCasa::error('MODALIDAD_INVALIDA','Un artículo almacenado no ejecuta receta.');
+            $out[$i]=['articulo_id'=>(int)$i,'cantidad'=>D::cantidad($cantidad),'unidad'=>$item['unidad'],'porcion'=>D::cantidad($porcion),'modalidad'=>$modo,'version_receta_id'=>$referencia===null?null:(int)$referencia];
         }
         ksort($out);return ['rendimiento'=>D::cantidad($rendimiento),'unidad'=>$unidad,'componentes'=>array_values($out)];
     }
@@ -51,7 +59,8 @@ final class RecetasCasa
             if($publicado!==null&&ProductosCasa::json($producto)!==ProductosCasa::json($publicado))ProductosCasa::error('BORRADOR_PENDIENTE','Publica o revisa primero los cambios comerciales pendientes. La receta no los publicará de forma implícita.');
             $numero=(int)ProductosCasa::sql('SELECT COALESCE(MAX(version),0)+1 FROM receta_casa_versiones WHERE producto_id=?',[$id])->get_result()->fetch_row()[0];
             ProductosCasa::sql('INSERT INTO receta_casa_versiones(producto_id,version,rendimiento,unidad,usuario_id) VALUES (?,?,?,?,?)',[$id,$numero,$d['rendimiento'],$d['unidad'],C::actorId()]);$version=(int)ActiveRecord::getDB()->insert_id;
-            foreach($d['componentes'] as $comp)ProductosCasa::sql('INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (?,?,?)',[$version,$comp['articulo_id'],$comp['cantidad']]);
+            self::plan($d['componentes'],C::unidad('global'),false);
+            foreach($d['componentes'] as $comp){ProductosCasa::sql('INSERT INTO receta_casa_componentes(version_id,articulo_id,cantidad) VALUES (?,?,?)',[$version,$comp['articulo_id'],$comp['cantidad']]);if($comp['version_receta_id']!==null)ProductosCasa::sql('INSERT INTO receta_casa_composiciones(version_id,articulo_id,version_receta_id) VALUES(?,?,?)',[$version,$comp['articulo_id'],$comp['version_receta_id']]);}
             ProductosCasa::sql('UPDATE receta_casa_versiones SET publicada=1 WHERE id=?',[$version]);
             $producto['receta_version_id']=$version;
             ProductosCasa::sql('UPDATE producto_estandares SET borrador=?,revision=revision+1 WHERE producto_id=?',[ProductosCasa::json($producto),$id]);
@@ -66,25 +75,20 @@ final class RecetasCasa
         $v=ProductosCasa::sql('SELECT * FROM receta_casa_versiones WHERE id=? AND producto_id=? AND publicada=1',[$version,$producto])->get_result()->fetch_assoc();if(!$v)ProductosCasa::error('RECETA_AJENA','La receta no pertenece al producto o todavía no está publicada.');
         $o=ProductosCasa::sql('SELECT id FROM ofertas_producto WHERE id=? AND producto_id=? AND unidad_id=? FOR UPDATE',[$oferta,$producto,$u])->get_result()->fetch_assoc();if(!$o)ProductosCasa::error('OFERTA_DENEGADA','La receta no corresponde a la oferta.');
         $actual=ProductosCasa::sql('SELECT r.id,l.version_id FROM recetas r LEFT JOIN receta_origen_casa l ON l.receta_id=r.id WHERE r.oferta_id=? AND r.activo=1 FOR UPDATE',[$oferta])->get_result()->fetch_assoc();if($actual&&(int)$actual['version_id']===$version)return;
-        $rows=ProductosCasa::sql('SELECT rc.articulo_id,rc.cantidad,i.unidad FROM receta_casa_componentes rc JOIN ingredientes i ON i.id=rc.articulo_id AND i.activo=1 WHERE rc.version_id=? ORDER BY rc.articulo_id',[$version])->get_result()->fetch_all(MYSQLI_ASSOC);
+        $rows=ProductosCasa::sql('SELECT rc.articulo_id,rc.cantidad,i.unidad,IF(c.version_receta_id IS NULL,\'almacenado\',\'desglosar\') modalidad,c.version_receta_id FROM receta_casa_componentes rc LEFT JOIN receta_casa_composiciones c ON c.version_id=rc.version_id AND c.articulo_id=rc.articulo_id JOIN ingredientes i ON i.id=rc.articulo_id AND i.activo=1 WHERE rc.version_id=? ORDER BY rc.articulo_id',[$version])->get_result()->fetch_all(MYSQLI_ASSOC);
         if(count($rows)!==(int)ProductosCasa::sql('SELECT COUNT(*) FROM receta_casa_componentes WHERE version_id=?',[$version])->get_result()->fetch_row()[0]||!$rows)ProductosCasa::error('INGREDIENTE_INVALIDO','Un ingrediente publicado dejó de estar disponible.');
         $componentes=self::normalizar(['rendimiento'=>$v['rendimiento'],'unidad'=>$v['unidad'],'componentes'=>$rows])['componentes'];$cantidades=array_column($componentes,'porcion','articulo_id');
-        $ajustes=ProductosCasa::sql('SELECT va.* FROM variante_ajustes va JOIN producto_variantes pv ON pv.id=va.variante_id WHERE va.oferta_id=? AND pv.activo=1',[$oferta])->get_result()->fetch_all(MYSQLI_ASSOC);
-        $necesarios=array_keys($cantidades);
-        foreach($ajustes as $aj){if($aj['subreceta_id']!==null||$aj['subreceta_nueva_id']!==null)ProductosCasa::error('VARIANTE_INCOMPATIBLE','Revisa las variantes con subrecetas locales antes de activar el estándar.');
-            if($aj['accion']!=='agregar'&&(!isset($cantidades[$aj['articulo_id']])||D::leer($aj['cantidad'])>D::leer($cantidades[$aj['articulo_id']])))ProductosCasa::error('VARIANTE_INCOMPATIBLE','Una variante modifica un componente que no coincide con la nueva receta.');
-            if($aj['accion']==='agregar')$necesarios[]=(int)$aj['articulo_id'];if($aj['articulo_nuevo_id'])$necesarios[]=(int)$aj['articulo_nuevo_id'];
-        }
+        $necesarios=self::necesarios($componentes,$u,$oferta);
         foreach(array_unique($necesarios) as $art){$origen=ProductosCasa::sql('SELECT oc.almacen_id FROM oferta_consumos oc JOIN almacen_articulos aa ON aa.almacen_id=oc.almacen_id AND aa.articulo_id=oc.articulo_id AND aa.unidad_id=oc.unidad_id JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE oc.oferta_id=? AND oc.unidad_id=? AND oc.articulo_id=? AND aa.activo=1 AND a.activo=1 AND i.activo=1 FOR UPDATE',[$oferta,$u,$art])->get_result()->fetch_assoc();if(!$origen)ProductosCasa::error('ORIGEN_PENDIENTE','Falta un origen de consumo activo en '.$ctx.'. Configúralo explícitamente antes de publicar.');}
         $numero=(int)ProductosCasa::sql('SELECT COALESCE(MAX(version),0)+1 FROM recetas WHERE oferta_id=?',[$oferta])->get_result()->fetch_row()[0];
         ProductosCasa::sql('UPDATE recetas SET activo=0 WHERE oferta_id=? AND activo=1',[$oferta]);
         ProductosCasa::sql('INSERT INTO recetas(oferta_id,unidad_id,version,activo) VALUES (?,?,?,1)',[$oferta,$u,$numero]);$receta=(int)ActiveRecord::getDB()->insert_id;
-        foreach($componentes as $comp)ProductosCasa::sql('INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (?,?,?,?)',[$receta,$u,$comp['articulo_id'],$comp['porcion']]);
+        foreach($componentes as $comp){ProductosCasa::sql('INSERT INTO receta_componentes(receta_id,unidad_id,articulo_id,cantidad) VALUES (?,?,?,?)',[$receta,$u,$comp['articulo_id'],$comp['porcion']]);$cid=(int)ActiveRecord::getDB()->insert_id;if($comp['version_receta_id']!==null)ProductosCasa::sql('INSERT INTO receta_componentes_articulos(componente_id,articulo_id,version_receta_id) VALUES(?,?,?)',[$cid,$comp['articulo_id'],$comp['version_receta_id']]);}
         ProductosCasa::sql('INSERT INTO receta_origen_casa(receta_id,version_id) VALUES (?,?)',[$receta,$version]);
     }
     public static function origenes(int $id,array $datos): array {
         ProductosCasa::autorizar();return C::transaccion(static function()use($id,$datos){
-            ProductosCasa::autorizar();ProductosCasa::bloquear($id);$r=self::borrador($id);if(!$r)ProductosCasa::error('RECETA_PENDIENTE','Guarda primero los ingredientes.');$ids=array_column(ProductosCasa::dato($r['borrador'])['componentes'],'articulo_id');
+            ProductosCasa::autorizar();ProductosCasa::bloquear($id);$r=self::borrador($id);if(!$r)ProductosCasa::error('RECETA_PENDIENTE','Guarda primero los ingredientes.');$borrador=ProductosCasa::dato($r['borrador']);$ids=[];foreach(ProductosCasa::ofertas($id) as $of)$ids=array_merge($ids,self::necesarios(self::normalizar($borrador)['componentes'],(int)$of['unidad_id'],(int)$of['id']));$ids=array_unique($ids);
             foreach($datos as $oferta=>$articulos){$o=ProductosCasa::sql('SELECT o.id,o.unidad_id,u.slug FROM ofertas_producto o JOIN unidades u ON u.id=o.unidad_id WHERE o.id=? AND o.producto_id=?',[(int)$oferta,$id])->get_result()->fetch_assoc();if(!$o||!is_array($articulos))ProductosCasa::error('OFERTA_DENEGADA','La oferta no corresponde al producto.');C::exigir('inventario','editar',$o['slug'],true);C::exigir('productos','editar',$o['slug'],true);
                 foreach($articulos as $art=>$almacen){if(!$almacen)continue;if(!in_array((int)$art,$ids,true)||!is_scalar($almacen))ProductosCasa::error('ORIGEN_INVALIDO','El origen no corresponde a la receta.');
                     $valido=ProductosCasa::sql('SELECT aa.articulo_id FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.almacen_id=? AND aa.articulo_id=? AND aa.unidad_id=? AND aa.activo=1 AND a.activo=1 FOR UPDATE',[(int)$almacen,(int)$art,$o['unidad_id']])->get_result()->fetch_assoc();if(!$valido)ProductosCasa::error('ALMACEN_DENEGADO','Selecciona un almacén propio con asociación activa.');
@@ -93,6 +97,26 @@ final class RecetasCasa
             }return ['origenes_guardados'=>true];
         });
     }
+    public static function necesarios(array $componentes,int $u,int $oferta): array
+    {
+        $base=[];foreach($componentes as $c)$base[]=['articulo_id'=>(int)$c['articulo_id'],'cantidad'=>$c['porcion']??$c['cantidad'],'unidad'=>$c['unidad'],'modalidad'=>$c['modalidad']??'almacenado','version_receta_id'=>$c['version_receta_id']??null];
+        $article=static fn($id)=>A::cargarArticulo($id,$u);$recipe=static fn($id)=>A::cargarReceta($id,$u);
+        $ids=array_column(R::resolver($base,$u,$article,$recipe,[],false)['lineas'],'articulo_id');
+        $ajustes=ProductosCasa::sql('SELECT va.* FROM variante_ajustes va JOIN producto_variantes pv ON pv.id=va.variante_id AND pv.oferta_id=va.oferta_id AND pv.unidad_id=va.unidad_id WHERE va.oferta_id=? AND va.unidad_id=? AND pv.activo=1 ORDER BY va.id',[$oferta,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+        foreach($ajustes as $r){
+            if($r['subreceta_id']!==null||$r['subreceta_nueva_id']!==null)ProductosCasa::error('VARIANTE_INCOMPATIBLE','Relaciona las variantes antiguas con artículos antes de usar una receta oficial.');
+            $a=$article((int)$r['articulo_id']);$version=$r['receta_destino_id']===null?null:(int)$r['receta_destino_id'];
+            $h=['accion'=>$r['accion'],'articulo_id'=>(int)$r['articulo_id'],'cantidad'=>$r['cantidad'],'unidad'=>$a['unidad']??'','modalidad'=>$r['accion']==='agregar'?$r['modalidad_destino']:'almacenado','version_receta_id'=>$r['accion']==='agregar'?$version:null];
+            if($r['accion']==='sustituir'){$n=$article((int)$r['articulo_nuevo_id']);$h['nuevo']=['articulo_id'=>(int)$r['articulo_nuevo_id'],'cantidad'=>$r['nueva_cantidad'],'unidad'=>$n['unidad']??'','modalidad'=>$r['modalidad_destino'],'version_receta_id'=>$version];}
+            $raices=R::aplicarVariantes($base,[$h],$u,$article,$recipe);$ids=array_merge($ids,array_column(R::resolver($raices,$u,$article,$recipe,[],false)['lineas'],'articulo_id'));
+        }
+        return array_values(array_unique($ids));
+    }
+    public static function plan(array $componentes,int $u,bool $porPorcion=true): array
+    {
+        $raices=[];foreach($componentes as $c)$raices[]=['articulo_id'=>(int)$c['articulo_id'],'cantidad'=>$porPorcion?($c['porcion']??$c['cantidad']):$c['cantidad'],'unidad'=>$c['unidad'],'modalidad'=>$c['modalidad']??'almacenado','version_receta_id'=>$c['version_receta_id']??null];
+        return R::resolver($raices,$u,static fn($id)=>A::cargarArticulo($id,$u),static fn($id)=>A::cargarReceta($id,$u),[],false);
+    }
     public static function volver(string $ctx,int $oferta): array {
         C::exigir('productos','editar',$ctx);return C::transaccion(static function()use($ctx,$oferta){
             C::exigir('productos','editar',$ctx,true);$u=C::vendedora($ctx);$o=ProductosCasa::sql('SELECT producto_id FROM ofertas_producto WHERE id=? AND unidad_id=?',[$oferta,$u])->get_result()->fetch_assoc();if(!$o)ProductosCasa::error('OFERTA_DENEGADA','La oferta no es válida.');$id=(int)$o['producto_id'];ProductosCasa::bloquear($id);$d=ProductosCasa::publicada($id);if(!$d)ProductosCasa::error('SIN_ESTANDAR','No hay una receta de la casa publicada.');
@@ -100,9 +124,12 @@ final class RecetasCasa
             ProductosCasa::retirarPersonalizacion($oferta,'receta');return ['receta_restaurada'=>true];
         });
     }
-    public static function validarAdaptacion(int $oferta,int $unidad,array $componentes): void {
-        foreach($componentes as $comp){if($comp['subreceta_id']!==null)ProductosCasa::error('SUBRECETA_DENEGADA','Adapta el producto de la casa con ingredientes desglosados.');
-            if(!ProductosCasa::sql('SELECT oc.almacen_id FROM oferta_consumos oc JOIN almacen_articulos aa ON aa.almacen_id=oc.almacen_id AND aa.articulo_id=oc.articulo_id AND aa.unidad_id=oc.unidad_id JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE oc.oferta_id=? AND oc.unidad_id=? AND oc.articulo_id=? AND aa.activo=1 AND a.activo=1 AND i.activo=1 FOR UPDATE',[$oferta,$unidad,$comp['articulo_id']])->get_result()->fetch_row())ProductosCasa::error('ORIGEN_PENDIENTE','Configura un origen local activo para cada ingrediente antes de adaptar la receta.');
+    public static function validarAdaptacion(int $oferta,int $unidad,array $componentes): void
+    {
+        $normal=[];
+        foreach($componentes as $c){if($c['subreceta_id']!==null)ProductosCasa::error('SUBRECETA_DENEGADA','Usa el artículo de la preparación vinculada.');$a=A::cargarArticulo((int)$c['articulo_id'],$unidad);$normal[]=['articulo_id'=>(int)$c['articulo_id'],'cantidad'=>$c['cantidad'],'unidad'=>$a['unidad']??'','modalidad'=>($c['version_receta_id']??null)?'desglosar':'almacenado','version_receta_id'=>$c['version_receta_id']??null];}
+        foreach(self::necesarios($normal,$unidad,$oferta) as $art){
+            if(!ProductosCasa::sql('SELECT oc.almacen_id FROM oferta_consumos oc JOIN almacen_articulos aa ON aa.almacen_id=oc.almacen_id AND aa.articulo_id=oc.articulo_id AND aa.unidad_id=oc.unidad_id JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN ingredientes i ON i.id=aa.articulo_id WHERE oc.oferta_id=? AND oc.unidad_id=? AND oc.articulo_id=? AND aa.activo=1 AND a.activo=1 AND i.activo=1 FOR UPDATE',[$oferta,$unidad,$art])->get_result()->fetch_row())ProductosCasa::error('ORIGEN_PENDIENTE','Configura un origen local activo para cada artículo antes de adaptar la receta.');
         }
     }
 }

@@ -9,5 +9,6 @@ mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);$db=new mysqli($_ENV['DB
 if(!hash_equals($p['token'],(string)$db->query('SELECT token FROM _cp_multinegocio_owner')->fetch_row()[0]))exit(3);
 Model\ActiveRecord::setDB($db);session_start();$_SESSION=['id'=>$p['actor'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];
 echo "READY\n";fflush(STDOUT);if(trim((string)fgets(STDIN))!=='GO')exit(4);
-$r=match($p['accion']){'crear'=>Services\Menu\ProductosCasa::crear(...$p['args']),'producto'=>Services\Menu\ProductosCasa::publicar(...$p['args']),'receta'=>Services\Menu\RecetasCasa::publicar(...$p['args']),default=>['ok'=>false]};
+if($p['accion']==='articulo_race')$p['args'][4].='_'.getmypid();
+$r=match($p['accion']){'articulo','articulo_race'=>Services\Inventory\Articulos::publicar(...$p['args']),'crear'=>Services\Menu\ProductosCasa::crear(...$p['args']),'producto'=>Services\Menu\ProductosCasa::publicar(...$p['args']),'receta'=>Services\Menu\RecetasCasa::publicar(...$p['args']),default=>['ok'=>false]};
 echo json_encode($r,JSON_THROW_ON_ERROR);session_destroy();$db->close();
