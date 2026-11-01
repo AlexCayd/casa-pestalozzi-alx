@@ -15,6 +15,9 @@ final class InicioAdministrativo
         $administracion = [];
         $base = $ctx === 'restaurante' ? '/admin' : '/admin/'.$ctx;
         $defs = [
+            'ia'=>['Asistente IA',$ctx==='global'?'Pregunta por los almacenes de la organización y los productos de la casa.':'Pregunta por las ventas en caja, los almacenes y el menú.','ia',$base.'/ia'],
+            'analytics'=>['Análisis de datos',$ctx==='global'?'Compara las ventas de los dos negocios y los productos de la casa.':'Ventas en caja, lo más vendido y las horas de más venta.','analytics',$base.'/analytics'],
+            'finanzas'=>['Finanzas',$ctx==='global'?'Cómo van los dos negocios hoy y en el periodo, y el total de la organización.':'Ventas en caja, costos, merma y gastos fijos de Panadería.','finanzas',$base.'/finanzas'],
             'inventario'=>['Almacenes','Consulta existencias y registra operaciones físicas.','inventario',$base.'/almacenes'],
             'menu'=>[$ctx==='global'?'Productos de la casa':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
             'transferencias'=>['Transferencias','Consulta envíos, recepciones e incidencias.','transferencias',$base.'/almacenes?vista=transferencias'],

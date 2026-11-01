@@ -79,6 +79,9 @@ const paths = {
     "src/js/admin/analytics/nivel1.js",
     "src/js/admin/analytics/analytics-page.js",
     "src/js/admin/analytics/analytics.js",
+    // Global (views/admin/analytics-global.php): se monta sólo si su raíz
+    // está en la página, así que no toca a Restaurante ni a Panadería.
+    "src/js/admin/analytics/analytics-global.js",
   ],
   adminMapJs: [
     // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que

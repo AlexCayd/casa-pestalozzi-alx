@@ -138,8 +138,21 @@ $router->get('/admin/panaderia/inventario', static function ($router) { header('
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
-// Sólo la vista: el navegador habla directo con n8n (IA_N8N_WEBHOOK_URL).
+// Panadería tiene su análisis (ventas en caja, mapa de calor de venta) y su
+// tabla de horas; Global, el comparativo de los dos negocios.
+$router->get('/admin/panaderia/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/panaderia/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
+$router->get('/admin/global/analytics', [AdminController::class, 'analytics']);
+// El Asistente IA y su API, una pareja por ámbito: el prefijo es lo que
+// decide de qué negocio son los datos (ConsultasRapidasAmbito para Panadería y
+// Global).
 $router->get('/admin/ia', [AdminIaController::class, 'index']);
+foreach (['/admin/panaderia', '/admin/global'] as $baseIa) {
+    $router->get($baseIa.'/ia', [AdminIaController::class, 'index']);
+    $router->get($baseIa.'/api/consultas', [AdminConsultasController::class, 'consultar']);
+    $router->get($baseIa.'/api/consultas/catalogo', [AdminConsultasController::class, 'catalogo']);
+    $router->get($baseIa.'/api/consultas/capacidades', [AdminConsultasController::class, 'capacidades']);
+}
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
@@ -322,6 +335,12 @@ $router->get('/admin/reservations/development-tools', $redir301('/admin/reservac
 $router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);
 $router->post('/admin/finanzas/gasto/guardar',   [AdminFinanzasController::class, 'guardarGasto']);
 $router->post('/admin/finanzas/gasto/eliminar',  [AdminFinanzasController::class, 'eliminarGasto']);
+// Panadería tiene sus finanzas y sus gastos fijos; Global sólo el consolidado
+// de lectura, sin gastos propios.
+$router->get('/admin/panaderia/finanzas',                 [AdminFinanzasController::class, 'index']);
+$router->post('/admin/panaderia/finanzas/gasto/guardar',  [AdminFinanzasController::class, 'guardarGasto']);
+$router->post('/admin/panaderia/finanzas/gasto/eliminar', [AdminFinanzasController::class, 'eliminarGasto']);
+$router->get('/admin/global/finanzas',                    [AdminFinanzasController::class, 'index']);
 
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
 $router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);

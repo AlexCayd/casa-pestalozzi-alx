@@ -175,6 +175,16 @@ final class Permisos
         '/admin/panaderia/menu' => ['menu'],
         '/admin/panaderia/recetas' => ['productos'],
         '/admin/panaderia/inventario' => ['inventario'],
+        '/admin/panaderia/finanzas' => ['finanzas'],
+        '/admin/panaderia/analytics' => ['analytics'],
+        '/admin/panaderia/api/analytics' => ['analytics'],
+        '/admin/panaderia/ia' => ['ia'],
+        '/admin/panaderia/api/consultas' => ['ia'],
+        // Antes del prefijo /admin/global, que gana a todo lo que cuelga de él.
+        '/admin/global/finanzas' => ['finanzas'],
+        '/admin/global/analytics' => ['analytics'],
+        '/admin/global/ia' => ['ia'],
+        '/admin/global/api/consultas' => ['ia'],
         '/admin/global' => ['configuration'],
         // Las direcciones de la antigua Operación de reservaciones redirigen
         // al POS: se abren con el permiso del POS, como hasta ahora.
@@ -343,6 +353,9 @@ final class Permisos
         if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
         if (self::casa($url, '/admin/global/menus')) return ['tipo'=>'modulos','modulos'=>['menu']];
         if (self::casa($url, '/admin/global/productos')) return ['tipo'=>'modulos','modulos'=>['menu']];
+        // Fuera de Restaurante, las consultas sólo las usa el Asistente: las
+        // abre su módulo y nada más (Análisis y Tickets no existen ahí).
+        if (preg_match('~^/admin/(?:global|panaderia)/(?:ia|api/consultas)(?:/|$)~',$url)) return ['tipo'=>'modulos','modulos'=>['ia']];
         $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
         if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
         if (self::casa($normal,'/admin/almacenes') || in_array($url,['/admin/global/catalogo','/admin/global/inventario','/admin/panaderia/inventario'],true)) return ['tipo'=>'modulos','modulos'=>['inventario']];

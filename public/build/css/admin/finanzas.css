@@ -147,6 +147,41 @@
   transform: translateX(2px);
 }
 
+/* Aviso informativo: un estado del sistema que conviene saber antes de leer
+   las cifras (la caja de Panadería aún no cobra). Neutro a propósito, sin
+   ámbar ni rojo: no es una alerta del negocio, y el panel reserva el color
+   para el estado de salud. */
+.admin-finanzas .fin-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-finanzas .fin-aviso__icono {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--admin-muted);
+  stroke-width: 2;
+}
+
+.admin-finanzas .fin-aviso__texto {
+  max-width: 80ch;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-aviso__texto strong {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+
 /* Lámina maciza, sin el vidrio de .admin-panel: carga las cifras que se
    comparan y el cliente prefiere fondos sólidos. Las dos declaraciones de
    backdrop-filter anulan las que _finishes.scss pone dentro de @supports. */
@@ -1488,6 +1523,596 @@
 }
 .admin-gasto-card__delete {
   display: contents;
+}
+
+/* Láminas macizas, como el diagnóstico de cada negocio: cargan cifras que se
+   comparan, y la columna de rótulos fija de la tabla necesita un fondo
+   opaco igual al del panel (sobre el vidrio, en tema oscuro, se veía como una
+   franja de otro color). Las dos declaraciones de backdrop-filter anulan las
+   que _finishes.scss pone dentro de @supports. */
+.admin-finanzas.fin-global > .admin-panel {
+  /* Sin .admin-card: como el diagnóstico y los signos vitales, son
+     instrumentos de lectura, no fichas que se levanten al pasar el cursor. */
+  padding: clamp(18px, 2.4vw, 26px);
+  background: var(--admin-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.admin-finanzas .fin-hoy {
+  container: fin-hoy/inline-size;
+}
+
+/* Un instrumento de tres celdas, como los signos vitales: comparten marco y
+   las separa el filete de un píxel que deja ver el hueco de la rejilla. */
+.admin-finanzas .fin-hoy__lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-border-soft);
+  list-style: none;
+}
+
+@container fin-hoy (min-width: 720px) {
+  .admin-finanzas .fin-hoy__lista {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.admin-finanzas .fin-hoy__celda {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  background: var(--admin-surface);
+}
+
+.admin-finanzas .fin-hoy__celda--total {
+  background: var(--fin-hoja);
+}
+
+.admin-finanzas .fin-hoy__nombre {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Lo cobrado hoy es la cifra que se busca al abrir la pantalla: cara de
+   indicador, sola en su renglón. No se anima, así que Expose sin cifras
+   tabulares no mueve nada. */
+.admin-finanzas .fin-hoy__cifra {
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(1.9rem, 1.5rem + 1vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.admin-finanzas .fin-hoy__rotulo,
+.admin-finanzas .fin-hoy__contra {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-finanzas .fin-hoy__contra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.admin-finanzas .fin-hoy__abiertas {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-border-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-finanzas .fin-hoy__pendiente {
+  margin-top: 2px;
+}
+
+.admin-finanzas .fin-hoy__nota {
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* La caja es el bloque contenedor de los textos ocultos de las celdas
+   (.admin-visually-hidden va en absolute): sin esto se posicionaban contra el
+   panel, escapaban del recorte del scroll y, en móvil, ensanchaban la página
+   entera hasta el borde de la tabla. */
+.admin-finanzas .fin-lado {
+  container: fin-lado/inline-size;
+}
+
+.admin-finanzas .fin-lado__caja {
+  position: relative;
+  border-radius: var(--admin-radius-sm);
+}
+.admin-finanzas .fin-lado__caja:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+
+.admin-finanzas .fin-lado__pista {
+  display: none;
+  margin-bottom: 10px;
+  color: var(--admin-muted);
+  font-size: 12.5px;
+}
+
+/* Columnas iguales (table-layout fixed) para que la vista compare en
+   horizontal sin que una cifra larga ensanche su columna. En móvil la tabla
+   no se aprieta por debajo de 600 px: se recorre dentro de su caja con la
+   columna de rótulos fija a la izquierda. */
+.admin-finanzas .fin-lado__tabla {
+  min-width: 600px;
+  table-layout: fixed;
+}
+.admin-finanzas .fin-lado__tabla th,
+.admin-finanzas .fin-lado__tabla td {
+  padding: 12px 16px;
+  vertical-align: top;
+}
+.admin-finanzas .fin-lado__tabla thead th {
+  text-align: right;
+}
+.admin-finanzas .fin-lado__tabla td {
+  text-align: right;
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__esquina {
+  width: 26%;
+}
+.admin-finanzas .fin-lado__tabla thead th:first-child,
+.admin-finanzas .fin-lado__tabla tbody th[scope=row] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+}
+.admin-finanzas .fin-lado__tabla tbody th[scope=row] {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+  white-space: normal;
+}
+.admin-finanzas .fin-lado__tabla tbody tr:hover {
+  background: transparent;
+}
+.admin-finanzas .fin-lado__tabla tbody tr:hover > th[scope=row],
+.admin-finanzas .fin-lado__tabla tbody tr:hover > td {
+  background: var(--admin-surface-soft);
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__col--total {
+  background: var(--fin-hoja);
+}
+
+/* En un teléfono la tabla no cabe: se queda con la columna de rótulos más
+   estrecha y fija, y la siguiente columna asoma recortada por el borde, que es
+   la señal de que hay más a la derecha (con la pista escrita encima). */
+@container fin-lado (max-width: 599px) {
+  .admin-finanzas .fin-lado__pista {
+    display: block;
+  }
+  .admin-finanzas .fin-lado__tabla {
+    min-width: 520px;
+  }
+  .admin-finanzas .fin-lado__tabla th,
+  .admin-finanzas .fin-lado__tabla td {
+    padding: 11px 12px;
+  }
+  .admin-finanzas .fin-lado__tabla .fin-lado__esquina {
+    width: 112px;
+  }
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos td {
+  padding-block: 16px 18px;
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos tr > th[scope=row],
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos tr > td {
+  border-bottom: 1px solid var(--admin-border-strong);
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos tr:hover > th[scope=row] {
+  background: var(--admin-surface);
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos tr:hover > td {
+  background: transparent;
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__veredictos tr:hover > td.fin-lado__col--total {
+  background: var(--fin-hoja);
+}
+
+.admin-finanzas .fin-lado__frase,
+.admin-finanzas .fin-lado__suma {
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.admin-finanzas .fin-lado__suma {
+  margin-top: 0;
+}
+
+.admin-finanzas .fin-lado__cifra {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-cifra);
+  font-size: clamp(1.35rem, 1.1rem + 0.6vw, 1.75rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.admin-finanzas .fin-lado__cifra--good {
+  color: var(--admin-success-text);
+}
+.admin-finanzas .fin-lado__cifra--bad {
+  color: var(--admin-danger-text);
+}
+
+.admin-finanzas .fin-lado__veredicto .fin-enlace {
+  margin-top: 6px;
+  font-family: var(--admin-font-sans);
+}
+
+.admin-finanzas .fin-lado__tabla .fin-lado__grupo-rotulo th {
+  padding: 20px 16px 8px;
+  border-bottom: 1px solid var(--admin-border);
+  background: transparent;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-align: left;
+}
+
+.admin-finanzas .fin-lado__tabla .fin-lado__grupo-rotulo:hover > th {
+  background: transparent;
+}
+
+.admin-finanzas .fin-lado__valor {
+  display: block;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.admin-finanzas .fin-lado__valor.is-negativo {
+  color: var(--admin-danger-text);
+}
+
+.admin-finanzas .fin-lado__sec {
+  display: block;
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-finanzas .fin-lado__cambio {
+  display: block;
+  margin-top: 3px;
+}
+
+.admin-finanzas .fin-lado__vacio {
+  color: var(--admin-faint);
+}
+
+.admin-finanzas .fin-lado__tabla .fin-lado__fila--fuerte > th[scope=row] {
+  font-weight: 700;
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__fila--fuerte > th,
+.admin-finanzas .fin-lado__tabla .fin-lado__fila--fuerte > td {
+  border-top: 1px solid var(--admin-border-strong);
+}
+.admin-finanzas .fin-lado__tabla .fin-lado__fila--fuerte .fin-lado__valor {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-lado__nota {
+  max-width: 96ch;
+  margin-top: 14px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-finanzas .fin-conso {
+  container: fin-conso/inline-size;
+}
+
+.admin-finanzas .fin-conso__rejilla {
+  display: grid;
+  gap: 28px;
+}
+
+@container fin-conso (min-width: 760px) {
+  .admin-finanzas .fin-conso__rejilla {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+.admin-finanzas .fin-conso__bloque {
+  min-width: 0;
+}
+
+.admin-finanzas .fin-conso__titulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.admin-finanzas .fin-conso__texto {
+  margin-top: 14px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.admin-finanzas .fin-parte + .fin-parte {
+  margin-top: 22px;
+}
+
+.admin-finanzas .fin-parte__rotulo {
+  margin-bottom: 8px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Las dos barras comparten escala (el 100 % de su total). Los tramos son
+   grises, como el reparto de gastos fijos: la identidad la dice el nombre en
+   la leyenda, y el panel no pinta de colores lo que no es estado. */
+.admin-finanzas .fin-parte__barra {
+  display: flex;
+  gap: 3px;
+  height: 14px;
+}
+
+.admin-finanzas .fin-parte__seg {
+  flex: var(--parte, 1) 1 0;
+  min-width: 3px;
+  border-radius: 3px;
+}
+.admin-finanzas .fin-parte__seg--1 {
+  background: var(--admin-gris-11);
+}
+.admin-finanzas .fin-parte__seg--2 {
+  background: var(--admin-gris-7);
+}
+
+.admin-finanzas .fin-parte__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-finanzas .fin-parte__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.admin-finanzas .fin-parte__muestra {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+}
+
+.admin-finanzas .fin-parte__pct {
+  font-weight: 600;
+}
+.admin-finanzas .fin-parte__pct--tenue {
+  color: var(--admin-muted);
+  font-weight: 400;
+}
+
+.admin-finanzas .fin-inv {
+  margin: 0;
+}
+
+.admin-finanzas .fin-inv__fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+.admin-finanzas .fin-inv__fila dt {
+  color: var(--admin-text);
+  font-size: 14px;
+}
+.admin-finanzas .fin-inv__fila dd {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.admin-finanzas .fin-inv__fila--total {
+  border-top: 1px solid var(--admin-border-strong);
+  border-bottom: 0;
+}
+.admin-finanzas .fin-inv__fila--total dt,
+.admin-finanzas .fin-inv__fila--total dd {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-inv__fila:has(+ .fin-inv__fila--total) {
+  border-bottom: 0;
+}
+
+.admin-finanzas .fin-inv__aclara {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-finanzas .fin-atencion {
+  container: fin-atencion/inline-size;
+}
+
+.admin-finanzas .fin-atencion__rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-border-soft);
+}
+
+@container fin-atencion (min-width: 760px) {
+  .admin-finanzas .fin-atencion__rejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.admin-finanzas .fin-atencion__negocio {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--admin-surface);
+}
+
+.admin-finanzas .fin-atencion__nombre {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.admin-finanzas .fin-atencion__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-finanzas .fin-alerta {
+  display: grid;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-finanzas .fin-alerta:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.admin-finanzas .fin-alerta__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-finanzas .fin-alerta__rotulo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-finanzas .fin-alerta__valor {
+  color: var(--admin-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.admin-finanzas .fin-alerta__frase {
+  color: var(--admin-text);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-finanzas .fin-alerta__frase strong {
+  font-weight: 700;
+}
+
+.admin-finanzas .fin-atencion__vacio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.admin-finanzas .fin-atencion__ir {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.admin-finanzas .fin-gl-vacio__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.admin-finanzas .fin-gl-vacio__texto {
+  max-width: 70ch;
+  margin-top: 6px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-finanzas .fin-gl-vacio__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin-top: 14px;
 }
 
 @keyframes fin-crece {

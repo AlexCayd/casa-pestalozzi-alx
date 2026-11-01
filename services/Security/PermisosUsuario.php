@@ -22,6 +22,16 @@ final class PermisosUsuario
             $modulos['menu']['detalle'] = 'Identidades maestras y uso comercial autorizado; Global no vende.';
         }
         $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';
+        $modulos['ia']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/ia';
+        $modulos['analytics']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/analytics';
+        if ($contexto === 'global') $modulos['analytics']['detalle'] = 'Los dos negocios comparados y cómo se venden los productos de la casa en cada uno.';
+        if ($contexto === 'panaderia') $modulos['analytics']['detalle'] = 'Ventas en caja, lo más vendido, mapa de calor de venta y qué se lleva junto.';
+        $modulos['finanzas']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/finanzas';
+        if ($contexto === 'global') $modulos['finanzas']['detalle'] = 'Estado de los dos negocios: hoy, el periodo lado a lado y el total de la organización. Sólo lectura.';
+        if ($contexto === 'panaderia') $modulos['finanzas']['detalle'] = 'Ventas en caja, costo de insumos, merma, gastos fijos y estado de resultados.';
+        if ($contexto !== 'restaurante') $modulos['ia']['detalle'] = $contexto==='global'
+            ? 'Preguntas sobre los almacenes de la organización, las transferencias y los productos de la casa.'
+            : 'Preguntas sobre las ventas en caja, los almacenes y el menú.';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
         foreach ($modulos as $key => &$modulo) {
             $operativo = $modulo['grupo'] === Permisos::GRUPO_PISO;

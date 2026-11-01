@@ -24,6 +24,7 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [docs/desarrollo/interfaz.md](interfaz.md) | Vigente | Tokens, componentes y contratos visuales compartidos |
 | [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
 | [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
+| [docs/modulos/finanzas.md](../modulos/finanzas.md) | Referencia técnica | Finanzas por ámbito y consolidado de Global |
 | [docs/operacion.md](../operacion.md) | Vigente | Operación POS e impresión |
 | [docs/panaderia/README.md](../panaderia/README.md) | Vigente | Estado y referencias actuales de Panadería |
 | [docs/privacidad/privacidad.md](../privacidad/privacidad.md) | Vigente | Privacidad |

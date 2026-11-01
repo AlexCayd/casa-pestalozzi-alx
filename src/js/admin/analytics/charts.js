@@ -14,6 +14,12 @@
         return JSON.parse(JSON.stringify(data));
     }
 
+    // La vista compartida marca el negocio en su raíz (analytics.php).
+    function esCaja() {
+        var raiz = document.querySelector('[data-analytics-ambito]');
+        return !!raiz && raiz.getAttribute('data-analytics-ambito') === 'panaderia';
+    }
+
     function readToken(name, fallback) {
         var host = document.querySelector('.admin-body') || document.body;
         var value = getComputedStyle(host).getPropertyValue(name).trim();
@@ -336,7 +342,8 @@
             data: {
                 labels: data.topProducts.labels,
                 datasets: [{
-                    label: 'Unidades',
+                    // Panadería cuenta piezas (café, pan); Restaurante, unidades.
+                    label: esCaja() ? 'Piezas' : 'Unidades',
                     data: data.topProducts.values,
                     backgroundColor: palette.ventas,
                     borderRadius: { topRight: 4, bottomRight: 4 },
@@ -346,26 +353,36 @@
             options: baseOptions(palette, { indexAxis: 'y' })
         });
 
+        /*
+         * Reservaciones registradas por fecha: un conteo entero por día. Era
+         * una línea suavizada que nunca se vio con datos (el backend la
+         * entregaba vacía); con datos, la curva inventaba valores entre días
+         * —1.4 reservaciones— y el eje marcaba décimas. Barras y marcas
+         * enteras dicen lo que es: cuántas hubo cada día.
+         */
         createChart('reservationsByDayChart', {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: data.reservationsByDay.labels,
                 datasets: [{
                     label: 'Reservaciones',
                     data: data.reservationsByDay.values,
-                    borderColor: palette.reservas,
-                    backgroundColor: palette.fillReservas,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBorderWidth: 2,
-                    pointHoverBorderColor: palette.surface,
-                    pointHoverBackgroundColor: palette.reservas,
-                    fill: true,
-                    tension: 0.35
+                    backgroundColor: palette.reservas,
+                    borderRadius: { topLeft: 3, topRight: 3 },
+                    borderSkipped: 'bottom',
+                    maxBarThickness: 18
                 }]
             },
-            options: baseOptions(palette)
+            options: baseOptions(palette, {
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: palette.muted } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: palette.grid },
+                        ticks: { color: palette.muted, precision: 0 }
+                    }
+                }
+            })
         });
 
     }

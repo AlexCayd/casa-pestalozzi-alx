@@ -95,6 +95,44 @@ cargar, y el pie del historial lo dice. Las preguntas de texto guardadas antes
 de retirar el texto libre se pueden seguir repitiendo: van al intérprete del
 motor (`?q=`), que se conserva para eso.
 
+#### Panadería y Global
+
+La misma pantalla vive en `/admin/panaderia/ia` y `/admin/global/ia`, cada una
+con su API bajo el mismo prefijo (`/admin/panaderia/api/consultas`,
+`…/catalogo`, `…/capacidades`): el prefijo es lo que fija el ámbito, y la
+guardia y el motor lo vuelven a resolver desde la ruta. Responde
+`Services\Analytics\ConsultasRapidasAmbito`, con la misma lógica (intención +
+huecos → SQL preparado y acotado por unidad) y la misma forma de respuesta que
+Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbito
+(`ia` en ver); cada familia acepta además su módulo propio, como en Restaurante
+(almacén con Inventario, menú con Menú). No hay texto libre: `?q=` responde 400.
+
+| Ámbito | Familia | Pregunta | Qué cuenta |
+| --- | --- | --- | --- |
+| Panadería | Ventas en caja | Ventas en caja, de un producto, por categoría, lo más vendido, ticket promedio, productos sin venta, horas de más venta, cancelaciones en caja | tickets de caja de su unidad, contados como en Restaurante; sin meseros ni comensales |
+| | Almacenes | Existencia, lo que está por agotarse, consumo, entradas, mermas, transferencias en curso | sólo sus almacenes |
+| | Menú | Productos sin receta | ofertas activas sin receta activa |
+| Global | Almacenes de la organización | Existencia, lo que está por agotarse, consumo, entradas, mermas | **consolidado** de todos los almacenes, desglosado por negocio |
+| | Entre negocios | Transferencias en curso, productos de la casa | transferencias abiertas de la organización; estándares, dónde se ofrecen y su receta publicada |
+
+- **La caja de Panadería todavía no registra tickets**: sus preguntas de
+  ventas ya consultan lo correcto y contestan en cero hasta que exista el POS
+  de caja. No enlazan a Análisis, que Panadería no tiene.
+- **Global no vende**: no tiene preguntas de ventas ni suma las de los
+  negocios (consolidado financiero pendiente, arquitectura §3). Su lectura de
+  almacenes es la misma que Almacenes concede con permiso de ver, y no abre la
+  escritura de ningún almacén ajeno.
+- **Entradas** cuenta sólo movimientos `entrada`: una transferencia interna es
+  salida de un almacén y entrada de otro, y contarla sumaría dos veces lo mismo
+  en el consolidado. Las transferencias tienen su propia pregunta.
+- Una **transferencia abierta** es la que está solicitada, autorizada, enviada
+  o con incidencia.
+- El historial del navegador va **por ámbito**
+  (`cp-admin-ia-panaderia-conversaciones-v1`, `cp-admin-ia-global-…`);
+  Restaurante conserva sus claves. Plegar el historial vale para los tres.
+- Prueba: `php scripts/tests/run-consultas-ambito-db.php`, contra la base de
+  desarrollo en una transacción que se revierte.
+
 ## Comportamiento por entorno
 
 | | development | test | production |
@@ -165,7 +203,8 @@ La contraseña y `NIP_LOOKUP_SECRET` se aportan localmente; no se publican sus v
 
 ## API compartida de consultas rápidas
 
-window.ConsultasRapidas ofrece consultar, montar, capacidades, catalogo, elegir,
+window.ConsultasRapidas ofrece configurar (la API del ámbito de la página),
+consultar, montar, capacidades, catalogo, elegir,
 consultaDeOpcion, teclaDeHueco, selectorAbierto y cerrarSelector. montar devuelve
 consultar/pintar/limpiar/destruir/ultima y emite consulta-rapida:cambio y
 consulta-rapida:respuesta. Sus opciones incluyen ambito, alCambiar, alPintar,

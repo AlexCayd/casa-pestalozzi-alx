@@ -30,6 +30,11 @@ final class AdminContextosController
             }
             $base='/admin/'.$contexto;
             $entradas=[];
+            // Arriba, como en Restaurante: es la otra manera de preguntarle a
+            // los datos y tiene que verse sin desplazar el menú.
+            if (Auth::puede('ia','ver',$contexto)) $entradas['ia']=['title'=>'Asistente IA','path'=>$base.'/ia'];
+            if (Auth::puede('analytics','ver',$contexto)) $entradas['analytics']=['title'=>'Análisis de datos','path'=>$base.'/analytics'];
+            if (Auth::puede('finanzas','ver',$contexto)) $entradas['finanzas']=['title'=>'Finanzas','path'=>$base.'/finanzas'];
             if (Auth::puede('inventario','ver',$contexto)) $entradas['inventario']=['title'=>'Almacenes','path'=>$base.'/almacenes'];
             if (Auth::puede('menu','ver',$contexto)) $entradas['menu']=['title'=>$contexto==='global'?'Productos de la casa':'Menú','path'=>$base.($contexto==='global'?'/productos':'/menu')];
             if ($contexto==='global' && Auth::puede('menu','ver',$contexto)) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];

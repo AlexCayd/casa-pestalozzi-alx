@@ -116,17 +116,30 @@ class AdminController
         // (analytics-page.js / charts.js) consume como window.AdminAnalyticsMock:
         // { metrics, tickets, payments, charts }.
         $rango = self::rangoAnalytics();
+        $ctx = \Services\Security\ContextoNegocio::nuevo() ? \Services\Security\ContextoNegocio::slug() : 'restaurante';
+        // Global no vende: su análisis es el comparativo de los dos negocios.
+        if ($ctx === 'global') {
+            self::analyticsGlobal($rango);
+            return;
+        }
         $analytics = self::construirAnalytics($rango);
 
         // Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3): ingeniería de
-        // menú, RevPASH y reglas de asociación.
+        // menú, RevPASH (en Panadería, el mapa de calor de venta) y reglas de
+        // asociación.
         $analytics['nivel1'] = Analiticas::nivel1($rango['start'], $rango['end']);
+        $base = $ctx === 'restaurante' ? '/admin' : '/admin/' . $ctx;
 
         self::render('analytics', [
             'activeModule' => 'analytics',
             'title' => 'Análisis de datos',
             'topbarSection' => 'Análisis',
             'compactTopbar' => true,
+            // Lo que la vista dice distinto por negocio: Panadería vende en
+            // caja (sin propinas, comensales, mesas ni reservaciones) y su
+            // tabla de horas se pide a su propia API.
+            'anAmbito' => $ctx,
+            'anApiVentaPorHora' => $base . '/api/analytics/venta-por-hora',
             'analytics' => $analytics,
             'rango' => $rango,
             'styles' => [
@@ -169,12 +182,67 @@ class AdminController
         return RangoPeriodo::resolver($_GET);
     }
 
+    /**
+     * Análisis de datos de Global: los dos negocios comparados y los productos
+     * de la casa (AnalisisConsolidado). Sólo lectura.
+     */
+    private static function analyticsGlobal(array $rango): void
+    {
+        $consolidado = null;
+        $error = '';
+        try {
+            $consolidado = \Services\Analytics\AnalisisConsolidado::armar($rango);
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['PERMISO_DENEGADO', 'AMBITO_DENEGADO'], true)) http_response_code(403);
+            $error = 'No tienes permiso para ver el análisis de la organización.';
+        } catch (\Throwable $e) {
+            error_log('AdminController::analyticsGlobal - ' . $e->getMessage());
+            $error = 'No se pudo cargar el análisis de la organización.';
+        }
+        // Al análisis de un negocio sólo se ofrece ir si la persona puede
+        // abrirlo: leer el comparativo no concede el de cada negocio.
+        $enlaces = [];
+        foreach (\Services\Analytics\AnalisisNegocio::NEGOCIOS as $slug) {
+            if (Auth::puede('analytics', 'ver', $slug)) {
+                $enlaces[$slug] = ($slug === 'restaurante' ? '/admin' : '/admin/' . $slug) . '/analytics?'
+                    . http_build_query(array_intersect_key($_GET, array_flip(['rango', 'desde', 'hasta'])));
+            }
+        }
+
+        self::render('analytics-global', [
+            'activeModule' => 'analytics',
+            'title' => 'Análisis de datos',
+            'topbarSection' => 'Análisis',
+            'compactTopbar' => true,
+            'rango' => $rango,
+            'consolidado' => $consolidado,
+            'errorConsolidado' => $error,
+            'enlacesNegocio' => $enlaces,
+            'styles' => ['/build/css/admin/analytics.css'],
+            'scripts' => ['/build/js/vendor/chart.umd.min.js', '/build/js/admin/analytics.js'],
+        ]);
+    }
+
     /** Construye el dataset real del dashboard desde la BD, filtrado por rango. */
     private static function construirAnalytics(array $rango): array
     {
-        // Etapa 3D.3, apartados 15/16 del encargo: los reportes de Restaurante
-        // conservan sus DTO y excluyen expresamente otras unidades.
-        if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('analytics','ver','restaurante');
+        // Restaurante y Panadería: el tablero sale de AnalisisNegocio, acotado
+        // por la unidad del negocio de la ruta. Lo de abajo es el camino del
+        // esquema anterior a la multiunidad.
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $ctx = \Services\Security\ContextoNegocio::slug();
+            \Services\Security\ContextoNegocio::exigir('analytics', 'ver', $ctx);
+            $vacio = ['metrics' => [], 'tickets' => [], 'payments' => [], 'charts' => [
+                'salesByDay' => ['labels' => [], 'values' => []], 'salesByCategory' => ['labels' => [], 'values' => []],
+                'paymentMethods' => ['labels' => ['Efectivo', 'Tarjeta', 'Dividido'], 'values' => [0, 0, 0]],
+                'topProducts' => ['labels' => [], 'values' => []], 'reservationsByDay' => ['labels' => [], 'values' => []]]];
+            try {
+                return \Services\Analytics\AnalisisNegocio::descriptivo(\Services\Security\ContextoNegocio::db(), $ctx, \Services\Security\ContextoNegocio::unidad($ctx), $rango);
+            } catch (\Throwable $e) {
+                error_log('AdminController::construirAnalytics - ' . $e->getMessage());
+                return $vacio;
+            }
+        }
         $money = static fn($n): string => '$' . number_format((float) $n, 0);
         $metrics = [];
         $ticketsTabla = [];

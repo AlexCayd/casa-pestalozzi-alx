@@ -108,8 +108,11 @@ las de `gestionar`; se conservan por los enlaces ya enviados a clientes.
 ### Saliente: Asistente IA
 
 `/admin/ia` usa `GET /admin/api/consultas`, con intenciones estructuradas del
-motor local `Services\Analytics\ConsultasRapidas`. No llama a un LLM ni
-al webhook n8n descartado. Ver [configuración](docs/config.md#asistente-ia).
+motor local `Services\Analytics\ConsultasRapidas`. `/admin/panaderia/ia` y
+`/admin/global/ia` usan la API bajo su prefijo, que responde
+`Services\Analytics\ConsultasRapidasAmbito` con el catálogo de su ámbito. No
+llama a un LLM ni al webhook n8n descartado. Ver
+[configuración](docs/config.md#asistente-ia).
 
 ## 3. Feedback del comensal
 
@@ -185,6 +188,8 @@ pero son del panel: están en `Permisos::APIS` con el módulo `configuration`.
 |---|---|---|---|
 | GET | `/admin/api/analytics/venta-por-hora` | `AdminController::ventaPorHora` | módulo: analytics |
 | GET | `/admin/api/consultas` | `AdminConsultasController::consultar` (consultas rápidas) | módulo: analytics, ia, menu, inventario o tickets |
+| GET | `/admin/panaderia/api/consultas` (`/catalogo`, `/capacidades`) | `AdminConsultasController` (Asistente de Panadería) | módulo: ia en Panadería |
+| GET | `/admin/global/api/consultas` (`/catalogo`, `/capacidades`) | `AdminConsultasController` (Asistente de Global, consolidado) | módulo: ia en Global |
 | POST | `/admin/api/menu/variantes` | `AdminMenuController::guardarVariantes` | módulo: menu |
 | GET | `/admin/api/inventario/uso` | `AdminInventarioController::uso` (recetas que usan un ingrediente) | módulo: inventario |
 | GET | `/admin/api/historial-precios` | `AdminInventarioController::historialPrecios` | módulo: inventario, menu o productos |

@@ -1,9 +1,39 @@
-# Analíticas de Restaurante
+# Analíticas
 
 Referencia técnica subordinada al [contrato rector](../docs/arquitectura.md).
-Implementación: Services\Analytics\Analiticas, AdminController::analytics y
-views/admin/analytics.php. Los consolidados Global y la analítica comercial de
-Panadería siguen pendientes. No aplicar DDL ni seeds desde esta guía.
+Implementación: Services\Analytics\AnalisisNegocio (tablero descriptivo por
+negocio), Services\Analytics\Analiticas (diagnósticas), AnalisisConsolidado
+(Global), AdminController::analytics y views/admin/analytics.php /
+analytics-global.php. No aplicar DDL ni seeds desde esta guía.
+
+## Por ámbito
+
+| Ámbito | Ruta | Qué muestra |
+|---|---|---|
+| Restaurante | `/admin/analytics` | Ventas, propinas, comensales, reservaciones, ingeniería de menú, RevPASH, horas y asociación |
+| Panadería | `/admin/panaderia/analytics` | Ventas en caja, ticket promedio, piezas por ticket, ingeniería de menú, **mapa de calor de venta**, horas y asociación |
+| Global | `/admin/global/analytics` | Comparativo de los dos negocios y productos de la casa, sólo lectura |
+
+- Cada pantalla la abre «Análisis de datos» de su ámbito; el comparativo de
+  Global no abre el análisis de un negocio.
+- Panadería vende en caja: no tiene propinas, comensales, mesas ni
+  reservaciones. Su caja todavía no registra tickets; el tablero lo dice y se
+  llena solo cuando la caja exista.
+- **Mapa de calor de venta (Panadería).** Es el algoritmo del RevPASH sin
+  dividir entre asientos ni filtrar el salón: cada celda es la venta de esa
+  franja entre los días que Panadería estuvo abierta en ella (su horario y sus
+  excepciones); el resumen diario, la venta por hora abierta. Lleva
+  `medida: 'dia'` y `asientos: null`; el RevPASH de Restaurante, `medida:
+  'asiento'`.
+- **Global** suma sólo las ventas de los negocios (el ticket promedio del total
+  sale de los totales) y une los productos de la casa por `producto_id`,
+  distinguiendo «no lo ofrece» de «lo ofrece y no vendió». Las analíticas
+  diagnósticas no se consolidan: son de cada menú.
+- La gráfica «Reservaciones por día» de Restaurante salía vacía siempre: el
+  bucle reutilizaba la fecha final del periodo anterior. AnalisisNegocio la
+  calcula con su propio rango.
+- Prueba: `php scripts/tests/run-analisis-ambito-db.php`, contra la base de
+  desarrollo en una transacción que se revierte.
 
 ## Datos y alcance
 

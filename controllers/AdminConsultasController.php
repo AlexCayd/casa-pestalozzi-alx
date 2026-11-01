@@ -7,9 +7,10 @@ use Services\Analytics\ConsultasRapidas;
 use Services\Security\ContextoNegocio;
 
 /**
- * El motor de consultas rápidas, que es lo que responde en el Asistente IA
- * (/admin/ia). Sólo lectura: GET y JSON. /admin/* ya exige rol admin por
- * prefijo en Auth::proteger(), así que no hay guardia propia que añadir.
+ * El motor de consultas rápidas, que es lo que responde en el Asistente IA de
+ * cada ámbito: /admin/ia, /admin/panaderia/ia y /admin/global/ia, cada uno con
+ * su API bajo el mismo prefijo. Sólo lectura: GET y JSON. El ámbito sale de la
+ * ruta; Auth::proteger() ya exigió el módulo y aquí se vuelve a comprobar.
  */
 class AdminConsultasController
 {
@@ -32,6 +33,13 @@ class AdminConsultasController
 
         try {
             self::exigirConsultaNueva();
+            if ($intencion === '' && self::ambitoPropio()) {
+                // Panadería y Global nacieron sin texto libre: sólo preguntas
+                // armadas en el compositor.
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'mensaje' => 'Elige una pregunta de la lista.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
             if ($intencion !== '') {
                 $respuesta = ConsultasRapidas::responderEstructurada(
                     $intencion,
@@ -91,11 +99,21 @@ class AdminConsultasController
         header('Cache-Control: no-store');
     }
 
+    /** Panadería y Global: el motor de ConsultasRapidasAmbito. */
+    private static function ambitoPropio(): bool
+    {
+        return ContextoNegocio::nuevo() && ContextoNegocio::slug() !== 'restaurante';
+    }
+
     private static function exigirConsultaNueva(): void
     {
         if (!ContextoNegocio::nuevo()) return;
         $ctx = ContextoNegocio::slug();
-        if ($ctx !== 'restaurante') throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE', 'Las consultas del POS están disponibles para Restaurante.');
+        // Fuera de Restaurante sólo el Asistente usa estas consultas.
+        if ($ctx !== 'restaurante') {
+            ContextoNegocio::exigir('ia', 'ver', $ctx);
+            return;
+        }
         foreach (['analytics','ia','menu','inventario','tickets'] as $modulo) {
             try { ContextoNegocio::exigir($modulo, 'ver', $ctx); return; }
             catch (\Services\Inventory\InventarioError $e) { if (!in_array($e->codigo, ['PERMISO_DENEGADO','MODULO_NO_DISPONIBLE'], true)) throw $e; }

@@ -25,6 +25,9 @@
 (function (window, document) {
     'use strict';
 
+    // La de Restaurante. Panadería y Global contestan bajo su propio prefijo
+    // (/admin/panaderia/api/consultas…): su Asistente la cambia con
+    // configurar() antes de la primera consulta.
     var API = '/admin/api/consultas';
     var CABECERAS = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
     var CAMPOS = ['intencion', 'id', 'opcion', 'periodo'];
@@ -125,6 +128,14 @@
     // El catálogo y las capacidades cambian poco y se piden una vez por
     // página; si fallan, se olvida la promesa para poder reintentar.
     var cache = {};
+
+    /** Cambia la API a la del ámbito de la página. Otra API, otras listas. */
+    function configurar(opciones) {
+        var api = opciones && typeof opciones.api === 'string' ? opciones.api.trim() : '';
+        if (!api || api === API) return;
+        API = api;
+        cache = {};
+    }
     function pedirUnaVez(clave, url) {
         if (!cache[clave]) {
             cache[clave] = pedirJson(url).then(function (d) {
@@ -1067,7 +1078,11 @@
             titulo: parte.rotulo || 'Opción',
             buscar: buscar,
             ancho: parte.ancho || 0,
-            placeholder: parte.placeholder || (parte.catalogo === 'ingredientes' ? 'Buscar ingrediente…' : 'Buscar platillo o categoría…'),
+            // Del rótulo del hueco: «Platillo o categoría» en Restaurante,
+            // «Producto o categoría» o «Artículo» en Panadería y Global.
+            placeholder: parte.placeholder || (parte.rotulo
+                ? 'Buscar ' + String(parte.rotulo).toLowerCase() + '…'
+                : (parte.catalogo === 'ingredientes' ? 'Buscar ingrediente…' : 'Buscar platillo o categoría…')),
             valor: parte.valor,
             opciones: opciones,
             filtro: filtro || '',
@@ -1079,6 +1094,7 @@
      * API para el Asistente (y para cualquier otro módulo que quiera montar una
      * respuesta con huecos):
      *
+     *   ConsultasRapidas.configurar({api}) → la API del ámbito de la página
      *   ConsultasRapidas.consultar(consulta, {ambito, signal}) → Promise<datos>
      *     consulta: {intencion, id, opcion, periodo} (o {q} para lo guardado
      *     antes de retirar el texto libre)
@@ -1099,6 +1115,7 @@
      *   ConsultasRapidas.cerrarSelector()
      */
     window.ConsultasRapidas = {
+        configurar: configurar,
         consultar: consultar,
         montar: function (contenedor, opciones) { return new Resultado(contenedor, opciones); },
         capacidades: capacidades,

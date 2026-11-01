@@ -334,7 +334,13 @@ final class ConsultasRapidas
      */
     public static function responderEstructurada(string $intencion, ?int $id = null, ?int $opcion = null, ?string $periodo = null): array
     {
-        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::estructurada($intencion,$id,$periodo,$opcion);
+        if (ContextoNegocio::nuevo()) {
+            // Panadería y Global tienen su propio catálogo de preguntas.
+            $ctx = ContextoNegocio::slug();
+            return $ctx === 'restaurante'
+                ? ConsultasRapidasRestaurante::estructurada($intencion,$id,$periodo,$opcion)
+                : ConsultasRapidasAmbito::estructurada($ctx, $intencion, $id, $opcion, $periodo);
+        }
         if (!in_array($intencion, self::INTENCIONES, true)) {
             return ['ok' => false, 'mensaje' => 'No reconozco esa consulta.'];
         }
@@ -360,7 +366,10 @@ final class ConsultasRapidas
      */
     public static function catalogo(): array
     {
-        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::catalogo();
+        if (ContextoNegocio::nuevo()) {
+            $ctx = ContextoNegocio::slug();
+            return $ctx === 'restaurante' ? ConsultasRapidasRestaurante::catalogo() : ConsultasRapidasAmbito::catalogo($ctx);
+        }
         $db = ActiveRecord::getDB();
         $ventas = [[
             'valor' => 'ventas_total',
@@ -463,7 +472,10 @@ final class ConsultasRapidas
      */
     public static function capacidades(): array
     {
-        if (ContextoNegocio::nuevo()) return ConsultasRapidasRestaurante::capacidades();
+        if (ContextoNegocio::nuevo()) {
+            $ctx = ContextoNegocio::slug();
+            return $ctx === 'restaurante' ? ConsultasRapidasRestaurante::capacidades() : ConsultasRapidasAmbito::capacidades($ctx);
+        }
         $d = self::datosDeEjemplo();
         $hoy = self::periodo('hoy');
         $ayer = self::periodo('ayer');

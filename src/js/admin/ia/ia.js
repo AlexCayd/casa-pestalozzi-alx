@@ -40,9 +40,16 @@
 
     /* ── Constantes ─────────────────────────────────────────────── */
 
-    var CLAVE_CONVERSACIONES = 'cp-admin-ia-conversaciones-v1';
-    var CLAVE_ACTIVA = 'cp-admin-ia-activa';
-    // La lee también el script en línea de la vista, antes de pintar.
+    // Cada ámbito (Restaurante, Panadería, Global) guarda su propio historial:
+    // una conversación sobre la caja de Panadería no tiene sentido abierta en
+    // Global. Restaurante conserva las claves de antes para no perder lo
+    // guardado. El script en línea de la vista arma las mismas.
+    var AMBITO = (raiz.getAttribute('data-ia-ambito') || '').trim() || 'restaurante';
+    var PREFIJO = AMBITO === 'restaurante' ? 'cp-admin-ia-' : 'cp-admin-ia-' + AMBITO + '-';
+    var CLAVE_CONVERSACIONES = PREFIJO + 'conversaciones-v1';
+    var CLAVE_ACTIVA = PREFIJO + 'activa';
+    // Plegar el historial es una preferencia de la pantalla, no del negocio:
+    // vale para los tres. La lee también el script en línea de la vista.
     var CLAVE_HISTORIAL = 'cp-admin-ia-historial-oculto';
 
     // El tope lo fija el controlador y lo dice el pie del historial: al abrir
@@ -67,6 +74,21 @@
     var TITULO_MAX = 52;
 
     var API = (raiz.getAttribute('data-ia-api') || '').trim() || '/admin/api/consultas';
+    // La tarjeta y el selector piden el catálogo a la misma API que el
+    // compositor: la del ámbito de la página.
+    if (window.ConsultasRapidas && typeof window.ConsultasRapidas.configurar === 'function') {
+        window.ConsultasRapidas.configurar({ api: API });
+    }
+
+    // Lo que el ámbito dice distinto (data-ia-textos): el nombre del total y
+    // el de las respuestas que se llaman de otra forma.
+    var TEXTOS_AMBITO = (function () {
+        var nodo = raiz.querySelector('[data-ia-textos]');
+        var datos = null;
+        try { datos = nodo ? JSON.parse(nodo.textContent) : null; } catch (error) { datos = null; }
+        return datos && typeof datos === 'object' ? datos : {};
+    })();
+    var TODO = typeof TEXTOS_AMBITO.todo === 'string' && TEXTOS_AMBITO.todo ? TEXTOS_AMBITO.todo : 'todo el restaurante';
 
     var mqCajon = window.matchMedia('(max-width: 992px)');
     var mqTactil = window.matchMedia('(hover: none) and (pointer: coarse)');
@@ -110,14 +132,27 @@
         cancelaciones: { nombre: 'Cancelaciones', icono: 'error' },
         stock: { nombre: 'Almacén', icono: 'inventario' },
         consumo: { nombre: 'Consumo', icono: 'gota' },
-        bajo_stock: { nombre: 'Almacén', icono: 'inventario' }
+        bajo_stock: { nombre: 'Almacén', icono: 'inventario' },
+        // Las de Panadería y Global (Services\Analytics\ConsultasRapidasAmbito).
+        entradas: { nombre: 'Entradas', icono: 'bolsa' },
+        mermas: { nombre: 'Mermas', icono: 'basura' },
+        transferencias: { nombre: 'Transferencias', icono: 'reubicar' },
+        sin_receta: { nombre: 'Productos sin receta', icono: 'nota' },
+        productos_casa: { nombre: 'Productos de la casa', icono: 'check' }
     };
+    (function (propios) {
+        if (!propios || typeof propios !== 'object') return;
+        Object.keys(propios).forEach(function (tipo) {
+            if (RUBROS[tipo] && typeof propios[tipo] === 'string') RUBROS[tipo].nombre = propios[tipo];
+        });
+    })(TEXTOS_AMBITO.rubros);
 
     // Respuestas que dependen del periodo: llevan el periodo en el rótulo y
     // ofrecen preguntarlas en otro.
     var CON_PERIODO = {
         ventas_producto: true, ventas_categoria: true, ventas_total: true, top: true, ticket_promedio: true,
-        sin_venta: true, meseros: true, horas_pico: true, cancelaciones: true, consumo: true
+        sin_venta: true, meseros: true, horas_pico: true, cancelaciones: true, consumo: true,
+        entradas: true, mermas: true
     };
 
     // Cómo se pregunta lo mismo en otro periodo, dicho como se diría en una
@@ -2161,7 +2196,7 @@
             quitarHuecoOpcion(c);
         }
         p.valor = op.valor;
-        p.etiqueta = op.valor === 'ventas_total' ? 'todo el restaurante' : String(op.etiqueta || '');
+        p.etiqueta = op.valor === 'ventas_total' ? TODO : String(op.etiqueta || '');
         estado.armadaTocada = true;
         pintarConstructor();
         sincronizarBase();

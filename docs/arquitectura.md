@@ -94,8 +94,8 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Recetas y variantes | Recetario estándar versionado M1.2; sin producción Global | Recetas operativas y variantes existentes; aplicación de estándares | Adaptación de estándares dentro de Menú; módulo completo M2 pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
-| Finanzas y analítica | Lecturas consolidadas pendientes | Flujos existentes conservados; validar límites en su guía | Modelo/fixtures preparados; operación pendiente |
-| Asistente IA | Asistente organizacional pendiente | Integración existente sujeta a sus límites externos | Pendiente |
+| Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas y productos de la casa), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH); las ventas contestan en cero hasta que exista la caja |
+| Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes, transferencias y productos de la casa; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú; las de ventas contestan en cero hasta que exista la caja |
 | Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
 | Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
 
@@ -147,7 +147,9 @@ Tickets y pagos pertenecen al negocio vendedor. Las finanzas registran egresos y
 
 Las vistas e informes locales filtran tanto la raíz como sus relaciones. Los consolidados futuros agregarán sin multiplicar filas y sin tratar una transferencia entre negocios como venta o gasto. Costos históricos conocidos permanecen congelados; los desconocidos se muestran como desconocidos, no se sustituyen con el costo actual de una receta. Consumo neto y merma se separan.
 
-Restaurante conserva las consultas analíticas existentes. Los datos versionados incluyen 365 tickets analíticos con 803 líneas, además de una semana RevPASH de 26 tickets en las 11 mesas reservables y 44 asientos, sin solapamientos; también incluyen ventas locales del Asistente en 90–91 fechas observadas. El asistente actual ofrece 12 intenciones estructuradas: ventas por total/producto/categoría, top, ticket promedio, sin venta, meseros, horas pico, cancelaciones, stock, consumo y bajo stock. No calcula rentabilidad/costo, mesas, coocurrencias o finanzas como consulta del asistente, y no usa un proveedor LLM. Global no tiene tickets ni dashboard financiero consolidado funcional; el asistente organizacional sigue pendiente.
+Restaurante conserva las consultas analíticas existentes. Los datos versionados incluyen 365 tickets analíticos con 803 líneas, además de una semana RevPASH de 26 tickets en las 11 mesas reservables y 44 asientos, sin solapamientos; también incluyen ventas locales del Asistente en 90–91 fechas observadas. El asistente actual ofrece 12 intenciones estructuradas: ventas por total/producto/categoría, top, ticket promedio, sin venta, meseros, horas pico, cancelaciones, stock, consumo y bajo stock. No calcula rentabilidad/costo, mesas, coocurrencias o finanzas como consulta del asistente, y no usa un proveedor LLM. Panadería y Global tienen su propio catálogo con el mismo motor (`ConsultasRapidasAmbito`, ver [configuración](config.md#panaderia-y-global)): Panadería pregunta por sus ventas en caja, almacenes y menú; Global lee el consolidado de almacenes con la regla de lectura de Almacenes, más transferencias y productos de la casa, sin sumar ventas de los negocios. Global no tiene tickets ni dashboard financiero consolidado funcional.
+
+Finanzas comparte una sola fuente de cifras por negocio (`Services\Finance\FinanzasNegocio`) entre Restaurante, Panadería y el consolidado de Global, que suma sólo ventas y costos de los negocios, incluye el inventario de Global y saca los márgenes de los totales ([Finanzas](modulos/finanzas.md)).
 
 ## 9. DDL, DML, fixtures e instalación
 
@@ -203,7 +205,7 @@ Antes de trabajar, leer este documento y `CLAUDE.md`, identificar ámbito/propie
 
 Toda función nueva se integra con identidad, autorización, propiedad y visuales existentes. No crear autenticación, stock, oferta, tickets o UI paralelos. Cambios arquitectónicos requieren decisión justificada aquí y actualización de referencias técnicas. Separar correcciones de defectos, mejoras de lo existente y funcionalidades nuevas en el [backlog](backlog.md). Un defecto crítico no se difiere como UX.
 
-El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería, paneles financieros Global, asistente Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
+El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería, paneles financieros Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
 
 ## 14. Documentación vigente
 

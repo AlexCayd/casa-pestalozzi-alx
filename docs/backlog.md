@@ -71,10 +71,10 @@ Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 | Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
 | Panadería | M2: recetas administrativas completas | Menú M1 completado; reutilizar recetas versionadas sobre ofertas propias |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
-| Panadería | Tickets, pagos y finanzas | Snapshots, idempotencia, compensaciones e informes propios |
-| Global | Dashboards consolidados | Lectura autorizada, sin ventas Global ni doble conteo |
-| Global | Tickets y finanzas consolidados | Contratos de propietario y agregación; no prometidos operativos |
-| Global | Asistente organizacional | Definir/validar primero asistentes locales; herramientas y SQL con ámbito y permisos de servidor |
+| Panadería | Tickets y pagos de caja | Snapshots, idempotencia y compensaciones; Finanzas y el Asistente ya leen sus tickets en cuanto existan |
+| Global | Tickets consolidados | Contratos de propietario y agregación; no prometidos operativos |
+| Global | Ventas consolidadas en el Asistente | El Asistente de Global ya lee el consolidado de almacenes; sumar ventas de los negocios espera el contrato de lecturas consolidadas sin doble conteo |
+| Panadería | Ventas por cajero en el Asistente | Las preguntas de caja ya existen; quién cobró depende de cómo registre el POS de caja al responsable del ticket |
 | Inventario | Producción y transformación de ingredientes | Definir entradas/salidas, rendimiento, costo, merma y trazabilidad sin duplicar saldos |
 | Inventario | Botellas abiertas/cerradas y variantes complejas | Definir alcance y aceptación; no inferir soporte desde entidades existentes |
 | Nuevos dominios | Catering | Requiere alcance, entidades, reglas y aceptación propios |

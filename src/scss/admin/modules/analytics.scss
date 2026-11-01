@@ -1355,3 +1355,540 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+ * Análisis en los tres ámbitos
+ *
+ * Panadería reutiliza la vista de Restaurante (analytics.php) y Global
+ * tiene la suya (analytics-global.php). Todo lo de aquí abajo consume el
+ * vocabulario de arriba (.admin-hero, .admin-chart-card, .admin-table) y
+ * sólo añade lo que no existía: el estado sin registros, el comparativo
+ * de negocios y la tabla de productos de la casa.
+ * ══════════════════════════════════════════════════════════════════ */
+
+// Panadería no tiene reservaciones: lo más vendido toma la fila entera en
+// vez de dejar un hueco a su lado en la rejilla de dos columnas.
+.admin-analytics .admin-chart-card--fila {
+  grid-column: 1 / -1;
+}
+
+/* Estado sin registros (Panadería sin caja) y error de Global. Un panel
+   que dice qué pasa, no gráficas planas que parezcan rotas. */
+.admin-analytics .admin-an-vacio {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 720px;
+  padding: 28px;
+}
+
+.admin-an-vacio__icono {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 50%;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+
+  svg {
+    stroke-width: 1.8;
+  }
+
+  &--alerta {
+    border-color: var(--admin-warning-border);
+    background: var(--admin-warning-bg);
+    color: var(--admin-warning-text);
+  }
+}
+
+// .admin-body h3/p ganan a una clase sola: se acota bajo .admin-body.
+.admin-body .admin-an-vacio__titulo {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.admin-body .admin-an-vacio__texto {
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-body .admin-an-vacio__nota {
+  color: var(--admin-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-an-vacio__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+// Mensaje de «no hay filas» dentro de una tabla o de un bloque.
+.admin-body .admin-an-sin-filas {
+  padding: 20px 4px;
+  color: var(--admin-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+.admin-body .admin-an-nota {
+  margin-top: 10px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.5;
+
+  strong {
+    color: var(--admin-text);
+    font-weight: 600;
+  }
+}
+
+/* Enlace de texto con flecha: «Ver su análisis». Subrayado al pasar y anillo
+   de foco del panel; el área cubre texto e icono. */
+.admin-an-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  text-underline-offset: 3px;
+
+  svg {
+    flex: 0 0 auto;
+    stroke-width: 2;
+  }
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--admin-gold);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Global ─────────────────────────────────────────────────────────
+ * La identidad de cada negocio es un color categórico de la paleta de
+ * gráficas (--admin-chart-1 / -2), el mismo de sus líneas. Sólo se usa
+ * donde el negocio ES el dato: la gráfica, la barra de participación y la
+ * muestra junto a su nombre. Todo lo demás queda neutro. */
+.admin-an-serie--1 {
+  background: var(--admin-chart-1);
+}
+
+.admin-an-serie--2 {
+  background: var(--admin-chart-2);
+}
+
+.admin-an-muestra {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+// Variación contra el periodo anterior: flecha, signo y cifra; el color
+// acompaña, no decide.
+.admin-an-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  white-space: nowrap;
+
+  svg {
+    flex: 0 0 auto;
+    stroke-width: 2.4;
+  }
+
+  &--sube {
+    background: var(--admin-success-bg);
+    color: var(--admin-success-text);
+  }
+
+  &--baja {
+    background: var(--admin-danger-bg);
+    color: var(--admin-danger-text);
+  }
+
+  &--igual {
+    background: var(--admin-surface-soft);
+    color: var(--admin-muted);
+  }
+
+  // Sin base: no es una variación, es una aclaración.
+  &--sin {
+    padding-inline: 0;
+    color: var(--admin-faint);
+    font-weight: 600;
+    white-space: normal;
+  }
+}
+
+// En la tarjeta titular la variación pesa como la de cada negocio en su
+// propio análisis (.admin-hero__delta).
+.admin-hero__foot .admin-an-delta:not(.admin-an-delta--sin) {
+  padding: 6px 12px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-an-global {
+  // Participación de cada negocio en la venta, al pie de la cifra total.
+  .admin-an-parte {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--admin-border-soft);
+
+    &__titulo {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    // Tramos separados por la superficie (gap) para que dos colores no se
+    // toquen: la frontera se lee aunque no se distingan los tonos.
+    &__barra {
+      display: flex;
+      gap: 2px;
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--admin-surface-soft);
+    }
+
+    &__tramo {
+      flex: 0 0 var(--parte, 0%);
+      min-width: 3px;
+    }
+
+    &__lista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 18px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--admin-muted);
+      font-size: 13px;
+
+      li {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      strong {
+        color: var(--admin-text);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    &__sin {
+      color: var(--admin-faint);
+    }
+  }
+
+  .admin-chart-card--lead .admin-an-sin-filas {
+    margin: auto 0;
+  }
+
+  // Los dos negocios lado a lado; en pantallas estrechas, uno sobre otro.
+  .admin-an-negocios {
+    display: grid;
+    // Cada tarjeta mide lo suyo: un negocio sin registros no se estira para
+    // igualar al otro y dejar media tarjeta en blanco.
+    align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .admin-an-negocio {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+    padding: 20px;
+  }
+
+  .admin-an-negocio__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+
+    h3 {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 21px;
+    }
+  }
+
+  .admin-an-negocio__venta {
+    display: grid;
+    gap: 6px;
+  }
+
+  .admin-an-negocio__rotulo,
+  .admin-an-negocio__datos dt,
+  .admin-an-top__titulo {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .admin-an-negocio__cifra {
+    color: var(--admin-text);
+    font-family: var(--admin-font-cifra);
+    font-size: clamp(30px, 3vw, 40px);
+    font-weight: 600;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  // Anidado bajo .admin-an-global ya gana a `.admin-body p`.
+  .admin-an-negocio__comparacion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    color: var(--admin-faint);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Tres datos en una fila; los dos negocios usan la misma rejilla, así que
+  // cada dato cae a la misma altura en las dos tarjetas.
+  .admin-an-negocio__datos {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 14px 0;
+    border-block: 1px solid var(--admin-border-soft);
+
+    > div {
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    dd {
+      display: grid;
+      justify-items: start;
+      gap: 6px;
+      margin: 0;
+    }
+  }
+
+  .admin-an-negocio__valor {
+    color: var(--admin-text);
+    font-family: var(--admin-font-cifra);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .admin-an-negocio__aparte {
+    color: var(--admin-faint);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-an-negocio__pendiente {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    padding: 18px;
+    border: 1px dashed var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+
+    .admin-badge svg {
+      stroke-width: 2;
+    }
+  }
+
+  .admin-an-negocio__pendiente p {
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  // Lo más vendido: nombre y cifras en una línea, la barra debajo. Magnitud
+  // en un solo tono neutro: aquí el color no distingue nada.
+  .admin-an-top__lista {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: an-top;
+  }
+
+  .admin-an-top__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 12px;
+    align-items: baseline;
+    counter-increment: an-top;
+    font-size: 13px;
+  }
+
+  // El nombre envuelve en vez de cortarse: con puntos suspensivos y sin
+  // tooltip, en móvil el plato largo quedaba irreconocible.
+  .admin-an-top__nombre {
+    min-width: 0;
+    color: var(--admin-text);
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+
+    &::before {
+      content: counter(an-top) ".";
+      display: inline-block;
+      min-width: 1.6em;
+      color: var(--admin-faint);
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+      font-weight: 500;
+    }
+  }
+
+  .admin-an-top__cifras {
+    color: var(--admin-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .admin-an-top__barra {
+    grid-column: 1 / -1;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--admin-surface-soft);
+
+    span {
+      display: block;
+      width: var(--parte, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--admin-muted);
+    }
+  }
+
+  // Productos de la casa: dos grupos de cuatro columnas, uno por negocio.
+  .admin-an-casa__tabla {
+    th,
+    td {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+
+    // La primera columna se queda fija al desplazar en horizontal (móvil):
+    // sin ella, a mitad de la tabla ya no se sabe de qué producto es la cifra.
+    .admin-an-casa__producto {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      min-width: 170px;
+      max-width: 240px;
+      background: var(--admin-surface);
+    }
+
+    thead .admin-an-casa__producto {
+      z-index: 2;
+      background: var(--admin-surface-soft);
+      vertical-align: bottom;
+    }
+
+    // Encabezado de fila: texto normal, no el rótulo en mayúsculas de th.
+    tbody th {
+      color: var(--admin-text);
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: normal;
+    }
+
+    tbody tr:hover .admin-an-casa__producto {
+      background: var(--admin-surface-soft);
+    }
+
+    .admin-an-casa__grupo {
+      border-left: 1px solid var(--admin-border-soft);
+      text-align: left;
+
+      .admin-an-muestra {
+        margin-right: 8px;
+        vertical-align: 0;
+      }
+    }
+
+    // Filete al inicio de cada negocio: agrupa sus cuatro columnas.
+    .admin-an-casa__inicio {
+      border-left: 1px solid var(--admin-border-soft);
+    }
+
+    .admin-an-casa__estado {
+      color: var(--admin-faint);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    // «No lo ofrece» no es una venta en cero: el hueco se pinta hundido para
+    // que se distinga de «Sin ventas» también de un vistazo, no sólo leyendo.
+    .admin-an-casa__ausente {
+      background: var(--admin-surface-soft);
+    }
+  }
+
+  .admin-an-global__pie {
+    margin-top: 4px;
+    color: var(--admin-faint);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  @include mixins.down(vars.$breakpoint-mobile) {
+    .admin-an-negocio {
+      padding: 16px;
+    }
+
+    .admin-an-negocio__datos {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}

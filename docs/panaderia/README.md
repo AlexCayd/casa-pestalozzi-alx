@@ -3,7 +3,10 @@
 Usuarios y Almacenes son funcionales mediante componentes compartidos con los
 otros ámbitos. Menú administrativo M1 permite altas, asociación de identidades, ofertas, precios,
 orden, disponibilidad, imágenes y categorías con el mismo recorrido de Restaurante.
-Recetas administrativas completas, POS sin mesas, tickets, pagos y finanzas siguen
+Finanzas, Análisis de datos y el Asistente IA son funcionales con métricas de
+panadería: sus ventas en caja contestan en cero hasta que exista la caja
+([Finanzas](../modulos/finanzas.md), [analíticas](../../database/ANALITICAS.md)).
+Recetas administrativas completas, POS sin mesas, tickets y pagos siguen
 pendientes; no se activan desde fixtures.
 
 - [Catálogo comercial y Menú](../modulos/catalogo-comercial.md).
