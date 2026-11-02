@@ -421,8 +421,8 @@ Consultar [pruebas](pruebas.md); reglas de negocio permanecen en backend.
 
 Restaurante y Panadería comparten `views/admin/menu/`, configuración de
 `AdministracionMenu` y el CSS existente. La ruta efectiva prepara enlaces,
-cartas, permisos y acciones. Panadería informa recetas/producción pendientes y
-oculta editores de recetas, variantes, históricos y PDF aún no disponibles.
+cartas, permisos y acciones. Panadería permite configurar artículos, elaboraciones,
+presentaciones y variantes; mantiene pendientes el POS y la producción física.
 El formulario conserva la foto pendiente y la previsualización existente.
 
 Global usa `/admin/global/productos` para identidades comerciales: fichas con ID,
@@ -460,3 +460,32 @@ Las pruebas reales y los archivos de evidencia están en
 [Pruebas M2](pruebas.md#cierre-m2): escritorio 1280, tableta 768 y móvil 390;
 claro/oscuro; teclado; publicación de versión y variante; comparación con la
 pantalla conservada de Recetas Restaurante. Se mantuvieron sus tokens y jerarquía.
+
+
+## Continuidad administrativa UX-2
+
+La clave técnica `productos` conserva sus permisos efectivos y se presenta como
+**Artículos y preparaciones** en sidebar, Inicio, encabezado y catálogo en Global,
+Restaurante y Panadería. La tarjeta reutiliza el icono `products` del sidebar.
+Menú conserva la responsabilidad comercial local y Productos de la casa la global.
+Presentaciones pertenece al módulo comercial; las recetas anteriores se consultan
+desde Artículos y preparaciones, sin convertir datos históricos automáticamente.
+
+El parámetro `volver` conserva el recorrido por URL, sin una navegación compartida
+en sesión. `RetornoAdministrativo` valida rutas exactas, contexto, permisos e IDs,
+limita longitud/profundidad y conserva filtros permitidos y anclas conocidas.
+Un retorno inválido se omite en favor del destino contextual habitual. El guardado
+de orígenes conserva oferta y presentación y emite un resultado aleatorio de un
+solo uso, vinculado a contexto/oferta/presentación con caducidad de diez minutos;
+no se consume desde otra pestaña que consulte una presentación distinta.
+
+El alta de identidad de artículo exige las mismas facultades que Almacenes. Sin
+ellas se explica la coordinación con una persona autorizada y se conserva la
+búsqueda/configuración permitida de artículos existentes. No hay nuevas solicitudes.
+Las confirmaciones comerciales usan el modal compartido con variante neutra,
+título, consecuencia y acción específicos; mantienen revisión e idempotencia.
+
+Pruebas dirigidas: `php scripts/tests/run-ux2.php` y
+`php scripts/tests/pruebas-http-ux2.php --fixture ARCHIVO_PRIVADO_DEL_HARNESS`.
+El segundo runner exige el harness 127.0.0.1:8094, base aleatoria con propietario,
+y crea únicamente datos/perfiles de prueba; excluye la base activa.
