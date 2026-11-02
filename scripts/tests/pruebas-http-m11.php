@@ -34,9 +34,11 @@ try{
  foreach(['/admin/almacenes','/admin/panaderia/almacenes','/admin/global/almacenes'] as $base){$r=$admin->request('GET',$base);$a($valid($r),'Almacenes completo '.$base);$a(str_contains($r['body'],'class="almacen-bar"'),'Distribución accesible '.$base);$a(str_contains($r['body'],'agotados'),'Indicadores por almacén '.$base);}
  $base='/admin/panaderia/almacenes';$r=$admin->request('GET',$base);$a(str_contains($r['body'],'Nuevo artículo')&&str_contains($r['body'],'Registrar entrada'),'Acciones principales visibles');
  $a(str_contains($r['body'],'Elige un almacén físico'),'No operar por defecto sobre el primero de varios almacenes');
- $nuevo=ClienteInstalacion3E::form($r['body'],'crear_articulo');$nuevo['nombre']='Artículo HTTP M1.1 '.bin2hex(random_bytes(4));$nuevo['unidad']='pza';$nuevo['costo']='1.2345';$nuevo['activo']='1';
- $post=$admin->request('POST',$base.'/operacion',$nuevo);$a($post['status']===303,'Alta rápida local usa PRG');$r=$admin->request('GET',$post['location']);$a(str_contains($r['body'],'Operación confirmada correctamente'),'Alta local con facultad Global confirmada');
- $operator=new ClienteInstalacion3E();$clients[]=$operator;$operator->login($f['cuentas']['operador_panaderia']);$r=$operator->request('GET',$base);$a(!str_contains($r['body'],'almacen-nuevo-articulo'),'Sin facultad no aparece alta maestra');
- $nuevo['admin_csrf']=ClienteInstalacion3E::token($r['body']);$nuevo['nombre']='Alta no autorizada '.bin2hex(random_bytes(4));$post=$operator->request('POST',$base.'/operacion',$nuevo);$r=$operator->request('GET',$post['location']);$a(!str_contains($r['body'],'Operación confirmada correctamente'),'Servidor no concede alta por inventario local');
+ // UX-4 conserva el alta autorizada y la verifica en su superficie persistente.
+ $page=$admin->request('GET',$base.'/catalogo/nuevo');$a($valid($page),'Alta persistente local autorizada');
+ $nuevo=['m2_csrf'=>ClienteInstalacion3E::token($page['body'],'m2_csrf'),'nombre'=>'Artículo HTTP M1.1 '.bin2hex(random_bytes(4)),'unidad'=>'pza','costo'=>'1.2345','activo'=>'1'];
+ $post=$admin->request('POST',$base.'/catalogo/nuevo',$nuevo);$a($post['status']===303,'Alta rápida local usa PRG');$r=$admin->request('GET',$post['location']);$a(str_contains($r['body'],'Artículo creado sin existencias ni asociaciones'),'Alta local con facultad Global confirmada');
+ $operator=new ClienteInstalacion3E();$clients[]=$operator;$operator->login($f['cuentas']['operador_panaderia']);$r=$operator->request('GET',$base);$a(!str_contains($r['body'],'/catalogo/nuevo'),'Sin facultad no aparece alta maestra');
+ $anterior=['admin_csrf'=>ClienteInstalacion3E::token($r['body']),'accion'=>'crear_articulo','nombre'=>'Alta no autorizada '.bin2hex(random_bytes(4)),'unidad'=>'pza','costo'=>'1.2345','activo'=>'1'];$post=$operator->request('POST',$base.'/operacion',$anterior);$r=$operator->request('GET',$post['location']);$a(!str_contains($r['body'],'Operación confirmada correctamente'),'Servidor no concede alta por inventario local');
  echo "HTTP M1.1: {$n} comprobaciones OK.\n";
 }finally{foreach($clients as $c)$c->close();}

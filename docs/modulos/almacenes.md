@@ -69,9 +69,10 @@ El resumen cuenta
 identidades y artículos con alguna alerta; no suma piezas, gramos y litros
 como una misma magnitud ni cuenta varias veces un artículo por sus alertas físicas.
 
-Movimientos, configuración y catálogo maestro se abren en los modales compartidos
-del panel. Las URLs con `vista` se mantienen y abren el modal correspondiente;
-no hay navegación por pestañas separadas. El historial conserva filtros y
+Movimientos y configuración se abren en los modales compartidos del panel.
+El catálogo maestro utiliza la superficie persistente de Artículos (UX-4).
+`vista=catalogo` y `/admin/global/catalogo` conservan una redirección compatible;
+las demás URLs con `vista` abren su modal correspondiente. El historial conserva filtros y
 paginación en servidor.
 
 Global representa la distribución con segmentos proporcionales a la magnitud
@@ -178,3 +179,36 @@ insuficientemente conocido y no se transforma silenciosamente en cero.
 
 M2.5 deberá registrar entradas/salidas de transformación, lotes, rendimiento real,
 mermas y costos congelados. M2 ofrece composición y previsión, sin esos movimientos.
+
+
+## Catálogo persistente UX-4
+
+`/admin[/global|/panaderia]/almacenes/catalogo` reutiliza el listado de Artículos
+con búsqueda, filtro de actividad y paginación de 30 filas. `/nuevo` y
+`/editar?id=…` presentan la identidad compartida fuera de un modal. El permiso de
+consulta sigue siendo `inventario/ver`; no implica `productos/ver` ni edición.
+Las fichas M2 mantienen `productos/ver`. Cada superficie ofrece los enlaces que
+el actor puede utilizar, sin exigir facultades Global para configurar un negocio.
+
+El controlador solo adapta el formulario a `AdministracionAlmacenes::guardar`,
+que conserva `Almacenes` como escritor único. Crear requiere edición de Inventario
+en el contexto y la facultad de catálogo Global, como el alta rápida anterior.
+Editar identidad exige hacerlo en Global con sus permisos y facultad existentes.
+La unidad referenciada y la inactivación con saldos continúan protegidas por el
+motor. El costo maestro se consulta en Global; el alta local autorizada permite
+capturar el costo inicial conforme al contrato existente. No se duplican maestros.
+
+Crear redirige al ID exacto y ofrece capacidades/elaboración solo con permiso de
+Productos, y asociaciones/existencias con Inventario. No crea configuración M2,
+asociación ni saldo. Los endpoints anteriores de operaciones siguen adaptando al
+mismo escritor; se retiraron sus formularios modales extensos y controles obsoletos.
+Los modales de entrada, merma, asociación y confirmación se conservan.
+
+Los retornos validados conservan contexto, búsqueda, actividad, página, selección
+de almacenes y artículo. Los IDs físicos se comprueban con `AlcanceInventario`;
+Global mantiene su consulta consolidada autorizada y los negocios solo sus
+almacenes. No se aceptan hosts, selecciones mixtas ajenas o parámetros arbitrarios.
+
+Verificación dirigida: `pruebas-http-ux4.php --fixture ARCHIVO_PRIVADO_DEL_HARNESS`.
+Requiere el harness loopback y propiedad de base temporal verificables. Prepara
+solo identidades sintéticas y restaura los cambios de permisos de sus perfiles.

@@ -62,7 +62,7 @@ publicación concurrente, receta histórica, inmutabilidad SQL y snapshot de com
 El catálogo compartido se abre desde `/admin/recetas/articulos`,
 `/admin/panaderia/recetas/articulos` o `/admin/global/recetas/articulos`.
 La ficha `/editar?id=…` identifica un artículo operativo, no un producto de venta.
-El alta maestra sigue en Almacenes con sus permisos existentes. En cada ficha se
+El alta maestra utiliza el catálogo persistente con el escritor y permisos de Almacenes (UX-4). En cada ficha se
 configuran capacidades combinables, se consulta el historial, se prepara una
 composición y se revisa su previsión antes de confirmar la publicación inmutable.
 
@@ -158,3 +158,35 @@ Pruebas dirigidas: `run-ux3.php`; preparar `fixture-ux3.php --fixture ARCHIVO_PR
 y ejecutar `pruebas-http-ux3.php --fixture ARCHIVO_PRIVADO` en el harness 3E aislado.
 Cada preparación genera identidades sintéticas nuevas; el runner modifica solo su
 base temporal verificada y restaura los permisos de prueba al terminar.
+
+
+## Catálogo y ficha UX-4
+
+El catálogo maestro y el contextual reutilizan `articulos.php`; no existe una
+segunda identidad ni autoridad de escritura. La lista mantiene 30 filas por
+página, búsqueda literal escapada y filtro de actividad. Solo carga metadatos de
+esa página: capacidades efectivas y número de versión, sin componentes ni toda
+la historia. `cargarArticulo` y la lectura por lote comparten la misma consulta
+efectiva. La proyección de estado es común a listado y ficha y se prueba su paridad.
+No se materializa compatibilidad al consultar. La autorización se comprueba por
+petición y por operación; agrupar lecturas no almacena decisiones de permisos.
+
+La ficha presenta identidad/estado al inicio, capacidades agrupadas y elaboración
+visible cuando aplica. Capacidades ya configuradas, versiones y usos emplean
+`details/summary` nativos; los errores de capacidades abren su sección y los
+retornos a anclas conocidas la despliegan. La versión base del editor y los cambios
+pendientes están indicados. Guardar capacidades sigue siendo independiente de
+publicar: la confirmación UX-1 protege la elaboración sin guardar ni persistirla.
+La sincronización inicial de selectores precede a la captura del borrador para
+no anunciar cambios falsos. Cancelar conserva valores y foco.
+
+«Dónde se utiliza» consulta hasta 20 referencias por sección y anuncia si hay más:
+elaboraciones publicadas propias/Global, preparaciones anteriores, recetas
+comerciales, presentaciones, ajustes de variantes, recetas de la casa y asociaciones.
+Cada familia exige sus permisos y contexto; no expone recetas privadas ajenas.
+Las versiones históricas de elaboraciones enlazan a la consulta inmutable; las
+referencias comerciales indican que su enlace abre la configuración actual.
+Las asociaciones mantienen el alcance consolidado Global o físico local autorizado.
+
+Pruebas: `run-ux4-ui.cjs` y `pruebas-http-ux4.php`, además de UX-1/2/3 y M2.
+No se modifica el versionado, motor de consumo, variantes, estándares ni SQL.

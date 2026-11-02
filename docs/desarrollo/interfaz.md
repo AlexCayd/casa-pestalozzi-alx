@@ -513,3 +513,26 @@ heredadas se muestran según el estado efectivo del servicio; consultar no las
 materializa. Los detalles físicos se ocultan sin permiso de Inventario. Los
 retornos validados conservan versión, comparación, referencia oficial y presentación
 al entrar y salir de Variantes. Ver el [contrato de composiciones](../modulos/recetas.md#integracion-de-composiciones-ux-3).
+
+
+## Catálogo y ficha persistentes UX-4
+
+El catálogo maestro reutiliza la lista, tabla desplazable, filtros y formularios
+de Artículos; se accede desde Almacenes sin mantener un catálogo extenso en modal.
+La identidad tiene una ficha persistente y una continuación al artículo exacto.
+El escritor sigue siendo Almacenes. Los permisos de consulta, identidad Global,
+capacidades y operaciones físicas permanecen separados.
+
+La ficha compacta reutiliza tokens, tarjetas y tipografía existentes. Los estados
+reales preceden al formulario; capacidades y datos auxiliares usan revelado nativo
+con `details/summary`, controles táctiles y foco visible. Elaboración, cantidades,
+modalidades, unidades, requisitos y publicación siguen accesibles. Los cambios
+pendientes de elaboración se anuncian y la confirmación UX-1 conserva su protección.
+No se almacena el borrador ni se publica al guardar capacidades. Las anclas de
+retorno despliegan la sección correspondiente.
+
+Validar catálogo, identidad y ficha en los tres contextos, 1280×900, 768×1024 y
+390×844, ambos temas; las tablas pueden desplazarse internamente y la página no.
+Conservar el selector compartido, Escape, Tab/Shift+Tab y el foco al cancelar.
+Ver [contrato de catálogo persistente](../modulos/almacenes.md#catalogo-persistente-ux-4)
+y [contrato de ficha](../modulos/recetas.md#catalogo-y-ficha-ux-4).
