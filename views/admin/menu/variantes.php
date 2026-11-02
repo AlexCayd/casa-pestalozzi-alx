@@ -58,6 +58,7 @@ $datosJson = $editorVariantes !== null
     </header>
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
+    <?php if(!empty($almacenesPendientes)&&!empty($composicionActual['url'])): ?><p class="admin-field__hint" role="status">Falta elegir el almacén de consumo de <?= (int)$almacenesPendientes ?> <?= (int)$almacenesPendientes===1?'artículo':'artículos' ?>. <a href="<?= $h(explode('#',$composicionActual['url'])[0].($composicionActual['modo']==='presentaciones'?'#origenes':'')) ?>">Configurar orígenes</a></p><?php endif; ?>
 
     <noscript>
         <p class="admin-variantes__noscript">El editor de variantes necesita JavaScript.</p>

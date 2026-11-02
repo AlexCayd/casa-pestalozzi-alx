@@ -11,7 +11,7 @@ $valorCasa=static function(string $campo,mixed $valor)use($versionesCasa):string
 <header class="admin-page__header"><div><h1 class="admin-page__title"><?= $productoCasaId?'Producto de la casa':'Nuevo producto' ?></h1><p class="admin-page__subtitle">Información oficial, negocios donde se ofrece y cambios que pueden personalizar.</p></div><a class="admin-btn admin-btn--secondary" href="/admin/global/productos">Volver a productos</a></header>
 <?php include __DIR__.'/../partials/alertas.php'; ?>
 <?php if($puedePresentaciones): ?><p><a class="admin-btn admin-btn--secondary" href="<?= $esc('/admin/global/productos/presentaciones?'.http_build_query(['id'=>$productoCasaId,'volver'=>'/admin/global/productos/casa?id='.$productoCasaId])) ?>">Composición y presentaciones oficiales</a></p><?php endif; ?>
-<?php if(isset($_GET['guardado'])): ?><p role="status" class="admin-field__hint">Cambios guardados correctamente. Revisa la publicación antes de aplicarla a los negocios.</p><?php endif; ?>
+<?php if(!empty($mensajeExito)): ?><p role="status" class="admin-field__hint"><?= $esc($mensajeExito) ?></p><?php endif; ?>
 <form method="POST" enctype="multipart/form-data" class="casa-editor">
 <input type="hidden" name="menu_csrf" value="<?= $esc($menuCsrf) ?>"><input type="hidden" name="revision" value="<?= $revision ?>"><input type="hidden" name="clave" value="<?= $esc($clave) ?>"><input type="hidden" name="accion" value="guardar">
 <fieldset class="admin-menu__fieldset" <?= $puedeCasa?'':'disabled' ?>>

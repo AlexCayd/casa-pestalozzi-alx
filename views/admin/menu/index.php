@@ -160,6 +160,7 @@
         </div>
     </header>
 
+    <?php if(!empty($productoCreado)): ?><div class="admin-actions" role="status"><span><?= $esc($productoCreado['nombre']) ?> está listo para continuar.</span><a class="admin-btn admin-btn--primary" href="<?= $esc($menuBase.'/edit?'.http_build_query(['id'=>(int)$productoCreado['id'],'volver'=>$volverListado])) ?>">Continuar con este producto</a></div><?php endif; ?>
     <?php foreach (($alertas ?? []) as $tipo => $mensajes) : ?>
         <?php foreach ($mensajes as $mensaje) : ?>
             <div class="admin-menu__flash admin-menu__flash--<?php echo htmlspecialchars($tipo); ?>">

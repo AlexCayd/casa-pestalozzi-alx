@@ -545,7 +545,7 @@
             cGrupos.innerHTML = '<div class="admin-variantes__vacio admin-card">' +
                 '<span class="admin-variantes__vacio-icono" aria-hidden="true">' + icono('variantes', 28) + '</span>' +
                 '<p class="admin-variantes__vacio-titulo">«' + esc(datos.nombre) + '» todavía no tiene variantes</p>' +
-                '<p class="admin-variantes__vacio-texto">Se vende tal como está en la receta base. Agrega un grupo —leche, tamaño, término— para que el mesero elija al tomar la orden.</p></div>';
+                '<p class="admin-variantes__vacio-texto">Se vende sin opciones adicionales. Agrega un grupo —leche, tamaño, término— para que el mesero elija al tomar la orden.</p></div>';
             return;
         }
         var html = '';
@@ -1058,7 +1058,7 @@
                 window.AppNotice && window.AppNotice.show({
                     variant: 'warning',
                     timeout: 0,
-                    text: 'Variantes guardadas. Falta elegir de qué almacén sale ' + (pendientes === 1 ? '1 ingrediente' : pendientes + ' ingredientes') + ': configura los orígenes en la composición vigente del producto. Mientras tanto el POS no puede vender este platillo.'
+                    text: 'Variantes guardadas. Falta elegir de qué almacén sale ' + (pendientes === 1 ? '1 ingrediente' : pendientes + ' ingredientes') + ': configura los orígenes en la composición vigente del producto. Mientras tanto no se puede completar su consumo en el punto de venta.'
                 });
             } else {
                 aviso('Variantes guardadas. El POS las toma al recargar el mapa.', 'success');

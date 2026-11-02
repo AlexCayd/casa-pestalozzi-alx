@@ -71,7 +71,7 @@ final class AdminAlmacenesController
         $volver=[];
         if(is_string($_POST['volver_filtros']??null) && strlen($_POST['volver_filtros'])<=8000) {
             parse_str($_POST['volver_filtros'],$volver);
-            $volver=array_intersect_key($volver,array_flip(['q','almacen_ids','solo_alertas','desde','hasta','tipo','pagina']));
+            $volver=array_intersect_key($volver,array_flip(['q','negocio','almacen_id','almacen_ids','articulo_id','solo_alertas','desde','hasta','tipo','pagina']));
         }
         $retorno=\Services\Security\RetornoAdministrativo::autorizado($_POST['volver_contextual']??null,$ctx);if($retorno)$volver['volver']=$retorno;
         header('Location: '.self::base($ctx).'?'.http_build_query(['vista'=>$vista]+$volver),true,303);

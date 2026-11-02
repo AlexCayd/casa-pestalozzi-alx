@@ -28,6 +28,15 @@ final class AdminProductosCasaController
     }
     private static function status(\Throwable $e):int {return $e instanceof \Services\Inventory\InventarioError&&in_array($e->codigo,['PERMISO_DENEGADO','FACULTAD_DENEGADA','AMBITO_DENEGADO','NIVEL_AUTH_REQUERIDO'],true)?403:422;}
     private static function id():int {$v=filter_var($_GET['id']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);if($v===false){http_response_code(400);exit('El identificador no es válido.');}return $v;}
+    /** Mismo resultado de un uso que las fichas M2; guardado=1 no acredita éxito. */
+    private static function recordarResultado(int $id,string $mensaje): void {
+        $_SESSION['_m2_resultado'][(string)($_SERVER['PATH_INFO']??'').':'.$id]=$mensaje;
+    }
+    private static function mensajeGuardado(): ?string {
+        $clave=(string)($_SERVER['PATH_INFO']??'').':'.(string)($_GET['id']??'');
+        $mensaje=($_SERVER['REQUEST_METHOD']??'GET')==='GET'?($_SESSION['_m2_resultado'][$clave]??null):null;
+        unset($_SESSION['_m2_resultado'][$clave]);return $mensaje;
+    }
     private static function formularioInterno(Router $router): void {
         M::autorizar();C::exigir('menu','ver','global');$id=self::id();
         $c=$id?P::configuracion($id):null;$v=null;$alertas=[];$foto=null;
@@ -48,6 +57,7 @@ final class AdminProductosCasaController
                 }
                 if(empty($r['ok'])||empty($r['confirmado']))P::error($r['codigo']??'NO_CONFIRMADO',$r['mensaje']??'No se pudo confirmar el cambio.');
                 if($foto)$foto->confirmar();$id=(int)($r['producto_id']??$id);
+                self::recordarResultado($id,$accion==='publicar'?'Producto de la casa publicado correctamente.':'Borrador comercial guardado. Revisa la publicación antes de aplicarla a los negocios.');
                 header('Location: /admin/global/productos/casa?id='.$id.'&guardado=1',true,303);return;
             }
         } catch(\Throwable $e){http_response_code($e instanceof \Services\Inventory\InventarioError&&in_array($e->codigo,['PERMISO_DENEGADO','FACULTAD_DENEGADA','AMBITO_DENEGADO'],true)?403:422);$alertas['error'][]=$e instanceof \Services\Inventory\InventarioError?$e->getMessage():'No fue posible guardar. Revisa los datos y vuelve a intentar.';if($foto)$foto->revertir($dto);}
@@ -56,7 +66,7 @@ final class AdminProductosCasaController
         $versiones=$id?P::sql('SELECT id,version FROM receta_casa_versiones WHERE producto_id=? ORDER BY version DESC',[$id])->get_result()->fetch_all(MYSQLI_ASSOC):[];
         $historial=$id?P::sql('SELECT p.version,p.created_at,u.nombre FROM producto_publicaciones p JOIN usuarios u ON u.id=p.usuario_id WHERE p.producto_id=? ORDER BY p.version DESC',[$id])->get_result()->fetch_all(MYSQLI_ASSOC):[];
         $puedePresentaciones=false;if($id&&$c&&\Classes\Auth::puede('productos','ver','global')){try{\Services\Menu\PresentacionesOferta::previaEstandar($id);$puedePresentaciones=true;}catch(\Throwable){}}
-        AdminController::render('menu/casa-form',M::vista()+['activeModule'=>'menu','title'=>'Producto de la casa','d'=>$d,'productoCasaId'=>$id,'revision'=>$revision,'clave'=>$clave,'preview'=>$v,'negociosCasa'=>$negocios,'versionesCasa'=>$versiones,'historialCasa'=>$historial,'puedePresentaciones'=>$puedePresentaciones,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'alertas'=>$alertas,'foto'=>$foto?$foto->vista():FotoPlatillo::vistaInicial($d['img']??null),'styles'=>['/build/css/admin/menu.css']]);
+        AdminController::render('menu/casa-form',M::vista()+['activeModule'=>'menu','title'=>'Producto de la casa','mensajeExito'=>self::mensajeGuardado(),'d'=>$d,'productoCasaId'=>$id,'revision'=>$revision,'clave'=>$clave,'preview'=>$v,'negociosCasa'=>$negocios,'versionesCasa'=>$versiones,'historialCasa'=>$historial,'puedePresentaciones'=>$puedePresentaciones,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'alertas'=>$alertas,'foto'=>$foto?$foto->vista():FotoPlatillo::vistaInicial($d['img']??null),'styles'=>['/build/css/admin/menu.css']]);
     }
     public static function datos(array $p): array {
         $out=[];foreach(['nombre','descripcion','precio','activo','tipo','receta_version_id','requiere_receta'] as $k){if(isset($p[$k])&&!is_scalar($p[$k]))P::error('DATO_INVALIDO','El formulario contiene un dato inválido.');$out[$k]=$p[$k]??(in_array($k,['nombre','descripcion'])?'':0);}
@@ -74,15 +84,16 @@ final class AdminProductosCasaController
             elseif($accion==='origenes')$result=\Services\Menu\RecetasCasa::origenes($id,is_array($_POST['origenes']??null)?$_POST['origenes']:[]);
             else {$d=['rendimiento'=>$_POST['rendimiento']??null,'unidad'=>$_POST['unidad']??'pza','componentes'=>self::componentes($_POST)];$result=\Services\Menu\RecetasCasa::guardar($id,$d,(int)($_POST['revision']??0));}
             if(empty($result['ok'])||empty($result['confirmado']))P::error($result['codigo']??'RECETA_NO_GUARDADA',$result['mensaje']??'No se pudo confirmar la receta.');
+            self::recordarResultado($id,match($accion){'publicar'=>'Receta estándar publicada correctamente.','origenes'=>'Orígenes de consumo guardados correctamente.',default=>'Borrador de receta guardado correctamente.'});
             header('Location: /admin/global/productos/receta?id='.$id.'&guardado=1',true,303);return;
         }}catch(\Throwable $e){http_response_code(self::status($e));$alertas['error'][]=$e instanceof \Services\Inventory\InventarioError?$e->getMessage():'Revisa ingredientes, cantidades y rendimiento.';}
-        $previa=$r?\Services\Menu\RecetasCasa::previa($id):null;$ofertas=P::ofertas($id);$origenes=[];
-        foreach($ofertas as $o){C::exigir('menu','ver',$o['slug']);$origenes[$o['id']]=[];try{C::exigir('inventario','ver',$o['slug']);}catch(\Throwable){continue;}$origenes[$o['id']]=P::sql('SELECT aa.almacen_id,aa.articulo_id,a.nombre FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1 ORDER BY a.nombre',[$o['unidad_id']])->get_result()->fetch_all(MYSQLI_ASSOC);}
+        $previa=$r?\Services\Menu\RecetasCasa::previa($id):null;$ofertas=P::ofertas($id);$origenes=[];$origenesActuales=[];
+        foreach($ofertas as $o){C::exigir('menu','ver',$o['slug']);$origenes[$o['id']]=[];try{C::exigir('inventario','ver',$o['slug']);}catch(\Throwable){continue;}$origenes[$o['id']]=P::sql('SELECT aa.almacen_id,aa.articulo_id,a.nombre FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1 ORDER BY a.nombre',[$o['unidad_id']])->get_result()->fetch_all(MYSQLI_ASSOC);$origenesActuales[$o['id']]=array_column(P::sql('SELECT oc.articulo_id,a.nombre FROM oferta_consumos oc JOIN almacenes a ON a.id=oc.almacen_id AND a.unidad_id=oc.unidad_id WHERE oc.oferta_id=? AND oc.unidad_id=?',[$o['id'],$o['unidad_id']])->get_result()->fetch_all(MYSQLI_ASSOC),'nombre','articulo_id');}
         $hist=P::sql('SELECT v.version,v.created_at,v.rendimiento,v.unidad,u.nombre FROM receta_casa_versiones v JOIN usuarios u ON u.id=v.usuario_id WHERE v.producto_id=? ORDER BY v.version DESC',[$id])->get_result()->fetch_all(MYSQLI_ASSOC);
         $requeridosCasa=[];
         if($previa)foreach($ofertas as $o){try{$normal=\Services\Menu\RecetasCasa::normalizar($previa['datos']);$ids=\Services\Menu\RecetasCasa::necesarios($normal['componentes'],(int)$o['unidad_id'],(int)$o['id']);foreach($ids as $aid){$art=\Services\Inventory\Articulos::cargarArticulo($aid,(int)$o['unidad_id']);$requeridosCasa[$o['id']][]=['articulo_id'=>$aid,'unidad'=>$art['unidad'],'nombre'=>$art['nombre']];}}catch(\Throwable $e){$alertas['error'][]=$e instanceof \Services\Inventory\InventarioError?$e->getMessage():'No se pudo resolver la composición del negocio.';}}
         $versionesArticulosCasa=P::sql("SELECT r.id,r.articulo_id,r.version,i.nombre FROM articulo_recetas r JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE r.publicada=1 AND u.slug='global' ORDER BY i.nombre,r.version DESC")->get_result()->fetch_all(MYSQLI_ASSOC);
-        AdminController::render('menu/casa-receta',M::vista()+['activeModule'=>'menu','title'=>'Receta de la casa','productoCasaId'=>$id,'d'=>$d,'revision'=>(int)($r['revision']??0),'previewReceta'=>$previa,'versionesArticulosCasa'=>$versionesArticulosCasa,'requeridosCasa'=>$requeridosCasa,'ingredientesCasa'=>P::sql('SELECT id,nombre,unidad FROM ingredientes WHERE activo=1 ORDER BY nombre')->get_result()->fetch_all(MYSQLI_ASSOC),'ofertasCasa'=>$ofertas,'origenesCasa'=>$origenes,'historialReceta'=>$hist,'alertas'=>$alertas,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'styles'=>['/build/css/admin/menu.css'],'scripts'=>['/build/js/admin/casa.js']]);
+        AdminController::render('menu/casa-receta',M::vista()+['activeModule'=>'menu','title'=>'Receta de la casa','mensajeExito'=>self::mensajeGuardado(),'productoCasaId'=>$id,'d'=>$d,'revision'=>(int)($r['revision']??0),'previewReceta'=>$previa,'versionesArticulosCasa'=>$versionesArticulosCasa,'requeridosCasa'=>$requeridosCasa,'ingredientesCasa'=>P::sql('SELECT id,nombre,unidad FROM ingredientes WHERE activo=1 ORDER BY nombre')->get_result()->fetch_all(MYSQLI_ASSOC),'ofertasCasa'=>$ofertas,'origenesCasa'=>$origenes,'origenesActualesCasa'=>$origenesActuales,'historialReceta'=>$hist,'alertas'=>$alertas,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'styles'=>['/build/css/admin/menu.css'],'scripts'=>['/build/js/admin/casa.js']]);
     }
     private static function recetaLocalInterna(Router $router): void {
         M::autorizar();$ctx=C::slug();C::exigir('productos','ver',$ctx);$oferta=self::id();$p=\Services\Menu\Ofertas::obtener($oferta,$ctx);if(!$p||!($oficial=P::publicada((int)$p['producto_id']))){http_response_code(404);return;}
@@ -96,12 +107,13 @@ final class AdminProductosCasaController
             if(($_POST['accion']??'')==='volver')$result=\Services\Menu\RecetasCasa::volver($ctx,$oferta);
             else {C::exigir('productos','editar',$ctx);$items=array_map(static fn($i)=>['tipo'=>'ingrediente','ref_id'=>$i['articulo_id'],'cantidad'=>$i['cantidad'],'version_receta_id'=>$i['version_receta_id']??null],self::componentes($_POST));$result=\Services\Menu\RecetasOferta::guardar($ctx,$oferta,$items);}
             if(empty($result['ok']))P::error($result['codigo']??$result['error']??'RECETA_NO_GUARDADA',$result['mensaje']??'No se pudo guardar la receta.');
+            self::recordarResultado($oferta,($_POST['accion']??'')==='volver'?'Receta de la casa restaurada correctamente.':'Receta adaptada guardada correctamente.');
             header('Location: '.M::base().'/casa-receta?id='.$oferta.'&guardado=1',true,303);return;
         }}catch(\Throwable $e){http_response_code(self::status($e));$alertas['error'][]=$e instanceof \Services\Inventory\InventarioError?$e->getMessage():'No se pudo guardar la receta.';}
         $componentes=\Services\Menu\RecetasOferta::componentes($ctx,$oferta);$d=['componentes'=>array_map(static fn($i)=>['articulo_id'=>$i['ref_id'],'cantidad'=>$i['cantidad'],'modalidad'=>$i['modalidad'],'version_receta_id'=>$i['version_receta_id']],$componentes)];
         $linea=P::sql('SELECT l.version_id,v.version FROM recetas r JOIN receta_origen_casa l ON l.receta_id=r.id JOIN receta_casa_versiones v ON v.id=l.version_id WHERE r.oferta_id=? AND r.activo=1',[$oferta])->get_result()->fetch_assoc();
         $versionesArticulosCasa=P::sql("SELECT r.id,r.articulo_id,r.version,i.nombre FROM articulo_recetas r JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE r.publicada=1 AND (r.unidad_id=? OR u.slug='global') ORDER BY i.nombre,r.version DESC",[C::unidad($ctx)])->get_result()->fetch_all(MYSQLI_ASSOC);
-        AdminController::render('menu/casa-receta-local',M::vista()+['activeModule'=>'menu','title'=>'Receta del producto','productoLocal'=>$p,'d'=>$d,'versionesArticulosCasa'=>$versionesArticulosCasa,'modoReceta'=>P::locales($oferta)['receta']??($linea?'casa':'sin'),'versionAplicada'=>$linea['version']??null,'ingredientesCasa'=>P::sql('SELECT id,nombre,unidad FROM ingredientes WHERE activo=1 ORDER BY nombre')->get_result()->fetch_all(MYSQLI_ASSOC),'puedeCasa'=>$editable,'puedeRestaurar'=>\Classes\Auth::puede('menu','editar',$ctx)&&\Classes\Auth::puede('productos','editar',$ctx),'alertas'=>$alertas,'styles'=>['/build/css/admin/menu.css'],'scripts'=>['/build/js/admin/casa.js']]);
+        AdminController::render('menu/casa-receta-local',M::vista()+['activeModule'=>'menu','title'=>'Receta del producto','mensajeExito'=>self::mensajeGuardado(),'productoLocal'=>$p,'d'=>$d,'versionesArticulosCasa'=>$versionesArticulosCasa,'modoReceta'=>P::locales($oferta)['receta']??($linea?'casa':'sin'),'versionAplicada'=>$linea['version']??null,'ingredientesCasa'=>P::sql('SELECT id,nombre,unidad FROM ingredientes WHERE activo=1 ORDER BY nombre')->get_result()->fetch_all(MYSQLI_ASSOC),'puedeCasa'=>$editable,'puedeRestaurar'=>\Classes\Auth::puede('menu','editar',$ctx)&&\Classes\Auth::puede('productos','editar',$ctx),'alertas'=>$alertas,'styles'=>['/build/css/admin/menu.css'],'scripts'=>['/build/js/admin/casa.js']]);
     }
     private static function componentes(array $p): array {
         $rows=$p['componentes']??[];if(!is_array($rows))P::error('COMPONENTES_INVALIDOS','Revisa los ingredientes.');$out=[];

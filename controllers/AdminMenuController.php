@@ -44,7 +44,7 @@ class AdminMenuController
     private const PENDIENTES = ['receta'];
 
     /** Listado de productos con pestañas de categoría. */
-    public static function index(Router $router): void
+    public static function index(Router $router, ?array $productoCreado = null): void
     {
         AdministracionMenu::autorizar();
         $todasLasCategorias = CategoriasMenu::ordenadas();
@@ -99,6 +99,7 @@ class AdminMenuController
         foreach($platillos as $platillo){$oficial=\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id);if($oficial)$politicasCasa[(int)$platillo->id]=$oficial['reglas'];}
 
         $data = [
+            'productoCreado' => $productoCreado,
             'title' => 'Menú',
             'topbarSection' => 'Menú',
             'platillos' => $platillos,
@@ -194,7 +195,7 @@ class AdminMenuController
                         $platillo->precio
                     );
                     Producto::setAlerta('exito', 'Producto creado correctamente');
-                    self::index($router);
+                    self::index($router, ['id'=>(int)$resultado['id'],'nombre'=>$platillo->nombre]);
                     return;
                 }
 
@@ -710,7 +711,7 @@ class AdminMenuController
         } catch (\Throwable $e) {
             error_log('AdminMenuController::variantes - ' . $e->getMessage());
             $editor = null;
-            $alertas = ['error' => ['No fue posible cargar las variantes. Revisa que existan las tablas `producto_variantes` y `variante_ajustes` (database/ddl.sql).']];
+            $alertas = ['error' => ['No fue posible cargar las variantes. Recarga la página; si el problema continúa, comunícalo a una persona administradora.']];
         }
 
         $ctx=ContextoNegocio::slug();$base=AdministracionMenu::base();$retorno=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
@@ -728,6 +729,7 @@ class AdminMenuController
             'categoriasMap' => self::mapaCategorias(),
             'editorVariantes' => $editor,
             'composicionActual'=>$composicion,
+            'almacenesPendientes'=>\Classes\Auth::puede('productos','ver',$ctx)?AlmacenesConsumo::pendientes($ctx,(int)$platillo->id):null,
             'adminCsrfToken' => ContextoNegocio::slug()==='panaderia'?hash_hmac('sha256','variantes:panaderia',AdminCsrfService::token()):AdminCsrfService::token(),
             'alertas' => $alertas,
             'styles' => [self::MENU_CSS, '/build/css/admin/variantes.css'],

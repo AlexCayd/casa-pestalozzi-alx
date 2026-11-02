@@ -279,7 +279,7 @@
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?= $casaPolitica&&!$campoCasa('activo')?'disabled':'' ?> <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
-                    <span class="admin-switch__label"><?php echo $menuContexto === 'panaderia' ? 'Oferta disponible en Panadería' : 'Platillo activo (visible en la carta y vendible en el punto de venta)'; ?></span>
+                    <span class="admin-switch__label"><?php echo $menuContexto === 'panaderia' ? 'Oferta disponible en Panadería' : 'Producto activo (visible en la carta y vendible en el punto de venta)'; ?></span>
                 </label>
                 <?php if($casaPolitica&&!$campoCasa('activo')&&(int)$platillo->activo): ?><input type="hidden" name="activo" value="1"><?php endif; ?><?php $estadoCasa('activo'); ?>
                 <?php endif; ?>
