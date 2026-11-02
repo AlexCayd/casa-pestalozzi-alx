@@ -505,3 +505,22 @@ real de confirmación en JSDOM, disponible en las dependencias bloqueadas.
 Completar con recorrido real de temas, teclado, categorías, filtros, modal,
 Global, Restaurante y Panadería en escritorio y móvil; las capturas quedan fuera
 de Git. Resultados de la revisión en [Catálogo y Menú](../modulos/catalogo-comercial.md).
+
+### Cierre UX-5
+
+Después de los diez recorridos reales, ejecutar
+`php scripts/tests/pruebas-http-ux5.php --fixture ARCHIVO_PRIVADO ESCENARIOS_UI_JSON`.
+El segundo JSON identifica ingrediente, café, plato, pan, estándar y oferta local
+creados en la UI del harness. La prueba verifica propietario y entorno test,
+rechaza la base activa y solo utiliza `127.0.0.1:8094`. Antes de simular un origen
+pendiente comprueba la identidad sintética «UX5 Café» y restaura la asignación en
+`finally`. El guardado exacto del borrador oficial no publica versiones.
+
+Cubrir preselección contextual fuera del filtro, retorno tras rechazo, orígenes
+persistentes al recargar, permisos locales/Global, mensajes de un uso, conservación
+10 g oficiales/12 g adaptados y huellas invariables de saldos, ledger y versiones.
+Completar con pruebas UX1–4, M2, M1.2, Menú, Almacenes, permisos, instalación y
+contrato POS Restaurante en bases desechables. La matriz visual usa nueve rutas
+en los tres tamaños y ambos temas; registrar medidas y capturas reales fuera de
+Git. El conteo de hitos conserva el criterio UX-0 y distingue preparativos extra,
+inspecciones y reintentos de automatización.

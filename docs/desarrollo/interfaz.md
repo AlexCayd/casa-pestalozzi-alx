@@ -536,3 +536,28 @@ Validar catálogo, identidad y ficha en los tres contextos, 1280×900, 768×1024
 Conservar el selector compartido, Escape, Tab/Shift+Tab y el foco al cancelar.
 Ver [contrato de catálogo persistente](../modulos/almacenes.md#catalogo-persistente-ux-4)
 y [contrato de ficha](../modulos/recetas.md#catalogo-y-ficha-ux-4).
+
+## Continuidad administrativa UX-5
+
+El alta comercial ofrece continuar en el producto exacto, conservando el listado
+de origen. Mantiene la respuesta HTTP existente. La identidad compartida sigue
+creándose desde Nuevo artículo; Almacenes conserva asociaciones y hechos físicos.
+Al asociar desde una ficha se preselecciona su artículo, incluso fuera de la
+página del selector. El usuario todavía elige explícitamente el almacén propio.
+
+Los orígenes pendientes de Presentaciones enlazan a Almacenes con el artículo y
+el retorno a la presentación seleccionada. El enlace queda fuera del label del
+selector compartido para que pueda activarse con ratón y teclado. Variantes
+muestra al recargar el conteo del mismo servicio de orígenes, solo con permiso
+de Productos; no introduce otra validación ni habilita automáticamente la venta.
+
+La receta oficial identifica el almacén guardado cuando el usuario puede
+consultarlo. Sus destinos enlazan a las recetas locales autorizadas; el acceso
+de vuelta a Global solo aparece con permiso Global. Los mensajes de guardado,
+publicación, orígenes y adaptación proceden del resultado confirmado de un uso,
+vinculado a ruta e identidad. `guardado=1` por sí solo no acredita una operación.
+
+Esta consolidación no implementa producción ni POS Panadería. Para M2.5 quedan
+por diseñar y validar transformaciones físicas, rendimientos reales, entradas y
+salidas atómicas, lotes, costos y compensaciones; la configuración administrativa
+de una elaboración no crea existencias terminadas.
