@@ -168,7 +168,7 @@ final class Variantes
                     'id' => (int) $row['id'],
                     'nombre' => (string) $row['nombre'],
                     'unidad' => (string) $row['unidad'],
-                    'costo' => (float) $row['costo'],
+                    'costo' => \Services\Inventory\Articulos::cargarArticulo((int)$row['id'], $unidadId)['costo'] ?? null,
                     'activo' => (int) $row['activo'] === 1,
                 ];
             }

@@ -55,6 +55,8 @@
     var subrecetas = {};
     (datos.subrecetas || []).forEach(function (s) { subrecetas[s.id] = s; });
     var base = datos.base || [];
+    // El contrato conserva DECIMAL como cadenas; el preview debe sumar números.
+    base = base.map(function (c) { return Object.assign({}, c, {cantidad: Number(c.cantidad)}); });
     var enBase = {};
     base.forEach(function (c) { enBase[c.tipo + ':' + c.ref_id] = (enBase[c.tipo + ':' + c.ref_id] || 0) + c.cantidad; });
 
@@ -259,10 +261,16 @@
     }
 
     function costo(totales) {
-        return Object.keys(totales).reduce(function (suma, id) {
+        var suma = 0;
+        var ids = Object.keys(totales);
+        if (!ids.length) return null;
+        for (var n = 0; n < ids.length; n++) {
+            var id = ids[n];
             var ing = ingredientes[id];
-            return suma + totales[id] * (ing ? ing.costo : 0);
-        }, 0);
+            if (!ing || ing.costo === null || !Number.isFinite(Number(ing.costo)) || !Number.isFinite(totales[id])) return null;
+            suma += totales[id] * Number(ing.costo);
+        }
+        return suma;
     }
 
     // ── Frases de un ajuste ─────────────────────────────────────
@@ -679,12 +687,12 @@
         });
         html += '</ul>';
         var c = costo(t);
-        var margen = precio - c;
+        var margen = c === null ? null : precio - c;
         var pct = precio > 0 ? Math.round((margen / precio) * 100) : 0;
         html += '<dl class="admin-vreceta__totales">' +
-            '<div><dt>Costo de insumos</dt><dd class="admin-num">' + dinero(c) + '</dd></div>' +
+            '<div><dt>Costo de insumos</dt><dd class="admin-num">' + (c === null ? 'Desconocido' : dinero(c)) + '</dd></div>' +
             '<div><dt>Precio</dt><dd class="admin-num">' + dinero(precio) + '</dd></div>' +
-            '<div class="admin-vreceta__margen' + (margen < 0 ? ' is-neg' : '') + '"><dt>Margen</dt><dd class="admin-num">' + dinero(margen) + ' <span>' + pct + '%</span></dd></div>' +
+            '<div class="admin-vreceta__margen' + (margen < 0 ? ' is-neg' : '') + '"><dt>Margen</dt><dd class="admin-num">' + (margen === null ? 'Desconocido' : dinero(margen) + ' <span>' + pct + '%</span>') + '</dd></div>' +
             '</dl>';
         cReceta.innerHTML = html;
     }
