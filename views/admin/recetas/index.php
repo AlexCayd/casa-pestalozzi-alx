@@ -75,13 +75,13 @@
             <p class="admin-page__subtitle">Consulta la composición de cada platillo y sus orígenes. Los artículos y sus elaboraciones se administran desde una identidad compartida; la configuración de venta determina el consumo. Nombre, precio y categoría se editan en Menú.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/articulos">Artículos y elaboraciones</a>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="/admin/recetas/subrecetas">Subrecetas</a>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="/admin/inventario">Inventario</a>
-            <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create">
+            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/articulos">Artículos y preparaciones</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="/admin/recetas/subrecetas">Preparaciones anteriores</a>
+            <?php if (\Classes\Auth::puede('inventario', 'ver', 'restaurante')): ?><a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="/admin/inventario">Almacenes</a><?php endif; ?>
+            <?php if (\Classes\Auth::puede('menu', 'editar', 'restaurante')): ?><a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                <span>Nuevo platillo</span>
-            </a>
+                <span>Nuevo producto</span>
+            </a><?php endif; ?>
         </div>
     </header>
 

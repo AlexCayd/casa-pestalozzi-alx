@@ -40,6 +40,7 @@ final class AdminAlmacenesController
         AdminController::render('almacenes/index',array_merge($datos,[
             'activeModule'=>'inventario','title'=>'Almacenes','topbarTitle'=>'Almacenes','topbarSection'=>'Almacenes',
             'contextoAlmacenes'=>$ctx,'nombreContexto'=>Contextos::NOMBRES[$ctx], 'base'=>$base,'vista'=>$vista,'filtros'=>$filtros,'alertas'=>$alertas,
+            'volverContextual'=>\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx),
             'puedeEditar'=>Auth::puede('inventario','editar',$ctx),
             'puedeCrearAlmacen'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('almacenes.crear',$facultades,true),
             'puedeNuevoArticulo'=>Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$perfil['ambitos']['global']['facultades']??[],true),
@@ -55,7 +56,8 @@ final class AdminAlmacenesController
         if (($_SERVER['REQUEST_METHOD']??'GET')!=='POST') { http_response_code(405); return; }
         if (!is_string($_POST['admin_csrf']??null) || !hash_equals(self::csrfContexto($ctx),trim($_POST['admin_csrf']))) { http_response_code(403); echo 'La sesión del formulario venció. Recarga la página.'; return; }
         $accion=is_string($_POST['accion']??null)?$_POST['accion']:'';
-        $resultado=self::servicio()->guardar($ctx,$accion,$_POST);
+        $payload=$_POST;unset($payload['volver_contextual']);
+        $resultado=self::servicio()->guardar($ctx,$accion,$payload);
         $vista=is_string($_POST['volver_vista']??null)?$_POST['volver_vista']:'existencias';
         if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
         try {
@@ -67,6 +69,7 @@ final class AdminAlmacenesController
             parse_str($_POST['volver_filtros'],$volver);
             $volver=array_intersect_key($volver,array_flip(['q','almacen_ids','solo_alertas','desde','hasta','tipo','pagina']));
         }
+        $retorno=\Services\Security\RetornoAdministrativo::autorizado($_POST['volver_contextual']??null,$ctx);if($retorno)$volver['volver']=$retorno;
         header('Location: '.self::base($ctx).'?'.http_build_query(['vista'=>$vista]+$volver),true,303);
     }
 

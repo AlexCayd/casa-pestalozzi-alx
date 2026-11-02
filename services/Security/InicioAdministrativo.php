@@ -17,6 +17,7 @@ final class InicioAdministrativo
         $defs = [
             'inventario'=>['Almacenes','Consulta existencias y registra operaciones físicas.','inventario',$base.'/almacenes'],
             'menu'=>[$ctx==='global'?'Productos de la casa':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
+            'productos'=>['Artículos y preparaciones','Configura artículos, capacidades y recetas de preparación.','products',$base.'/recetas/articulos'],
             'transferencias'=>['Transferencias','Consulta envíos, recepciones e incidencias.','transferencias',$base.'/almacenes?vista=transferencias'],
             'users'=>['Usuarios','Consulta el equipo y sus accesos autorizados.','users',$base.'/usuarios'],
         ];

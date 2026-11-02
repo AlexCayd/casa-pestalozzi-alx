@@ -7,7 +7,7 @@
     $menuCsrf = $menuCsrf ?? '';
 
     /**
-     * Formulario único del platillo.
+     * Formulario único del producto.
      *
      * Fusiona el antiguo item-form.php (nombre, descripción, precio, tag) con
      * la parte de datos del form de Productos (categoría y área en pestañas).
@@ -43,7 +43,7 @@
     $fotoPropia = $fotoPendiente['url'] ?? $fotoActual;
 
     // La foto por defecto es la de la categoría elegida: es lo que la carta
-    // enseña cuando el platillo no tiene la suya.
+    // enseña cuando el producto no tiene la suya.
     $categoriaFoto = null;
     $categoriaNombre = '';
     $esEspecial = false;
@@ -75,7 +75,7 @@
     $destino = $esEspecial ? 'La landing' : 'La carta';
     $fueraDeLanding = $esEspecial ? ': el especial no saldrá en la landing hasta tener una' : '';
     if ($fotoEstado === 'pendiente') {
-        $fotoTexto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
+        $fotoTexto = 'Foto nueva, todavía sin guardar: se guarda junto con el producto.';
     } elseif ($fotoEstado === 'propia') {
         $fotoTexto = $esEspecial ? 'La landing muestra esta foto en «Especiales de temporada».' : 'La carta muestra esta foto.';
     } elseif ($fotoQuitar) {
@@ -89,7 +89,7 @@
     } elseif ($categoriaFoto !== null) {
         $fotoTexto = 'Sin foto propia: ' . mb_strtolower($destino) . ' muestra la de ' . $categoriaCita . '.';
     } elseif ($categoriaCita !== '') {
-        $fotoTexto = 'Ni el platillo ni ' . $categoriaCita . ' tienen foto' . $fueraDeLanding . '.';
+        $fotoTexto = 'Ni el producto ni ' . $categoriaCita . ' tienen foto' . $fueraDeLanding . '.';
     } else {
         $fotoTexto = 'Sin foto propia: la carta usará la de su categoría.';
     }
@@ -98,15 +98,15 @@
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Menú</span>
-            <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Platillo'); ?></h2>
-            <p class="admin-page__subtitle"><?php echo $identidadMaestra ? 'Datos maestros compartidos; los precios y la disponibilidad se administran en cada negocio.' : ($menuContexto === 'panaderia' ? 'Administra la identidad y las condiciones locales de esta oferta de Panadería.' : 'Este platillo se publica en la carta y en el PDF, y es el mismo que el mesero toca en el punto de venta.'); ?></p>
+            <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Producto'); ?></h2>
+            <p class="admin-page__subtitle"><?php echo $identidadMaestra ? 'Datos maestros compartidos; los precios y la disponibilidad se administran en cada negocio.' : ($menuContexto === 'panaderia' ? 'Administra la identidad y las condiciones locales de esta oferta de Panadería.' : 'Este producto se publica en la carta y en el PDF, y es el mismo que el mesero toca en el punto de venta.'); ?></p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
     </header>
-    <?php if(!$esNuevo && \Classes\Auth::puede('productos','ver',$menuContexto) && ($menuContexto!=='global' || \Services\Menu\ProductosCasa::configuracion((int)$platillo->id))): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase.'/presentaciones?id='.(int)$platillo->id,ENT_QUOTES,'UTF-8') ?>">Presentaciones y consumo de artículos</a></p><?php endif; ?>
+    <?php if(!$esNuevo && \Classes\Auth::puede('productos','ver',$menuContexto) && ($menuContexto!=='global' || \Services\Menu\ProductosCasa::configuracion((int)$platillo->id))): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase.'/presentaciones?'.http_build_query(['id'=>(int)$platillo->id,'volver'=>$menuBase.'/edit?'.http_build_query(array_filter(['id'=>(int)$platillo->id,'volver'=>$volverContextual??null]))]),ENT_QUOTES,'UTF-8') ?>">Presentaciones y consumo de artículos</a></p><?php endif; ?>
 
     <?php if ($identidadMaestra) : ?>
     <section class="admin-card"><h3>Ofertas consultables</h3>
@@ -123,7 +123,7 @@
             <input type="hidden" name="identidad_huella" value="<?php echo htmlspecialchars($identidadHuella ?? '', ENT_QUOTES); ?>">
             <div class="admin-form-grid">
                 <div class="admin-field admin-form-grid__full">
-                    <label class="admin-field__label" for="nombre">Nombre del platillo</label>
+                    <label class="admin-field__label" for="nombre">Nombre del producto</label>
                     <?php $estadoCasa('nombre'); ?><input type="text" id="nombre" name="nombre" <?php echo $campoCasa('nombre') ? '' : 'readonly'; ?> maxlength="120" required
                            value="<?php echo htmlspecialchars($platillo->nombre ?? ''); ?>">
                     <p class="admin-field__hint">La identidad se reconoce por su identificador permanente; el nombre puede coincidir con otro producto.</p>
@@ -141,7 +141,7 @@
                     <div class="admin-tabs" role="radiogroup" aria-label="Categoría">
                         <?php foreach ($categorias as $cat) : $cid = (int) $cat->id; ?>
                             <label class="admin-tabs__tab">
-                                <?php /* data-foto: la foto por defecto que tomaría el platillo
+                                <?php /* data-foto: la foto por defecto que tomaría el producto
                                          con esta categoría; data-carta, a dónde se publica. Los
                                          dos los lee el campo de foto de abajo. */ ?>
                                 <input type="radio" name="categoria_id" value="<?php echo $cid; ?>"
@@ -175,8 +175,8 @@
                      data-especial="<?php echo $esEspecial ? '1' : '0'; ?>">
                     <?php /* El rótulo cambia con la categoría (foto-platillo.js): en un
                              especial de temporada esta foto es la que sale en la landing,
-                             y hay que decirlo así, no como «foto del platillo». */ ?>
-                    <span class="admin-field__label" id="foto-rotulo"><span data-foto-titulo><?php echo $esEspecial ? 'Foto para la landing' : 'Foto del platillo'; ?></span> <span class="admin-foto__opcional">Opcional</span></span>
+                             y hay que decirlo así, no como «foto del producto». */ ?>
+                    <span class="admin-field__label" id="foto-rotulo"><span data-foto-titulo><?php echo $esEspecial ? 'Foto para la landing' : 'Foto del producto'; ?></span> <span class="admin-foto__opcional">Opcional</span></span>
                     <p class="admin-field__hint admin-foto__especial" data-foto-especial <?php echo $esEspecial ? '' : 'hidden'; ?>>
                         Es la imagen de referencia con la que este especial sale en «Especiales de temporada» de la landing. Súbela cuando la tengas: sin foto propia, el especial sale con la de su categoría, que se cambia en Categorías.
                     </p>
@@ -255,7 +255,7 @@
                             </label>
                         <?php endforeach; ?>
                     </div>
-                    <p class="admin-field__hint"><?php echo $menuContexto === 'panaderia' ? 'Área propia asignada. Producción y recetas administrativas pendientes de habilitar.' : 'Determina a qué comanda se envía cuando el mesero lo pide.'; ?></p>
+                    <p class="admin-field__hint"><?php echo $menuContexto === 'panaderia' ? 'Área propia asignada. Puedes configurar su receta y presentación. La producción física todavía no está disponible.' : 'Determina a qué comanda se envía cuando el mesero lo pide.'; ?></p>
                 </div>
 
                 <div class="admin-field">
@@ -288,7 +288,7 @@
 
         <div class="admin-form-grid__actions">
             <?php if ($menuPuedeEditar && (!$identidadMaestra || $identidadEditable)) : ?><button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button><?php endif; ?>
-            <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">Cancelar</a>
+            <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">Cancelar</a>
             <?php if($casaPolitica&&!empty($menuRecetaCasa)): ?><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase,ENT_QUOTES) ?>/casa-receta?id=<?= (int)$platillo->id ?>"><?= ($casaLocales['receta']??'')==='adaptada'?'Receta adaptada':($casaPolitica['receta_version_id']?'Usando receta estándar':'Sin receta') ?></a>
             <?php elseif (!$esNuevo && !$identidadMaestra && $menuRecetas) : ?>
                 <a class="admin-btn admin-btn--secondary" href="/admin/recetas/editar?id=<?php echo (int) $platillo->id; ?>">Editar receta</a>

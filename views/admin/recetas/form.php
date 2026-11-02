@@ -27,15 +27,15 @@
     foreach ($subrecetas as $sub) {
         $opciones[] = [
             'value' => 'subreceta:' . (int) $sub->id,
-            'label' => $sub->nombre . ' (subreceta)',
-            'group' => 'Subrecetas',
+            'label' => $sub->nombre . ' (preparación anterior)',
+            'group' => 'Preparaciones anteriores',
         ];
     }
 
     // Texto a mostrar en el buscador para un componente ya guardado.
     $comboLabel = static function (array $comp): string {
         if (($comp['tipo'] ?? '') === 'subreceta') {
-            return ($comp['nombre'] ?? '') . ' (subreceta)';
+            return ($comp['nombre'] ?? '') . ' (preparación anterior)';
         }
         return ($comp['nombre'] ?? '') . ' (' . ($comp['unidad'] ?? '') . ')';
     };
@@ -54,6 +54,8 @@
     </header>
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
+    <p class="admin-field__hint">Este editor conserva las recetas anteriores. Las preparaciones versionadas y sus modalidades de consumo se configuran en Presentaciones. Las recetas existentes no se convierten automáticamente.</p>
+    <?php if($prod && \Classes\Auth::puede('menu','ver','restaurante')): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars('/admin/menu/presentaciones?'.http_build_query(['id'=>(int)$prod->id,'volver'=>'/admin/recetas/editar?id='.(int)$prod->id]),ENT_QUOTES,'UTF-8') ?>">Configurar presentaciones</a></p><?php endif; ?>
 
     <?php if ($prod) : ?>
         <?php
@@ -80,9 +82,9 @@
                 <?php if (\Classes\Auth::puede('menu', 'ver')) : ?>
                     <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/variantes?id=<?php echo (int) $prod->id; ?>">Variantes</a>
                 <?php endif; ?>
-                <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/edit?id=<?php echo (int) $prod->id; ?>">
-                    Editar datos del platillo
-                </a>
+                <?php if (\Classes\Auth::puede('menu','ver','restaurante')): ?><a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/edit?id=<?php echo (int) $prod->id; ?>">
+                    Datos del producto
+                </a><?php endif; ?>
             </div>
         </section>
     <?php endif; ?>

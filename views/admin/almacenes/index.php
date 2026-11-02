@@ -10,11 +10,11 @@ $propios=array_values(array_filter($opcionesAlmacen,static fn($a)=>(string)$a['s
 $activos=array_values(array_filter($propios,static fn($a)=>(int)$a['activo']===1));
 $seleccionados=isset($filtros['almacen_ids'])?(array)$filtros['almacen_ids']:(isset($filtros['almacen_id'])?[(int)$filtros['almacen_id']]:array_column(array_filter($opcionesAlmacen,static fn($a)=>empty($filtros['negocio'])||$a['slug']===$filtros['negocio']),'almacen_id'));
 $seleccionados=array_map('intval',$seleccionados);
-$url=static fn(string $tab,array $cambios=[]): string=>$base.'?'.http_build_query(array_merge($filtros,['vista'=>$tab],$cambios));
-$campos=static function(string $accion,array $extra=[]) use($esc,$csrf,$filtros): void {
-    foreach(array_merge(['admin_csrf'=>$csrf,'accion'=>$accion,'volver_vista'=>'existencias','volver_filtros'=>http_build_query($filtros)],$extra) as $campo=>$valor) echo '<input type="hidden" name="'.$esc($campo).'" value="'.$esc($valor).'">';
+$url=static fn(string $tab,array $cambios=[]): string=>$base.'?'.http_build_query(array_merge($filtros,array_filter(['volver'=>$volverContextual]),['vista'=>$tab],$cambios));
+$campos=static function(string $accion,array $extra=[]) use($esc,$csrf,$filtros,$volverContextual): void {
+    foreach(array_merge(['admin_csrf'=>$csrf,'volver_contextual'=>$volverContextual??'','accion'=>$accion,'volver_vista'=>'existencias','volver_filtros'=>http_build_query($filtros)],$extra) as $campo=>$valor) echo '<input type="hidden" name="'.$esc($campo).'" value="'.$esc($valor).'">';
 };
-$seleccionOculta=static function() use($seleccionados): void { if(!$seleccionados)return; echo '<input type="hidden" name="seleccion" value="1">'; foreach($seleccionados as $id)echo '<input type="hidden" name="almacen_ids[]" value="'.$id.'">'; };
+$seleccionOculta=static function() use($seleccionados,$volverContextual,$esc): void { if($volverContextual)echo '<input type="hidden" name="volver" value="'.$esc($volverContextual).'">'; if(!$seleccionados)return; echo '<input type="hidden" name="seleccion" value="1">'; foreach($seleccionados as $id)echo '<input type="hidden" name="almacen_ids[]" value="'.$id.'">'; };
 $modalInicio=static function(string $id,string $titulo) use($esc): void { ?>
 <div class="admin-modal almacen-modal" id="<?php echo $esc($id); ?>" data-admin-modal hidden>
   <div class="admin-modal__backdrop" data-admin-modal-close></div>
@@ -25,6 +25,7 @@ $modalFin=static function(): void { echo '</section></div>'; };
 $articulos=$existencias['articulos']??[];
 $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTransferencias=$catalogoTransferencias??[];
 ?>
+<?php if($volverContextual): ?><p><a class="admin-btn admin-btn--secondary" href="<?= $esc($volverContextual) ?>">Volver a la configuración de origen</a></p><?php endif; ?>
 <section class="admin-inventario admin-page almacen-workspace" data-almacenes-workspace data-initial-view="<?php echo $esc($vista); ?>">
   <header class="admin-page__header">
     <div class="admin-page__intro"><h2 class="admin-page__title">Almacenes</h2><p class="admin-page__subtitle">Existencias de <?php echo $esc($nombreContexto); ?>. Elige dónde consultar y trabaja artículo por artículo.</p></div>
@@ -39,6 +40,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   </header>
   <?php include __DIR__.'/../partials/alertas.php'; ?>
   <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-selection" data-warehouse-selection>
+    <?php if($volverContextual): ?><input type="hidden" name="volver" value="<?= $esc($volverContextual) ?>"><?php endif; ?>
     <input type="hidden" name="seleccion" value="1">
     <?php foreach(['q','negocio','articulo_id','desde','hasta','tipo','solo_alertas'] as $campo): if(!isset($filtros[$campo])||$filtros[$campo]==='')continue; ?><input type="hidden" name="<?php echo $campo; ?>" value="<?php echo $esc($filtros[$campo]); ?>"><?php endforeach; ?>
     <?php if($vista!=='existencias'): ?><input type="hidden" name="vista" value="<?php echo $esc($vista); ?>"><?php endif; ?>

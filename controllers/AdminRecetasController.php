@@ -251,12 +251,12 @@ class AdminRecetasController
         try {
             $subrecetas = Subreceta::todas($ctx);
         } catch (\Throwable $e) {
-            Subreceta::setAlerta('error', 'No se pudieron cargar las subrecetas.');
+            Subreceta::setAlerta('error', 'No se pudieron cargar las preparaciones anteriores.');
         }
 
         self::render('recetas/subrecetas', [
-            'title' => 'Subrecetas',
-            'topbarSection' => 'Recetas / Subrecetas',
+            'title' => 'Preparaciones anteriores',
+            'topbarSection' => 'Artículos y preparaciones / Preparaciones anteriores',
             'subrecetas' => $subrecetas,
             'conteosSub' => self::conteoSubrecetaIngredientes(),
             'alertas' => Subreceta::getAlertas(),
@@ -266,7 +266,7 @@ class AdminRecetasController
     public static function subrecetaCreate(Router $router): void
     {
         ContextoNegocio::exigir('productos','editar',null,true);
-        header('Location: '.\Services\Inventory\Articulos::base(ContextoNegocio::slug()),true,303);
+        header('Location: '.\Services\Inventory\Articulos::base(ContextoNegocio::slug()).'#crear-preparacion',true,303);
     }
 
     public static function subrecetaEdit(Router $router): void
@@ -280,7 +280,7 @@ class AdminRecetasController
 
 
         if (!$subreceta) {
-            Subreceta::setAlerta('error', 'La subreceta no existe');
+            Subreceta::setAlerta('error', 'La preparación anterior no existe');
             self::subrecetas($router);
             return;
         }
@@ -295,20 +295,20 @@ class AdminRecetasController
             if (empty($alertas)) {
                 $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
                 if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
-                    Subreceta::setAlerta('exito', 'Subreceta actualizada correctamente');
+                    Subreceta::setAlerta('exito', 'Preparación anterior actualizada correctamente');
                     self::subrecetas($router);
                     return;
                 }
                 if (!empty($resultado['pendiente'])) {
                     Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
                 } else {
-                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
+                    Subreceta::setAlerta('error', 'No se pudo guardar la preparación anterior y sus componentes. Intenta de nuevo.');
                 }
                 $alertas = Subreceta::getAlertas();
             }
         }
 
-        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar subreceta', self::ingredientesDeSubreceta($ctx, (int) $subreceta->id));
+        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar preparación anterior', self::ingredientesDeSubreceta($ctx, (int) $subreceta->id));
     }
 
     public static function subrecetaDelete(Router $router): void
@@ -441,7 +441,7 @@ class AdminRecetasController
             });
         } catch (\Throwable $e) {
             error_log('AdminRecetasController::guardarSubrecetaCompleta - ' . $e->getMessage());
-            return ['ok' => false, 'confirmado' => false, 'pendiente' => false, 'mensaje' => 'No se pudo guardar la subreceta y sus componentes.'];
+            return ['ok' => false, 'confirmado' => false, 'pendiente' => false, 'mensaje' => 'No se pudo guardar la preparación anterior y sus componentes.'];
         }
     }
 
@@ -590,7 +590,7 @@ class AdminRecetasController
 
         self::render('recetas/subreceta-form', [
             'title' => $titulo,
-            'topbarSection' => 'Recetas / ' . $titulo,
+            'topbarSection' => 'Artículos y preparaciones / ' . $titulo,
             'subreceta' => $subreceta,
             'unidades' => Ingrediente::UNIDADES,
             'ingredientes' => $ingredientes,

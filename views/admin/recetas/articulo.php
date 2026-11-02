@@ -1,8 +1,8 @@
 <?php $esc=static fn($v)=>htmlspecialchars(is_scalar($v)?(string)$v:'',ENT_QUOTES,'UTF-8');$c=$configuracion;$id=(int)$articulo['id'];$global=$ctx==='global'; ?>
 <section class="admin-recetas admin-page m2-articulo">
-<header class="admin-page__header"><div><h1 class="admin-page__title"><?= $esc($articulo['nombre']) ?></h1><p class="admin-page__subtitle">Artículo compartido · <?= $esc($articulo['unidad']) ?>. Configuración y elaboración de <?= $global?'Global':($ctx==='panaderia'?'Panadería':'Restaurante') ?>.</p></div><a class="admin-btn admin-btn--secondary" href="<?= $esc($baseArticulos) ?>">Volver a artículos</a></header>
+<header class="admin-page__header"><div><h1 class="admin-page__title"><?= $esc($articulo['nombre']) ?></h1><p class="admin-page__subtitle">Artículo compartido · <?= $esc($articulo['unidad']) ?>. Configuración y elaboración de <?= $global?'Global':($ctx==='panaderia'?'Panadería':'Restaurante') ?>.</p></div><a class="admin-btn admin-btn--secondary" href="<?= $esc($volverContextual?:$baseArticulos) ?>">Volver al origen</a></header>
 <?php include __DIR__.'/../partials/alertas.php'; ?><?php if(!empty($mensajeExito)): ?><p role="status"><?= $esc($mensajeExito) ?></p><?php endif; ?>
-<?php if(!$puedeEditar): ?><p class="admin-field__hint">Solo consulta. La edición requiere permiso de Recetas y las facultades correspondientes de Global.</p><?php endif; ?>
+<?php if(!$puedeEditar): ?><p class="admin-field__hint">Solo consulta. La edición requiere permiso de Artículos y preparaciones y las facultades correspondientes de Global.</p><?php endif; ?>
 <section class="admin-panel admin-card"><h2>Capacidades del artículo</h2><p>Combina los usos que necesita este negocio. Habilitar elaboración o almacenamiento no crea existencias.</p>
 <form method="POST"><input type="hidden" name="m2_csrf" value="<?= $esc($csrf) ?>"><input type="hidden" name="accion" value="configurar"><input type="hidden" name="revision" value="<?= (int)$c['revision'] ?>">
 <fieldset class="m2-fieldset" <?= $puedeConfigurar?'':'disabled' ?>><div class="admin-form-grid">

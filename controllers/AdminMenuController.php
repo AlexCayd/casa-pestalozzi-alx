@@ -1,10 +1,10 @@
 <?php
 /**
- * Gestión de menú: CRUD de platillos y de sus categorías.
+ * Gestión de menú: CRUD de productos y de sus categorías.
  *
  * Tras la fusión con "Productos y recetas" este módulo escribe directamente en
- * `productos`, la fuente única de los platillos. El listado entra ya en los
- * platillos (antes había una página intermedia de "hub") y las categorías se
+ * `productos`, la fuente única de los productos. El listado entra ya en los
+ * productos (antes había una página intermedia de "hub") y las categorías se
  * eligen en pestañas, con un tab "+" para crear una nueva sin salir.
  *
  * La composición de recetas vive aparte, en AdminRecetasController.
@@ -43,7 +43,7 @@ class AdminMenuController
      */
     private const PENDIENTES = ['receta'];
 
-    /** Listado de platillos con pestañas de categoría. */
+    /** Listado de productos con pestañas de categoría. */
     public static function index(Router $router): void
     {
         AdministracionMenu::autorizar();
@@ -53,11 +53,11 @@ class AdminMenuController
 
         // El mapa lleva TODAS las categorías aunque haya una carta elegida: es
         // sólo para rotular filas, y la fila de una carta nunca trae otra, pero
-        // un platillo suelto no debe quedarse sin nombre de categoría si cambia
+        // un producto suelto no debe quedarse sin nombre de categoría si cambia
         // el criterio.
         foreach ($todasLasCategorias as $cat) {
             $categoriasMap[(int) $cat->id] = $cat->nombre;
-            // La miniatura de un platillo sin foto propia es la de su
+            // La miniatura de un producto sin foto propia es la de su
             // categoría, que es lo que la carta enseñará en su lugar.
             $categoriasFoto[(int) $cat->id] = FotoPlatillo::url($cat->img);
         }
@@ -118,7 +118,7 @@ class AdminMenuController
             // array_unique: $alertas es UN estático de ActiveRecord compartido
             // por todos los modelos, así que Producto y CategoriasMenu
             // devuelven el mismo arreglo y la mezcla pintaba cada aviso dos
-            // veces («Platillo creado correctamente» ×2).
+            // veces («Producto creado correctamente» ×2).
             'alertas' => array_map(
                 static fn ($mensajes) => array_values(array_unique((array) $mensajes)),
                 array_merge_recursive(Producto::getAlertas(), CategoriasMenu::getAlertas())
@@ -193,19 +193,19 @@ class AdminMenuController
                         (int) $resultado['id'],
                         $platillo->precio
                     );
-                    Producto::setAlerta('exito', 'Platillo creado correctamente');
+                    Producto::setAlerta('exito', 'Producto creado correctamente');
                     self::index($router);
                     return;
                 }
 
-                Producto::setAlerta('error', 'No se pudo guardar el platillo. Verifica los datos y el contexto.');
+                Producto::setAlerta('error', 'No se pudo guardar el producto. Verifica los datos y el contexto.');
                 $alertas = Producto::getAlertas();
             }
 
             $foto->revertir($platillo);
         }
 
-        self::renderForm('Nuevo platillo', 'Crear platillo', $platillo, $alertas, $foto);
+        self::renderForm('Nuevo producto', 'Crear producto', $platillo, $alertas, $foto);
     }
 
     public static function edit(Router $router): void
@@ -216,7 +216,7 @@ class AdminMenuController
 
         if (!$platillo) {
             http_response_code(404);
-            Producto::setAlerta('error', 'El platillo no existe');
+            Producto::setAlerta('error', 'El producto no existe');
             self::index($router);
             return;
         }
@@ -247,7 +247,7 @@ class AdminMenuController
             if (empty($alertas)) {
                 if (self::guardarPlatillo($platillo)) {
                     // Hasta aquí la foto anterior sigue en disco: si el UPDATE
-                    // hubiera fallado, el platillo seguiría nombrándola.
+                    // hubiera fallado, el producto seguiría nombrándola.
                     $foto->confirmar();
                     // registrar() no escribe si el precio no cambió, así que
                     // guardar sólo la descripción no ensucia el histórico.
@@ -257,12 +257,12 @@ class AdminMenuController
                         $precioAnterior,
                         $platillo->precio
                     );
-                    Producto::setAlerta('exito', 'Platillo actualizado correctamente');
+                    Producto::setAlerta('exito', 'Producto actualizado correctamente');
                     self::index($router);
                     return;
                 }
 
-                Producto::setAlerta('error', 'No se pudo actualizar el platillo');
+                Producto::setAlerta('error', 'No se pudo actualizar el producto');
                 $alertas = Producto::getAlertas();
             }
 
@@ -270,7 +270,7 @@ class AdminMenuController
         }
 
         if(!empty($alertas)&&\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id))http_response_code(422);
-        self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas, $foto);
+        self::renderForm('Editar producto', 'Guardar cambios', $platillo, $alertas, $foto);
     }
 
     public static function delete(Router $router): void
@@ -284,7 +284,7 @@ class AdminMenuController
         $platillo = Producto::find($id);
 
         if (!$platillo) {
-            Producto::setAlerta('error', 'El platillo no existe');
+            Producto::setAlerta('error', 'El producto no existe');
             self::index($router);
             return;
         }
@@ -302,19 +302,19 @@ class AdminMenuController
         if ($eliminado) {
             if (!\Services\Security\ContextoNegocio::nuevo()) {
                 ImagenUploader::eliminar($platillo->img);
-                Producto::setAlerta('exito', 'Platillo eliminado correctamente');
+                Producto::setAlerta('exito', 'Producto eliminado correctamente');
             } else {
-                Producto::setAlerta('exito', 'Platillo retirado correctamente');
+                Producto::setAlerta('exito', 'Producto retirado correctamente');
             }
         } else {
-            Producto::setAlerta('error', 'No se pudo eliminar: el platillo tiene una receta o ventas asociadas.');
+            Producto::setAlerta('error', 'No se pudo eliminar: el producto tiene una receta o ventas asociadas.');
         }
 
         self::index($router);
     }
 
     /**
-     * Invierte la visibilidad de un platillo.
+     * Invierte la visibilidad de un producto.
      *
      * Endpoint propio en vez de reenviar la fila entera por campos ocultos:
      * sobre la tabla fusionada ese formulario tendría que arrastrar `area_id`
@@ -330,7 +330,7 @@ class AdminMenuController
         $id = self::validarId($_POST['id'] ?? null, $router);
         $platillo = Producto::find($id);
         if (!$platillo || !$platillo->alternarVisibilidad()) {
-            Producto::setAlerta('error', 'No fue posible actualizar la visibilidad del platillo');
+            Producto::setAlerta('error', 'No fue posible actualizar la visibilidad del producto');
             self::index($router);
             return;
         }
@@ -488,7 +488,7 @@ class AdminMenuController
         $resultado = CategoriaMenuService::eliminar($id);
 
         if (($resultado['codigo'] ?? '') === CategoriaMenuService::TIENE_PLATILLOS) {
-            CategoriasMenu::setAlerta('error', 'No se puede eliminar: la categoría tiene platillos asociados');
+            CategoriasMenu::setAlerta('error', 'No se puede eliminar: la categoría tiene productos asociados');
             self::categories($router);
             return;
         }
@@ -687,9 +687,9 @@ class AdminMenuController
     }
 
     /**
-     * GET /admin/menu/variantes?id= — editor de variantes del platillo.
+     * GET /admin/menu/variantes?id= — editor de variantes del producto.
      *
-     * Página propia y no una sección del formulario del platillo: el editor
+     * Página propia y no una sección del formulario del producto: el editor
      * necesita ancho para la vista previa de receta y del POS, y guarda por
      * JSON (sin recargar), mientras que el formulario es un POST clásico.
      */
@@ -725,7 +725,7 @@ class AdminMenuController
         ]);
     }
 
-    /** POST /admin/api/menu/variantes — guarda todos los grupos de un platillo. */
+    /** POST /admin/api/menu/variantes — guarda todos los grupos de un producto. */
     public static function guardarVariantes(Router $router): void
     {
         $ctx=ContextoNegocio::slug();ContextoNegocio::exigir('menu', 'editar', $ctx);
@@ -744,7 +744,7 @@ class AdminMenuController
         $productoId = filter_var($datos['producto_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if (!$productoId || !Producto::find($productoId)) {
             http_response_code(404);
-            echo json_encode(['ok' => false, 'errores' => ['El platillo ya no existe.']], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['ok' => false, 'errores' => ['El producto ya no existe.']], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -786,6 +786,7 @@ class AdminMenuController
 
     private static function render(string $view, array $data = []): void
     {
+        $data['volverContextual']=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,ContextoNegocio::slug());
         AdminController::render($view, array_merge([
             'activeModule' => 'menu',
             'styles' => [self::MENU_CSS],

@@ -21,7 +21,9 @@ final class PermisosUsuario
             $modulos['menu']['titulo'] = 'Productos de la casa';
             $modulos['menu']['detalle'] = 'Identidades maestras y uso comercial autorizado; Global no vende.';
         }
-        if($contexto!=='restaurante')$modulos['productos']['ruta']='/admin/'.$contexto.'/recetas/articulos';
+        $modulos['productos']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/recetas/articulos';
+        $modulos['productos']['titulo']='Artículos y preparaciones';
+        $modulos['productos']['detalle']='Configura artículos, capacidades y recetas de preparación.';
         $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
         foreach ($modulos as $key => &$modulo) {

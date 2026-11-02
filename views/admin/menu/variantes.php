@@ -7,12 +7,12 @@
     $menuCsrf = $menuCsrf ?? '';
 
 /**
- * Editor de variantes de un platillo.
+ * Editor de variantes de un producto.
  *
  * El servidor pinta el armazón y deja los datos en JSON; los grupos, las
  * opciones, los ajustes de receta y la vista previa los dibuja
  * src/js/admin/menu/variantes.js, que guarda por JSON sin recargar. Sin JS no
- * hay editor —el aviso <noscript> lo dice—, pero el platillo, su receta y el
+ * hay editor —el aviso <noscript> lo dice—, pero el producto, su receta y el
  * POS siguen funcionando: las variantes sólo se AÑADEN a lo que ya había.
  */
 require_once __DIR__ . '/../partials/_icons.php';

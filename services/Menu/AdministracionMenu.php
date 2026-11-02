@@ -64,7 +64,7 @@ final class AdministracionMenu
             'menuVariantes' => in_array($ctx,['restaurante','panaderia'],true),
             'menuSubtitulo' => $ctx === 'panaderia'
                 ? 'Productos, precios, presentaciones y elaboraciones de Panadería. PDF propio disponible; el punto de venta y la producción física permanecen pendientes.'
-                : 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.',
+                : 'Los productos de la carta, el PDF y el punto de venta se administran aquí. Configura su receta y sus presentaciones desde la ficha del producto.',
         ];
     }
 }

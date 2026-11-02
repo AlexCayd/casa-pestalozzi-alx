@@ -9,7 +9,7 @@
  *    marcada y la comanda no la imprime. Un grupo SIN predeterminada es de
  *    elección obligatoria (el término de un corte).
  *  · «Cambiar» un ingrediente es proporcional: reemplaza la parte indicada de
- *    lo que el platillo lleve en ese momento, también lo que sume otra opción.
+ *    lo que el producto lleve en ese momento, también lo que sume otra opción.
  *    La vista previa repite la explosión de Inventario::explotarReceta(); si
  *    cambia allí, cambia aquí.
  *
@@ -533,7 +533,7 @@
                 '<button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-agregar-ajuste="quitar" data-g="' + gi + '" data-o="' + oi + '">Quitar</button>' +
                 '</div>';
             if (o.ajustes.some(function (a) { return a.accion === 'sustituir'; })) {
-                html += '<p class="admin-vopcion__nota">«Cambiar» reemplaza la parte indicada de lo que lleve el platillo, también lo que sume otra opción: con 120 de 120 ml de leche, un «Grande» con almendra lleva toda su leche de almendra.</p>';
+                html += '<p class="admin-vopcion__nota">«Cambiar» reemplaza la parte indicada de lo que lleve el producto, también lo que sume otra opción: con 120 de 120 ml de leche, un «Grande» con almendra lleva toda su leche de almendra.</p>';
             }
             html += '</fieldset></div>';
         }
@@ -567,7 +567,7 @@
                 '<span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>' +
                 '<span class="admin-switch__label">El mesero siempre elige</span></label>' +
                 '<p class="admin-vgrupo__regla-texto">' + (obligatorio
-                    ? 'No hay opción predeterminada: el POS no deja agregar el platillo sin elegir.'
+                    ? 'No hay opción predeterminada: el POS no deja agregar el producto sin elegir.'
                     : 'Si nadie elige, va <strong>' + esc(def ? def.nombre || 'la predeterminada' : '') + '</strong>, que es la receta base y no se imprime en la comanda.') + '</p>' +
                 '</div>' +
                 '<div class="admin-vgrupo__cabecera" aria-hidden="true"><span>' + (obligatorio ? '' : 'Base') + '</span><span>Opción</span><span>Precio</span><span>Receta</span><span></span></div>' +
@@ -646,7 +646,7 @@
             html += '</div></div>';
         });
         if (!visibles) {
-            html += '<p class="admin-vpos__sin">Sin opciones que elegir: el platillo se agrega con un toque.</p>';
+            html += '<p class="admin-vpos__sin">Sin opciones que elegir: el producto se agrega con un toque.</p>';
         }
         html += '<div class="admin-vpos__linea"><span class="admin-vpos__linea-label">En la comanda</span><span class="admin-vpos__linea-texto">1 × ' + esc(datos.nombre) +
             (rotulo ? '<strong>' + esc(rotulo) + '</strong>' : '') + '</span></div>';
@@ -664,7 +664,7 @@
         Object.keys(baseT).forEach(function (id) { if (ids.indexOf(id) === -1) ids.push(id); });
 
         if (!ids.length) {
-            cReceta.innerHTML = '<p class="admin-vreceta__vacia">Este platillo no tiene receta base, así que vender no descuenta inventario. ' +
+            cReceta.innerHTML = '<p class="admin-vreceta__vacia">Este producto no tiene receta base, así que vender no descuenta inventario. ' +
                 '<a href="/admin/recetas/editar?id=' + Number(datos.producto_id) + '">Captura la receta</a> y aquí verás qué descuenta cada combinación.</p>';
             return;
         }
