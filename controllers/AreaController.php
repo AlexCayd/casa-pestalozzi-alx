@@ -4,22 +4,25 @@ namespace Controllers;
 use Model\TicketItem;
 use Model\TicketMesa;
 use MVC\Router;
+use Services\Configuration\AreasProduccion;
 
 class AreaController {
 
-    private static $AREAS = [
-        'cafe'   => ['id' => 1, 'nombre' => 'Barra de Café',    'color' => '#7b5e3a'],
-        'jugos'  => ['id' => 2, 'nombre' => 'Barra de Jugos',   'color' => '#e8a920'],
-        'cocina' => ['id' => 3, 'nombre' => 'Cocina',            'color' => '#b03a2e'],
-        'horno'  => ['id' => 4, 'nombre' => 'Horno Napolitano', 'color' => '#1a5276'],
-    ];
+    /*
+     * Nombre y color de cada estación salen de areas_produccion
+     * (Services\Configuration\AreasProduccion), que se edita en Configuración →
+     * Colores de las áreas. Aquí había una copia escrita a mano con colores de
+     * una versión vieja (café, mostaza, ladrillo, azul marino): el tablero del
+     * piso no coincidía con el del panel ni con Impresoras, y cambiar el color
+     * en la base no le llegaba.
+     */
 
     /**
      * Destino de los cocineros al iniciar sesión: eligen estación y de ahí
      * entran al tablero. Sin esta pantalla el rol 'cook' no tenía a dónde ir.
      */
     public static function index(Router $router) {
-        $areas = self::$AREAS;
+        $areas = AreasProduccion::todas();
         include __DIR__ . '/../views/area/seleccion.php';
     }
 
@@ -29,7 +32,11 @@ class AreaController {
     public static function horno(Router $router)  { self::renderArea('horno'); }
 
     private static function renderArea($slug) {
-        $area = self::$AREAS[$slug];
+        $area = AreasProduccion::porSlug($slug);
+        if ($area === null) {
+            header('Location: /area', true, 302);
+            exit;
+        }
         include __DIR__ . '/../views/area/index.php';
     }
 

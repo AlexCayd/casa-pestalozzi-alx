@@ -12,7 +12,9 @@
  *   - $pdfVacio:   aviso cuando la carta no tiene ni un registro
  *   - $pdfTitulo:  <title> del documento
  *
- * Los cuatro ultimos son lo UNICO que distingue a las dos piezas que salen
+ *   - $pdfCierre:  la despedida al pie de la ultima seccion
+ *
+ * Los cinco ultimos son lo UNICO que distingue a las dos piezas que salen
  * de aqui — la carta de comida y la de maridaje—: mismo papel, misma banda,
  * mismas dos columnas. Services\Menu\MenuPdf los resuelve; la plantilla no sabe
  * cual esta imprimiendo, y por eso no hay un solo condicional de carta abajo.
@@ -20,12 +22,12 @@
  * Diseno: la carta impresa es la landing en papel, no una pantalla de piso.
  * Antes copiaba el modo oscuro (fondo casi negro y dorado de acento), que ya
  * no existe fuera del POS: quien abre "Ver en PDF" desde la seccion del menu
- * venia de crema, verde y cafe y se encontraba otra marca.
+ * venia de crema y verde y se encontraba otra marca.
  *
- * Ahora el papel es crema con tinta verde y acento cafe (:root de
+ * Ahora el papel es crema con tinta verde y filetes de oro (:root de
  * src/scss/layout/_reset.scss) y la cabecera es una banda de verde de marca
- * con el acento en beige, que es justo lo que hace [data-tono="verde"] — el
- * tono de la seccion que enlaza este PDF.
+ * con el acento en oro claro, que es justo lo que hace [data-tono="verde"]
+ * — el tono de la seccion que enlaza este PDF.
  *
  * Titulos con serifas: la landing usa The Seasons y TT Wellingtons, pero no
  * hay .ttf de escritorio de las dos en el repo y Dompdf no lee .woff2, asi
@@ -35,6 +37,12 @@
  * KudosKaps y el wordmark salia desarmado («CA SA PEST A L O Z Z I»). Va como
  * trazos (_isologo.svg, generado por scripts/isologo-pdf.py desde el .otf),
  * tenido con la paleta como el sello del pie.
+ *
+ * El papel es papel: textura de algodon en todas las hojas, lino en la banda
+ * de la portada (el mantel de la casa) y un marco de doble filete de oro que
+ * enmarca cada hoja como una carta impresa. Las texturas las genera
+ * Services\Menu\TexturaPdf con el color de la paleta vigente; aqui solo se
+ * reparten en losetas (ver $losetas).
  *
  * Margenes uniformes en los 4 lados via .page.
  */
@@ -46,6 +54,7 @@ $pdfRotulo = $pdfRotulo ?? 'MENÚ';
 $pdfBajada = $pdfBajada ?? 'Una mesa italiana con alma mexicana';
 $pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
 $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
+$pdfCierre = $pdfCierre ?? 'Buon appetito';
 
 /**
  * La paleta llega resuelta de Services\Configuration\PaletaLanding::paraPdf().
@@ -62,15 +71,6 @@ $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
  */
 $paleta = \Services\Configuration\PaletaLanding::paraPdf();
 
-/**
- * Icono de Instagram del pie: el MISMO trazo que la landing
- * (views/home/_redes.php), incrustado como data URI en vez de como archivo
- * suelto para que tome el color de $paleta y no lleve un hex cocido dentro de
- * un asset.
- *
- * Se arma con width/height y viewBox coincidentes por lo mismo que $logoEscalado
- * de arriba: en Dompdf la unidad del viewBox es el pixel que se pinta.
- */
 /**
  * Logotipo de la casa para el pie, reescalado y tintado desde el logo.svg
  * original — una sola fuente de verdad: si cambia la marca, cambia el PDF.
@@ -125,6 +125,8 @@ $logoEscalado = function (string $ruta, float $altoPx, string $color, string $re
 $isologo = $logoEscalado(__DIR__ . '/_isologo.svg', 74, $paleta['v_txt'], 'nonzero');
 // El sello entre los dos filetes de oro, como el medallon del isologo del hero.
 $selloFilete = $logoEscalado($logoRuta ?? '', 26, $paleta['v_accent']);
+// El mismo sello al cierre de la carta, en el oro de los filetes del papel.
+$selloCierre = $logoEscalado($logoRuta ?? '', 26, $paleta['oro']);
 
 // El rombo del filete de cada seccion, dibujado: como caracter (U+25C6) salia
 // diminuto y por debajo de la linea, porque Montserrat no lo trae y Dompdf lo
@@ -145,10 +147,95 @@ $precio = static function ($valor): string {
 // contra el oval y queda una mancha.
 $logoCasa = $logoEscalado($logoRuta ?? '', 22, $paleta['oro']);
 
-$iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
-    . '<path fill="' . $paleta['txt_mute'] . '" fill-rule="evenodd" clip-rule="evenodd" d="M3 8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8Zm5-3a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H8Zm7.597 2.214a1 1 0 0 1 1-1h.01a1 1 0 1 1 0 2h-.01a1 1 0 0 1-1-1ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-5 3a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/>'
-    . '</svg>'
+
+/**
+ * Medidas de la hoja A4 en px de Dompdf (96 ppp: 1px = 0.75pt). Las capas
+ * fijas se miden contra el PAPEL y no contra la caja de contenido, porque son
+ * lo unico que tiene que llegar a los cuatro cantos.
+ */
+$hojaAncho = 794;
+$hojaAlto = 1123;
+
+/**
+ * Reparte una textura en losetas absolutas que cubren $ancho x $alto.
+ *
+ * Cada loseta se pinta a la MITAD de su tamano en pixeles (192 ppp, el doble
+ * de lo que Dompdf daria a un background-image) y 1px mas ancha y alta que su
+ * paso: los visores de PDF dejan una linea de fondo entre dos imagenes que
+ * solo se tocan, y el solape la tapa. La misma data URI se incrusta una sola
+ * vez aunque se repita en todas las hojas.
+ */
+$losetas = static function (string $uri, int $ancho, int $alto, int $paso): string {
+    if ($uri === '') {
+        return '';
+    }
+    $html = '';
+    for ($y = 0; $y < $alto; $y += $paso) {
+        for ($x = 0; $x < $ancho; $x += $paso) {
+            $html .= '<img class="loseta" src="' . $uri . '" alt="" style="left:' . $x . 'px;top:' . $y
+                . 'px;width:' . ($paso + 1) . 'px;height:' . ($paso + 1) . 'px">';
+        }
+    }
+    return $html;
+};
+
+$papel = \Services\Menu\TexturaPdf::papel($paleta['bg']);
+$lino = \Services\Menu\TexturaPdf::lino($paleta['v_bg']);
+$pasoPapel = intdiv(\Services\Menu\TexturaPdf::LADO_PAPEL, 2);
+$pasoLino = intdiv(\Services\Menu\TexturaPdf::LADO_LINO, 2);
+
+// Alto fijo de la banda de portada, del canto al filete doble: el lino se
+// reparte en losetas y necesita saber cuanto cubrir. Lo que hay dentro
+// (rotulo, isologo, filete y frase) queda con el mismo aire arriba —hasta el
+// marco— que abajo; si se anade una linea, este numero sube con ella. Dompdf
+// aplica `height` a la caja de CONTENIDO aunque el reset pida border-box, asi
+// que el CSS le resta el relleno superior y el filete.
+$bandaAlto = 250;
+$bandaRelleno = 48;
+$bandaFilete = 3;
+
+/**
+ * La rama de olivo del hero (views/home/_hero.php, .hero__rama), en trazo de
+ * oro claro sobre el lino. Va a los lados de CASA, en el hueco que la palabra
+ * deja sobre PESTALOZZI, como en la portada de la web.
+ *
+ * Aqui SI vale un transform: php-svg-lib aplica el atributo `transform` de un
+ * <g> (lo que ignora es el viewBox y el tamano del <svg>, ver $logoEscalado).
+ * Asi que el lienzo se declara ya al tamano de destino y el dibujo, en sus
+ * unidades del hero, se escala dentro; la derecha es la misma rama en espejo.
+ */
+$rama = static function (bool $espejo, string $trazo, string $hoja, string $fruto): string {
+    $escala = 0.5;
+    $ancho = 140 * $escala;
+    $alto = 56 * $escala;
+    $hojaD = 'M0 0 C5 -6 15 -7 21 0 C15 7 5 6 0 0 Z';
+    $hojas = [[116, 32, -148], [98, 33, 150], [78, 32, -150], [58, 30, 152], [38, 27, -155]];
+    $g = '<path d="M136 30 C104 34 66 32 6 22" fill="none" stroke="' . $trazo . '" stroke-width="2" stroke-linecap="round"/>';
+    foreach ($hojas as [$x, $y, $giro]) {
+        $g .= '<g transform="translate(' . $x . ' ' . $y . ') rotate(' . $giro . ')"><path d="' . $hojaD
+            . '" fill="' . $hoja . '" stroke="' . $trazo . '" stroke-width="1.6" stroke-linejoin="round"/></g>';
+    }
+    $g .= '<g transform="translate(8 22) rotate(-172)"><path d="M0 0 C4 -5 12 -5 17 0 C12 5 4 5 0 0 Z" fill="'
+        . $hoja . '" stroke="' . $trazo . '" stroke-width="1.6" stroke-linejoin="round"/></g>';
+    $g .= '<path d="M70 33 C70 37 69 39 68 41" fill="none" stroke="' . $trazo . '" stroke-width="1.4" stroke-linecap="round"/>';
+    $g .= '<ellipse cx="67" cy="45" rx="3.4" ry="4.6" fill="' . $fruto . '" stroke="' . $trazo . '" stroke-width="1.4"/>';
+
+    $transformacion = $espejo
+        ? 'matrix(' . -$escala . ' 0 0 ' . $escala . ' ' . $ancho . ' 0)'
+        : 'scale(' . $escala . ')';
+
+    return 'data:image/svg+xml;base64,' . base64_encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' . $ancho . '" height="' . $alto . '" viewBox="0 0 '
+        . $ancho . ' ' . $alto . '"><g transform="' . $transformacion . '">' . $g . '</g></svg>'
+    );
+};
+$ramaIzq = $rama(false, $paleta['v_accent'], $paleta['v_bg'], $paleta['oro']);
+$ramaDer = $rama(true, $paleta['v_accent'], $paleta['v_bg'], $paleta['oro']);
+
+// Rombos de las esquinas del marco: los mismos del filete de seccion.
+$romboMarco = 'data:image/svg+xml;base64,' . base64_encode(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 9 9">'
+    . '<path fill="' . $paleta['oro'] . '" d="M4.5 0 L9 4.5 L4.5 9 L0 4.5 Z"/></svg>'
 );
 ?>
 <!DOCTYPE html>
@@ -226,13 +313,66 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             padding: 0 42px;
         }
 
+        /* El papel: una capa fija con la textura en losetas, debajo de todo.
+           Fija porque es el unico mecanismo de Dompdf que repite algo en cada
+           hoja sin meterlo en el flujo; z-index negativo para que se pinte
+           antes que el contenido (con `auto`, un elemento posicionado va
+           DESPUES del flujo y taparia la carta). Se mide contra el papel
+           entero: arriba y a la izquierda la caja de contenido empieza en el
+           canto (el @page no tiene margen ahi), y hacia abajo basta con que
+           sobre — lo que cae fuera de la hoja no se imprime. */
+        .pdf-papel {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: <?php echo $hojaAncho; ?>px;
+            height: <?php echo $hojaAlto; ?>px;
+            z-index: -2;
+        }
+        .loseta {
+            position: absolute;
+            display: block;
+        }
+
+        /* El marco: doble filete de oro a 18px del canto, con un rombo en cada
+           esquina, en todas las hojas. Es lo que convierte la hoja en una carta
+           impresa y no en un documento. En la portada cruza la banda verde, y
+           por encima de ella se lee como el ribete de un mantel; para eso el
+           z-index explicito: con `auto` Dompdf pintaba los elementos fijos
+           antes que la banda (que es relativa) y el lino lo tapaba. Ningun
+           texto llega a el: las columnas arrancan a 56px y el pie termina
+           antes. */
+        .pdf-marco {
+            position: fixed;
+            z-index: 10;
+            left: 18px;
+            top: 18px;
+            width: <?php echo $hojaAncho - 36; ?>px;
+            height: <?php echo $hojaAlto - 36; ?>px;
+            border: 1px solid <?php echo $paleta['oro']; ?>;
+        }
+        .pdf-marco__interior {
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: <?php echo $hojaAncho - 36 - 8; ?>px;
+            height: <?php echo $hojaAlto - 36 - 8; ?>px;
+            border: 0.5px solid <?php echo $paleta['line_soft']; ?>;
+        }
+        .pdf-marco__rombo {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+        }
+
         /* Margen superior de cada hoja: Dompdf repite el <thead> y le reserva
            el alto arriba de cada pagina. El de <tfoot> se retiro porque no
            reservaba nada (ver el bloque de margenes de arriba). */
         .menu-table thead .v-space td { height: 46px; padding: 0; border: none; }
 
         /* Banda de verde de marca: el mismo tono de la seccion que enlaza el
-           PDF. Sobre el, el acento es el beige — cafe sobre verde no separa.
+           PDF. Sobre el, el acento es el oro claro (v_accent): el oro pleno
+           sobre verde no llega a AA como texto.
 
            Va a sangre por los tres cantos que toca, y por eso vive FUERA de
            .page y fuera de la tabla, como hija directa de <body>: asi ocupa el
@@ -252,12 +392,48 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
            deja el rotulo con un margen parecido por los tres cantos, asi que
            la banda se lee como portada y no como una tira de color. */
         .pdf-header {
+            position: relative;
+            height: <?php echo $bandaAlto - $bandaRelleno - $bandaFilete; ?>px;
+            overflow: hidden;
             background: <?php echo $paleta['v_bg']; ?>;
-            padding: 46px 56px 40px;
+            padding: <?php echo $bandaRelleno; ?>px 56px 0;
             margin-bottom: -46px;
-            border-bottom: 3px solid <?php echo $paleta['v_accent']; ?>;
+            border-bottom: <?php echo $bandaFilete; ?>px double <?php echo $paleta['v_accent']; ?>;
             text-align: center;
         }
+        /* El lino, detras del contenido de la banda. Va primero en el marcado
+           y con z-index negativo: asi Dompdf lo pinta antes que el rotulo y el
+           isologo (ver .pdf-papel). El overflow de la banda recorta las
+           losetas que sobran. */
+        .pdf-header__lino {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: <?php echo $hojaAncho; ?>px;
+            height: <?php echo $bandaAlto; ?>px;
+            z-index: -1;
+        }
+        /* El isologo con sus ramas: una caja del tamano exacto del isologo
+           (74px de alto, 282 de ancho) para colgar de ella las ramas en el
+           hueco que CASA deja a cada lado sobre PESTALOZZI. */
+        .pdf-isologo {
+            position: relative;
+            width: 282px;
+            height: 74px;
+            margin: 0 auto;
+        }
+        /* -3px y no mas abajo: la aceituna cuelga bajo la rama, y con el
+           interlineado apretado del isologo caia a 5px de la E de PESTALOZZI
+           y se leia como su tilde («PÉSTALOZZI»). Asi cuelga a la altura de la
+           base de CASA y la rama queda a media asta de la palabra. */
+        .pdf-isologo__rama {
+            position: absolute;
+            top: -3px;
+            width: 70px;
+            height: 28px;
+        }
+        .pdf-isologo__rama--izq { left: 2px; }
+        .pdf-isologo__rama--der { left: 210px; }
         /* Composicion centrada, como el isologo del hero: el rotulo de la
            pieza arriba, el nombre de la casa, el filete de oro partido por el
            sello y la frase. Antes iba todo a la izquierda y el wordmark, en la
@@ -270,7 +446,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             letter-spacing: 5px;
             margin-bottom: 16px;
         }
-        .pdf-header__isologo { height: 74px; }
+        .pdf-header__isologo { display: block; height: 74px; }
         /* Respaldo si el SVG no se pudiera leer: el nombre en la serif. */
         .pdf-header__nombre {
             font-family: "Playfair Display", serif;
@@ -304,12 +480,15 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             width: 50%;
             vertical-align: top;
             border: none;
-            padding: 8px 14px 12px;
+            padding: 7px 14px 10px;
         }
         .menu-row { page-break-inside: avoid; }   /* la fila no se parte entre hojas */
-        /* Encabezado de categoria: versalitas sans en el cafe de acento,
-           ocupando las 2 columnas. El filete va en --line-strong porque marca
-           jerarquia, no separacion.
+        /* Filete entre las dos columnas, como en las cartas a dos columnas: se
+           corta solo en cada titulo de seccion, que ocupa las dos. */
+        .menu-table tbody .menu-row > td.col-der {
+            border-left: 0.5px solid <?php echo $paleta['line_soft']; ?>;
+        }
+        /* Encabezado de categoria, ocupando las 2 columnas.
 
            Las DOS reglas de salto hacen falta y no son la misma:
            page-break-inside impide que el rotulo se parta por dentro, que es
@@ -324,15 +503,19 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         .cat-name {
             border: none;
             text-align: center;
-            padding: 22px 14px 10px;
+            padding: 20px 14px 8px;
         }
         .cat-row.first .cat-name { padding-top: 8px; }
+        /* La seccion en la serif, en versales espaciadas: con el mismo cuerpo
+           y la misma sans que el pie, «DESAYUNOS» pesaba lo que una nota. Ahora
+           la jerarquia es seccion (serif 17, versales) > platillo (serif 14,
+           caja baja) > descripcion (sans 10), sin un solo cambio de color. */
         .cat-name__texto {
-            font-family: "Montserrat", sans-serif;
-            font-weight: bold;
+            font-family: "Playfair Display", serif;
+            font-weight: normal;
             color: <?php echo $paleta['txt_strong']; ?>;
-            font-size: 12px;
-            letter-spacing: 3px;
+            font-size: 17px;
+            letter-spacing: 3.5px;
             text-transform: uppercase;
         }
         .cat-filete {
@@ -359,10 +542,15 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             border: none;
         }
         .dish-line td { border: none; padding: 0; }
+        /* 0.84 da 1.23 de verdad: la caja de Playfair mide 1.47 em en Dompdf
+           (ver .dish-desc). Con 1.25 un nombre de dos renglones salia a 1.83,
+           mas suelto que su propia descripcion, y «Camarones» se leia como
+           otro platillo. El precio lleva el mismo: con interlineados
+           distintos, el `bottom` de las dos celdas no deja las bases a nivel. */
         .dish-name {
             font-family: "Playfair Display", serif;
             font-size: 14px;
-            line-height: 1.25;
+            line-height: 0.84;
             color: <?php echo $paleta['txt_strong']; ?>;
             vertical-align: bottom;
         }
@@ -379,6 +567,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         .dish-price {
             font-family: "Playfair Display", serif;
             font-size: 14px;
+            line-height: 0.84;
             color: <?php echo $paleta['accent']; ?>;
             text-align: right;
             white-space: nowrap;
@@ -387,13 +576,20 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         }
         /* Regular y no Light: impresa a 10px la Light se deshilacha, y mas con
            la luz de un comedor de noche. El manual guarda la light para UN
-           parrafo destacado, no para el cuerpo de la carta. */
+           parrafo destacado, no para el cuerpo de la carta.
+
+           El interlineado NO es el que se lee: Dompdf multiplica line-height
+           por el alto de la CAJA de la fuente, no por el cuerpo
+           (FrameDecorator\Text::get_margin_height), y la de Montserrat mide
+           1.34 em. Con 1.45 salia a 1.94 —la descripcion a doble espacio,
+           despegada de su platillo y una hoja de mas al final—; 1.12 da 1.5
+           de verdad. Al cambiar de cara, medir el paso de renglon en el PDF. */
         .dish-desc {
             font-family: "Montserrat", sans-serif;
             font-weight: normal;
             color: <?php echo $paleta['txt_mute']; ?>;
             font-size: 10px;
-            line-height: 1.45;
+            line-height: 1.12;
             margin-top: 3px;
             padding-right: 40px;
         }
@@ -408,10 +604,10 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
            en Dompdf un elemento fijo se posiciona contra la CAJA DE CONTENIDO,
            no contra el papel. Con bottom:26px el pie subia 136px y volvia a
            montarse sobre los platillos; con bottom:-136px baja justo a ocupar
-           la banda que @page reservo. El `height` la llena entera y el
-           `background` la pinta: el fondo de <body> tampoco llega ahi —termina
-           donde termina la caja de contenido— y sin el la hoja salia con una
-           franja blanca al pie.
+           la banda que @page reservo. El fondo de <body> no llega ahi
+           —termina donde termina la caja de contenido—; lo cubre la capa de
+           papel (.pdf-papel), que mide la hoja entera, y por eso el pie va
+           sin fondo propio: uno liso taparia la textura en esa franja.
 
            El filete no va en esta caja sino en el primer renglon, y los 18px de
            padding superior son los que lo separan del contenido: pegado al
@@ -429,7 +625,6 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             right: 0;
             bottom: -136px;
             height: 136px;
-            background: <?php echo $paleta['bg']; ?>;
             text-align: center;
             padding: 18px 56px 0;
         }
@@ -456,20 +651,12 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             vertical-align: middle;
             margin: 0 1px;
         }
-        .foot-marca .ig {
-            width: 8px;
-            height: 8px;
-            /* baseline y no middle: con el sello de 22px mandando en la linea,
-               middle centraba el icono en una caja mucho mas alta que el texto y
-               quedaba flotando. Dompdf ignora vertical-align en longitudes, asi
-               que la unica palanca es la palabra clave. */
-            vertical-align: baseline;
-            margin-right: 2px;
-        }
         /* Linea 2 · avisos. Es letra chica de verdad: va en --txt-faint, el
            texto mas tenue que la casa admite sin bajar de AA. */
         .foot-legal {
-            font-size: 7.2px;
+            /* 8px (6pt) y no 7.2: por debajo de 6pt la letra chica deja de
+               leerse impresa, y es justo la que avisa de alergenos. */
+            font-size: 8px;
             line-height: 1.5;
             color: <?php echo $paleta['txt_faint']; ?>;
             margin-top: 5px;
@@ -497,16 +684,64 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             color: <?php echo $paleta['txt_faint']; ?>;
             font-style: normal;
         }
+
+        /* La despedida, al pie de la ultima seccion: el sello de la casa y una
+           linea en la voz italiana de los rotulos de la landing. Cierra la
+           carta en vez de dejar la ultima hoja en un platillo suelto. */
+        .cierre-row { page-break-inside: avoid; }
+        /* La ultima fila de platillos no se separa del cierre: sin esto, una
+           carta justa de hojas dejaba la despedida sola en una hoja nueva. Es
+           la misma regla que mantiene un titulo de seccion con sus platillos. */
+        .menu-row--ultima { page-break-after: avoid; }
+        .cierre-row td {
+            text-align: center;
+            padding: 34px 14px 8px;
+            border: none;
+        }
+        .menu-table tbody .menu-row > td.celda-cierre {
+            text-align: center;
+            vertical-align: middle;
+        }
+        /* El mismo filete partido por el sello que la portada, en oro sobre el
+           papel: la carta se cierra con el gesto con que se abrio. */
+        .cierre-filete {
+            width: 220px;
+            margin: 0 auto;
+            border-collapse: collapse;
+        }
+        .cierre-filete td { padding: 0; border: none; vertical-align: middle; }
+        .cierre-filete .linea { border-top: 1px solid <?php echo $paleta['oro']; ?>; }
+        .cierre-filete .sello { width: 40px; text-align: center; }
+        .cierre-filete .sello img { height: 26px; }
+        .pdf-cierre__texto {
+            font-family: "Playfair Display", serif;
+            color: <?php echo $paleta['txt_strong']; ?>;
+            font-size: 16px;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
+    <?php /* El papel va primero: con su z-index negativo se pinta antes que
+             todo lo demas en cada hoja. */ ?>
+    <?php if ($papel !== '') : ?>
+        <div class="pdf-papel"><?php echo $losetas($papel, $hojaAncho, $hojaAlto, $pasoPapel); ?></div>
+    <?php endif; ?>
     <?php /* La cabecera va antes de .page y fuera de la tabla: es lo que la
              deja sangrar de canto a canto. Tambien se imprime cuando no hay
              platillos — una hoja con la marca y un aviso, no un aviso suelto. */ ?>
     <div class="pdf-header">
+        <?php if ($lino !== '') : ?>
+            <div class="pdf-header__lino"><?php echo $losetas($lino, $hojaAncho, $bandaAlto, $pasoLino); ?></div>
+        <?php endif; ?>
         <p class="pdf-header__rotulo"><?php echo htmlspecialchars($pdfRotulo); ?></p>
         <?php if ($isologo !== '') : ?>
-            <img class="pdf-header__isologo" src="<?php echo $isologo; ?>" alt="Casa Pestalozzi">
+            <div class="pdf-isologo">
+                <img class="pdf-header__isologo" src="<?php echo $isologo; ?>" alt="Casa Pestalozzi">
+                <img class="pdf-isologo__rama pdf-isologo__rama--izq" src="<?php echo $ramaIzq; ?>" alt="">
+                <img class="pdf-isologo__rama pdf-isologo__rama--der" src="<?php echo $ramaDer; ?>" alt="">
+            </div>
         <?php else : ?>
             <h1 class="pdf-header__nombre">CASA PESTALOZZI</h1>
         <?php endif; ?>
@@ -525,21 +760,35 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         <?php if (empty($categorias)) : ?>
             <p class="empty"><?php echo htmlspecialchars($pdfVacio); ?></p>
         <?php else : ?>
+            <?php
+            $cierreHtml = '<table class="cierre-filete"><tr><td class="linea"></td>'
+                . ($selloCierre !== '' ? '<td class="sello"><img src="' . $selloCierre . '" alt=""></td><td class="linea"></td>' : '')
+                . '</tr></table><p class="pdf-cierre__texto">' . htmlspecialchars($pdfCierre) . '</p>';
+            ?>
             <table class="menu-table">
                 <!-- Espaciador repetido: margen superior en cada hoja -->
                 <thead><tr class="v-space"><td colspan="2"></td></tr></thead>
                 <tbody>
                     <?php foreach ($categorias as $i => $categoria) : ?>
-                        <!-- Nombre de la categoria (2 columnas, cafe de acento) -->
+                        <!-- Nombre de la categoria (2 columnas) -->
                         <tr class="cat-row<?php echo $i === 0 ? ' first' : ''; ?>">
                             <td class="cat-name" colspan="2">
                                 <span class="cat-name__texto"><?php echo htmlspecialchars($categoria['nombre'] ?? ''); ?></span>
                                 <table class="cat-filete"><tr><td class="linea"></td><td class="rombo"><img src="<?php echo $rombo; ?>" alt=""></td><td class="linea"></td></tr></table>
                             </td>
                         </tr>
-                        <?php foreach (array_chunk($categoria['platillos'], 2) as $fila) : ?>
-                            <tr class="menu-row">
-                                <?php foreach ($fila as $platillo) : ?>
+                        <?php $filas = array_chunk($categoria['platillos'], 2); ?>
+                        <?php foreach ($filas as $f => $fila) : ?>
+                            <?php
+                            $esUltima = $i === count($categorias) - 1 && $f === count($filas) - 1;
+                            // Si la ultima fila trae un solo platillo, la despedida
+                            // ocupa la celda vacia de al lado y no suma altura: un
+                            // renglon propio bastaba para mandar a una hoja nueva
+                            // el ultimo platillo de una carta justa.
+                            $cierreEnCelda = $esUltima && count($fila) === 1;
+                            ?>
+                            <tr class="menu-row<?php echo $esUltima && !$cierreEnCelda ? ' menu-row--ultima' : ''; ?>">
+                                <?php foreach ($fila as $columna => $platillo) : ?>
                                     <?php
                                     $desc = trim((string) ($platillo->descripcion ?? ''));
                                     $nombre = (string) ($platillo->nombre ?? '');
@@ -547,7 +796,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
                                     // columna con su precio al lado.
                                     $corto = mb_strlen($nombre) <= 28;
                                     ?>
-                                    <td>
+                                    <td<?php echo $columna === 1 ? ' class="col-der"' : ''; ?>>
                                         <div class="cell-inner">
                                             <table class="dish-line">
                                                 <tr>
@@ -568,9 +817,12 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
                                     </td>
                                 <?php endforeach; ?>
                                 <?php if (count($fila) === 1) : ?>
-                                    <td></td>
+                                    <td class="col-der<?php echo $cierreEnCelda ? ' celda-cierre' : ''; ?>"><?php echo $cierreEnCelda ? $cierreHtml : ''; ?></td>
                                 <?php endif; ?>
                             </tr>
+                            <?php if ($esUltima && !$cierreEnCelda) : ?>
+                                <tr class="cierre-row"><td colspan="2"><?php echo $cierreHtml; ?></td></tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
                 </tbody>
@@ -583,10 +835,19 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         <?php /* Si el logo.svg no se pudiera leer, cae el segmento entero con
                  sus dos guiones: un renglon con dos separadores vacios se ve
                  peor que uno sin sello. */ ?>
-        <p class="foot-marca">casapestalozzi.com<?php if ($logoCasa !== '') : ?> <span class="sep">-</span> <img class="logo" src="<?php echo $logoCasa; ?>" alt="Casa Pestalozzi"> <span class="sep">-</span><?php endif; ?> <img class="ig" src="<?php echo $iconoInstagram; ?>" alt="">@casapestalozzi</p>
+        <p class="foot-marca">casapestalozzi.com<?php if ($logoCasa !== '') : ?> <span class="sep">-</span> <img class="logo" src="<?php echo $logoCasa; ?>" alt="Casa Pestalozzi"> <span class="sep">-</span><?php endif; ?> @casapestalozzi</p>
         <p class="foot-legal">*La ingesta de productos crudos es responsabilidad del consumidor &nbsp; *Algunos de nuestros productos pueden contener alérgenos. Notifique si presenta duda</p>
         <p class="foot-dir">José Enrique Pestalozzi 1250, Col. Del Valle, Benito Juárez</p>
         <p class="foot-tel">55-5604-5603 &nbsp; 56-1481-8297</p>
+    </div>
+    <?php /* El marco, al final y con z-index 10 (ver .pdf-marco): en la
+             portada tiene que quedar encima del lino de la banda. */ ?>
+    <div class="pdf-marco">
+        <div class="pdf-marco__interior"></div>
+        <img class="pdf-marco__rombo" src="<?php echo $romboMarco; ?>" alt="" style="left:-5px;top:-5px">
+        <img class="pdf-marco__rombo" src="<?php echo $romboMarco; ?>" alt="" style="right:-5px;top:-5px">
+        <img class="pdf-marco__rombo" src="<?php echo $romboMarco; ?>" alt="" style="left:-5px;bottom:-5px">
+        <img class="pdf-marco__rombo" src="<?php echo $romboMarco; ?>" alt="" style="right:-5px;bottom:-5px">
     </div>
 </body>
 </html>

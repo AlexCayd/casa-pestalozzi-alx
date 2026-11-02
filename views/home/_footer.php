@@ -1,8 +1,10 @@
 <?php
 /**
- * Pie + lightbox + panel de tweaks.
+ * Pie de la portada del restaurante: sus columnas y su horario, que pinta el
+ * componente de marca (views/components/marca/pie.php), más el visor de fotos
+ * y el panel de tweaks, que es sólo de esta página.
  *
- * El horario se pinta con las MISMAS excepciones que la sección de reservación
+ * El horario se arma con las MISMAS excepciones que la sección de reservación
  * (Services\Scheduling\HorarioOperacionService::mapearExcepcionesDeLaSemana): antes el pie
  * listaba sólo el horario semanal y podía contradecir a la tabla de arriba —una
  * decía "martes 16:00–23:00 por comida privada" y la otra "martes 08:30–22:00"—.
@@ -20,154 +22,58 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
       $hoyFooter
     )
   : [];
+
+$pieHorario = null;
+if (!empty($horariosOperacionDisponibles)) {
+  $pieHorario = [];
+  foreach ($horariosOperacion as $horario) {
+    $diaFooter = (int)($horario['dia_semana'] ?? -1);
+    $excepcionFooter = $excepcionesFooter[$diaFooter] ?? null;
+    $habitualFooter = !empty($horario['abierto'])
+      ? ($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')
+      : 'Cerrado';
+    $pieHorario[] = [
+      'dia' => (string)($horario['nombre'] ?? ''),
+      'hoy' => $diaFooter === $hoyDiaFooter,
+      'texto' => $habitualFooter,
+      'excepcion' => $excepcionFooter === null ? null : (($excepcionFooter['tipo'] ?? '') === 'horario_especial'
+        ? ($excepcionFooter['hora_apertura'] ?? '') . '–' . ($excepcionFooter['hora_cierre'] ?? '')
+        : 'Cerrado'),
+      'habitual' => $habitualFooter,
+    ];
+  }
+}
+
+/* ═══ MARCA → views/components/marca/pie.php
+   Las mismas palabras que el menú (_nav.php): un destino con dos nombres
+   —«Lo de la Casa» aquí, «De temporada» allí; «Catering» y «Eventos»— obliga a
+   comprobar que son el mismo sitio. */
+$pieLema = 'Cucina italiana, cuore messicano.';
+$pieRedes = SitioConfig::redes();
+$pieColumnas = [
+  ['titulo' => 'Explora', 'enlaces' => [
+    ['texto' => 'La carta', 'href' => '#menu'],
+    ['texto' => 'De temporada', 'href' => '#firma'],
+    ['texto' => 'Panadería', 'href' => '#panaderia'],
+    ['texto' => 'Catas y vinos', 'href' => '#catas'],
+    ['texto' => 'Eventos', 'href' => '#catering'],
+  ]],
+  ['titulo' => 'Visita', 'enlaces' => [
+    ['texto' => SitioConfig::direccionCorta(), 'href' => SitioConfig::mapsUrl(), 'externo' => true],
+    ['texto' => SitioConfig::telefonoVisible(), 'href' => 'tel:' . SitioConfig::telefonoTel()],
+    ['texto' => SitioConfig::correo(), 'href' => 'mailto:' . SitioConfig::correo()],
+    ['texto' => 'Reservar mesa', 'href' => '#reserva'],
+  ]],
+];
+$pieHorarioVacio = 'Consulta la disponibilidad al reservar.';
+$pieCopia = 'Casa Pestalozzi · Del Valle, Ciudad de México';
+$piePrivacidad = true;
+include __DIR__ . '/../components/marca/pie.php';
+
+unset($hoyFooter, $hoyDiaFooter, $excepcionesFooter, $diaFooter, $excepcionFooter, $habitualFooter, $horario);
+
+include __DIR__ . '/../components/marca/visor.php';
 ?>
-
-<footer class="foot" data-tono="verde">
-  <div class="wrap">
-    <div class="foot__top">
-      <div class="foot__brand">
-        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
-                 Nivel <h3>: encabeza el masthead del pie, como antes. Sin enlace
-                 —ya estamos en la portada— y sin subtítulo. */ ?>
-        <?php
-        $hcpEtiqueta = 'div';
-        $hcpNivel = 'h3';
-        $hcpHref = '';
-        $hcpClase = 'bm';
-        include __DIR__ . '/../templates/header-casa-pestalozzi.php';
-        ?>
-        <p>Cucina italiana, cuore messicano.</p>
-        <?php
-          $redesClase = 'foot__social';
-          $redesConNombre = true;
-          include __DIR__ . '/_redes.php';
-        ?>
-      </div>
-      <div class="foot__cols">
-        <div class="foot__col">
-          <h6>Explora</h6>
-          <?php /* Las mismas palabras que el menú (_nav.php): un destino con dos
-                   nombres —«Lo de la Casa» aquí, «De temporada» allí; «Catering»
-                   y «Eventos»— obliga a comprobar que son el mismo sitio. */ ?>
-          <a href="#menu">La carta</a>
-          <a href="#firma">De temporada</a>
-          <a href="#panaderia">Panadería</a>
-          <a href="#catas">Catas y vinos</a>
-          <a href="#catering">Eventos</a>
-        </div>
-        <div class="foot__col">
-          <h6>Visita</h6>
-          <a href="<?php echo s(SitioConfig::mapsUrl()); ?>" target="_blank" rel="noopener"><?php echo s(SitioConfig::direccionCorta()); ?></a>
-          <a href="tel:<?php echo s(SitioConfig::telefonoTel()); ?>"><?php echo s(SitioConfig::telefonoVisible()); ?></a>
-          <a href="mailto:<?php echo s(SitioConfig::correo()); ?>"><?php echo s(SitioConfig::correo()); ?></a>
-          <a href="#reserva">Reservar mesa</a>
-        </div>
-        <div class="foot__col foot__col--horario">
-          <h6>Horario</h6>
-          <?php if (!empty($horariosOperacionDisponibles)) : ?>
-            <?php foreach ($horariosOperacion as $horario) : ?>
-              <?php
-                $diaFooter = (int)($horario['dia_semana'] ?? -1);
-                $esHoyFooter = $diaFooter === $hoyDiaFooter;
-                $excepcionFooter = $excepcionesFooter[$diaFooter] ?? null;
-                $especialFooter = $excepcionFooter !== null
-                  && ($excepcionFooter['tipo'] ?? '') === 'horario_especial';
-                $claseFooter = 'foot__horario';
-                if ($esHoyFooter) {
-                  $claseFooter .= ' is-hoy';
-                }
-                if ($excepcionFooter !== null) {
-                  $claseFooter .= ' is-excepcion';
-                }
-              ?>
-              <span class="<?php echo $claseFooter; ?>">
-                <b><?php echo s($horario['nombre'] ?? ''); ?><?php if ($esHoyFooter) : ?><small>Hoy</small><?php endif; ?></b>
-                <?php if ($excepcionFooter !== null) : ?>
-                  <em><?php echo $especialFooter
-                    ? s(($excepcionFooter['hora_apertura'] ?? '') . '–' . ($excepcionFooter['hora_cierre'] ?? ''))
-                    : 'Cerrado'; ?></em>
-                  <?php /*
-                    El habitual del día, tachado bajo el excepcional. Es el
-                    mismo añadido que la tabla de la sección de reserva y por la
-                    misma razón: la excepción reemplazaba el horario y el
-                    visitante no tenía con qué compararla.
-
-                    Y con el MISMO rótulo en palabras, que es lo que aquí
-                    faltaba: iba sólo tachado, así que las dos cifras se leían
-                    seguidas en el mismo renglón —"16:00–23:00 08:30–22:00"— y
-                    en voz sonaban a dos horarios vigentes, porque
-                    `text-decoration: line-through` no se anuncia. El pie es
-                    además el sitio donde peor se distinguen: aquí no hay chapa
-                    ni motivo que digan que la fila está alterada.
-
-                    Va a mano porque el pie DUPLICA ese bloque —clases propias,
-                    sin chapa ni motivo— y sólo comparte con él el servicio que
-                    resuelve las excepciones. Si algún día se extrae un parcial
-                    común, éste es uno de los dos sitios.
-                  */ ?>
-                  <small class="foot__horario-habitual">Habitual: <s><?php echo !empty($horario['abierto'])
-                    ? s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? ''))
-                    : 'Cerrado'; ?></s></small>
-                <?php elseif (!empty($horario['abierto'])) : ?>
-                  <span><?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?></span>
-                <?php else : ?>
-                  <span>Cerrado</span>
-                <?php endif; ?>
-              </span>
-            <?php endforeach; ?>
-          <?php else : ?>
-            <span>Consulta la disponibilidad al reservar.</span>
-          <?php endif; ?>
-        </div>
-      </div>
-    </div>
-    <div class="foot__bottom">
-      <span>© <span id="year"></span> Casa Pestalozzi · Del Valle, Ciudad de México</span>
-      <span class="foot__legal">
-        <button type="button" class="foot__link" data-privacidad-open>Aviso de privacidad</button>
-        <span aria-hidden="true">·</span>
-        <span>Rediseño conceptual</span>
-      </span>
-    </div>
-  </div>
-</footer>
-<?php unset($hoyFooter, $hoyDiaFooter, $excepcionesFooter, $diaFooter, $esHoyFooter, $excepcionFooter, $especialFooter, $claseFooter, $horario); ?>
-
-<?php /* Lightbox. Lleva data-tono="verde" como la banda oscura de la
-         landing: es lo que hace que sus textos, líneas y acento se resuelvan
-         solos. Sin el tono heredaba la capa 3 de :root —pensada para fondo
-         crema— y pintaba tinta verde sobre el fondo hondo del visor. */ ?>
-<div class="lightbox" id="lightbox" data-tono="verde" role="dialog" aria-modal="true" aria-label="Foto ampliada" aria-hidden="true">
-  <div class="lightbox__counter"><b id="lbCur">1</b> / <span id="lbTotal">1</span></div>
-  <?php /* Acercamiento. Tres controles y no dos: el del medio dice a cuánto
-           está la foto y la devuelve a su tamaño (es el «0» del teclado).
-           aria-disabled y no disabled en los extremos: un botón deshabilitado
-           pierde el foco y, con el fondo inerte, el foco caería al <body>. */ ?>
-  <div class="lightbox__zoom" role="group" aria-label="Acercamiento">
-    <button type="button" class="lightbox__zoom-btn" id="lbAlejar" aria-label="Alejar" aria-keyshortcuts="-" aria-disabled="true"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4.5 10h11"/></svg></button>
-    <button type="button" class="lightbox__zoom-btn lightbox__zoom-nivel" id="lbNivel" aria-keyshortcuts="0" aria-disabled="true"><span class="sr-only">Restablecer tamaño, </span><span id="lbNivelTxt">100 %</span></button>
-    <button type="button" class="lightbox__zoom-btn" id="lbAcercar" aria-label="Acercar" aria-keyshortcuts="+"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4.5 10h11M10 4.5v11"/></svg></button>
-  </div>
-  <?php /* Iconos dibujados y no los glifos ✕ ‹ ›: los pinta la fuente del
-           sistema, no heredan el color y cambian de forma entre plataformas. */ ?>
-  <button type="button" class="lightbox__close" id="lbClose" aria-label="Cerrar"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 4l12 12M16 4L4 16"/></svg></button>
-  <button type="button" class="lightbox__nav prev" id="lbPrev" aria-label="Foto anterior"><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.5 4 6.5 10l6 6"/></svg></button>
-  <button type="button" class="lightbox__nav next" id="lbNext" aria-label="Foto siguiente"><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.5 4l6 6-6 6"/></svg></button>
-  <?php /* El visor recorta la foto y es lo que se acerca: la imagen se escala
-           y se desplaza DENTRO de él (lightbox.js). Es también la pieza que
-           hace el morfo con la miniatura, así que la foto ampliada crece y se
-           encoge con su recorte puesto. `draggable="false"`: el arrastre es
-           para recorrer la foto ampliada, no para sacarla de la página. */ ?>
-  <div class="lightbox__escena">
-    <div class="lightbox__img" id="lbVisor"><img id="lbImg" alt="" draggable="false" /></div>
-    <p class="lightbox__hint">
-      <span class="lightbox__hint-reposo">Flechas para navegar · + y − para acercar · Esc para cerrar</span>
-      <span class="lightbox__hint-ampliada">Arrastra o usa las flechas para recorrer · 0 para volver al tamaño</span>
-    </p>
-    <div class="lightbox__cap"><div class="t" id="lbT"></div><div class="n" id="lbN"></div></div>
-  </div>
-  <p class="sr-only" id="lbAnuncio" aria-live="polite"></p>
-</div>
 
 <!-- Panel de Tweaks -->
 <aside id="tweaks" aria-label="Tweaks">

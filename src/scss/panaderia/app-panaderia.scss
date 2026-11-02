@@ -1,0 +1,35 @@
+// ── PANADERÍA — hoja de la landing /panaderia → public/build/css/panaderia.css ──
+//
+// Dos bloques y nada más:
+//
+//   · MARCA: lo que comparte con la portada del restaurante, en el mismo orden
+//     de cascada que en app.scss. Nada de components/: eso es de la portada, y
+//     scripts/tests/run-frontera-panaderia.php falla si aparece aquí.
+//   · PANADERÍA: una hoja por banda, en el orden de la página.
+//
+// Sale junto a app.css (public/build/css/) para que las rutas ../fonts de
+// layout/fonts sigan valiendo. Ver «Las dos landings» en CLAUDE.md.
+
+// ── Marca ─────────────────────────────────────────────────────
+@use '../base/normalize';
+@use '../layout/fonts';
+@use '../layout/reset';
+@use '../shared/header-casa-pestalozzi';
+@use '../layout/nav';
+@use '../shared/marca/responsive' as marca-responsive;
+@use '../shared/marca/cursor';
+@use '../shared/marca/buttons';
+@use '../shared/marca/italia';
+@use '../shared/marca/ornamentos';
+@use '../shared/marca/ubicacion';
+@use '../shared/marca/footer';
+@use '../shared/marca/lightbox';
+
+// ── Panadería ─────────────────────────────────────────────────
+@use 'base';
+@use 'portada';
+@use 'vitrina';
+@use 'temporada';
+@use 'encargos';
+@use 'restaurante';
+@use 'visitanos';

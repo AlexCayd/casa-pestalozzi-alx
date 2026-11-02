@@ -124,6 +124,9 @@
   margin-bottom: 6px;
   color: var(--admin-faint);
 }
+.admin-body .admin-variantes__vacio-icono svg {
+  stroke-width: 1.75;
+}
 .admin-body .admin-variantes__vacio-titulo {
   color: var(--admin-text);
   font-size: 17px;

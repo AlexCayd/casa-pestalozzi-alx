@@ -147,9 +147,12 @@ class Carta
      * `g` sólo aparece en los platillos con variantes (Variantes::paraPos()):
      * [{ n: grupo, req: bool, o: [{ id, n, d: delta de precio, def }] }].
      *
-     * No filtra por `categorias.carta` a propósito: la división en dos cartas
-     * es de papel, no de operación — el mesero cobra la copa y el plato en el
-     * mismo ticket, así que el POS los ve juntos.
+     * Casi no filtra por `categorias.carta`, a propósito: la división entre
+     * comida y maridaje es de papel, no de operación — el mesero cobra la copa
+     * y el plato en el mismo ticket, así que el POS los ve juntos. La única
+     * carta que se queda fuera es la de la panadería: está en otra dirección y
+     * cobra en su propio mostrador, así que su pan no aparece en la tablet de
+     * los meseros.
      */
     public static function paraPos(): array
     {
@@ -162,6 +165,7 @@ class Carta
                JOIN categorias c        ON c.id  = p.categoria_id
                JOIN areas_produccion ap ON ap.id = p.area_id
               WHERE p.activo = 1 AND c.activo = 1
+                AND c.carta <> '" . CategoriasMenu::CARTA_PANADERIA . "'
               ORDER BY c.id ASC, p.id ASC"
         );
 

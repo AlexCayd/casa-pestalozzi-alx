@@ -71,8 +71,14 @@ if (!function_exists('admin_icon_paths')) {
 
             // ── Acciones ──────────────────────────────────────────────
             'check' => '<path d="M20 6 9 17l-5-5"/>',
-            // Variantes de platillo: tres deslizadores (pareja de icons.js).
-            'variantes' => '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/>',
+            // Variantes de platillo: dos opciones, una elegida (llena) y
+            // otra no, que es lo que son (Leche, Tamaño, Término: se elige una)
+            // y lo que dice el listado de Menú («3 opciones»). Eran tres
+            // deslizadores, que se leían como «ajustes» o «filtros» y no como
+            // «este platillo tiene opciones». Los aros mandan sobre las líneas
+            // para leerse «elige una» y no «lista con viñetas», y miden r=3.25
+            // para que el vacío siga hueco a 13 px. Pareja de icons.js.
+            'variantes' => '<circle cx="7" cy="6.5" r="3.25" fill="currentColor"/><path d="M14 6.5h7"/><circle cx="7" cy="17.5" r="3.25"/><path d="M14 17.5h7"/>',
             'basura' => '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>',
             'editar' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
             // Foto de platillo (formulario y miniatura del listado de Menú).
@@ -161,9 +167,9 @@ if (!function_exists('admin_icon_paths')) {
             //   incognita = poca demanda, buen margen    → arriba a la izquierda
             //   perro     = poca demanda y margen flojo  → abajo a la izquierda
             //
-            // Son los únicos iconos del catálogo con un relleno (la celda): es
-            // lo que los hace distinguibles entre sí a 14 px, donde un trazo
-            // de más o de menos no se ve.
+            // Llevan un relleno (la celda), como `detener` y la opción elegida
+            // de `variantes`: es lo que los hace distinguibles entre sí a
+            // 14 px, donde un trazo de más o de menos no se ve.
             'cuadrante-estrella' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 3h7a2 2 0 0 1 2 2v7h-9Z" fill="currentColor"/>',
             'cuadrante-vaca' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 12h9v7a2 2 0 0 1-2 2h-7Z" fill="currentColor"/>',
             'cuadrante-incognita' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 3H5a2 2 0 0 0-2 2v7h9Z" fill="currentColor"/>',

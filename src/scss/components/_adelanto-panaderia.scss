@@ -1,4 +1,6 @@
-// ── Panadería ─────────────────────────────────────────────────
+// ── Adelanto de la panadería (portada del restaurante) ────────
+//
+// La landing de la panadería tiene su propia hoja: panaderia/app-panaderia.scss.
 .pan { position: relative; }
 
 .pan__lienzo { position: relative; }
@@ -111,6 +113,9 @@
 
 .pan__cta {
   margin-top: clamp(1.6rem, 3vh, 2.4rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
 
   .btn-line { padding: 1.15rem 2.6rem; }
 }

@@ -1044,11 +1044,12 @@ final class ConsultasRapidas
                 "SELECT id, nombre FROM ingredientes WHERE activo = 1 AND stock_minimo > 0
                   ORDER BY stock / stock_minimo ASC LIMIT 1"
             ) ?? self::fila("SELECT id, nombre FROM ingredientes WHERE activo = 1 ORDER BY nombre LIMIT 1");
-            // El consumo sale de los movimientos de venta: el ejemplo es el
-            // ingrediente que más se descontó, para que no conteste en cero.
+            // El consumo sale de los movimientos de venta y de producción: el
+            // ejemplo es el ingrediente que más se descontó, para que no
+            // conteste en cero.
             $cache['consumo'] = self::fila(
                 "SELECT i.id, i.nombre FROM movimientos_inventario m JOIN ingredientes i ON i.id = m.ingrediente_id
-                  WHERE m.tipo IN ('venta', 'cancelacion') AND m.created_at >= CURDATE() - INTERVAL 30 DAY
+                  WHERE m.tipo IN ('venta', 'cancelacion', 'produccion') AND m.created_at >= CURDATE() - INTERVAL 30 DAY
                   GROUP BY i.id, i.nombre HAVING -SUM(m.cantidad) > 0 ORDER BY -SUM(m.cantidad) DESC LIMIT 1"
             ) ?? $cache['ingrediente'];
 
@@ -1072,7 +1073,7 @@ final class ConsultasRapidas
             ) ?: self::filas("SELECT id, nombre FROM ingredientes WHERE activo = 1 ORDER BY RAND() LIMIT {$max}");
             $listas['consumos'] = self::filas(
                 "SELECT i.id, i.nombre FROM movimientos_inventario m JOIN ingredientes i ON i.id = m.ingrediente_id
-                  WHERE m.tipo IN ('venta', 'cancelacion') AND m.created_at >= CURDATE() - INTERVAL 30 DAY
+                  WHERE m.tipo IN ('venta', 'cancelacion', 'produccion') AND m.created_at >= CURDATE() - INTERVAL 30 DAY
                   GROUP BY i.id, i.nombre HAVING -SUM(m.cantidad) > 0 ORDER BY -SUM(m.cantidad) DESC LIMIT {$max}"
             ) ?: $listas['ingredientes'];
         } catch (\Throwable $e) {
@@ -1256,11 +1257,12 @@ final class ConsultasRapidas
         $minimo = (float) $ing['stock_minimo'];
         $unidad = (string) $ing['unidad'];
 
-        // Consumo por ventas de los últimos 7 días (neto de cancelaciones):
-        // lo que alcanza al ritmo de la última semana.
+        // Consumo de los últimos 7 días —ventas netas de cancelaciones, más lo
+        // que se gastó produciendo subrecetas por lote—: lo que alcanza al
+        // ritmo de la última semana.
         $res = $db->query(
             "SELECT COALESCE(-SUM(cantidad), 0) FROM movimientos_inventario
-              WHERE ingrediente_id = {$ingredienteId} AND tipo IN ('venta', 'cancelacion')
+              WHERE ingrediente_id = {$ingredienteId} AND tipo IN ('venta', 'cancelacion', 'produccion')
                 AND created_at >= NOW() - INTERVAL 7 DAY"
         );
         $consumo7 = max(0.0, (float) ($res ? $res->fetch_row()[0] : 0));
@@ -1276,7 +1278,7 @@ final class ConsultasRapidas
         if ($dias !== null && $stock > 0) {
             $frase .= ' Al ritmo de la última semana alcanza para ' . ($dias === 0 ? 'menos de un día' : ($dias === 1 ? 'un día' : $dias . ' días')) . '.';
         } elseif ($stock > 0) {
-            $frase .= ' No hubo ventas que lo usaran en los últimos 7 días.';
+            $frase .= ' No se usó en los últimos 7 días.';
         }
 
         [$cifra, $unidadMostrada] = self::cifraLegible($stock, $unidad);
@@ -1741,16 +1743,19 @@ final class ConsultasRapidas
     }
 
     /**
-     * Lo que salió del almacén por ventas, neto de cancelaciones.
+     * Lo que salió del almacén por ventas (neto de cancelaciones) y por
+     * PRODUCCIÓN de subrecetas por lote.
      *
      * Son los movimientos que dejó Inventario::aplicarVenta() al mandar cada
-     * comanda: la receta ya explotada —subrecetas y opciones incluidas— por
-     * explotarReceta(), en ese momento. No se vuelve a explotar aquí, y es a
-     * propósito: una receta que cambie hoy no reescribe lo que salió ayer, y
-     * el consumo tiene que cuadrar con la existencia, que se movió con esos
-     * mismos números. Es la misma cuenta del «Consumo 7 días» de la ficha de
+     * comanda —la receta ya explotada, opciones y subrecetas al momento
+     * incluidas— y los de Inventario::producirSubreceta() al cocinar un lote:
+     * los ingredientes de una salsa salen cuando se hace la salsa, no cuando
+     * se vende el plato. No se vuelve a explotar nada aquí, y es a propósito:
+     * una receta que cambie hoy no reescribe lo que salió ayer, y el consumo
+     * tiene que cuadrar con la existencia, que se movió con esos mismos
+     * números. Es la misma cuenta del «Consumo 7 días» de la ficha de
      * existencia. Por eso el periodo va por la fecha del movimiento (la
-     * comanda), no por la del cobro.
+     * comanda o el lote), no por la del cobro.
      */
     private static function consumoDe(int $ingredienteId, array $periodo): array
     {
@@ -1762,6 +1767,7 @@ final class ConsultasRapidas
         $unidad = (string) $ing['unidad'];
         $stock = (float) $ing['stock'];
         $porVentas = "'venta', 'cancelacion'";
+        $porUso = "'venta', 'cancelacion', 'produccion'";
 
         $neto = static function (string $tipos, string $desde, string $hasta) use ($ingredienteId): float {
             $row = self::fila(
@@ -1771,8 +1777,9 @@ final class ConsultasRapidas
 
             return max(0.0, (float) ($row['c'] ?? 0));
         };
-        $consumo = $neto($porVentas, $periodo['desde'], $periodo['hasta']);
-        $previo = $neto($porVentas, $periodo['previo_desde'], $periodo['previo_hasta']);
+        $consumo = $neto($porUso, $periodo['desde'], $periodo['hasta']);
+        $previo = $neto($porUso, $periodo['previo_desde'], $periodo['previo_hasta']);
+        $produccion = $neto("'produccion'", $periodo['desde'], $periodo['hasta']);
         $merma = $neto("'merma'", $periodo['desde'], $periodo['hasta']);
         $cuando = mb_strtolower($periodo['frase']);
 
@@ -1799,10 +1806,33 @@ final class ConsultasRapidas
                 $detalle[] = $renglon;
             }
         }
+        // Lo que se gastó cocinando lotes, por subreceta. Sin enlace: no hay
+        // una consulta de «ventas» de una subreceta a la que llevar.
+        if ($produccion > 0) {
+            $filas = self::filas(
+                "SELECT s.nombre, -SUM(m.cantidad) AS c
+                   FROM movimientos_inventario m
+                   JOIN producciones_subreceta ps ON ps.id = m.produccion_id
+                   JOIN subrecetas s ON s.id = ps.subreceta_id
+                  WHERE m.ingrediente_id = {$ingredienteId} AND m.tipo = 'produccion'
+                    AND " . self::entreFechas('m.created_at', $periodo['desde'], $periodo['hasta']) . "
+                  GROUP BY s.id, s.nombre HAVING c > 0"
+            );
+            foreach ($filas as $f) {
+                $detalle[] = [
+                    'etiqueta' => 'Producción de ' . $f['nombre'],
+                    'valor' => round((float) $f['c'], 3),
+                    'valor_texto' => self::cantidad((float) $f['c'], $unidad),
+                ];
+            }
+            usort($detalle, static fn (array $a, array $b): int => [$b['valor'], $a['etiqueta']] <=> [$a['valor'], $b['etiqueta']]);
+            $detalle = array_slice($detalle, 0, 6);
+        }
 
+        $donde = $produccion > 0 ? 'entre ventas y producción' : 'en ventas';
         $frase = $consumo <= 0
-            ? 'No salió ' . $nombre . ' del almacén por ventas ' . $cuando . '.'
-            : ($consumo == 1.0 ? 'Se usó ' : 'Se usaron ') . self::cantidad($consumo, $unidad) . ' de ' . $nombre . ' en ventas ' . $cuando . '.';
+            ? 'No salió ' . $nombre . ' del almacén por ventas ni por producción ' . $cuando . '.'
+            : ($consumo == 1.0 ? 'Se usó ' : 'Se usaron ') . self::cantidad($consumo, $unidad) . ' de ' . $nombre . ' ' . $donde . ' ' . $cuando . '.';
         if ($merma > 0) {
             $frase .= ' Además, ' . self::cantidad($merma, $unidad) . ' de merma.';
         }
@@ -1813,11 +1843,11 @@ final class ConsultasRapidas
             'tipo' => 'consumo',
             'titulo' => $nombre,
             'cifra' => $cifra,
-            'unidad' => $unidadMostrada . ' en ventas',
+            'unidad' => $unidadMostrada . ' ' . $donde,
             'frase' => $frase,
             // Más consumo no es mejor ni peor: es más venta. Sin color.
             'comparacion' => self::comparacion($consumo, $previo, $periodo['previo_etiqueta'], false, 'neutro', static fn (float $v): string => self::cantidad($v, $unidad)),
-            'detalle_titulo' => $detalle !== [] ? 'Por platillo' : null,
+            'detalle_titulo' => $detalle !== [] ? ($produccion > 0 ? 'En qué se usó' : 'Por platillo') : null,
             'detalle' => $detalle,
             'enlace' => ['href' => '/admin/inventario', 'texto' => 'Abrir inventario'],
         ];

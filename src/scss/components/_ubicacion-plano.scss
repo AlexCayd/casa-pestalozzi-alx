@@ -1,0 +1,82 @@
+// ── Plano del restaurante ─────────────────────────────────────
+//
+// Las calles, las manzanas y el parque de la lámina de «Cómo llegar» de la
+// portada (views/home/_ubicacion.php). La lámina, el pin y la chapa del Metro
+// son de marca: shared/marca/_ubicacion.scss.
+
+// Parque. Verde de marca rebajado sobre el papel, no el verde de "éxito" de la
+// paleta funcional: aquí es un giardino, no un estado.
+.map2__park {
+  position: absolute;
+  top: 7%;
+  left: 5%;
+  width: 41%;
+  height: 48%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--brand-verde) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-verde) 55%, transparent);
+}
+
+.map2__parklabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--brand-verde) 88%, var(--bg));
+  line-height: 1.15;
+}
+
+// Manzanas: beige con filete verde, como las islas rellenas de un plano impreso.
+.map2__block {
+  position: absolute;
+  background: color-mix(in srgb, var(--brand-beige) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verde-deep) 34%, transparent);
+  border-radius: 2px;
+
+  &.b1 { top: 7%;   right: 6%;  width: 24%; height: 30%; }
+  &.b2 { bottom: 8%; left: 6%;  width: 30%; height: 22%; }
+  &.b3 { bottom: 8%; right: 6%; width: 22%; height: 24%; }
+}
+
+// Calles en blanco con contorno, que es como se dibuja un viario en papel: el
+// hueco es la calle y la línea es la acera.
+.map2__road {
+  position: absolute;
+  // --surface dentro de la lámina es --crema-lift: el papel un punto más claro.
+  // Es el rol que toca, y así la calle sigue al tono en vez de a un blanco fijo.
+  background: var(--surface);
+  border-block: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  span {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 0.66rem;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.2em;
+    color: color-mix(in srgb, var(--verde-deep) 78%, transparent);
+    white-space: nowrap;
+  }
+
+  &.road--pilares { top: 60%;  left: -4%; width: 108%; height: 30px; transform: rotate(-4deg); }
+  &.road--uni {
+    top: -6%; left: 80%; width: 34px; height: 112%;
+    border-block: none;
+    border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 26%, transparent);
+  }
+  &.road--uni span { writing-mode: vertical-rl; }
+  &.road--frias {
+    top: -6%; left: 1%; width: 24px; height: 112%;
+    border-block: none;
+    border-inline: 1px solid color-mix(in srgb, var(--verde-deep) 20%, transparent);
+  }
+  &.road--frias span { writing-mode: vertical-rl; font-size: 0.58rem; }
+}

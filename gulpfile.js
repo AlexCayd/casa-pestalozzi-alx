@@ -24,8 +24,31 @@ const paths = {
   // landing entera para llegar a su propio SCSS— y estrenan salida con el
   // sistema administrativo dentro.
   operationAppScss: "src/scss/operation/app-operation.scss",
+  // ── Panadería → panaderia.css y panaderia.min.js ───────────────
+  // La landing /panaderia. Su hoja trae la base de marca (shared/marca/) y sus
+  // bandas, nunca components/ (eso es de la portada del restaurante).
+  panaderiaScss: "src/scss/panaderia/app-panaderia.scss",
+  // Lista EXPLÍCITA, no un glob: es la declaración de qué toma la panadería
+  // de la marca. app.js va primero por el estado compartido ($, body, reduce,
+  // T); su boot() sale solo fuera de la portada. Los módulos no se mueven de
+  // carpeta porque el bundle del restaurante se concatena por orden
+  // alfabético de ruta.
+  panaderiaJs: [
+    "src/js/app.js",
+    "src/js/modules/lenis.js",
+    "src/js/modules/cursor.js",
+    "src/js/modules/magnetic.js",
+    "src/js/modules/nav.js",
+    "src/js/modules/lightbox.js",
+    "src/js/modules/reveals.js",
+    "src/js/modules/scroll-art.js",
+    "src/js/modules/pestanas.js",
+    "src/js/panaderia/**/*.js",
+  ],
   js: [
     "src/js/**/*.js",
+    // La panadería tiene su propio bundle (panaderiaJs, abajo).
+    "!src/js/panaderia/**/*.js",
     "!src/js/admin/**/*.js",
     "!src/js/operation/**/*.js",
     "!src/js/modules/punto-de-venta.js",
@@ -68,6 +91,8 @@ const paths = {
     // propio, así que va aquí como historial-precios; sin el campo en la
     // página no hace nada.
     "src/js/admin/core/foto-platillo.js",
+    // Filas equilibradas de las categorías del mismo formulario de platillo.
+    "src/js/admin/core/filas-equilibradas.js",
     // Consultas rápidas: la comparten Tickets, Análisis, Menú e Inventario.
     "src/js/admin/core/consultas-rapidas.js",
   ],
@@ -207,6 +232,27 @@ function css() {
     .pipe(sourcemaps.write("."))
     .pipe(dest("public/build/css")) // auth views
     .pipe(dest("assets/css")); // home view + index.html estatico
+}
+
+// La hoja de la panadería, comprimida como app.css (la paga el visitante en el
+// teléfono) y en la misma carpeta, para que ../fonts siga valiendo.
+function panaderiaCss() {
+  return src(paths.panaderiaScss)
+    .pipe(sourcemaps.init())
+    .pipe(sass({ outputStyle: "compressed" }))
+    .pipe(rename("panaderia.css"))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("public/build/css"));
+}
+
+function panaderiaJavascript() {
+  return src(paths.panaderiaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("panaderia.js"))
+    .pipe(terser())
+    .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js"));
 }
 
 function adminCss() {
@@ -496,6 +542,9 @@ function devWatch(done) {
     operationAppCss,
   );
   watch(paths.js, javascript);
+  // La panadería: su hoja, sus bandas y lo de marca que comparte con la portada.
+  watch(["src/scss/panaderia/**/*.scss", "src/scss/shared/**/*.scss", "src/scss/layout/**/*.scss"], panaderiaCss);
+  watch(paths.panaderiaJs, panaderiaJavascript);
   watch(
     [
       "src/js/admin/admin.js",
@@ -550,6 +599,8 @@ function devWatch(done) {
 }
 
 exports.css = css;
+exports.panaderiaCss = panaderiaCss;
+exports.panaderiaJs = panaderiaJavascript;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
 exports.operationAppCss = operationAppCss;
@@ -582,6 +633,7 @@ exports.copyImages = copyImages;
 exports.imagenesResponsivas = imagenesResponsivas;
 exports.dev = parallel(
   css,
+  panaderiaCss,
   adminCss,
   adminModuleCss,
   operationAppCss,
@@ -589,6 +641,7 @@ exports.dev = parallel(
   versionWebp,
   versionAvif,
   javascript,
+  panaderiaJavascript,
   adminJavascript,
   // Estaba sólo en `build`: un `gulp dev` limpio nunca generaba map.js, así que
   // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
@@ -621,6 +674,7 @@ exports.dev = parallel(
 // que dos streams de minificacion compartan contenido al escribir bundles.
 exports.build = series(
   css,
+  panaderiaCss,
   adminCss,
   adminModuleCss,
   operationAppCss,
@@ -628,6 +682,7 @@ exports.build = series(
   versionWebp,
   versionAvif,
   javascript,
+  panaderiaJavascript,
   adminJavascript,
   adminMapJavascript,
   adminAreaJavascript,

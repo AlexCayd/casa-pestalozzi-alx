@@ -110,7 +110,9 @@
 
                 <div class="admin-field admin-form-grid__full">
                     <span class="admin-field__label">Categoría</span>
-                    <div class="admin-tabs" role="radiogroup" aria-label="Categoría">
+                    <?php /* data-filas-equilibradas: core/filas-equilibradas.js las
+                             reparte en filas del mismo número de pestañas. */ ?>
+                    <div class="admin-tabs admin-menu__categorias" role="radiogroup" aria-label="Categoría" data-filas-equilibradas>
                         <?php foreach ($categorias as $cat) : $cid = (int) $cat->id; ?>
                             <label class="admin-tabs__tab">
                                 <?php /* data-foto: la foto por defecto que tomaría el platillo

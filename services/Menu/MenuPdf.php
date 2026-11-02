@@ -35,12 +35,16 @@ class MenuPdf
             'bajada'   => 'Una mesa italiana con alma mexicana',
             'archivo'  => 'menu-casa-pestalozzi.pdf',
             'vacio'    => 'No hay platillos registrados en el menú.',
+            // La despedida al pie de la última sección, en la voz italiana
+            // de los rótulos de la landing.
+            'cierre'   => 'Buon appetito',
         ],
         CategoriasMenu::CARTA_MARIDAJE => [
             'rotulo'   => 'MARIDAJE',
             'bajada'   => 'Destilados, coctelería de autor y cervezas de la casa',
             'archivo'  => 'maridaje-casa-pestalozzi.pdf',
             'vacio'    => 'No hay bebidas registradas en la carta de maridaje.',
+            'cierre'   => 'Salute',
         ],
     ];
 
@@ -100,6 +104,7 @@ class MenuPdf
         $pdfRotulo = $pieza['rotulo'];
         $pdfBajada = $pieza['bajada'];
         $pdfVacio = $pieza['vacio'];
+        $pdfCierre = $pieza['cierre'];
         $pdfTitulo = pathinfo($pieza['archivo'], PATHINFO_FILENAME);
 
         ob_start();
@@ -117,9 +122,53 @@ class MenuPdf
         $dompdf->loadHtml($html, 'UTF-8');
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
+        self::folios($dompdf);
 
         // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
         $dompdf->stream($nombreArchivo ?: $pieza['archivo'], ['Attachment' => false]);
         exit;
+    }
+
+    /**
+     * El folio de cada hoja («2 / 6»), centrado entre el pie y el marco.
+     *
+     * No puede ir en la plantilla: el HTML no sabe cuántas hojas saldrán.
+     * page_text() lo escribe en todas al final, con los marcadores que Dompdf
+     * sustituye por hoja. Si la fuente no se resolviera, la carta sale sin
+     * folio: no es motivo para no imprimirla.
+     */
+    private static function folios(\Dompdf\Dompdf $dompdf): void
+    {
+        $metricas = $dompdf->getFontMetrics();
+        $fuente = $metricas->getFont('Montserrat', 'normal');
+        if ($fuente === null) {
+            return;
+        }
+
+        $canvas = $dompdf->getCanvas();
+        $tamano = 6.5;
+        $espaciado = 1.2;
+        // El ancho se mide sobre una muestra de la misma forma: con hasta dos
+        // cifras por lado, el folio no se desplaza más de medio carácter.
+        $ancho = $metricas->getTextWidth('0 / 0', $fuente, $tamano, 0.0, $espaciado);
+        $x = ($canvas->get_width() - $ancho) / 2;
+        // 29pt sobre el canto: por debajo del teléfono del pie y por encima
+        // del doble filete del marco (a 13.5pt).
+        $y = $canvas->get_height() - 29;
+
+        $canvas->page_text($x, $y, '{PAGE_NUM} / {PAGE_COUNT}', $fuente, $tamano, self::rgb(
+            \Services\Configuration\PaletaLanding::paraPdf()['txt_faint']
+        ), 0.0, $espaciado);
+    }
+
+    /** @return array{0: float, 1: float, 2: float} el color en 0..1, como lo pide el lienzo */
+    private static function rgb(string $hex): array
+    {
+        $hex = ltrim($hex, '#');
+        return [
+            hexdec(substr($hex, 0, 2)) / 255,
+            hexdec(substr($hex, 2, 2)) / 255,
+            hexdec(substr($hex, 4, 2)) / 255,
+        ];
     }
 }

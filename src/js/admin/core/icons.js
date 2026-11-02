@@ -55,10 +55,19 @@
         reintentar: '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4.5V10H15"/>',
         basura: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>',
 
-        // Variantes de platillo (editor del Menú) y consultas rápidas. Pareja
-        // de _icons.php: `variantes` son tres deslizadores, el gesto de
-        // «ajustar» que el mesero reconoce del selector del POS.
-        variantes: '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/>',
+        // Variantes de platillo (estado vacío del editor). Pareja de
+        // _icons.php: dos opciones, una elegida (llena) y otra no, que es lo
+        // que son las variantes (se elige una por grupo) y lo que dice el
+        // listado («3 opciones»). Los aros mandan sobre las líneas para que se
+        // lea «elige una» y no «lista con viñetas», y miden r=3.25 para que el
+        // vacío siga hueco a 13 px.
+        variantes: '<circle cx="7" cy="6.5" r="3.25" fill="currentColor"/><path d="M14 6.5h7"/><circle cx="7" cy="17.5" r="3.25"/><path d="M14 17.5h7"/>',
+        // Ajustar la receta de UNA opción (el resumen «Salsa verde → Salsa
+        // roja» de cada fila del editor). Son los deslizadores que antes eran
+        // `variantes`: ahí sí dicen lo que hace el botón, y el icono de
+        // opciones, al lado de la columna de radios «Base», se leía como otro
+        // radio. Sólo JS: ninguna vista PHP lo pinta.
+        ajustes: '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/>',
         mas: '<path d="M12 5v14"/><path d="M5 12h14"/>',
         buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
         editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',

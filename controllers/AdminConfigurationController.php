@@ -8,6 +8,7 @@ use MVC\Router;
 use Services\Configuration\AnuncioConfig;
 use Model\ConfiguracionPaleta;
 use Services\Configuration\PaletaLanding;
+use Services\Configuration\AreasProduccion;
 use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
@@ -27,6 +28,7 @@ class AdminConfigurationController
     private const POS_IMPRESION_PATH = '/admin/configuracion/pos/impresion';
     private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
     private const PALETTE_PATH = '/admin/configuracion/paleta';
+    private const AREAS_PATH = '/admin/configuracion/areas';
 
     public static function index(Router $router): void
     {
@@ -53,6 +55,12 @@ class AdminConfigurationController
                     'descripcion' => 'Los cuatro colores de marca con los que se pinta la página pública, el feedback y la carta en PDF.',
                     'ruta' => self::PALETTE_PATH,
                     'icono' => '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.8l-.3-.9a1.7 1.7 0 0 1 1.6-2.3H17a4 4 0 0 0 4-4c0-5-4-9-9-9Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/>',
+                ],
+                [
+                    'titulo' => 'Colores de las áreas',
+                    'descripcion' => 'El color de cada estación de producción en su tablero, en Impresoras y en el POS.',
+                    'ruta' => self::AREAS_PATH,
+                    'icono' => '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
                 ],
                 [
                     'titulo' => 'Reservaciones',
@@ -632,6 +640,48 @@ class AdminConfigurationController
         }
     }
 
+    public static function areas(Router $router): void
+    {
+        $alertas = (string) ($_GET['resultado'] ?? '') === 'areas_actualizadas'
+            ? ['exito' => ['Los colores se guardaron. Cada tablero los toma la próxima vez que se abre o se recarga.']]
+            : [];
+
+        self::renderAreas(array_map(static fn (array $a): ?string => $a['clave'], AreasProduccion::todas()), $alertas);
+    }
+
+    /**
+     * POST /admin/configuracion/areas.
+     *
+     * Llega [slug => clave de la paleta]. Se rechaza entero si una estación se
+     * queda sin color de la paleta o si dos comparten uno: a medias dejaría
+     * dos tableros iguales en Impresoras y en el POS.
+     */
+    public static function guardarAreas(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::AREAS_PATH);
+        }
+
+        $entrada = isset($_POST['areas']) && is_array($_POST['areas']) ? $_POST['areas'] : [];
+        $validacion = AreasProduccion::validar($entrada);
+
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+            self::renderAreas($validacion['claves'], ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']]);
+            return;
+        }
+        if ($validacion['errores'] !== []) {
+            self::renderAreas($validacion['claves'], ['error' => $validacion['errores']]);
+            return;
+        }
+
+        if (!AreasProduccion::guardar($validacion['colores'])) {
+            self::renderAreas($validacion['claves'], ['error' => ['No fue posible guardar los colores. Intenta de nuevo.']]);
+            return;
+        }
+
+        self::redirect(self::AREAS_PATH . '?resultado=areas_actualizadas');
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -668,6 +718,23 @@ class AdminConfigurationController
                 static fn ($v): bool => PaletaLanding::normalizar($v) !== null
             ))),
             'contrasteFallido' => $contrasteFallido,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+        ]);
+    }
+
+    /**
+     * @param array<string, ?string> $elegidos slug => clave de la paleta que pinta el formulario
+     */
+    private static function renderAreas(array $elegidos, array $alertas): void
+    {
+        self::render('configuration/areas', [
+            'title' => 'Colores de las áreas',
+            'topbarSection' => 'Configuración',
+            'areas' => AreasProduccion::todas(),
+            'elegidos' => $elegidos,
+            'paleta' => AreasProduccion::PALETA,
+            'deEspera' => AreasProduccion::DE_ESPERA,
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
         ]);

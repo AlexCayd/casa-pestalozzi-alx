@@ -308,9 +308,9 @@ class AdminFinanzasController
     private static function mermaDelPeriodo(\mysqli $db, string $start, string $end): float
     {
         $res = $db->query(
-            "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor
+            "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo, 0)), 0) AS valor
                FROM movimientos_inventario mi
-               JOIN ingredientes i ON i.id = mi.ingrediente_id
+               LEFT JOIN ingredientes i ON i.id = mi.ingrediente_id
               WHERE mi.tipo = 'merma'
                 AND mi.created_at >= '{$start} 00:00:00'
                 AND mi.created_at <= '{$end} 23:59:59'"

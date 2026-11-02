@@ -107,10 +107,11 @@
             include __DIR__ . '/../partials/_stat-card.php';
 
             // Valorizado con el costo ACTUAL del ingrediente: las salidas por
-            // venta no guardan el costo del momento.
+            // venta no guardan el costo del momento. Cuenta también lo que
+            // salió al producir subrecetas por lote.
             $statLabel = 'Consumo del periodo';
             $statValue = $money($consumo['valor']);
-            $statSub = (int) $consumo['movimientos'] . ' salidas por venta · '
+            $statSub = (int) $consumo['movimientos'] . ' salidas por venta y producción · '
                 . (int) $consumo['entradas'] . ' entradas · '
                 . (int) $consumo['ajustes'] . ' ajustes · a costo actual';
             $statDelta = $deltaConsumo;

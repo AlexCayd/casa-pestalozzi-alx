@@ -118,6 +118,7 @@ $llegadaPendiente = \Classes\Auth::consumirLlegada();
         módulo salían pelados, así que recompilar un SCSS de módulo no llegaba
         al navegador: seguía sirviendo el suyo de caché.
     */ ?>
+    <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
     <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado('/build/css/admin.css'), ENT_QUOTES, 'UTF-8'); ?>">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado($stylesheet), ENT_QUOTES, 'UTF-8'); ?>">

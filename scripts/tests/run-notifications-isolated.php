@@ -110,7 +110,7 @@ try {
     ]);
     foreach ($suites as $suite) {
         $suiteEsValida = preg_match('/^run-reservaciones-[a-z-]+\.php$/D', $suite)
-            || in_array($suite, ['run-pos-print-alerts-db.php', 'run-pos-llevar-multiples-db.php', 'run-punto-venta-cierre-db.php', 'run-analiticas-revpash-db.php', 'run-pos-api-contrato-db.php'], true);
+            || in_array($suite, ['run-pos-print-alerts-db.php', 'run-pos-llevar-multiples-db.php', 'run-subrecetas-produccion-db.php', 'run-punto-venta-cierre-db.php', 'run-analiticas-revpash-db.php', 'run-pos-api-contrato-db.php'], true);
         if (!$suiteEsValida || !is_file(__DIR__ . '/' . $suite)) {
             throw new RuntimeException('Suite no disponible: ' . basename($suite));
         }

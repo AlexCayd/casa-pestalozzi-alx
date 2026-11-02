@@ -403,3 +403,237 @@
     text-align: center;
   }
 }
+
+// ── Subrecetas por lote ───────────────────────────────────────────
+//
+// Listado: el aviso de «por producir», la existencia con su estado y la
+// existencia en el formulario. La ficha «Producir»
+// (views/admin/recetas/producir.php): el lote a la izquierda, la existencia
+// con sus dos correcciones a la derecha, los lotes debajo.
+// Todo bajo .admin-body por la trampa (0,1,1) de `.admin-body p` y compañía.
+// Los rótulos son `.admin-eyebrow` (mono, versalitas, .14em), el de la casa.
+
+.admin-body .admin-recetas__aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-body .admin-recetas__existencia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin: 6px 0 0;
+  color: var(--admin-text);
+  font-size: 14px;
+
+  a {
+    font-size: 13px;
+  }
+}
+
+// Cifra con su estado DEBAJO, los dos al canto derecho de la columna (la
+// existencia del listado, «Queda» en la ficha). Al lado, cada pastilla
+// empujaba su número según su ancho y la columna dejaba de leerse en vertical.
+.admin-body .admin-recetas__cifra-estado {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+
+  // `.admin-badge` declara `display: inline-flex`, que le gana al atributo:
+  // sin esto la ficha decía «En negativo» en todas las filas.
+  > [hidden] {
+    display: none;
+  }
+}
+
+// La rejilla decide por el ancho de la PÁGINA y no de la ventana: plegar el
+// sidebar cambia el sitio sin cambiar el viewport, y con la media query de
+// 1200 px el lote se quedaba en 400 px justo al pasar a dos columnas. 860 px
+// de página (un portátil de 1280 con el sidebar abierto) dejan al lote 500
+// para su tabla al lado de un aside de 340.
+.admin-body .admin-produccion {
+  container-name: produccion;
+  container-type: inline-size;
+}
+
+.admin-produccion__rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+
+  // Aquí separa el gap: el margen de `.admin-panel + .admin-panel` bajaba el
+  // aside 18 px respecto del lote.
+  .admin-recetas & > .admin-panel {
+    margin-top: 0;
+  }
+
+  @container produccion (min-width: 860px) {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  }
+}
+
+.admin-body .admin-produccion {
+  // Inactiva o sin ingredientes: el aviso no puede tocar el rótulo del campo.
+  &__lote .admin-empty {
+    margin-bottom: 18px;
+  }
+
+  &__salida {
+    margin-top: 18px;
+
+    // Tres columnas caben en cualquier ancho de la ficha. Con el mínimo de
+    // 680 px de .admin-table, «Queda» y el costo vivían detrás del scroll en
+    // TODOS los anchos, también a 1440.
+    .admin-table {
+      min-width: 0;
+    }
+
+    th,
+    td {
+      padding: 12px;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    // El total no es un encabezado: frase en caja normal y la cifra al mismo
+    // peso, sobre un filete que cierra la suma.
+    tfoot th,
+    tfoot td {
+      border-top: 1px solid var(--admin-border);
+      border-bottom: 0;
+      background: none;
+    }
+
+    tfoot th {
+      color: var(--admin-text);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-align: left;
+      text-transform: none;
+      white-space: normal;
+    }
+
+    // td.admin-num: `.admin-body .admin-table td.admin-num` (0,3,1) lo deja
+    // en 500.
+    tfoot td.admin-num {
+      font-weight: 600;
+    }
+  }
+
+  &__caption {
+    caption-side: top;
+    padding: 0 0 8px;
+    text-align: left;
+  }
+
+  &__cifra {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 10px 0 8px;
+  }
+
+  // La existencia es la cifra que la ficha dice sola: indicador, no columna.
+  &__numero {
+    color: var(--admin-text);
+    font-family: var(--admin-font-cifra);
+    font-size: clamp(30px, 3vw, 40px);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  &__unidad {
+    color: var(--admin-muted);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &__datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0 0;
+
+    dd {
+      margin: 4px 0 0;
+      color: var(--admin-text);
+      font-size: 14px;
+    }
+  }
+
+  // Conteo y merma: correcciones, así que van separadas por un filete y en
+  // secundario. Lo principal de la ficha es producir.
+  &__correccion {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--admin-border-soft);
+
+    .admin-field {
+      width: 100%;
+    }
+  }
+
+  // Cinco columnas cortas: con el mínimo de 680 px la tabla se desbordaba en
+  // una sola columna de 600 y partía la fecha y el nombre en dos renglones.
+  &__lotes {
+    min-width: 520px;
+
+    td:first-child {
+      white-space: nowrap;
+    }
+
+    // «Detalle» es texto: .admin-table alinea a la derecha la última columna
+    // porque casi siempre es la de acciones.
+    th:last-child,
+    td:last-child {
+      text-align: left;
+    }
+  }
+}
+
+// Una sola columna con sitio de sobra (tableta, o el sidebar abierto en un
+// portátil): conteo y merma lado a lado bajo la existencia, en vez de dos
+// formularios a todo lo ancho, uno debajo del otro. El aside no puede
+// consultarse a sí mismo, así que se pregunta a la página: en este tramo el
+// aside mide lo que ella.
+@container produccion (min-width: 600px) and (max-width: 859.98px) {
+  .admin-body .admin-produccion__existencia {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+    align-items: start;
+
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .admin-badge {
+      justify-self: start;
+    }
+
+    > .admin-produccion__correccion {
+      grid-column: auto;
+    }
+  }
+
+  // Mismo hueco entre columnas que los formularios: «Costo de hoy» cae sobre
+  // la merma.
+  .admin-body .admin-produccion__datos {
+    column-gap: 28px;
+  }
+}

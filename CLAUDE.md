@@ -1,7 +1,7 @@
 # Casa Pestalozzi
 
 Sistema de gestión para el restaurante: landing público con carta y reservaciones,
-punto de venta para meseros, tableros de producción por área, y panel de
+una segunda landing para la panadería (`/panaderia`), punto de venta para meseros, tableros de producción por área, y panel de
 administración (menú, inventario, recetas, analíticas, catas, usuarios,
 configuración).
 
@@ -36,12 +36,95 @@ componentes. Lo que parezca "convención de framework" aquí es código propio.
 - JSON: prefijo `/api/...` o `/admin/api/...`, responden `echo json_encode(...)`.
 - Los controladores de POS/áreas comparten helpers (`entradaJson()`, `responder()`).
 
+### Las dos landings: restaurante, panadería y marca
+
+El sitio público tiene **dos casas en dos calles**: la portada del restaurante
+(`/`, José Enrique Pestalozzi 1250) y la landing de la panadería (`/panaderia`,
+Calle San Borja 1026, tel. 55 1229 9648). Cada archivo pertenece a una de
+**tres capas**, y su ruta lo dice:
+
+| Capa | Dónde vive | Qué es |
+|---|---|---|
+| **Panadería** | `controllers/Panaderia/`, `services/Panaderia/`, `views/panaderia/`, `src/scss/panaderia/`, `src/js/panaderia/`, `assets/images/panaderia/`, variables `PANADERIA_*` | sólo existe por la panadería; para quitarla se borran esas carpetas |
+| **Restaurante** | `HomeController`, `SitioConfig` (dirección, teléfono, mapa), `views/home/`, `src/scss/components/`, el resto de `src/js/modules/` | la portada de siempre; no se movió |
+| **Marca** | `views/components/marca/` (nav, pie, visor, ubicacion, redes, cursor, medallon), `views/templates/header-casa-pestalozzi.php`, `src/scss/shared/marca/`, `src/scss/layout/` (salvo `_rail`), `Carta`, `PaletaLanding`, `SitioConfig::url()` e `instagramUrl()` | lo que usan las dos |
+
+**La regla: panadería y restaurante usan la marca, nunca la una a la otra.**
+`scripts/tests/run-frontera-panaderia.php` lo vigila (ignora comentarios): la
+panadería no incluye `views/home/`, no hace `@use` de `components/` ni lee la
+dirección, el teléfono o el mapa de `SitioConfig`; la portada no lee
+`PanaderiaConfig::`; y un componente de marca no lee la configuración de
+ninguna de las dos casas — **recibe sus datos por parámetro**, porque un pie que
+leyera `SitioConfig` por dentro firmaría la panadería con «Pestalozzi 1250».
+Lo que vayan a usar las dos se mueve a marca la primera vez que se comparte;
+no se copia.
+
+- **Los componentes de marca** (`views/components/marca/*.php`) declaran sus
+  parámetros en la cabecera y los liberan con `unset()` al final. La portada
+  los usa desde sus adaptadores, que conservan su nombre y su lógica:
+  `views/home/_nav.php` (destinos, ficha con el horario de hoy, y el `.rail`,
+  que es sólo de la portada), `_footer.php` (columnas, horario con
+  excepciones, el visor y el panel de tweaks) y `_ubicacion.php` (datos y
+  calles del plano). Al extraerlos, el HTML de la portada salió idéntico salvo
+  la chapa del Metro, que pasó del glifo Ⓜ a un SVG.
+- **Los módulos de JS no cambian de carpeta**: el bundle del restaurante se
+  concatena por orden alfabético de ruta. La frontera la hace la lista
+  explícita `paths.panaderiaJs`, que es la declaración de qué toma la panadería
+  de la marca (`app.js` por el estado compartido —su `boot()` sale solo fuera
+  de la portada—, Lenis, cursor, imán, menú, visor, revelados, negativo de la
+  marca y `pestanas.js`). `src/js/panaderia/` está excluido del bundle general.
+  Si la panadería necesita otro módulo de `modules/`, se añade a esa lista.
+- **`modules/pestanas.js`** (`initPestanasImpresas(raiz, lista)`) es de marca:
+  pestañas WAI-ARIA sobre secciones impresas en el servidor. Lo usan la carta
+  de maridaje (`maridaje.js`) y la vitrina de la panadería. Un panel que lleve
+  `display: grid`/`flex` necesita `&[hidden] { display: none; }`, o el
+  atributo pierde y salen todos a la vez.
+- **El adelanto de la portada** (`views/home/_adelanto-panaderia.php` +
+  `components/_adelanto-panaderia.scss`) es del RESTAURANTE: se llamaba
+  `_panaderia.php` y se renombró para que no confunda las capas. Lleva
+  «Conocer la panadería» (`/panaderia`) y «Cómo llegar»
+  (`/panaderia#visitanos`). Ya no abre ningún mapa: abría el enlace del
+  restaurante como si fuera el de la panadería.
+
+**La landing de la panadería** (`Controllers\Panaderia\PanaderiaController` →
+`views/panaderia/index.php`): portada (crema) · vitrina (beige) · temporada
+(verde) · encargos (oro) · el restaurante (beige) · visítanos (verde) · pie.
+Hoja y JS propios (`panaderia.css` ~69 KB y `panaderia.min.js` ~27 KB, frente a
+los 233 y 179 KB de la portada); `PaletaLanding::estiloEnLinea()` va después de
+su hoja, como en cualquier página de marca.
+
+- **Datos**: `PanaderiaConfig` (dirección, teléfono, `mapsUrl()`,
+  `whatsappUrl()`, `HORARIO`, `ENCARGOS`, `EN_LA_CARTA`), con variables
+  `PANADERIA_*` y respaldo (ver `docs/config.md`). ⚠️ El horario es **de
+  ejemplo** (sólo se sabe que cierra a las 7 p.m.), igual que las
+  anticipaciones de los encargos.
+- **Vitrina**: la carta `panaderia` de `categorias.carta` (ver «Base de
+  datos»), leída con `Carta::publica('panaderia')` vía
+  `PanaderiaCatalogo::vitrina()`; una pestaña por categoría, con la foto de la
+  categoría o `panaderia-vitrina.webp`. Sin piezas, una línea y WhatsApp.
+- **Temporada**: `Services\Panaderia\Temporadas::PANES`, cinco panes **de
+  ejemplo** con fechas mes-día que se repiten cada año (la rosca cruza el año y
+  se dibuja en dos tramos). La tarjeta enseña la de ahora o, si no hay, la
+  siguiente.
+- **El restaurante**: los platillos de `EN_LA_CARTA` que siguen activos (casa
+  por nombre) y botones a `/` y `/#reserva`. No escribe la dirección del
+  restaurante: la panadería no lee `SitioConfig`.
+- **Visítanos**: el componente de ubicación con un plano SVG propio (San Borja,
+  Pestalozzi y División del Norte en aspa en la puerta). El cruce está en el
+  centro del `viewBox` y el SVG cubre la lámina con `slice`, así que el pin
+  (`ancla: 'punto'`, en 50 %/50 %) cae en la esquina mida lo que mida la
+  lámina; los rótulos se quedan lejos de los bordes porque `slice` recorta.
+- **SEO**: JSON-LD `Bakery` con `parentOrganization` → `/#restaurante`;
+  `/panaderia` está en el sitemap.
+- Prueba: `php scripts/tests/run-panaderia.php`.
+
 ### Build
 
 ```
 npx gulp build      # todo (`npx gulp` a secas no existe)
 npx gulp js         # solo JS de la landing
 npx gulp css        # solo SCSS de la landing
+npx gulp panaderiaCss panaderiaJs     # la landing de la panadería
 npx gulp operationAppCss adminMapJs   # el piso: operation.css y el POS
 ```
 
@@ -56,6 +139,8 @@ Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
 | `paths.adminMapJs` (POS: `punto-de-venta.js` + shell/mapa + `core/select.js`) | `public/build/js/admin/map.js` | POS |
 | `src/js/admin/area/area.js` | `public/build/js/admin/area.js` | módulo de áreas del panel |
 | resto de `src/js/` | `public/build/js/bundle.min.js` | landing y feedback |
+| `src/scss/panaderia/app-panaderia.scss` | `public/build/css/panaderia.css` | landing de la **panadería** |
+| `paths.panaderiaJs` (lista explícita: `app.js` + 8 módulos de marca + `src/js/panaderia/`) | `public/build/js/panaderia.min.js` | landing de la **panadería** |
 
 `src/js/modules/punto-de-venta.js` está **excluido** del bundle general a propósito;
 llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
@@ -139,12 +224,16 @@ que se corre «hoy», «ayer», «esta semana» y «este mes» vuelven a tener d
 Siembra de 20 a 48 tickets por día con patrón semanal y la curva de
 `horarios_operacion`, unos pocos superventas y ocho platillos que nunca se
 venden, variantes como las resuelve `Variantes::resolver`, un ~3 % de
-renglones cancelados y un movimiento de `venta` por ingrediente con la misma
-cuenta de `aplicarVenta()`, más su `cancelacion` y unas tres mermas por
-semana. El azar sale de MD5 de la fecha, así que dos corridas el mismo día
+renglones cancelados y un movimiento de `venta` por existencia con la misma
+cuenta de `aplicarVenta()` (ingredientes, y la subreceta entera si es por
+lote), más su `cancelacion` y unas tres mermas por semana. Por cada
+subreceta por lote siembra además un lote diario que cubre lo vendido
+(`producciones_subreceta` **10000-19999**, con sus movimientos
+`produccion`); con el catálogo de desarrollo no sale ninguno, porque el shot
+de espresso es al momento. El azar sale de MD5 de la fecha, así que dos corridas el mismo día
 dejan lo mismo. Es reidempotente y se corre suelto (copiar del encabezado del
 bloque hasta «Fin del bloque 6»; tarda ~10 s). **No toca
-`ingredientes.stock`**, y sube el AUTO_INCREMENT de esas tres tablas al final
+`ingredientes.stock`** (ni `subrecetas.stock`), y sube el AUTO_INCREMENT de sus tablas al final
 de su rango para que lo que cree el POS después no caiga dentro; por eso los
 folios nuevos salen con cinco cifras. Va siempre al final, después del 4 y del
 5 (siembra ventas sobre el catálogo completo): si se vuelve a correr el 4
@@ -152,6 +241,12 @@ folios nuevos salen con cinco cifras. Va siempre al final, después del 4 y del
 en cascada, sus movimientos), hay que correr otra vez el 6. Para ver en qué
 fechas quedó: `SELECT DATE(MIN(hora_apertura)),
 MAX(hora_cierre), COUNT(*) FROM tickets WHERE id BETWEEN 10000 AND 19999;`
+
+Cierra un **bloque 7, «Vitrina de la panadería»**: trece piezas de muestra en
+las categorías 16-18 (`carta = 'panaderia'`, sembradas en `deploy.sql`), sin
+foto propia. Reidempotente por nombre y suelto; puede ir antes o después del 6,
+que ya no las toma (`AND c.carta <> 'panaderia'` en su selección de platillos:
+el pan de la panadería no se vende en tickets del restaurante).
 
 Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
 pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
@@ -185,7 +280,7 @@ Cosas que cargan peso y no son obvias:
   solo lectura; no escribir ahí.
 - `productos.nombre` es UNIQUE por dependencia funcional: el descuento de
   inventario, el COGS y el motor de sugerencias unen por nombre, no por id.
-- `categorias.carta` (`comida` | `maridaje` | `temporada`) parte el catálogo en las **dos
+- `categorias.carta` (`comida` | `maridaje` | `temporada` | `panaderia`) parte el catálogo en las **dos
   piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
   categoría y no en el producto porque la carta es una decisión de SECCIÓN —
   «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
@@ -205,6 +300,15 @@ Cosas que cargan peso y no son obvias:
   ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
   por campos ocultos: si añades una columna a `categorias`, tiene que viajar
   ahí también o apagar una categoría la devuelve a su valor por defecto.
+- **La vitrina de la panadería** es el cuarto valor, `panaderia`: sus piezas
+  se dan de alta en Menú (pastilla «Panadería»), salen en la vitrina de
+  `/panaderia`, no entran en ningún PDF y —a diferencia de las otras tres—
+  **el POS del restaurante no las vende** (`Carta::paraPos()` las excluye: la
+  panadería está en otra calle y cobra en su mostrador). `deploy.sql` siembra
+  sus categorías (16 Panes, 17 Bollería, 18 Dulces) sin piezas, cada una con
+  foto propia en `build/images/panaderia/`. `productos.nombre` sigue siendo
+  único en TODO el catálogo: un «Croissant» de la panadería choca con uno del
+  restaurante.
 - **Especiales de temporada** son el tercer valor de `categorias.carta`
   (`temporada`), y no un módulo: la vitrina de la landing
   (`views/home/_firma.php`) pinta los platillos activos de esas categorías
@@ -226,6 +330,41 @@ Cosas que cargan peso y no son obvias:
   `CategoriasMenu::CARTAS`.
 - `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
+- **Recetas y subrecetas.** La receta de un platillo es `producto_componentes`
+  (ingredientes y subrecetas, `ref_id` polimórfico por `tipo`, sin llave
+  foránea); una subreceta tiene su composición en `subreceta_ingredientes` y
+  un `rendimiento` (lo que da un lote). Hay **dos clases de subreceta**
+  (`subrecetas.por_lote`), y la diferencia es CUÁNDO salen sus ingredientes
+  del almacén:
+  - **Por lote** (una salsa; las nuevas nacen así): se produce por adelantado
+    desde Recetas → Subrecetas → «Producir»
+    (`/admin/recetas/subrecetas/producir?id=`,
+    `Inventario::producirSubreceta`). El lote descuenta sus ingredientes en
+    ese momento, suma a `subrecetas.stock` y queda en
+    `producciones_subreceta` con su costo congelado; **vender un platillo
+    descuenta sólo la subreceta**. Su existencia puede quedar en negativo
+    (la comanda nunca se frena) y se corrige con «Corregir tras contar» o
+    «Merma» en la misma ficha.
+  - **Al momento** (un shot de espresso): no tiene existencia; la venta la
+    desarma hasta ingredientes por cantidad ÷ rendimiento, como siempre.
+  - `movimientos_inventario` mueve UNA existencia por fila: `ingrediente_id`
+    o `subreceta_id`, nunca las dos (arco exclusivo que vigila `Inventario`:
+    MySQL no admite CHECK sobre columnas con acciones de FK). Toda consulta
+    que una por ingredientes con JOIN deja fuera, sin más, los de subrecetas.
+    El tipo `produccion` es el lote: salida de cada ingrediente y entrada de
+    la subreceta, unidas por `produccion_id`. Las mermas de subrecetas entran
+    en la merma de Inventario y de Finanzas (LEFT JOIN), y el «Consumo del
+    periodo» de Inventario cuenta las salidas por venta **y** por producción.
+  - **El costo de un platillo no distingue**: `costoDeProducto()` desarma
+    todas las subrecetas al costo de hoy (`explotarReceta` sin
+    `$paraExistencias`). Sólo el descuento (`aplicarVenta`) se detiene en las
+    por lote.
+  - `subrecetas.stock` no está en `Subreceta::$columnasDB` a propósito: si
+    viajara, guardar el formulario reescribiría la existencia leída al abrirlo.
+  - Una base anterior se migra con `php scripts/migrar-subrecetas-por-lote.php`
+    (idempotente): deja las subrecetas que ya había **al momento**, para que
+    nada cambie hasta que alguien decida producirlas. Prueba:
+    `npm run test:subrecetas` (base aislada).
 - **Variantes por platillo** (`producto_variantes` + `variante_ajustes`,
   servicio `Services\Menu\Variantes`): grupos de opción de elección única
   («Leche», «Tamaño», «Término») que mueven el precio y ajustan la receta. Un
@@ -695,9 +834,21 @@ La capa 3 se redeclara por ámbito; nunca se duplican reglas por tema:
 
 #### Las tres transiciones del sistema
 
-Las tres usan View Transitions. Tema y módulo **conviven en `_finishes.scss`,
-bloques 4b y 4c**; la llegada vive en `_transitions.scss`. Si tocas una,
-comprueba las otras: es el error fácil de esta zona.
+Tema y módulo son View Transitions y **conviven en `_finishes.scss`, bloques
+4b y 4c**; la llegada vive en `_transitions.scss` y sólo usa una View
+Transition en su primer tiempo (la de documento cruzado desde el login). Si
+tocas una, comprueba las otras: es el error fácil de esta zona.
+
+⚠️ **El opt-in de documento cruzado va EN LÍNEA**, en el `<head>` de cada
+pantalla que participa (`views/components/view-transition-opt-in.php`, antes
+de la hoja externa: layout del panel, login, POS, selector y tablero). La regla
+de `_finishes.scss` sola no basta: Chrome decide si el documento NUEVO acepta
+la transición con su primer estilo, y si la hoja externa aún no ha aplicado la
+anula («InvalidStateError … ViewTransition opt-in disabled» en consola). Medido
+con páginas mínimas: sólo en hoja externa se perdía a menudo —el login, el POS
+y los tableros entraban siempre en seco y el primer tiempo de la llegada no se
+veía nunca—; en línea, ninguna vez. Una pantalla nueva con navegación animada
+tiene que incluir el parcial.
 
 - **Cambio de tema** (`core/theme.js`): un `clip-path` circular de 480 ms que se
   abre desde el conmutador. Va marcada con el tipo `'tema'`
@@ -720,22 +871,42 @@ comprueba las otras: es el error fácil de esta zona.
   eagerness `moderate`, sin el módulo activo) — prefetch y no prerender, porque
   las páginas ejecutan consultas; el servidor reconoce la precarga por
   `Sec-Purpose: prefetch`.
-- **Llegada tras el login (tipo `llegada`)**: `views/components/llegada.php` +
-  `src/js/components/llegada.js` (en `bundle.min.js` por el glob general y
+- **Llegada tras el login («subir la cortina»)**: `views/components/llegada.php`
+  + `src/js/components/llegada.js` (en `bundle.min.js` por el glob general y
   en `paths.adminJs`) + `_transitions.scss`. El controlador marca
   `Auth::anunciarLlegada()` al autenticar y el layout (o el shell del piso) la
   gasta con `Auth::consumirLlegada()` en la PRIMERA página: un prefetch no la
-  gasta. El nombre (`cp-marca`, y cada palabra en `cp-marca-casa` /
-  `cp-marca-pestalozzi`) va del login al centro, se sostiene con el saludo y
-  vuela a la marca de destino mientras el velo —siempre tinta, porque usa las
-  anclas y no los roles— se cierra en círculo sobre ella: al nombre apilado del
-  sidebar, al monograma si está plegado, a la marca de la barra en el selector
-  de estación; en el POS y en el teléfono se apaga en su sitio. ≈1.4 s, se
-  salta con cualquier tecla o toque; sin JS o sin tipos de View Transition el
-  CSS sostiene el velo 1.3 s y lo funde; con movimiento reducido, un fundido de
+  gasta. Tres tiempos: (1) el nombre (`cp-marca`) va del login al centro por
+  la View Transition de documento cruzado, y la tarjeta del acceso
+  (`cp-acceso`, nombrada en el `pageswap` del login) sale hacia abajo; (2) se
+  sostiene con el saludo, un halo de papel detrás y el filete creciendo como
+  reloj (`PAUSA` = 860 ms = los 220 de retardo más los 640 del filete: la
+  cortina arranca cuando el reloj cierra); (3) la cortina —cinco paños de tinta, siempre tinta porque usa las
+  anclas y no los roles— sube en ola desde la marca de destino (el primer paño
+  mide el sidebar) y CASA y PESTALOZZI vuelan en arco, cada una por su lado,
+  hasta la caja de su TEXTO en el destino (medida con `Range`): al nombre
+  apilado del sidebar, a la marca de una línea de la barra del piso; al
+  monograma, si está plegado, se encoge y se apaga; en el POS y en el teléfono
+  se apaga en su sitio y la cortina abre desde el centro. ≈1.65 s en el panel
+  (paños de 640 ms con escalón de 40), se salta con cualquier tecla o toque.
+  El tercer tiempo **no es una View Transition**: es WAAPI sobre el propio velo
+  y sólo `transform`/`opacity`, que van por el compositor. La versión anterior
+  (velo en círculo con `clip-path` y palabras como grupos de VT, que animan
+  ancho y alto) corría en el hilo principal justo cuando el panel arranca sus
+  gráficas, y se trababa. ⚠️ El color del nombre no se sincroniza: la capa del
+  centro lleva `mix-blend-mode: difference`, así que sale papel sobre la tinta
+  y tinta sobre el panel claro. Eso sólo funciona porque `.cp-llegada` es
+  `display: contents` y sus dos capas (cortina y centro) son fijas por
+  separado: si el contenedor volviera a ser la capa fija, crearía un contexto
+  de apilamiento y el `difference` se fundiría sólo con la cortina. Por lo
+  mismo el halo (`.cp-llegada__luz`) vive DENTRO del centro con `z-index: -1`
+  y no en la cortina: debajo del `difference` se restaba de la letra y apagaba
+  el nombre un ~12 % justo al soltarlo la View Transition. Sin JS la
+  cortina sube sola por CSS a los 1.3 s; con movimiento reducido, un fundido de
   240 ms. Ninguna de las dos marcas del login puede perder `data-login-marca`,
   y si cambia la medida de la marca del sidebar o de la barra del piso hay que
-  revisar `.cp-llegada__marca`.
+  revisar `.cp-llegada__marca` (la proporción de las palabras tiene que ser la
+  misma en los dos sitios).
 
 - **Login** (`views/auth/login.php` + `auth/_login.scss`): a la izquierda la
   casa (CASA sobre PESTALOZZI en KudosKaps 400 medido contra su columna,
@@ -825,7 +996,9 @@ los dos salieron para que el logo sea lo primero y casi lo único que se lee.
 
 #### El menú de la landing
 
-`views/home/_nav.php` + `layout/_nav.scss` + `modules/nav.js`. Papel crema (no
+`views/components/marca/nav.php` (lo comparten las dos landings; los destinos
+y la ficha de la portada están en `views/home/_nav.php`) + `layout/_nav.scss` +
+`modules/nav.js`. Papel crema (no
 verde: abrir el menú apagaba una portada clara) con dos columnas: los destinos
 y una ficha de lino con la casa **dibujada** (arco, lámpara, olivo, mesa para
 dos) donde antes había una foto del comedor.
@@ -866,7 +1039,7 @@ Hubo un sello vectorial animado por sección (catálogo
 cliente lo retiró: **después del hero la landing va sin adornos**. Los dibujos
 de línea que quedan son la mesa del hero y la casa del menú desplegado; las
 clases de dibujo de esta última (`.t`, `.r`, `.v`) y sus keyframes viven en
-`components/_ornamentos.scss`. Si vuelven los adornos, el formato era un SELLO
+`shared/marca/_ornamentos.scss`. Si vuelven los adornos, el formato era un SELLO
 montado sobre el corte entre bandas, y su lección sigue valiendo: ⚠️ **nunca
 insertar marcado en una etiqueta de apertura con un regex que corte en el
 primer `>`** — la de Reservar lleva `<?php ... ?>` dentro de un atributo, el
@@ -940,7 +1113,8 @@ fallaba la validación CSRF.
 #### La tabla de horarios está DUPLICADA a mano
 
 `views/home/_reserva.php` («Horario habitual», siete filas) y
-`views/home/_footer.php` pintan el mismo horario con clases distintas —`.row` /
+`views/home/_footer.php` (que arma las filas y las pasa a
+`views/components/marca/pie.php`) pintan el mismo horario con clases distintas —`.row` /
 `is-exception` frente a `.foot__horario` / `is-excepcion`— y lo único que
 comparten es el servicio que resuelve las excepciones
 (`HorarioOperacionService::mapearExcepcionesDeLaSemana()`, que devuelve las de
@@ -987,7 +1161,16 @@ entregado → azul, cancelado → gris.
 
 Excepción deliberada: `areas_produccion.color` guarda un hex por área en BD
 (café, jugos, cocina, horno). Son datos del negocio, no tokens de diseño — y aun
-así salen de la paleta funcional.
+así salen de la paleta funcional. Se eligen en **Configuración → Colores de las
+áreas** (`/admin/configuracion/areas`, `Services\Configuration\AreasProduccion`):
+sólo los diez de la paleta y **sin repetir**, porque el color es lo único que
+distingue dos estaciones en Impresoras y en el POS. `AreasProduccion::PALETA` es
+el espejo en PHP de sus hex y `run-areas-produccion.php` falla si se separa de
+`--c-*` o de `--admin-c-*`. Los dos tableros (`AreaController` y
+`AdminAreaController`) leen nombre y color de ese servicio; antes los llevaban
+escritos a mano y el del piso pintaba cuatro colores viejos que no eran los de
+la base. La vista de la pantalla no tiene ni un hex: las muestras piden
+`var(--admin-c-*)` y el servicio traduce la clave al hex que se guarda.
 
 `Services\Configuration\AnuncioConfig::TIPOS[*]['acento']` era la otra excepción y dejó de
 serlo: los cuatro tipos van en el verde de marca (el acento se lee como texto
@@ -1101,9 +1284,34 @@ kerning de KudosKaps y el nombre salía desarmado. Va como trazos en
 `views/admin/menu/_isologo.svg`, generado desde el `.otf` por
 `scripts/isologo-pdf.py` (necesita fontTools; regenerarlo si cambia la cara o
 el tracking del hero) y teñido con la paleta por `$logoEscalado`. Cabecera
-verde centrada (rótulo, isologo, filete de oro partido por el sello, frase),
-secciones centradas con filete y rombo, puntos guía hasta el precio y precios
-sin centavos cuando no los hay — el mismo vocabulario que la carta de la web.
+verde centrada (rótulo, isologo con las ramas de olivo del hero, filete de oro
+partido por el sello, frase), secciones centradas en Playfair versal con
+filete y rombo, filete entre las dos columnas, puntos guía hasta el precio y
+precios sin centavos cuando no los hay — el mismo vocabulario que la carta de
+la web. Cierra con el sello y una despedida por pieza («Buon appetito» /
+«Salute», `MenuPdf::PIEZAS`) y lleva folio «N / M» (`page_text`, en
+`MenuPdf::folios`).
+
+El papel es papel: textura de algodón en todas las hojas, **lino** en la banda
+verde (el mantel) y un marco de doble filete de oro con rombos en las
+esquinas. Las texturas las dibuja `Services\Menu\TexturaPdf` con GD, del color
+de la paleta vigente, sembradas y en caché en el directorio temporal (por
+color y `VERSION`: súbela si cambias el dibujo). Tres cosas de Dompdf que la
+explican: un `background-image` se compone como PNG del tamaño de la caja a
+96 ppp (el ruido en PNG pesaba más que la carta), así que van como losetas
+`<img>` JPEG a 192 ppp con 1 px de solape contra las costuras de los visores;
+una capa fija se repite en cada hoja, y la del papel lleva z-index negativo
+para pintarse antes que el flujo, mientras que el marco lleva uno positivo para
+quedar encima de la banda (con `auto`, los fijos se pintaban antes que la
+banda relativa); y `height` se aplica a la caja de CONTENIDO aunque el reset
+pida border-box (por eso `$bandaAlto` resta relleno y filete). La despedida va
+en la celda vacía de la última fila cuando la hay: un renglón propio mandaba a
+una hoja nueva el último platillo de una carta justa. ⚠️ Y el `line-height` de
+Dompdf multiplica el alto de la CAJA de la fuente, no el cuerpo (Montserrat
+mide 1.34 em ahí, Playfair 1.47): un 1.45 salía a doble espacio. Por eso las
+descripciones van a 1.12 y nombre y precio a 0.84; un valor nuevo se mide en
+el PDF, no se copia de la web. El pie va sin icono de Instagram: a ese cuerpo
+no se leía, y el `@casapestalozzi` ya lo dice.
 
 `font-synthesis: none` en el `body` de la landing: la casa no admite caras
 sintéticas, y un estilo que una familia no trae (cursiva de TT Wellingtons,
@@ -1178,9 +1386,37 @@ rol los rebotaría.
 El KDS **no tiene diseño propio**, pero sí tiene un código de color cerrado, y
 es lo primero que hay que entender antes de tocarlo.
 
-**Un tablero, un color: el de su estación.** `areas_produccion.color` llega por
-`--area-accent` desde la vista y corona las **tres** columnas por igual, en un
-filete de 3 px. No hay color por estado de columna, ni filete de antigüedad en
+**Tres bandas apiladas, y nada desplaza por dentro.** De arriba abajo,
+Enviados → En preparación → Listos (lo entregado sigue atenuado en Listos): lo
+que llega cae siempre arriba. Cada banda es un lomo de 148 px (rótulo y
+contador) y una rejilla de comandas que ENVUELVE (`auto-fill`, mínimo 320 px),
+por orden de llegada. Regla del cliente: **ni scroll horizontal ni vertical en
+bandas ni comandas**; si las tres no caben, desplaza el tablero entero
+(`.area-board`, lo único con `overflow`). Por eso: las bandas se reparten la
+pantalla a partes iguales pero nunca miden menos que su contenido (vacías, se
+quedan en una línea); la comanda va a su altura natural y el nombre de un
+platillo no tiene tope de renglones; una comanda LARGA (≥6 filas, ≥11; una nota
+cuenta 1.5 y un entregado media) ocupa dos o tres celdas con sus platillos en
+multicolumna, sólo si la banda tiene sitio (`@container riel`; el ancho va en
+`grid-column-end`, porque la columna de inicio la pone el JS); y el
+empaquetado es tipo mampostería —filas de 4 px y `grid-row-end: span N`— que
+decide `empaquetar()` en `modules/area.js`: cada comanda RECUERDA su columna
+por ticket mientras siga en la banda (con `dense` saltaban de columna al tocar
+otra) y las nuevas entran en la más baja. Tres cosas del repintado que no se
+deducen: la firma es la estructura del tablero y el reloj de cada comanda se
+reescribe en su sitio (`actualizarTiempos()`), así que el minuto no reconstruye
+nada; el `scrollTop` del tablero se guarda y se repone, porque al medir las
+bandas encogen un instante y el navegador lo recortaba a cero; y la banda
+tocada en los últimos 8 s se sostiene bajo el dedo aunque crezca la de arriba.
+El platillo que entra en una banda lleva un acuse de 700 ms (sólo opacidad,
+`.area-card__item--llega`). Hubo un riel horizontal con alto fijo por banda y
+comandas partidas en columnas que se salían por el lado: se retiró porque
+obligaba a deslizar a ciegas.
+
+**Un tablero, un color: el de su estación.** `areas_produccion.color` (que se
+edita en Configuración → Colores de las áreas) llega por `--area-accent` desde
+la vista y corona las **tres** bandas por igual, en un
+filete de 3 px. No hay color por estado de banda, ni filete de antigüedad en
 la comanda, ni sello azul de «entregado».
 
 Lo único que rompe ese monocromo es **la hora de la cabecera de una comanda**,
@@ -1201,7 +1437,7 @@ Lo que se probó y se retiró, con su motivo, para que no vuelva por inercia:
 
 Todo lo demás del tablero es neutro, **incluidos los dos botones de avance**,
 que van en `--admin-accent` / `--admin-on-accent` —el primario del sistema— y
-son idénticos en las tres columnas. Estuvieron teñidos con el estado DESTINO
+son idénticos en las tres bandas. Estuvieron teñidos con el estado DESTINO
 (ámbar el de «Prep», verde el de «Listo»), y eso hacía que el ámbar significara
 dos cosas a la vez en la misma pantalla: «esta banda es En preparación» en el
 contador de una columna y «manda esto a preparación» en un botón de otra. El
@@ -1217,19 +1453,20 @@ HUNDIDO de la tarjeta, no por hue.
 edita en el panel y no un token: el de Cocina coincide hoy con `--c-rojo` y el
 de Jugos con `--c-ambar`, que son los dos colores que la hora usa para la
 antigüedad. Mientras el color de estación viva sólo en el filete superior de
-las columnas —arriba, a lo ancho, lejos de la hora de una comanda— no hay
+las bandas —arriba, a lo ancho, lejos de la hora de una comanda— no hay
 choque; **si alguna vez vuelve a pintar algo dentro de la tarjeta, lo habrá**.
-Y al elegir el color de un área nueva conviene no repetir esos dos.
+Y al elegir el color de un área conviene no repetir esos dos: la pantalla de
+Configuración lo avisa (`AreasProduccion::DE_ESPERA`), pero no lo impide.
 
 **Y una regla tipográfica igual de corta: mono para las CIFRAS (el contador y
 el `×N`), sans para las PALABRAS.** Tres pesos —400, 600 y 700— y ninguno más.
-El rótulo de columna estuvo en mono con versalitas, y con la mono apareciendo a
+El rótulo de banda estuvo en mono con versalitas, y con la mono apareciendo a
 la vez en palabras y en números no había forma de saber qué la convocaba.
 
-Las columnas **no llevan borde**: son bandas de superficie constante
-(`--admin-surface-soft`, radio `lg`) separadas por un hueco de 16 px, y la
+Las bandas **no llevan borde**: son superficie constante
+(`--admin-surface-soft`, radio `lg`) separadas por un hueco de 12 px, y la
 comanda se despega de ellas con `--admin-surface-strong` más canto de luz y
-sombra. Antes columna y comanda eran las dos `--admin-surface` —el mismo color
+sombra. Antes banda y comanda eran las dos `--admin-surface` —el mismo color
 exacto—, así que el borde de 1 px no era decoración: era lo único que las
 distinguía, y por eso había que repetirlo en cada nivel anidado.
 
@@ -1400,11 +1637,13 @@ de huecos. Hay 12 (`ConsultasRapidas::INTENCIONES`, en este orden en
 Las ventas se cuentan como en el resto del panel (tickets cerrados, sin
 renglones cancelados, por `COALESCE(hora_cierre, hora_apertura)`). Excepciones
 deliberadas: `horas_pico` agrupa por hora de APERTURA (llegada), y `consumo`
-suma los movimientos `venta` − `cancelacion` de `movimientos_inventario` por
-su fecha —la receta que explotó `Inventario::aplicarVenta()` al mandar la
-comanda, sin volver a explotarla—, así que cuadra con la existencia aunque la
-receta cambie (y en la base de desarrollo sale casi siempre en cero: los
-tickets de prueba no generan movimientos). El intérprete de frases
+suma los movimientos `venta` − `cancelacion` + `produccion` de
+`movimientos_inventario` por su fecha —la receta que explotó
+`Inventario::aplicarVenta()` al mandar la comanda, sin volver a explotarla, y
+los ingredientes que se gastaron al producir lotes de subrecetas, que salen
+del almacén al cocinar y no al vender—, así que cuadra con la existencia
+aunque la receta cambie. Su desglose separa «Producción de …» de los
+platillos. El intérprete de frases
 (`responder()`, que entiende «familia» como sinónimo de categoría) se conserva
 como contrato del texto canónico y para repetir preguntas de texto guardadas
 antes del cambio. Además lee **hora, franja y día de la semana**
@@ -1869,7 +2108,7 @@ Trampas conocidas:
   escrito en una vista (lo trata como decisión del autor y no lo toca), así que
   escribirlo a mano es renunciar a esa comprobación.
 - Los parciales PHP incluidos varias veces por página (`views/components/`,
-  `views/home/_insegna.php`, `views/home/_redes.php`) deben cerrar con `unset()`
+  `views/home/_insegna.php`, `views/components/marca/redes.php`) deben cerrar con `unset()`
   de sus parámetros: no se reinicializan entre includes y el segundo hereda lo
   que dejó el primero.
 - La marca fija, el botón de menú y el cursor viven fuera de todo `[data-tono]`,

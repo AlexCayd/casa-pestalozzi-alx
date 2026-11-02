@@ -32,6 +32,7 @@ $esAdmin = \Classes\Auth::tienePanel();
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
 <body class="admin-body area-page operational-page" data-page="area" data-operation-module="area">
@@ -95,7 +96,7 @@ $operationalShellClass = 'area-shell';
 $operationalMainClass = 'area-main operational-layout';
 $operationalMainId = 'area-main';
 // El color de la estación (areas_produccion.color) es dato de negocio, no un
-// token, y es EL color del tablero: corona las tres columnas por igual. Ya no
+// token, y es EL color del tablero: corona las tres bandas por igual. Ya no
 // hay un color por estado con el que pudiera chocar — el estado de cada banda
 // lo dice su rótulo, en palabras.
 $operationalMainAttributes = [
@@ -107,32 +108,32 @@ ob_start();
 ?>
 <div class="area-board" data-operational-workspace>
 
-  <section class="area-col area-col--enviados" aria-labelledby="area-col-enviados-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-enviados-label">Enviados</span>
-      <span class="area-col-count admin-num" id="count-enviados">0</span>
+  <section class="area-banda area-banda--enviados" aria-labelledby="area-banda-enviados-label">
+    <header class="area-banda__lomo">
+      <span class="area-banda__rotulo" id="area-banda-enviados-label">Enviados</span>
+      <span class="area-banda__cuenta admin-num" id="count-enviados">0</span>
     </header>
-    <div class="area-col-items" id="list-enviados" data-scrollable>
+    <div class="area-banda__riel" id="list-enviados">
       <?= $areaVacio ?>
     </div>
   </section>
 
-  <section class="area-col area-col--prep" aria-labelledby="area-col-prep-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-prep-label">En preparación</span>
-      <span class="area-col-count admin-num" id="count-prep">0</span>
+  <section class="area-banda area-banda--prep" aria-labelledby="area-banda-prep-label">
+    <header class="area-banda__lomo">
+      <span class="area-banda__rotulo" id="area-banda-prep-label">En preparación</span>
+      <span class="area-banda__cuenta admin-num" id="count-prep">0</span>
     </header>
-    <div class="area-col-items" id="list-prep" data-scrollable>
+    <div class="area-banda__riel" id="list-prep">
       <?= $areaVacio ?>
     </div>
   </section>
 
-  <section class="area-col area-col--listo" aria-labelledby="area-col-listo-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-listo-label">Listos</span>
-      <span class="area-col-count admin-num" id="count-listo">0</span>
+  <section class="area-banda area-banda--listo" aria-labelledby="area-banda-listo-label">
+    <header class="area-banda__lomo">
+      <span class="area-banda__rotulo" id="area-banda-listo-label">Listos</span>
+      <span class="area-banda__cuenta admin-num" id="count-listo">0</span>
     </header>
-    <div class="area-col-items" id="list-listo" data-scrollable>
+    <div class="area-banda__riel" id="list-listo">
       <?= $areaVacio ?>
     </div>
   </section>

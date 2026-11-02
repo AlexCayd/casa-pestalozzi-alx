@@ -1,0 +1,54 @@
+// ── Panadería · Visítanos ─────────────────────────────────────
+//
+// La composición (datos, lámina, pin, chapa del Metro, «Cómo llegar») es de
+// marca: shared/marca/_ubicacion.scss. Aquí sólo el PLANO de la panadería, el
+// SVG de views/panaderia/_visitanos.php. Vive dentro de la lámina, que es
+// data-tono="crema", así que --surface es el papel claro de las calles y los
+// rótulos toman la tinta verde: las mismas mezclas que el plano del
+// restaurante (components/_ubicacion-plano.scss), para que las dos láminas
+// parezcan del mismo cuaderno.
+
+.pan-plano {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+// Las manzanas son el fondo; las calles las recortan.
+.pan-plano__manzanas { fill: color-mix(in srgb, var(--brand-beige) 62%, transparent); }
+
+.pan-plano__jardin {
+  fill: color-mix(in srgb, var(--brand-verde) 22%, transparent);
+  stroke: color-mix(in srgb, var(--brand-verde) 55%, transparent);
+  stroke-width: 1;
+}
+
+// La calle es el hueco y la línea, la acera: una línea ancha de tinta tenue y
+// encima otra un poco más estrecha del papel.
+.pan-plano__acera {
+  fill: none;
+  stroke: color-mix(in srgb, var(--verde-deep) 26%, transparent);
+}
+
+.pan-plano__calle {
+  fill: none;
+  stroke: var(--surface);
+}
+
+// El camellón de División del Norte.
+.pan-plano__camellon {
+  fill: none;
+  stroke: color-mix(in srgb, var(--brand-verde) 40%, transparent);
+  stroke-width: 2.5;
+}
+
+.pan-plano__rotulo {
+  font-family: var(--serif);
+  font-size: 9px;
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.18em;
+  fill: color-mix(in srgb, var(--verde-deep) 78%, transparent);
+}

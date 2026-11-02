@@ -17,7 +17,8 @@ protege los secretos fuera del repositorio.
 | `N8N_RESERVATIONS_CALLBACK_SECRET` | Autentica callbacks n8n → PHP; debe diferir del secreto anterior. |
 | `RESERVATION_PUBLIC_BASE_URL` | Base pública HTTPS que se incluye en enlaces de reservación. |
 | `N8N_WEBHOOK_SUGERENCIAS_URL`, `N8N_WEBHOOK_AREAS_MEJORA_URL`, `N8N_SECRET` | Webhooks y autenticación que conservan sugerencias, analíticas/áreas y feedback. |
-| `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. |
+| `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. Son los del **restaurante**. |
+| `PANADERIA_DIRECCION`, `PANADERIA_DIRECCION_CORTA`, `PANADERIA_TELEFONO`, `PANADERIA_MAPS_URL`, `PANADERIA_WHATSAPP` | Datos de la **panadería** (`/panaderia`, `Services\Panaderia\PanaderiaConfig`). Respaldo: Calle San Borja 1026, 55 1229 9648, una búsqueda de Google Maps por nombre y dirección, y el WhatsApp igual al teléfono. Cuando haya enlace corto de su ficha de Maps, va en `PANADERIA_MAPS_URL`. |
 | `RESERVAS_TELEFONO_VISIBLE`, `RESERVAS_TELEFONO_TEL` | Teléfono público del restaurante, tal como se lee y para `tel:`. |
 | `RESERVAS_WHATSAPP` | Respaldo del WhatsApp de reservaciones y catas: sólo se usa si el panel no tiene número guardado. |
 
@@ -56,7 +57,7 @@ Las preguntas base (`ConsultasRapidas::capacidades()`), por familia:
 | | Horas pico | tickets por hora de **apertura** (llegada) |
 | | Cancelaciones | renglones cancelados en cuentas cerradas |
 | Inventario | Existencia de un ingrediente | stock, mínimo, valor y días de cobertura |
-| | Consumo de un ingrediente | lo descontado por ventas (movimientos `venta` − `cancelacion`), merma y platillos que lo usaron |
+| | Consumo de un ingrediente | lo descontado por ventas y por producción de subrecetas por lote (movimientos `venta` − `cancelacion` + `produccion`), merma, y en qué se usó (platillos y lotes) |
 | | Lo que está por agotarse | ingredientes bajo su mínimo |
 
 Las ventas se cuentan como en el resto del panel: tickets cerrados, sin
@@ -65,9 +66,11 @@ llega comparada con el periodo anterior de la misma duración; la flecha dice
 hacia dónde y el color qué significa (más cancelaciones o más platillos sin
 venta es peor; más consumo no es ni mejor ni peor). El consumo NO vuelve a
 explotar recetas: suma los movimientos que dejó `Inventario::aplicarVenta()`
-—la receta explotada al mandar la comanda—, así cuadra con la existencia
-aunque la receta cambie después; por eso su periodo va por la fecha del
-movimiento y no por la del cobro.
+—la receta explotada al mandar la comanda— y los de
+`Inventario::producirSubreceta()` —los ingredientes de una subreceta por lote
+salen del almacén al cocinarla, no al vender el plato—, así cuadra con la
+existencia aunque la receta cambie después; por eso su periodo va por la
+fecha del movimiento y no por la del cobro.
 
 - La respuesta se pinta con la tarjeta del motor (`window.ConsultasRapidas.montar`,
   en `admin.js`): cambiar un hueco rehace esa respuesta en su sitio; un renglón
@@ -115,6 +118,14 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   público. Al bajar el máximo, la pantalla avisa cuántas reservas futuras
   quedan por encima; no se tocan.
 - Horario efectivo y excepciones: sección de configuración de horarios.
+- `/admin/configuracion/areas`: el **color de cada estación de producción**
+  (Barra de Café, Barra de Jugos, Cocina y Horno Napolitano), en la columna
+  `areas_produccion.color` que ya existía: no hace falta migración. Se elige
+  sólo entre los diez colores de la paleta funcional y dos estaciones no pueden
+  repetirlo (`Services\Configuration\AreasProduccion::validar()`); se guarda el
+  hex. Lo leen los dos tableros KDS (`/area/*` y `/admin/area/*`), el selector
+  de estación, Impresoras y el encabezado de área al confirmar una comanda en
+  el POS. Un tablero abierto lo toma al recargarse.
 - `/admin/configuracion/paleta`: los **cuatro colores de marca de la landing**
   (verde musgo, oro, beige y crema, los del manual de identidad; tabla
   `configuracion_paleta`, fila única). Son la capa 1 de
@@ -281,6 +292,28 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   Sin el `ALTER`, guardar una categoría de temporada falla (MySQL rechaza el
   valor) y la vitrina sale con su línea de «esta semana»; el resto del sitio
   no cambia, así que puede ir antes o después de desplegar el código.
+
+- **Vitrina de la panadería** (landing `/panaderia`): las piezas de las
+  categorías con `carta = 'panaderia'`, que se dan de alta en Menú (pastilla
+  «Panadería»). No entran en ningún PDF ni en el POS del restaurante. Para una
+  base existente —**respaldar antes**: el DDL de MySQL no es transaccional—:
+
+  ```sql
+  ALTER TABLE categorias
+    MODIFY carta ENUM('comida','maridaje','temporada','panaderia') NOT NULL DEFAULT 'comida';
+  INSERT INTO categorias (id, nombre, carta, img) VALUES
+    (16, 'Panes',     'panaderia', 'build/images/panaderia/panes.webp'),
+    (17, 'Bollería',  'panaderia', 'build/images/panaderia/bolleria.webp'),
+    (18, 'Dulces',    'panaderia', 'build/images/panaderia/dulces.webp')
+  ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+  ```
+
+  Comprueba antes que los ids 16 a 18 estén libres (`SELECT id, nombre FROM
+  categorias WHERE id BETWEEN 16 AND 18`): el `ON DUPLICATE KEY` sobrescribe.
+  Para desarrollo, el bloque 7 de `development.sql` siembra trece piezas de
+  muestra y se puede correr suelto. Sin la migración, la vitrina sale con su
+  línea de «escríbenos y te decimos qué hay hoy» y el resto de la página
+  funciona.
 
 Las columnas son tolerantes: en una base sin migrar se leen los valores por
 defecto. Los `ALTER` están en

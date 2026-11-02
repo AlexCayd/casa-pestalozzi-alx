@@ -594,8 +594,8 @@
                                         <a
                                             class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
                                             href="/admin/menu/variantes?id=<?php echo (int) $platillo->id; ?>"
-                                            title="<?php echo $opcionesVariante > 0 ? 'Variantes' : 'Agregar variantes'; ?>"
-                                            aria-label="<?php echo $opcionesVariante > 0 ? 'Variantes de ' : 'Agregar variantes a '; ?><?php echo $esc($platillo->nombre); ?>"
+                                            title="<?php echo $opcionesVariante > 0 ? 'Editar variantes' : 'Agregar variantes'; ?>"
+                                            aria-label="<?php echo $opcionesVariante > 0 ? 'Editar variantes de ' : 'Agregar variantes a '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
                                             <?php echo admin_icon('variantes', 18); ?>
                                         </a>

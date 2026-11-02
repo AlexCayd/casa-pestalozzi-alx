@@ -39,6 +39,7 @@ use Controllers\PosReservacionController;
 use Controllers\AreaController;
 use Controllers\AdminConsultasController;
 use Controllers\AdminRolesController;
+use Controllers\Panaderia\PanaderiaController;
 
 $router = new Router();
 
@@ -52,6 +53,11 @@ $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
 $router->get('/reservaciones/gestionar', [ReservationManagementAccessController::class, 'show']);
 $router->get('/reservaciones/cambio-horario', [ScheduleChangeAccessController::class, 'show']);
+
+// ── Panadería ─────────────────────────────────────────────────
+// La landing de la panadería de San Borja 1026. Pública sin tocar Permisos: no
+// empieza por /admin ni por /api. Todo lo suyo vive en carpetas panaderia/.
+$router->get('/panaderia', [PanaderiaController::class, 'index']);
 
 // Reservaciones
 $router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
@@ -121,6 +127,8 @@ $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationControlle
 $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
 $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
+$router->get('/admin/configuracion/areas', [AdminConfigurationController::class, 'areas']);
+$router->post('/admin/configuracion/areas', [AdminConfigurationController::class, 'guardarAreas']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -223,6 +231,13 @@ $router->post('/admin/recetas/subrecetas/create',    [AdminRecetasController::cl
 $router->get('/admin/recetas/subrecetas/edit',       [AdminRecetasController::class, 'subrecetaEdit']);
 $router->post('/admin/recetas/subrecetas/edit',      [AdminRecetasController::class, 'subrecetaEdit']);
 $router->post('/admin/recetas/subrecetas/delete',    [AdminRecetasController::class, 'subrecetaDelete']);
+// Subrecetas por lote: producir (descuenta ingredientes y suma existencia),
+// corregir la existencia tras contarla y registrar su merma. Mismo módulo
+// (`productos`) por el prefijo /admin/recetas de Permisos::RUTAS.
+$router->get('/admin/recetas/subrecetas/producir',   [AdminRecetasController::class, 'producir']);
+$router->post('/admin/recetas/subrecetas/producir',  [AdminRecetasController::class, 'producir']);
+$router->post('/admin/recetas/subrecetas/ajustar',   [AdminRecetasController::class, 'ajustarSubreceta']);
+$router->post('/admin/recetas/subrecetas/merma',     [AdminRecetasController::class, 'mermaSubreceta']);
 
 /*
  * Redirecciones 301 de las rutas previas a la fusión menu+productos (2026-07).

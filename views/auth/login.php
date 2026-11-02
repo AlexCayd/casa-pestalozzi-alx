@@ -45,6 +45,7 @@
   <link rel="preload" href="/build/fonts/expose-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
+  <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?php echo $h(recursoVersionado('/build/css/operation.css')); ?>">
 </head>
 <body class="admin-body login-page" data-page="login">
@@ -526,9 +527,14 @@
      */
     (function () {
       var marcas = document.querySelectorAll('[data-login-marca]');
+      // La tarjeta no tiene pareja en el destino: con nombre propio sale como
+      // pieza (_transitions.scss la retira hacia abajo) en vez de fundirse con
+      // el resto de la pantalla.
+      var tarjeta = document.querySelector('.login-card');
 
       function limpiar() {
         for (var i = 0; i < marcas.length; i++) marcas[i].style.viewTransitionName = '';
+        if (tarjeta) tarjeta.style.viewTransitionName = '';
       }
 
       window.addEventListener('pageswap', function (e) {
@@ -546,6 +552,7 @@
             break;
           }
         }
+        if (tarjeta && tarjeta.getClientRects().length) tarjeta.style.viewTransitionName = 'cp-acceso';
         e.viewTransition.finished.then(limpiar, limpiar);
       });
 

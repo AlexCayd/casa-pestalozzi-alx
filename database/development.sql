@@ -1143,8 +1143,10 @@ UPDATE ticket_items ti
 
 -- -------------------------------------------------------
 -- INVENTARIO / RECETAS (datos de prueba)
--- Las cantidades son por una unidad del producto; las subrecetas se explotan
--- hasta ingredientes al descontar inventario.
+-- Las cantidades son por una unidad del producto. El shot de espresso es una
+-- subreceta AL MOMENTO (por_lote = 0): nadie lo saca por adelantado, así que
+-- al vender se desarma hasta café y agua. Las POR LOTE (una salsa) se
+-- producen en Recetas → Subrecetas y la venta descuenta la subreceta.
 -- -------------------------------------------------------
 
 INSERT INTO ingredientes (id, nombre, unidad, stock, stock_minimo, costo, activo) VALUES
@@ -1166,8 +1168,8 @@ INSERT INTO gastos_fijos (nombre, categoria, monto, activo) VALUES
 ('Internet y teléfono',  'servicios',  1200.00, 1),
 ('Nómina',               'nomina',    60000.00, 1);
 
-INSERT INTO subrecetas (id, nombre, unidad, rendimiento, activo) VALUES
-(1, 'Shot de espresso', 'ml', 60, 1);
+INSERT INTO subrecetas (id, nombre, unidad, rendimiento, por_lote, activo) VALUES
+(1, 'Shot de espresso', 'ml', 60, 0, 1);
 
 INSERT INTO subreceta_ingredientes (subreceta_id, ingrediente_id, cantidad) VALUES
 (1, 1, 18),
@@ -4124,14 +4126,21 @@ ON DUPLICATE KEY UPDATE
 --     ordenadas; `variante` con el rótulo sin las predeterminadas; el precio
 --     con el ajuste de la opción. Del 2 al 4 % de los renglones se cancela,
 --     concentrado en cortes, hamburguesa, calamares y coctelería.
---   · movimientos_inventario 1000000-1999999 — una `venta` por ingrediente
+--   · movimientos_inventario 1000000-1999999 — una `venta` por existencia
 --     de cada renglón, con la cuenta de Inventario::aplicarVenta(): receta
---     base × cantidad, subrecetas explotadas por rendimiento y los ajustes de
---     la variante (agregar/quitar tal cual; sustituir proporcional). Fechada
---     a la hora de la comanda y enlazada por ticket_item_id. Cada renglón
---     cancelado lleva además su `cancelacion`, que la revierte. Y mermas
---     repartidas (unas tres por semana) con motivo, nota, costo del momento y
---     quién las registró.
+--     base × cantidad, subrecetas AL MOMENTO explotadas por rendimiento, las
+--     POR LOTE descontadas como subreceta, y los ajustes de la variante
+--     (agregar/quitar tal cual; sustituir proporcional). Fechada a la hora de
+--     la comanda y enlazada por ticket_item_id. Cada renglón cancelado lleva
+--     además su `cancelacion`, que la revierte. Mermas repartidas (unas tres
+--     por semana) con motivo, nota, costo del momento y quién las registró.
+--   · producciones_subreceta 10000-19999 — por cada subreceta por lote, un
+--     lote una hora antes de abrir cada día con ventas, de tantos
+--     rendimientos como cubran lo vendido ese día, con sus movimientos
+--     `produccion` (salida de cada ingrediente, entrada de la subreceta). Con
+--     el catálogo de desarrollo no sale ninguno: su única subreceta, el shot
+--     de espresso, es al momento. Basta marcar una por lote y volver a correr
+--     el bloque.
 --   · ticket_mesas y ticket_pagos no tienen rango: caen en cascada con su
 --     ticket.
 --
@@ -4142,15 +4151,16 @@ ON DUPLICATE KEY UPDATE
 -- que puede cambiar entre dos corridas seguidas es HOY, si entre una y otra
 -- se cobró un ticket más.
 --
--- NO TOCA `ingredientes.stock` ni nada que no sea suyo (catálogo, recetas,
+-- NO TOCA `ingredientes.stock` ni `subrecetas.stock`, ni nada que no sea suyo (catálogo, recetas,
 -- variantes, mesas, usuarios, reservaciones). El inventario vivo ya refleja
 -- lo que refleja: si cada corrida restara lo vendido, repetir el bloque
 -- hundiría las existencias. La consecuencia, asumida: la suma de los
 -- movimientos no cuadra con el stock, igual que en los bloques 2-4.
 --
--- Sí sube el AUTO_INCREMENT de tickets, ticket_items y movimientos_inventario
--- al final de su rango (20000, 200000 y 2000000): sin eso, lo que el POS
--- creara después nacería DENTRO del rango y la siguiente corrida lo borraría.
+-- Sí sube el AUTO_INCREMENT de tickets, ticket_items, movimientos_inventario
+-- y producciones_subreceta al final de su rango (20000, 200000, 2000000 y
+-- 20000): sin eso, lo que el POS o el panel crearan después nacería DENTRO
+-- del rango y la siguiente corrida lo borraría.
 -- Por eso los folios nuevos de Llevar salen ya con cinco cifras. Si una base
 -- llegara por su cuenta a esos números, hay que mover los rangos.
 --
@@ -4212,6 +4222,7 @@ DELETE m FROM movimientos_inventario m
   JOIN ticket_items ti ON ti.id = m.ticket_item_id
  WHERE ti.ticket_id BETWEEN 10000 AND 19999;
 DELETE FROM movimientos_inventario WHERE id BETWEEN 1000000 AND 1999999;
+DELETE FROM producciones_subreceta WHERE id BETWEEN 10000 AND 19999;
 -- En cascada: ticket_items, ticket_mesas, ticket_pagos y feedback_tokens.
 DELETE FROM tickets WHERE id BETWEEN 10000 AND 19999;
 DELETE FROM ticket_items WHERE id BETWEEN 100000 AND 199999;
@@ -4222,7 +4233,7 @@ DELETE FROM ticket_items WHERE id BETWEEN 100000 AND 199999;
 -- no cambia cuando la ventana avanza.
 DROP TEMPORARY TABLE IF EXISTS a5_num, a5_dia, a5_hora_peso, a5_franja, a5_cat, a5_pop,
   a5_dist, a5_mesa, a5_tk0, a5_tk, a5_ln, a5_it, a5_opc, a5_elec, a5_cmb, a5_cr, a5_cc,
-  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_merma, a5_mv, a5_tot;
+  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_cs, a5_prod, a5_prodcosto, a5_merma, a5_mv, a5_tot;
 
 CREATE TEMPORARY TABLE a5_num (n INT UNSIGNED PRIMARY KEY);
 INSERT INTO a5_num (n)
@@ -4417,7 +4428,9 @@ SELECT franja, pool, producto_id, (acum - w) / NULLIF(total, 0), acum / NULLIF(t
                      ELSE COALESCE(k.f_cena, 0.30)
                    END AS w
           FROM productos p
-          JOIN categorias c ON c.id = p.categoria_id AND c.activo = 1
+          -- El pan de la panadería no se vende en el restaurante (Carta::paraPos
+          -- lo excluye), así que tampoco entra en sus tickets de ejemplo.
+          JOIN categorias c ON c.id = p.categoria_id AND c.activo = 1 AND c.carta <> 'panaderia'
           LEFT JOIN a5_cat k ON k.categoria = c.nombre
           LEFT JOIN a5_pop pp ON pp.nombre = p.nombre
           JOIN (SELECT 'desayuno' AS franja UNION ALL SELECT 'comida' UNION ALL SELECT 'cena') f
@@ -4842,7 +4855,8 @@ SELECT combo_id, tipo, ref_id, -sale FROM a5_sust WHERE sale > 0;
 INSERT INTO a5_ct (combo_id, tipo, ref_id, q)
 SELECT combo_id, nuevo_tipo, nuevo_ref_id, sale * nueva / cant FROM a5_sust WHERE sale > 0;
 
--- A ingredientes: tal cual, o la subreceta escalada por cantidad ÷ rendimiento.
+-- A ingredientes: tal cual, o la subreceta AL MOMENTO escalada por cantidad
+-- ÷ rendimiento. Las POR LOTE no se desarman: van a a5_cs.
 CREATE TEMPORARY TABLE a5_ciraw (
   combo_id INT NOT NULL, ingrediente_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL
 );
@@ -4851,9 +4865,23 @@ SELECT combo_id, ref_id, q FROM a5_ct WHERE tipo = 'ingrediente';
 INSERT INTO a5_ciraw (combo_id, ingrediente_id, q)
 SELECT ct.combo_id, si.ingrediente_id, si.cantidad * ct.q / IF(s.rendimiento > 0, s.rendimiento, 1)
   FROM a5_ct ct
-  JOIN subrecetas s ON s.id = ct.ref_id
+  JOIN subrecetas s ON s.id = ct.ref_id AND s.por_lote = 0
   JOIN subreceta_ingredientes si ON si.subreceta_id = s.id
  WHERE ct.tipo = 'subreceta';
+
+-- Subrecetas POR LOTE por unidad de cada combinación: la venta las descuenta
+-- enteras, porque sus ingredientes salieron al producirlas.
+CREATE TEMPORARY TABLE a5_cs (
+  combo_id INT NOT NULL, subreceta_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL,
+  PRIMARY KEY (combo_id, subreceta_id)
+);
+INSERT INTO a5_cs (combo_id, subreceta_id, q)
+SELECT ct.combo_id, ct.ref_id, SUM(ct.q)
+  FROM a5_ct ct
+  JOIN subrecetas s ON s.id = ct.ref_id AND s.por_lote = 1
+ WHERE ct.tipo = 'subreceta'
+ GROUP BY ct.combo_id, ct.ref_id
+HAVING SUM(ct.q) > 0.0005;
 
 CREATE TEMPORARY TABLE a5_ci (
   combo_id INT NOT NULL, ingrediente_id INT UNSIGNED NOT NULL, q DECIMAL(18,6) NOT NULL,
@@ -4869,8 +4897,10 @@ HAVING SUM(r.q) > 0.0005;
 -- Movimientos: venta por renglón, su reversión si se canceló, y mermas.
 -- ---------------------------------------------------------------------
 CREATE TEMPORARY TABLE a5_mv (
-  tipo           ENUM('venta', 'cancelacion', 'merma') NOT NULL,
-  ingrediente_id INT UNSIGNED NOT NULL,
+  tipo           ENUM('venta', 'cancelacion', 'merma', 'produccion') NOT NULL,
+  ingrediente_id INT UNSIGNED NULL,
+  subreceta_id   INT UNSIGNED NULL,
+  produccion_id  INT UNSIGNED NULL,
   cantidad       DECIMAL(12,3) NOT NULL,
   motivo         VARCHAR(40) NULL,
   nota           VARCHAR(255) NULL,
@@ -4891,6 +4921,64 @@ INSERT INTO a5_mv (tipo, ingrediente_id, cantidad, ticket_item_id, created_at)
 SELECT 'cancelacion', ci.ingrediente_id, ROUND(ci.q * i.cantidad, 3), i.item_id, i.cancel_at
   FROM a5_it i JOIN a5_ci ci ON ci.combo_id = i.combo_id
  WHERE i.estado = 'cancelado' AND ROUND(ci.q * i.cantidad, 3) <> 0;
+-- Lo mismo con las subrecetas por lote, que se descuentan como subreceta.
+INSERT INTO a5_mv (tipo, subreceta_id, cantidad, ticket_item_id, created_at)
+SELECT 'venta', cs.subreceta_id, -ROUND(cs.q * i.cantidad, 3), i.item_id, i.created_at
+  FROM a5_it i JOIN a5_cs cs ON cs.combo_id = i.combo_id
+ WHERE ROUND(cs.q * i.cantidad, 3) <> 0;
+INSERT INTO a5_mv (tipo, subreceta_id, cantidad, ticket_item_id, created_at)
+SELECT 'cancelacion', cs.subreceta_id, ROUND(cs.q * i.cantidad, 3), i.item_id, i.cancel_at
+  FROM a5_it i JOIN a5_cs cs ON cs.combo_id = i.combo_id
+ WHERE i.estado = 'cancelado' AND ROUND(cs.q * i.cantidad, 3) <> 0;
+
+-- Producción: un lote por subreceta por lote y por día con ventas, una hora
+-- antes de abrir, de tantos rendimientos como cubran lo vendido ese día (sin
+-- descontar cancelaciones: la salsa ya estaba hecha). Como
+-- Inventario::producirSubreceta(): salida de cada ingrediente al costo de hoy
+-- y entrada de la subreceta al costo del lote.
+CREATE TEMPORARY TABLE a5_prod (
+  id           INT UNSIGNED PRIMARY KEY,
+  subreceta_id INT UNSIGNED NOT NULL,
+  cantidad     DECIMAL(12,3) NOT NULL,
+  costo_total  DECIMAL(12,4) NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL
+);
+INSERT INTO a5_prod (id, subreceta_id, cantidad, created_at)
+SELECT 9999 + ROW_NUMBER() OVER (ORDER BY v.d, v.subreceta_id),
+       v.subreceta_id,
+       CEIL(v.vendido / IF(s.rendimiento > 0, s.rendimiento, 1)) * IF(s.rendimiento > 0, s.rendimiento, 1),
+       TIMESTAMP(v.d) + INTERVAL GREATEST(0, dd.abre - 60) MINUTE
+  FROM (SELECT DATE(created_at) AS d, subreceta_id, -SUM(cantidad) AS vendido
+          FROM a5_mv WHERE tipo = 'venta' AND subreceta_id IS NOT NULL
+         GROUP BY DATE(created_at), subreceta_id) v
+  JOIN subrecetas s ON s.id = v.subreceta_id
+  JOIN a5_dia dd ON dd.d = v.d
+ WHERE v.vendido > 0
+   AND TIMESTAMP(v.d) + INTERVAL GREATEST(0, dd.abre - 60) MINUTE <= @ASISTENTE_AHORA;
+-- El costo va por una tabla aparte: MySQL no deja abrir dos veces la misma
+-- tabla temporal en una sentencia («Can't reopen table»).
+CREATE TEMPORARY TABLE a5_prodcosto (id INT UNSIGNED PRIMARY KEY, costo DECIMAL(14,4) NOT NULL);
+INSERT INTO a5_prodcosto (id, costo)
+SELECT p.id, SUM(si.cantidad * p.cantidad / IF(s.rendimiento > 0, s.rendimiento, 1) * g.costo)
+  FROM a5_prod p
+  JOIN subrecetas s ON s.id = p.subreceta_id
+  JOIN subreceta_ingredientes si ON si.subreceta_id = s.id
+  JOIN ingredientes g ON g.id = si.ingrediente_id
+ GROUP BY p.id;
+UPDATE a5_prod p JOIN a5_prodcosto c ON c.id = p.id
+   SET p.costo_total = c.costo;
+INSERT INTO a5_mv (tipo, ingrediente_id, produccion_id, cantidad, costo_unitario, usuario_id, created_at)
+SELECT 'produccion', si.ingrediente_id, p.id,
+       -ROUND(si.cantidad * p.cantidad / IF(s.rendimiento > 0, s.rendimiento, 1), 3),
+       g.costo, @A5_COCINA, p.created_at
+  FROM a5_prod p
+  JOIN subrecetas s ON s.id = p.subreceta_id
+  JOIN subreceta_ingredientes si ON si.subreceta_id = s.id
+  JOIN ingredientes g ON g.id = si.ingrediente_id
+ WHERE ROUND(si.cantidad * p.cantidad / IF(s.rendimiento > 0, s.rendimiento, 1), 3) <> 0;
+INSERT INTO a5_mv (tipo, subreceta_id, produccion_id, cantidad, costo_unitario, usuario_id, created_at)
+SELECT 'produccion', p.subreceta_id, p.id, p.cantidad, ROUND(p.costo_total / p.cantidad, 4), @A5_COCINA, p.created_at
+  FROM a5_prod p;
 
 -- Mermas: cuatro de cada diez días, una del catálogo, con motivo de
 -- Inventario::MOTIVOS_MERMA, registradas por administración o por cocina.
@@ -4989,11 +5077,17 @@ SELECT i.item_id, i.ticket_id, p.nombre, i.precio, c.nombre, p.area_id,
   JOIN productos p ON p.id = i.producto_id
   JOIN categorias c ON c.id = p.categoria_id;
 
-INSERT INTO movimientos_inventario (id, ingrediente_id, tipo, cantidad, motivo, nota, costo_unitario,
-                                    usuario_id, ticket_item_id, created_at)
-SELECT 999999 + ROW_NUMBER() OVER (ORDER BY m.created_at, COALESCE(m.ticket_item_id, 0), m.tipo, m.ingrediente_id),
-       m.ingrediente_id, m.tipo, m.cantidad, m.motivo, m.nota, m.costo_unitario, m.usuario_id,
-       m.ticket_item_id, m.created_at
+-- Los lotes antes que sus movimientos: produccion_id lleva llave foránea.
+INSERT INTO producciones_subreceta (id, subreceta_id, cantidad, costo_total, nota, usuario_id, created_at)
+SELECT id, subreceta_id, cantidad, costo_total, 'Lote del día', @A5_COCINA, created_at
+  FROM a5_prod;
+
+INSERT INTO movimientos_inventario (id, ingrediente_id, subreceta_id, tipo, cantidad, motivo, nota, costo_unitario,
+                                    usuario_id, ticket_item_id, produccion_id, created_at)
+SELECT 999999 + ROW_NUMBER() OVER (ORDER BY m.created_at, COALESCE(m.ticket_item_id, 0), m.tipo,
+                                            COALESCE(m.ingrediente_id, 0), COALESCE(m.subreceta_id, 0)),
+       m.ingrediente_id, m.subreceta_id, m.tipo, m.cantidad, m.motivo, m.nota, m.costo_unitario, m.usuario_id,
+       m.ticket_item_id, m.produccion_id, m.created_at
   FROM a5_mv m
  WHERE m.ticket_item_id IS NULL OR m.ticket_item_id IN (SELECT item_id FROM a5_it i JOIN a5_tk t ON t.id = i.ticket_id);
 
@@ -5002,9 +5096,47 @@ SELECT 999999 + ROW_NUMBER() OVER (ORDER BY m.created_at, COALESCE(m.ticket_item
 ALTER TABLE tickets AUTO_INCREMENT = 20000;
 ALTER TABLE ticket_items AUTO_INCREMENT = 200000;
 ALTER TABLE movimientos_inventario AUTO_INCREMENT = 2000000;
+ALTER TABLE producciones_subreceta AUTO_INCREMENT = 20000;
 
 DROP TEMPORARY TABLE IF EXISTS a5_num, a5_dia, a5_hora_peso, a5_franja, a5_cat, a5_pop,
   a5_dist, a5_mesa, a5_tk0, a5_tk, a5_ln, a5_it, a5_opc, a5_elec, a5_cmb, a5_cr, a5_cc,
-  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_merma, a5_mv, a5_tot;
+  a5_sust, a5_ct, a5_ciraw, a5_ci, a5_cs, a5_prod, a5_prodcosto, a5_merma, a5_mv, a5_tot;
 
 -- Fin del bloque 6
+
+-- ═════════════════════════════════════════════════════════════════════
+-- BLOQUE 7 · VITRINA DE LA PANADERÍA
+-- ═════════════════════════════════════════════════════════════════════
+-- Piezas de muestra para la vitrina de /panaderia (categorías 16-18,
+-- sembradas en deploy.sql con carta = 'panaderia'). Sin foto propia: cada
+-- pestaña enseña la de su categoría. Precios de ejemplo.
+--
+-- area_id es obligatorio y es del restaurante; va el Horno porque es lo más
+-- parecido, pero no se usa: el POS del restaurante no vende estas piezas.
+--
+-- Reidempotente: casa por nombre, que es UNIQUE en todo el catálogo —por eso
+-- «Croissant de mantequilla» y no «Croissant»—. Se puede correr suelto, antes
+-- o después del bloque 6, que ya no las toma.
+INSERT INTO productos (nombre, descripcion, img, categoria_id, precio, area_id, activo) VALUES
+('Hogaza de masa madre',     'Corteza oscura y miga abierta. Fermentada en frío toda la noche.',   NULL, 16, 120.00, 4, 1),
+('Hogaza de centeno',        'Centeno y trigo, con semillas de girasol. Más densa y más húmeda.',   NULL, 16, 135.00, 4, 1),
+('Baguette de la casa',      'Larga fermentación, corteza que cruje.',                              NULL, 16,  55.00, 4, 1),
+('Ciabatta',                 'Hidratación alta, ideal para el aceite de oliva.',                    NULL, 16,  45.00, 4, 1),
+('Focaccia de romero',       'Aceite de oliva, romero fresco y sal en escamas.',                    NULL, 16,  85.00, 4, 1),
+('Croissant de mantequilla', 'Laminado a mano con mantequilla.',                                 NULL, 17,  48.00, 4, 1),
+('Pan de chocolate',         'La masa del croissant con dos barras de chocolate amargo.',           NULL, 17,  55.00, 4, 1),
+('Rol de canela',            'Canela de Ceilán y glaseado de queso crema.',                         NULL, 17,  52.00, 4, 1),
+('Concha de vainilla',       'La de siempre, con vainilla de Papantla.',                            NULL, 17,  30.00, 4, 1),
+('Rol de frutos rojos',      'Crema pastelera, zarzamora, frambuesa y mora azul.',                  NULL, 18,  65.00, 4, 1),
+('Tarta de queso',           'Por rebanada, con salsa de frutos rojos.',                            NULL, 18,  85.00, 4, 1),
+('Cannoli de ricotta',       'Ricotta, naranja confitada y pistache.',                              NULL, 18,  60.00, 4, 1),
+('Bombolone de crema',       'Frito al momento y relleno de crema pastelera.',                      NULL, 18,  45.00, 4, 1)
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  img          = VALUES(img),
+  categoria_id = VALUES(categoria_id),
+  precio       = VALUES(precio),
+  area_id      = VALUES(area_id),
+  activo       = VALUES(activo);
+
+-- Fin del bloque 7

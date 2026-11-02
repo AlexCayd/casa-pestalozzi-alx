@@ -1,17 +1,24 @@
 <?php
 /**
- * Directorio de redes sociales.
+ * ┌───────────────────────────────────────────────────────────────┐
+ * │  MARCA — compartido por la landing del restaurante y la de la │
+ * │  panadería. No lee la configuración de ninguna de las dos.    │
+ * └───────────────────────────────────────────────────────────────┘
  *
- * Lo incluyen Ubicación y el pie, así que los iconos viven aquí y no
- * duplicados en las dos vistas. Las URLs salen de Services\Configuration\SitioConfig; antes
- * estaban en el marcado con href="#", es decir, dos enlaces que no llevaban a
- * ninguna parte.
+ * Directorio de redes sociales. Lo incluyen la ubicación y el pie de las dos
+ * páginas, así que los iconos viven aquí y no duplicados en cada vista.
+ *
+ * Las URLs llegan por parámetro: el restaurante pasa SitioConfig::redes() y la
+ * panadería las suyas. Leerlas aquí dentro haría que la panadería publicara el
+ * WhatsApp de eventos del restaurante.
  *
  * Parámetros:
+ * - $redesLista: [['id' => 'instagram'|'whatsapp', 'nombre' => …, 'url' => …], …].
  * - $redesClase: clase del contenedor (por defecto 'loc__socials').
  * - $redesConNombre: además del icono, imprime el nombre de la red.
  */
 
+$redesLista = is_array($redesLista ?? null) ? $redesLista : [];
 $redesClase = (string)($redesClase ?? 'loc__socials');
 $redesConNombre = (bool)($redesConNombre ?? false);
 
@@ -23,7 +30,7 @@ $redesIconos = [
 ];
 ?>
 <div class="<?php echo s($redesClase); ?>" data-reveal>
-  <?php foreach (\Services\Configuration\SitioConfig::redes() as $red) : ?>
+  <?php foreach ($redesLista as $red) : ?>
     <?php if (!isset($redesIconos[$red['id']])) { continue; } ?>
     <a href="<?php echo s($red['url']); ?>" target="_blank" rel="noopener"
        aria-label="<?php echo s($red['nombre']); ?>" data-magnetic>
@@ -35,5 +42,5 @@ $redesIconos = [
 <?php
 // Los parciales incluidos más de una vez por página comparten scope: sin esto
 // el segundo include heredaría los parámetros del primero.
-unset($redesClase, $redesConNombre, $redesIconos, $red);
+unset($redesLista, $redesClase, $redesConNombre, $redesIconos, $red);
 ?>

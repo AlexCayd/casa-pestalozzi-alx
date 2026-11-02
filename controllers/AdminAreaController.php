@@ -3,56 +3,18 @@
 namespace Controllers;
 
 use MVC\Router;
+use Services\Configuration\AreasProduccion;
 
 class AdminAreaController
 {
     private const AREA_CSS = '/build/css/admin/area.css';
     private const AREA_JS = '/build/js/admin/area.js';
 
-    // Colores alineados con areas_produccion (BD) y CP_AREAS (POS): son la
-    // fuente de verdad del color de cada área, para que tabs, tarjetas y la
-    // línea vertical del tablero coincidan.
-    //
-    // Los cuatro salen de la paleta funcional de CLAUDE.md, que está validada
-    // para daltonismo. Antes eran hex de fantasía (café, mostaza, ladrillo,
-    // azul marino) que no existían en ningún otro sitio del sistema.
-    //
-    // Tres conservan la mnemotecnia —jugos amarillo, cocina rojo, horno azul
-    // profundo— y el café pasa a turquesa: la paleta no tiene un marrón, y de
-    // los tonos que quedaban libres el turquesa es el que más se separa de los
-    // otros tres bajo deuteranopia (ámbar y rojo comparten hue percibido, así
-    // que la cuarta área tenía que irse al lado frío, y frente al índigo del
-    // horno se distingue por luminosidad).
-    private const AREAS = [
-        'cafe' => [
-            'id' => 1,
-            'nombre' => 'Barra de Café',
-            'label' => 'Café',
-            'path' => '/area/cafe',
-            'color' => '#46bdc6', // --c-turquesa
-        ],
-        'jugos' => [
-            'id' => 2,
-            'nombre' => 'Barra de Jugos',
-            'label' => 'Jugos',
-            'path' => '/area/jugos',
-            'color' => '#f5b400', // --c-ambar
-        ],
-        'cocina' => [
-            'id' => 3,
-            'nombre' => 'Cocina',
-            'label' => 'Cocina',
-            'path' => '/area/cocina',
-            'color' => '#e51022', // --c-rojo
-        ],
-        'horno' => [
-            'id' => 4,
-            'nombre' => 'Horno Napolitano',
-            'label' => 'Horno',
-            'path' => '/area/horno',
-            'color' => '#4267ac', // --c-indigo
-        ],
-    ];
+    // Nombre, etiqueta y color de cada estación salen de areas_produccion
+    // (Services\Configuration\AreasProduccion), que se edita en Configuración →
+    // Colores de las áreas y sólo admite los diez de la paleta funcional. Antes
+    // vivían aquí escritos a mano: cambiar el color en la base no le llegaba a
+    // este tablero, y el del piso llevaba otros cuatro distintos.
 
     /**
      * Color de texto (tinta) que contrasta con un color de fondo. Cada área
@@ -87,7 +49,7 @@ class AdminAreaController
             'activeModule' => 'area',
             'title' => 'Producción',
             'topbarTitle' => 'Producción',
-            'areas' => self::conInk(self::AREAS),
+            'areas' => self::conInk(AreasProduccion::todas()),
             'styles' => [self::AREA_CSS],
             'scripts' => [],
         ]);
@@ -130,7 +92,7 @@ class AdminAreaController
 
     private static function show(string $slug): void
     {
-        $areas = self::conInk(self::AREAS);
+        $areas = self::conInk(AreasProduccion::todas());
         $area  = $areas[$slug] ?? null;
 
         if (!$area) {

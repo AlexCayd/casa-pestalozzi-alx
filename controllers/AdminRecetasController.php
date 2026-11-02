@@ -15,6 +15,7 @@ use Model\Ingrediente;
 use Model\Producto;
 use Model\Subreceta;
 use MVC\Router;
+use Services\Inventory\Inventario;
 
 class AdminRecetasController
 {
@@ -201,6 +202,8 @@ class AdminRecetasController
     // ── Subrecetas ───────────────────────────────────────────
     public static function subrecetas(Router $router): void
     {
+        self::consumirAvisoSubrecetas();
+
         $subrecetas = [];
         try {
             $subrecetas = Subreceta::todas();
@@ -225,6 +228,7 @@ class AdminRecetasController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $subreceta->sincronizar($_POST);
             $subreceta->activo = isset($_POST['activo']) ? 1 : 0;
+            $subreceta->por_lote = isset($_POST['por_lote']) ? 1 : 0;
             $alertas = $subreceta->validar();
 
             if (empty($alertas)) {
@@ -262,6 +266,7 @@ class AdminRecetasController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $subreceta->sincronizar($_POST);
             $subreceta->activo = isset($_POST['activo']) ? 1 : 0;
+            $subreceta->por_lote = isset($_POST['por_lote']) ? 1 : 0;
             $alertas = $subreceta->validar();
 
             if (empty($alertas)) {
@@ -295,6 +300,140 @@ class AdminRecetasController
         }
 
         self::subrecetas($router);
+    }
+
+    // ── Producción y existencia de subrecetas por lote ───────
+    //
+    // Las tres acciones redirigen después del POST (y el acuse viaja en la
+    // sesión): recargar la página tras producir no debe registrar otro lote
+    // ni volver a sacar los ingredientes del almacén.
+
+    /**
+     * GET: la ficha de producción de una subreceta por lote —qué sale del
+     * almacén al producir, su existencia, corrección y merma, y sus últimos
+     * lotes—. POST: registra un lote y vuelve al listado.
+     */
+    public static function producir(Router $router): void
+    {
+        $esPost = $_SERVER['REQUEST_METHOD'] === 'POST';
+        $id = self::idSubreceta($esPost ? ($_POST['id'] ?? null) : ($_GET['id'] ?? null));
+
+        if ($esPost) {
+            $cantidad = $_POST['cantidad'] ?? null;
+            $resultado = is_numeric($cantidad)
+                ? Inventario::producirSubreceta($id, (float) $cantidad, (string) ($_POST['nota'] ?? ''), self::usuarioActual())
+                : ['ok' => false, 'mensaje' => 'La cantidad producida debe ser un número mayor a cero.'];
+
+            self::avisoSubrecetas($resultado['ok'], $resultado['mensaje']);
+            self::redirect($resultado['ok'] ? self::SUBPATH : self::urlProducir($id));
+        }
+
+        $subreceta = Subreceta::find($id);
+        if (!$subreceta) {
+            self::avisoSubrecetas(false, 'La subreceta no existe.');
+            self::redirect(self::SUBPATH);
+        }
+        if ((int) $subreceta->por_lote !== 1) {
+            self::avisoSubrecetas(false, '«' . $subreceta->nombre . '» se prepara al momento: la venta descuenta sus ingredientes y no se produce por adelantado.');
+            self::redirect(self::SUBPATH);
+        }
+
+        self::consumirAvisoSubrecetas();
+
+        self::render('recetas/producir', [
+            'title' => 'Producir ' . $subreceta->nombre,
+            'topbarSection' => 'Recetas / Subrecetas / Producir',
+            'subreceta' => $subreceta,
+            'composicion' => Inventario::composicionDeSubreceta($id),
+            'costoUnitario' => Inventario::costoUnitarioSubreceta($id),
+            'lotes' => Inventario::lotesDeSubreceta($id),
+            'motivosMerma' => Inventario::MOTIVOS_MERMA,
+            'alertas' => Subreceta::getAlertas(),
+        ]);
+    }
+
+    /** Corrección de existencia tras un conteo (fija el valor). */
+    public static function ajustarSubreceta(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::SUBPATH);
+        }
+
+        $id = self::idSubreceta($_POST['id'] ?? null);
+        $nuevo = $_POST['stock'] ?? null;
+        $resultado = is_numeric($nuevo)
+            ? Inventario::ajustarSubreceta($id, (float) $nuevo, self::usuarioActual())
+            : ['ok' => false, 'mensaje' => 'La existencia contada debe ser un número.'];
+
+        self::avisoSubrecetas($resultado['ok'], $resultado['mensaje']);
+        self::redirect(self::urlProducir($id));
+    }
+
+    /** Merma de una subreceta por lote: se descuenta y cuenta como costo. */
+    public static function mermaSubreceta(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::SUBPATH);
+        }
+
+        $id = self::idSubreceta($_POST['id'] ?? null);
+        $cantidad = $_POST['cantidad'] ?? null;
+        $resultado = is_numeric($cantidad)
+            ? Inventario::registrarMermaSubreceta(
+                $id,
+                (float) $cantidad,
+                trim((string) ($_POST['motivo'] ?? '')),
+                (string) ($_POST['nota'] ?? ''),
+                self::usuarioActual()
+            )
+            : ['ok' => false, 'mensaje' => 'La cantidad mermada debe ser un número mayor a cero.'];
+
+        self::avisoSubrecetas($resultado['ok'], $resultado['mensaje']);
+        self::redirect(self::urlProducir($id));
+    }
+
+    private static function urlProducir(int $id): string
+    {
+        return self::SUBPATH . '/producir?id=' . $id;
+    }
+
+    /** Un id de subreceta válido, o de vuelta al listado con el aviso. */
+    private static function idSubreceta($id): int
+    {
+        $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!$id) {
+            self::avisoSubrecetas(false, 'Identificador no válido');
+            self::redirect(self::SUBPATH);
+        }
+        return (int) $id;
+    }
+
+    /** Clave de sesión del acuse de Subrecetas que sobrevive a la redirección. */
+    private const AVISO_SUBRECETAS = '_admin_subrecetas_aviso';
+
+    private static function avisoSubrecetas(bool $ok, string $texto): void
+    {
+        $_SESSION[self::AVISO_SUBRECETAS] = [
+            'tipo' => $ok ? 'exito' : 'error',
+            // Respaldo: un mensaje vacío no debe pintar una caja en blanco.
+            'texto' => $texto !== '' ? $texto : ($ok ? 'Listo.' : 'No se pudo completar la acción.'),
+        ];
+    }
+
+    private static function consumirAvisoSubrecetas(): void
+    {
+        $aviso = $_SESSION[self::AVISO_SUBRECETAS] ?? null;
+        unset($_SESSION[self::AVISO_SUBRECETAS]);
+
+        if (is_array($aviso) && isset($aviso['tipo'], $aviso['texto'])) {
+            Subreceta::setAlerta((string) $aviso['tipo'], (string) $aviso['texto']);
+        }
+    }
+
+    /** Quién registra el movimiento; null si no hay sesión. */
+    private static function usuarioActual(): ?int
+    {
+        return ((int) ($_SESSION['id'] ?? 0)) ?: null;
     }
 
     // ── Persistencia de recetas ──────────────────────────────

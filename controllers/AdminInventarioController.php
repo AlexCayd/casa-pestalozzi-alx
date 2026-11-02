@@ -206,6 +206,11 @@ class AdminInventarioController
      * usuarios es por la FK ON DELETE SET NULL: dar de baja a quien registró la
      * merma no debe borrar la merma.
      *
+     * Entran también las de subrecetas por lote (la salsa que se echó a
+     * perder, registrada en Recetas → Subrecetas): son producto que se tiró
+     * igual. Cada movimiento es de un ingrediente O de una subreceta, de ahí
+     * los dos LEFT JOIN.
+     *
      * @return array{lista: array<int, array<string, mixed>>, porMotivo: array<string, float>}
      */
     private static function mermasDelPeriodo(string $start, string $end, int $limite = 25): array
@@ -221,11 +226,13 @@ class AdminInventarioController
 
             $res = $db->query(
                 "SELECT mi.id, mi.cantidad, mi.motivo, mi.nota, mi.created_at,
-                        COALESCE(mi.costo_unitario, i.costo) AS costo,
-                        i.nombre AS ingrediente, i.unidad,
+                        COALESCE(mi.costo_unitario, i.costo, 0) AS costo,
+                        COALESCE(i.nombre, s.nombre) AS ingrediente,
+                        COALESCE(i.unidad, s.unidad) AS unidad,
                         u.nombre AS usuario
                    FROM movimientos_inventario mi
-                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                   LEFT JOIN ingredientes i ON i.id = mi.ingrediente_id
+                   LEFT JOIN subrecetas s ON s.id = mi.subreceta_id
                    LEFT JOIN usuarios u ON u.id = mi.usuario_id
                   WHERE {$filtro}
                   ORDER BY mi.created_at DESC, mi.id DESC
@@ -251,9 +258,9 @@ class AdminInventarioController
             // filas mostradas: es lo que dice dónde se está perdiendo producto.
             $res = $db->query(
                 "SELECT mi.motivo,
-                        COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor
+                        COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo, 0)), 0) AS valor
                    FROM movimientos_inventario mi
-                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                   LEFT JOIN ingredientes i ON i.id = mi.ingrediente_id
                   WHERE {$filtro}
                   GROUP BY mi.motivo
                   ORDER BY valor DESC"
@@ -274,9 +281,13 @@ class AdminInventarioController
      * Movimientos de un tramo: cuánto salió por venta, cuánto se tiró y cuántas
      * entradas y correcciones hubo.
      *
-     * Las salidas por venta se valorizan con el costo ACTUAL del ingrediente
-     * porque no lo guardaban al momento; es una aproximación y la vista lo
-     * dice. Las mermas sí traen su costo congelado y se valorizan con él.
+     * Las salidas son las de ingredientes por venta y por PRODUCCIÓN de
+     * subrecetas por lote: los ingredientes de una salsa salen del almacén
+     * cuando se cocina, no cuando se vende el plato, y si sólo contaran las
+     * ventas ese gasto desaparecería del periodo. Las de venta se valorizan
+     * con el costo ACTUAL del ingrediente porque no lo guardan; las de
+     * producción, con el que congeló el lote. Las mermas —también las de
+     * subrecetas— traen su costo congelado y se valorizan con él.
      *
      * @return array{valor: float, movimientos: int, ajustes: int, entradas: int,
      *               mermaValor: float, mermas: int}
@@ -297,11 +308,11 @@ class AdminInventarioController
             $filtro = "mi.created_at >= '{$start} 00:00:00' AND mi.created_at <= '{$end} 23:59:59'";
 
             $res = $db->query(
-                "SELECT COALESCE(SUM(ABS(mi.cantidad) * i.costo), 0) AS valor,
+                "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor,
                         COUNT(*) AS n
                    FROM movimientos_inventario mi
                    JOIN ingredientes i ON i.id = mi.ingrediente_id
-                  WHERE mi.tipo = 'venta' AND mi.cantidad < 0 AND {$filtro}"
+                  WHERE mi.tipo IN ('venta', 'produccion') AND mi.cantidad < 0 AND {$filtro}"
             );
             if ($res && ($row = $res->fetch_assoc())) {
                 $resumen['valor'] = (float) $row['valor'];
@@ -311,10 +322,10 @@ class AdminInventarioController
             // COALESCE sobre el costo del ingrediente para los movimientos
             // anteriores a que la bitácora guardara el costo del momento.
             $res = $db->query(
-                "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor,
+                "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo, 0)), 0) AS valor,
                         COUNT(*) AS n
                    FROM movimientos_inventario mi
-                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                   LEFT JOIN ingredientes i ON i.id = mi.ingrediente_id
                   WHERE mi.tipo = 'merma' AND {$filtro}"
             );
             if ($res && ($row = $res->fetch_assoc())) {

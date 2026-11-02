@@ -553,6 +553,17 @@ INSERT INTO categorias (id, nombre, carta, img) VALUES
 (15, 'Especiales de temporada', 'temporada', 'build/images/especiales-temporada.webp')
 ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
 
+-- Vitrina de la panaderia: la landing /panaderia (views/panaderia/_vitrina.php),
+-- una pestaña por categoria. Se siembran las categorias y NINGUNA pieza: las da
+-- de alta la panaderia en Menu (carta «Panaderia»). Cada categoria lleva su
+-- propia foto en build/images/panaderia/ —archivo propio y no compartido,
+-- porque reemplazarla desde Categorias borra el archivo anterior—.
+INSERT INTO categorias (id, nombre, carta, img) VALUES
+(16, 'Panes',     'panaderia', 'build/images/panaderia/panes.webp'),
+(17, 'Bollería',  'panaderia', 'build/images/panaderia/bolleria.webp'),
+(18, 'Dulces',    'panaderia', 'build/images/panaderia/dulces.webp')
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+
 -- -------------------------------------------------------
 -- Productos — carta de bar
 -- -------------------------------------------------------

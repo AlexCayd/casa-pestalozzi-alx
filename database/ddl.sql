@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS ingrediente_proveedores;
 DROP TABLE IF EXISTS proveedores;
 DROP TABLE IF EXISTS gastos_fijos;
 DROP TABLE IF EXISTS movimientos_inventario;
+DROP TABLE IF EXISTS producciones_subreceta;
 DROP TABLE IF EXISTS variante_ajustes;
 DROP TABLE IF EXISTS producto_variantes;
 DROP TABLE IF EXISTS producto_componentes;
@@ -119,10 +120,15 @@ CREATE TABLE IF NOT EXISTS areas_produccion (
 -- landing. Sus platillos cambian cada semana y se dan de alta en Menu como
 -- cualquier otro; no salen en la seccion de menu ni en ningun PDF, y el POS
 -- los vende igual. deploy.sql siembra la categoria «Especiales de temporada».
+-- 'panaderia' tampoco es papel: es la vitrina de la landing de la panaderia
+-- (/panaderia). Sus piezas se dan de alta en Menu; no salen en ningun PDF ni
+-- en el POS del restaurante (Carta::paraPos las excluye: la panaderia cobra
+-- en su propio mostrador, en otra direccion). deploy.sql siembra sus tres
+-- categorias.
 CREATE TABLE IF NOT EXISTS categorias (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(40) NOT NULL,
-  carta  ENUM('comida','maridaje','temporada') NOT NULL DEFAULT 'comida',
+  carta  ENUM('comida','maridaje','temporada','panaderia') NOT NULL DEFAULT 'comida',
   img    VARCHAR(200),
   activo TINYINT(1) NOT NULL DEFAULT 1,
   KEY idx_categorias_carta (carta, id)
@@ -552,15 +558,36 @@ CREATE TABLE IF NOT EXISTS ingredientes (
 
 -- Subrecetas: preparaciones intermedias reutilizables (p. ej. una salsa). Su
 -- composición vive en subreceta_ingredientes.
+--
+-- Hay dos clases, y lo dice `por_lote`:
+--   1 · POR LOTE (una salsa, una base): se produce por adelantado. Producir un
+--       lote (producciones_subreceta) descuenta sus ingredientes en ese
+--       momento y suma a `stock`; vender un platillo que la usa descuenta sólo
+--       la subreceta. Así los ingredientes salen del almacén una vez, cuando
+--       se cocinaron, y no cada vez que se sirve un plato.
+--   0 · AL MOMENTO (un shot de espresso): nadie la produce antes. La venta
+--       descuenta sus ingredientes escalados por cantidad ÷ rendimiento, y
+--       `stock` no se usa.
+-- Las nuevas nacen por lote. La migración de una base existente
+-- (scripts/migrar-subrecetas-por-lote.php) deja las que ya había AL MOMENTO,
+-- para que nada cambie hasta que alguien decida producirlas.
+--
+-- `stock` sólo lo mueven los movimientos (producir, vender, cancelar, ajustar,
+-- mermar): por eso no está en las columnas del modelo y el formulario de la
+-- subreceta nunca lo escribe. Puede quedar negativo, como el de un
+-- ingrediente: la comanda nunca se frena por inventario.
 CREATE TABLE IF NOT EXISTS subrecetas (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre      VARCHAR(120) NOT NULL,
-  unidad      ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
-  -- Cantidad producida por la receta base.
-  rendimiento DECIMAL(12,3) NOT NULL DEFAULT 1,
-  activo      TINYINT(1) NOT NULL DEFAULT 1,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  unidad       ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
+  -- Cantidad producida por la receta base: un lote.
+  rendimiento  DECIMAL(12,3) NOT NULL DEFAULT 1,
+  por_lote     TINYINT(1) NOT NULL DEFAULT 1,
+  stock        DECIMAL(12,3) NOT NULL DEFAULT 0,
+  stock_minimo DECIMAL(12,3) NOT NULL DEFAULT 0,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS subreceta_ingredientes (
@@ -571,6 +598,28 @@ CREATE TABLE IF NOT EXISTS subreceta_ingredientes (
   FOREIGN KEY (subreceta_id)   REFERENCES subrecetas(id) ON DELETE CASCADE,
   FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
   INDEX idx_si_sub (subreceta_id)
+);
+
+-- Lotes producidos de una subreceta POR LOTE (Services\Inventory\Inventario::
+-- producirSubreceta). Cada uno deja en movimientos_inventario una salida
+-- `produccion` por ingrediente y una entrada `produccion` de la subreceta,
+-- todas con su produccion_id.
+--
+-- `costo_total` se congela al producir, con el costo de los ingredientes de
+-- ese día: si mañana sube el jitomate, la salsa de ayer siguió costando lo que
+-- costó. Sin ingredientes con costo, vale cero.
+CREATE TABLE IF NOT EXISTS producciones_subreceta (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  subreceta_id INT UNSIGNED NOT NULL,
+  -- Lo que se produjo, en la unidad de la subreceta (no en lotes).
+  cantidad     DECIMAL(12,3) NOT NULL,
+  costo_total  DECIMAL(12,4) NOT NULL DEFAULT 0,
+  nota         VARCHAR(255) NULL,
+  usuario_id   INT NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (subreceta_id) REFERENCES subrecetas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ps_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+  INDEX idx_ps_sub_fecha (subreceta_id, created_at)
 );
 
 -- Receta principal de un producto: lista de componentes (ingredientes y/o
@@ -639,10 +688,20 @@ CREATE TABLE IF NOT EXISTS variante_ajustes (
 -- corregir un conteo y tirar producto echado a perder son tres hechos distintos
 -- con consecuencias contables distintas, y mientras los tres eran `ajuste` el
 -- panel no podía valorizar la merma ni distinguir una compra de una corrección.
+--
+-- Cada fila mueve UNA existencia: la de un ingrediente (`ingrediente_id`) o la
+-- de una subreceta por lote (`subreceta_id`), nunca las dos. Es un arco
+-- exclusivo que vigila Inventario y no un CHECK: MySQL no admite CHECK sobre
+-- columnas con acciones de llave foránea. Toda consulta que una por
+-- ingredientes con JOIN deja fuera, sin más, los movimientos de subrecetas.
+--
+-- `produccion` es el lote de una subreceta: salida de cada ingrediente
+-- (negativa) y entrada de la subreceta (positiva), unidas por produccion_id.
 CREATE TABLE IF NOT EXISTS movimientos_inventario (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  ingrediente_id INT UNSIGNED NOT NULL,
-  tipo           ENUM('venta','cancelacion','ajuste','entrada','merma') NOT NULL,
+  ingrediente_id INT UNSIGNED NULL,
+  subreceta_id   INT UNSIGNED NULL,
+  tipo           ENUM('venta','cancelacion','ajuste','entrada','merma','produccion') NOT NULL,
   -- Un valor negativo descuenta; uno positivo repone.
   cantidad       DECIMAL(12,3) NOT NULL,
   -- Por qué se perdió el producto: clave del catálogo de Services\Inventory\Inventario.
@@ -656,10 +715,18 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
   -- Quién lo registró. Las salidas por venta no lo llevan: las genera el POS.
   usuario_id     INT NULL,
   ticket_item_id INT UNSIGNED NULL,
+  -- El lote que originó el movimiento. SET NULL y no CASCADE: si se borra la
+  -- subreceta (y con ella sus lotes), los ingredientes que se gastaron en
+  -- producirla siguen gastados.
+  produccion_id  INT UNSIGNED NULL,
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mi_subreceta FOREIGN KEY (subreceta_id) REFERENCES subrecetas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mi_produccion FOREIGN KEY (produccion_id) REFERENCES producciones_subreceta(id) ON DELETE SET NULL,
   CONSTRAINT fk_mi_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   INDEX idx_mi_ing (ingrediente_id),
+  INDEX idx_mi_sub (subreceta_id),
+  INDEX idx_mi_prod (produccion_id),
   INDEX idx_mi_ti (ticket_item_id),
   -- Los tableros agregan por tipo dentro de un rango de fechas.
   INDEX idx_mi_tipo_fecha (tipo, created_at)

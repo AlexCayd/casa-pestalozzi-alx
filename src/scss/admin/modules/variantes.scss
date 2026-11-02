@@ -147,10 +147,17 @@
       border-style: dashed;
     }
 
+    // Sin grosor declarado el trazo caía al 1 de SVG: a 28 px el aro y las
+    // líneas quedaban en un pelo junto al disco macizo de la opción elegida.
+    // 1.75 sobre 24 da los ~2 px de los iconos del panel a este tamaño.
     &__vacio-icono {
       display: inline-flex;
       margin-bottom: 6px;
       color: var(--admin-faint);
+
+      svg {
+        stroke-width: 1.75;
+      }
     }
 
     &__vacio-titulo {

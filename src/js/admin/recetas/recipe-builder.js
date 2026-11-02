@@ -283,7 +283,107 @@
         });
     }
 
+    /**
+     * 1234.5 → «1,234.5»: el mismo formato que los number_format de la vista,
+     * para que la cifra no cambie de forma al escribir. A mano y no con
+     * toLocaleString, que depende del idioma del navegador.
+     */
+    function formatoCantidad(valor, decimales) {
+        var negativo = valor < 0;
+        var partes = Math.abs(valor).toFixed(decimales).split('.');
+        var entero = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        var fraccion = decimales === 2 ? '.' + partes[1] : (partes[1] || '').replace(/0+$/, '');
+        if (decimales !== 2 && fraccion) fraccion = '.' + fraccion;
+        return (negativo ? '−' : '') + entero + fraccion;
+    }
+
+    /** A milésimas, como guarda la base las cantidades. */
+    function milesimas(valor) {
+        return Math.round(valor * 1000) / 1000;
+    }
+
+    /**
+     * Ficha «Producir» de una subreceta por lote: reescala lo que sale de cada
+     * ingrediente, lo que queda y el costo del lote a la cantidad escrita. Es
+     * sólo la vista previa: el servidor recalcula al guardar.
+     *
+     * La cuenta es la de Inventario::producirSubreceta —lo que lleva el lote
+     * × (producido ÷ rendimiento), redondeado a milésimas— y no la de una
+     * cantidad por unidad ya redondeada: con ésa, 250 g de un lote de 3 l
+     * volvían como 249.999 y la vista previa contradecía al servidor.
+     */
+    function initProduccion(form) {
+        var campo = form.querySelector('[data-produccion-cantidad]');
+        var costo = form.querySelector('[data-produccion-costo]');
+        var resumen = form.querySelector('[data-produccion-resumen]');
+        var filas = form.querySelectorAll('[data-produccion-fila]');
+        if (!campo || !filas.length) return;
+
+        var rendimiento = parseFloat(form.getAttribute('data-rendimiento'));
+        if (isNaN(rendimiento) || rendimiento <= 0) rendimiento = 1;
+        var unidadSub = form.getAttribute('data-unidad') || '';
+        var esperaResumen = null;
+
+        function num(nodo, atributo) {
+            var n = parseFloat(nodo.getAttribute(atributo));
+            return isNaN(n) ? 0 : n;
+        }
+
+        // Devuelve lo que el lector de pantalla tiene que oír de esta cuenta.
+        function pintar() {
+            var cantidad = parseFloat(campo.value);
+            var valida = !isNaN(cantidad) && cantidad > 0;
+            var factor = valida ? cantidad / rendimiento : 0;
+            var total = 0;
+            var negativos = [];
+
+            Array.prototype.forEach.call(filas, function (fila) {
+                var unidad = fila.getAttribute('data-unidad') || '';
+                var sale = milesimas(num(fila, 'data-cantidad') * factor);
+                // También redondeado: una resta de flotantes que debía dar cero
+                // encendía el aviso y pintaba «−0».
+                var queda = milesimas(num(fila, 'data-stock') - sale);
+                total += sale * num(fila, 'data-costo');
+
+                fila.querySelector('[data-produccion-sale]').textContent = formatoCantidad(sale, 3) + ' ' + unidad;
+                fila.querySelector('[data-produccion-queda]').textContent = formatoCantidad(queda, 3) + ' ' + unidad;
+                var negativo = fila.querySelector('[data-produccion-negativo]');
+                if (negativo) negativo.hidden = queda >= 0;
+                if (queda < 0) {
+                    var nombre = fila.querySelector('[data-produccion-nombre]');
+                    negativos.push(nombre ? nombre.textContent.trim() : '');
+                }
+            });
+
+            if (costo) {
+                costo.textContent = '$' + formatoCantidad(total, 2);
+            }
+
+            if (!valida) return 'Escribe una cantidad mayor a cero.';
+            return 'Con ' + formatoCantidad(cantidad, 3) + ' ' + unidadSub + ', el lote cuesta $' +
+                formatoCantidad(total, 2) + '. ' +
+                (negativos.length
+                    ? 'Quedarían en negativo: ' + negativos.join(', ') + '.'
+                    : 'Ningún ingrediente queda en negativo.');
+        }
+
+        campo.addEventListener('input', function () {
+            var texto = pintar();
+            if (!resumen) return;
+            // Se anuncia al dejar de escribir, no con cada tecla.
+            window.clearTimeout(esperaResumen);
+            esperaResumen = window.setTimeout(function () {
+                resumen.textContent = texto;
+            }, 700);
+        });
+        // Sin anuncio: es lo que el servidor ya pintó, salvo que el navegador
+        // haya repuesto otra cantidad al volver atrás.
+        pintar();
+    }
+
     function init() {
+        Array.prototype.forEach.call(document.querySelectorAll('[data-produccion]'), initProduccion);
+
         var forms = document.querySelectorAll('[data-recipe-builder]');
         if (!forms.length) return;
         var picker = crearPicker();

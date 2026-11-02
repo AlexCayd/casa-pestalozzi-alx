@@ -173,13 +173,13 @@ $vendidos = (int) $uno(
 $assert($sinVenta['cifra'] === $enCarta - $vendidos, 'sin venta: carta menos vendidos no cuadra');
 $assert(count($sinVenta['detalle']) <= 10, 'sin venta: el desglose pasa de diez renglones');
 
-// El consumo es lo que se descontó por ventas (movimientos), no una receta
-// vuelta a explotar.
+// El consumo es lo que se descontó por ventas y por producción de lotes
+// (movimientos), no una receta vuelta a explotar.
 $s = C::periodo('semana');
 $consumo = C::responderEstructurada('consumo', $ingredienteId, null, 'semana');
 $neto = max(0.0, (float) $uno(
     "SELECT COALESCE(-SUM(cantidad), 0) FROM movimientos_inventario WHERE ingrediente_id = {$ingredienteId}
-        AND tipo IN ('venta', 'cancelacion') AND created_at BETWEEN '{$s['desde']} 00:00:00' AND '{$s['hasta']} 23:59:59'"
+        AND tipo IN ('venta', 'cancelacion', 'produccion') AND created_at BETWEEN '{$s['desde']} 00:00:00' AND '{$s['hasta']} 23:59:59'"
 ));
 $unidad = (string) $uno("SELECT unidad FROM ingredientes WHERE id = {$ingredienteId}");
 $esperada = in_array($unidad, ['ml', 'g'], true) && $neto >= 1000 ? round($neto / 1000, 2) : round($neto, 2);

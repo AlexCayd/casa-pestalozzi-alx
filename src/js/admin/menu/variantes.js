@@ -484,9 +484,12 @@
             '<span class="admin-visually-hidden">Cambio de precio</span>' +
             '<input type="number" inputmode="decimal" step="0.5" value="' + (o.precio_delta || 0) + '" data-campo="precio_delta" data-g="' + gi + '" data-o="' + oi + '"></label>' +
             // El resumen se recorta con puntos suspensivos en la fila; el
-            // `title` devuelve la frase entera al pasar el puntero.
+            // `title` devuelve la frase entera al pasar el puntero. El icono es
+            // `ajustes` y no `variantes`: el botón abre el ajuste de receta de
+            // ESTA opción, y el de opciones, junto a los radios «Base», se
+            // leía como un radio más.
             '<button type="button" class="admin-vopcion__receta" aria-expanded="' + (abierto ? 'true' : 'false') + '" title="' + esc(resumen) + '" data-toggle-receta data-g="' + gi + '" data-o="' + oi + '">' +
-            icono('variantes', 15) + '<span class="admin-vopcion__resumen">' + esc(resumen) + '</span></button>' +
+            icono('ajustes', 15) + '<span class="admin-vopcion__resumen">' + esc(resumen) + '</span></button>' +
             '<button type="button" class="admin-icon-button admin-icon-button--danger admin-vopcion__borrar" data-borrar-opcion data-g="' + gi + '" data-o="' + oi + '" aria-label="Eliminar la opción ' + esc(o.nombre || '') + '">' + icono('basura', 16) + '</button>' +
             '</div>';
         if (abierto) {

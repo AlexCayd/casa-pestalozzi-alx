@@ -10,7 +10,7 @@
 // UN SOLO COLOR EN TODO EL TABLERO: el de la estación.
 //
 // `areas_produccion.color` llega por --area-accent desde la vista —es dato de
-// negocio, no un token— y corona las tres columnas POR IGUAL. No hay color por
+// negocio, no un token— y corona las tres bandas POR IGUAL. No hay color por
 // estado, ni filete de antigüedad en cada comanda, ni sello azul de entregado.
 // El tablero es su estación; lo demás es superficie y tinta.
 //
@@ -74,81 +74,142 @@
 // conexión, no identidad de la estación, y teñirlo con el color del área —que
 // es un café o un azul de negocio— lo dejaría diciendo dos cosas a la vez.
 
-// ── Tablero: tres columnas ────────────────────────────────────
-// El hueco entre bandas es mayor que el del shell a propósito: es lo primero
-// que separa las tres columnas, antes que cualquier superficie o color.
-.area-board {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-/* ── Columna ───────────────────────────────────────────────────
+// ── Tablero: tres bandas apiladas ─────────────────────────────
+/*
+ * El orden de arriba abajo ES el flujo de la cocina: lo que llega, lo que está
+ * en el fuego y lo que espera a que lo recojan. Eran tres columnas; apiladas,
+ * lo nuevo cae siempre en el mismo sitio —la banda de arriba, a la altura de
+ * los ojos—.
  *
- * Una banda con superficie CONSTANTE, no un degradado que se apaga.
+ * LA REGLA: ninguna banda ni ninguna comanda desplaza por dentro. Un platillo
+ * que hay que buscar con el dedo es un platillo que no sale. Hubo un riel
+ * horizontal con alto fijo por banda y las comandas que no cabían se partían en
+ * columnas y desbordaban hacia el lado; en la cocina eso significaba deslizar a
+ * ciegas. Ahora cada banda mide lo que su contenido, las comandas envuelven en
+ * filas y, si las tres juntas no caben, desplaza el TABLERO entero —una sola
+ * barra, y siempre en el mismo sentido—.
  *
- * El degradado que había se veía bien con las columnas llenas, pero por debajo
- * de la última comanda las tres se disolvían en el mismo negro del tablero y
- * dejaba de verse dónde acababa una y empezaba la siguiente — que es justo lo
- * que un tablero de tres estados no se puede permitir. La división la hacen
- * ahora tres cosas, ninguna de ellas un borde: el hueco de 16px, una superficie
- * que nunca baja al fondo, y el filete de ESTADO que corona cada banda.
+ * Una banda con trabajo crece para repartirse la pantalla que sobra; una vacía
+ * se queda en su mínimo, para no gastar alto en decir «Sin pedidos».
  */
-.area-col {
-  position: relative;
+.area-board {
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  // El relleno lateral lo llevan la cabecera y el scroller, para que el
-  // scroller pueda desbordar hasta el canto y su barra no quede flotando.
-  padding: 14px 0 0;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /*
+   * El canal de la barra, reservado siempre. Sin él, el servicio que cruza el
+   * alto de la pantalla —una comanda más— hacía aparecer la barra, el tablero
+   * perdía 8 px de ancho y TODAS las comandas volvían a partir sus nombres y a
+   * empaquetarse a la vez. En tablet, con barras superpuestas, no cuesta nada.
+   */
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border-strong) transparent;
+
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: var(--admin-border-strong);
+  }
+}
+
+/* ── Banda ─────────────────────────────────────────────────────
+ *
+ * Una franja con superficie CONSTANTE y dos zonas: el lomo a la izquierda
+ * (rótulo y contador) y la rejilla de comandas. El lomo en vez de una cabecera
+ * encima: una fila de 44 px por banda eran 132 px de alto, y el alto es lo que
+ * decide cuántos platillos se ven sin desplazar.
+ *
+ * La división la siguen haciendo tres cosas, ninguna de ellas un borde: el
+ * hueco entre bandas, una superficie que nunca baja al fondo y el filete de la
+ * estación que corona cada una.
+ */
+.area-banda {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  /*
+   * Partes IGUALES de la pantalla, y nunca menos que su contenido (el
+   * `min-height: auto` de un elemento flexible: eso es lo que impide que una
+   * banda desplace por dentro).
+   *
+   * Base 0 y no `auto`. Con base `auto` cada banda medía su contenido MÁS un
+   * tercio de lo que sobraba, así que cualquier comanda que llegara a Enviados
+   * movía el canto de Prep y el de Listos aunque sobrara pantalla. Con base 0
+   * el reparto no depende del contenido: mientras cada banda quepa en su
+   * tercio, lo que pasa en una no mueve a las otras. Sólo la que no cabe toma
+   * lo que necesita, y las demás se reparten el resto.
+   */
+  flex: 1 1 0;
+  grid-template-columns: 148px minmax(0, 1fr);
+  align-items: start;
   border: 0;
   border-radius: var(--admin-radius-lg);
   background: var(--admin-surface-soft);
-  overflow: hidden;
+  /*
+   * EL ÚNICO COLOR DEL TABLERO: el de la estación.
+   *
+   * Corona las tres bandas por igual —el mismo color en las tres, no uno por
+   * estado—. Un tablero de cocina es una pantalla fija que se mira el turno
+   * entero, y lo que le da identidad es la estación a la que pertenece, no un
+   * arcoíris de tres hues repartidos por banda: el estado de cada una ya lo dice
+   * su rótulo, en palabras y junto al contador.
+   *
+   * `areas_produccion.color` llega por --area-accent desde la vista (es dato de
+   * negocio, no un token), y el respaldo cubre el caso de que un área se quede
+   * sin color en base. Sigue arriba y a lo ancho, lejos de la hora de una
+   * comanda: es lo que evita que el rojo de Cocina se confunda con el de «lleva
+   * diez minutos» (ver CLAUDE.md).
+   *
+   * Sombra interior y no un ::before de 3 px. A una caja de 3 px de alto el
+   * navegador le reduce el radio de 20 px a 3 (los radios de un lado no pueden
+   * sumar más que el lado), así que el filete salía RECTO y asomaba por fuera de
+   * la curva de las dos esquinas. La sombra interior sigue el radio de la banda
+   * —se afina en las esquinas como un borde superior— y no se recorta con nada.
+   */
+  box-shadow: inset 0 3px 0 var(--area-accent, var(--admin-border-strong));
   font-family: var(--operational-font-ui);
 }
 
-/*
- * EL ÚNICO COLOR DEL TABLERO: el de la estación.
- *
- * Corona las tres bandas por igual —el mismo color en las tres, no uno por
- * estado—. Un tablero de cocina es una pantalla fija que se mira el turno
- * entero, y lo que le da identidad es la estación a la que pertenece, no un
- * arcoíris de tres hues repartidos por columna: el estado de cada banda ya lo
- * dice su rótulo, en palabras y a dos centímetros del contador.
- *
- * `areas_produccion.color` llega por --area-accent desde la vista (es dato de
- * negocio, no un token), y el respaldo cubre el caso de que un área se quede
- * sin color en base.
- */
-.area-col::before {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: var(--area-accent, var(--admin-border-strong));
-  pointer-events: none;
+// Vacía, sólo lo que mide: el lomo en una línea y el aviso a su lado.
+.area-banda:has(> .area-banda__riel > .area-empty) {
+  flex: 0 0 auto;
+  // El lomo en una línea («En preparación 0») no cabe en 148 px y partía el
+  // rótulo en dos: vacía, la columna del lomo mide lo que su contenido.
+  grid-template-columns: minmax(148px, max-content) minmax(0, 1fr);
+  align-items: center;
 }
 
-// Listos ya no se atenúa con opacity. Bajar el alfa de una columna entera sobre
-// un fondo casi negro la borra en vez de ordenarla; lo que dice "esto ya está
-// hecho" es el verde del contador y el filete, no la falta de luz.
-.area-col-head {
-  display: grid;
-  min-height: 44px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+// El lomo: rótulo arriba y contador debajo, alineados a la izquierda, a la
+// altura del canto superior de las comandas.
+//
+// Pegajoso: cuando el servicio no cabe y el tablero desplaza, una banda alta
+// pasa por la pantalla con su rótulo y su contador fuera de la vista, y el
+// cocinero trabajaba media banda sin saber cuál era ni cuánto le quedaba. El
+// lomo vive en su propia columna, así que se queda arriba sin tapar nada.
+.area-banda__lomo {
+  position: sticky;
+  top: 0;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
-  flex: 0 0 auto;
-  // Sin línea bajo la cabecera: lo que la separa de la lista es el aire y el
-  // salto de plano de la primera comanda, no un cuarto trazo horizontal.
-  margin-bottom: 10px;
-  padding: 0 16px;
+  padding: 16px 8px 14px 18px;
+
+  .area-banda:has(> .area-banda__riel > .area-empty) & {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding-block: 14px;
+  }
 }
 
 /*
@@ -164,26 +225,31 @@
  * Mono: contador, ×N y la antigüedad. Sans: todo lo demás.
  * Pesos: 700 para cifras y nombres fuertes, 600 para el platillo, 400 para lo
  * secundario. Tres, y ninguno más.
+ *
+ * Puede partir en dos renglones: «En preparación» cabe en el lomo a 15 px,
+ * pero un rótulo más largo no debe salir con puntos suspensivos.
  */
-.area-col-label {
+.area-banda__rotulo {
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
   color: var(--admin-text);
   font-family: var(--operational-font-ui);
   font-size: 15px;
   font-weight: var(--operational-weight-semibold);
   letter-spacing: 0;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
 }
 
-// El contador es el ancla de la columna y el dato que se lee desde el otro lado
-// de la cocina. Estaba a 13px dentro de una píldora de 26: MÁS PEQUEÑO que el
-// nombre de un platillo. Sube a 20/34 sin costar alto —la fila ya mide 44— y
-// hereda el canal de color que el filete de estación acaba de desocupar. Radio
-// 10 para igualar el de .area-card__btn: un solo radio de control en el tablero.
-.area-col-count {
+/*
+ * El contador es el ancla de la banda y el dato que se lee desde el otro lado
+ * de la cocina: 20 px en una píldora de 34, radio 10 para igualar el de
+ * .area-card__btn (un solo radio de control en el tablero).
+ *
+ * NEUTRO en las tres bandas. Estuvo con un color por estado —neutro, ámbar,
+ * verde— y era un color de más: la banda ya dice en qué estado estás con su
+ * rótulo, que está justo encima y en palabras.
+ */
+.area-banda__cuenta {
   display: grid;
   min-width: 46px;
   height: 34px;
@@ -200,85 +266,82 @@
   line-height: 1;
 }
 
-// El contador es un relleno sólido del color del estado. Es la única cifra del
-// tablero que se lee a metro y medio, y un tinte al 12% sobre superficie oscura
-// no llega. Tinta oscura encima: ámbar y verde tienen luminancia alta.
 /*
- * El contador es NEUTRO en las tres columnas.
+ * Las comandas, en una rejilla que ENVUELVE: tantas por fila como quepan y las
+ * demás en la fila siguiente, por orden de llegada (la más vieja arriba a la
+ * izquierda; area.js las ordena). Nada se sale por el lado.
  *
- * Estuvo con un color por estado —neutro, ámbar, verde— y era un color de más:
- * la columna ya dice en qué estado estás con su rótulo, que está justo al lado
- * y en palabras. Repetirlo en color no añadía información y sí obligaba a
- * meter dos hues más en una pantalla que sólo debe llevar uno.
+ * Cada comanda mide lo que sus platillos (`align-items: start`): estirarla a la
+ * altura de su vecina dejaba una losa vacía que se leía como una comanda más
+ * larga de lo que es. Una comanda LARGA no se estira hacia abajo: ocupa dos o
+ * tres celdas y reparte sus platillos en columnas (ver .area-card--larga), y
+ * `dense` deja que las cortas rellenen el hueco que deja a su lado.
+ *
+ * Es contenedor de consulta: las comandas largas sólo se ensanchan si la banda
+ * tiene sitio para dos o tres celdas.
  */
-.area-col-count {
-  background: var(--admin-surface-strong);
-  color: var(--admin-text);
-}
+.area-banda__riel {
+  container: riel / inline-size;
+  display: grid;
+  min-width: 0;
+  // 320 de mínimo: por debajo, una fila de En preparación (cantidad, nombre,
+  // Devolver y Listo) dejaba al nombre menos de seis caracteres por renglón.
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  grid-auto-flow: row dense;
+  align-items: start;
+  gap: 12px;
+  // Arriba 12 para despegar las comandas del filete de la estación; a la
+  // izquierda casi nada, porque el lomo ya pone el aire. Abajo sólo 2: el
+  // hueco lo pone el margen de la última comanda (ver .is-empaquetado), y
+  // cada píxel de aire se paga tres veces —una por banda— en lo que cabe sin
+  // desplazar.
+  padding: 12px 14px 2px 2px;
 
-// Ya no es un contenedor: es sólo la región que desplaza. Sin borde, sin radio
-// y sin fondo propio. Era la caja más difícil de justificar de las tres —
-// dibujaba un marco a 6px del marco de la columna, y dos líneas paralelas tan
-// cerca se leen como un defecto de impresión, no como estructura.
-.area-col-items {
-  min-height: 0;
-  flex: 1 1 0;
-  padding: 2px 14px 20px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--admin-border-strong) transparent;
+  /*
+   * Empaquetado («mampostería»). Con filas normales la comanda más alta fija el
+   * alto de toda su fila y deja huecos bajo sus vecinas cortas: alto perdido
+   * justo donde más falta. Con filas de 4 px, area.js mide cada comanda y le da
+   * las filas que ocupa (`grid-row-end: span N`), y `dense` mete cada una en el
+   * primer hueco donde quepa: las cortas suben a rellenar lo que deja la larga.
+   * El hueco vertical entre comandas pasa al margen, que entra en la medida.
+   *
+   * Sólo con la clase: sin el JS que mide —o antes de medir— la rejilla es la
+   * normal, que es correcta aunque menos apretada.
+   */
+  &.is-empaquetado {
+    grid-auto-rows: 4px;
+    row-gap: 0;
 
-  &::-webkit-scrollbar { width: 8px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
-    background-color: var(--admin-border-strong);
-  }
-}
-
-/*
- * Lo que dice «esto desplaza» ahora que no hay borde: la lista se DISUELVE por
- * abajo en vez de cortarse a hueso contra un canto. Misma idea que el degradado
- * de la columna, aplicada al contenido.
- *
- * Los 20px de la máscara son exactamente los 20 de padding-bottom: con la lista
- * al final del recorrido lo único difuminado es el relleno, nunca el botón de
- * la última comanda. Si se toca uno, hay que tocar el otro. --admin-ink se usa sólo por ser opaco —a una máscara únicamente
- * le importa el alfa—, así que no hay un color literal suelto en el archivo.
- *
- * Contrapartida asumida: la máscara difumina también los últimos 18px del pulgar
- * de la barra. Sobre 8px de ancho y a metro y medio, no se ve.
- */
-@supports (mask-image: linear-gradient(black, transparent)) {
-  .area-col-items {
-    -webkit-mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
-    mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
+    > .area-card { margin-bottom: 12px; }
   }
 }
 
 // ── Empty state ───────────────────────────────────────────────
+// Una línea —el icono y «Sin pedidos»— a lo ancho de la banda: una banda vacía
+// tiene que verse vacía de un vistazo sin gastar alto en decirlo.
 .area-empty {
   display: flex;
-  height: 100%;
-  min-height: 120px;
-  flex-direction: column;
+  min-height: 0;
+  grid-column: 1 / -1;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 24px 16px;
+  padding: 2px 16px;
   color: var(--admin-faint);
   font-size: var(--operational-text-sm);
   text-align: center;
 
   // Ya no es un glifo con su font-size: el icono es un SVG y la caja es flex,
-  // que es lo que lo centra contra el rótulo de debajo.
+  // que es lo que lo centra contra el rótulo.
   &__icon {
     display: inline-flex;
     line-height: 1;
   }
+}
+
+// Vacía, el aviso se alinea con el lomo, no con un alto que ya no existe.
+.area-banda:has(> .area-banda__riel > .area-empty) .area-banda__riel {
+  padding-block: 10px;
 }
 
 // ── Comanda ───────────────────────────────────────────────────
@@ -296,8 +359,15 @@
  * lee es la sombra; abajo el plano es casi negro y lo que lee es la cara.
  */
 .area-card {
-  margin-bottom: 8px;
-  padding: 10px 12px;
+  // A su altura natural, sin tope: lo que lleva se ve entero. Lo largo se
+  // resuelve a lo ancho (.area-card--larga), nunca con scroll.
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 8px 12px;
+  // Contexto propio para que el acuse de llegada de una fila
+  // (.area-card__item--llega) se pinte ENTRE la cara y el texto, no encima.
+  isolation: isolate;
   /*
    * Sin filete lateral.
    *
@@ -321,8 +391,6 @@
     0 12px 24px -10px color-mix(in srgb, var(--admin-sombra) 85%, transparent);
   transition: box-shadow 160ms ease;
 
-  &:last-child { margin-bottom: 0; }
-
   /*
    * `--alerta` y `--urgente` ya no pintan la TARJETA: sólo marcan la hora de su
    * cabecera (ver .area-card__time). La clase se conserva en el JS y aquí
@@ -332,28 +400,79 @@
    */
 }
 
+/*
+ * La comanda LARGA se ensancha en vez de estirarse: dos celdas y sus platillos
+ * en dos columnas (seis platillos o más), tres y tres (once o más). area.js
+ * pone la clase contando platillos —y media fila por cada nota—, sin medir
+ * nada. Sólo si la banda tiene sitio: con una celda por fila, la comanda se
+ * queda de una y crece hacia abajo, que es lo único posible.
+ *
+ * El reparto de platillos es multicolumna EQUILIBRADA y de alto libre, así que
+ * llena columna a columna con la misma altura: nueve platillos salen 5 + 4.
+ */
+// ⚠ `grid-column-END`, no el atajo `grid-column: span 2`. El atajo pone el span
+// en el INICIO, y area.js escribe la columna de inicio al empaquetar: se
+// llevaba el span por delante y la comanda volvía a una celda. area.js lee
+// este valor para saber cuántas pistas reservar.
+@container riel (min-width: 660px) {
+  .area-card--larga,
+  .area-card--muy-larga {
+    grid-column-end: span 2;
+  }
+
+  .area-card--larga .area-card__items,
+  .area-card--muy-larga .area-card__items {
+    display: block;
+    columns: 2;
+  }
+}
+
+@container riel (min-width: 990px) {
+  .area-card--muy-larga {
+    grid-column-end: span 3;
+  }
+
+  .area-card--muy-larga .area-card__items {
+    columns: 3;
+  }
+}
+
 .area-card__head {
   display: flex;
+  flex: 0 0 auto;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
   // Sin línea: era el cuarto trazo horizontal dentro de una tarjeta de ~100px, y
   // con la mesa a 20px la cabecera ya se separa sola de la primera fila.
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 // 20px. El número de mesa es el token que se escanea para encontrar una comanda
 // concreta y estaba a 15, por DEBAJO del nombre del platillo (16). La jerarquía
 // queda: mesa 20 bold › platillo 16 semibold › rótulo de columna 13 mono.
+//
+// Sin recorte, por la misma regla que el nombre del platillo: en Llevar y en
+// las barras el nombre del cliente ES la mesa —todas se llaman «Llevar»—, y
+// con `nowrap` + puntos suspensivos salía «Llevar — Fern…». Una mesa del salón
+// cabe siempre en una línea; el nombre largo baja a la segunda.
 .area-card__mesa {
   min-width: 0;
-  overflow: hidden;
   color: var(--admin-text);
   font-size: 20px;
   font-weight: var(--operational-weight-bold);
   letter-spacing: -0.02em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+// El folio de un pedido de ventanilla («Llevar #N»): es una cifra, así que
+// va en mono, y un punto por debajo para que «Llevar» siga siendo lo primero.
+.area-card__folio {
+  font-family: var(--admin-font-mono);
+  font-size: .9em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
 .area-card__cliente {
@@ -367,11 +486,15 @@
 // como una marca de tiempo de log. `tabular-nums` se queda porque el número
 // cambia cada minuto y sin él la línea baila. La mono queda reservada a las
 // cifras puras —el contador y el ×N—, que es lo que hace la regla aprendible.
+//
+// 15 px y no 13: es la ÚNICA señal de urgencia del tablero y se lee desde el
+// pase, a metro y medio. No cuesta alto: la cabecera la mide la mesa a 20 px y
+// la hora se alinea con ella por la línea base.
 .area-card__time {
   flex-shrink: 0;
   color: var(--admin-muted);
   font-family: var(--operational-font-ui);
-  font-size: var(--operational-text-sm);
+  font-size: var(--operational-text-section);
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
@@ -392,9 +515,14 @@
 }
 
 // ── Platillos dentro de la comanda ────────────────────────────
+// Una lista a su altura, sin scroll. En una comanda larga pasa a multicolumna
+// (ver arriba): el filete entre columnas es el mismo trazo que separa dos
+// platillos y dice que es la MISMA comanda que sigue, no otra pegada.
 .area-card__items {
   display: flex;
   flex-direction: column;
+  column-gap: 24px;
+  column-rule: 1px solid var(--admin-border-soft);
 }
 
 /*
@@ -408,24 +536,71 @@
  * pierda cuerpo ni el botón baje del objetivo táctil de la casa.
  */
 .area-card__item {
+  // Indivisible: en una comanda larga repartida en columnas, un platillo no se
+  // parte entre dos (ni su nota se separa de él).
+  break-inside: avoid;
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px 10px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--admin-border-soft);
+  /*
+   * El filete entre platillos se dibuja POR DENTRO, en el primer píxel del de
+   * abajo, y no con un borde inferior que el último se quita: así todos miden
+   * lo mismo (44 del botón + 3 + 2) estén donde estén, también al repartirse
+   * en columnas, y el filete queda a 2 px de cada botón.
+   */
+  padding: 3px 0 2px;
 
-  &:last-child { border-bottom: none; }
+  & + & { box-shadow: inset 0 1px 0 var(--admin-border-soft); }
 }
 
-// Columna 4 SIEMPRE, explícita. El chip de comensal sólo aparece cuando lo hay,
-// así que con colocación implícita la acción caía en la 3 en unas filas y en la
-// 4 en otras, y las separaciones de rejilla la dejaban 10 px más adentro. El
-// borde derecho de los botones tiene que ser el mismo en toda la columna: es lo
-// que permite bajar la mano sin mirar.
+/*
+ * Acuse de llegada: el platillo que acaba de entrar en esta banda.
+ *
+ * Con las bandas apiladas, el destino de un toque queda en otra franja de la
+ * pantalla —«Prep» en Enviados lo manda a la banda de abajo— y el cocinero no
+ * tenía forma de saber dónde había caído. La fila nueva nace iluminada y se
+ * apaga en 700 ms; lo mismo la comanda entera que manda el mesero. No retrasa
+ * nada (la fila está ahí desde el primer fotograma, ya legible), no desplaza
+ * nada y corre en el compositor (sólo opacidad).
+ *
+ * Tres decisiones medidas:
+ * - Sobre la FILA y nunca sobre la comanda entera. Un velo de luz sobre la
+ *   cabecera baja la hora en rojo de 4.86:1 a 3.7:1 en el pico, y la hora es
+ *   el dato que no se puede perder. En la fila todo es tinta plena: al 10 % el
+ *   texto sigue en 8.4:1 en el peor instante.
+ * - Luz neutra (la tinta del tema al 10 %), NO el color de la estación: el de
+ *   Cocina es el rojo de «lleva diez minutos», y CLAUDE.md avisa de que el
+ *   color de estación no debe volver a pintar dentro de la comanda.
+ * - Debajo del texto (z-index -1 dentro del contexto de la comanda), para no
+ *   velar los botones, y por debajo del filete entre platillos.
+ *
+ * Con movimiento reducido se queda: es un fundido, no un desplazamiento, y es
+ * la única señal de dónde cayó el platillo.
+ */
+.area-card__item--llega::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0 -6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-text) 10%, transparent);
+  pointer-events: none;
+  animation: area-llega 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes area-llega {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+// Columna 3 SIEMPRE, explícita: el borde derecho de los botones tiene que ser
+// el mismo en toda la comanda, es lo que permite bajar la mano sin mirar. (El
+// chip de comensal, que tenía columna propia, vive ahora dentro del nombre.)
 .area-card__item-btns,
 .area-card__badge--entregado {
-  grid-column: 4;
+  grid-column: 3;
 }
 
 .area-card__item-btns {
@@ -448,22 +623,19 @@
 }
 
 /*
- * DOS líneas, no puntos suspensivos.
- *
- * Con `nowrap` + ellipsis, a 1366 px al nombre le quedaban unos 142 px —16
- * caracteres— una vez descontados cantidad, chip, botones y separaciones:
- * «Enchiladas suizas de pollo» salía «Enchiladas sui…». En un tablero de
+ * Entero, sin tope de renglones ni puntos suspensivos. En un tablero de
  * producción el nombre del platillo es lo único que NO puede recortarse.
  *
- * Y es gratis en altura: dos líneas a 16px/1.2 son 38.4px y la fila ya mide 44
- * por el botón.
+ * Hubo `nowrap` + ellipsis («Enchiladas sui…») y después un tope de dos
+ * líneas, que era gratis cuando la fila medía 44 px por el botón; en una
+ * comanda de 320 px con Devolver y Listo, «Cecina y Huevo con Chorizo» pide
+ * tres y salía «Cecina y Huevo con…». La fila crece un renglón cuando hace
+ * falta: el tablero no desplaza por dentro, así que se ve.
  */
 .area-card__name {
-  display: -webkit-box;
+  display: block;
   min-width: 0;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: break-word;
   color: var(--admin-text);
   font-size: var(--operational-text-subtitle);
   font-weight: var(--operational-weight-semibold);
@@ -473,17 +645,6 @@
 // La variante (Almendra · Grande, Término medio) es parte de lo que se prepara:
 // va en su propia línea DENTRO del nombre, en tinta plena. No es la nota: ésa
 // es la que lleva papel y filete propios.
-//
-// Con variante, el nombre deja de recortarse. Subir el tope a tres líneas no
-// bastaba: un nombre de dos líneas más una variante de dos («Leche de
-// almendra · Grande · Extra shot») perdía justo la última línea de la
-// variante, que es lo que cambia la preparación. La fila crece un renglón; la
-// columna ya tiene scroll propio.
-.area-card__name:has(.area-card__variante) {
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: none;
-}
 
 .area-card__variante {
   display: block;
@@ -526,9 +687,12 @@
   word-break: break-word;
 }
 
+// En línea, detrás del nombre del platillo (ver area.js): ocupa lo que su
+// texto y parte de renglón con él si no cabe.
 .area-card__com {
-  flex-shrink: 0;
-  padding: 3px 7px;
+  display: inline-block;
+  vertical-align: 1px;
+  padding: 1px 6px;
   border: 1px solid var(--admin-border);
   border-radius: 6px;
   background: var(--admin-surface-soft);
@@ -541,8 +705,8 @@
 }
 
 // ── Entregado por el mesero ───────────────────────────────────
-// Se queda en la columna de Listos para que producción vea que el plato ya
-// salió, sin acciones. El azul es el mismo --estado-entregado que usa el POS.
+// Se queda en la banda de Listos para que producción vea que el plato ya
+// salió, sin acciones.
 .area-card__item--entregado {
   opacity: 0.62;
 }
@@ -555,12 +719,17 @@
  * tenía ámbar, verde y rojo diciendo cosas distintas. Y no hacía falta: la fila
  * entregada ya va atenuada al 62%, que es la señal de «esto ya no es trabajo».
  * El sello se queda en tinta apagada sobre nada, sin relleno ni contorno: no es
- * un botón, no se pulsa, y en la columna de Listos lo único que tiene que hacer
+ * un botón, no se pulsa, y en la banda de Listos lo único que tiene que hacer
  * es distinguirse de lo que sí está esperando a que lo recojan.
  */
 .area-card__badge--entregado {
   display: inline-flex;
-  min-height: 44px;
+  // Sin el alto de 44: no es un botón, y era lo que hacía que un platillo ya
+  // entregado costara lo mismo que uno por recoger (49 px). Lo entregado se
+  // queda en Listos hasta que se cobra la cuenta, así que en una comida larga
+  // era la mitad de la banda; a su altura natural mide ~25 px. area.js lo
+  // cuenta como media fila al decidir si la comanda es larga.
+  min-height: 0;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -606,15 +775,26 @@
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 10px;
-  font-family: var(--operational-font-ui);
-  font-size: var(--operational-text-base);
-  font-weight: var(--operational-weight-bold);
   letter-spacing: 0.01em;
-  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 80ms ease;
   -webkit-tap-highlight-color: transparent;
+
+  /*
+   * ⚠ La letra va con el ancestro delante. `.admin-body button { font: inherit }`
+   * (_globals.scss) suma (0,1,1) y le gana a esta clase sola (0,1,0): «Prep» y
+   * «Listo» salían a 400 y con el interlineado del cuerpo, no a 700/1. Es la
+   * trampa que CLAUDE.md describe para el piso; la salida de la casa es
+   * escribir la regla bajo `.admin-body`. El foco no se toca: su regla
+   * (.admin-body :focus-visible, en _finishes) sigue ganando por orden.
+   */
+  .admin-body & {
+    font-family: var(--operational-font-ui);
+    font-size: var(--operational-text-base);
+    font-weight: var(--operational-weight-bold);
+    line-height: 1;
+  }
 
   &:active { transform: scale(0.97); }
 
@@ -637,7 +817,6 @@
     border-color: var(--admin-border);
     background: var(--admin-surface-soft);
     color: var(--admin-muted);
-    font-size: var(--operational-text-sm);
 
     &:hover:not(:disabled) {
       border-color: var(--admin-border-strong);
@@ -693,24 +872,30 @@
 }
 
 // ── Responsive: tablet vertical / móvil ──────────────────────
+// En vertical el lomo cuesta un ancho que la rejilla no tiene: vuelve a ser una
+// cabecera de una fila (rótulo a la izquierda, contador a la derecha). El orden
+// de las bandas no cambia —es el flujo de la cocina—, y el tablero ya desplaza
+// en vertical cuando no cabe; aquí no hay nada más que cambiar.
 @media (max-width: 900px) {
-  .area-board {
+  .area-banda,
+  .area-banda:has(> .area-banda__riel > .area-empty) {
     grid-template-columns: minmax(0, 1fr);
-    grid-auto-rows: minmax(220px, auto);
-    overflow-y: auto;
-    overscroll-behavior: contain;
   }
 
-  .area-col {
-    min-height: 0;
+  // Aquí el lomo es una cabecera ENCIMA de las comandas, sin fondo propio:
+  // pegajoso, pasaría por encima de ellas al desplazar.
+  .area-banda__lomo,
+  .area-banda:has(> .area-banda__riel > .area-empty) .area-banda__lomo {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px 0 16px;
   }
 
-  // Apiladas en vertical, la máscara difuminaría el final de cada columna
-  // contra la siguiente en vez de contra el tablero.
-  .area-col-items {
-    overflow: visible;
-    -webkit-mask-image: none;
-    mask-image: none;
+  .area-banda__riel {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    padding: 12px 14px 14px;
   }
 }
 

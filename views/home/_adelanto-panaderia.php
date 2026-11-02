@@ -1,6 +1,10 @@
 <?php
 /**
- * Panadería.
+ * Adelanto de la panadería en la portada del RESTAURANTE.
+ *
+ * Es una sección de esta página, no la panadería: la landing de la panadería
+ * vive en /panaderia (views/panaderia/). Se llamaba _panaderia.php y se
+ * renombró para que el nombre no confunda las dos capas.
  *
  * Va en tono crema —la sección más clara de la página— justo antes de Catas
  * (vino) y Catering (verde), para que el salto entre las tres se lea de golpe.
@@ -60,11 +64,15 @@
         <p class="body">Aquí el tiempo no corre: fermenta, reposa y se hornea con paciencia. Focaccia, ciabatta, pan de masa madre y la repostería del día. Una experiencia que se siente y se comparte.</p>
         <div class="pan__cta">
           <?php /*
-            El texto dice "a la panadería" a propósito: el CTA de Ubicación
-            apuntaba al mismo mapa con la misma etiqueta "Cómo llegar", y dos
-            botones idénticos en la misma página no se distinguían.
+            La panadería tiene su propia landing (/panaderia) y otra dirección
+            (Calle San Borja 1026). Por eso «Cómo llegar» no abre un mapa desde
+            aquí: abría el mismo enlace que el restaurante, y uno de los dos
+            llevaba al sitio equivocado. Ahora lleva a la sección de la
+            panadería, que tiene su mapa y sus datos (PanaderiaConfig), y la
+            portada no necesita leer nada de la panadería.
           */ ?>
-          <a class="btn-line btn-line--solid" href="https://maps.app.goo.gl/NwDmN5Tjbz3Etf7r7" target="_blank" rel="noopener" data-magnetic><span>Cómo llegar a la panadería</span><span class="arrow">↗</span></a>
+          <a class="btn-line btn-line--solid" href="/panaderia" data-magnetic><span>Conocer la panadería</span><span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn-line btn-line--secondary" href="/panaderia#visitanos" data-magnetic><span>Cómo llegar</span><span class="arrow" aria-hidden="true">→</span></a>
         </div>
       </div>
 

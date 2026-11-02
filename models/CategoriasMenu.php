@@ -28,6 +28,15 @@ class CategoriasMenu extends ActiveRecord {
      * vende, porque Carta::paraPos() no mira la carta.
      */
     public const CARTA_TEMPORADA = 'temporada';
+    /**
+     * Vitrina de la panadería: la landing /panaderia (views/panaderia/), una
+     * pestaña por categoría. Misma idea que la de temporada —es una pregunta de
+     * dónde se publica la sección— y por eso no tiene módulo propio: las piezas
+     * se dan de alta en Menú. No se imprime, y a diferencia de las otras tres
+     * el punto de venta del restaurante NO la vende (Carta::paraPos): la
+     * panadería está en otra dirección y cobra en su propio mostrador.
+     */
+    public const CARTA_PANADERIA = 'panaderia';
 
     public const CARTAS = [
         self::CARTA_COMIDA => [
@@ -44,6 +53,11 @@ class CategoriasMenu extends ActiveRecord {
             'titulo' => 'Especiales de temporada',
             'corto'  => 'Temporada',
             'ayuda'  => 'Sale en «Especiales de temporada» de la landing; no entra en ningún PDF',
+        ],
+        self::CARTA_PANADERIA => [
+            'titulo' => 'Vitrina de la panadería',
+            'corto'  => 'Panadería',
+            'ayuda'  => 'Sale en la vitrina de /panaderia; no entra en ningún PDF ni en el punto de venta del restaurante',
         ],
     ];
 

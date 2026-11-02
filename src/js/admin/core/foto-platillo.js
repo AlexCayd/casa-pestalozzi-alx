@@ -1,5 +1,7 @@
 /**
- * Campo «Foto del platillo» del formulario de Menú (views/admin/menu/form.php).
+ * Campo «Foto del platillo» del formulario de Menú (views/admin/menu/form.php),
+ * y el de la imagen de la categoría (category-form.php, data-foto-modo=
+ * "categoria"), que es la misma pieza sin foto prestada ni «Quitar».
  *
  * Enseña al instante lo que la carta va a mostrar: la foto nueva en cuanto se
  * elige (o se arrastra), la de la categoría cuando el platillo no tiene la
@@ -64,6 +66,9 @@
         var zona = campo.querySelector('[data-foto-zona]');
         var titulo = campo.querySelector('[data-foto-titulo]');
         var avisoEspecial = campo.querySelector('[data-foto-especial]');
+        // La imagen de una categoría no tiene de quién heredar: sin ella, el
+        // campo está vacío, y los textos hablan de la categoría.
+        var esCategoria = campo.getAttribute('data-foto-modo') === 'categoria';
 
         if (!input || !img || !vacia || !estadoTxt || !deshacer) {
             return;
@@ -77,6 +82,9 @@
         var nombreNuevo = '';
 
         function categoria() {
+            if (esCategoria) {
+                return { foto: '', nombre: '', especial: false };
+            }
             var radio = form ? form.querySelector('input[name="categoria_id"]:checked') : null;
             return {
                 foto: radio ? radio.getAttribute('data-foto') || '' : '',
@@ -85,6 +93,15 @@
                 // vitrina de la landing.
                 especial: !!radio && radio.getAttribute('data-carta') === 'temporada'
             };
+        }
+
+        // Modo categoría: qué hace la imagen depende de la carta elegida, y la
+        // vista pone los dos textos en cada pastilla (category-form.php). Así
+        // no hay una segunda copia de las frases aquí que se pueda separar.
+        function textoDeCarta(conImagen) {
+            var radio = form ? form.querySelector('input[name="carta"]:checked') : null;
+            var texto = radio ? radio.getAttribute(conImagen ? 'data-foto-con' : 'data-foto-sin') : '';
+            return texto || (conImagen ? 'Imagen actual de la categoría.' : 'Sin imagen.');
         }
 
         function soltarNueva() {
@@ -112,12 +129,15 @@
             if (urlNueva) {
                 estado = 'nueva';
                 src = urlNueva;
-                texto = 'Foto nueva' + (nombreNuevo ? ' (' + nombreNuevo + ')' : '') + ', todavía sin guardar: se guarda junto con el platillo.';
+                texto = (esCategoria ? 'Imagen nueva' : 'Foto nueva') + (nombreNuevo ? ' (' + nombreNuevo + ')' : '') +
+                    ', todavía sin guardar: se guarda junto con ' + (esCategoria ? 'la categoría.' : 'el platillo.');
             } else if (propia && !quitando) {
                 estado = esPendiente ? 'pendiente' : 'propia';
                 src = propia;
                 if (esPendiente) {
                     texto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
+                } else if (esCategoria) {
+                    texto = textoDeCarta(true);
                 } else {
                     texto = cat.especial
                         ? 'La landing muestra esta foto en «Especiales de temporada».'
@@ -130,7 +150,9 @@
                 // y sin foto propia ni de categoría no sale (Carta::especiales()).
                 var destino = cat.especial ? 'La landing' : 'La carta';
                 var fuera = cat.especial ? ': el especial no saldrá en la landing hasta tener una' : '';
-                if (quitando) {
+                if (esCategoria) {
+                    texto = textoDeCarta(false);
+                } else if (quitando) {
                     // Espejo de form.php: los dos textos tienen que coincidir.
                     if (cat.foto) {
                         texto = 'Se quitará al guardar. ' + destino + ' volverá a la de ' + cita(cat.nombre) + '.';
@@ -182,7 +204,8 @@
                 estadoTxt.textContent = texto;
             }
             if (elegirTxt) {
-                elegirTxt.textContent = estado === 'categoria' || estado === 'vacia' ? 'Subir foto' : 'Cambiar foto';
+                var sustantivo = esCategoria ? 'imagen' : 'foto';
+                elegirTxt.textContent = (estado === 'categoria' || estado === 'vacia' ? 'Subir ' : 'Cambiar ') + sustantivo;
             }
             if (quitarBoton) {
                 quitarBoton.hidden = !propia || quitando || !!urlNueva;
@@ -250,10 +273,12 @@
         });
 
         // La categoría decide la foto por defecto: al cambiarla, la vista previa
-        // tiene que decir la verdad sobre lo que enseñará la carta.
+        // tiene que decir la verdad sobre lo que enseñará la carta. En el
+        // formulario de categoría, lo mismo con la carta: cambia el alcance.
         if (form) {
             form.addEventListener('change', function (evento) {
-                if (evento.target && evento.target.name === 'categoria_id') {
+                var nombre = evento.target && evento.target.name;
+                if (nombre === (esCategoria ? 'carta' : 'categoria_id')) {
                     pintar();
                 }
             });
