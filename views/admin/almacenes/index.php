@@ -23,6 +23,7 @@ $modalInicio=static function(string $id,string $titulo) use($esc): void { ?>
     <header class="almacen-modal__header"><h3 id="<?php echo $esc($id); ?>-title"><?php echo $esc($titulo); ?></h3><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close aria-label="Cerrar ventana"><?php echo admin_icon('cerrar'); ?></button></header>
 <?php };
 $modalFin=static function(): void { echo '</section></div>'; };
+$origenCatalogo=$url('existencias');$catalogoUrl=$base.'/catalogo?'.http_build_query(['volver'=>$origenCatalogo]);
 $articulos=$existencias['articulos']??[];
 $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTransferencias=$catalogoTransferencias??[];
 ?>
@@ -31,7 +32,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   <header class="admin-page__header">
     <div class="admin-page__intro"><h2 class="admin-page__title">Almacenes</h2><p class="admin-page__subtitle">Existencias de <?php echo $esc($nombreContexto); ?>. Elige dónde consultar y trabaja artículo por artículo.</p></div>
     <div class="almacen-actions">
-      <?php if($puedeNuevoArticulo): ?><button type="button" class="admin-btn admin-btn--primary" data-admin-modal-open="almacen-nuevo-articulo"><?php echo admin_icon('mas'); ?> Nuevo artículo</button><?php endif; ?>
+      <?php if($puedeNuevoArticulo): ?><a class="admin-btn admin-btn--primary" href="<?= $esc($base.'/catalogo/nuevo?'.http_build_query(['volver'=>$origenCatalogo])) ?>"><?php echo admin_icon('mas'); ?> Nuevo artículo</a><?php endif; ?>
       <?php if($puedeEditar && $activos): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-elegir-entrada"><?php echo admin_icon('mas'); ?> Registrar entrada</button><?php endif; ?>
       <?php if($puedeEditar && $activos): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-asociar"><?php echo admin_icon('mas'); ?> Asociar artículo</button><?php endif; ?>
       <?php if($puedeCrearAlmacen): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-config"><?php echo admin_icon('inventario'); ?> Crear almacén</button><?php endif; ?>
@@ -57,7 +58,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   </form>
   <div class="almacen-summary" aria-label="Resumen del alcance filtrado"><span><strong><?php echo (int)($existencias['total']??0); ?></strong> artículos</span><span><strong><?php echo (int)($existencias['total_alertas']??0); ?></strong> con saldo bajo mínimo</span><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-movimientos"><?php echo admin_icon('reloj'); ?> Consultar movimientos</button><span><?php $pendientes=(int)($transferenciasPendientes??0);echo $pendientes.' '.($pendientes===1?'transferencia pendiente':'transferencias pendientes'); ?></span></div>
   <section class="admin-panel almacen-list">
-    <div class="almacen-section-head"><div><h3>Existencias por artículo</h3><p>Saldo y mínimos del alcance seleccionado. Las alertas se evalúan en cada almacén.</p></div><?php if($ctx==='global'): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-catalogo"><?php echo admin_icon('editar'); ?> Catálogo maestro</button><?php endif; ?></div>
+    <div class="almacen-section-head"><div><h3>Existencias por artículo</h3><p>Saldo y mínimos del alcance seleccionado. Las alertas se evalúan en cada almacén.</p></div><a class="admin-btn admin-btn--secondary" href="<?= $esc($catalogoUrl) ?>"><?php echo admin_icon('editar'); ?> Catálogo de artículos</a></div>
     <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-filters"><?php $seleccionOculta(); ?>
       <div class="admin-field"><label for="almacenes-q">Buscar artículo</label><input id="almacenes-q" name="q" type="search" maxlength="120" placeholder="Nombre del artículo…" value="<?php echo $esc($filtros['q']??''); ?>"></div>
       <label class="almacen-alert-filter"><input type="checkbox" name="solo_alertas" value="1" <?php echo !empty($filtros['solo_alertas'])?'checked':''; ?>> Solo bajo mínimo</label>
@@ -90,7 +91,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <p class="almacen-modal__intro">Registra la operación en un único almacén de <?php echo $esc($nombreContexto); ?>.</p>
     <label class="admin-field" for="destino-<?php echo (int)$i['articulo_id']; ?>">Almacén físico<select id="destino-<?php echo (int)$i['articulo_id']; ?>" data-warehouse-picker><?php if(count($operables)>1): ?><option value="">Elige un almacén físico</option><?php endif; ?><?php foreach($operables as $asociacion): ?><option value="<?php echo $asociacion['almacen_id']; ?>"><?php echo $esc($asociacion['nombre']); ?></option><?php endforeach; ?></select></label>
     <?php foreach($operables as $n=>$asociacion): ?><div data-warehouse-panel="<?php echo $asociacion['almacen_id']; ?>" <?php echo count($operables)>1||$n?'hidden':''; ?>><p class="almacen-modal__balance"><?php echo $esc($asociacion['nombre'].' · Saldo '.$asociacion['saldo'].' '.$i['unidad']); ?></p><?php include __DIR__.'/_asociacion.php'; ?></div><?php endforeach;$modalFin();endforeach; ?>
-  <?php if($puedeNuevoArticulo): $modalInicio('almacen-nuevo-articulo','Nuevo artículo inventariable'); include __DIR__.'/_nuevo-articulo.php';$modalFin();endif; ?>
+
   <?php if($puedeEditar&&$activos): $modalInicio('almacen-elegir-entrada','Registrar entrada'); ?>
     <p>Elige el artículo y después un único almacén físico propio. Usa la búsqueda de existencias para encontrar otros artículos.</p>
     <div class="almacen-entry-picker"><?php foreach($articulos as $i): if(!(int)$i['activo'])continue;$operable=false;foreach($i['ambitos'] as $ambito)if($ambito['slug']===$ctx)foreach($ambito['almacenes'] as $asoc)if($asoc['activo']&&$asoc['asociacion_activa'])$operable=true;if(!$operable)continue; ?>
@@ -98,7 +99,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <?php endforeach; ?></div>
   <?php $modalFin();endif; ?>
   <?php $modalInicio('almacen-config','Almacenes físicos');$filasAlmacen=$almacenes['almacenes']??[];include __DIR__.'/_almacenes.php';$modalFin(); ?>
-  <?php if($ctx==='global'): $modalInicio('almacen-catalogo','Catálogo maestro');include __DIR__.'/_catalogo.php';$modalFin();endif; ?>
+
   <?php if($puedeEditar&&$activos): $modalInicio('almacen-asociar','Asociar artículo existente'); ?>
     <p>La asociación comienza sin saldo. Después puedes registrar una entrada.</p>
     <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid"><?php $campos('asociar'); ?>

@@ -30,12 +30,48 @@ final class AdminArticulosController
         $ctx=C::slug();C::exigir('productos','ver',$ctx);
         $q=is_string($_GET['q']??null)?trim($_GET['q']):'';
         $pagina=filter_var($_GET['pagina']??1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:1;
+        $estado=is_string($_GET['estado']??null)?$_GET['estado']:'todos';
         $alertas=[];
         if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
             if(!self::csrf())return;
             try{$sub=filter_var($_POST['subreceta_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$art=filter_var($_POST['articulo_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$sub||!$art)throw new InventarioError('REFERENCIA_INVALIDA','Elige la preparación y el artículo.');$r=A::vincularPreparacion($ctx,$sub,$art,($_POST['confirmar']??'')==='1');self::resultado($r);$_SESSION['_m2_resultado'][A::base($ctx).'/editar:'.$r['articulo_id']]='Preparación vinculada correctamente.';header('Location: '.self::conRetorno(A::base($ctx).'/editar?id='.$r['articulo_id'].'&guardado=1'),true,303);return;}catch(\Throwable $e){http_response_code(422);$alertas['error'][]= $e instanceof InventarioError?self::mensaje($e):'No se pudo asociar la preparación. Revisa las identidades.';}
         }
-        self::render('articulos',A::catalogo($ctx,$q,$pagina)+['q'=>$q,'pendientes'=>A::preparacionesPendientes($ctx),'alertas'=>$alertas]+self::opciones($ctx));
+        self::render('articulos',A::catalogo($ctx,$q,$pagina,$estado)+['q'=>$q,'estado'=>$estado,'pendientes'=>A::preparacionesPendientes($ctx),'alertas'=>$alertas]+self::opcionesPendientes($ctx));
+    }
+    private static function opcionesPendientes(string $ctx): array
+    {
+        return A::preparacionesPendientes($ctx)?['opcionesArticulos'=>A::sql('SELECT id,nombre,unidad FROM ingredientes ORDER BY nombre,id')->get_result()->fetch_all(MYSQLI_ASSOC)]:['opcionesArticulos'=>[]];
+    }
+    /** Superficie persistente del mismo maestro; el escritor sigue siendo Almacenes. */
+    public static function catalogoMaestro(Router $router): void
+    {
+        try{self::maestro($router);}catch(\Throwable $e){http_response_code($e instanceof InventarioError?($e->codigo==='ARTICULO_INVALIDO'?404:(in_array($e->codigo,['ID_INVALIDO','FILTRO_INVALIDO'],true)?400:403)):500);self::errorVista($e instanceof InventarioError?$e->getMessage():'No se pudo cargar el catálogo.');}
+    }
+    private static function maestro(Router $router): void
+    {
+        $ctx=C::slug();C::exigir('inventario','ver',$ctx);
+        $base=AdminAlmacenesController::base($ctx).'/catalogo';$ruta=(string)($_SERVER['PATH_INFO']??'');
+        $nuevo=str_ends_with($ruta,'/nuevo');$ficha=$nuevo||str_ends_with($ruta,'/editar');
+        $perfil=C::exigir('inventario','ver',$ctx);$fac=$perfil['ambitos']['global']['facultades']??[];
+        $alta=Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$fac,true);
+        $editar=$ctx==='global'&&$alta;if($nuevo&&!$alta){http_response_code(403);self::errorVista('El alta requiere edición de Almacenes y la facultad de catálogo Global.');return;}$volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+        $alertas=($_SERVER['REQUEST_METHOD']??'GET')==='GET'?($_SESSION['_almacenes_flash'][$ctx]??[]):[];unset($_SESSION['_almacenes_flash'][$ctx]);$mensaje=null;$id=$nuevo?0:($ficha?self::id():0);
+        $datos=['nombre'=>'','unidad'=>'g','costo'=>'0.0000','activo'=>1];
+        if($id){$datos=A::sql('SELECT id,nombre,unidad,activo'.($ctx==='global'?',costo':'').' FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();if(!$datos)throw new InventarioError('ARTICULO_INVALIDO','El artículo no existe.');}
+        if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
+            if(!$ficha){http_response_code(405);return;}
+            if(!self::csrf())return;
+            if(!($nuevo?$alta:$editar)){http_response_code(403);self::errorVista('No tienes autorización para modificar la identidad maestra.');return;}
+            $datos=array_intersect_key($_POST,array_flip(['nombre','unidad','costo','activo']));$datos['activo']=isset($_POST['activo'])?1:0;
+            $payload=array_intersect_key($_POST,array_flip(['nombre','unidad','costo','activo']));if($id)$payload['articulo_id']=$id;
+            $servicio=new \Services\Inventory\AdministracionAlmacenes(C::db(),C::actorId(),C::nivelAuth());
+            $r=$servicio->guardar($ctx,$nuevo?'crear_articulo':'editar_articulo',$payload);
+            try{\Services\Inventory\AdministracionAlmacenes::exigirResultado($r);$destino=$base.'/editar?id='.(int)($r['articulo_id']??$id);$_SESSION['_ux4_catalogo'][$ctx.':'.(int)($r['articulo_id']??$id)]=$nuevo?'Artículo creado sin existencias ni asociaciones.':'Identidad maestra guardada.';header('Location: '.$destino.($volver?'&'.http_build_query(['volver'=>$volver]):''),true,303);return;}
+            catch(\Throwable $e){http_response_code(422);$alertas['error'][]=$e->getMessage();}
+        }else{$mensaje=$_SESSION['_ux4_catalogo'][$ctx.':'.$id]??null;unset($_SESSION['_ux4_catalogo'][$ctx.':'.$id]);}
+        $q=is_string($_GET['q']??null)?trim($_GET['q']):'';$pagina=filter_var($_GET['pagina']??1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:1;$estado=is_string($_GET['estado']??null)?$_GET['estado']:'todos';
+        $data=$ficha?['identidad'=>$datos,'nuevo'=>$nuevo,'usos'=>$id?A::usos($ctx,$id):[]]:A::catalogo($ctx,$q,$pagina,$estado)+['q'=>$q,'estado'=>$estado,'pendientes'=>[]];
+        AdminController::render('recetas/'.($ficha?'articulo-identidad':'articulos'),$data+['title'=>$ficha?($nuevo?'Nuevo artículo':'Identidad del artículo'):'Catálogo de artículos','topbarSection'=>'Catálogo de artículos','activeModule'=>'inventario','ctx'=>$ctx,'maestro'=>true,'puedeCrearArticulo'=>$alta,'puedeIdentidad'=>$editar,'puedeProductos'=>Auth::puede('productos','ver',$ctx),'baseArticulos'=>A::base($ctx),'baseCatalogo'=>$base,'baseAlmacenes'=>AdminAlmacenesController::base($ctx),'volverContextual'=>$volver,'csrf'=>self::token($ctx),'alertas'=>$alertas,'mensajeExito'=>$mensaje,'styles'=>['/build/css/admin/recetas.css'],'scripts'=>['/build/js/admin/recipe-builder.js']]);
     }
     public static function ficha(Router $router): void
     {
@@ -63,7 +99,7 @@ final class AdminArticulosController
                 if($accion==='publicar'){$r=A::publicar($ctx,$id,$raw,$revision,self::valor($_POST['clave']??''),($_POST['confirmar']??'')==='1');self::resultado($r);$_SESSION['_m2_resultado'][(string)($_SERVER['PATH_INFO']??'').':'.(string)($_GET['id']??'')]='Cambios confirmados correctamente.';header('Location: '.self::conRetorno(A::base($ctx).'/editar?id='.$id.'&guardado=1'),true,303);return;}
             }catch(\Throwable $e){http_response_code(422);$alertas['error'][]= $e instanceof InventarioError?self::mensaje($e):'No se pudo preparar la elaboración. Revisa los campos y vuelve a intentar.';if(($accion??'')==='configurar'&&isset($datos))$f['configuracion']=array_replace($f['configuracion'],$datos);}
         }
-        self::render('articulo',$f+['raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas,'borradorPendiente'=>(($_SERVER['REQUEST_METHOD']??'GET')==='POST'&&($_POST['accion']??'')!=='configurar')]+self::opciones($ctx));
+        self::render('articulo',$f+['raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas,'usos'=>A::usos($ctx,$id),'borradorPendiente'=>(($_SERVER['REQUEST_METHOD']??'GET')==='POST'&&($_POST['accion']??'')!=='configurar')]+self::opciones($ctx));
     }
     public static function presentacionesGlobal(Router $router): void
     {
@@ -160,6 +196,9 @@ final class AdminArticulosController
         $data['requiereConfiguracionFisica']=isset($data['estadoEfectivo'])&&(int)($data['configuracion']['revision']??0)===0&&!Auth::puede('inventario','editar',$ctx)&&(!empty($data['configuracion']['almacenable'])||!empty($data['configuracion']['produccion_previa'])||!empty($data['configuracion']['costo_conocido']));
         if($data['requiereConfiguracionFisica'])$configurar=false;
         $data['volverContextual']=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+        $data['baseCatalogo']=AdminAlmacenesController::base($ctx).'/catalogo';
+        $data['puedeProductos']=Auth::puede('productos','ver',$ctx);
+        $data['puedeIdentidad']=$ctx==='global'&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$facultades,true);
         $data['puedeCrearArticulo']=Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$facultades,true);
         $comercial=str_starts_with($vista,'presentaciones');
         AdminController::render('recetas/'.$vista,$data+['title'=>$comercial?'Presentaciones':'Artículos y preparaciones','topbarSection'=>($comercial?'Presentaciones':'Artículos y preparaciones').' · '.Contextos::NOMBRES[$ctx],'activeModule'=>$comercial?'menu':'productos','ctx'=>$ctx,'baseArticulos'=>A::base($ctx),'baseAlmacenes'=>AdminAlmacenesController::base($ctx),'puedeEditar'=>$editar&&$global,'puedeConfigurar'=>$configurar,'puedeInventario'=>Auth::puede('inventario','editar',$ctx),'csrf'=>self::token($ctx),'styles'=>['/build/css/admin/recetas.css','/build/css/admin/menu.css'],'scripts'=>['/build/js/admin/recipe-builder.js']]);
@@ -167,7 +206,7 @@ final class AdminArticulosController
     private static function errorVista(string $mensaje): void
     {
         $ctx=C::slug();
-        $volver=$ctx==='global'?'/admin/global/productos':($ctx==='panaderia'?'/admin/panaderia/menu':'/admin/menu');
+        $volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx)??(Auth::puede('inventario','ver',$ctx)?AdminAlmacenesController::base($ctx).'/catalogo':A::base($ctx));
         AdminController::render('recetas/error',['title'=>'No se pudo completar la operación','activeModule'=>'productos','mensaje'=>$mensaje,'volver'=>$volver]);
     }
 }

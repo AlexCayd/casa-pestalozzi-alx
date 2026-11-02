@@ -12,15 +12,42 @@ final class Articulos
         $s=C::db()->prepare($sql); $s->execute($params); return $s;
     }
     public static function base(string $ctx): string { return ($ctx==='restaurante'?'/admin':'/admin/'.$ctx).'/recetas/articulos'; }
-    public static function catalogo(string $ctx,string $q='',int $pagina=1): array
+    public static function catalogo(string $ctx,string $q='',int $pagina=1,string $estado='todos'): array
     {
         C::exigirUno(['productos'=>'ver','inventario'=>'ver'],$ctx);
         if(mb_strlen($q)>120 || $pagina<1 || $pagina>100000)self::error('FILTRO_INVALIDO','Revisa la búsqueda y página.');
+        if(!in_array($estado,['todos','activos','inactivos'],true))self::error('FILTRO_INVALIDO','Selecciona un estado válido.');
+        $condicion=match($estado){'activos'=>' AND activo=1','inactivos'=>' AND activo=0',default=>''};
         $u=C::unidad($ctx);$like='%'.str_replace(['!','%','_'],['!!','!%','!_'],trim($q)).'%';
-        $total=(int)self::sql("SELECT COUNT(*) FROM ingredientes WHERE nombre LIKE ? ESCAPE '!'",[$like])->get_result()->fetch_row()[0];
-        $rows=self::sql("SELECT i.id,i.nombre,i.unidad,i.activo,c.comprable,c.componente,c.elaborable,c.almacenable,c.revision,(SELECT MAX(version) FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND publicada=1) version FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? WHERE i.nombre LIKE ? ESCAPE '!' ORDER BY i.nombre,i.id LIMIT 30 OFFSET ?",[$u,$u,$like,($pagina-1)*30])->get_result()->fetch_all(MYSQLI_ASSOC);
-        foreach($rows as &$row)$row['estadoEfectivo']=self::estadoAdministrativo($ctx,(int)$row['id']);unset($row);
+        $total=(int)self::sql("SELECT COUNT(*) FROM ingredientes WHERE nombre LIKE ? ESCAPE '!'{$condicion}",[$like])->get_result()->fetch_row()[0];
+        $filtro=match($estado){'activos'=>' AND i.activo=1','inactivos'=>' AND i.activo=0',default=>''};
+        $rows=self::sql("SELECT i.id,i.nombre,i.unidad,i.activo,c.comprable,c.componente,c.elaborable,c.almacenable,c.revision,(SELECT MAX(version) FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND publicada=1) version FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? WHERE i.nombre LIKE ? ESCAPE '!'{$filtro} ORDER BY i.nombre,i.id LIMIT 30 OFFSET ?",[$u,$u,$like,($pagina-1)*30])->get_result()->fetch_all(MYSQLI_ASSOC);
+        if($rows){
+            $ids=array_map('intval',array_column($rows,'id'));$in=implode(',',array_fill(0,count($ids),'?'));
+            $efectivos=array_column(self::cargarLote($ids,$u),null,'id');
+            $configuraciones=array_column(self::sql("SELECT * FROM articulo_configuraciones WHERE unidad_id=? AND articulo_id IN ($in)",array_merge([$u],$ids))->get_result()->fetch_all(MYSQLI_ASSOC),null,'articulo_id');
+            $metadatos=array_column(self::sql("SELECT i.id,EXISTS(SELECT 1 FROM articulo_configuraciones c JOIN unidades u ON u.id=c.unidad_id WHERE c.articulo_id=i.id AND u.slug='global') compartida,EXISTS(SELECT 1 FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND r.publicada=1) elaboracion,EXISTS(SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.articulo_id=i.id AND aa.unidad_id=? AND aa.activo=1 AND a.activo=1) asociacion,EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=i.id AND aa.unidad_id=? AND aa.saldo<>0) existencia FROM ingredientes i WHERE i.id IN ($in)",array_merge([$u,$u,$u],$ids))->get_result()->fetch_all(MYSQLI_ASSOC),null,'id');
+            $verFisico=\Classes\Auth::puede('inventario','ver',$ctx);
+            foreach($rows as &$row)$row['estadoEfectivo']=self::proyectarEstado($efectivos[$row['id']],$configuraciones[$row['id']]??null,$metadatos[$row['id']],$verFisico);unset($row);
+        }
         return ['articulos'=>$rows,'total'=>$total,'pagina'=>$pagina,'paginas'=>max(1,(int)ceil($total/30))];
+    }
+    /** Relaciones guardadas, acotadas y autorizadas; no resuelve ni modifica consumo. */
+    public static function usos(string $ctx,int $id): array
+    {
+        C::exigirUno(['productos'=>'ver','inventario'=>'ver'],$ctx);$u=C::unidad($ctx);$out=[];
+        if(\Classes\Auth::puede('productos','ver',$ctx)){
+            $out['elaboraciones']=self::sql("SELECT DISTINCT r.id,r.articulo_id,r.version,i.nombre FROM articulo_receta_componentes c JOIN articulo_recetas r ON r.id=c.receta_id JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE c.articulo_id=? AND r.publicada=1 AND (r.unidad_id=? OR u.slug='global') ORDER BY r.id DESC LIMIT 21",[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            $out['anteriores']=self::sql('SELECT DISTINCT s.id,s.nombre FROM subreceta_ingredientes c JOIN subrecetas s ON s.id=c.subreceta_id AND s.unidad_id=c.unidad_id WHERE c.articulo_id=? AND s.unidad_id=? ORDER BY s.id DESC LIMIT 21',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            if($ctx==='global'&&\Classes\Auth::puede('menu','ver',$ctx))$out['casa']=self::sql('SELECT DISTINCT v.id,v.producto_id,v.version,p.nombre FROM receta_casa_componentes c JOIN receta_casa_versiones v ON v.id=c.version_id JOIN productos p ON p.id=v.producto_id WHERE c.articulo_id=? AND v.publicada=1 ORDER BY v.id DESC LIMIT 21',[$id])->get_result()->fetch_all(MYSQLI_ASSOC);
+            if(\Classes\Auth::puede('menu','ver',$ctx)&&$ctx!=='global'){
+                $out['presentaciones']=self::sql('SELECT DISTINCT p.id,p.oferta_id,p.nombre,v.version FROM presentacion_componentes c JOIN presentacion_versiones v ON v.id=c.version_id JOIN oferta_presentaciones p ON p.id=v.presentacion_id AND p.unidad_id=v.unidad_id WHERE c.articulo_id=? AND p.unidad_id=? AND v.publicada=1 ORDER BY v.version DESC,p.id LIMIT 21',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+                $out['variantes']=self::sql('SELECT DISTINCT v.id,v.oferta_id,v.nombre FROM variante_ajustes a JOIN producto_variantes v ON v.id=a.variante_id AND v.unidad_id=a.unidad_id WHERE (a.articulo_id=? OR a.articulo_nuevo_id=?) AND v.unidad_id=? ORDER BY v.id DESC LIMIT 21',[$id,$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+                $out['recetas']=self::sql('SELECT DISTINCT r.id,r.oferta_id,r.version,p.nombre FROM receta_componentes c LEFT JOIN receta_componentes_articulos ca ON ca.componente_id=c.id JOIN recetas r ON r.id=c.receta_id AND r.unidad_id=c.unidad_id JOIN productos_oferta p ON p.oferta_id=r.oferta_id WHERE (c.articulo_id=? OR ca.articulo_id=?) AND r.unidad_id=? ORDER BY r.version DESC,r.id DESC LIMIT 21',[$id,$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            }
+        }
+        if(\Classes\Auth::puede('inventario','ver',$ctx))$out['asociaciones']=self::sql("SELECT a.id,a.nombre,aa.activo,u.slug FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades u ON u.id=aa.unidad_id WHERE aa.articulo_id=? AND (aa.unidad_id=? OR (?='global' AND u.slug IN('global','restaurante','panaderia'))) ORDER BY a.nombre,a.id LIMIT 21",[$id,$u,$ctx])->get_result()->fetch_all(MYSQLI_ASSOC);
+        return $out;
     }
     public static function ficha(string $ctx,int $id): array
     {
@@ -39,6 +66,10 @@ final class Articulos
         $efectivo=self::cargarArticulo($id,$u);if(!$efectivo)self::error('ARTICULO_INVALIDO','El artículo no existe.');
         $c=self::sql('SELECT * FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=?',[$id,$u])->get_result()->fetch_assoc();
         $m=self::sql("SELECT EXISTS(SELECT 1 FROM articulo_configuraciones c JOIN unidades u ON u.id=c.unidad_id WHERE c.articulo_id=? AND u.slug='global') compartida,EXISTS(SELECT 1 FROM articulo_recetas r WHERE r.articulo_id=? AND r.unidad_id=? AND r.publicada=1) elaboracion,EXISTS(SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.articulo_id=? AND aa.unidad_id=? AND aa.activo=1 AND a.activo=1) asociacion,EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=? AND aa.unidad_id=? AND aa.saldo<>0) existencia",[$id,$id,$u,$id,$u,$id,$u])->get_result()->fetch_assoc();
+        return self::proyectarEstado($efectivo,$c?:null,$m,\Classes\Auth::puede('inventario','ver',$ctx));
+    }
+    private static function proyectarEstado(array $efectivo,?array $c,array $m,bool $verFisico): array
+    {
         $configuracion=$c?:['revision'=>0,'comprable'=>0,'componente'=>(int)$efectivo['componente'],'elaborable'=>0,'almacenable'=>(int)$efectivo['almacenable'],'produccion_previa'=>(int)$efectivo['produccion_previa'],'costo_conocido'=>$efectivo['costo']!==null?1:0,'activo'=>(int)$efectivo['activo']];
         $origen=$c?'explicita':($m['compartida']?'compartida':'heredada');
         $estado=$origen;$etiqueta=match($origen){'explicita'=>'Configuración explícita','compartida'=>'Configuración compartida efectiva',default=>'Configuración heredada efectiva'};
@@ -46,7 +77,7 @@ final class Articulos
         if(!$efectivo['activo']||($efectivo['produccion_previa']&&!$efectivo['almacenable'])){$estado='incompatible';$etiqueta='Configuración incompatible';$detalle='El artículo está inactivo o sus capacidades impiden el consumo. Revisa la configuración antes de utilizarlo.';}
         elseif(!empty($configuracion['elaborable'])&&!$m['elaboracion']){$estado='incompleta';$etiqueta='Elaboración pendiente de publicar';$detalle='Habilitar elaboración no publica una receta. Configura y revisa su composición antes de usarla para preparar.';}
         elseif(!$efectivo['componente']&&!$efectivo['almacenable']){$estado='incompleta';$etiqueta='Configuración incompleta';$detalle='No hay una capacidad de consumo habilitada. Revisa los usos que necesita este artículo.';}
-        $fisico=null;if(\Classes\Auth::puede('inventario','ver',$ctx))$fisico=$m['asociacion']?($m['existencia']?'Con asociación y existencias registradas.':'Con asociación física, sin existencias registradas.'):'Sin asociación física activa en este negocio.';
+        $fisico=null;if($verFisico)$fisico=$m['asociacion']?($m['existencia']?'Con asociación y existencias registradas.':'Con asociación física, sin existencias registradas.'):'Sin asociación física activa en este negocio.';
         return compact('configuracion','efectivo','origen','estado','etiqueta','detalle','fisico');
     }
     /** La consulta no resuelve ingredientes actuales ni escribe versiones. */
@@ -78,9 +109,15 @@ final class Articulos
      * comprobó actor/negocio, y limitan a configuración propia o compartida. */
     public static function cargarArticulo(int $id,int $u): ?array
     {
-        $r=self::sql("SELECT i.id,i.nombre,i.unidad,IF(i.activo=1 AND COALESCE(c.activo,g.activo,1)=1,1,0) activo,COALESCE(c.componente,g.componente,1) componente,COALESCE(c.almacenable,g.almacenable,1) almacenable,COALESCE(c.produccion_previa,g.produccion_previa,0) produccion_previa,CASE WHEN COALESCE(c.costo_conocido,g.costo_conocido,IF(i.costo>0,1,0))=1 THEN i.costo ELSE NULL END costo FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? LEFT JOIN articulo_configuraciones g ON g.articulo_id=i.id AND g.unidad_id=(SELECT id FROM unidades WHERE slug='global') WHERE i.id=?",[$u,$id])->get_result()->fetch_assoc();
-        return $r?:null;
+        return self::cargarLote([$id],$u)[0]??null;
     }
+    /** Misma lectura efectiva para ficha y página acotada del catálogo. */
+    private static function cargarLote(array $ids,int $u): array
+    {
+        $in=implode(',',array_fill(0,count($ids),'?'));
+        return self::sql("SELECT i.id,i.nombre,i.unidad,IF(i.activo=1 AND COALESCE(c.activo,g.activo,1)=1,1,0) activo,COALESCE(c.componente,g.componente,1) componente,COALESCE(c.almacenable,g.almacenable,1) almacenable,COALESCE(c.produccion_previa,g.produccion_previa,0) produccion_previa,CASE WHEN COALESCE(c.costo_conocido,g.costo_conocido,IF(i.costo>0,1,0))=1 THEN i.costo ELSE NULL END costo FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? LEFT JOIN articulo_configuraciones g ON g.articulo_id=i.id AND g.unidad_id=(SELECT id FROM unidades WHERE slug='global') WHERE i.id IN ($in)",array_merge([$u],$ids))->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+
     public static function cargarReceta(int $id,int $u): ?array
     {
         $r=self::sql("SELECT r.*,IF(u.slug='global',1,0) global FROM articulo_recetas r JOIN unidades u ON u.id=r.unidad_id WHERE r.id=? AND (r.unidad_id=? OR u.slug='global')",[$id,$u])->get_result()->fetch_assoc();

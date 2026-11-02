@@ -53,6 +53,10 @@ $router = new Router();
 // Almacenes comparte controlador, motor, componentes y permisos por ámbito.
 foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
     $router->get($baseAlmacenes.'/almacenes',[AdminAlmacenesController::class,'index']);
+    foreach(['','/nuevo','/editar'] as $catalogoRuta){
+        $router->get($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
+        $router->post($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
+    }
     $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
 }
 

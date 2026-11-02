@@ -20,6 +20,10 @@ final class AdminAlmacenesController
         $base=self::base($ctx);
         $vista=is_string($_GET['vista']??null)?$_GET['vista']:'existencias';
         if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
+        if($vista==='catalogo'){
+            $q=is_string($_GET['q']??null)?$_GET['q']:'';$volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+            header('Location: '.$base.'/catalogo?'.http_build_query(array_filter(['q'=>$q,'volver'=>$volver])),true,302);return;
+        }
         $filtros=[];
         foreach (['q','negocio','almacen_id','articulo_id','desde','hasta','tipo','pagina','transferencia_pagina'] as $campo) if (isset($_GET[$campo]) && $_GET[$campo]!=='') $filtros[$campo]=$_GET[$campo];
         if(array_key_exists('almacen_ids',$_GET) || isset($_GET['seleccion'])) $filtros['almacen_ids']=$_GET['almacen_ids']??[];

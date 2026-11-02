@@ -1,24 +1,14 @@
 (function () {
     'use strict';
-    var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
-    var composicion = document.querySelector('[data-m2-builder]');
-    if (accionCapacidades && composicion) {
-        var capacidades = accionCapacidades.form;
-        var receta = composicion.closest('form');
-        var inicial = JSON.stringify(Array.from(new FormData(receta).entries()));
-        capacidades.addEventListener('submit', function (event) {
-            if (capacidades.dataset.descarteConfirmado === '1' || (!receta.hasAttribute('data-m2-pendiente') && inicial === JSON.stringify(Array.from(new FormData(receta).entries())))) return;
-            event.preventDefault();
-            if (!window.ConfirmationModal) return;
-            window.ConfirmationModal.get().open({
-                variant: 'warning', eyebrow: 'Cambios pendientes', title: 'La elaboración tiene cambios sin publicar',
-                description: 'Guardar capacidades recarga la ficha y descarta los cambios pendientes de elaboración. Cancela para seguir editándolos.',
-                consequence: 'La receta no se guardará ni publicará al cambiar capacidades.',
-                secondaryLabel: 'Seguir editando', primaryLabel: 'Descartar y guardar capacidades',
-                onPrimary: function () { capacidades.dataset.descarteConfirmado = '1'; capacidades.requestSubmit(); }
-            });
-        });
+    // Los enlaces de origen también pueden apuntar a información plegada.
+    function abrirSeccion() {
+        var id = window.location.hash.slice(1);
+        if (!id) return;
+        var seccion = document.getElementById(id);
+        if (seccion && seccion.tagName === 'DETAILS') seccion.open = true;
     }
+    abrirSeccion();
+    window.addEventListener('hashchange', abrirSeccion);
     document.querySelectorAll('[data-m2-builder]').forEach(function (builder) {
         var rows = builder.querySelector('[data-m2-rows]');
         var template = builder.querySelector('[data-m2-template]');
@@ -66,5 +56,38 @@
         });
         var form = builder.closest('form');
         if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
+    });
+    var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
+    var composicion = document.querySelector('[data-m2-builder]');
+    if (accionCapacidades && composicion) {
+        var capacidades = accionCapacidades.form;
+        var receta = composicion.closest('form');
+        var inicial = JSON.stringify(Array.from(new FormData(receta).entries()));
+        capacidades.addEventListener('submit', function (event) {
+            if (capacidades.dataset.descarteConfirmado === '1' || (!receta.hasAttribute('data-m2-pendiente') && inicial === JSON.stringify(Array.from(new FormData(receta).entries())))) return;
+            event.preventDefault();
+            if (!window.ConfirmationModal) return;
+            window.ConfirmationModal.get().open({
+                variant: 'warning', eyebrow: 'Cambios pendientes', title: 'La elaboración tiene cambios sin publicar',
+                description: 'Guardar capacidades recarga la ficha y descarta los cambios pendientes de elaboración. Cancela para seguir editándolos.',
+                consequence: 'La receta no se guardará ni publicará al cambiar capacidades.',
+                secondaryLabel: 'Seguir editando', primaryLabel: 'Descartar y guardar capacidades',
+                onPrimary: function () { capacidades.dataset.descarteConfirmado = '1'; capacidades.requestSubmit(); }
+            });
+        });
+    }
+    document.querySelectorAll('[data-m2-draft-status]').forEach(function (status) {
+        var form = status.closest('form');
+        var saved = status.textContent;
+        var initial = JSON.stringify(Array.from(new FormData(form).entries()));
+        function markDraft() {
+            status.textContent = form.hasAttribute('data-m2-pendiente') || initial !== JSON.stringify(Array.from(new FormData(form).entries()))
+                ? 'Cambios pendientes de publicar. La revisión no guarda la receta.' : saved;
+        }
+        form.addEventListener('input', markDraft);
+        form.addEventListener('change', markDraft);
+        form.addEventListener('click', function (event) {
+            if (event.target.closest('[data-m2-agregar], [data-m2-quitar]')) window.requestAnimationFrame(markDraft);
+        });
     });
 })();
