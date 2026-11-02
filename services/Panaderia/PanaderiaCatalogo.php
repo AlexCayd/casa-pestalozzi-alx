@@ -16,8 +16,6 @@ namespace Services\Panaderia;
 
 use Model\CategoriasMenu;
 use Services\Menu\Carta;
-use Services\Menu\CartaMultinegocio;
-use Services\Security\ContextoNegocio;
 
 class PanaderiaCatalogo
 {
@@ -32,10 +30,7 @@ class PanaderiaCatalogo
     public static function vitrina(): array
     {
         try {
-            if (!ContextoNegocio::nuevo()) {
-                return [];
-            }
-            $carta = CartaMultinegocio::publicaDe('panaderia', CategoriasMenu::CARTA_COMIDA);
+            $carta = Carta::publicaDe('panaderia', CategoriasMenu::CARTA_COMIDA);
         } catch (\Throwable $e) {
             error_log('PanaderiaCatalogo::vitrina - ' . $e->getMessage());
             return [];

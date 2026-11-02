@@ -39,6 +39,19 @@ class Carta
      * recibiendo lo mismo. Pasar null trae las dos — nadie lo hace hoy, pero
      * es lo que evita que un consumidor futuro invente su propio SQL.
      */
+    /**
+     * La carta pública de un negocio por su slug de `unidades` (la Panadería
+     * lee así su vitrina). Va por aquí y no directo a CartaMultinegocio porque
+     * esa clase vive en este archivo: el autoload sólo la encuentra si Carta ya
+     * se cargó. El esquema legado sólo tiene la carta del Restaurante, así que
+     * para cualquier otro negocio sale vacía.
+     */
+    public static function publicaDe(string $negocio, ?string $carta = CategoriasMenu::CARTA_COMIDA): array
+    {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::publicaDe($negocio, $carta);
+        return $negocio === 'restaurante' ? self::publica($carta) : [];
+    }
+
     public static function publica(?string $carta = CategoriasMenu::CARTA_COMIDA): array
     {
         if (ContextoNegocio::nuevo()) return CartaMultinegocio::publica($carta);

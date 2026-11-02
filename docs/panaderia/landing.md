@@ -63,7 +63,7 @@ copia.
   sabe que cierra a las 7 p.m.), igual que las anticipaciones de los encargos.
 - **Vitrina**: la carta de comida del negocio Panadería («Menú de Panadería»,
   unidad `panaderia`), que se administra en `/admin/panaderia/menu`. La lee
-  `PanaderiaCatalogo::vitrina()` con `CartaMultinegocio::publicaDe('panaderia')`:
+  `PanaderiaCatalogo::vitrina()` con `Carta::publicaDe('panaderia')`:
   una pestaña por categoría con piezas, con la foto de la categoría o
   `panaderia-vitrina.webp`. Sin piezas —o con el esquema legado, que no tiene
   menú de la Panadería— sale una línea y WhatsApp. En el formulario de

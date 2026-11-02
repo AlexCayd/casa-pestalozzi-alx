@@ -60,8 +60,8 @@ $deploy = $leer('database/deploy.sql');
 $assert(str_contains($deploy, "(3,'Panadería','panaderia','negocio')"), 'deploy.sql siembra el negocio Panadería.');
 $assert(str_contains($deploy, "(3,'comida','Menú de Panadería'"), 'La Panadería tiene su carta de comida, que es la vitrina.');
 $catalogo = $leer('services/Panaderia/PanaderiaCatalogo.php');
-$assert(str_contains($catalogo, "CartaMultinegocio::publicaDe('panaderia', CategoriasMenu::CARTA_COMIDA)"), 'La vitrina lee la carta de comida de la Panadería.');
-$assert(str_contains($leer('services/Menu/Carta.php'), 'public static function publicaDe(string $negocio'), 'La carta pública se puede pedir por negocio.');
+$assert(str_contains($catalogo, "Carta::publicaDe('panaderia', CategoriasMenu::CARTA_COMIDA)"), 'La vitrina lee la carta de comida de la Panadería.');
+$assert(substr_count($leer('services/Menu/Carta.php'), 'public static function publicaDe(string $negocio') === 2, 'La carta pública se puede pedir por negocio (Carta y CartaMultinegocio).');
 $assert(str_contains($leer('database/development.sql'), "WHEN 1201 THEN 'build/images/panaderia/bolleria.webp'"), 'Las categorías de muestra de la Panadería traen su foto.');
 foreach (['panes', 'bolleria', 'dulces'] as $foto) {
     $assert(is_file($root . "/assets/images/panaderia/{$foto}.webp"), "La sección {$foto} tiene su propia foto (no una compartida).");
