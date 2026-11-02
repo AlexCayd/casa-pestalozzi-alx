@@ -4,11 +4,13 @@ namespace Controllers;
 
 use MVC\Router;
 use Services\Analytics\ConsultasRapidas;
+use Services\Security\ContextoNegocio;
 
 /**
- * El motor de consultas rápidas, que es lo que responde en el Asistente IA
- * (/admin/ia). Sólo lectura: GET y JSON. /admin/* ya exige rol admin por
- * prefijo en Auth::proteger(), así que no hay guardia propia que añadir.
+ * El motor de consultas rápidas, que es lo que responde en el Asistente IA de
+ * cada ámbito: /admin/ia, /admin/panaderia/ia y /admin/global/ia, cada uno con
+ * su API bajo el mismo prefijo. Sólo lectura: GET y JSON. El ámbito sale de la
+ * ruta; Auth::proteger() ya exigió el módulo y aquí se vuelve a comprobar.
  */
 class AdminConsultasController
 {
@@ -30,6 +32,14 @@ class AdminConsultasController
         $intencion = self::texto('intencion');
 
         try {
+            self::exigirConsultaNueva();
+            if ($intencion === '' && self::ambitoPropio()) {
+                // Panadería y Global nacieron sin texto libre: sólo preguntas
+                // armadas en el compositor.
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'mensaje' => 'Elige una pregunta de la lista.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
             if ($intencion !== '') {
                 $respuesta = ConsultasRapidas::responderEstructurada(
                     $intencion,
@@ -61,6 +71,7 @@ class AdminConsultasController
     {
         self::cabeceras();
         try {
+            self::exigirConsultaNueva();
             echo json_encode(['ok' => true] + ConsultasRapidas::catalogo(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\Throwable $e) {
             self::fallo('catalogo', $e, 'No fue posible cargar la lista.');
@@ -75,6 +86,7 @@ class AdminConsultasController
     {
         self::cabeceras();
         try {
+            self::exigirConsultaNueva();
             echo json_encode(['ok' => true] + ConsultasRapidas::capacidades(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\Throwable $e) {
             self::fallo('capacidades', $e, 'No fue posible cargar las consultas disponibles.');
@@ -85,6 +97,28 @@ class AdminConsultasController
     {
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
+    }
+
+    /** Panadería y Global: el motor de ConsultasRapidasAmbito. */
+    private static function ambitoPropio(): bool
+    {
+        return ContextoNegocio::nuevo() && ContextoNegocio::slug() !== 'restaurante';
+    }
+
+    private static function exigirConsultaNueva(): void
+    {
+        if (!ContextoNegocio::nuevo()) return;
+        $ctx = ContextoNegocio::slug();
+        // Fuera de Restaurante sólo el Asistente usa estas consultas.
+        if ($ctx !== 'restaurante') {
+            ContextoNegocio::exigir('ia', 'ver', $ctx);
+            return;
+        }
+        foreach (['analytics','ia','menu','inventario','tickets'] as $modulo) {
+            try { ContextoNegocio::exigir($modulo, 'ver', $ctx); return; }
+            catch (\Services\Inventory\InventarioError $e) { if (!in_array($e->codigo, ['PERMISO_DENEGADO','MODULO_NO_DISPONIBLE'], true)) throw $e; }
+        }
+        throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO', 'No tienes permiso para consultar datos del restaurante.');
     }
 
     private static function texto(string $clave): string
@@ -102,7 +136,7 @@ class AdminConsultasController
     private static function fallo(string $metodo, \Throwable $e, string $mensaje): void
     {
         error_log('AdminConsultasController::' . $metodo . ' - ' . $e->getMessage());
-        http_response_code(500);
+        http_response_code($e instanceof \Services\Inventory\InventarioError && in_array($e->codigo, ['PERMISO_DENEGADO','AMBITO_DENEGADO','AMBITO_NO_DISPONIBLE'], true) ? 403 : 500);
         echo json_encode(['ok' => false, 'mensaje' => $mensaje], JSON_UNESCAPED_UNICODE);
     }
 }

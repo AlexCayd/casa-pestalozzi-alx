@@ -8,7 +8,7 @@ namespace Model;
  * `ruta_origen` es lo que hace útil el módulo: guarda la pantalla exacta desde
  * donde se reportó, para poder abrirla y reproducir el fallo sin adivinar.
  */
-class ReporteSistema extends ActiveRecord
+class ReporteSistema extends RegistroRestaurante
 {
     protected static $tabla = 'reportes_sistema';
 
@@ -49,7 +49,7 @@ class ReporteSistema extends ActiveRecord
         $limite = max(1, min($limite, 500));
 
         return self::consultarSQL(
-            "SELECT * FROM " . static::$tabla . " ORDER BY created_at DESC, id DESC LIMIT {$limite}"
+            "SELECT * FROM " . static::$tabla . " WHERE 1=1" . static::filtroUnidad() . " ORDER BY created_at DESC, id DESC LIMIT {$limite}"
         );
     }
 }

@@ -70,6 +70,7 @@ const paths = {
     // dependencia — igual que con sankey.js y finanzas.js.
     "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
+    "src/js/admin/core/contextos.js",
     "src/js/admin/core/theme.js",
     // La llegada tras el login. Vive en components/ porque también la necesitan
     // el POS y los tableros, que la reciben por bundle.min.js (glob general);
@@ -103,6 +104,9 @@ const paths = {
     "src/js/admin/analytics/nivel1.js",
     "src/js/admin/analytics/analytics-page.js",
     "src/js/admin/analytics/analytics.js",
+    // Global (views/admin/analytics-global.php): se monta sólo si su raíz
+    // está en la página, así que no toca a Restaurante ni a Panadería.
+    "src/js/admin/analytics/analytics-global.js",
   ],
   adminMapJs: [
     // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que
@@ -136,6 +140,7 @@ const paths = {
   // admin.js, que el layout carga antes que cualquier bundle de módulo.
   adminReservationEstrategiaJs: "src/js/admin/reservations/estrategia.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
+  adminUsersDirectosJs: "src/js/admin/users-directos.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
@@ -334,6 +339,10 @@ function adminRecetasJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminCasaJavascript() {
+  return src('src/js/admin/menu/casa.js').pipe(sourcemaps.init()).pipe(concat('casa.js')).pipe(terser()).pipe(sourcemaps.write('.')).pipe(dest('./public/build/js/admin'));
+}
+
 function adminInventarioJavascript() {
   return src(paths.adminInventarioJs)
     .pipe(sourcemaps.init())
@@ -365,6 +374,15 @@ function adminUsersJavascript() {
   return src(paths.adminUsersJs)
     .pipe(sourcemaps.init())
     .pipe(concat("users.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminUsersDirectosJavascript() {
+  return src(paths.adminUsersDirectosJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("users-directos.js"))
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
@@ -496,6 +514,11 @@ function copyImages() {
   return src("assets/images/**/*").pipe(dest("public/build/images"));
 }
 
+// El menú preservado se publica sin recomprimir sus archivos verificados.
+function copyMenuImages() {
+  return src("src/images/menu-preservado/*.webp").pipe(dest("public/build/images"));
+}
+
 // Variantes de 720 px de las fotos grandes, para el `srcset` de la landing
 // (srcsetImagen() en includes/funciones.php, que sólo lo emite si la variante
 // existe). Las fotos vienen a ~1170 px: bien para un escritorio retina, pero un
@@ -570,6 +593,7 @@ function devWatch(done) {
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/reservations/estrategia.js", adminReservationEstrategiaJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
+  watch(paths.adminUsersDirectosJs, adminUsersDirectosJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
@@ -612,9 +636,11 @@ exports.adminAreaJs = adminAreaJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
+exports.adminCasaJs = adminCasaJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminReservationEstrategiaJs = adminReservationEstrategiaJavascript;
 exports.adminUsersJs = adminUsersJavascript;
+exports.adminUsersDirectosJs = adminUsersDirectosJavascript;
 exports.adminCatasJs = adminCatasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
@@ -652,9 +678,11 @@ exports.dev = parallel(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
+  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
+  adminUsersDirectosJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
@@ -667,6 +695,7 @@ exports.dev = parallel(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   devWatch,
 );
 
@@ -690,9 +719,11 @@ exports.build = series(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
+  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
+  adminUsersDirectosJavascript,
   adminCatasJavascript,
   adminReservationFormJavascript,
   adminConfigurationJavascript,
@@ -710,5 +741,8 @@ exports.build = series(
   copyVendorFonts,
   copyFonts,
   copyImages,
+  copyMenuImages,
   imagenesResponsivas,
 );
+
+exports.menuImages = copyMenuImages;

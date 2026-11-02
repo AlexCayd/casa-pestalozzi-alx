@@ -10,7 +10,7 @@
 
 namespace Model;
 
-class ReservacionReubicacion extends ActiveRecord
+class ReservacionReubicacion extends RegistroRestaurante
 {
     public const MOTIVO_BLOQUE_EXTERIOR = 'bloque_exterior';
     /** Su mesa seguía con un ticket abierto cuando la reserva estaba por llegar. */
@@ -50,10 +50,12 @@ class ReservacionReubicacion extends ActiveRecord
         array $despues,
         string $motivo = self::MOTIVO_BLOQUE_EXTERIOR
     ): int {
+        $unidadSql = \Services\Security\ContextoNegocio::nuevo() ? 'unidad_id, ' : '';
+        $unidadValor = \Services\Security\ContextoNegocio::nuevo() ? static::unidadRestaurante() . ', ' : '';
         $stmt = self::$db->prepare(
-            'INSERT INTO reservacion_reubicaciones
-               (reservacion_id, causa_reservacion_id, motivo, mesas_antes, mesas_despues)
-             VALUES (?, ?, ?, ?, ?)'
+            "INSERT INTO reservacion_reubicaciones
+               ({$unidadSql}reservacion_id, causa_reservacion_id, motivo, mesas_antes, mesas_despues)
+             VALUES ({$unidadValor}?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro de la reubicación.');
@@ -81,7 +83,7 @@ class ReservacionReubicacion extends ActiveRecord
             'SELECT rr.id, rr.reservacion_id, rr.causa_reservacion_id, rr.mesas_antes, rr.mesas_despues,
                     rr.revisada_at, rr.created_at
                FROM reservacion_reubicaciones rr
-              WHERE rr.id = ' . $id . ' LIMIT 1'
+              WHERE rr.id = ' . $id . self::filtroUnidad('rr') . ' LIMIT 1'
         );
         if ($resultado === false) {
             throw new \RuntimeException(self::$db->error);
@@ -123,8 +125,9 @@ class ReservacionReubicacion extends ActiveRecord
                FROM reservacion_reubicaciones rr
                JOIN (SELECT reservacion_id, MAX(id) AS ultima
                        FROM reservacion_reubicaciones
-                      WHERE reservacion_id IN (' . implode(',', $ids) . ')
+                      WHERE reservacion_id IN (' . implode(',', $ids) . ')' . self::filtroUnidad() . '
                       GROUP BY reservacion_id) u ON u.ultima = rr.id'
+                      . self::filtroUnidad('rr')
         );
         if ($resultado === false) {
             throw new \RuntimeException(self::$db->error);
@@ -152,7 +155,7 @@ class ReservacionReubicacion extends ActiveRecord
         $stmt = self::$db->prepare(
             'UPDATE reservacion_reubicaciones
                 SET revisada_at = CURRENT_TIMESTAMP, revisada_por = ?
-              WHERE id = ? AND revisada_at IS NULL'
+              WHERE id = ? AND revisada_at IS NULL' . self::filtroUnidad()
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la revisión de la reubicación.');

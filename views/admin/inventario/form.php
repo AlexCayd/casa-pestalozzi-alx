@@ -3,6 +3,9 @@
     $unidades = isset($unidades) && is_iterable($unidades) ? $unidades : ['g', 'kg', 'ml', 'l', 'pza'];
     $accion = $accion ?? 'Guardar';
     $ing = $ingrediente ?? null;
+    $nuevo = (bool)($nuevo ?? false);
+    $catalogoArticulos = $catalogoArticulos ?? [];
+    $almacenesLocales = $almacenesLocales ?? [];
     // Llega con ?pendiente= cuando se viene de una lista de pendientes: volver
     // y cancelar regresan a esa lista, no al inventario sin filtro.
     $volverUrl = (string) ($volverUrl ?? '/admin/inventario');
@@ -12,7 +15,7 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Inventario</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Ingrediente'); ?></h2>
-            <p class="admin-page__subtitle">Define el ingrediente y sus existencias actuales.</p>
+            <p class="admin-page__subtitle"><?php echo $nuevo ? 'Configura la asociación del artículo con un almacén del Restaurante.' : 'Define el ingrediente y sus existencias actuales.'; ?></p>
         </div>
         <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverUrl, ENT_QUOTES, 'UTF-8'); ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
@@ -23,7 +26,40 @@
     <section class="admin-panel admin-card">
         <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
+        <?php if ($nuevo && !empty($edicionAsociacion)) : ?>
+        <form method="GET" action="/admin/inventario/edit" class="admin-form-grid">
+            <input type="hidden" name="id" value="<?php echo (int)$ing->id; ?>">
+            <div class="admin-field">
+                <label class="admin-field__label" for="almacen-vista">Ver otra asociación</label>
+                <select id="almacen-vista" name="almacen_id" required>
+                    <?php foreach ($almacenesLocales as $almacen) : ?><option value="<?php echo (int)$almacen['almacen_id']; ?>" <?php echo (int)($almacenId??0)===(int)$almacen['almacen_id']?'selected':''; ?>><?php echo htmlspecialchars($almacen['nombre']); ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div class="admin-form-grid__actions"><button type="submit" class="admin-btn admin-btn--secondary">Cargar asociación</button></div>
+        </form>
+        <?php endif; ?>
+
         <form class="admin-form-grid" method="POST">
+            <?php if ($nuevo && empty($edicionAsociacion)) : ?>
+            <div class="admin-field admin-form-grid__full">
+                <label class="admin-field__label" for="articulo_id">Artículo del catálogo compartido</label>
+                <select id="articulo_id" name="articulo_id" required>
+                    <option value="">Elige un artículo existente</option>
+                    <?php foreach ($catalogoArticulos as $articulo) : ?>
+                        <?php if ((int)$articulo->activo === 1) : ?>
+                        <option value="<?php echo (int)$articulo->id; ?>" <?php echo (int)($ing->articulo_id??0)===(int)$articulo->id?'selected':''; ?>><?php echo htmlspecialchars($articulo->nombre . ' — ' . $articulo->unidad); ?></option>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </select>
+                <p class="admin-field__hint">El catálogo maestro se administra desde Global. Aquí puedes asociar artículos existentes al almacén local.</p>
+            </div>
+            <?php elseif ($nuevo) : ?>
+            <div class="admin-field admin-form-grid__full">
+                <span class="admin-field__label">Artículo compartido</span>
+                <p><?php echo htmlspecialchars($ing->nombre . ' — ' . $ing->unidad); ?></p>
+                <input type="hidden" name="id" value="<?php echo (int)$ing->id; ?>">
+            </div>
+            <?php else : ?>
             <div class="admin-field">
                 <label class="admin-field__label" for="nombre">Nombre del ingrediente</label>
                 <input type="text" id="nombre" name="nombre" maxlength="120" required
@@ -38,13 +74,41 @@
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php endif; ?>
 
+            <?php if ($nuevo) : ?>
+            <div class="admin-field admin-form-grid__full">
+                <?php if (!empty($edicionAsociacion)) : ?>
+                <?php $almacenActual=null; foreach($almacenesLocales as $almacen) if((int)$almacen['almacen_id']===(int)($almacenId??0)) $almacenActual=$almacen; ?>
+                <input type="hidden" name="almacen_id" value="<?php echo (int)($almacenId??0); ?>">
+                <span class="admin-field__label">Almacén del Restaurante</span>
+                <p><?php echo htmlspecialchars((string)($almacenActual['nombre']??'Asociación no disponible')); ?></p>
+                <?php else : ?>
+                <label class="admin-field__label" for="almacen_id">Almacén del Restaurante</label>
+                <select id="almacen_id" name="almacen_id" required>
+                    <option value="">Elige un almacén</option>
+                    <?php foreach ($almacenesLocales as $almacen) : ?>
+                        <option value="<?php echo (int)$almacen['almacen_id']; ?>" <?php echo (int)($almacenId??0)===(int)$almacen['almacen_id']?'selected':''; ?>><?php echo htmlspecialchars($almacen['nombre']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!$nuevo) : ?>
             <div class="admin-field">
                 <label class="admin-field__label" for="stock">Stock actual</label>
                 <input type="number" id="stock" name="stock" step="0.001"
                        value="<?php echo htmlspecialchars((string) ($ing->stock ?? 0)); ?>">
             </div>
+            <?php endif; ?>
 
+            <?php if ($nuevo) : ?>
+            <div class="admin-field">
+                <label class="admin-field__label" for="stock_minimo">Mínimo de esta asociación</label>
+                <input type="number" id="stock_minimo" name="stock_minimo" step="0.001" min="0" value="<?php echo htmlspecialchars((string)($ing->stock_minimo??'0.000')); ?>">
+            </div>
+            <?php else : ?>
             <div class="admin-field">
                 <label class="admin-field__label" for="stock_minimo">Stock mínimo (alerta)</label>
                 <input type="number" id="stock_minimo" name="stock_minimo" step="0.001" min="0"
@@ -70,6 +134,7 @@
                     </p>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
 
             <?php
                 /*
@@ -95,6 +160,7 @@
                         <a href="/admin/inventario/proveedores/create">Crear el primero</a>.
                     </p>
                 <?php else : ?>
+                    <input type="hidden" name="proveedores_presentes" value="1">
                     <table class="admin-table admin-proveedores__table">
                         <thead>
                             <tr>
@@ -138,7 +204,7 @@
                     </table>
 
                     <p class="admin-field__hint" data-proveedores-vacio <?php echo empty($proveedoresAsignados) ? '' : 'hidden'; ?>>
-                        Sin proveedores asignados. El costo de arriba se sigue usando para el COGS.
+                        <?php echo $nuevo ? 'Sin proveedores asignados. Los costos de las ventas se conservan en cada movimiento.' : 'Sin proveedores asignados. El costo de arriba se sigue usando para el COGS.'; ?>
                     </p>
 
                     <?php /* La plantilla vive en el marcado y no en el JS: así el
@@ -169,11 +235,15 @@
                 <?php endif; ?>
             </div>
 
-            <label class="admin-switch admin-form-grid__full">
+            <?php if (!$nuevo) : ?><label class="admin-switch admin-form-grid__full">
                 <input type="checkbox" name="activo" value="1" <?php echo (int) ($ing->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                 <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
                 <span class="admin-switch__label">Ingrediente activo</span>
-            </label>
+            </label><?php elseif (!empty($edicionAsociacion)) : ?><label class="admin-switch admin-form-grid__full">
+                <input type="checkbox" name="asociacion_activa" value="1" <?php echo (int)($ing->activo??1)===1?'checked':''; ?>>
+                <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
+                <span class="admin-switch__label">Asociación activa</span>
+            </label><?php endif; ?>
 
             <div class="admin-form-grid__actions">
                 <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>

@@ -6,10 +6,10 @@ declare(strict_types=1);
  * Contrato de la landing de la panadería (/panaderia).
  *
  * Lo que protege: que la temporada se calcule bien en los cruces de año, que
- * la carta «panadería» exista en el ENUM y en CategoriasMenu y se quede fuera
- * del POS del restaurante, que la ruta, el sitemap, la paleta editable y los
- * datos de contacto estén donde deben, y que los encargos no se queden sin
- * frase. Sólo lee archivos y llama servicios puros; no toca la base.
+ * la vitrina lea el menú del negocio Panadería (y no una carta del
+ * Restaurante), que la ruta, las subrutas del andamio, el sitemap, la paleta
+ * editable y los datos de contacto estén donde deben, y que los encargos no se
+ * queden sin frase. Sólo lee archivos y llama servicios puros; no toca la base.
  */
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -54,16 +54,17 @@ foreach (Temporadas::PANES as $pan) {
     $assert(($pan['frase'] ?? '') !== '' && ($pan['descripcion'] ?? '') !== '', "{$pan['nombre']} tiene descripción y frase para WhatsApp.");
 }
 
-// 2 · La carta «panadería»: ENUM, CategoriasMenu, semillas, POS y PDF.
-$ddl = $leer('database/ddl.sql');
-$assert(str_contains($ddl, "ENUM('comida','maridaje','temporada','panaderia')"), 'El ENUM de categorias.carta incluye panaderia.');
-$assert(isset(CategoriasMenu::CARTAS[CategoriasMenu::CARTA_PANADERIA]), 'CategoriasMenu::CARTAS tiene la carta de la panadería.');
-$assert(!in_array(CategoriasMenu::CARTA_PANADERIA, CategoriasMenu::CARTAS_IMPRESAS, true), 'La vitrina de la panadería no se imprime.');
-$assert(str_contains($leer('database/deploy.sql'), "(16, 'Panes',     'panaderia'"), 'deploy.sql siembra las categorías de la panadería.');
-$assert(str_contains($leer('services/Menu/Carta.php'), "AND c.carta <> '\" . CategoriasMenu::CARTA_PANADERIA . \"'"), 'Carta::paraPos() deja fuera el pan de la panadería.');
-$assert(str_contains($leer('database/development.sql'), "AND c.carta <> 'panaderia'"), 'El bloque 6 no vende pan de la panadería en tickets del restaurante.');
+// 2 · La vitrina es el menú del negocio Panadería, no una carta del Restaurante.
+$assert(!isset(CategoriasMenu::CARTAS['panaderia']), 'Las cartas del Restaurante no incluyen una de la panadería: la Panadería tiene su propio menú.');
+$deploy = $leer('database/deploy.sql');
+$assert(str_contains($deploy, "(3,'Panadería','panaderia','negocio')"), 'deploy.sql siembra el negocio Panadería.');
+$assert(str_contains($deploy, "(3,'comida','Menú de Panadería'"), 'La Panadería tiene su carta de comida, que es la vitrina.');
+$catalogo = $leer('services/Panaderia/PanaderiaCatalogo.php');
+$assert(str_contains($catalogo, "CartaMultinegocio::publicaDe('panaderia', CategoriasMenu::CARTA_COMIDA)"), 'La vitrina lee la carta de comida de la Panadería.');
+$assert(str_contains($leer('services/Menu/Carta.php'), 'public static function publicaDe(string $negocio'), 'La carta pública se puede pedir por negocio.');
+$assert(str_contains($leer('database/development.sql'), "WHEN 1201 THEN 'build/images/panaderia/bolleria.webp'"), 'Las categorías de muestra de la Panadería traen su foto.');
 foreach (['panes', 'bolleria', 'dulces'] as $foto) {
-    $assert(is_file($root . "/assets/images/panaderia/{$foto}.webp"), "La categoría {$foto} tiene su propia foto (no una compartida).");
+    $assert(is_file($root . "/assets/images/panaderia/{$foto}.webp"), "La sección {$foto} tiene su propia foto (no una compartida).");
 }
 
 // 3 · Contacto: la panadería tiene sus datos, y no son los del restaurante.
@@ -80,7 +81,12 @@ $assert(count(PanaderiaConfig::ENCARGOS) % 3 === 0, 'Los grupos de encargos llen
 $assert(str_contains(PanaderiaConfig::lineaDeHoy($dia('2026-10-23')), 'Hoy abrimos de 7:30'), 'La línea de hoy se dice en palabras y sin el cero delante.');
 
 // 4 · Ruta, sitemap, paleta y orden de las bandas.
-$assert(str_contains($leer('public/index.php'), "\$router->get('/panaderia', [PanaderiaController::class, 'index']);"), 'La ruta /panaderia está registrada.');
+$rutas = $leer('public/index.php');
+$assert(str_contains($rutas, "\$router->get('/panaderia', [PanaderiaController::class, 'index']);"), 'La ruta /panaderia está registrada.');
+$assert(str_contains($rutas, 'use Controllers\Panaderia\PanaderiaController;'), 'La ruta usa el controlador de la capa de la panadería.');
+foreach (['carta' => 'vitrina', 'pedidos' => 'encargos', 'nosotros' => 'portada', 'contacto' => 'visitanos'] as $sub => $ancla) {
+    $assert(str_contains($rutas, "'/panaderia/{$sub}'") && str_contains($rutas, "'/panaderia#{$ancla}'"), "/panaderia/{$sub} lleva a #{$ancla}.");
+}
 $assert(str_contains($leer('controllers/SeoController.php'), "\$base . '/panaderia'"), '/panaderia está en el sitemap.');
 $vista = $leer('views/panaderia/index.php');
 $css = strpos($vista, '/build/css/panaderia.css');

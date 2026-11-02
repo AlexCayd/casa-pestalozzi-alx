@@ -8,7 +8,7 @@ final class FechaOperacionLock
 
     public static function adquirir(\mysqli $db, string $fecha, int $timeoutSeconds = 5): bool
     {
-        $nombre = self::nombre($fecha);
+        $nombre = self::nombre($db,$fecha);
         $timeoutSeconds = max(0, min(30, $timeoutSeconds));
         $stmt = $db->prepare('SELECT GET_LOCK(?, ?) AS adquirido');
         if (!$stmt) {
@@ -29,7 +29,7 @@ final class FechaOperacionLock
 
     public static function liberar(\mysqli $db, string $fecha): void
     {
-        $nombre = self::nombre($fecha);
+        $nombre = self::nombre($db,$fecha);
         $stmt = $db->prepare('SELECT RELEASE_LOCK(?)');
         if (!$stmt) {
             return;
@@ -39,8 +39,12 @@ final class FechaOperacionLock
         $stmt->close();
     }
 
-    private static function nombre(string $fecha): string
+    private static function nombre(\mysqli $db,string $fecha): string
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $base=(string)$db->query('SELECT DATABASE()')->fetch_row()[0];
+            return self::PREFIX.substr(hash('sha256',$base.'|restaurante|'.trim($fecha)),0,32);
+        }
         return self::PREFIX . substr(hash('sha256', trim($fecha)), 0, 32);
     }
 }

@@ -17,6 +17,7 @@ use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminInventarioController;
+use Controllers\AdminAlmacenesController;
 use Controllers\AdminRecetasController;
 use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
@@ -25,6 +26,7 @@ use Controllers\AdminReservacionEstrategiaController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\AdminCataController;
 use Controllers\AdminUsersController;
+use Controllers\AdminUsuariosAmbitosController;
 use Controllers\AdminIaController;
 use Controllers\AuthController;
 use Controllers\HomeController;
@@ -47,6 +49,12 @@ $router = new Router();
 // del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
 // admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
+
+// Almacenes comparte controlador, motor, componentes y permisos por ámbito.
+foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
+    $router->get($baseAlmacenes.'/almacenes',[AdminAlmacenesController::class,'index']);
+    $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
+}
 
 // Home
 $router->get('/', [HomeController::class, 'index']);
@@ -72,10 +80,6 @@ $router->post('/api/reservaciones/contacto/estado', [ReservacionController::clas
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
-$router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
-$router->get('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
-$router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
-$router->post('/api/reservaciones/cambio-horario/cancelar', [ScheduleChangeAccessController::class, 'cancelar']);
 $router->get('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
@@ -83,6 +87,9 @@ $router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAcc
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/reclamar', [N8nReservationsController::class, 'reclamarRecordatorio']);
 $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
+// Áreas de mejora generadas por n8n. Exige JWT como toda /api/integraciones/*
+// (Permisos::INTEGRACIONES); antes era /api/feedback-n8n, con secreto opcional.
+$router->post('/api/integraciones/n8n/feedback/areas-mejora', [FeedbackController::class, 'recibirN8n']);
 
 // Catas y catering ya no tienen endpoints públicos. Eran los dos únicos
 // formularios anónimos de la landing —sin OTP, frenados sólo por CSRF de sesión,
@@ -90,11 +97,63 @@ $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8
 // agenda de catas se imprime en el servidor y el catering se cotiza conversando.
 
 // Admin
+$router->get('/admin/contexto', [\Controllers\AdminContextosController::class, 'cambiar']);
+$router->get('/admin/global', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/global/catalogo', static function ($router) { header('Location: /admin/global/almacenes?vista=catalogo',true,302); });
+$router->get('/admin/global/inventario', static function ($router) { header('Location: /admin/global/almacenes',true,302); });
+$router->get('/admin/global/configuracion', [\Controllers\AdminContextosController::class, 'pagina']);
+if (!\Classes\Auth::multinegocio()) {
+    $router->get('/admin/global/usuarios', [\Controllers\AdminContextosController::class, 'pagina']);
+}
+$router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
+// M1: un único controlador comercial para ambas unidades vendedoras.
+foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
+    $router->get('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
+}
+foreach (['create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
+    $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
+}
+$router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
+$router->get('/admin/global/menus', [AdminMenuController::class,'biblioteca']);
+foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','maridaje'],'panaderia'=>['panaderia','comida']] as $segmento=>$documento) {
+    $router->get('/admin/global/menus/'.$segmento,static function($router)use($documento):void { \Services\Menu\MenuPdf::streamAdministrativo($documento[0],$documento[1]); });
+}
+$router->get('/admin/global/productos', [AdminMenuController::class, 'globalIndex']);
+$router->get('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
+$router->post('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
+$router->get('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->post('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->get('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->post('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
+$router->get('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
+$router->get('/admin/global/productos/recetario', [\Controllers\AdminProductosCasaController::class, 'recetario']);
+$router->post('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
+$router->get('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->post('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->get('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->post('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
+$router->get('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
+$router->post('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
+$router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/inventario', static function ($router) { header('Location: /admin/panaderia/almacenes',true,302); });
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
-// Sólo la vista: el navegador habla directo con n8n (IA_N8N_WEBHOOK_URL).
+// Panadería tiene su análisis (ventas en caja, mapa de calor de venta) y su
+// tabla de horas; Global, el comparativo de los dos negocios.
+$router->get('/admin/panaderia/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/panaderia/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
+$router->get('/admin/global/analytics', [AdminController::class, 'analytics']);
+// El Asistente IA y su API, una pareja por ámbito: el prefijo es lo que
+// decide de qué negocio son los datos (ConsultasRapidasAmbito para Panadería y
+// Global).
 $router->get('/admin/ia', [AdminIaController::class, 'index']);
+foreach (['/admin/panaderia', '/admin/global'] as $baseIa) {
+    $router->get($baseIa.'/ia', [AdminIaController::class, 'index']);
+    $router->get($baseIa.'/api/consultas', [AdminConsultasController::class, 'consultar']);
+    $router->get($baseIa.'/api/consultas/catalogo', [AdminConsultasController::class, 'catalogo']);
+    $router->get($baseIa.'/api/consultas/capacidades', [AdminConsultasController::class, 'capacidades']);
+}
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
@@ -106,7 +165,6 @@ $router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigur
 $router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);
 $router->get('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiObtenerHorarios']);
 $router->post('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiGuardarHorarios']);
-$router->post('/api/configuracion/horarios/especiales', [AdminConfigurationController::class, 'apiGuardarEspecial']);
 $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiGuardarExcepcion']);
 $router->post('/api/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'apiCambiarEstadoExcepcion']);
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
@@ -125,6 +183,7 @@ $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, '
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::class, 'guardarBarras']);
+$router->post('/admin/configuracion/pos/turnos', [AdminConfigurationController::class, 'guardarTurnos']);
 $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 $router->get('/admin/configuracion/areas', [AdminConfigurationController::class, 'areas']);
@@ -225,19 +284,13 @@ $router->get('/admin/api/historial-precios', [AdminInventarioController::class, 
 $router->get('/admin/recetas',                       [AdminRecetasController::class, 'index']);
 $router->get('/admin/recetas/editar',                [AdminRecetasController::class, 'receta']);
 $router->post('/admin/recetas/editar',               [AdminRecetasController::class, 'receta']);
+$router->post('/admin/recetas/almacenes',            [AdminRecetasController::class, 'almacenes']);
 $router->get('/admin/recetas/subrecetas',            [AdminRecetasController::class, 'subrecetas']);
 $router->get('/admin/recetas/subrecetas/create',     [AdminRecetasController::class, 'subrecetaCreate']);
 $router->post('/admin/recetas/subrecetas/create',    [AdminRecetasController::class, 'subrecetaCreate']);
 $router->get('/admin/recetas/subrecetas/edit',       [AdminRecetasController::class, 'subrecetaEdit']);
 $router->post('/admin/recetas/subrecetas/edit',      [AdminRecetasController::class, 'subrecetaEdit']);
 $router->post('/admin/recetas/subrecetas/delete',    [AdminRecetasController::class, 'subrecetaDelete']);
-// Subrecetas por lote: producir (descuenta ingredientes y suma existencia),
-// corregir la existencia tras contarla y registrar su merma. Mismo módulo
-// (`productos`) por el prefijo /admin/recetas de Permisos::RUTAS.
-$router->get('/admin/recetas/subrecetas/producir',   [AdminRecetasController::class, 'producir']);
-$router->post('/admin/recetas/subrecetas/producir',  [AdminRecetasController::class, 'producir']);
-$router->post('/admin/recetas/subrecetas/ajustar',   [AdminRecetasController::class, 'ajustarSubreceta']);
-$router->post('/admin/recetas/subrecetas/merma',     [AdminRecetasController::class, 'mermaSubreceta']);
 
 /*
  * Redirecciones 301 de las rutas previas a la fusión menu+productos (2026-07).
@@ -284,6 +337,12 @@ $router->get('/admin/reservations/development-tools', $redir301('/admin/reservac
 $router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);
 $router->post('/admin/finanzas/gasto/guardar',   [AdminFinanzasController::class, 'guardarGasto']);
 $router->post('/admin/finanzas/gasto/eliminar',  [AdminFinanzasController::class, 'eliminarGasto']);
+// Panadería tiene sus finanzas y sus gastos fijos; Global sólo el consolidado
+// de lectura, sin gastos propios.
+$router->get('/admin/panaderia/finanzas',                 [AdminFinanzasController::class, 'index']);
+$router->post('/admin/panaderia/finanzas/gasto/guardar',  [AdminFinanzasController::class, 'guardarGasto']);
+$router->post('/admin/panaderia/finanzas/gasto/eliminar', [AdminFinanzasController::class, 'eliminarGasto']);
+$router->get('/admin/global/finanzas',                    [AdminFinanzasController::class, 'index']);
 
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
 $router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);
@@ -301,28 +360,41 @@ $router->post('/admin/roles/crear', [AdminRolesController::class, 'crear']);
 $router->get('/admin/roles/editar', [AdminRolesController::class, 'editar']);
 $router->post('/admin/roles/editar', [AdminRolesController::class, 'editar']);
 $router->post('/admin/roles/eliminar', [AdminRolesController::class, 'eliminar']);
-$router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
-$router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
-$router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
-$router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-$router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-// Los administradores cambian contraseña; el personal de piso sólo puede
-// recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
-$router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
-$router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
-$router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
-$router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
-$router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
-$router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
+
+if (\Classes\Auth::multinegocio()) {
+    foreach (['restaurante' => '/admin/usuarios', 'global' => '/admin/global/usuarios', 'panaderia' => '/admin/panaderia/usuarios'] as $scope => $base) {
+        $router->get($base, [AdminUsuariosAmbitosController::class, 'index']);
+        $router->get($base . '/create', [AdminUsuariosAmbitosController::class, 'crear']);
+        $router->post($base . '/create', [AdminUsuariosAmbitosController::class, 'guardar']);
+        $router->get($base . '/edit', [AdminUsuariosAmbitosController::class, 'editar']);
+        $router->post($base . '/edit', [AdminUsuariosAmbitosController::class, 'guardar']);
+        $router->post($base . '/activate', [AdminUsuariosAmbitosController::class, 'activar']);
+        $router->post($base . '/deactivate', [AdminUsuariosAmbitosController::class, 'desactivar']);
+        $router->post($base . '/delete', [AdminUsuariosAmbitosController::class, 'eliminar']);
+        $router->post($base . '/regenerar-nip', [AdminUsuariosAmbitosController::class, 'regenerarNip']);
+    }
+} else {
+    $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
+    $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+    $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+    $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+    $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+    // Los administradores cambian contraseña; el personal de piso sólo puede
+    // recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
+    $router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+    $router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+    $router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
+    $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
+    $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
+    $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
+}
 
 
 
 // Vistas standalone del personal (POS meseros y KDS cocina)
 $router->get('/punto-de-venta',        [PuntoVentaController::class, 'index']);
 $router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
-$router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
 $router->get('/api/punto-de-venta/reservaciones', [PuntoVentaController::class, 'reservaciones']);
-$router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 'mesaContexto']);
 $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
@@ -330,7 +402,6 @@ $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController
 $router->get('/api/punto-de-venta/reservaciones/disponibilidad', [PosReservacionController::class, 'disponibilidad']);
 $router->post('/api/punto-de-venta/reservaciones/crear', [PosReservacionController::class, 'crear']);
 $router->post('/api/punto-de-venta/reservaciones/asignar-mesas', [PosReservacionController::class, 'asignarMesas']);
-$router->post('/api/punto-de-venta/reservaciones/reasignar', [PosReservacionController::class, 'reasignar']);
 $router->post('/api/punto-de-venta/reservaciones/comentario', [PosReservacionController::class, 'comentario']);
 $router->post('/api/punto-de-venta/reservaciones/reubicaciones/revisar', [PosReservacionController::class, 'revisarReubicacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
@@ -343,7 +414,6 @@ $router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCa
 $router->post('/api/entregar-item',       [PuntoVentaController::class, 'entregarItem']);
 // Estaba incrustada por error entre las rutas de /admin/menu/items.
 $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancelarItem']);
-$router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
 $router->get('/area',        [AreaController::class, 'index']);
@@ -358,13 +428,17 @@ $router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem'])
 // Feedback de clientes
 $router->get('/feedback',      [FeedbackController::class, 'index']);
 $router->post('/api/feedback', [FeedbackController::class, 'guardar']);
-$router->post('/api/feedback-n8n', [FeedbackController::class, 'recibirN8n']);
 
 // Login: NIP para personal de piso, usuario+contraseña para el admin
 $router->get('/login', [AuthController::class, 'login']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
+// Segundo paso de los roles de sistema (Services\Security\DosFactores).
+// Públicas a propósito: todavía no hay sesión, sólo el reto.
+$router->get('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion', [AuthController::class, 'verificacion']);
+$router->post('/login/verificacion/reenviar', [AuthController::class, 'reenviarCodigo']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
 // Carta pública: JSON para la landing y los dos PDF para el comensal — la
@@ -374,6 +448,20 @@ $router->post('/logout', [AuthController::class, 'logout']);
 $router->get('/menu',         [MenuController::class, 'index']);
 $router->get('/menu/pdf',     [MenuController::class, 'pdf']);
 $router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
+
+// Las subrutas que reservó el andamio del sitio de la Panadería. La landing
+// (arriba, «Panadería») es UNA página con secciones, así que cada una lleva a
+// la suya; 302 y no 301 porque alguna puede volver a ser página propia.
+foreach ([
+    '/panaderia/carta'    => '/panaderia#vitrina',
+    '/panaderia/pedidos'  => '/panaderia#encargos',
+    '/panaderia/nosotros' => '/panaderia#portada',
+    '/panaderia/contacto' => '/panaderia#visitanos',
+] as $subruta => $destino) {
+    $router->get($subruta, static function () use ($destino): void {
+        header('Location: ' . $destino, true, 302);
+    });
+}
 
 // Para los buscadores. Rutas y no archivos porque llevan la URL del sitio
 // (SitioConfig::url()); ver SeoController.

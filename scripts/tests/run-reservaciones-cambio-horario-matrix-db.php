@@ -27,6 +27,7 @@ function insertScheduleMatrixReservation(
     ?string $contact,
     int $guests
 ): int {
+    $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
     $token = bin2hex(random_bytes(32));
     $date = '2037-02-15';
     $time = '13:00:00';
@@ -35,10 +36,10 @@ function insertScheduleMatrixReservation(
     $status = 'confirmada';
     $changedAt = '2037-02-14 12:00:00';
     $stmt = $db->prepare(
-        'INSERT INTO reservaciones
-          (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+        "INSERT INTO reservaciones
+          (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
            estado, request_token, estado_changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES ({$restaurantUnitId}, 'negocio', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $stmt->bind_param(
         'sssssisssss',

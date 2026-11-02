@@ -4,13 +4,24 @@ namespace Services\Notifications;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
+use Model\RegistroRestaurante;
 use Services\Contact\ContactoService;
 use Services\Reservations\ReservacionConfig;
 use Services\Security\ReservationAccessTokenService;
+use Services\Security\ContextoNegocio;
 
 /** Prepara recordatorios idempotentes del día anterior en transacciones breves. */
 final class ReservationReminderService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
+
+    private static function unidadId(): int
+    {
+        return ContextoNegocio::unidad('restaurante');
+    }
     public const EVENT = ReservationNotificationContract::EVENT_REMINDER;
     public const TYPE = 'dia_anterior';
     public const MAX_ATTEMPTS = 3;
@@ -56,7 +67,7 @@ final class ReservationReminderService
         $stmt = ActiveRecord::getDB()->prepare(
             "SELECT r.id
              FROM reservaciones r
-             WHERE r.fecha = ?
+             WHERE r.fecha = ?" . self::unidadSql('r') . "
                AND r.estado = 'confirmada'
                AND r.contacto_tipo IN ('email', 'telefono')
                AND r.contacto IS NOT NULL
@@ -64,8 +75,8 @@ final class ReservationReminderService
                AND NOT EXISTS (
                  SELECT 1
                  FROM horario_impacto_reservaciones ir
-                 JOIN horario_impactos i ON i.id = ir.impacto_id
-                 WHERE ir.reservacion_id = r.id
+                 JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+                 WHERE ir.reservacion_id = r.id" . (ContextoNegocio::nuevo() ? ' AND ir.unidad_id=r.unidad_id' : '') . self::unidadSql('ir') . "
                    AND i.estado = 'pendiente'
                    AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
                )
@@ -101,7 +112,7 @@ final class ReservationReminderService
             $stmt = $db->prepare(
                 "SELECT id, nombre, contacto_tipo, contacto, fecha, hora, comensales,
                         estado, reemplaza_reservacion_id
-                 FROM reservaciones WHERE id = ? LIMIT 1 FOR UPDATE"
+                 FROM reservaciones WHERE id = ?" . self::unidadSql() . " LIMIT 1 FOR UPDATE"
             );
             $stmt->bind_param('i', $reservacionId);
             $stmt->execute();
@@ -118,7 +129,7 @@ final class ReservationReminderService
                 return null;
             }
             $dedupKey = self::TYPE . '|' . $raizId . '|' . $fechaObjetivo;
-            $stmt = $db->prepare('SELECT * FROM reservacion_recordatorios WHERE dedup_key = ? LIMIT 1 FOR UPDATE');
+            $stmt = $db->prepare('SELECT * FROM reservacion_recordatorios WHERE dedup_key = ?' . self::unidadSql() . ' LIMIT 1 FOR UPDATE');
             $stmt->bind_param('s', $dedupKey);
             $stmt->execute();
             $existing = $stmt->get_result()->fetch_assoc();
@@ -155,15 +166,15 @@ final class ReservationReminderService
                 $stmt = $db->prepare("UPDATE reservacion_recordatorios SET reservacion_id = ?,
                     access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
                     notification_attempts = ?, transport_claimed_at = NULL, retryable = 0,
-                    notification_delivery_status = 'pending', notification_delivery_updated_at = ? WHERE id = ?");
+                    notification_delivery_status = 'pending', notification_delivery_updated_at = ? WHERE id = ?" . self::unidadSql());
                 $stmt->bind_param('issisi', $reservacionId, $token['hash'], $expira, $attempt, $nowSql, $sourceId);
             } else {
                 $stmt = $db->prepare(
                     "INSERT INTO reservacion_recordatorios
-                      (reservacion_id, reservacion_raiz_id, tipo, dedup_key,
+                      (" . (ContextoNegocio::nuevo() ? 'unidad_id, ' : '') . "reservacion_id, reservacion_raiz_id, tipo, dedup_key,
                        access_token_hash, access_expires_at,
                        notification_delivery_status, notification_delivery_updated_at)
-                     VALUES (?, ?, 'dia_anterior', ?, ?, ?, 'pending', ?)"
+                     VALUES (" . (ContextoNegocio::nuevo() ? self::unidadId() . ', ' : '') . "?, ?, 'dia_anterior', ?, ?, ?, 'pending', ?)"
                 );
                 $stmt->bind_param('iissss', $reservacionId, $raizId, $dedupKey, $token['hash'], $expira, $nowSql);
             }
@@ -230,8 +241,8 @@ final class ReservationReminderService
         $stmt = $db->prepare(
             "SELECT ir.id
              FROM horario_impacto_reservaciones ir
-             JOIN horario_impactos i ON i.id = ir.impacto_id
-             WHERE ir.reservacion_id = ? AND i.estado = 'pendiente'
+             JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+             WHERE ir.reservacion_id = ?" . (ContextoNegocio::nuevo() ? ' AND ir.unidad_id=' . self::unidadId() : '') . self::unidadSql('ir') . " AND i.estado = 'pendiente'" . self::unidadSql('i') . "
                AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
              LIMIT 1 FOR UPDATE"
         );
@@ -256,7 +267,7 @@ final class ReservationReminderService
             if ($padre < 1) {
                 return $actual;
             }
-            $stmt = $db->prepare('SELECT id, reemplaza_reservacion_id FROM reservaciones WHERE id = ? LIMIT 1');
+            $stmt = $db->prepare('SELECT id, reemplaza_reservacion_id FROM reservaciones WHERE id = ?' . self::unidadSql() . ' LIMIT 1');
             $stmt->bind_param('i', $padre);
             $stmt->execute();
             $anterior = $stmt->get_result()->fetch_assoc() ?: null;
@@ -284,16 +295,16 @@ final class ReservationReminderService
         $now = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $type = $channel === 'whatsapp' ? 'telefono' : 'email';
         $stmt = $db->prepare("UPDATE reservacion_recordatorios rr
-            JOIN reservaciones r ON r.id = rr.reservacion_id
+            JOIN reservaciones r ON r.id = rr.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=rr.unidad_id' : '') . "
             SET rr.transport_claimed_at = ?, rr.notification_delivery_updated_at = ?
             WHERE rr.id = ? AND rr.notification_attempts = ?
               AND rr.notification_delivery_status = 'pending'
               AND rr.transport_claimed_at IS NULL AND rr.access_invalidated_at IS NULL
-              AND rr.access_expires_at > ? AND r.contacto_tipo = ?
+              AND rr.access_expires_at > ? AND r.contacto_tipo = ?" . self::unidadSql('rr') . self::unidadSql('r') . "
               AND r.estado = 'confirmada'
               AND NOT EXISTS (
-                SELECT 1 FROM horario_impacto_reservaciones ir JOIN horario_impactos i ON i.id = ir.impacto_id
-                WHERE ir.reservacion_id = r.id AND i.estado = 'pendiente'
+                SELECT 1 FROM horario_impacto_reservaciones ir JOIN horario_impactos i ON i.id = ir.impacto_id" . (ContextoNegocio::nuevo() ? ' AND i.unidad_id=ir.unidad_id' : '') . "
+                WHERE ir.reservacion_id = r.id" . (ContextoNegocio::nuevo() ? ' AND ir.unidad_id=r.unidad_id' : '') . self::unidadSql('ir') . " AND i.estado = 'pendiente'" . self::unidadSql('i') . "
                 AND ir.estado IN ('pendiente_notificacion','notificacion_preparada','sin_contacto')
               )");
         $stmt->bind_param('ssiiss', $now, $now, $sourceId, $attempt, $now, $type);
@@ -315,7 +326,7 @@ final class ReservationReminderService
             SET notification_delivery_status = 'failed', retryable = 1
             WHERE notification_delivery_status = 'pending' AND transport_claimed_at IS NULL
               AND notification_delivery_updated_at <= ?
-              AND notification_attempts < ?");
+              AND notification_attempts < ?" . self::unidadSql());
         $max = self::MAX_ATTEMPTS;
         $stmt->bind_param('si', $cutoff, $max);
         $stmt->execute();

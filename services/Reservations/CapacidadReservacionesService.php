@@ -225,7 +225,7 @@ final class CapacidadReservacionesService
         $stmt = $db->prepare(
             "SELECT r.id, r.fecha, r.hora, r.comensales, r.estado
              FROM reservaciones r
-             WHERE r.fecha = ?
+             WHERE r.fecha = ?" . \Model\Reservacion::filtroUnidad('r') . "
                AND r.estado = 'confirmada'
                AND " . OcupacionMesasService::predicadoSqlTraslape('r') . "
                AND NOT EXISTS (

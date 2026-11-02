@@ -52,7 +52,7 @@ final class PosReservacionQueryService
             : Mesa::consultarSQL(
                 "SELECT id, numero, nombre, tipo, zona, capacidad, pos_x, pos_y, activo, reservable
                  FROM mesas
-                 WHERE activo = 1
+                 WHERE activo = 1" . Mesa::filtroUnidad() . "
                  ORDER BY numero ASC, id ASC"
             );
         $mesas = array_map(

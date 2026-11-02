@@ -7,7 +7,7 @@ namespace Model;
  * límites de la reserva en línea. Son dos formularios distintos sobre la misma
  * fila, así que cada guardado nombra sólo sus columnas (ver guardarLimites()).
  */
-final class ConfiguracionReservaciones extends ActiveRecord
+final class ConfiguracionReservaciones extends ConfiguracionUnidad
 {
     private const ID_UNICO = 1;
     protected static $tabla = 'configuracion_reservaciones';
@@ -45,6 +45,7 @@ final class ConfiguracionReservaciones extends ActiveRecord
 
     public static function obtener(): ?self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return static::find(1);
         $stmt = self::getDB()->prepare('SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1');
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la configuración de reservaciones.');
@@ -62,6 +63,7 @@ final class ConfiguracionReservaciones extends ActiveRecord
 
     public static function obtenerOCrear(): self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) { static::asegurarFila(); return static::obtener(); }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id) VALUES (?)
              ON DUPLICATE KEY UPDATE id = VALUES(id)'
@@ -85,6 +87,10 @@ final class ConfiguracionReservaciones extends ActiveRecord
 
     public function guardarConfiguracion(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            if ($this->validar()!==[]) return false;
+            return static::guardarCampos(['recordatorio_dia_anterior_activo'=>$this->recordatorio_dia_anterior_activo,'hora_recordatorio'=>$this->hora_recordatorio]);
+        }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla .
             ' (id, recordatorio_dia_anterior_activo, hora_recordatorio, updated_by)
@@ -116,6 +122,10 @@ final class ConfiguracionReservaciones extends ActiveRecord
      */
     public function guardarLimites(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            if ($this->validarLimites(7,16)!==[]) return false;
+            return static::guardarCampos(['max_comensales_publico'=>$this->max_comensales_publico,'whatsapp_reservas'=>$this->whatsapp_reservas]);
+        }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla .
             ' (id, max_comensales_publico, whatsapp_reservas, updated_by)

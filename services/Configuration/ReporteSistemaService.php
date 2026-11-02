@@ -22,6 +22,9 @@ final class ReporteSistemaService
     /** Filas listas para la vista, con folio y fechas ya formateados. */
     public static function listar(): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            \Services\Security\ContextoNegocio::exigir('configuration','ver','restaurante');
+        }
         $filas = [];
 
         foreach (ReporteSistema::recientes() as $reporte) {
@@ -74,10 +77,18 @@ final class ReporteSistemaService
         $db = ActiveRecord::getDB();
 
         try {
+            if (\Services\Security\ContextoNegocio::nuevo()) {
+                $panel=[];
+                foreach (\Services\Security\PermisosUsuario::catalogo('restaurante') as $modulo=>$def) {
+                    if (!$def['operativo']) $panel[$modulo]='ver';
+                }
+                \Services\Security\ContextoNegocio::exigirUno($panel,'restaurante');
+                $usuarioId=\Services\Security\ContextoNegocio::actorId();
+            }
             $stmt = $db->prepare(
                 'INSERT INTO reportes_sistema
-                     (usuario_id, modulo, titulo, descripcion, ruta_origen, navegador, navegador_otro)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+                     (' . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . 'usuario_id, modulo, titulo, descripcion, ruta_origen, navegador, navegador_otro)
+                 VALUES (' . (\Services\Security\ContextoNegocio::nuevo()?\Model\ReporteSistema::unidadRestaurante().',':'') . '?, ?, ?, ?, ?, ?, ?)'
             );
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
@@ -111,6 +122,9 @@ final class ReporteSistemaService
      */
     public static function cambiarEstado(int $reporteId, string $estado): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante');
+        }
         if ($reporteId < 1 || !in_array($estado, ReporteSistema::ESTADOS, true)) {
             return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
         }
@@ -122,7 +136,7 @@ final class ReporteSistemaService
                 "UPDATE reportes_sistema
                  SET estado = ?,
                      resuelto_at = CASE WHEN ? = 'resuelto' THEN COALESCE(resuelto_at, NOW()) ELSE NULL END
-                 WHERE id = ? LIMIT 1"
+                 WHERE id = ?" . \Model\ReporteSistema::filtroUnidad() . " LIMIT 1"
             );
             if (!$stmt) {
                 throw new \RuntimeException($db->error);

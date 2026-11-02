@@ -3,7 +3,7 @@
 namespace Model;
 
 /** Registro visual de una acción pendiente, sin datos personales. */
-class BuzonNotificacion extends ActiveRecord
+class BuzonNotificacion extends RegistroRestaurante
 {
     protected static $tabla = 'buzon_notificaciones';
     protected static $columnasDB = [

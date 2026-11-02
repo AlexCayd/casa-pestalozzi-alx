@@ -11,6 +11,8 @@
 
 namespace Services\Analytics;
 
+use Services\Security\ContextoNegocio;
+
 class AreasMejora
 {
     /** Mapea la palabra clave del icono a su path SVG (viewBox 0 0 24 24). */
@@ -52,6 +54,12 @@ class AreasMejora
     /** Ruta absoluta del archivo JSON donde se persisten las areas. */
     public static function rutaArchivo(): string
     {
+        if (ContextoNegocio::nuevo()) {
+            if (ContextoNegocio::slug() !== 'restaurante') {
+                throw new \Services\Inventory\InventarioError('AMBITO_NO_DISPONIBLE', 'Las áreas de mejora están disponibles solo para Restaurante.');
+            }
+            return dirname(__DIR__, 2) . '/storage/areas_de_mejora/restaurante.json';
+        }
         return dirname(__DIR__, 2) . '/storage/areas_de_mejora.json';
     }
 
@@ -144,7 +152,10 @@ class AreasMejora
         return is_string($url) ? trim($url) : '';
     }
 
-    /** Secreto compartido opcional para autenticar el POST entrante de n8n. */
+    /**
+     * Secreto que Sugerencias envía a n8n (X-N8N-Secret). Ya no autentica el
+     * POST entrante de áreas de mejora: ése exige JWT (Auth::proteger()).
+     */
     public static function secret(): string
     {
         $secret = $_ENV['N8N_SECRET'] ?? getenv('N8N_SECRET');

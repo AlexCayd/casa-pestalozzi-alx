@@ -54,6 +54,98 @@ final class DiagnosticoFinanciero
     /** Parte de lo vendido sin receta costeada a partir de la cual se avisa. */
     public const SIN_COSTO_AVISO = 5.0;
 
+    /*
+     * Referencias de PANADERÍA. Igual de orientativas que las de arriba, y
+     * menos firmes: casi todas salen de proveedores del sector, no de estudios.
+     * Son el punto de partida para que el dueño las valide.
+     *
+     * - Costo de insumos 25-35 % de la venta: Toast, «How Much Do Bakeries
+     *   Make» (30-35 %), y la meta de 24-26 % de Bake Magazine (2012) para
+     *   panaderías de menos de un millón de dólares al año.
+     * - Merma 2-6 % de lo producido: las cifras publicadas de panaderías bien
+     *   llevadas se agrupan ahí, y la investigación sobre la cadena del pan
+     *   ronda el 5 % (Bhardwaj et al., 2023). La merma de pan no vendido es la
+     *   que más pesa en el giro, por eso la banda es más estrecha que la de
+     *   cocina.
+     * - Margen neto 5-10 %: Harvest («Average Bakery Profit Margin») y
+     *   Metrobi coinciden.
+     * - Nómina: Toast da 24-40 % de la venta y las mejores la sostienen cerca
+     *   del 30 %; se considera alta arriba del 35 %, y el costo primo
+     *   (insumos + nómina) sano, hasta 60 %.
+     * - Días de inventario: el pan y la masa duran días y la harina semanas;
+     *   práctica habitual, no norma.
+     */
+    public const PANADERIA_INSUMOS_REF = [25.0, 35.0];
+    public const PANADERIA_MERMA_REF = [2.0, 6.0];
+    public const PANADERIA_MARGEN_NETO_REF = [5.0, 10.0];
+    public const PANADERIA_MARGEN_BRUTO_REF = [65.0, 75.0];
+    public const PANADERIA_NOMINA_ALTA = 35.0;
+    public const PANADERIA_COSTO_PRIMO_META = 60.0;
+    public const PANADERIA_DIAS_INVENTARIO_META = 7.0;
+    public const PANADERIA_DIAS_INVENTARIO_ALTO = 14.0;
+
+    /**
+     * Lo que cambia con el giro: referencias, cómo se nombra el negocio y a
+     * dónde llevan las acciones. Un enlace en null no se ofrece (Panadería no
+     * tiene módulo de Tickets). Restaurante conserva exactamente sus textos.
+     */
+    public const GIROS = [
+        'restaurante' => [
+            'INSUMOS_REF' => self::INSUMOS_REF,
+            'INSUMOS_ALTO' => self::INSUMOS_ALTO,
+            'MERMA_REF' => self::MERMA_REF,
+            'MARGEN_NETO_REF' => self::MARGEN_NETO_REF,
+            'MARGEN_BRUTO_REF' => self::MARGEN_BRUTO_REF,
+            'NOMINA_ALTA' => self::NOMINA_ALTA,
+            'COSTO_PRIMO_META' => self::COSTO_PRIMO_META,
+            'DIAS_INVENTARIO_META' => self::DIAS_INVENTARIO_META,
+            'DIAS_INVENTARIO_ALTO' => self::DIAS_INVENTARIO_ALTO,
+            'negocio' => 'el restaurante',
+            'tipico' => 'un restaurante típico de servicio completo',
+            'mejores' => 'los restaurantes con mejores márgenes',
+            'merma_donde' => 'En cocinas profesionales',
+            'merma_base' => 'de lo que se compra',
+            'merma_signo' => 'de lo comprado',
+            'merma_registro' => 'Si en cocina o barra se tira algo, anótalo en Inventario: lo que no se registra no cuenta.',
+            'neta_quien' => 'Un restaurante de servicio completo',
+            'neta_otros' => '; uno de comida rápida o de alta cocina, con $5 a $10.',
+            'ingresos_lead' => 'Lo que cobraste por platillos y bebidas en ',
+            'sin_ventas_revisar' => 'Si el restaurante abrió, revisa que el punto de venta esté cerrando los tickets: ',
+            'sin_tickets' => 'una mesa sin cerrar no cuenta como venta.',
+            'inventario_ref' => 'Práctica del sector: perecederos para una semana; con barra y abarrotes, hasta dos.',
+            'propinas' => true,
+            'enlaces' => ['tickets' => '/admin/tickets', 'recetas' => '/admin/recetas', 'inventario' => '/admin/inventario'],
+        ],
+        'panaderia' => [
+            'INSUMOS_REF' => self::PANADERIA_INSUMOS_REF,
+            'INSUMOS_ALTO' => self::INSUMOS_ALTO,
+            'MERMA_REF' => self::PANADERIA_MERMA_REF,
+            'MARGEN_NETO_REF' => self::PANADERIA_MARGEN_NETO_REF,
+            'MARGEN_BRUTO_REF' => self::PANADERIA_MARGEN_BRUTO_REF,
+            'NOMINA_ALTA' => self::PANADERIA_NOMINA_ALTA,
+            'COSTO_PRIMO_META' => self::PANADERIA_COSTO_PRIMO_META,
+            'DIAS_INVENTARIO_META' => self::PANADERIA_DIAS_INVENTARIO_META,
+            'DIAS_INVENTARIO_ALTO' => self::PANADERIA_DIAS_INVENTARIO_ALTO,
+            'negocio' => 'la panadería',
+            'tipico' => 'una panadería típica',
+            'mejores' => 'las panaderías con mejores márgenes',
+            'merma_donde' => 'En panaderías bien llevadas',
+            'merma_base' => 'de lo que se produce',
+            'merma_signo' => 'de lo producido',
+            'merma_registro' => 'Si al cierre sobra pan o se tira masa, anótalo en Almacenes: lo que no se registra no cuenta.',
+            'neta_quien' => 'Una panadería típica',
+            'neta_otros' => '; las mejor llevadas llegan al 15 %.',
+            'ingresos_lead' => 'Lo que cobraste en caja en ',
+            // La caja de Panadería todavía no registra tickets: no se manda a
+            // revisar un punto de venta que no existe.
+            'sin_ventas_revisar' => 'Las ventas aparecerán aquí cuando la caja de Panadería registre tickets; ',
+            'sin_tickets' => 'mientras tanto cuentan la merma, el inventario y los gastos fijos.',
+            'inventario_ref' => 'Práctica del giro: pan y masa para unos días; harina y abarrotes, hasta dos semanas.',
+            'propinas' => false,
+            'enlaces' => ['tickets' => null, 'recetas' => '/admin/panaderia/menu', 'inventario' => '/admin/panaderia/almacenes'],
+        ],
+    ];
+
     private const ETIQUETA_GASTO = [
         'renta' => 'Renta',
         'servicios' => 'Servicios',
@@ -139,6 +231,8 @@ final class DiagnosticoFinanciero
     {
         $previo = is_array($d['previo'] ?? null) ? $d['previo'] : [];
         $n = [
+            // Referencias y textos del giro; sin giro, Restaurante.
+            'ref' => self::GIROS[(string) ($d['giro'] ?? 'restaurante')] ?? self::GIROS['restaurante'],
             'I' => max(0.0, (float) ($d['ingresos'] ?? 0)),
             'C' => max(0.0, (float) ($d['cogs'] ?? 0)),
             'M' => max(0.0, (float) ($d['merma'] ?? 0)),
@@ -251,8 +345,8 @@ final class DiagnosticoFinanciero
             }
             $v['palancaRotulo'] = 'Qué revisar';
             $v['palanca'] = [
-                self::t('Si el restaurante abrió, revisa que el punto de venta esté cerrando los tickets: '),
-                self::t('una mesa sin cerrar no cuenta como venta.'),
+                self::t($n['ref']['sin_ventas_revisar']),
+                self::t($n['ref']['sin_tickets']),
             ];
             $v['comparativo'] = self::comparativoTexto($n);
 
@@ -309,12 +403,12 @@ final class DiagnosticoFinanciero
             $v['antes'] = 'Este periodo ganaste';
             $v['cifra'] = self::dinero($N);
             $mn = (float) $n['margenNeto'];
-            [$refMin, $refMax] = self::MARGEN_NETO_REF;
+            [$refMin, $refMax] = $n['ref']['MARGEN_NETO_REF'];
             $comparacion = $mn > $refMax
-                ? 'más que los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja un restaurante típico de servicio completo.'
+                ? 'más que los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja ' . $n['ref']['tipico'] . '.'
                 : ($mn >= $refMin
-                    ? 'dentro de los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja un restaurante típico de servicio completo.'
-                    : 'menos que los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja un restaurante típico de servicio completo.');
+                    ? 'dentro de los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja ' . $n['ref']['tipico'] . '.'
+                    : 'menos que los $' . (int) $refMin . ' a $' . (int) $refMax . ' que deja ' . $n['ref']['tipico'] . '.');
             $v['razon'] = [
                 self::t('De cada $100 que vendiste te quedaron '),
                 self::t('$' . number_format($mn, 2), true),
@@ -622,21 +716,22 @@ final class DiagnosticoFinanciero
             'tipo' => 'base',
             'papel' => 'Punto de partida',
             'lead' => $n['tickets'] > 0
-                ? 'Lo que cobraste por platillos y bebidas en ' . number_format($n['tickets']) . ' tickets cerrados.'
+                ? $n['ref']['ingresos_lead'] . number_format($n['tickets']) . ' tickets cerrados.'
                 : 'No hay tickets cerrados en este periodo.',
-            'texto' => [self::t('Las propinas (' . self::dinero($n['propinas'], 2) . ') no cuentan aquí: son del personal.')],
+            // En caja no hay propinas que apartar.
+            'texto' => $n['ref']['propinas'] ? [self::t('Las propinas (' . self::dinero($n['propinas'], 2) . ') no cuentan aquí: son del personal.')] : [],
             'hechos' => [
                 ['Venta diaria', self::dinero($n['ventaDia'])],
                 ['Ticket promedio', $n['ticketPromedio'] !== null ? self::dinero($n['ticketPromedio'], 2) : '—'],
                 ['Tickets al día', number_format($n['tickets'] / $n['dias'], 1)],
                 ['Días del periodo', (string) $n['dias']],
             ],
-            'acciones' => [['Ver los tickets', '/admin/tickets']],
+            'acciones' => $n['ref']['enlaces']['tickets'] !== null ? [['Ver los tickets', $n['ref']['enlaces']['tickets']]] : [],
             'nodos' => ['Ingresos'],
         ];
 
         // ── Costo de insumos
-        [$refMin, $refMax] = self::INSUMOS_REF;
+        [$refMin, $refMax] = $n['ref']['INSUMOS_REF'];
         $insumosTexto = [];
         if ($hayVentas) {
             $p = (float) $n['insumosPct'];
@@ -648,7 +743,7 @@ final class DiagnosticoFinanciero
                 $insumosTexto[] = self::t('Por debajo de la referencia: buena señal si las recetas están completas y los costos al día.');
             } elseif ($p <= $refMax) {
                 $insumosTexto[] = self::t('Dentro de la referencia del sector.');
-            } elseif ($p <= self::INSUMOS_ALTO) {
+            } elseif ($p <= $n['ref']['INSUMOS_ALTO']) {
                 $insumosTexto[] = self::t('Por encima de la referencia: revisa precio o porción de los platillos con menos margen.');
             } else {
                 $insumosTexto[] = self::t('Muy por encima de la referencia: cada venta deja poco para pagar renta y nómina.');
@@ -670,21 +765,21 @@ final class DiagnosticoFinanciero
                 ['Referencia', (int) $refMin . '–' . (int) $refMax . '%'],
                 ['Vendido sin costo', self::dinero($n['sinCosto'])],
             ],
-            'acciones' => [['Revisar recetas', '/admin/recetas'], ['Margen por producto', '#rentabilidad']],
+            'acciones' => [['Revisar recetas', $n['ref']['enlaces']['recetas']], ['Margen por producto', '#rentabilidad']],
             'nodos' => ['Costo de insumos'],
         ];
 
         // ── Merma
-        [$mMin, $mMax] = self::MERMA_REF;
+        [$mMin, $mMax] = $n['ref']['MERMA_REF'];
         $mermaTexto = [];
         if ($n['M'] <= 0) {
             $mermaLead = 'No se registró merma en este periodo.';
-            $mermaTexto[] = self::t('Si en cocina o barra se tira algo, anótalo en Inventario: lo que no se registra no cuenta.');
+            $mermaTexto[] = self::t($n['ref']['merma_registro']);
         } else {
             $mp = (float) $n['mermaPct'];
             $mermaLead = 'Insumos que se pagaron y se tiraron sin venderse: ' . $pct($mp)
-                . ' de todo lo que salió del almacén. En cocinas profesionales se pierde de ' . (int) $mMin
-                . '% a ' . (int) $mMax . '% de lo que se compra.';
+                . ' de todo lo que salió del almacén. ' . $n['ref']['merma_donde'] . ' se pierde de ' . (int) $mMin
+                . '% a ' . (int) $mMax . '% ' . $n['ref']['merma_base'] . '.';
             if ($mp < $mMin) {
                 $mermaTexto[] = self::t('Por debajo de lo habitual. Sólo cuenta lo que se registra: si nadie la anota, la cifra se queda corta.');
             } elseif ($mp <= $mMax) {
@@ -705,12 +800,12 @@ final class DiagnosticoFinanciero
                 ['% del ingreso', $hayVentas ? $pct($n['M'] / $I * 100) : '—'],
                 ['Referencia', (int) $mMin . '–' . (int) $mMax . '%'],
             ],
-            'acciones' => [['Ver inventario', '/admin/inventario']],
+            'acciones' => [['Ver inventario', $n['ref']['enlaces']['inventario']]],
             'nodos' => ['Merma'],
         ];
 
         // ── Utilidad bruta
-        [$bMin, $bMax] = self::MARGEN_BRUTO_REF;
+        [$bMin, $bMax] = $n['ref']['MARGEN_BRUTO_REF'];
         $brutaTexto = [];
         if ($hayVentas) {
             $mb = (float) $n['margenBruto'];
@@ -756,12 +851,12 @@ final class DiagnosticoFinanciero
                 $fijosTexto[] = self::t('La nómina sola es el ');
                 $fijosTexto[] = self::t($pct($nomPct) . ' de lo vendido', true);
                 $fijosTexto[] = self::t(
-                    $nomPct > self::NOMINA_ALTA
-                        ? ' (el sector la considera alta arriba del ' . (int) self::NOMINA_ALTA . '%). '
-                        : ' (dentro de lo que el sector considera sano, hasta ' . (int) self::NOMINA_ALTA . '%). '
+                    $nomPct > $n['ref']['NOMINA_ALTA']
+                        ? ' (el sector la considera alta arriba del ' . (int) $n['ref']['NOMINA_ALTA'] . '%). '
+                        : ' (dentro de lo que el sector considera sano, hasta ' . (int) $n['ref']['NOMINA_ALTA'] . '%). '
                 );
                 $fijosTexto[] = self::t('Insumos más nómina suman el ' . $pct($primo)
-                    . '; los restaurantes con mejores márgenes lo mantienen en ' . (int) self::COSTO_PRIMO_META . '% o menos.');
+                    . '; ' . $n['ref']['mejores'] . ' lo mantienen en ' . (int) $n['ref']['COSTO_PRIMO_META'] . '% o menos.');
             }
         }
         $reparto = [];
@@ -795,10 +890,10 @@ final class DiagnosticoFinanciero
 
         // ── Utilidad neta
         $N = $n['N'];
-        [$nMin, $nMax] = self::MARGEN_NETO_REF;
+        [$nMin, $nMax] = $n['ref']['MARGEN_NETO_REF'];
         $netaTexto = [self::t(
-            'Un restaurante de servicio completo suele quedarse con $' . (int) $nMin . ' a $' . (int) $nMax
-            . ' de cada $100; uno de comida rápida o de alta cocina, con $5 a $10.'
+            $n['ref']['neta_quien'] . ' suele quedarse con $' . (int) $nMin . ' a $' . (int) $nMax
+            . ' de cada $100' . $n['ref']['neta_otros']
         )];
         $neta = [
             'rotulo' => 'Utilidad neta',
@@ -919,7 +1014,7 @@ final class DiagnosticoFinanciero
 
     private static function signoInsumos(array $n): array
     {
-        [$refMin, $refMax] = self::INSUMOS_REF;
+        [$refMin, $refMax] = $n['ref']['INSUMOS_REF'];
         $s = [
             'clave' => 'insumos',
             'rotulo' => 'Costo de insumos',
@@ -930,7 +1025,7 @@ final class DiagnosticoFinanciero
             'frase' => [self::t('Sin ventas no hay costo que comparar.')],
             'referencia' => 'Referencia del sector: ' . (int) $refMin . '–' . (int) $refMax . '% de la venta.',
             'medidor' => null,
-            'accion' => ['Revisar recetas', '/admin/recetas'],
+            'accion' => ['Revisar recetas', $n['ref']['enlaces']['recetas']],
         ];
         if ($n['insumosPct'] === null) {
             return $s;
@@ -952,7 +1047,7 @@ final class DiagnosticoFinanciero
         } elseif ($p <= $refMax) {
             $s['estado'] = 'good';
             $s['estadoTexto'] = $p < $refMin ? 'Bajo' : 'En rango';
-        } elseif ($p <= self::INSUMOS_ALTO) {
+        } elseif ($p <= $n['ref']['INSUMOS_ALTO']) {
             $s['estado'] = 'warn';
             $s['estadoTexto'] = 'Alto';
         } else {
@@ -974,7 +1069,7 @@ final class DiagnosticoFinanciero
 
     private static function signoMerma(array $n): array
     {
-        [$mMin, $mMax] = self::MERMA_REF;
+        [$mMin, $mMax] = $n['ref']['MERMA_REF'];
         $s = [
             'clave' => 'merma',
             'rotulo' => 'Merma',
@@ -983,9 +1078,9 @@ final class DiagnosticoFinanciero
             'estado' => 'neutral',
             'estadoTexto' => 'Sin consumo',
             'frase' => [self::t('No salió nada del almacén en este periodo.')],
-            'referencia' => 'En cocinas profesionales se tira del ' . (int) $mMin . ' al ' . (int) $mMax . '% de lo comprado.',
+            'referencia' => $n['ref']['merma_donde'] . ' se tira del ' . (int) $mMin . ' al ' . (int) $mMax . '% ' . $n['ref']['merma_signo'] . '.',
             'medidor' => null,
-            'accion' => ['Ver inventario', '/admin/inventario'],
+            'accion' => ['Ver inventario', $n['ref']['enlaces']['inventario']],
         ];
         if ($n['mermaPct'] === null) {
             return $s;
@@ -1032,7 +1127,7 @@ final class DiagnosticoFinanciero
 
     private static function signoInventario(array $n): array
     {
-        $meta = self::DIAS_INVENTARIO_META;
+        $meta = $n['ref']['DIAS_INVENTARIO_META'];
         $s = [
             'clave' => 'inventario',
             'rotulo' => 'Días de inventario',
@@ -1041,9 +1136,9 @@ final class DiagnosticoFinanciero
             'estado' => 'neutral',
             'estadoTexto' => 'Sin datos',
             'frase' => [],
-            'referencia' => 'Práctica del sector: perecederos para una semana; con barra y abarrotes, hasta dos.',
+            'referencia' => $n['ref']['inventario_ref'],
             'medidor' => null,
-            'accion' => ['Ver inventario', '/admin/inventario'],
+            'accion' => ['Ver inventario', $n['ref']['enlaces']['inventario']],
         ];
         if ($n['inventario'] <= 0) {
             $s['estadoTexto'] = 'Sin existencias';
@@ -1070,7 +1165,7 @@ final class DiagnosticoFinanciero
         if ($dias <= $meta) {
             $s['estado'] = 'good';
             $s['estadoTexto'] = 'Sano';
-        } elseif ($dias <= self::DIAS_INVENTARIO_ALTO) {
+        } elseif ($dias <= $n['ref']['DIAS_INVENTARIO_ALTO']) {
             $s['estado'] = 'warn';
             $s['estadoTexto'] = 'Lento';
         } else {

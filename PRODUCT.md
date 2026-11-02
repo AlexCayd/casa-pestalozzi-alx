@@ -1,5 +1,9 @@
 # Product
 
+Contexto de producto y diseño, subordinado al [contrato rector](docs/arquitectura.md).
+No es una segunda fuente de autorización ni de estado de módulos.
+
+
 <!-- impeccable:product-schema 1 -->
 
 ## Platform
@@ -16,7 +20,7 @@ PHP 8 MVC existente, con frontend compilado desde SCSS y JavaScript; el proyecto
 - Personal operativo, principalmente meseros y cocina: usa POS, mapa de mesas, mapa de reservaciones y KDS para entender el estado del restaurante y ejecutar rápidamente la siguiente acción.
 - Administradores: usan las herramientas operativas cuando corresponde y además gestionan reservaciones, usuarios, inventario, menú, recetas, finanzas, reportes y configuración.
 
-Los flujos y la información deben mantenerse separados por rol. Una interfaz operativa no debe volverse administrativa sólo porque un administrador también pueda acceder a ella.
+Los flujos y la información deben mantenerse separados por ámbito y permisos directos. Una interfaz operativa no debe volverse administrativa sólo porque un administrador también pueda acceder a ella.
 
 ## Product Purpose
 
@@ -32,9 +36,13 @@ Es un sistema integral de restaurante que une la experiencia pública de reserva
 
 La operación se realiza principalmente en desktop y tablet, con interacción táctil para el personal de piso. El personal necesita reconocer el estado actual del restaurante y actuar con pocos clics. Las superficies con mapas deben conservar la prioridad espacial del mapa; paneles, drawers y detalles temporales deben superponerse cuando sea posible.
 
-Los roles `admin`, `waiter` y `cook` tienen permisos diferentes. Teléfono y correo son datos administrativos y no deben mostrarse a un waiter; nombre, notas operativas y comentarios internos pueden formar parte de la operación cuando corresponda.
+Los permisos efectivos pertenecen al usuario, ámbito y módulo, no al nombre de un rol. Teléfono y correo requieren acceso administrativo explícito de Reservaciones; el permiso operativo de piso no los concede. Nombre, notas y comentarios se proyectan solo conforme al permiso y propósito del caso de uso.
 
 ## Capabilities and Constraints
+
+Las capacidades operativas siguientes corresponden a Restaurante. Usuarios y
+Almacenes funcionan en los tres ámbitos; el comercio de Panadería y los
+consolidados comerciales de Global siguen pendientes según Arquitectura.
 
 - Reservaciones públicas y administrativas, disponibilidad, modificación y cancelación.
 - POS, tickets, mesas, mapa de mesas, operación de reservaciones y KDS.
@@ -48,7 +56,7 @@ Los roles `admin`, `waiter` y `cook` tienen permisos diferentes. Teléfono y cor
 
 ## Brand Commitments
 
-La identidad es Casa Pestalozzi, un restaurante de estilo editorial/elegante. La interfaz interna debe ser sobria, oscura, de alto contraste, profesional y orientada a operación rápida; no debe sentirse como un dashboard SaaS genérico. La superficie pública y la administrativa pueden tener necesidades visuales diferentes y no necesitan compartir exactamente el mismo tratamiento.
+La identidad es Casa Pestalozzi, un restaurante de estilo editorial/elegante. El panel debe ser sobrio, con temas claro y oscuro, alto contraste y orientación a operación rápida; POS, KDS y login mantienen el tema oscuro; no debe sentirse como un dashboard SaaS genérico. La superficie pública y la administrativa pueden tener necesidades visuales diferentes y no necesitan compartir exactamente el mismo tratamiento.
 
 El idioma principal es español. Deben preservarse la marca, la lógica visual existente y los cambios funcionales ya estabilizados.
 
@@ -61,7 +69,7 @@ No deben fabricarse testimonios, métricas, clientes, precios, pruebas sociales 
 ## Product Principles
 
 1. Mostrar lo necesario para responder qué está pasando y qué hay que hacer ahora.
-2. Separar claramente la experiencia pública, la operación y la administración según el rol.
+2. Separar claramente la experiencia pública, la operación y la administración según el ámbito y los permisos directos.
 3. Mantener una lógica de negocio y unos componentes compartidos coherentes entre superficies.
 4. Priorizar acciones rápidas, legibles y táctiles en la operación diaria.
 5. Mejorar la interfaz sin alterar reglas funcionales estabilizadas del dominio.

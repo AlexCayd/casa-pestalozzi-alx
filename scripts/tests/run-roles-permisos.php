@@ -51,8 +51,19 @@ foreach (array_unique($rutas[1]) as $ruta) {
 $assert($sinMapear === [], 'Rutas del panel sin módulo (sólo las abriría un rol de sistema): ' . implode(', ', $sinMapear));
 
 // 3 · Las APIs del personal: todas con módulo; las públicas, públicas.
-foreach (['/api/punto-de-venta', '/api/enviar-comanda', '/api/area-items', '/api/productos', '/api/configuracion/horarios/semanales'] as $api) {
+foreach (['/api/punto-de-venta', '/api/enviar-comanda', '/api/area-items', '/api/ticket-items', '/api/configuracion/horarios/semanales'] as $api) {
     $assert(Permisos::clasificar($api)['tipo'] === 'modulos', "{$api} exige módulo.");
+}
+
+// 3b · APIs retiradas por no tener consumidor (dos estaban rotas): no se
+// registran (el router responde 404) y ninguna queda pública: se deniegan o,
+// las de reservaciones del POS, siguen exigiendo el módulo por su prefijo.
+foreach (['/api/productos', '/api/actualizar-ticket', '/api/punto-de-venta/mesa-contexto',
+    '/api/punto-de-venta/reservaciones/reasignar', '/api/configuracion/horarios/especiales',
+    '/api/reservaciones/cambio-horario/disponibilidad', '/api/reservaciones/cambio-horario/modificar',
+    '/api/reservaciones/cambio-horario/cancelar'] as $retirada) {
+    $assert(!str_contains($index, "'{$retirada}'"), "{$retirada} ya no está registrada.");
+    $assert(in_array(Permisos::clasificarDirecto($retirada)['tipo'], ['solo_sistema', 'modulos'], true), "{$retirada} no queda pública.");
 }
 foreach (['/', '/menu', '/api/reservaciones/crear', '/login', '/admin/login'] as $publica) {
     $assert(Permisos::clasificar($publica)['tipo'] === 'publica', "{$publica} es pública.");
@@ -109,17 +120,35 @@ $assert(!RolService::puedeAsignar($gerente, 'contador', ['finanzas' => 'ver']), 
 $assert(!RolService::puedeGestionar($super, Rol::TIPO_SISTEMA, Permisos::todos()), 'Los roles de sistema no los edita nadie, ni el super admin.');
 $assert(RolService::puedeGestionar($admin, Rol::TIPO_PREDEFINIDO, ['pdv' => 'editar']), 'Mesero y Cocinero se editan.');
 
-// 7 · Base: los cuatro roles, la llave foránea y la migración de los admins.
+// 7 · Base 3A: roles existentes, membresías por ámbito y seeds sin identidades de prueba.
 $ddl = $leer('database/ddl.sql');
-$assert(str_contains($ddl, 'CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol) REFERENCES roles(slug)'), 'usuarios.rol apunta a roles.slug.');
-$assert(strpos($ddl, 'CREATE TABLE IF NOT EXISTS roles') < strpos($ddl, 'CREATE TABLE IF NOT EXISTS usuarios'), 'roles se crea antes que usuarios.');
-$assert(strpos($ddl, 'DROP TABLE IF EXISTS roles;') > strpos($ddl, 'DROP TABLE IF EXISTS usuarios;'), 'roles se borra después que usuarios.');
+$assert(str_contains($ddl, 'FOREIGN KEY(rol_id) REFERENCES roles(id)'), 'La membresía apunta al rol por identidad.');
+$assert(strpos($ddl, 'CREATE TABLE roles') < strpos($ddl, 'CREATE TABLE usuario_unidades'), 'El rol se crea antes que sus membresías.');
+$assert(str_contains($ddl, 'PRIMARY KEY(usuario_id,unidad_id)') && str_contains($ddl, 'trg_membresia_rol_insert'), 'La membresía es única por unidad y rechaza roles locales ajenos.');
 $deploy = $leer('database/deploy.sql');
 foreach (['super_admin', 'admin', 'waiter', 'cook'] as $slug) {
-    $assert(preg_match("/\\(\\d+, '{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
+    $assert(preg_match("/\\(\\d+,\\s*'{$slug}',/", $deploy) === 1, "deploy.sql siembra el rol {$slug}.");
 }
-$assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO mesas'), 'Los roles se siembran al principio de deploy.sql.');
-$assert(str_contains($leer('database/development.sql'), "NULL, NULL, 'super_admin', 1)"), 'El admin de desarrollo es super admin.');
+$assert(strpos($deploy, 'INSERT INTO roles') < strpos($deploy, 'INSERT INTO cartas'), 'Los roles se siembran antes del catálogo por negocio.');
+$assert(!str_contains($deploy,'admin_demo'),'deploy.sql no activa la cuenta superadministradora de desarrollo.');
+$development=$leer('database/development.sql');
+$cuentasDevelopment=preg_match('/INSERT\s+INTO\s+usuarios\(id,username,nombre,password_hash,activo,es_superadmin\)\s+VALUES\s*(.*?);/si',$development,$referencias)===1
+    ? preg_match_all("/\('\\d+','([^']+)','[^']+','[^']+','(\\d+)','(\\d+)'\)/i",$referencias[1],$filas,PREG_SET_ORDER)
+    : 0;
+$nombresCuentas=array_column($filas??[],1);
+$cuentasEsperadas=['referencia_global','referencia_restaurante','referencia_panaderia','mesero_1','mesero_2','mesero_3','mesero_inactivo'];
+$soloReferencias=$cuentasDevelopment===7 && $nombresCuentas===$cuentasEsperadas
+    && !array_filter($filas,static fn(array $fila): bool=>$fila[2]!=='0'||$fila[3]!=='0');
+$assert($soloReferencias,'Development conserva las tres identidades de referencia y añade solo cuatro meseros históricos inactivos sin privilegios.');
+$bloqueMembresias=preg_match('/INSERT\s+INTO\s+usuario_unidades\([^;]+?VALUES\s*(.*?);/si',$development,$membresias)===1?$membresias[1]:'';
+$assert(substr_count($bloqueMembresias,'(')===3 && !preg_match('/\(\s*100[4-7]\s*,/',$bloqueMembresias),'Los meseros históricos no reciben membresías ni acceso a panel o POS.');
+$adminSeed=preg_match("/INSERT\\s+INTO\\s+usuarios\\(username,nombre,password_hash,activo,es_superadmin\\)\\s+SELECT\\s+'admin_demo','Administrador de desarrollo','(\\$2y\\$10\\$[A-Za-z0-9.\/]{53})',1,1\\s+FROM DUAL WHERE COALESCE\\(@cp_dev_admin_demo_seed,0\\)=1/si",$development,$adminHash)===1;
+$adminHashBcrypt=isset($adminHash[1])&&str_starts_with($adminHash[1],'$2y$10$')&&strlen($adminHash[1])===60;
+$assert($adminSeed && $adminHashBcrypt,'admin_demo usa un hash bcrypt y su inserción SQL requiere el guard del instalador.');
+$assert(str_contains($development,"SELECT u.id,un.id,NULL,1 FROM usuarios u JOIN unidades un ON un.slug IN ('global','restaurante','panaderia')")&&str_contains($development,"WHERE u.username='admin_demo' AND COALESCE(@cp_dev_admin_demo_seed,0)=1"),'El seed asigna membresías de los tres ámbitos solo bajo el guard explícito.');
+$instalador=$leer('services/Development/Instalacion.php');
+$assert(str_contains($instalador,'SET @cp_dev_admin_demo_seed=1')&&str_contains($instalador,'SET @cp_dev_admin_demo_seed=NULL'),'Solo el instalador identificado habilita el seed SQL y borra el guard al terminar.');
+$assert(str_contains($instalador,'administrador_id) VALUES (1,?,?,?,(SELECT id FROM usuarios WHERE username=?))'),'La marca de instalación registra la identidad semillada para que bootstrap no promueva homónimos.');
 
 // 8 · Nadie decide permisos con el rol escrito a mano.
 foreach (['controllers/PuntoVentaController.php', 'controllers/PosReservacionController.php', 'views/punto-de-venta/partials/pos-alta.php', 'views/area/index.php'] as $archivo) {

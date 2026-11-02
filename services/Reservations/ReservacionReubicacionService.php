@@ -49,7 +49,7 @@ final class ReservacionReubicacionService
         // serializan esta ventana; esto es la revalidación final.
         $resultado = $db->query(
             'SELECT id, estado, hold_expires_at FROM reservaciones
-              WHERE id IN (' . implode(',', array_keys($porReservacion)) . ')
+              WHERE id IN (' . implode(',', array_keys($porReservacion)) . ')' . \Model\Reservacion::filtroUnidad() . '
               ORDER BY id FOR UPDATE'
         );
         if ($resultado === false) {

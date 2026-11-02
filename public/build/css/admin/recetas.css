@@ -545,7 +545,8 @@
 .admin-recetas .admin-card {
   padding: clamp(18px, 2.4vw, 26px);
 }
-.admin-recetas .admin-panel + .admin-panel {
+.admin-recetas .admin-panel + .admin-panel,
+.admin-recetas form + .admin-panel {
   margin-top: 18px;
 }
 .admin-recetas__resumen {
@@ -663,6 +664,10 @@
   color: var(--admin-muted);
   font-size: 13px;
   line-height: 1.5;
+}
+.admin-recipe__head .admin-recipe__aviso {
+  color: var(--admin-warning-text);
+  font-weight: 600;
 }
 .admin-recipe__eyebrow {
   display: inline-block;
@@ -854,169 +859,4 @@
   color: var(--admin-muted);
   font-size: 13px;
   text-align: center;
-}
-
-.admin-body .admin-recetas__aviso {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 14px;
-  color: var(--admin-muted);
-  font-size: 13px;
-}
-
-.admin-body .admin-recetas__existencia {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
-  margin: 6px 0 0;
-  color: var(--admin-text);
-  font-size: 14px;
-}
-.admin-body .admin-recetas__existencia a {
-  font-size: 13px;
-}
-
-.admin-body .admin-recetas__cifra-estado {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
-}
-.admin-body .admin-recetas__cifra-estado > [hidden] {
-  display: none;
-}
-
-.admin-body .admin-produccion {
-  container-name: produccion;
-  container-type: inline-size;
-}
-
-.admin-produccion__rejilla {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-  margin-bottom: 18px;
-}
-.admin-recetas .admin-produccion__rejilla > .admin-panel {
-  margin-top: 0;
-}
-@container produccion (min-width: 860px) {
-  .admin-produccion__rejilla {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
-  }
-}
-
-.admin-body .admin-produccion__lote .admin-empty {
-  margin-bottom: 18px;
-}
-.admin-body .admin-produccion__salida {
-  margin-top: 18px;
-}
-.admin-body .admin-produccion__salida .admin-table {
-  min-width: 0;
-}
-.admin-body .admin-produccion__salida th,
-.admin-body .admin-produccion__salida td {
-  padding: 12px;
-}
-.admin-body .admin-produccion__salida tbody tr:last-child td {
-  border-bottom: 0;
-}
-.admin-body .admin-produccion__salida tfoot th,
-.admin-body .admin-produccion__salida tfoot td {
-  border-top: 1px solid var(--admin-border);
-  border-bottom: 0;
-  background: none;
-}
-.admin-body .admin-produccion__salida tfoot th {
-  color: var(--admin-text);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-align: left;
-  text-transform: none;
-  white-space: normal;
-}
-.admin-body .admin-produccion__salida tfoot td.admin-num {
-  font-weight: 600;
-}
-.admin-body .admin-produccion__caption {
-  caption-side: top;
-  padding: 0 0 8px;
-  text-align: left;
-}
-.admin-body .admin-produccion__cifra {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 10px 0 8px;
-}
-.admin-body .admin-produccion__numero {
-  color: var(--admin-text);
-  font-family: var(--admin-font-cifra);
-  font-size: clamp(30px, 3vw, 40px);
-  font-weight: 600;
-  line-height: 1;
-}
-.admin-body .admin-produccion__unidad {
-  color: var(--admin-muted);
-  font-size: 14px;
-  font-weight: 600;
-}
-.admin-body .admin-produccion__datos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 16px 0 0;
-}
-.admin-body .admin-produccion__datos dd {
-  margin: 4px 0 0;
-  color: var(--admin-text);
-  font-size: 14px;
-}
-.admin-body .admin-produccion__correccion {
-  display: grid;
-  justify-items: start;
-  gap: 12px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--admin-border-soft);
-}
-.admin-body .admin-produccion__correccion .admin-field {
-  width: 100%;
-}
-.admin-body .admin-produccion__lotes {
-  min-width: 520px;
-}
-.admin-body .admin-produccion__lotes td:first-child {
-  white-space: nowrap;
-}
-.admin-body .admin-produccion__lotes th:last-child,
-.admin-body .admin-produccion__lotes td:last-child {
-  text-align: left;
-}
-
-@container produccion (min-width: 600px) and (max-width: 859.98px) {
-  .admin-body .admin-produccion__existencia {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 28px;
-    align-items: start;
-  }
-  .admin-body .admin-produccion__existencia > * {
-    grid-column: 1/-1;
-  }
-  .admin-body .admin-produccion__existencia > .admin-badge {
-    justify-self: start;
-  }
-  .admin-body .admin-produccion__existencia > .admin-produccion__correccion {
-    grid-column: auto;
-  }
-  .admin-body .admin-produccion__datos {
-    column-gap: 28px;
-  }
 }

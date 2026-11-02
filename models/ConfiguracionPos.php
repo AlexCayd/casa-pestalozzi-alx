@@ -6,7 +6,7 @@ namespace Model;
  * Ajustes del punto de venta. Fila única (id = 1), igual que
  * ConfiguracionAnuncio: son preferencias del sistema, no un catálogo.
  */
-class ConfiguracionPos extends ActiveRecord
+class ConfiguracionPos extends RegistroRestaurante
 {
     private const ID_UNICO = 1;
     /** Tickets abiertos a la vez por barra: valor histórico y rango admitido. */
@@ -19,6 +19,7 @@ class ConfiguracionPos extends ActiveRecord
         'mesero_editable',
         'impresion_activa',
         'max_tickets_barra',
+        'turnos_caja',
         'updated_by',
         'updated_at',
     ];
@@ -27,6 +28,7 @@ class ConfiguracionPos extends ActiveRecord
     public $mesero_editable = 1;
     public $impresion_activa = 1;
     public $max_tickets_barra = self::MAX_TICKETS_BARRA_PREDETERMINADO;
+    public $turnos_caja = null;
     public $updated_by = null;
     public $updated_at = null;
 
@@ -68,9 +70,71 @@ class ConfiguracionPos extends ActiveRecord
             : self::MAX_TICKETS_BARRA_PREDETERMINADO;
     }
 
+    /**
+     * Turnos del corte de caja, ya validados al guardar. Tolerante como los
+     * demás: sin columna, sin fila o con JSON roto, ningún turno, y el corte
+     * cae al día completo de siempre.
+     *
+     * @return list<array{nombre: string, inicio: string, fin: string}>
+     */
+    public static function turnosCaja(): array
+    {
+        try {
+            $configuracion = static::getDB() ? static::obtener() : null;
+        } catch (\Throwable $e) {
+            error_log('ConfiguracionPos::turnosCaja - ' . $e->getMessage());
+            return [];
+        }
+
+        return $configuracion ? $configuracion->listaTurnos() : [];
+    }
+
+    /** @return list<array{nombre: string, inicio: string, fin: string}> */
+    public function listaTurnos(): array
+    {
+        $lista = json_decode((string) ($this->turnos_caja ?? ''), true);
+
+        return is_array($lista) ? array_values($lista) : [];
+    }
+
+    /** Guarda SÓLO los turnos del corte (ver guardarImpresionActiva()). */
+    public function guardarTurnosCaja(array $turnos): bool
+    {
+        $json = $turnos === [] ? null : json_encode(array_values($turnos), JSON_UNESCAPED_UNICODE);
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            // Mismo camino que guardarAjuste(): permiso releído y fila de la unidad.
+            $resultado=\Services\Security\ContextoNegocio::transaccion(static function () use($json): array {
+                \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+                $stmt=static::getDB()->prepare('INSERT INTO configuracion_pos(unidad_id,id,turnos_caja,updated_by) VALUES (?,1,?,?) ON DUPLICATE KEY UPDATE turnos_caja=VALUES(turnos_caja),updated_by=VALUES(updated_by)');
+                $stmt->execute([static::unidadRestaurante(),$json,\Services\Security\ContextoNegocio::actorId()]);
+                $stmt->close(); return ['guardado'=>true];
+            });
+            return !empty($resultado['ok']) && !empty($resultado['confirmado']);
+        }
+        $stmt = self::getDB()->prepare(
+            'INSERT INTO ' . static::$tabla . ' (id, turnos_caja, updated_by)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                turnos_caja = VALUES(turnos_caja),
+                updated_by = VALUES(updated_by)'
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el guardado de los turnos de caja.');
+        }
+
+        $id = self::ID_UNICO;
+        $updatedBy = $this->updated_by !== null ? (int) $this->updated_by : null;
+        $stmt->bind_param('isi', $id, $json, $updatedBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return $ok;
+    }
+
     /** Guarda SÓLO el tope de tickets por barra (ver guardarImpresionActiva()). */
     public function guardarMaxTicketsBarra(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return $this->guardarAjuste('max_tickets_barra',(int)$this->max_tickets_barra);
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id, max_tickets_barra, updated_by)
              VALUES (?, ?, ?)
@@ -94,6 +158,7 @@ class ConfiguracionPos extends ActiveRecord
 
     public static function obtener(): ?self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return static::find(self::ID_UNICO);
         $stmt = self::getDB()->prepare(
             'SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1'
         );
@@ -116,6 +181,11 @@ class ConfiguracionPos extends ActiveRecord
 
     public static function obtenerOCrear(): self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $unidad=static::unidadRestaurante();
+            static::getDB()->query('INSERT INTO configuracion_pos(unidad_id,id) VALUES ('.$unidad.',1) ON DUPLICATE KEY UPDATE id=VALUES(id)');
+            return static::obtener();
+        }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id) VALUES (?)
              ON DUPLICATE KEY UPDATE id = VALUES(id)'
@@ -186,6 +256,7 @@ class ConfiguracionPos extends ActiveRecord
      */
     public function guardarImpresionActiva(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return $this->guardarAjuste('impresion_activa',(int)(bool)$this->impresion_activa);
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id, impresion_activa, updated_by)
              VALUES (?, ?, ?)
@@ -209,6 +280,7 @@ class ConfiguracionPos extends ActiveRecord
 
     public function guardarConfiguracion(): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return $this->guardarAjuste('mesero_editable',(int)(bool)$this->mesero_editable);
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id, mesero_editable, updated_by)
              VALUES (?, ?, ?)
@@ -230,12 +302,26 @@ class ConfiguracionPos extends ActiveRecord
         return $ok;
     }
 
+    private function guardarAjuste(string $columna,int $valor): bool
+    {
+        $resultado=\Services\Security\ContextoNegocio::transaccion(static function () use($columna,$valor): array {
+            \Services\Security\ContextoNegocio::exigir('configuration','editar','restaurante',true);
+            if (!in_array($columna,['mesero_editable','impresion_activa','max_tickets_barra'],true)) throw new \InvalidArgumentException('Ajuste inválido.');
+            if ($columna==='max_tickets_barra' && ($valor<self::MAX_TICKETS_BARRA_MINIMO || $valor>self::MAX_TICKETS_BARRA_TOPE)) throw new \DomainException('Tope de tickets inválido.');
+            $stmt=static::getDB()->prepare('INSERT INTO configuracion_pos(unidad_id,id,'.$columna.',updated_by) VALUES (?,1,?,?) ON DUPLICATE KEY UPDATE '.$columna.'=VALUES('.$columna.'),updated_by=VALUES(updated_by)');
+            $stmt->execute([static::unidadRestaurante(),$valor,\Services\Security\ContextoNegocio::actorId()]);
+            $stmt->close(); return ['guardado'=>true];
+        });
+        return !empty($resultado['ok']) && !empty($resultado['confirmado']);
+    }
+
     public function valoresFormulario(): array
     {
         return [
             'mesero_editable' => (int) $this->mesero_editable === 1,
             'impresion_activa' => (int) $this->impresion_activa === 1,
             'max_tickets_barra' => (int) $this->max_tickets_barra,
+            'turnos_caja' => $this->listaTurnos(),
             'updated_at' => (string) ($this->updated_at ?? ''),
         ];
     }

@@ -274,6 +274,28 @@
 }
 
 @include mixins.down(vars.$breakpoint-drawer) {
+  // La preferencia de escritorio no estrecha el drawer al cambiar de dispositivo.
+  .admin-sidebar-collapsed .admin-sidebar,
+  .admin-body.is-sidebar-collapsed .admin-sidebar {
+    width: min(vars.$admin-drawer-width, calc(100vw - 48px));
+    padding: 18px;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar__brand-text,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand-text {
+    display: block;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar__brand-mark,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand-mark {
+    display: none;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar__brand,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand {
+    justify-content: flex-start;
+  }
+
   .admin-sidebar {
     position: fixed;
     inset: 0 auto 0 0;

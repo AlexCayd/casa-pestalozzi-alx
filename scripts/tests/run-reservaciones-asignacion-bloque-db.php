@@ -27,6 +27,7 @@ if (!is_string($database) || !preg_match('/^cp_notifications_test_[a-f0-9]{12}$/
 }
 
 require $root . '/includes/app.php';
+notificationsTestAuthenticateStaff();
 
 $assert = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -35,22 +36,24 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $fecha = ReservacionConfig::ahora()->modify('+3 days')->format('Y-m-d');
 $hora = '13:00:00';
 
 // Premisa de la suite: un grupo de 10 entra en la asignación automática. Se
 // fija aquí porque la base temporal la comparten todas las suites de la corrida.
 $limites = new \Model\ConfiguracionReservaciones(['max_comensales_publico' => 12, 'whatsapp_reservas' => null]);
+notificationsTestAuthenticateStaff();
 $assert($limites->guardarLimites(), 'No se pudo fijar el máximo de 12 para la prueba.');
 \Services\Reservations\ReservacionAjustesService::limpiarCache();
 
 /** Una reserva confirmada sembrada directamente en unas mesas concretas. */
-$sembrar = static function (string $nombre, int $comensales, string $horaReserva, array $mesaIds) use ($db, $fecha): int {
+$sembrar = static function (string $nombre, int $comensales, string $horaReserva, array $mesaIds) use ($db, $fecha, $restaurantUnitId): int {
     $token = 'fx-bloque-' . substr(md5($nombre . $horaReserva), 0, 16);
     $stmt = $db->prepare(
         "INSERT INTO reservaciones
-           (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
-         VALUES (?, 'email', ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
+           (unidad_id, unidad_tipo, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado, request_token)
+         VALUES ({$restaurantUnitId}, 'negocio', ?, 'email', ?, ?, ?, ?, '', 'admin', 'confirmada', ?)"
     );
     $correo = strtolower(str_replace(' ', '.', $nombre)) . '@example.test';
     $stmt->bind_param('ssssis', $nombre, $correo, $fecha, $horaReserva, $comensales, $token);
@@ -72,6 +75,7 @@ $versionDe = static function (int $id) use ($db): string {
 };
 
 // ── 1. Un grupo de 10 despeja el bloque ──────────────────────────────
+notificationsTestAuthenticateStaff();
 $pareja = $sembrar('Pareja En La Nueve', 2, $hora, [9]);
 $versionAntes = $versionDe($pareja);
 sleep(1);

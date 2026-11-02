@@ -4,6 +4,7 @@ namespace Classes;
 
 use Model\Impresora;
 use Model\ConfiguracionPos;
+use Services\Security\ContextoNegocio;
 use Classes\Impresion\Comanda;
 use Classes\Impresion\Cuenta;
 use Classes\Impresion\Prueba;
@@ -125,6 +126,7 @@ class TicketPrinter {
      * @return array [ area_id => bool ]  true si la comanda de esa área se envió a la impresora.
      */
     public static function imprimirComanda(array $items, array $meta): array {
+        if (ContextoNegocio::nuevo()) return self::imprimirComandaNuevo($items,$meta);
         self::$fallos = [];
         // El corte va aquí arriba, no en enviar(): con el servicio apagado no
         // se consulta areas_produccion ni se busca impresora por área ni se
@@ -212,6 +214,7 @@ class TicketPrinter {
      * @return bool true si la cuenta se envió a la impresora.
      */
     public static function imprimirCuenta(array $ticket, array $items, string $metodoPago, bool $separarComensales = false): bool {
+        if (ContextoNegocio::nuevo()) return self::imprimirCuentaNuevo($ticket,$items,$metodoPago,$separarComensales);
         self::$fallos = [];
         // Mismo corte que en la comanda, y por la misma razón: la cuenta se
         // imprime dentro del cierre de ticket, así que un host inalcanzable
@@ -267,6 +270,21 @@ class TicketPrinter {
      * @return bool true si la prueba se envió a la impresora.
      */
     public static function imprimirPrueba(Impresora $impresora, ?string $areaNombre = null): bool {
+        if (ContextoNegocio::nuevo()) {
+            try {
+                ContextoNegocio::exigir('printers','editar','restaurante',true);
+                $impresora=Impresora::find((int)$impresora->id,'restaurante');
+                if(!$impresora) throw new \RuntimeException('La impresora no pertenece al Restaurante.');
+                $unidad=ContextoNegocio::unidad('restaurante'); $db=ContextoNegocio::db();
+                $fila=['area_id'=>$impresora->area_id];
+                if($fila['area_id']!==null) {
+                    $area=$db->prepare('SELECT nombre FROM areas_produccion WHERE id=? AND unidad_id=? LIMIT 1');
+                    $areaId=(int)$fila['area_id']; $area->bind_param('ii',$areaId,$unidad); $area->execute(); $areaNombreDb=$area->get_result()->fetch_assoc(); $area->close();
+                    if(!$areaNombreDb) throw new \RuntimeException('El área de impresión no pertenece al Restaurante.');
+                    $areaNombre=(string)$areaNombreDb['nombre'];
+                }
+            } catch(\Throwable $e) { self::$ultimoError='No se pudo verificar la impresora del Restaurante.'; return false; }
+        }
         try {
             $doc = new Prueba([
                 'nombre'  => $impresora->nombre,
@@ -280,6 +298,79 @@ class TicketPrinter {
             error_log("TicketPrinter::imprimirPrueba — error: " . $e->getMessage());
             return false;
         }
+    }
+
+    /** Scope comercial nuevo; el cuerpo legacy permanece en imprimirComanda(). */
+    private static function imprimirComandaNuevo(array $items,array $meta): array
+    {
+        self::$fallos=[];
+        try {
+            ContextoNegocio::exigir('pdv','operar','restaurante');
+            $unidad=ContextoNegocio::unidad('restaurante'); $db=ContextoNegocio::db();
+            $ids=[];
+            foreach($items as $item) {
+                $id=filter_var($item['area_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if(!$id) throw new \RuntimeException('La comanda contiene un área inválida.');
+                $ids[(int)$id]=true;
+            }
+            if($ids===[]) return [];
+            $orden=array_keys($ids); sort($orden,SORT_NUMERIC);
+            $in=implode(',',array_fill(0,count($orden),'?'));
+            $stmt=$db->prepare("SELECT id,nombre FROM areas_produccion WHERE unidad_id=? AND id IN ({$in}) ORDER BY id");
+            $params=array_merge([$unidad],$orden); $types='i'.str_repeat('i',count($orden));
+            $refs=[]; foreach($params as $i=>&$v) $refs[$i]=&$v; unset($v); $stmt->bind_param($types,...$refs); $stmt->execute();
+            $areas=[]; foreach($stmt->get_result()->fetch_all(\MYSQLI_ASSOC) as $r) $areas[(int)$r['id']]=(string)$r['nombre']; $stmt->close();
+            if(count($areas)!==count($ids)) throw new \RuntimeException('Una de las áreas no pertenece al Restaurante.');
+            $ticketId=(int)($meta['ticket_id']??0);
+            if($ticketId<1) throw new \RuntimeException('La comanda no tiene un ticket válido.');
+            $ticket=$db->prepare('SELECT id FROM tickets WHERE id=? AND unidad_id=? LIMIT 1');
+            $ticket->bind_param('ii',$ticketId,$unidad); $ticket->execute(); $propio=$ticket->get_result()->fetch_row(); $ticket->close();
+            if(!$propio) throw new \RuntimeException('El ticket no pertenece al Restaurante.');
+        } catch(\Throwable $e) {
+            error_log('TicketPrinter::imprimirComanda - alcance no autorizado: '.$e->getMessage());
+            return [];
+        }
+        if(!self::servicioActivo()) return [];
+        $ticketDatos=['mesa'=>$meta['mesa']??null,'mesa_nombre'=>$meta['mesa_nombre']??null,'nombre'=>$meta['cliente']??null,'mesero'=>$meta['mesero']??null,'hora'=>$meta['hora']??null];
+        $porArea=[]; foreach($items as $item) $porArea[(int)$item['area_id']][]=$item;
+        $resultados=[];
+        foreach($porArea as $areaId=>$itemsArea) {
+            $areaNombre=$areas[$areaId]; $contexto=['area_id'=>$areaId,'area_nombre'=>$areaNombre]; $impresora=null;
+            try {
+                $impresora=Impresora::comandaPorArea($areaId,'restaurante',false);
+                if(!$impresora) { self::anotarFallo('comanda','sin_impresora',null,$contexto); $resultados[$areaId]=false; continue; }
+                $doc=new Comanda($ticketDatos,$areaNombre,$itemsArea,(int)$impresora->ancho);
+                $resultados[$areaId]=self::enviar($impresora,$doc);
+                if(!$resultados[$areaId]) self::anotarFallo('comanda',self::$ultimoMotivo??'fallo_envio',$impresora,$contexto);
+            } catch(\Throwable $e) {
+                error_log('TicketPrinter::imprimirComanda - error de destino local: '.$e->getMessage());
+                self::$ultimoError='No se pudo consultar el destino local de impresión.';
+                self::anotarFallo('comanda','fallo_envio',$impresora,$contexto); $resultados[$areaId]=false;
+            }
+        }
+        return $resultados;
+    }
+
+    private static function imprimirCuentaNuevo(array $ticket,array $items,string $metodoPago,bool $separarComensales): bool
+    {
+        self::$fallos=[];
+        try {
+            ContextoNegocio::exigir('pdv','operar','restaurante');
+            $unidad=ContextoNegocio::unidad('restaurante'); $db=ContextoNegocio::db(); $id=(int)($ticket['id']??$ticket['folio']??0);
+            $stmt=$db->prepare('SELECT id FROM tickets WHERE id=? AND unidad_id=? LIMIT 1');
+            $stmt->bind_param('ii',$id,$unidad); $stmt->execute(); $propio=$stmt->get_result()->fetch_row(); $stmt->close();
+            if($id<1 || !$propio) throw new \RuntimeException('La cuenta no pertenece al Restaurante.');
+        } catch(\Throwable $e) { error_log('TicketPrinter::imprimirCuenta - alcance no autorizado.'); return false; }
+        if(!self::servicioActivo()) return false;
+        $impresora=null;
+        try {
+            $impresora=Impresora::cuenta('restaurante',false);
+            if(!$impresora) { self::anotarFallo('cuenta','sin_impresora',null); return false; }
+            $datos=['mesa'=>$ticket['mesa']??null,'nombre'=>$ticket['cliente']??($ticket['nombre']??null),'folio'=>$ticket['id']??($ticket['folio']??null),'comensales'=>$ticket['comensales']??null,'mesero'=>$ticket['mesero']??null,'metodo_pago'=>$metodoPago];
+            $doc=new Cuenta($datos,$items,(int)$impresora->ancho,$separarComensales); $ok=self::enviar($impresora,$doc);
+            if(!$ok) self::anotarFallo('cuenta',self::$ultimoMotivo??'fallo_envio',$impresora);
+            return $ok;
+        } catch(\Throwable $e) { error_log('TicketPrinter::imprimirCuenta - error en destino local.'); self::$ultimoError='No se pudo consultar el destino local de impresión.'; self::anotarFallo('cuenta','fallo_envio',$impresora); return false; }
     }
 
     // Abre la conexión (red o windows), escribe el documento y cierra.

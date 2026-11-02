@@ -58,7 +58,7 @@ final class ReservacionReubicacionPorTicketService
              JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
              JOIN ticket_mesas tm ON tm.mesa_id = rm.mesa_id
              JOIN tickets t ON t.id = tm.ticket_id
-             WHERE r.estado = 'confirmada'
+             WHERE r.estado = 'confirmada'" . \Model\Reservacion::filtroUnidad('r') . \Model\Reservacion::filtroUnidad('rm') . \Model\Reservacion::filtroUnidad('tm') . \Model\Reservacion::filtroUnidad('t') . "
                AND r.fecha = '{$fecha}'
                AND TIMESTAMP(r.fecha, r.hora) BETWEEN '{$desde}' AND '{$hasta}'
                AND {$abiertoT}

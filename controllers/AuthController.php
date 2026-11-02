@@ -5,6 +5,9 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
+use Services\Security\DosFactores;
+use Services\Security\IntentosAcceso;
+use Services\Security\AdminCsrfService;
 
 class AuthController {
     /**
@@ -22,7 +25,16 @@ class AuthController {
      */
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
+        if (Auth::check() && Auth::multinegocio()) {
+            $perfil=Auth::refrescar();
+            if (!$perfil || empty($perfil['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($perfil)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
+            if (Auth::contextos() === []) {
+                Auth::logout();
+                header('Location: /login?resultado=sin_contexto');
+                exit;
+            }
             header('Location: ' . Auth::destinoPorRol());
             exit;
         }
@@ -30,6 +42,10 @@ class AuthController {
         $alertas = [];
         $alertasAdmin = [];
         $tabActiva = ($_GET['tab'] ?? '') === 'admin' ? 'admin' : 'nip';
+        if (($_GET['resultado'] ?? '') === 'sin_contexto') {
+            $tabActiva = 'admin';
+            $alertasAdmin['error'][] = 'Tu cuenta no tiene una unidad de negocio válida. Pide al superadministrador que revise su asignación.';
+        }
 
         // El aviso vive en la pestaña de contraseña, así que se abre ahí: sin
         // esto el mensaje se renderiza en un panel oculto y nadie lo lee.
@@ -43,12 +59,18 @@ class AuthController {
         if (($_GET['resultado'] ?? '') === 'sin_acceso') {
             $alertas['error'][] = 'Tu rol ya no tiene acceso a ningún módulo. Pide a un administrador que lo revise.';
         }
+        if (($_GET['resultado'] ?? '') === 'verificacion_agotada') {
+            $alertasAdmin['error'][] = 'Demasiados intentos con el código. Vuelve a iniciar sesión.';
+            $tabActiva = 'admin';
+        }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tabActiva = 'nip';
             $nip = trim((string) ($_POST['nip'] ?? ''));
 
-            if (!self::nipLoginPermitido()) {
+            if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+                $alertas['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+            } elseif (!self::nipLoginPermitido()) {
                 $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
             } elseif (!preg_match('/^\d{4}$/', $nip)) {
                 self::registrarFalloNip();
@@ -58,7 +80,7 @@ class AuthController {
 
                 if ($usuario) {
                     self::limpiarFallosNip();
-                    Auth::login($usuario);
+                    Auth::login($usuario, 'nip');
                     // La primera página que se pinte lleva la llegada
                     // (views/components/llegada.php).
                     Auth::anunciarLlegada();
@@ -78,6 +100,7 @@ class AuthController {
     private static function nipLoginPermitido(): bool
     {
         Auth::start();
+        if (!IntentosAcceso::admitir('nip', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) return false;
         $ahora = time();
         $ip = hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
         $estado = $_SESSION['_nip_login_rate'] ?? null;
@@ -113,6 +136,10 @@ class AuthController {
      * para no romper marcadores ni POST antiguos.
      */
     public static function loginAdmin(Router $router) {
+        if (Auth::check() && Auth::multinegocio()) {
+            $p=Auth::refrescar();
+            if (!$p || empty($p['activo']) || (\Services\Security\PermisosUsuario::tipoAcceso($p)==='contrasena' && ($_SESSION['auth_nivel']??'')!=='contrasena')) Auth::logout();
+        }
         if (Auth::check()) {
             header('Location: ' . Auth::destinoPorRol());
             exit;
@@ -130,13 +157,23 @@ class AuthController {
         $username = trim((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
-        if ($username === '' || $password === '') {
+        if (Auth::multinegocio() && !AdminCsrfService::validar(is_string($_POST['login_csrf'] ?? null) ? $_POST['login_csrf'] : null)) {
+            $alertasAdmin['error'][] = 'La sesión del formulario venció. Vuelve a intentarlo.';
+        } elseif (!IntentosAcceso::admitir('contrasena', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) {
+            $alertasAdmin['error'][] = 'Credenciales incorrectas';
+        } elseif ($username === '' || $password === '') {
             $alertasAdmin['error'][] = 'Ingresa tu usuario y contraseña';
         } else {
             $usuario = Usuario::porCredenciales($username, $password);
 
-            // porCredenciales() ya sólo encuentra cuentas cuyo rol entra con
-            // contraseña (los de sistema y los que tienen módulos del panel).
+            // porCredenciales() solo admite identidades con acceso por contraseña.
+            // En 3B se decide por permisos efectivos, sin roles heredados.
+            if ($usuario && DosFactores::requiere($usuario)) {
+                // La contraseña sola no abre sesión: abre el reto del código.
+                DosFactores::iniciar($usuario);
+                header('Location: /login/verificacion');
+                exit;
+            }
             if ($usuario) {
                 Auth::login($usuario);
                 Auth::anunciarLlegada();
@@ -150,6 +187,101 @@ class AuthController {
         }
 
         include_once __DIR__ . '/../views/auth/login.php';
+    }
+
+    /**
+     * /login/verificacion: el código de 6 dígitos del acceso administrativo.
+     * Sin reto abierto no hay nada que verificar y se vuelve a la contraseña.
+     */
+    public static function verificacion(Router $router) {
+        if (Auth::check()) {
+            header('Location: ' . Auth::destinoPorRol());
+            exit;
+        }
+        if (DosFactores::reto() === null) {
+            header('Location: /login?tab=admin');
+            exit;
+        }
+
+        $alertas = [];
+        $avisos = [];
+        $errorCodigo = false;
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $verificacion = DosFactores::verificar((string) ($_POST['codigo'] ?? ''));
+            $resultado = $verificacion['resultado'];
+
+            if ($resultado === 'ok') {
+                $usuario = Usuario::find($verificacion['id']);
+                if (!$usuario || (int) $usuario->activo !== 1) {
+                    header('Location: /login?tab=admin');
+                    exit;
+                }
+                Auth::login($usuario);
+                Auth::anunciarLlegada();
+                header('Location: ' . Auth::destinoPorRol($usuario->rol));
+                exit;
+            }
+            if ($resultado === 'agotado' || $resultado === 'sin_reto' || $resultado === 'revocado') {
+                header('Location: /login?tab=admin' . ($resultado === 'agotado' ? '&resultado=verificacion_agotada' : ''));
+                exit;
+            }
+
+            $errorCodigo = true;
+            $restantes = (int) ($verificacion['restantes'] ?? 0);
+            $alertas[] = match ($resultado) {
+                'vencido' => 'El código venció. Pide uno nuevo.',
+                'formato' => 'Escribe los 6 dígitos del código.',
+                default => 'Código incorrecto. ' . ($restantes === 1 ? 'Te queda 1 intento.' : "Te quedan {$restantes} intentos."),
+            };
+        }
+
+        $reto = DosFactores::reto();
+        $codigoVisible = DosFactores::mostrarCodigo() ? ($reto['visible'] ?? null) : null;
+        $entrega = (string) ($reto['entrega'] ?? '');
+
+        $aviso = (string) ($_GET['aviso'] ?? '');
+        if ($aviso === 'reenviado' && ($codigoVisible !== null || $entrega === 'NOTIFICACION_ACEPTADA')) {
+            $avisos[] = 'Te enviamos un código nuevo. El anterior ya no sirve.';
+        } elseif ($aviso === 'espera') {
+            $avisos[] = 'Espera unos segundos antes de pedir otro código.';
+        } elseif ($aviso === 'sin_envios') {
+            $avisos[] = 'Ya no se pueden pedir más códigos. Si no te llegó, vuelve a iniciar sesión.';
+        }
+
+        // Con el código en pantalla (pruebas) un correo que no salió no
+        // bloquea a nadie; en production es lo primero que hay que leer.
+        if ($codigoVisible === null && !$errorCodigo) {
+            if ($entrega === 'SIN_CORREO') {
+                $alertas[] = 'Tu cuenta no tiene un correo registrado. Pide a un super admin que lo agregue en Usuarios.';
+            } elseif ($entrega !== 'NOTIFICACION_ACEPTADA') {
+                $alertas[] = 'No pudimos enviar el código. Pide uno nuevo en unos segundos.';
+            }
+        }
+
+        $ahora = time();
+        $correo = DosFactores::correoVisible($reto);
+        $vence = max(0, (int) $reto['expira'] - $ahora);
+        $espera = DosFactores::esperaReenvio($reto, $ahora);
+
+        include_once __DIR__ . '/../views/auth/dos-factores.php';
+    }
+
+    /** Código nuevo, con espera entre envíos y tope por reto (DosFactores). */
+    public static function reenviarCodigo(Router $router) {
+        $reto = DosFactores::reto();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || $reto === null) {
+            header('Location: /login?tab=admin');
+            exit;
+        }
+
+        $espera = DosFactores::esperaReenvio($reto, time());
+        if ($espera === 0) {
+            DosFactores::emitir();
+        }
+        $aviso = $espera === 0 ? 'reenviado' : ($espera < 0 ? 'sin_envios' : 'espera');
+        header('Location: /login/verificacion?aviso=' . $aviso);
+        exit;
     }
 
     public static function logout() {

@@ -207,7 +207,7 @@ final class FotoPlatillo
         }
 
         $entrada = $_SESSION[self::SESION][$ficha] ?? null;
-        if (!is_array($entrada) || (int) ($entrada['producto'] ?? -1) !== $productoId) {
+        if (!is_array($entrada) || (int) ($entrada['producto'] ?? -1) !== $productoId || ($entrada['contexto'] ?? '') !== \Services\Security\ContextoNegocio::slug()) {
             return null;
         }
 
@@ -236,6 +236,7 @@ final class FotoPlatillo
         $_SESSION[self::SESION][$ficha] = [
             'ruta' => $ruta,
             'producto' => $productoId,
+            'contexto' => \Services\Security\ContextoNegocio::slug(),
             'creada' => time(),
         ];
         self::purgar();

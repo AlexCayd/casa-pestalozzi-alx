@@ -1,6 +1,7 @@
 <?php
 /**
- * Asistente IA: conversación con los datos del restaurante.
+ * Asistente IA: conversación con los datos del negocio (Restaurante,
+ * Panadería o Global: la misma pantalla, con el catálogo de su ámbito).
  *
  * Responde el motor de consultas rápidas (ver AdminIaController), no un modelo
  * de lenguaje. El marcado es el armazón; las conversaciones las pinta
@@ -26,6 +27,12 @@ require_once __DIR__ . '/../partials/_icons.php';
 $h = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 
 $iaApi = (string) ($iaApi ?? '/admin/api/consultas');
+$iaAmbito = (string) ($iaAmbito ?? 'restaurante');
+$iaTextos = is_array($iaTextos ?? null) ? $iaTextos : [];
+$iaNota = (string) ($iaNota ?? 'Responde con los datos del panel al momento: ventas, equipo e inventario.');
+// El historial del navegador se guarda por ámbito. Restaurante conserva las
+// claves de siempre para no perder lo guardado; ia.js arma las mismas.
+$iaClave = $iaAmbito === 'restaurante' ? 'cp-admin-ia-' : 'cp-admin-ia-' . $iaAmbito . '-';
 $iaNombre = trim((string) ($iaNombre ?? ''));
 $iaSaludo = (string) ($iaSaludo ?? 'Hola');
 $iaMaxConversaciones = max(1, (int) ($iaMaxConversaciones ?? 10));
@@ -40,6 +47,7 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
     class="ia"
     data-ia
     data-ia-api="<?php echo $h($iaApi); ?>"
+    data-ia-ambito="<?php echo $h($iaAmbito); ?>"
     data-ia-max-conversaciones="<?php echo $iaMaxConversaciones; ?>"
     aria-label="Asistente IA"
 >
@@ -238,7 +246,7 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
                 </div>
                 <?php /* Sólo en conversación: en la vacía el catálogo de abajo ya
                          dice, con ejemplos, de qué sabe. */ ?>
-                <p class="ia-compositor__nota">Responde con los datos del panel al momento: ventas, equipo e inventario.</p>
+                <p class="ia-compositor__nota"><?php echo $h($iaNota); ?></p>
                 <noscript>
                     <p class="ia-compositor__nota ia-compositor__nota--aviso">El asistente necesita JavaScript para funcionar.</p>
                 </noscript>
@@ -301,6 +309,12 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
         echo json_encode($iaOpcionesPeriodo ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     ?></script>
 
+    <?php /* Lo que el ámbito dice distinto: el nombre del total («toda la
+             panadería») y el de las respuestas que se llaman de otra forma. */ ?>
+    <script type="application/json" data-ia-textos><?php
+        echo json_encode((object) $iaTextos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    ?></script>
+
     <?php /* Si la conversación que se retoma es de hoy (ia.js la reabre), la
              pantalla tiene que nacer en modo conversación: los scripts del
              panel van con `defer` y, sin esto, la primera pintura enseñaba el
@@ -308,11 +322,11 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
              Repite a propósito la única regla de ia.js que decide el modo:
              activa guardada y tocada hoy. */ ?>
     <script>
-        (function (chat) {
+        (function (chat, clave) {
             try {
-                var activa = window.localStorage.getItem('cp-admin-ia-activa');
+                var activa = window.localStorage.getItem(clave + 'activa');
                 if (!activa || !chat) return;
-                var datos = JSON.parse(window.localStorage.getItem('cp-admin-ia-conversaciones-v1') || 'null');
+                var datos = JSON.parse(window.localStorage.getItem(clave + 'conversaciones-v1') || 'null');
                 var lista = datos && Array.isArray(datos.conversaciones) ? datos.conversaciones : [];
                 var hoy = new Date();
                 var inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
@@ -324,7 +338,7 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
                     }
                 }
             } catch (error) {}
-        })(document.querySelector('[data-ia-chat]'));
+        })(document.querySelector('[data-ia-chat]'), <?php echo json_encode($iaClave, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
     </script>
 
     <?php /* Una sola región viva y aparte de la lista: si la lista misma

@@ -1,7 +1,7 @@
 <?php
 namespace Model;
 
-class TicketItem extends ActiveRecord {
+class TicketItem extends RegistroRestaurante {
 
     protected static $tabla = 'ticket_items';
 
@@ -12,6 +12,11 @@ class TicketItem extends ActiveRecord {
 
     public $id;
     public $ticket_id;
+    public $oferta_id;
+    public $producto_id;
+    public $receta_id;
+    public $categoria_id;
+    public $costo_unitario;
     public $nombre;
     public $precio;
     public $categoria;

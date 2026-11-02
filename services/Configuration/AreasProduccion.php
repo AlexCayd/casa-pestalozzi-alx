@@ -22,6 +22,7 @@
 namespace Services\Configuration;
 
 use Model\ActiveRecord;
+use Services\Security\ContextoNegocio;
 
 class AreasProduccion
 {
@@ -83,7 +84,11 @@ class AreasProduccion
         $filas = [];
         try {
             $db = ActiveRecord::getDB();
-            $res = $db ? $db->query('SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC') : false;
+            $unidad = self::unidadRestaurante();
+            $sql = $unidad === null
+                ? 'SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC'
+                : 'SELECT id, nombre, slug, color FROM areas_produccion WHERE unidad_id = ' . $unidad . ' ORDER BY orden, id';
+            $res = $db ? $db->query($sql) : false;
             while ($res && ($fila = $res->fetch_assoc())) {
                 $filas[] = $fila;
             }
@@ -117,6 +122,21 @@ class AreasProduccion
         }
 
         return self::$cache = $areas;
+    }
+
+    /**
+     * En el esquema multinegocio cada casa tiene sus estaciones (la Panadería,
+     * su horno), y ésta es la pantalla de las del Restaurante: las del KDS de
+     * /area y las del POS. null en el esquema legado, que sólo tiene unas.
+     */
+    private static function unidadRestaurante(): ?int
+    {
+        try {
+            return ContextoNegocio::nuevo() ? ContextoNegocio::unidad('restaurante') : null;
+        } catch (\Throwable $e) {
+            error_log('AreasProduccion::unidadRestaurante - ' . $e->getMessage());
+            return null;
+        }
     }
 
     public static function porSlug(string $slug): ?array
@@ -189,11 +209,20 @@ class AreasProduccion
 
         $db->begin_transaction();
         try {
-            $stmt = $db->prepare('UPDATE areas_produccion SET color = ? WHERE slug = ?');
+            // El slug sólo es único dentro de su negocio (uq_area_slug): sin la
+            // unidad, cambiar «cocina» pintaría también la de otra casa.
+            $unidad = self::unidadRestaurante();
+            $stmt = $unidad === null
+                ? $db->prepare('UPDATE areas_produccion SET color = ? WHERE slug = ?')
+                : $db->prepare('UPDATE areas_produccion SET color = ? WHERE slug = ? AND unidad_id = ?');
             foreach ($colores as $slug => $hex) {
                 $hex = (string) $hex;
                 $slug = (string) $slug;
-                $stmt->bind_param('ss', $hex, $slug);
+                if ($unidad === null) {
+                    $stmt->bind_param('ss', $hex, $slug);
+                } else {
+                    $stmt->bind_param('ssi', $hex, $slug, $unidad);
+                }
                 $stmt->execute();
             }
             $stmt->close();

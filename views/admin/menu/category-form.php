@@ -8,8 +8,16 @@
      * campo de foto (`.admin-foto` + core/foto-platillo.js) en modo
      * «categoria»: aquí no hay foto prestada de nadie ni «Quitar», y la vista
      * previa va en grande porque es la que se ve en la carta.
+     *
+     * La comparten los dos negocios (AdministracionMenu::vista() pasa la base
+     * de las rutas, el token, el permiso y las cartas del negocio activo).
      */
     use Model\CategoriasMenu;
+
+    $menuBase = $menuBase ?? '/admin/menu';
+    $menuPuedeEditar = $menuPuedeEditar ?? true;
+    $menuContexto = $menuContexto ?? 'restaurante';
+    $menuCsrf = $menuCsrf ?? '';
 
     require_once __DIR__ . '/../partials/_icons.php';
 
@@ -17,6 +25,7 @@
     $accion = $accion ?? 'Guardar cambios';
     // El catálogo de cartas lo pasa el controlador; el respaldo evita que
     // un render parcial deje el grupo de pastillas vacío y sin poder guardar.
+    $cartas = $menuCartas ?? $cartas ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : CategoriasMenu::CARTAS;
     $cartaActual = CategoriasMenu::normalizarCarta($categoria->carta ?? null);
 
@@ -25,15 +34,16 @@
     $imagenUrl = !empty($categoria->img) ? '/' . ltrim((string) $categoria->img, '/') : null;
     $fotoEstado = $imagenUrl !== null ? 'propia' : 'vacia';
 
-    // Para qué sirve la imagen lo decide la CARTA, y no es lo mismo en las
-    // cuatro: la carta de comida la enseña con cada platillo sin foto propia
-    // (menu.js); un especial sin foto propia ni de categoría no sale
-    // (Carta::especiales); la vitrina de la panadería la pone de foto de la
-    // sección y, sin ella, la genérica (views/panaderia/_vitrina.php); y la de
-    // maridaje no enseña imágenes en ningún sitio. Cada pastilla lleva los dos
-    // textos (data-foto-con / data-foto-sin) y foto-platillo.js los lee de la
-    // marcada: al cambiar de carta el estado dice la verdad sin que haya una
-    // segunda copia de las frases en el JS.
+    // Para qué sirve la imagen lo decide la CARTA, y no es lo mismo en todas:
+    // la carta de comida del Restaurante la enseña con cada platillo sin foto
+    // propia (menu.js); un especial sin foto propia ni de categoría no sale
+    // (Carta::especiales); la de maridaje no enseña imágenes en ningún sitio;
+    // y en la Panadería su carta de comida es la vitrina de /panaderia, que la
+    // pone de foto de la sección y, sin ella, la genérica
+    // (views/panaderia/_vitrina.php). Cada pastilla lleva los dos textos
+    // (data-foto-con / data-foto-sin) y foto-platillo.js los lee de la marcada:
+    // al cambiar de carta el estado dice la verdad sin que haya una segunda
+    // copia de las frases en el JS.
     $textosImagen = [
         CategoriasMenu::CARTA_COMIDA => [
             'con' => 'En la carta de la landing, es la foto de los platillos de esta categoría que no tienen la suya.',
@@ -47,11 +57,17 @@
             'con' => 'En la landing, es la foto de los especiales de esta categoría que no tienen la suya.',
             'sin' => 'Sin imagen: un especial de esta categoría sin foto propia no saldrá en la landing.',
         ],
-        CategoriasMenu::CARTA_PANADERIA => [
+    ];
+    if ($menuContexto === 'panaderia') {
+        $textosImagen[CategoriasMenu::CARTA_COMIDA] = [
             'con' => 'Es la foto de esta sección en la vitrina de /panaderia.',
             'sin' => 'Sin imagen: la vitrina de /panaderia pondrá en esta sección su foto genérica.',
-        ],
-    ];
+        ];
+        $textosImagen[CategoriasMenu::CARTA_TEMPORADA] = [
+            'con' => 'Esta carta no sale en la landing de la panadería, así que la imagen no se publica.',
+            'sin' => 'Sin imagen. Esta carta no sale en la landing de la panadería, así que no le hace falta.',
+        ];
+    }
     $textosDe = static function (string $carta) use ($textosImagen): array {
         return $textosImagen[$carta] ?? $textosImagen[CategoriasMenu::CARTA_COMIDA];
     };
@@ -63,15 +79,16 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Categorías</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Categoría'); ?></h2>
-            <p class="admin-page__subtitle">Una categoría agrupa platillos y decide dónde se publican: en una de las dos cartas, en los especiales de temporada o en la vitrina de la panadería.</p>
+            <p class="admin-page__subtitle">Una categoría agrupa las ofertas de este negocio y determina su carta.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/menu/categorias">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
     </header>
 
     <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
         <section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
@@ -175,8 +192,8 @@
         </section>
 
         <div class="admin-form-grid__actions">
-            <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-            <a class="admin-btn admin-btn--secondary" href="/admin/menu/categorias">Cancelar</a>
+            <button type="submit" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?> class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
+            <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Cancelar</a>
         </div>
     </form>
 </section>

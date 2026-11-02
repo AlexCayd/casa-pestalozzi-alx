@@ -9,7 +9,7 @@
 
 namespace Model;
 
-class VerificacionContacto extends ActiveRecord
+class VerificacionContacto extends RegistroRestaurante
 {
     protected static $tabla = 'verificaciones_contacto';
 
@@ -33,7 +33,7 @@ class VerificacionContacto extends ActiveRecord
         $sql .= $reservacionId === null
             ? 'reservacion_id IS NULL '
             : 'reservacion_id = ? ';
-        $sql .= 'ORDER BY id DESC LIMIT 1 FOR UPDATE';
+        $sql .= self::filtroUnidad() . ' ORDER BY id DESC LIMIT 1 FOR UPDATE';
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la consulta de verificación.');
@@ -72,6 +72,7 @@ class VerificacionContacto extends ActiveRecord
              WHERE contacto_tipo = ?
                AND contacto = ?
                AND reservacion_id = ?
+               ' . self::filtroUnidad() . '
              ORDER BY id DESC
              LIMIT 1
              FOR UPDATE'
@@ -107,7 +108,7 @@ class VerificacionContacto extends ActiveRecord
                   AND used_at IS NULL
                   AND invalidated_at IS NULL
                   AND ';
-        $sql .= $reservacionId === null ? 'reservacion_id IS NULL' : 'reservacion_id = ?';
+        $sql .= ($reservacionId === null ? 'reservacion_id IS NULL' : 'reservacion_id = ?') . self::filtroUnidad();
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la invalidación de códigos anteriores.');
@@ -142,10 +143,12 @@ class VerificacionContacto extends ActiveRecord
         $cycleId ??= bin2hex(random_bytes(16));
         $cycleExpiresAt ??= $expiresAt;
         $createdAt ??= \Services\Reservations\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $unidadSql = \Services\Security\ContextoNegocio::nuevo() ? 'unidad_id, ' : '';
+        $unidadValor = \Services\Security\ContextoNegocio::nuevo() ? static::unidadRestaurante() . ', ' : '';
         $sql = "INSERT INTO verificaciones_contacto
-                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
+                ({$unidadSql}reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
                  attempts, delivery_status, cycle_id, cycle_expires_at, created_at)
-                VALUES (?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?)";
+                VALUES ({$unidadValor}?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?)";
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del código.');
@@ -172,7 +175,8 @@ class VerificacionContacto extends ActiveRecord
             'SELECT id, delivery_status, accepted_at, created_at, expires_at,
                     used_at, cycle_id, cycle_expires_at
              FROM verificaciones_contacto
-             WHERE contacto_tipo = ? AND contacto = ? AND reservacion_id <=> ?
+             WHERE contacto_tipo = ? AND contacto = ? AND reservacion_id <=> ?'
+             . self::filtroUnidad() . '
              ORDER BY id DESC'
         );
         $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
@@ -191,14 +195,14 @@ class VerificacionContacto extends ActiveRecord
         $stmt = self::getDB()->prepare(
             "UPDATE verificaciones_contacto
              SET delivery_status = ?, accepted_at = ?, finalized_at = ?
-             WHERE id = ? AND delivery_status = 'pending'"
+             WHERE id = ? AND delivery_status = 'pending'" . self::filtroUnidad()
         );
         $stmt->bind_param('sssi', $status, $acceptedAt, $now, $id);
         if (!$stmt->execute()) {
             throw new \RuntimeException('No fue posible persistir el resultado OTP.');
         }
         $stmt->close();
-        $stmt = self::getDB()->prepare('SELECT delivery_status FROM verificaciones_contacto WHERE id = ?');
+        $stmt = self::getDB()->prepare('SELECT delivery_status FROM verificaciones_contacto WHERE id = ?' . self::filtroUnidad());
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
@@ -220,7 +224,7 @@ class VerificacionContacto extends ActiveRecord
                 SET invalidated_at = NOW()
                 WHERE reservacion_id IN (' . implode(',', $ids) . ')
                   AND used_at IS NULL
-                  AND invalidated_at IS NULL';
+                  AND invalidated_at IS NULL' . self::filtroUnidad();
         if (self::getDB()->query($sql) === false) {
             throw new \RuntimeException(self::getDB()->error);
         }
@@ -234,10 +238,10 @@ class VerificacionContacto extends ActiveRecord
         $sql = $invalidar
             ? 'UPDATE verificaciones_contacto
                SET attempts = attempts + 1, invalidated_at = NOW()
-               WHERE id = ?'
+               WHERE id = ?' . self::filtroUnidad()
             : 'UPDATE verificaciones_contacto
                SET attempts = attempts + 1
-               WHERE id = ?';
+               WHERE id = ?' . self::filtroUnidad();
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del intento.');
@@ -260,7 +264,7 @@ class VerificacionContacto extends ActiveRecord
         $stmt = self::getDB()->prepare(
             'UPDATE verificaciones_contacto
              SET used_at = NOW()
-             WHERE id = ? AND used_at IS NULL AND invalidated_at IS NULL'
+             WHERE id = ? AND used_at IS NULL AND invalidated_at IS NULL' . self::filtroUnidad()
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el consumo del código.');

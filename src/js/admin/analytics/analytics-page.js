@@ -149,10 +149,18 @@
       .join("");
   }
 
-  function renderSummary(data) {
+  function renderSummary(data, esCaja) {
     const tbody = document.querySelector("[data-admin-summary]");
 
     if (!tbody) {
+      return;
+    }
+
+    // Periodo con datos pero sin un solo ticket cerrado: lo dice en vez de
+    // dejar la tabla con su encabezado y nada debajo.
+    if (!data.tickets.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="' + (esCaja ? 5 : 7) + '" class="admin-an-sin-filas">Sin tickets cobrados en el periodo.</td></tr>';
       return;
     }
 
@@ -168,14 +176,19 @@
               ? "admin-status--cancelled"
               : "";
 
+        // La caja (Panadería) no tiene mesa ni propina: la vista tampoco
+        // pinta esas columnas, así que aquí se omiten las celdas.
+        const mesa = esCaja ? "" : `<td>${escapeHtml(ticket.mesa || "—")}</td>`;
+        const propina = esCaja ? "" : `<td>${tipCell(ticket)}</td>`;
+
         return `
                 <tr>
                     <td>${ticket.folio}</td>
-                    <td>${escapeHtml(ticket.mesa || "—")}</td>
+                    ${mesa}
                     <td>${formatDate(ticket.created_at)}</td>
                     <td><span class="admin-status ${statusClass}">${statusLabel(ticket.status)}</span></td>
                     <td>${formatCurrency(ticket.total)}</td>
-                    <td>${tipCell(ticket)}</td>
+                    ${propina}
                     <td>${payment ? payment.metodo : "Pendiente"}</td>
                 </tr>
             `;
@@ -191,10 +204,11 @@
     }
 
     const data = window.AdminAnalyticsMock;
+    const esCaja = page.getAttribute("data-analytics-ambito") === "panaderia";
 
     // Datos reales de la BD (métricas, tabla y gráficas).
     renderMetrics(data.metrics || []);
-    renderSummary(data);
+    renderSummary(data, esCaja);
 
     if (window.AdminAnalyticsCharts) {
       window.AdminAnalyticsCharts.init(data.charts);

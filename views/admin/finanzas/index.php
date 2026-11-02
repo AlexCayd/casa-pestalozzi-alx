@@ -24,6 +24,17 @@ use Services\Finance\DiagnosticoFinanciero;
     $cortesPaginas = max(1, (int) ($cortesPaginas ?? 1));
     $cortesDesde = max(0, (int) ($cortesDesde ?? 0));
     $diagnostico = is_array($diagnostico ?? null) ? $diagnostico : DiagnosticoFinanciero::armar([]);
+    // La misma vista sirve a Restaurante y a Panadería. Sin estas variables
+    // (un render antiguo) se comporta exactamente como la de Restaurante.
+    $finAmbito = ($finAmbito ?? 'restaurante') === 'panaderia' ? 'panaderia' : 'restaurante';
+    $finBase = (string) ($finBase ?? '/admin/finanzas');
+    $finPropinas = (bool) ($finPropinas ?? true);
+    $esPanaderia = $finAmbito === 'panaderia';
+    // La caja de Panadería aún no cobra: sin un solo ticket en este periodo ni
+    // en el anterior, la pantalla lo dice en vez de dejar que los ceros pasen
+    // por un mal mes.
+    $previoTickets = is_array($previo ?? null) ? (int) ($previo['tickets'] ?? 0) : 0;
+    $sinCaja = $esPanaderia && (int) ($tickets ?? 0) === 0 && $previoTickets === 0;
 
     $e = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
     // Un solo formato de dinero para toda la pantalla: el signo va DELANTE
@@ -118,6 +129,11 @@ use Services\Finance\DiagnosticoFinanciero;
     }
 
     $veredicto = $diagnostico['veredicto'];
+    // Sin caja que cobre, «sin ventas» es un hecho esperado, no una alarma: la
+    // misma palabra, en tono neutro. El aviso de arriba explica por qué.
+    if ($sinCaja) {
+        $veredicto['tono'] = 'neutral';
+    }
     $cascada = $diagnostico['cascada'];
     $signos = $diagnostico['signos'];
     $seleccion = (string) $cascada['seleccion'];
@@ -129,7 +145,7 @@ use Services\Finance\DiagnosticoFinanciero;
         ? ['rango' => (int) $rango['preset']]
         : ['desde' => (string) ($rango['start'] ?? ''), 'hasta' => (string) ($rango['end'] ?? '')];
     $consultaRango['comparar'] = '1';
-    $cortesUrl = static fn (int $pagina): string => '/admin/finanzas?'
+    $cortesUrl = static fn (int $pagina): string => $finBase . '?'
         . http_build_query($consultaRango + ($pagina > 1 ? ['cortes' => $pagina] : []))
         . '#cortes';
 ?>
@@ -157,6 +173,19 @@ use Services\Finance\DiagnosticoFinanciero;
     </header>
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
+
+    <?php if ($sinCaja) : ?>
+        <?php /* Aviso informativo, no de error: que la caja no cobre todavía es
+                 el estado del proyecto, no un fallo del negocio. */ ?>
+        <div class="fin-aviso" role="note">
+            <?php echo admin_icon('info', 18, 'fin-aviso__icono'); ?>
+            <p class="fin-aviso__texto">
+                <strong>La caja de Panadería todavía no registra tickets.</strong>
+                Ventas, costo de insumos y márgenes aparecerán aquí cuando empiece a cobrar; los gastos fijos y la
+                merma que se anote en Almacenes ya cuentan.
+            </p>
+        </div>
+    <?php endif; ?>
 
     <?php /*
       ── DIAGNÓSTICO ──────────────────────────────────────────────────────
@@ -403,7 +432,7 @@ use Services\Finance\DiagnosticoFinanciero;
     <section class="admin-panel fin-signos" aria-labelledby="fin-signos-titulo">
         <div class="fin-signos__cabeza">
             <h3 class="fin-signos__titulo" id="fin-signos-titulo">Signos vitales</h3>
-            <p class="fin-signos__bajada">Cada indicador contra la referencia de la industria restaurantera.</p>
+            <p class="fin-signos__bajada">Cada indicador contra la referencia de la industria <?php echo $esPanaderia ? 'panadera' : 'restaurantera'; ?>.</p>
         </div>
         <ul class="fin-signos__lista" role="list">
             <?php foreach ($signos as $signo) : ?>
@@ -461,6 +490,27 @@ use Services\Finance\DiagnosticoFinanciero;
                 </li>
             <?php endforeach; ?>
         </ul>
+        <?php if ($esPanaderia) : ?>
+            <?php
+                /* Las bandas salen de las mismas constantes con las que el
+                   servicio juzga cada signo: si una referencia cambia allí, la
+                   nota no se queda contando otra cifra. Las fuentes viven aquí
+                   porque son texto de lectura, no reglas. */
+                $bandaRef = static fn (array $r): string => (int) $r[0] . '% a ' . (int) $r[1] . '%';
+            ?>
+            <p class="fin-signos__fuentes">
+                Referencias orientativas para una panadería: costo de insumos de
+                <?php echo $e($bandaRef(DiagnosticoFinanciero::PANADERIA_INSUMOS_REF)); ?> de la venta (Toast, «How Much
+                Do Bakeries Make»; Bake Magazine, 2012: 24% a 26%); merma de
+                <?php echo $e($bandaRef(DiagnosticoFinanciero::PANADERIA_MERMA_REF)); ?> de lo producido (cifras
+                publicadas de panaderías bien llevadas; Bhardwaj et al., 2023: cerca del 5% en la cadena del pan);
+                margen neto de <?php echo $e($bandaRef(DiagnosticoFinanciero::PANADERIA_MARGEN_NETO_REF)); ?> (Harvest,
+                Metrobi); nómina alta arriba del <?php echo (int) DiagnosticoFinanciero::PANADERIA_NOMINA_ALTA; ?>%
+                (Toast: 24% a 40%); existencias de pan y masa para unos días, y de harina y abarrotes hasta dos semanas
+                (práctica del giro). El costo de insumos sale de las recetas, no de las compras, y los días de inventario usan las
+                existencias de hoy porque no hay histórico de almacén.
+            </p>
+        <?php else : ?>
         <p class="fin-signos__fuentes">
             Referencias orientativas para un restaurante de servicio completo: costo de insumos de 28% a 35% de la
             venta, margen neto de 3% a 6%, nómina sana hasta el 33% y costo primo de 55% o menos (TouchBistro);
@@ -468,6 +518,7 @@ use Services\Finance\DiagnosticoFinanciero;
             del sector). El costo de insumos sale de las recetas, no de las compras, y los días de inventario
             usan las existencias de hoy porque no hay histórico de almacén.
         </p>
+        <?php endif; ?>
     </section>
 
     <!-- Descomposición del ingreso -->
@@ -543,7 +594,7 @@ use Services\Finance\DiagnosticoFinanciero;
                             <th scope="col">Día</th>
                             <th scope="col" class="admin-num">Tickets</th>
                             <th scope="col" class="admin-num">Ventas</th>
-                            <th scope="col" class="admin-num">Propinas</th>
+                            <?php if ($finPropinas) : ?><th scope="col" class="admin-num">Propinas</th><?php endif; ?>
                             <th scope="col" class="admin-num">Efectivo</th>
                             <th scope="col" class="admin-num">Tarjeta</th>
                             <th scope="col" class="admin-num">Total recibido</th>
@@ -560,7 +611,7 @@ use Services\Finance\DiagnosticoFinanciero;
                                 </td>
                                 <td class="admin-num"><?php echo (int) $c['tickets']; ?></td>
                                 <td class="admin-num"><?php echo $e($money($c['ventas'])); ?></td>
-                                <td class="admin-num"><?php echo $e($money($c['propinas'])); ?></td>
+                                <?php if ($finPropinas) : ?><td class="admin-num"><?php echo $e($money($c['propinas'])); ?></td><?php endif; ?>
                                 <td class="admin-num"><?php echo $e($money($c['efectivo'])); ?></td>
                                 <td class="admin-num"><?php echo $e($money($c['tarjeta'])); ?></td>
                                 <td class="admin-num"><strong class="admin-cortes__total"><?php echo $e($money($c['total'])); ?></strong></td>
@@ -578,7 +629,7 @@ use Services\Finance\DiagnosticoFinanciero;
                             </th>
                             <td class="admin-num"><?php echo (int) $totalesCortes['tickets']; ?></td>
                             <td class="admin-num"><?php echo $e($money($totalesCortes['ventas'])); ?></td>
-                            <td class="admin-num"><?php echo $e($money($totalesCortes['propinas'])); ?></td>
+                            <?php if ($finPropinas) : ?><td class="admin-num"><?php echo $e($money($totalesCortes['propinas'])); ?></td><?php endif; ?>
                             <td class="admin-num"><?php echo $e($money($totalesCortes['efectivo'])); ?></td>
                             <td class="admin-num"><?php echo $e($money($totalesCortes['tarjeta'])); ?></td>
                             <td class="admin-num"><strong class="admin-cortes__total"><?php echo $e($money($totalesCortes['total'])); ?></strong></td>
@@ -642,7 +693,7 @@ use Services\Finance\DiagnosticoFinanciero;
             </div>
         <?php endif; ?>
 
-        <form class="admin-finanzas__add" method="POST" action="/admin/finanzas/gasto/guardar">
+        <form class="admin-finanzas__add" method="POST" action="<?php echo $e($finBase); ?>/gasto/guardar">
             <input type="text" name="nombre" placeholder="Nombre del gasto" maxlength="120" required aria-label="Nombre del gasto">
             <select name="categoria" aria-label="Categoría">
                 <?php foreach ($categorias as $c) : ?>
@@ -664,7 +715,7 @@ use Services\Finance\DiagnosticoFinanciero;
             <div class="admin-gasto-list">
                 <?php foreach ($gastos as $g) : ?>
                     <article class="admin-gasto-card <?php echo $g->activo ? '' : 'is-inactive'; ?>">
-                        <form method="POST" action="/admin/finanzas/gasto/guardar" class="admin-gasto-card__form">
+                        <form method="POST" action="<?php echo $e($finBase); ?>/gasto/guardar" class="admin-gasto-card__form">
                             <input type="hidden" name="id" value="<?php echo (int) $g->id; ?>">
                             <div class="admin-gasto-card__field admin-gasto-card__field--name">
                                 <label class="admin-gasto-card__label">Gasto</label>
@@ -720,7 +771,7 @@ use Services\Finance\DiagnosticoFinanciero;
                             </div>
                         </form>
                         <?php /* Sin botón dentro: lo dispara el de arriba por form=. */ ?>
-                        <form method="POST" action="/admin/finanzas/gasto/eliminar" class="admin-gasto-card__delete"
+                        <form method="POST" action="<?php echo $e($finBase); ?>/gasto/eliminar" class="admin-gasto-card__delete"
                               id="gasto-eliminar-<?php echo (int) $g->id; ?>"
                               data-confirm-delete
                               data-confirm-eyebrow="Eliminar gasto fijo"
@@ -740,7 +791,17 @@ use Services\Finance\DiagnosticoFinanciero;
     <section class="admin-panel admin-card" id="rentabilidad">
         <div class="admin-panel-head"><div><h3>Rentabilidad por producto</h3><p>Precio de venta vs. costo de insumos de cada producto con receta.</p></div></div>
         <?php if (empty($rentabilidad)) : ?>
+            <?php if (!$esPanaderia) : ?>
             <p class="admin-empty">Aún no hay productos con receta. Define recetas en Productos para ver su margen.</p>
+            <?php elseif ($ingresos <= 0) : ?>
+            <p class="admin-empty">Sin ventas cerradas en el periodo: el margen de cada producto se calcula sobre lo vendido.</p>
+            <?php else : ?>
+            <?php /* En Panadería las recetas viven en Menú, no en un módulo propio. */ ?>
+            <p class="admin-empty">
+                Ningún producto vendido en el periodo tiene receta con costo.
+                <a class="fin-enlace fin-enlace--linea" href="<?php echo $e(DiagnosticoFinanciero::GIROS['panaderia']['enlaces']['recetas']); ?>">Revisa las recetas en Menú</a>.
+            </p>
+            <?php endif; ?>
         <?php else : ?>
             <div class="admin-table-wrap">
                 <table class="admin-table">

@@ -4,7 +4,9 @@ namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
+use Model\RegistroRestaurante;
 use Model\TicketMesa;
+use Services\Security\ContextoNegocio;
 
 /**
  * «Casos»: las reservaciones de un periodo que piden que alguien haga algo.
@@ -25,6 +27,10 @@ use Model\TicketMesa;
  */
 final class ReservacionCasosAccionablesService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     public const TIPO_AUSENCIA = 'ausencia_pendiente';
     public const TIPO_SIN_MESA = 'sin_mesa';
     public const TIPO_HORARIO = 'horario_afectado';
@@ -198,17 +204,17 @@ final class ReservacionCasosAccionablesService
                     r.estado, r.hold_expires_at, r.origen, r.created_at, r.updated_at,
                     COUNT(rm.id) AS mesas_count,
                     COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas,
-                    EXISTS (SELECT 1 FROM tickets t WHERE t.reservacion_id = r.id AND {$condicionTicket}) AS ticket_abierto,
+                    EXISTS (SELECT 1 FROM tickets t WHERE t.reservacion_id = r.id" . self::unidadSql('t') . (ContextoNegocio::nuevo() ? ' AND t.unidad_id=r.unidad_id' : '') . " AND {$condicionTicket}) AS ticket_abierto,
                     EXISTS (SELECT 1 FROM horario_impacto_reservaciones hir
-                             WHERE hir.reservacion_id = r.id
+                             WHERE hir.reservacion_id = r.id" . self::unidadSql('hir') . (ContextoNegocio::nuevo() ? ' AND hir.unidad_id=r.unidad_id' : '') . "
                                AND hir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')) AS horario_pendiente,
                     (SELECT rr.id FROM reservacion_reubicaciones rr
-                      WHERE rr.reservacion_id = r.id AND rr.revisada_at IS NULL
+                      WHERE rr.reservacion_id = r.id" . self::unidadSql('rr') . (ContextoNegocio::nuevo() ? ' AND rr.unidad_id=r.unidad_id' : '') . " AND rr.revisada_at IS NULL
                       ORDER BY rr.id DESC LIMIT 1) AS reubicacion_id
                FROM reservaciones r
-               LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-               LEFT JOIN mesas m ON m.id = rm.mesa_id
-              WHERE r.estado = 'confirmada'
+               LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id" . (ContextoNegocio::nuevo() ? ' AND rm.unidad_id=r.unidad_id' : '') . "
+               LEFT JOIN mesas m ON m.id = rm.mesa_id" . (ContextoNegocio::nuevo() ? ' AND m.unidad_id=rm.unidad_id' : '') . "
+              WHERE r.estado = 'confirmada'" . self::unidadSql('r') . "
                 AND r.fecha BETWEEN ? AND ?
               GROUP BY r.id, r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora, r.comensales,
                        r.estado, r.hold_expires_at, r.origen, r.created_at, r.updated_at

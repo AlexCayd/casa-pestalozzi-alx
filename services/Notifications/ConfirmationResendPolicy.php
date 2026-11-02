@@ -5,6 +5,8 @@ namespace Services\Notifications;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
+use Model\RegistroRestaurante;
+use Services\Security\ContextoNegocio;
 use Services\Contact\ContactoService;
 use Services\Reservations\ReservacionConfig;
 
@@ -17,6 +19,10 @@ use Services\Reservations\ReservacionConfig;
  */
 final class ConfirmationResendPolicy
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     public const MAX_ACCEPTED_SENDS = 3;
     public const COOLDOWN_SECONDS = ReservacionConfig::OTP_RESEND_SECONDS;
     public const ACCESS_CYCLE_MINUTES = 15;
@@ -65,7 +71,7 @@ final class ConfirmationResendPolicy
                 return ['error' => 'DATOS_INVALIDOS'];
             }
             $stmt = ActiveRecord::getDB()->prepare(
-                'SELECT contacto_tipo, contacto, estado, hold_expires_at FROM reservaciones WHERE id = ?'
+                'SELECT contacto_tipo, contacto, estado, hold_expires_at FROM reservaciones WHERE id = ?' . self::unidadSql()
             );
             $stmt->bind_param('i', $reservacionId);
             $stmt->execute();

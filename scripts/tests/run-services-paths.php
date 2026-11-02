@@ -55,6 +55,12 @@ $assert(
         ),
     'La ruta local de sesiones apunta a storage/sessions en la raíz del proyecto.'
 );
-$assert(is_dir($root . '/storage/sessions'), 'Existe el directorio local de sesiones.');
+// Una instalación limpia no versiona sesiones: comprobar que el runtime crea su destino local.
+$_ENV['APP_ENV']='production'; putenv('APP_ENV=production');
+$_SERVER['REMOTE_ADDR']='127.0.0.1';
+\Services\Security\ReservationClientSession::start();
+$assert(is_dir($root . '/storage/sessions'), 'El runtime crea el directorio local de sesiones.');
+$assert(realpath(session_save_path())===realpath($root.'/storage/sessions'), 'La sesión local utiliza el destino del proyecto.');
+session_destroy();
 
 fwrite(STDOUT, "PASS: rutas de Services y recursos de MenuPdf ({$assertions} comprobaciones).\n");

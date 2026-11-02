@@ -40,7 +40,7 @@ final class ReservacionMantenimientoService
         $resultado = $db->query(
             "SELECT COUNT(*) AS total
              FROM reservaciones
-             WHERE estado = 'pendiente_verificacion'
+             WHERE estado = 'pendiente_verificacion'" . \Model\Reservacion::filtroUnidad() . "
                AND hold_expires_at IS NOT NULL
                AND hold_expires_at <= '{$ahora}'"
         );
@@ -76,7 +76,7 @@ final class ReservacionMantenimientoService
             $resultado = $db->query(
                 "SELECT id
                  FROM reservaciones
-                 WHERE estado = 'pendiente_verificacion'
+                 WHERE estado = 'pendiente_verificacion'" . \Model\Reservacion::filtroUnidad() . "
                    AND hold_expires_at IS NOT NULL
                    AND hold_expires_at <= '{$ahora}'
                  ORDER BY id
@@ -97,7 +97,7 @@ final class ReservacionMantenimientoService
                     "UPDATE reservaciones
                      SET estado = 'expirada',
                          estado_changed_at = NOW()
-                     WHERE id IN ({$idsSql})
+                     WHERE id IN ({$idsSql})" . \Model\Reservacion::filtroUnidad() . "
                        AND estado = 'pendiente_verificacion'
                        AND hold_expires_at IS NOT NULL
                        AND hold_expires_at <= '{$ahora}'"
@@ -181,14 +181,14 @@ final class ReservacionMantenimientoService
 
             if ($ids !== []) {
                 $idsSql = implode(',', $ids);
-                if (!$db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$idsSql})")) {
+                if (!$db->query("DELETE FROM verificaciones_contacto WHERE reservacion_id IN ({$idsSql})" . \Model\Reservacion::filtroUnidad())) {
                     throw new \RuntimeException($db->error);
                 }
                 ReservacionMesa::eliminarAsignaciones($ids);
                 if (!empty($opciones['forzar_error'])) {
                     throw new \RuntimeException('Fallo intermedio solicitado por prueba.');
                 }
-                if (!$db->query("DELETE FROM reservaciones WHERE id IN ({$idsSql})")) {
+                if (!$db->query("DELETE FROM reservaciones WHERE id IN ({$idsSql})" . \Model\Reservacion::filtroUnidad())) {
                     throw new \RuntimeException($db->error);
                 }
                 if ($db->affected_rows !== count($ids)) {
@@ -280,7 +280,7 @@ final class ReservacionMantenimientoService
                           AND " . TicketMesa::condicionSqlAbierto('tope') . "
                     ) AS ticket_abierto
              FROM reservaciones r
-             WHERE r.fecha BETWEEN '{$filtros['fecha_desde']}' AND '{$filtros['fecha_hasta']}'
+             WHERE r.fecha BETWEEN '{$filtros['fecha_desde']}' AND '{$filtros['fecha_hasta']}'" . \Model\Reservacion::filtroUnidad('r') . "
                AND r.estado IN ({$estadosSql})
                {$prefijoSql}
              ORDER BY r.id{$lock}"

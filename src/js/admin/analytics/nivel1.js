@@ -3,6 +3,8 @@
  * secciones a partir de window.AdminAnalyticsMock.nivel1 (Services\Analytics\Analiticas):
  *   §3.1 Ingeniería de menú  — matriz Kasavana-Smith (scatter + tabla).
  *   §3.2 RevPASH             — mapa de calor hora × día (tabla, sin canvas).
+ *                              En Panadería, el mismo mapa con la venta por día
+ *                              abierto (nivel1.mapa) en vez de por asiento.
  *   §3.4 Reglas de asociación — pares por lift (tabla).
  * Es independiente de charts.js/analytics-page.js: se autoinicia y vuelve a
  * dibujar sus gráficas al cambiar el tema (evento admin:themechange).
@@ -12,9 +14,61 @@
     var data = null;
 
     /*
+     * Qué divide cada celda del mapa de §3.2. Restaurante mide RevPASH
+     * (ingreso ÷ asientos × días abiertos); Panadería vende en caja, sin
+     * asientos, y su mapa (nivel1.mapa, misma forma) es la venta promedio por
+     * día abierto en cada franja y, en la vista diaria, por hora abierta. Los
+     * textos de Restaurante son los de siempre.
+     */
+    var MEDIDAS = {
+        asiento: {
+            celda: 'por asiento',          // tooltip y lectura de la celda
+            corto: '/asiento',             // pie del mapa
+            escala: ' / asiento',
+            ingreso: 'Ingreso de la franja',
+            ingresoCorto: 'ingreso',
+            diaCorto: '/asiento',
+            diaLargo: ' por asiento',
+            diaSerie: 'RevPASH del día',
+            diaEje: 'Ingreso por asiento ($)',
+            diaIngreso: 'Ingreso '
+        },
+        dia: {
+            celda: 'por día abierto',
+            corto: ' por día',
+            escala: ' por día',
+            ingreso: 'Venta total de la franja',
+            ingresoCorto: 'venta total',
+            diaCorto: ' por hora',
+            diaLargo: ' por hora abierta',
+            diaSerie: 'Venta por hora abierta',
+            diaEje: 'Venta por hora abierta ($)',
+            diaIngreso: 'Venta del día '
+        }
+    };
+
+    function medida() {
+        var rp = data.revpash || data.mapa || {};
+        return MEDIDAS[rp.medida === 'dia' ? 'dia' : 'asiento'];
+    }
+
+    // Panadería cuenta piezas; Restaurante, unidades (data-n1-ambito en la vista).
+    function esCaja() {
+        var host = document.querySelector('[data-admin-nivel1]');
+        return !!host && host.getAttribute('data-n1-ambito') === 'panaderia';
+    }
+
+    function unidades(n) {
+        if (esCaja()) {
+            return n === 1 ? ' pza.' : ' pzas.';
+        }
+        return n === 1 ? ' ud.' : ' uds.';
+    }
+
+    /*
      * Clases de la matriz de Kasavana-Smith: etiqueta e icono.
      *
-     * Los cuatro emojis que había (⭐ 🐎 ❓ 🐕) los pintaba la fuente del
+     * Los cuatro emojis que había (estrella, caballo, interrogación y perro) los pintaba la fuente del
      * sistema, así que no heredaban el color del chip —seguían en su paleta
      * aunque el tema cambiara—, cambiaban de forma entre plataformas y se
      * salían de la caja tipográfica del badge. Ahora salen del catálogo común
@@ -168,7 +222,7 @@
                         iconoClase(it.clase, 14) + it.claseLabel + '</span></td>' +
                     '<td class="admin-table__num" data-sort-value="' + attr(it.margen) + '">' +
                         '<span class="admin-table__cell-main">' + money2(it.margen) + '</span>' +
-                        '<span class="admin-table__cell-sub">' + it.unidades + ' uds · ' + it.margenPct + '%</span>' +
+                        '<span class="admin-table__cell-sub">' + it.unidades + (esCaja() ? ' pzas · ' : ' uds · ') + it.margenPct + '%</span>' +
                     '</td>' +
                     '</tr>';
             }).join('');
@@ -293,9 +347,10 @@
         var ratio = parseFloat(td.getAttribute('data-heat-ratio')) || 0;
         var filas = '';
 
+        var m = medida();
         if (estado !== 'cerrado') {
             filas += heatFila(
-                'Ingreso de la franja',
+                m.ingreso,
                 money(parseFloat(td.getAttribute('data-heat-ing')) || 0)
             );
             filas += heatFila(
@@ -314,7 +369,7 @@
             (estado === 'cerrado'
                 ? ''
                 : '<p class="admin-n1-tip__value">' + money2(valor) +
-                  '<span>por asiento</span></p>') +
+                  '<span>' + m.celda + '</span></p>') +
             (filas ? '<dl class="admin-n1-tip__rows">' + filas + '</dl>' : '') +
             '<p class="admin-n1-tip__state is-' + estado + '">' + ESTADOS_HEAT[estado] + '</p>';
 
@@ -400,7 +455,9 @@
      * oscuro no hay que volver a pintar nada — a diferencia de un canvas.
      */
     function renderRevpash() {
-        var rp = data.revpash || {};
+        var rp = data.revpash || data.mapa || {};
+        var m = medida();
+        var porAsiento = rp.medida !== 'dia';
         var horas = rp.horas || [];
         var dias = rp.dias || [];
         var celdas = rp.celdas || [];
@@ -410,15 +467,16 @@
         // la tabla; sin esto el globo se queda flotando apuntando a la nada.
         heatTipOcultar();
 
-        setText('[data-n1-revpash-seats]', (rp.asientos || 0) + ' asientos');
+        // Sin asientos (Panadería) el encabezado no lleva cifra de capacidad.
+        setText('[data-n1-revpash-seats]', porAsiento ? (rp.asientos || 0) + ' asientos' : '');
 
         var noteEl = document.querySelector('[data-n1-revpash-note]');
         if (noteEl) {
             if (rp.mejor && rp.peor) {
                 noteEl.innerHTML =
                     'Franja más fuerte: <strong>' + rp.mejor.dia + ' ' + rp.mejor.hora + '</strong> (' +
-                    money2(rp.mejor.valor) + '/asiento) · Más floja: <strong>' +
-                    rp.peor.dia + ' ' + rp.peor.hora + '</strong> (' + money2(rp.peor.valor) + '/asiento)';
+                    money2(rp.mejor.valor) + m.corto + ') · Más floja: <strong>' +
+                    rp.peor.dia + ' ' + rp.peor.hora + '</strong> (' + money2(rp.peor.valor) + m.corto + ')';
             } else {
                 noteEl.textContent = '';
             }
@@ -477,8 +535,8 @@
                 // lo único que lee un lector de pantalla. El tooltip visual sale
                 // de los data-* de heatDatos(), no de un title nativo — dejar los
                 // dos encima mostraba el globo del navegador sobre el nuestro.
-                var etiqueta = d.largo + ' ' + hora + ' · ' + money2(valor) + ' por asiento' +
-                    ' · ingreso ' + money(c.ing) + ' · ' + c.dias +
+                var etiqueta = d.largo + ' ' + hora + ' · ' + money2(valor) + ' ' + m.celda +
+                    ' · ' + m.ingresoCorto + ' ' + money(c.ing) + ' · ' + c.dias +
                     (c.dias === 1 ? ' día' : ' días') + (c.abierto ? ' abierto' : ' con venta');
 
                 return '<td class="' + cls + '" style="--heat: ' + ratio.toFixed(3) + '"' +
@@ -495,7 +553,7 @@
 
         if (scale) {
             scale.hidden = max <= 0;
-            setText('[data-n1-revpash-max]', money2(max) + ' / asiento');
+            setText('[data-n1-revpash-max]', money2(max) + m.escala);
         }
     }
 
@@ -510,7 +568,8 @@
      * meterlos en un mismo eje invitaría a comparar números que no comparan.
      */
     function renderRevpashDiario(pal) {
-        var rp = data.revpash || {};
+        var rp = data.revpash || data.mapa || {};
+        var m = medida();
         var dias = rp.porDia || [];
         var prom = rp.promedioDia || 0;
         var noteEl = document.querySelector('[data-n1-revpash-daily-note]');
@@ -533,13 +592,13 @@
         if (noteEl) {
             noteEl.innerHTML =
                 'Día más fuerte: <strong>' + mejor.largo + '</strong> (' + money2(mejor.valor) +
-                '/asiento) · Más flojo: <strong>' + peor.largo + '</strong> (' +
-                money2(peor.valor) + '/asiento) · Promedio del periodo: <strong>' +
-                money2(prom) + '/asiento</strong>';
+                m.diaCorto + ') · Más flojo: <strong>' + peor.largo + '</strong> (' +
+                money2(peor.valor) + m.diaCorto + ') · Promedio del periodo: <strong>' +
+                money2(prom) + m.diaCorto + '</strong>';
         }
 
         var datasets = [{
-            label: 'RevPASH del día',
+            label: m.diaSerie,
             data: dias.map(function (d) { return d.valor; }),
             backgroundColor: pal.heat,
             borderColor: pal.heatBorde,
@@ -588,14 +647,14 @@
                                 if (ctx.dataset.type === 'line') {
                                     return 'Promedio del periodo: ' + money2(prom);
                                 }
-                                return money2(d.valor) + ' por asiento';
+                                return money2(d.valor) + m.diaLargo;
                             },
                             afterLabel: function (ctx) {
                                 var d = dias[ctx.dataIndex];
                                 if (ctx.dataset.type === 'line') {
                                     return null;
                                 }
-                                return 'Ingreso ' + money(d.ingreso) + ' · ' + d.horas +
+                                return m.diaIngreso + money(d.ingreso) + ' · ' + d.horas +
                                     (d.horas === 1 ? ' hora' : ' horas') +
                                     (d.abierto ? ' de operación' : ' con venta, sin horario declarado');
                             }
@@ -605,7 +664,7 @@
                 scales: {
                     x: { grid: { display: false }, ticks: { color: pal.muted } },
                     y: {
-                        title: { display: true, text: 'Ingreso por asiento ($)', color: pal.muted },
+                        title: { display: true, text: m.diaEje, color: pal.muted },
                         grid: { color: pal.grid },
                         ticks: { color: pal.muted },
                         beginAtZero: true
@@ -766,7 +825,7 @@
                 var p = f.top[i];
                 return '<td>' + (p
                     ? '<span class="admin-table__cell-main">' + esc(p.n) + '</span>' +
-                      '<span class="admin-table__cell-sub">' + p.u + (p.u === 1 ? ' ud.' : ' uds.') + '</span>'
+                      '<span class="admin-table__cell-sub">' + p.u + unidades(p.u) + '</span>'
                     : '—') + '</td>';
             }).join('');
             return '<tr><th scope="row">' + f.hora + '</th>' + celdas +
@@ -774,7 +833,7 @@
         }).join('');
 
         var pico = porHora.reduce(function (a, b) { return b.total > a.total ? b : a; });
-        setText('[data-n1-horas-note]', 'Hora con más venta: ' + pico.hora + ' (' + pico.total + ' uds.)');
+        setText('[data-n1-horas-note]', 'Hora con más venta: ' + pico.hora + ' (' + pico.total + unidades(2) + ')');
     }
 
     /** Cambio de fechas: se pide la tabla de nuevo; el resto de la página no se mueve. */
@@ -797,7 +856,11 @@
         if (tabla) {
             tabla.setAttribute('aria-busy', 'true');
         }
-        fetch('/admin/api/analytics/venta-por-hora?' + new URLSearchParams({ desde: desde.value, hasta: hasta.value }).toString(), {
+        // Cada negocio pide su tabla a su propia API (data-n1-api-horas en la
+        // vista); sin el atributo, la de Restaurante, como antes.
+        var host = document.querySelector('[data-admin-nivel1]');
+        var api = (host && host.getAttribute('data-n1-api-horas')) || '/admin/api/analytics/venta-por-hora';
+        fetch(api + '?' + new URLSearchParams({ desde: desde.value, hasta: hasta.value }).toString(), {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
         })

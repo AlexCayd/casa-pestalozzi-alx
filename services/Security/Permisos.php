@@ -172,6 +172,20 @@ final class Permisos
      * Un prefijo casa con la ruta exacta y con todo lo que cuelga de `prefijo/`.
      */
     private const RUTAS = [
+        '/admin/panaderia/menu' => ['menu'],
+        '/admin/panaderia/recetas' => ['productos'],
+        '/admin/panaderia/inventario' => ['inventario'],
+        '/admin/panaderia/finanzas' => ['finanzas'],
+        '/admin/panaderia/analytics' => ['analytics'],
+        '/admin/panaderia/api/analytics' => ['analytics'],
+        '/admin/panaderia/ia' => ['ia'],
+        '/admin/panaderia/api/consultas' => ['ia'],
+        // Antes del prefijo /admin/global, que gana a todo lo que cuelga de él.
+        '/admin/global/finanzas' => ['finanzas'],
+        '/admin/global/analytics' => ['analytics'],
+        '/admin/global/ia' => ['ia'],
+        '/admin/global/api/consultas' => ['ia'],
+        '/admin/global' => ['configuration'],
         // Las direcciones de la antigua Operación de reservaciones redirigen
         // al POS: se abren con el permiso del POS, como hasta ahora.
         '/admin/reservaciones/operacion' => ['pdv'],
@@ -217,7 +231,8 @@ final class Permisos
 
     /**
      * APIs fuera de /admin/, por ruta EXACTA. Una /api/... que no esté aquí
-     * queda pública: al añadir un endpoint del personal hay que anotarlo.
+     * queda pública: al añadir un endpoint del personal hay que anotarlo. La
+     * excepción es /api/integraciones/, que niega por defecto (INTEGRACIONES).
      * (Antes eran las listas APIS_POS / APIS_AREA / APIS_PISO / APIS_ADMIN de
      * Classes\Auth; se movieron aquí para que la ruta y su módulo vivan juntos.)
      */
@@ -229,17 +244,14 @@ final class Permisos
         '/api/cancelar-mesa' => ['pdv'],
         '/api/enviar-comanda' => ['pdv'],
         '/api/entregar-item' => ['pdv'],
-        '/api/actualizar-ticket' => ['pdv'],
         '/api/cancelar-item' => ['pdv'],
         '/api/punto-de-venta/reservaciones' => ['pdv'],
-        '/api/punto-de-venta/mesa-contexto' => ['pdv'],
         '/api/punto-de-venta/reservaciones/comenzar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/cancelar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/no-show' => ['pdv'],
         '/api/punto-de-venta/reservaciones/disponibilidad' => ['pdv'],
         '/api/punto-de-venta/reservaciones/crear' => ['pdv'],
         '/api/punto-de-venta/reservaciones/asignar-mesas' => ['pdv'],
-        '/api/punto-de-venta/reservaciones/reasignar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/comentario' => ['pdv'],
         '/api/punto-de-venta/reservaciones/reubicaciones/revisar' => ['pdv'],
         '/api/corte-caja' => ['pdv'],
@@ -250,11 +262,9 @@ final class Permisos
         '/api/avanzar-item' => ['area'],
         '/api/retroceder-item' => ['area'],
         // Lecturas que necesitan las dos pantallas de piso.
-        '/api/productos' => ['pdv', 'area'],
         '/api/ticket-items' => ['pdv', 'area'],
         // Escrituras de horario que viven fuera de /admin/.
         '/api/configuracion/horarios/semanales' => ['configuration'],
-        '/api/configuracion/horarios/especiales' => ['configuration'],
         '/api/configuracion/horarios/excepciones' => ['configuration'],
         '/api/configuracion/horarios/excepciones/estado' => ['configuration'],
     ];
@@ -262,15 +272,39 @@ final class Permisos
     /** Pública aunque viva bajo /admin: el formulario de contraseña. */
     private const PUBLICAS = ['/admin/login'];
 
+    /**
+     * Integraciones máquina a máquina: ruta exacta → audiencia del JWT que
+     * tiene que traer (Services\Security\JwtIntegracion). Al revés que APIS,
+     * aquí se DENIEGA por defecto: toda ruta bajo PREFIJO_INTEGRACIONES exige
+     * JWT, y una que no esté en este mapa no tiene audiencia, así que ningún
+     * token la abre. Una integración nueva va bajo ese prefijo y se anota aquí.
+     */
+    public const PREFIJO_INTEGRACIONES = '/api/integraciones';
+    private const INTEGRACIONES = [
+        '/api/integraciones/n8n/feedback/areas-mejora' => 'feedback.areas-mejora',
+        '/api/integraciones/n8n/reservaciones/recordatorios/preparar' => 'reservaciones.recordatorios.preparar',
+        '/api/integraciones/n8n/reservaciones/recordatorios/reclamar' => 'reservaciones.recordatorios.reclamar',
+        '/api/integraciones/n8n/reservaciones/notificacion-resultado' => 'reservaciones.notificacion-resultado',
+    ];
+
     // ── Clasificación de rutas ────────────────────────────────────
 
     /**
      * Qué protege una ruta.
      *
-     * @return array{tipo: 'publica'|'compartida'|'modulos'|'solo_sistema', modulos: list<string>}
+     * Las integraciones llevan además `audiencia`: la del JWT que exigen, o
+     * null si la ruta no está en INTEGRACIONES (y entonces no entra nadie).
+     *
+     * @return array{tipo: 'publica'|'compartida'|'modulos'|'solo_sistema'|'integracion', modulos: list<string>, audiencia?: ?string}
      */
     public static function clasificar(string $url): array
     {
+        // Antes que nada: estas rutas viven bajo /api/, donde lo no anotado
+        // es público, y aquí tiene que ser justo lo contrario.
+        if (self::casa($url, self::PREFIJO_INTEGRACIONES)) {
+            return ['tipo' => 'integracion', 'modulos' => [], 'audiencia' => self::INTEGRACIONES[$url] ?? null];
+        }
+
         if (in_array($url, self::PUBLICAS, true)) {
             return ['tipo' => 'publica', 'modulos' => []];
         }
@@ -281,7 +315,7 @@ final class Permisos
 
         // /admin a secas es compartida; los demás prefijos compartidos, con
         // todo lo que cuelga de ellos.
-        if ($url === '/admin') {
+        if (in_array($url, ['/admin', '/admin/contexto', '/admin/panaderia'], true)) {
             return ['tipo' => 'compartida', 'modulos' => []];
         }
         foreach (self::COMPARTIDAS as $prefijo) {
@@ -308,6 +342,35 @@ final class Permisos
         return in_array(strtoupper($metodo), ['GET', 'HEAD'], true) ? self::VER : self::EDITAR;
     }
 
+    /** Catálogo de rutas 3B; no reutiliza una excepción de rol para conceder acceso. */
+    public static function clasificarDirecto(string $url): array
+    {
+        if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
+        if (self::casa($url, '/admin/global/menus')) return ['tipo'=>'modulos','modulos'=>['menu']];
+        if (self::casa($url, '/admin/global/productos')) return ['tipo'=>'modulos','modulos'=>['menu']];
+        // Fuera de Restaurante, las consultas sólo las usa el Asistente: las
+        // abre su módulo y nada más (Análisis y Tickets no existen ahí).
+        if (preg_match('~^/admin/(?:global|panaderia)/(?:ia|api/consultas)(?:/|$)~',$url)) return ['tipo'=>'modulos','modulos'=>['ia']];
+        $normal=preg_replace('~^/admin/(global|panaderia)(?=/|$)~','/admin',$url);
+        if (in_array($normal,['/admin','/admin/contexto'],true)) return ['tipo'=>'compartida','modulos'=>[]];
+        if (self::casa($normal,'/admin/almacenes') || in_array($url,['/admin/global/catalogo','/admin/global/inventario','/admin/panaderia/inventario'],true)) return ['tipo'=>'modulos','modulos'=>['inventario']];
+        if (self::casa($normal, '/admin/api/buzon')) return ['tipo'=>'modulos','modulos'=>['reservations']];
+        if (preg_match('~^/admin/usuarios(?:/|$)~',$normal)) return ['tipo'=>'modulos','modulos'=>['users']];
+        if (preg_match('~^/admin/roles(?:/|$)~',$normal)) return ['tipo'=>'solo_sistema','modulos'=>[]];
+        if (in_array($normal,['/admin/reservaciones/operacion','/admin/reservations/operation'],true)) return ['tipo'=>'modulos','modulos'=>['reservations_map']];
+        if (str_starts_with($url,'/api/punto-de-venta/reservaciones')) return ['tipo'=>'modulos','modulos'=>['pdv','reservations_map']];
+        if (self::casa($normal,'/admin/area') || in_array($normal,['/admin/api/area-items','/admin/api/advance-item','/admin/api/rollback-item'],true)) return ['tipo'=>'modulos','modulos'=>['area']];
+        if (self::casa($normal,'/admin/punto-de-venta')) return ['tipo'=>'modulos','modulos'=>['configuration']];
+        $clasificada=self::clasificar($normal);
+        if ($clasificada['tipo']==='publica' && str_starts_with($url,'/api/')) {
+            // Las APIs públicas actuales conservan sus guardias de token/integración.
+            $publicas=['/api/reservaciones/horarios','/api/reservaciones/disponibilidad','/api/reservaciones/retencion','/api/reservaciones/crear','/api/reservaciones/modificar','/api/reservaciones/confirmar-modificacion','/api/reservaciones/cancelar','/api/reservaciones/contacto/codigo','/api/reservaciones/contacto/estado','/api/reservaciones/contacto/verificar','/api/reservaciones/mis-reservaciones','/api/reservaciones/contacto/logout','/api/reservaciones/gestionar/disponibilidad','/api/reservaciones/gestionar/modificar','/api/reservaciones/gestionar/cancelar','/api/integraciones/n8n/reservaciones/recordatorios/preparar','/api/integraciones/n8n/reservaciones/recordatorios/reclamar','/api/integraciones/n8n/reservaciones/notificacion-resultado','/api/feedback','/api/feedback-n8n'];
+            if (in_array($url,$publicas,true)) return $clasificada;
+            return ['tipo'=>'solo_sistema','modulos'=>[]];
+        }
+        return $clasificada;
+    }
+
     /**
      * La decisión de la guardia central.
      *
@@ -323,6 +386,11 @@ final class Permisos
 
         if ($ruta['tipo'] === 'publica') {
             return ['resultado' => 'libre', 'motivo' => ''];
+        }
+        // Una integración se autentica con su JWT (Auth::proteger() lo mira
+        // antes de llegar aquí), nunca con una sesión: ni la de sistema la abre.
+        if ($ruta['tipo'] === 'integracion') {
+            return ['resultado' => 'negar', 'motivo' => 'sin_modulo'];
         }
         if ($rol === null) {
             return ['resultado' => 'login', 'motivo' => ''];

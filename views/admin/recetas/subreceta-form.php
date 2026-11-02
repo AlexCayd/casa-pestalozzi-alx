@@ -61,41 +61,7 @@
                     <label class="admin-field__label" for="rendimiento">Rendimiento (cantidad que produce)</label>
                     <input type="number" id="rendimiento" name="rendimiento" step="0.001" min="0.001" required
                            value="<?php echo htmlspecialchars((string) ($sub->rendimiento ?? 1)); ?>">
-                    <p class="admin-field__hint">Lo que sale de un lote con las cantidades de abajo.</p>
                 </div>
-
-                <?php /* Las nuevas nacen por lote (el valor por defecto del modelo).
-                         Al momento es la excepción: lo que se prepara con cada
-                         plato, como un shot de espresso. */ ?>
-                <div class="admin-field admin-form-grid__full">
-                    <label class="admin-switch">
-                        <input type="checkbox" name="por_lote" value="1" <?php echo (int) ($sub->por_lote ?? 1) === 1 ? 'checked' : ''; ?>>
-                        <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
-                        <span class="admin-switch__label">Se produce por lote</span>
-                    </label>
-                    <p class="admin-field__hint">Encendido: se cocina por adelantado. Producir un lote saca sus ingredientes del almacén, y vender un platillo descuenta sólo la subreceta. Apagado: se prepara al momento, y cada venta descuenta sus ingredientes.</p>
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-field__label" for="stock_minimo">Existencia mínima</label>
-                    <input type="number" id="stock_minimo" name="stock_minimo" step="0.001" min="0"
-                           value="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float) ($sub->stock_minimo ?? 0), 3, '.', ''), '0'), '.')); ?>">
-                    <?php /* La unidad se nombra por su campo y no por su valor: escrita
-                             («En l.») se quedaba vieja en cuanto se cambiaba el selector. */ ?>
-                    <p class="admin-field__hint">En la unidad del rendimiento. Al llegar a esta cifra, la lista la marca por producir. Sólo cuenta si se produce por lote.</p>
-                </div>
-
-                <?php if (!empty($sub->id) && (int) ($sub->por_lote ?? 0) === 1) : ?>
-                    <?php /* La existencia no se edita aquí: la mueven los lotes, las
-                             ventas y el conteo. Se enseña para saber de dónde se parte. */ ?>
-                    <div class="admin-field">
-                        <span class="admin-field__label">Existencia</span>
-                        <p class="admin-recetas__existencia">
-                            <span class="admin-num"><?php echo htmlspecialchars(rtrim(rtrim(number_format((float) $sub->stock, 3, '.', ','), '0'), '.')); ?> <?php echo htmlspecialchars($sub->unidad); ?></span>
-                            <a href="/admin/recetas/subrecetas/producir?id=<?php echo (int) $sub->id; ?>">Producir o corregir</a>
-                        </p>
-                    </div>
-                <?php endif; ?>
 
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?php echo (int) ($sub->activo ?? 1) === 1 ? 'checked' : ''; ?>>

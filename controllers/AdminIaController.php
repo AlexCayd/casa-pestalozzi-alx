@@ -1,6 +1,6 @@
 <?php
 /**
- * Asistente IA del panel: una conversación con los datos del restaurante.
+ * Asistente IA del panel: una conversación con los datos del negocio.
  *
  * Quien responde es el motor de consultas rápidas (GET /admin/api/consultas →
  * Services\Analytics\ConsultasRapidas). No hay modelo de lenguaje detrás: la
@@ -16,20 +16,31 @@
  * puede preguntar —que es el del propio motor, ConsultasRapidas::capacidades()—
  * con el borrador de cada pregunta, y la ruta de la API. Las preguntas las hace
  * el navegador.
+ *
+ * Es la misma pantalla en los tres ámbitos. Lo que cambia por ámbito es el
+ * catálogo (Panadería pregunta por su caja, sus almacenes y su menú; Global por
+ * el consolidado de almacenes y los productos de la casa: ver
+ * ConsultasRapidasAmbito), cómo se agrupa, la ruta de la API y el historial del
+ * navegador, que se guarda aparte para no mezclar conversaciones de negocios
+ * distintos.
  */
 
 namespace Controllers;
 
 use MVC\Router;
 use Services\Analytics\ConsultasRapidas;
+use Services\Security\Contextos;
 
 class AdminIaController
 {
     private const MODULE_CSS = '/build/css/admin/ia.css';
     private const MODULE_JS = '/build/js/admin/ia.js';
 
-    /** La ruta que contesta. Vive bajo /admin/, así que exige rol admin por prefijo. */
-    private const API = '/admin/api/consultas';
+    /**
+     * La ruta que contesta, bajo el prefijo del ámbito: es lo que hace que la
+     * guardia y el motor resuelvan el mismo ámbito que la página.
+     */
+    private const API = '/api/consultas';
 
     /**
      * Conversaciones que guarda el navegador. Al abrir una más se borra la más
@@ -46,9 +57,52 @@ class AdminIaController
      * compositor.
      */
     private const TEMAS = [
-        ['tema' => 'Ventas', 'intenciones' => ['ventas_total', 'ventas_producto', 'ventas_categoria', 'top', 'ticket_promedio', 'sin_venta']],
-        ['tema' => 'Equipo y servicio', 'intenciones' => ['meseros', 'horas_pico', 'cancelaciones']],
-        ['tema' => 'Inventario', 'intenciones' => ['stock', 'consumo', 'bajo_stock']],
+        'restaurante' => [
+            ['tema' => 'Ventas', 'intenciones' => ['ventas_total', 'ventas_producto', 'ventas_categoria', 'top', 'ticket_promedio', 'sin_venta']],
+            ['tema' => 'Equipo y servicio', 'intenciones' => ['meseros', 'horas_pico', 'cancelaciones']],
+            ['tema' => 'Inventario', 'intenciones' => ['stock', 'consumo', 'bajo_stock']],
+        ],
+        // Sin «Equipo y servicio»: la caja no tiene meseros, y sus horas y
+        // cancelaciones son ventas de mostrador.
+        'panaderia' => [
+            ['tema' => 'Ventas en caja', 'intenciones' => ['ventas_total', 'ventas_producto', 'ventas_categoria', 'top', 'ticket_promedio', 'sin_venta', 'horas_pico', 'cancelaciones']],
+            ['tema' => 'Almacenes', 'intenciones' => ['stock', 'bajo_stock', 'consumo', 'entradas', 'mermas', 'transferencias']],
+            ['tema' => 'Menú', 'intenciones' => ['sin_receta']],
+        ],
+        'global' => [
+            ['tema' => 'Almacenes de la organización', 'intenciones' => ['stock', 'bajo_stock', 'consumo', 'entradas', 'mermas']],
+            ['tema' => 'Entre negocios', 'intenciones' => ['transferencias', 'productos_casa']],
+        ],
+    ];
+
+    /**
+     * Lo que la pantalla dice distinto en cada ámbito: el nombre del total en
+     * el hueco de ventas, el de un hueco sin elegir, la nota bajo el
+     * compositor y cómo se llaman en la ficha las respuestas cuyo nombre
+     * cambia (ia.js los mezcla con los suyos).
+     */
+    private const AMBITO = [
+        'restaurante' => [
+            'todo' => 'todo el restaurante',
+            'elige_ventas' => 'elige un platillo',
+            'elige_articulo' => 'elige un ingrediente',
+            'nota' => 'Responde con los datos del panel al momento: ventas, equipo e inventario.',
+            'rubros' => [],
+        ],
+        'panaderia' => [
+            'todo' => 'toda la panadería',
+            'elige_ventas' => 'elige un producto',
+            'elige_articulo' => 'elige un artículo',
+            'nota' => 'Responde con los datos de Panadería al momento: ventas en caja, almacenes y menú.',
+            'rubros' => ['ventas_total' => 'Ventas en caja', 'sin_venta' => 'Productos sin venta', 'horas_pico' => 'Horas de más venta', 'cancelaciones' => 'Cancelaciones en caja'],
+        ],
+        'global' => [
+            'todo' => 'toda la organización',
+            'elige_ventas' => 'elige un producto',
+            'elige_articulo' => 'elige un artículo',
+            'nota' => 'Responde con los almacenes de toda la organización, las transferencias y los productos de la casa.',
+            'rubros' => [],
+        ],
     ];
 
     /**
@@ -68,16 +122,25 @@ class AdminIaController
         'stock' => 'inventario',
         'consumo' => 'gota',
         'bajo_stock' => 'alerta',
+        'entradas' => 'descargar',
+        'mermas' => 'basura',
+        'transferencias' => 'transferencias',
+        'sin_receta' => 'products',
+        'productos_casa' => 'menu',
     ];
 
     public static function index(Router $router): void
     {
-        $catalogo = self::catalogo();
+        $ctx = self::ambito();
+        $catalogo = self::catalogo($ctx);
 
         AdminController::render('ia/index', [
             'activeModule' => 'ia',
             'title' => 'Asistente IA',
-            'iaApi' => self::API,
+            'iaApi' => ($ctx === 'restaurante' ? '/admin' : Contextos::inicio($ctx)) . self::API,
+            'iaAmbito' => $ctx,
+            'iaTextos' => ['todo' => self::AMBITO[$ctx]['todo'], 'rubros' => (object) self::AMBITO[$ctx]['rubros']],
+            'iaNota' => self::AMBITO[$ctx]['nota'],
             'iaNombre' => self::nombreDePila(),
             'iaSaludo' => self::saludo((int) date('G')),
             'iaMaxConversaciones' => self::MAX_CONVERSACIONES,
@@ -88,6 +151,14 @@ class AdminIaController
         ]);
     }
 
+    /** El ámbito de la página, resuelto por la ruta como en la guardia. */
+    private static function ambito(): string
+    {
+        $ctx = Contextos::deRuta((string) ($_SERVER['PATH_INFO'] ?? '/admin/ia'));
+
+        return isset(self::AMBITO[$ctx]) ? $ctx : 'restaurante';
+    }
+
     /**
      * El catálogo COMPLETO de lo que el motor responde, agrupado por familia
      * de pregunta, y los periodos que entiende, para el hueco de periodo del
@@ -95,7 +166,7 @@ class AdminIaController
      *
      * @return array{grupos: list<array<string, mixed>>, opcionesPeriodo: list<array<string, mixed>>}
      */
-    private static function catalogo(): array
+    private static function catalogo(string $ctx): array
     {
         try {
             $capacidades = ConsultasRapidas::capacidades();
@@ -121,10 +192,10 @@ class AdminIaController
             }
         }
 
-        $fila = static fn (array $i): array => self::fila($i, $etiquetaPeriodo);
+        $fila = static fn (array $i): array => self::fila($i, $etiquetaPeriodo, $ctx);
 
         $grupos = [];
-        foreach (self::TEMAS as $tema) {
+        foreach (self::TEMAS[$ctx] as $tema) {
             $consultas = [];
             foreach ($tema['intenciones'] as $clave) {
                 if (isset($porIntencion[$clave])) {
@@ -162,7 +233,7 @@ class AdminIaController
      * @param array<string, string> $etiquetaPeriodo  clave → etiqueta
      * @return array{intencion: string, titulo: string, descripcion: string, icono: string, borrador: array, borradores: list<array>}
      */
-    private static function fila(array $intencion, array $etiquetaPeriodo): array
+    private static function fila(array $intencion, array $etiquetaPeriodo, string $ctx): array
     {
         $clave = (string) $intencion['intencion'];
         $ejemplos = array_values(array_filter(
@@ -175,8 +246,8 @@ class AdminIaController
         // Sin ningún ejemplo (una base sin datos) queda un borrador con el
         // hueco vacío, que hay que llenar antes de enviar.
         $borradores = $ejemplos === []
-            ? [self::borradorDe($clave, [], $intencion, $etiquetaPeriodo)]
-            : array_map(static fn (array $e): array => self::borradorDe($clave, $e, $intencion, $etiquetaPeriodo), $ejemplos);
+            ? [self::borradorDe($clave, [], $intencion, $etiquetaPeriodo, $ctx)]
+            : array_map(static fn (array $e): array => self::borradorDe($clave, $e, $intencion, $etiquetaPeriodo, $ctx), $ejemplos);
 
         return [
             'intencion' => $clave,
@@ -197,11 +268,12 @@ class AdminIaController
      * @param array<string, string> $etiquetaPeriodo
      * @return array{consulta: array<string, mixed>, partes: list<array<string, mixed>>}
      */
-    private static function borradorDe(string $clave, array $ejemplo, array $intencion, array $etiquetaPeriodo): array
+    private static function borradorDe(string $clave, array $ejemplo, array $intencion, array $etiquetaPeriodo, string $ctx): array
     {
         $consulta = is_array($ejemplo['consulta'] ?? null)
             ? $ejemplo['consulta']
             : ['intencion' => $clave, 'id' => null, 'opcion' => null, 'periodo' => 'hoy'];
+        $textos = self::AMBITO[$ctx];
 
         // El nombre de la cosa del ejemplo es su primera parte variable:
         // ConsultasRapidas::partes() pone la cosa antes que el periodo. Las
@@ -250,7 +322,7 @@ class AdminIaController
                 'rotulo' => (string) ($p['rotulo'] ?? ''),
                 'catalogo' => $catalogo,
                 'valor' => $lleno ? ($total ? 'ventas_total' : $prefijo . ':' . (int) $id) : '',
-                'etiqueta' => $lleno ? ($total ? 'todo el restaurante' : $nombre) : ($catalogo === 'ingredientes' ? 'elige un ingrediente' : 'elige un platillo'),
+                'etiqueta' => $lleno ? ($total ? $textos['todo'] : $nombre) : ($catalogo === 'ingredientes' ? $textos['elige_articulo'] : $textos['elige_ventas']),
             ];
             if (is_string($p['intencion'] ?? null)) {
                 $hueco['intencion'] = $p['intencion'];

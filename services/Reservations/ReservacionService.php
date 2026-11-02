@@ -151,11 +151,12 @@ class ReservacionService
 
         try {
             $db->begin_transaction();
+            if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('reservations','editar','restaurante',true);
 
             $reservacion = self::fila(
                 "SELECT id, fecha, hora, estado
                  FROM reservaciones
-                 WHERE id = {$reservacionId}
+                 WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
                  LIMIT 1
                  FOR UPDATE"
             );
@@ -174,7 +175,7 @@ class ReservacionService
             self::ejecutar(
                 "UPDATE reservaciones
                  SET comentario_admin = '" . ActiveRecord::escaparString($comentario) . "'
-                 WHERE id = {$reservacionId}
+                 WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
                  LIMIT 1"
             );
 
@@ -269,11 +270,12 @@ class ReservacionService
 
         try {
             $db->begin_transaction();
+            if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('reservations','editar','restaurante',true);
 
             $reservacion = self::fila(
                 "SELECT *
                  FROM reservaciones
-                 WHERE id = {$reservacionId}
+                 WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
                  LIMIT 1
                  FOR UPDATE"
             );
@@ -316,7 +318,7 @@ class ReservacionService
                 "UPDATE reservaciones
                  SET estado = '{$estadoSql}',
                      estado_changed_at = NOW()
-                 WHERE id = {$reservacionId}
+                 WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
                  LIMIT 1"
             );
             $db->commit();
@@ -861,7 +863,7 @@ class ReservacionService
         self::ejecutar(
             "UPDATE reservaciones
              SET " . implode(', ', $sets) . "
-             WHERE id = {$reservacionId}
+             WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
              LIMIT 1"
         );
     }
@@ -875,7 +877,7 @@ class ReservacionService
         self::ejecutar(
             "UPDATE reservaciones
              SET comentario_admin = '" . ActiveRecord::escaparString($comentario) . "'
-             WHERE id = {$reservacionId}
+             WHERE id = {$reservacionId}" . \Model\Reservacion::filtroUnidad() . "
              LIMIT 1"
         );
     }

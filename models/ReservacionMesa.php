@@ -9,7 +9,7 @@ namespace Model;
 
 use Services\Reservations\ReservacionVigenciaService;
 
-class ReservacionMesa extends ActiveRecord
+class ReservacionMesa extends RegistroRestaurante
 {
     protected static $tabla = 'reservacion_mesas';
     protected static $columnasDB = ['id', 'reservacion_id', 'mesa_id', 'orden'];
@@ -30,7 +30,7 @@ class ReservacionMesa extends ActiveRecord
             "SELECT m.id, m.numero, m.nombre, m.tipo, m.zona, m.capacidad, m.pos_x, m.pos_y, m.activo, m.reservable
              FROM reservacion_mesas rm
              INNER JOIN mesas m ON m.id = rm.mesa_id
-             WHERE rm.reservacion_id = {$reservacionId}
+             WHERE rm.reservacion_id = {$reservacionId}" . self::filtroUnidad('rm') . self::filtroUnidad('m') . "
              ORDER BY rm.orden ASC"
         );
     }
@@ -44,7 +44,7 @@ class ReservacionMesa extends ActiveRecord
         $resultado = self::$db->query(
             "SELECT mesa_id
              FROM reservacion_mesas
-             WHERE reservacion_id = {$reservacionId}
+             WHERE reservacion_id = {$reservacionId}" . self::filtroUnidad() . "
              ORDER BY orden ASC"
         );
 
@@ -79,11 +79,13 @@ class ReservacionMesa extends ActiveRecord
         $valores = [];
         foreach ($mesaIds as $index => $mesaId) {
             $orden = $index + 1;
-            $valores[] = "({$reservacionId}, {$mesaId}, {$orden})";
+            $valores[] = \Services\Security\ContextoNegocio::nuevo()
+                ? '('.self::unidadRestaurante().",{$reservacionId},{$mesaId},{$orden})"
+                : "({$reservacionId}, {$mesaId}, {$orden})";
         }
 
         self::ejecutar(
-            "INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+            "INSERT INTO reservacion_mesas (" . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . "reservacion_id, mesa_id, orden)
              VALUES " . implode(', ', $valores)
         );
     }
@@ -108,7 +110,7 @@ class ReservacionMesa extends ActiveRecord
                  WHEN updated_at IS NULL THEN CURRENT_TIMESTAMP
                  ELSE GREATEST(CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND)
              END
-             WHERE id = {$reservacionId}"
+             WHERE id = {$reservacionId}" . self::filtroUnidad()
         )) {
             throw new \RuntimeException('No fue posible actualizar la version de asignacion.');
         }
@@ -120,7 +122,7 @@ class ReservacionMesa extends ActiveRecord
             return;
         }
 
-        self::ejecutar("DELETE FROM reservacion_mesas WHERE reservacion_id = {$reservacionId}");
+        self::ejecutar("DELETE FROM reservacion_mesas WHERE reservacion_id = {$reservacionId}" . self::filtroUnidad());
     }
 
     /** Elimina relaciones en lote, conservando una sola escritura SQL. */
@@ -135,7 +137,7 @@ class ReservacionMesa extends ActiveRecord
         }
 
         self::ejecutar(
-            'DELETE FROM reservacion_mesas WHERE reservacion_id IN (' . implode(',', $ids) . ')'
+            'DELETE FROM reservacion_mesas WHERE reservacion_id IN (' . implode(',', $ids) . ')' . self::filtroUnidad()
         );
     }
 
@@ -188,7 +190,7 @@ class ReservacionMesa extends ActiveRecord
                     r.hold_expires_at
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
-             WHERE r.fecha = '{$fecha}'
+             WHERE r.fecha = '{$fecha}'" . self::filtroUnidad('r') . self::filtroUnidad('rm') . "
                {$excluirSql}
                AND {$condicionOcupacion}
              ORDER BY r.hora ASC, rm.mesa_id ASC{$bloqueoSql}"
@@ -249,7 +251,7 @@ class ReservacionMesa extends ActiveRecord
         $resultado = self::$db->query(
             "SELECT r.id, r.fecha, r.hora, r.comensales, r.estado
              FROM reservaciones r
-             WHERE r.fecha = '{$fecha}'
+             WHERE r.fecha = '{$fecha}'" . self::filtroUnidad('r') . "
                AND r.estado = 'confirmada'
                AND NOT EXISTS (
                    SELECT 1
@@ -287,7 +289,7 @@ class ReservacionMesa extends ActiveRecord
         $resultado = self::$db->query(
             "SELECT COUNT(*) AS total
              FROM reservacion_mesas
-             WHERE reservacion_id = {$reservacionId}"
+             WHERE reservacion_id = {$reservacionId}" . self::filtroUnidad()
         );
 
         if ($resultado === false) {

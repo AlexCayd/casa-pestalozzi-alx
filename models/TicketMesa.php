@@ -8,7 +8,7 @@ namespace Model;
 
 use Services\Pos\TicketTemporalService;
 
-class TicketMesa extends ActiveRecord
+class TicketMesa extends RegistroRestaurante
 {
     public const ESTADO_ABIERTO = 'abierto';
 
@@ -34,11 +34,13 @@ class TicketMesa extends ActiveRecord
 
         $valores = [];
         foreach ($mesaIds as $index => $mesaId) {
-            $valores[] = sprintf('(%d, %d, %d)', $ticketId, $mesaId, $index + 1);
+            $valores[] = \Services\Security\ContextoNegocio::nuevo()
+                ? sprintf('(%d,%d,%d,%d)',self::unidadRestaurante(),$ticketId,$mesaId,$index+1)
+                : sprintf('(%d, %d, %d)', $ticketId, $mesaId, $index + 1);
         }
 
         if (!self::$db->query(
-            'INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ' . implode(', ', $valores)
+            'INSERT INTO ticket_mesas ('.(\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'').'ticket_id, mesa_id, orden) VALUES ' . implode(', ', $valores)
         )) {
             throw new \RuntimeException(self::$db->error);
         }
@@ -52,7 +54,7 @@ class TicketMesa extends ActiveRecord
         }
 
         $resultado = self::$db->query(
-            "SELECT mesa_id FROM ticket_mesas WHERE ticket_id = {$ticketId} ORDER BY orden"
+            "SELECT mesa_id FROM ticket_mesas WHERE ticket_id = {$ticketId}" . self::filtroUnidad() . " ORDER BY orden"
         );
         if (!$resultado) {
             throw new \RuntimeException(self::$db->error);
@@ -101,7 +103,7 @@ class TicketMesa extends ActiveRecord
                     GROUP_CONCAT(tm.mesa_id ORDER BY tm.orden) AS mesa_ids
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
-             WHERE {$condicionAbierto}
+             WHERE {$condicionAbierto}" . self::filtroUnidad('t') . self::filtroUnidad('tm') . "
              GROUP BY t.id, t.nombre, t.comensales, t.hora_apertura, t.closed_at, t.estado,
                       t.reservacion_id, t.mesero_id
              ORDER BY t.id{$lock}"

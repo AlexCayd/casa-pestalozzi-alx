@@ -75,7 +75,6 @@ foreach ([
     'disponibilidad' => 'disponibilidad',
     'crear' => 'crear',
     'asignar-mesas' => 'asignarMesas',
-    'reasignar' => 'reasignar',
     'comentario' => 'comentario',
     'reubicaciones/revisar' => 'revisarReubicacion',
 ] as $ruta => $metodo) {

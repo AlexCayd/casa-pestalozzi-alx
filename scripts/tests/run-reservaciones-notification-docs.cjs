@@ -6,9 +6,8 @@ const root = path.resolve(__dirname, '../..');
 
 function source(file) {
   const bytes = fs.readFileSync(path.join(root, file));
-  return file === 'README.md'
-    ? bytes.toString('utf16le').replace(/^\uFEFF/, '')
-    : bytes.toString('utf8');
+  return (bytes[0] === 0xff && bytes[1] === 0xfe
+    ? bytes.toString('utf16le') : bytes.toString('utf8')).replace(/^\uFEFF/, '');
 }
 
 function names(directory) {
@@ -34,9 +33,13 @@ function slug(text) {
 
 const expectedDocs = [
   'arquitectura.md',
+  'backlog.md',
+  'desarrollo',
   'config.md',
   'correcciones_pendientes_arquitectura.md',
+  'modulos',
   'operacion.md',
+  'panaderia',
   'privacidad',
   'reservaciones',
   'usuarios'
@@ -70,17 +73,18 @@ for (const responsibility of [
 }
 
 const config = source('docs/config.md');
-for (const token of ['APP_ENV', 'APP_TIMEZONE', 'DB_HOST', 'N8N_BASE_URL', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'N8N_RESERVATIONS_CALLBACK_SECRET']) {
+for (const token of ['APP_ENV', 'APP_TIMEZONE', 'DB_HOST', 'N8N_BASE_URL', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'JWT_N8N_ENTRADA_SECRET']) {
   assert.ok(config.includes(token), `configuración documenta ${token}`);
 }
 assert.match(config, /development.*test.*production/s);
 assert.match(config, /Configuración administrativa/);
 
 const operation = source('docs/operacion.md');
-for (const token of ['POST /api/enviar-comanda', 'print_ok', 'impresion_activa', 'no recibe una clave de idempotencia', 'npm run test:pos-print-alerts']) {
+for (const token of ['POST /api/enviar-comanda', 'print_ok', 'impresion_activa', 'clave de idempotencia', 'npm run test:pos-print-alerts']) {
   assert.ok(operation.includes(token), `operación POS documenta ${token}`);
 }
 assert.match(operation, /últimas 16 horas/);
+assert.doesNotMatch(operation, /no recibe una clave de idempotencia/, 'El contrato vigente debe documentar la protección de reintentos de 3D.');
 
 const reservations = source('docs/reservaciones/reservaciones.md');
 for (const section of ['## Mapas y estados visuales', '## Responsabilidad de las reglas', '### Elementos especiales del POS', '### Qué no hace el frontend', '### Prioridad visual', '### Límites temporales', '### Modal de ayuda', '## Cambios de horario y afectaciones']) {
@@ -91,13 +95,13 @@ assert.ok(reservations.includes('| Elemento decorativo activo | No | No | No | N
 for (const rule of ['capacidades_pos', 'Caja activa', 'Llevar activo', 'Mesa desactivada', 'ReservacionConfig', 'map-contract.js', 'table-state-adapter.js', 'map-visual.js']) {
   assert.ok(reservations.includes(rule), `responsabilidades documenta ${rule}`);
 }
-for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Tolerancia', 'Ausencia pendiente', 'Ticket abierto', 'No utilizable', 'Seleccionada', 'fuera_horario_operacion', 'Barras con varios tickets', 'Migración de bases existentes', 'REUBICAR_RESERVACIONES']) {
+for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Tolerancia', 'Ausencia pendiente', 'Ticket abierto', 'No utilizable', 'Seleccionada', 'fuera_horario_operacion', 'Barras con varios tickets', 'Instalación y datos de desarrollo', 'REUBICAR_RESERVACIONES']) {
   assert.ok(reservations.includes(rule), `reservaciones cubre ${rule}`);
 }
 assert.match(reservations, /no garantiza disponibilidad/);
 
 const notifications = source('docs/reservaciones/notificaciones.md');
-for (const token of ['claimed: true', 'accepted|failed', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'N8N_RESERVATIONS_CALLBACK_SECRET', 'npm run test:notifications']) {
+for (const token of ['claimed: true', 'accepted|failed', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'JWT_N8N_ENTRADA_SECRET', 'npm run test:notifications']) {
   assert.ok(notifications.includes(token), `notificaciones documenta ${token}`);
 }
 assert.match(notifications, /accepted.*no\s+entrega|accepted.*sin confirmar entrega/s);

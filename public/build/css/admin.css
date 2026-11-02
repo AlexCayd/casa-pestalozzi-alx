@@ -1480,6 +1480,23 @@ html.lenis body {
 }
 
 @media (max-width: 992px) {
+  .admin-sidebar-collapsed .admin-sidebar,
+  .admin-body.is-sidebar-collapsed .admin-sidebar {
+    width: min(320px, 100vw - 48px);
+    padding: 18px;
+  }
+  .admin-sidebar-collapsed .admin-sidebar__brand-text,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand-text {
+    display: block;
+  }
+  .admin-sidebar-collapsed .admin-sidebar__brand-mark,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand-mark {
+    display: none;
+  }
+  .admin-sidebar-collapsed .admin-sidebar__brand,
+  .admin-body.is-sidebar-collapsed .admin-sidebar__brand {
+    justify-content: flex-start;
+  }
   .admin-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -7806,6 +7823,422 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-weight: 700;
 }
 
+.admin-context-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 8px 0 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+}
+.admin-context-switch label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--admin-muted);
+}
+.admin-context-switch__controls {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.admin-context-switch select {
+  appearance: auto;
+  -webkit-appearance: auto;
+  min-height: 44px;
+  max-width: 100%;
+  width: 100%;
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  font: inherit;
+}
+.admin-context-switch select:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.admin-context-switch select:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+
+.admin-context-name {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.admin-sidebar-collapsed .admin-context-switch label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.admin-sidebar-collapsed .admin-context-switch select {
+  padding-inline: 3px;
+  font-size: 11px;
+}
+
+.admin-context-denied {
+  max-width: 64ch;
+  margin: 12vh auto;
+  padding: 24px;
+  color: var(--admin-text);
+}
+.admin-context-denied h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.2;
+}
+.admin-context-denied p {
+  margin: 20px 0;
+  color: var(--admin-muted);
+  line-height: 1.7;
+}
+
+.admin-context-pending {
+  cursor: default;
+  color: var(--admin-muted);
+}
+.admin-context-pending small {
+  display: block;
+  font-size: 11px;
+}
+.admin-context-pending:hover {
+  background: transparent;
+  color: var(--admin-muted);
+}
+.admin-context-pending:hover .admin-sidebar__link-mark {
+  transform: none;
+  color: inherit;
+}
+
+.admin-context-page {
+  min-width: 0;
+  color: var(--admin-text);
+}
+.admin-context-page__header {
+  margin-bottom: 24px;
+}
+.admin-context-page__header h1 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.15;
+}
+.admin-context-page__header p {
+  margin: 10px 0 0;
+  max-width: 72ch;
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+.admin-context-page__notice {
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+  font-size: 14px;
+}
+.admin-context-page__notice p {
+  margin: 6px 0 0;
+  max-width: 72ch;
+  line-height: 1.6;
+  color: var(--admin-muted);
+}
+.admin-context-page__businesses, .admin-context-page__empty {
+  padding: clamp(18px, 3vw, 28px);
+}
+.admin-context-page h2 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.admin-context-page h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.admin-context-page__business {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+}
+.admin-context-page__business + .admin-context-page__business {
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-context-page__business p {
+  color: var(--admin-muted);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+.admin-context-page__business a {
+  flex-shrink: 0;
+}
+.admin-context-page__pending, .admin-context-page__empty p {
+  max-width: 72ch;
+  color: var(--admin-muted);
+  line-height: 1.6;
+  margin: 20px 0;
+}
+.admin-context-page__empty a {
+  display: inline-flex;
+  margin: 8px 16px 0 0;
+}
+.admin-context-page__number {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin-context-page__mobile-unit, .admin-context-page__scroll-hint {
+  display: none;
+}
+.admin-context-page .admin-table caption {
+  text-align: left;
+  padding: 16px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-context-page .admin-table tbody th {
+  background: transparent;
+  color: var(--admin-text);
+  text-transform: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: normal;
+  white-space: normal;
+}
+.admin-context-page__recipe {
+  margin-bottom: 16px;
+  padding: 20px;
+}
+.admin-context-page__recipe summary {
+  cursor: pointer;
+  min-height: 44px;
+  line-height: 1.5;
+}
+.admin-context-page__recipe summary span {
+  margin-left: 16px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-context-page__recipe p, .admin-context-page__recipe li {
+  line-height: 1.7;
+  max-width: 72ch;
+  font-size: 14px;
+}
+.admin-context-page__recipe p {
+  color: var(--admin-muted);
+}
+.admin-context-page__recipe summary:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 4px;
+}
+
+@media (max-width: 700px) {
+  .admin-context-page__scroll-hint {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .admin-context-page .admin-context-page__inventory {
+    min-width: 0;
+  }
+  .admin-context-page .admin-context-page__inventory th, .admin-context-page .admin-context-page__inventory td {
+    padding: 12px 8px;
+  }
+  .admin-context-page .admin-context-page__inventory thead th {
+    white-space: normal;
+    letter-spacing: normal;
+  }
+  .admin-context-page .admin-context-page__inventory .admin-context-page__unit {
+    display: none;
+  }
+  .admin-context-page .admin-context-page__inventory .admin-context-page__mobile-unit {
+    display: inline;
+  }
+  .admin-context-page .admin-context-page__inventory tbody th {
+    width: 42%;
+  }
+  .admin-context-page .admin-context-page__inventory td:last-child {
+    font-size: 12px;
+  }
+  .admin-context-name {
+    display: block;
+    font-size: 11px;
+  }
+  .admin-context-name span {
+    display: none;
+  }
+  .admin-context-page__business {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .admin-context-page__recipe summary span {
+    display: block;
+    margin-left: 0;
+  }
+  .admin-context-switch {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+/* Selector de ámbito: disparador compartido y menú en la capa superior. */
+.admin-context-switch {
+  display: block;
+}
+
+.admin-body .admin-context-switch__trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-sidebar-border);
+  border-radius: var(--admin-radius-md);
+  color: var(--admin-sidebar-link);
+  background: var(--admin-sidebar-hover-bg);
+  font: 600 13px var(--admin-font-sans);
+  cursor: pointer;
+}
+.admin-body .admin-context-switch__trigger:hover {
+  color: var(--admin-text);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-context-switch__trigger:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 3px;
+}
+
+.admin-context-switch__icon {
+  width: 20px;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-context-switch__name {
+  flex: 1;
+  text-align: left;
+}
+
+.admin-context-switch__chevron {
+  display: flex;
+}
+
+.admin-context-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-lg);
+  font: 13px var(--admin-font-sans);
+}
+.admin-context-menu p {
+  margin: 8px 12px;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+.admin-context-menu a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  min-height: 44px;
+  color: var(--admin-text);
+  text-decoration: none;
+  border-radius: 6px;
+}
+.admin-context-menu a span {
+  flex: 1;
+}
+.admin-context-menu a:hover, .admin-context-menu a:focus-visible, .admin-context-menu a[aria-current] {
+  background: var(--admin-surface-soft);
+}
+.admin-context-menu a:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: -2px;
+}
+
+@media (min-width: 993px) {
+  .admin-sidebar-collapsed .admin-context-switch__trigger, .is-sidebar-collapsed .admin-context-switch__trigger {
+    padding: 12px;
+    justify-content: center;
+    width: 48px;
+    margin-inline: auto;
+    gap: 0;
+  }
+  .admin-sidebar-collapsed .admin-context-switch__name, .admin-sidebar-collapsed .admin-context-switch__chevron, .is-sidebar-collapsed .admin-context-switch__name, .is-sidebar-collapsed .admin-context-switch__chevron {
+    display: none;
+  }
+}
+.admin-home__section {
+  margin-block: 24px;
+}
+
+.admin-access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+
+.admin-body .admin-access {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 20px;
+  color: var(--admin-text);
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.admin-body .admin-access:hover {
+  transform: translateY(-2px);
+  border-color: var(--admin-border);
+  box-shadow: var(--admin-shadow-md);
+}
+.admin-body .admin-access:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 4px;
+}
+.admin-body .admin-access__copy {
+  display: grid;
+  gap: 6px;
+}
+.admin-body .admin-access__copy strong {
+  font-size: 17px;
+}
+.admin-body .admin-access__copy > span {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-body .admin-access__action {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-access {
+    transition: none;
+  }
+  .admin-body .admin-access:hover {
+    transform: none;
+  }
+}
 /*
  * Vidrio: la única forma de pedir una superficie translúcida en el proyecto.
  *

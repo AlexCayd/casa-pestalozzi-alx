@@ -3,7 +3,7 @@
 namespace Model;
 
 /** Lote persistente originado por un cambio de horario. */
-class HorarioImpacto extends ActiveRecord
+class HorarioImpacto extends RegistroRestaurante
 {
     protected static $tabla = 'horario_impactos';
     protected static $columnasDB = [

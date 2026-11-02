@@ -329,7 +329,7 @@ final class ReservacionPublicaService
                     "UPDATE reservaciones
                      SET estado = 'confirmada',
                          estado_changed_at = ?
-                     WHERE id = ? AND estado = 'pendiente_verificacion'"
+                     WHERE id = ? AND estado = 'pendiente_verificacion'" . Reservacion::filtroUnidad()
                 );
                 self::ejecutarStmt($stmt, 'si', [$estadoChangedAt, (int)$retencion['id']]);
                 if (!$db->commit()) {
@@ -845,7 +845,7 @@ final class ReservacionPublicaService
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
                      SET estado = 'reemplazada', estado_changed_at = ?
-                     WHERE id = ? AND estado = 'confirmada'"
+                     WHERE id = ? AND estado = 'confirmada'" . Reservacion::filtroUnidad()
                 );
                 self::ejecutarStmt($stmt, 'si', [$estadoChangedAt, $id]);
 
@@ -1008,8 +1008,8 @@ final class ReservacionPublicaService
                          ELSE 'reemplazada'
                      END,
                      estado_changed_at = ?
-                     WHERE (id = ? AND estado = 'pendiente_verificacion')
-                        OR (id = ? AND estado = 'confirmada')"
+                     WHERE ((id = ? AND estado = 'pendiente_verificacion')
+                        OR (id = ? AND estado = 'confirmada'))" . Reservacion::filtroUnidad()
                 );
                 self::ejecutarStmt($stmt, 'isii', [
                     (int)$reemplazo['id'],
@@ -1137,7 +1137,7 @@ final class ReservacionPublicaService
                 }
                 $ticket = $db->query(
                     "SELECT t.id FROM tickets t
-                     WHERE t.reservacion_id = {$id}
+                     WHERE t.reservacion_id = {$id}" . Reservacion::filtroUnidad('t') . "
                        AND " . TicketMesa::condicionSqlAbierto('t') . "
                      LIMIT 1 FOR UPDATE"
                 );
@@ -1165,7 +1165,7 @@ final class ReservacionPublicaService
                     "UPDATE reservaciones
                      SET estado = 'cancelada',
                          estado_changed_at = ?
-                     WHERE id = ? AND estado = 'confirmada'"
+                     WHERE id = ? AND estado = 'confirmada'" . Reservacion::filtroUnidad()
                 );
                 self::ejecutarStmt($stmt, 'si', [
                     ReservacionConfig::ahora()->format('Y-m-d H:i:s'),
@@ -1213,7 +1213,7 @@ final class ReservacionPublicaService
             $resultado = $db->query(
                 "SELECT id
                  FROM reservaciones
-                 WHERE estado = 'pendiente_verificacion'
+                 WHERE estado = 'pendiente_verificacion'" . Reservacion::filtroUnidad() . "
                    AND hold_expires_at <= '{$estadoChangedAtSql}'
                  ORDER BY hold_expires_at ASC, id ASC
                  LIMIT {$limite}
@@ -1234,7 +1234,7 @@ final class ReservacionPublicaService
                     "UPDATE reservaciones
                      SET estado = 'expirada',
                          estado_changed_at = '{$estadoChangedAtSql}'
-                     WHERE id IN ({$lista})
+                     WHERE id IN ({$lista})" . Reservacion::filtroUnidad() . "
                        AND estado = 'pendiente_verificacion'"
                 ) === false) {
                     throw new \RuntimeException($db->error);
@@ -1343,9 +1343,9 @@ final class ReservacionPublicaService
             ?? ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $stmt = $db->prepare(
             'INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (' . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . 'nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
                  origen, estado, hold_expires_at, request_token, estado_changed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?, ?)'
+             VALUES (' . (\Services\Security\ContextoNegocio::nuevo()?Reservacion::unidadRestaurante().',':'') . '?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?, ?)'
         );
         self::ejecutarStmt($stmt, 'sssssisssss', [
             $datos['nombre'],
@@ -1389,7 +1389,7 @@ final class ReservacionPublicaService
         $condicionActiva = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r');
         $sql = "SELECT r.id, r.request_token
                 FROM reservaciones r
-                WHERE r.contacto_tipo = ?
+                WHERE r.contacto_tipo = ?" . Reservacion::filtroUnidad('r') . "
                   AND r.contacto = ?
                   AND r.fecha = ?
                   AND r.hora = ?
@@ -1491,7 +1491,7 @@ final class ReservacionPublicaService
 
     private static function buscarPorTokenParaActualizar(string $token): ?array
     {
-        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1 FOR UPDATE');
+        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ?' . Reservacion::filtroUnidad() . ' LIMIT 1 FOR UPDATE');
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la idempotencia.');
         }
@@ -1520,7 +1520,7 @@ final class ReservacionPublicaService
         $stmt = ActiveRecord::getDB()->prepare(
             "SELECT *
              FROM reservaciones
-             WHERE reemplaza_reservacion_id = ?
+             WHERE reemplaza_reservacion_id = ?" . Reservacion::filtroUnidad() . "
                AND estado = 'pendiente_verificacion'
              ORDER BY id DESC
              LIMIT 1 FOR UPDATE"
@@ -1554,10 +1554,10 @@ final class ReservacionPublicaService
         }
         $stmt = ActiveRecord::getDB()->prepare(
             "INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (" . (\Services\Security\ContextoNegocio::nuevo()?'unidad_id,':'') . "nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
                  origen, estado, hold_expires_at, reemplaza_reservacion_id,
                  request_token, estado_changed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'landing', ?, ?, ?, ?, ?)"
+             VALUES (" . (\Services\Security\ContextoNegocio::nuevo()?Reservacion::unidadRestaurante().',':'') . "?, ?, ?, ?, ?, ?, ?, 'landing', ?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el reemplazo.');
@@ -1613,7 +1613,7 @@ final class ReservacionPublicaService
         $stmt = ActiveRecord::getDB()->prepare(
             "UPDATE reservaciones
              SET estado = 'expirada', estado_changed_at = ?
-             WHERE id = ? AND estado = 'pendiente_verificacion'"
+             WHERE id = ? AND estado = 'pendiente_verificacion'" . Reservacion::filtroUnidad()
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible expirar el cambio pendiente.');
@@ -1643,7 +1643,7 @@ final class ReservacionPublicaService
             "UPDATE reservaciones
              SET estado = 'expirada',
                  estado_changed_at = '{$estadoChangedAt}'
-             WHERE id = {$id} AND estado = 'pendiente_verificacion'"
+             WHERE id = {$id} AND estado = 'pendiente_verificacion'" . Reservacion::filtroUnidad()
         ) === false) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
         }

@@ -168,7 +168,7 @@ final class ReservacionAgendaGruposService
                FROM reservaciones r
                LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
                LEFT JOIN mesas m ON m.id = rm.mesa_id
-              WHERE r.fecha BETWEEN ? AND ?
+              WHERE r.fecha BETWEEN ? AND ?" . \Model\Reservacion::filtroUnidad('r') . "
                 AND (r.estado = 'confirmada'
                      OR (r.estado = 'pendiente_verificacion' AND r.hold_expires_at > NOW()))
               GROUP BY r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado

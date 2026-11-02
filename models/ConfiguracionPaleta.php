@@ -9,7 +9,7 @@ namespace Model;
  * en Services\Configuration\PaletaLanding. Cada columna es NULL mientras el
  * color siga siendo el del manual (ver el comentario de la tabla en ddl.sql).
  */
-class ConfiguracionPaleta extends ActiveRecord
+class ConfiguracionPaleta extends ConfiguracionUnidad
 {
     private const ID_UNICO = 1;
     /** Las columnas de color, en el orden en que el panel las presenta. */
@@ -36,6 +36,7 @@ class ConfiguracionPaleta extends ActiveRecord
 
     public static function obtener(): ?self
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) return static::find(1);
         $stmt = self::getDB()->prepare(
             'SELECT * FROM ' . static::$tabla . ' WHERE id = ? LIMIT 1'
         );
@@ -65,6 +66,15 @@ class ConfiguracionPaleta extends ActiveRecord
      */
     public static function guardarColores(array $colores, ?int $usuarioId): bool
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $campos=[];
+            foreach(['verde','oro','beige','crema'] as $color) {
+                $valor=$colores[$color]??null;
+                if ($valor!==null && !preg_match('/^#[a-fA-F0-9]{6}$/D',(string)$valor)) return false;
+                $campos[$color]=$valor;
+            }
+            return static::guardarCampos($campos);
+        }
         $stmt = self::getDB()->prepare(
             'INSERT INTO ' . static::$tabla . ' (id, verde, oro, beige, crema, updated_by)
              VALUES (?, ?, ?, ?, ?, ?)

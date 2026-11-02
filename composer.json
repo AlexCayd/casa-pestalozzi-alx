@@ -21,6 +21,7 @@
         "vlucas/phpdotenv": "^5.4",
         "intervention/image": "^2.7",
         "dompdf/dompdf": "^3.1",
-        "mike42/escpos-php": "^4.0"
+        "mike42/escpos-php": "^4.0",
+        "firebase/php-jwt": "^7.0"
     }
 }

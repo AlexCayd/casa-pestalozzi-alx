@@ -37,8 +37,8 @@ class AdminController
             'path' => '/admin/recetas'
         ],
         'inventario' => [
-            'title' => 'Inventario',
-            'path' => '/admin/inventario'
+            'title' => 'Almacenes',
+            'path' => '/admin/almacenes'
         ],
         'finanzas' => [
             'title' => 'Finanzas',
@@ -88,13 +88,26 @@ class AdminController
 
     public static function index(Router $router): void
     {
-        // /admin abre Análisis. Un rol sin ese módulo aterriza en el primero
-        // que sí tenga, en vez de en una pantalla que no puede ver.
-        if (!Auth::puede('analytics')) {
+        if (Auth::multinegocio()) {
+            if (!in_array('restaurante', Auth::contextos(), true)) {
+                header('Location: ' . Auth::destinoPorRol(), true, 302);
+                exit;
+            }
+            AdminContextosController::inicioSeguro();
+            return;
+        }
+        if (!in_array('restaurante', Auth::contextos(), true)) {
             header('Location: ' . Auth::destinoPorRol(), true, 302);
             exit;
         }
-        self::analytics($router);
+        // El inicio administrativo conserva la frontera frente al acceso operativo.
+        $rol = Auth::rolActual();
+        if (\Services\Security\Permisos::acceso($rol['sistema'], $rol['permisos']) !== 'contrasena') {
+            header('Location: ' . Auth::destinoPorRol(), true, 302);
+            exit;
+        }
+        $inicio = \Services\Security\InicioAdministrativo::restaurante(static fn(string $mod):bool => Auth::puede($mod));
+        self::render('contextos/inicio', $inicio + ['nombreInicio'=>'Restaurante','activeModule'=>'inicio','title'=>'Inicio','topbarSection'=>'Inicio']);
     }
 
     public static function analytics(Router $router): void
@@ -103,17 +116,30 @@ class AdminController
         // (analytics-page.js / charts.js) consume como window.AdminAnalyticsMock:
         // { metrics, tickets, payments, charts }.
         $rango = self::rangoAnalytics();
+        $ctx = \Services\Security\ContextoNegocio::nuevo() ? \Services\Security\ContextoNegocio::slug() : 'restaurante';
+        // Global no vende: su análisis es el comparativo de los dos negocios.
+        if ($ctx === 'global') {
+            self::analyticsGlobal($rango);
+            return;
+        }
         $analytics = self::construirAnalytics($rango);
 
         // Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3): ingeniería de
-        // menú, RevPASH y reglas de asociación.
+        // menú, RevPASH (en Panadería, el mapa de calor de venta) y reglas de
+        // asociación.
         $analytics['nivel1'] = Analiticas::nivel1($rango['start'], $rango['end']);
+        $base = $ctx === 'restaurante' ? '/admin' : '/admin/' . $ctx;
 
         self::render('analytics', [
             'activeModule' => 'analytics',
             'title' => 'Análisis de datos',
             'topbarSection' => 'Análisis',
             'compactTopbar' => true,
+            // Lo que la vista dice distinto por negocio: Panadería vende en
+            // caja (sin propinas, comensales, mesas ni reservaciones) y su
+            // tabla de horas se pide a su propia API.
+            'anAmbito' => $ctx,
+            'anApiVentaPorHora' => $base . '/api/analytics/venta-por-hora',
             'analytics' => $analytics,
             'rango' => $rango,
             'styles' => [
@@ -156,9 +182,67 @@ class AdminController
         return RangoPeriodo::resolver($_GET);
     }
 
+    /**
+     * Análisis de datos de Global: los dos negocios comparados y los productos
+     * de la casa (AnalisisConsolidado). Sólo lectura.
+     */
+    private static function analyticsGlobal(array $rango): void
+    {
+        $consolidado = null;
+        $error = '';
+        try {
+            $consolidado = \Services\Analytics\AnalisisConsolidado::armar($rango);
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['PERMISO_DENEGADO', 'AMBITO_DENEGADO'], true)) http_response_code(403);
+            $error = 'No tienes permiso para ver el análisis de la organización.';
+        } catch (\Throwable $e) {
+            error_log('AdminController::analyticsGlobal - ' . $e->getMessage());
+            $error = 'No se pudo cargar el análisis de la organización.';
+        }
+        // Al análisis de un negocio sólo se ofrece ir si la persona puede
+        // abrirlo: leer el comparativo no concede el de cada negocio.
+        $enlaces = [];
+        foreach (\Services\Analytics\AnalisisNegocio::NEGOCIOS as $slug) {
+            if (Auth::puede('analytics', 'ver', $slug)) {
+                $enlaces[$slug] = ($slug === 'restaurante' ? '/admin' : '/admin/' . $slug) . '/analytics?'
+                    . http_build_query(array_intersect_key($_GET, array_flip(['rango', 'desde', 'hasta'])));
+            }
+        }
+
+        self::render('analytics-global', [
+            'activeModule' => 'analytics',
+            'title' => 'Análisis de datos',
+            'topbarSection' => 'Análisis',
+            'compactTopbar' => true,
+            'rango' => $rango,
+            'consolidado' => $consolidado,
+            'errorConsolidado' => $error,
+            'enlacesNegocio' => $enlaces,
+            'styles' => ['/build/css/admin/analytics.css'],
+            'scripts' => ['/build/js/vendor/chart.umd.min.js', '/build/js/admin/analytics.js'],
+        ]);
+    }
+
     /** Construye el dataset real del dashboard desde la BD, filtrado por rango. */
     private static function construirAnalytics(array $rango): array
     {
+        // Restaurante y Panadería: el tablero sale de AnalisisNegocio, acotado
+        // por la unidad del negocio de la ruta. Lo de abajo es el camino del
+        // esquema anterior a la multiunidad.
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $ctx = \Services\Security\ContextoNegocio::slug();
+            \Services\Security\ContextoNegocio::exigir('analytics', 'ver', $ctx);
+            $vacio = ['metrics' => [], 'tickets' => [], 'payments' => [], 'charts' => [
+                'salesByDay' => ['labels' => [], 'values' => []], 'salesByCategory' => ['labels' => [], 'values' => []],
+                'paymentMethods' => ['labels' => ['Efectivo', 'Tarjeta', 'Dividido'], 'values' => [0, 0, 0]],
+                'topProducts' => ['labels' => [], 'values' => []], 'reservationsByDay' => ['labels' => [], 'values' => []]]];
+            try {
+                return \Services\Analytics\AnalisisNegocio::descriptivo(\Services\Security\ContextoNegocio::db(), $ctx, \Services\Security\ContextoNegocio::unidad($ctx), $rango);
+            } catch (\Throwable $e) {
+                error_log('AdminController::construirAnalytics - ' . $e->getMessage());
+                return $vacio;
+            }
+        }
         $money = static fn($n): string => '$' . number_format((float) $n, 0);
         $metrics = [];
         $ticketsTabla = [];
@@ -181,6 +265,8 @@ class AdminController
         $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
         $fTk = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
         $fRes = "fecha >= '{$start}' AND fecha <= '{$end}'";
+        $fTk .= \Model\Ticket::filtroUnidad('t');
+        $fRes .= \Model\Reservacion::filtroUnidad();
 
         try {
             $db = \Model\Ticket::getDB();
@@ -193,7 +279,7 @@ class AdminController
                         COALESCE(SUM(sub.total), 0) AS ventas
                    FROM tickets t
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
                   WHERE t.estado = 'cerrado' {$fTk}"
             );
@@ -244,9 +330,9 @@ class AdminController
                 "SELECT COALESCE(SUM(sub.total), 0) AS ventas
                    FROM tickets t
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
-                  WHERE t.estado = 'cerrado'
+                  WHERE t.estado = 'cerrado'" . \Model\Ticket::filtroUnidad('t') . "
                         AND {$cierre} >= '{$prevStart} 00:00:00'
                         AND {$cierre} <= '{$prevEnd} 23:59:59'"
             );
@@ -313,7 +399,7 @@ class AdminController
                 $res = $db->query(
                     "SELECT DATE({$cierre}) AS d, SUM(ti.precio * ti.cantidad) AS total
                        FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
-                      WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                      WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'" . \Model\Ticket::filtroUnidad('t') . "
                             AND {$cierre} >= '{$prevStart} 00:00:00'
                             AND {$cierre} <= '{$prevEnd} 23:59:59'
                       GROUP BY d"
@@ -414,7 +500,7 @@ class AdminController
                    LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                    LEFT JOIN mesas m ON m.id = tm.mesa_id
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                FROM ticket_items WHERE estado <> 'cancelado'
+                                FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
                   WHERE t.estado = 'cerrado' {$fTk}
                   ORDER BY fecha_cobro DESC, t.id DESC LIMIT 12"
@@ -475,7 +561,7 @@ class AdminController
         try {
             $result = \Model\Ticket::ejecutarSQL(
                 "SELECT calidad_sabor, atencion_mesero, tiempo_espera, experiencia_global, comentario, created_at
-                   FROM feedback
+                   FROM feedback WHERE 1=1" . \Model\Ticket::filtroUnidad() . "
                   ORDER BY created_at DESC
                   LIMIT 100"
             );
@@ -492,7 +578,7 @@ class AdminController
                         AVG(atencion_mesero) AS atencion,
                         AVG(tiempo_espera) AS espera,
                         AVG(experiencia_global) AS global_exp
-                   FROM feedback"
+                   FROM feedback WHERE 1=1" . \Model\Ticket::filtroUnidad()
             );
 
             if ($agg && ($r = $agg->fetch_assoc())) {
@@ -514,6 +600,9 @@ class AdminController
         // feedback (varias reseñas por ticket) con los tickets.
         $meseros = [];
         try {
+            $filtroMesero=\Services\Security\ContextoNegocio::nuevo()
+                ? "EXISTS (SELECT 1 FROM usuario_unidades mu JOIN usuario_unidad_permisos pu ON pu.usuario_id=mu.usuario_id AND pu.unidad_id=mu.unidad_id WHERE mu.usuario_id=u.id AND mu.activo=1 AND mu.unidad_id=" . \Model\Ticket::unidadRestaurante() . " AND pu.modulo='pdv' AND pu.nivel='operar')"
+                : "u.rol = 'waiter'";
             $mes = \Model\Ticket::ejecutarSQL(
                 "SELECT u.id, u.nombre, u.activo,
                         fb.atencion, fb.n_resenas,
@@ -523,7 +612,7 @@ class AdminController
                         SELECT t.mesero_id, AVG(f.atencion_mesero) AS atencion, COUNT(*) AS n_resenas
                           FROM feedback f
                           JOIN tickets t ON t.id = f.ticket_id
-                         WHERE t.mesero_id IS NOT NULL
+                         WHERE t.mesero_id IS NOT NULL" . \Model\Ticket::filtroUnidad('t') . "
                          GROUP BY t.mesero_id
                    ) fb ON fb.mesero_id = u.id
                    LEFT JOIN (
@@ -532,12 +621,12 @@ class AdminController
                                COUNT(*) AS n_tickets
                           FROM tickets t
                           JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
-                                  FROM ticket_items WHERE estado <> 'cancelado'
+                                  FROM ticket_items WHERE estado <> 'cancelado'" . \Model\TicketItem::filtroUnidad() . "
                                  GROUP BY ticket_id) tot ON tot.ticket_id = t.id
-                         WHERE t.estado = 'cerrado' AND t.mesero_id IS NOT NULL
+                         WHERE t.estado = 'cerrado' AND t.mesero_id IS NOT NULL" . \Model\Ticket::filtroUnidad('t') . "
                          GROUP BY t.mesero_id
                    ) tp ON tp.mesero_id = u.id
-                  WHERE u.rol = 'waiter'
+                  WHERE {$filtroMesero}
                   ORDER BY u.activo DESC, tp.tip_pct DESC, u.nombre ASC"
             );
             if ($mes) {
@@ -587,7 +676,7 @@ class AdminController
      * Dispara el flujo de n8n desde el panel (boton en /admin/feedback).
      * Se invoca por fetch/AJAX y responde JSON. El webhook de n8n responde de
      * inmediato ("Workflow was started"); el flujo continua async y hace POST
-     * de vuelta a /api/feedback-n8n con las nuevas areas, que el front detecta
+     * de vuelta a /api/integraciones/n8n/feedback/areas-mejora con las nuevas areas, que el front detecta
      * mediante polling a feedbackAreas().
      */
     public static function feedbackRefresh(Router $router): void
@@ -760,10 +849,14 @@ class AdminController
             $$key = $value;
         }
 
+        $contextoActivo = \Services\Security\Contextos::deRuta($_SERVER['PATH_INFO'] ?? '/admin');
+        $contextosDisponibles = Auth::contextos();
+        $modoMultinegocio = Auth::multinegocio();
+        $modules = AdminContextosController::navegacion($contextoActivo, $modules);
+
         ob_start();
         include_once __DIR__ . "/../views/admin/{$view}.php";
         $content = ob_get_clean();
-
         include_once __DIR__ . '/../views/admin/layout.php';
     }
 

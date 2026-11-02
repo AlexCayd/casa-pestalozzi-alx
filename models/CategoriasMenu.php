@@ -1,6 +1,8 @@
 <?php
 namespace Model;
 
+use Services\Security\ContextoNegocio;
+
 class CategoriasMenu extends ActiveRecord {
 
     protected static $tabla = 'categorias';
@@ -28,15 +30,6 @@ class CategoriasMenu extends ActiveRecord {
      * vende, porque Carta::paraPos() no mira la carta.
      */
     public const CARTA_TEMPORADA = 'temporada';
-    /**
-     * Vitrina de la panadería: la landing /panaderia (views/panaderia/), una
-     * pestaña por categoría. Misma idea que la de temporada —es una pregunta de
-     * dónde se publica la sección— y por eso no tiene módulo propio: las piezas
-     * se dan de alta en Menú. No se imprime, y a diferencia de las otras tres
-     * el punto de venta del restaurante NO la vende (Carta::paraPos): la
-     * panadería está en otra dirección y cobra en su propio mostrador.
-     */
-    public const CARTA_PANADERIA = 'panaderia';
 
     public const CARTAS = [
         self::CARTA_COMIDA => [
@@ -53,11 +46,6 @@ class CategoriasMenu extends ActiveRecord {
             'titulo' => 'Especiales de temporada',
             'corto'  => 'Temporada',
             'ayuda'  => 'Sale en «Especiales de temporada» de la landing; no entra en ningún PDF',
-        ],
-        self::CARTA_PANADERIA => [
-            'titulo' => 'Vitrina de la panadería',
-            'corto'  => 'Panadería',
-            'ayuda'  => 'Sale en la vitrina de /panaderia; no entra en ningún PDF ni en el punto de venta del restaurante',
         ],
     ];
 
@@ -83,6 +71,7 @@ class CategoriasMenu extends ActiveRecord {
      * que es lo que quiere el panel: se administran juntas.
      */
     public static function ordenadas(?string $carta = null): array {
+        if (ContextoNegocio::nuevo()) return CategoriasMenuMultinegocio::ordenadas($carta);
         $sql = "SELECT * FROM " . static::$tabla;
 
         if ($carta !== null && isset(self::CARTAS[$carta])) {
@@ -95,6 +84,30 @@ class CategoriasMenu extends ActiveRecord {
     }
 
     /** Normaliza lo que llegue del formulario a un valor del ENUM. */
+    public static function paraRecetas(): array
+    {
+        if (ContextoNegocio::nuevo()) return CategoriasMenuMultinegocio::paraRecetas();
+        return self::ordenadas();
+    }
+
+    public static function all() { if (ContextoNegocio::nuevo()) return CategoriasMenuMultinegocio::all(); return parent::all(); }
+    public static function get($limite) { if (ContextoNegocio::nuevo()) throw new \LogicException('Use consultas de categoría con alcance de negocio.'); return parent::get($limite); }
+    public static function paginar($limite,$offset) { if (ContextoNegocio::nuevo()) throw new \LogicException('Use consultas de categoría con alcance de negocio.'); return parent::paginar($limite,$offset); }
+
+    public static function where($columna,$valor) {
+        if (ContextoNegocio::nuevo()) throw new \LogicException('Use consultas de categoría con alcance de negocio.');
+        return parent::where($columna,$valor);
+    }
+
+    public function crear() { if (ContextoNegocio::nuevo()) throw new \LogicException('Use CategoriaMenuService::crear().'); return parent::crear(); }
+    public function actualizar() { if (ContextoNegocio::nuevo()) throw new \LogicException('Use CategoriaMenuService::actualizar().'); return parent::actualizar(); }
+    public function eliminar() { if (ContextoNegocio::nuevo()) throw new \LogicException('Use CategoriaMenuService::eliminar().'); return parent::eliminar(); }
+
+    public static function find($id) {
+        if (ContextoNegocio::nuevo()) return CategoriasMenuMultinegocio::find($id);
+        return parent::find($id);
+    }
+
     public static function normalizarCarta($valor): string {
         $valor = is_string($valor) ? $valor : '';
 
@@ -116,6 +129,65 @@ class CategoriasMenu extends ActiveRecord {
             static::setAlerta('error', 'Elige a qué carta pertenece la categoría');
         }
 
+        return static::$alertas;
+    }
+}
+
+
+
+/** Categorías locales del menú. */
+class CategoriasMenuMultinegocio extends CategoriasMenu
+{
+    protected static $tabla = 'categorias';
+    protected static $columnasDB = ['id', 'nombre', 'carta', 'img', 'activo', 'orden'];
+
+public $id;
+    public $unidad_id;
+    public $nombre;
+    public $carta = self::CARTA_COMIDA;
+    public $img;
+    public $activo = 1;
+    public $orden = 0;
+
+    public static function ordenadas(?string $carta = null): array
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
+        $sql = 'SELECT * FROM categorias WHERE unidad_id=' . $unidad;
+        if ($carta !== null && isset(self::CARTAS[$carta])) $sql .= " AND carta='" . self::escaparString($carta) . "'";
+        return self::consultarSQL($sql . ' ORDER BY orden ASC, id ASC');
+    }
+
+    public static function paraRecetas(): array
+    {
+        ContextoNegocio::exigir('productos','ver',ContextoNegocio::slug());
+        $unidad=ContextoNegocio::unidad(ContextoNegocio::slug());
+        return self::consultarSQL('SELECT * FROM categorias WHERE unidad_id='.$unidad.' ORDER BY orden,id');
+    }
+
+    public static function all() {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug()); return self::ordenadas(); }
+
+    public static function find($id)
+    {
+        ContextoNegocio::exigir('menu','ver',ContextoNegocio::slug());
+        $id = (int)$id;
+        if ($id < 1) return null;
+        $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
+        $filas = self::consultarSQL('SELECT * FROM categorias WHERE id=' . $id . ' AND unidad_id=' . $unidad . ' LIMIT 1');
+        return $filas[0] ?? null;
+    }
+
+    public static function normalizarCarta($valor): string
+    {
+        return is_string($valor) && isset(self::CARTAS[$valor]) ? $valor : self::CARTA_COMIDA;
+    }
+
+    public function validar(): array
+    {
+        static::$alertas = [];
+        if (!trim((string)$this->nombre)) static::setAlerta('error', 'El nombre de la categoría es obligatorio');
+        if (!isset(self::CARTAS[(string)$this->carta])) static::setAlerta('error', 'Elige a qué carta pertenece la categoría');
         return static::$alertas;
     }
 }

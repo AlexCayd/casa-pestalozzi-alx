@@ -64,6 +64,7 @@ final class HistorialTickets
      */
     public static function resumen(array $rango): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('tickets','ver','restaurante');
         $db = ActiveRecord::getDB();
         [$ini, $fin, $prevIni] = self::limites($rango);
         $fecha = self::FECHA;
@@ -80,7 +81,7 @@ final class HistorialTickets
                 COALESCE(SUM(f < '{$ini}' AND estado = 'cancelado'), 0) AS cancelados_prev
                FROM (SELECT t.estado, {$fecha} AS f
                        FROM tickets t
-                      WHERE {$fecha} >= '{$prevIni}' AND {$fecha} < '{$fin}') x"
+                      WHERE {$fecha} >= '{$prevIni}' AND {$fecha} < '{$fin}'" . \Model\Ticket::filtroUnidad('t') . ") x"
         );
         if ($res && ($fila = $res->fetch_assoc())) {
             foreach ($conteos as $clave => $_) {
@@ -96,7 +97,7 @@ final class HistorialTickets
                 COALESCE(SUM(CASE WHEN {$fecha} < '{$ini}' THEN ti.precio * ti.cantidad END), 0) AS venta_prev
                FROM ticket_items ti
                JOIN tickets t ON t.id = ti.ticket_id
-              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'" . \Model\Ticket::filtroUnidad('t') . "
                 AND {$fecha} >= '{$prevIni}' AND {$fecha} < '{$fin}'"
         );
         if ($res && ($fila = $res->fetch_assoc())) {
@@ -110,7 +111,7 @@ final class HistorialTickets
         $res = $db->query(
             "SELECT DATE({$fecha}) AS dia, COUNT(*) AS n
                FROM tickets t
-              WHERE {$fecha} >= '{$ini}' AND {$fecha} < '{$fin}'
+              WHERE {$fecha} >= '{$ini}' AND {$fecha} < '{$fin}'" . \Model\Ticket::filtroUnidad('t') . "
               GROUP BY dia"
         );
         while ($res && ($fila = $res->fetch_assoc())) {
@@ -122,7 +123,7 @@ final class HistorialTickets
             "SELECT DATE({$fecha}) AS dia, SUM(ti.precio * ti.cantidad) AS v
                FROM ticket_items ti
                JOIN tickets t ON t.id = ti.ticket_id
-              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'" . \Model\Ticket::filtroUnidad('t') . "
                 AND {$fecha} >= '{$ini}' AND {$fecha} < '{$fin}'
               GROUP BY dia"
         );
@@ -145,7 +146,7 @@ final class HistorialTickets
                     COALESCE(TIMESTAMPDIFF(MINUTE, MIN(t.hora_apertura), NOW()), 0) AS minutos,
                     COALESCE(DATEDIFF(CURDATE(), DATE(MIN(t.hora_apertura))), 0) AS dias
                FROM tickets t
-              WHERE t.estado = 'abierto'"
+              WHERE t.estado = 'abierto'" . \Model\Ticket::filtroUnidad('t')
         );
         if ($res && ($fila = $res->fetch_assoc())) {
             $abiertos = [
@@ -215,6 +216,7 @@ final class HistorialTickets
      */
     public static function pagina(array $rango, string $estado, int $pagina): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) \Services\Security\ContextoNegocio::exigir('tickets','ver','restaurante');
         $db = ActiveRecord::getDB();
         [$ini, $fin] = self::limites($rango);
         $fecha = self::FECHA;
@@ -244,7 +246,7 @@ final class HistorialTickets
                LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                LEFT JOIN mesas m ON m.id = tm.mesa_id
                LEFT JOIN ticket_items ti ON ti.ticket_id = t.id AND ti.estado <> 'cancelado'
-              WHERE {$donde}
+              WHERE {$donde}" . \Model\Ticket::filtroUnidad('t') . "
               GROUP BY t.id
               ORDER BY t.hora_apertura DESC, t.id DESC
               LIMIT {$limite} OFFSET {$offset}"

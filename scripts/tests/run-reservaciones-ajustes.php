@@ -88,9 +88,9 @@ assertAjustes(!empty($corto->validarLimites($minimo, $tope)['error']), 'un Whats
 
 // ── Contratos de superficie ──────────────────────────────────────────
 $ddl = (string)file_get_contents($root . '/database/ddl.sql');
-assertAjustes(str_contains($ddl, 'max_comensales_publico              TINYINT UNSIGNED NOT NULL DEFAULT 12'), 'el DDL declara el máximo con su default');
-assertAjustes(str_contains($ddl, 'CHECK (max_comensales_publico BETWEEN 7 AND 16)'), 'el DDL acota el máximo');
-assertAjustes(str_contains($ddl, 'whatsapp_reservas                   VARCHAR(20) NULL'), 'el DDL declara el WhatsApp');
+assertAjustes(preg_match('/max_comensales_publico\s+TINYINT\s+UNSIGNED\s+NOT\s+NULL\s+DEFAULT\s+12\b/i', $ddl) === 1, 'el DDL declara el máximo con su default');
+assertAjustes(preg_match('/CHECK\s*\(max_comensales_publico BETWEEN 7 AND 16\)/', $ddl) === 1, 'el DDL acota el máximo');
+assertAjustes(preg_match('/whatsapp_reservas\s+VARCHAR\(20\)\s+NULL/i', $ddl) === 1, 'el DDL declara el WhatsApp');
 
 $rutas = (string)file_get_contents($root . '/public/index.php');
 assertAjustes(str_contains($rutas, "'/admin/configuracion/reservaciones/limites'"), 'existe la ruta de guardado de límites');

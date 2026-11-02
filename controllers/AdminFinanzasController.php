@@ -12,9 +12,13 @@ namespace Controllers;
 use Model\GastoFijo;
 use Model\Producto;
 use MVC\Router;
+use Services\Finance\ConsolidadoFinanciero;
 use Services\Finance\DiagnosticoFinanciero;
+use Services\Finance\FinanzasNegocio;
 use Services\Inventory\Inventario;
 use Services\Shared\RangoPeriodo;
+use Services\Security\ContextoNegocio;
+use Services\Security\Contextos;
 
 class AdminFinanzasController
 {
@@ -39,6 +43,12 @@ class AdminFinanzasController
     public static function index(Router $router): void
     {
         $rango = RangoPeriodo::resolver($_GET);
+        // Global no vende: su pantalla es el consolidado de los dos negocios.
+        if (ContextoNegocio::nuevo() && ContextoNegocio::slug() === 'global') {
+            self::globalIndex($rango);
+            return;
+        }
+        $ctx = ContextoNegocio::nuevo() ? ContextoNegocio::slug() : 'restaurante';
 
         $datos = [
             'ingresos' => 0.0,
@@ -62,6 +72,35 @@ class AdminFinanzasController
 
         try {
             $db = Producto::getDB();
+
+            if (ContextoNegocio::nuevo()) {
+                if (!in_array($ctx, FinanzasNegocio::NEGOCIOS, true)) {
+                    throw new \RuntimeException('Las finanzas son de cada negocio: Restaurante o Panadería.');
+                }
+                ContextoNegocio::exigir('finanzas', 'ver', $ctx);
+                $unidad = ContextoNegocio::unidad($ctx);
+                $datos = FinanzasNegocio::agregados($db, $unidad, (string)$rango['start'], (string)$rango['end']);
+                if (!empty($rango['comparar'])) {
+                    $previo = FinanzasNegocio::agregados($db, $unidad, (string)$rango['prevStart'], (string)$rango['prevEnd']);
+                }
+                $merma = FinanzasNegocio::merma($db, $unidad, (string)$rango['start'], (string)$rango['end']);
+                if (!empty($rango['comparar'])) {
+                    $mermaPrev = FinanzasNegocio::merma($db, $unidad, (string)$rango['prevStart'], (string)$rango['prevEnd']);
+                }
+                $factorGastos = ((int)$rango['dias']) / 30;
+                $gastos = GastoFijo::todos();
+                foreach ($gastos as $g) {
+                    if (!(int)$g->activo) continue;
+                    $monto = (float)$g->monto * $factorGastos;
+                    $totalGastos += $monto;
+                    $gastosPorCategoria[$g->categoria] = ($gastosPorCategoria[$g->categoria] ?? 0.0) + $monto;
+                    $gastosMensuales[$g->categoria] = ($gastosMensuales[$g->categoria] ?? 0.0) + (float)$g->monto;
+                }
+                arsort($gastosPorCategoria);
+                arsort($gastosMensuales);
+                $inventarioValor = FinanzasNegocio::inventarioValor($db, $unidad);
+                $rentabilidad = FinanzasNegocio::rentabilidad($db, $unidad, (string)$rango['start'], (string)$rango['end']);
+            } else {
 
             // Mapa nombre → producto (para enlazar ventas con recetas por nombre).
             $productosPorNombre = [];
@@ -154,6 +193,7 @@ class AdminFinanzasController
                     ];
                 }
             }
+            }
         } catch (\Throwable $e) {
             GastoFijo::setAlerta('error', 'No se pudieron cargar los datos financieros. ¿Ya corriste la migración de la BD?');
         }
@@ -185,7 +225,9 @@ class AdminFinanzasController
         $rangoCortes = ['start' => (string) $rango['start'], 'end' => (string) $rango['end']];
         $cortes = [];
         try {
-            $cortes = self::cortes($rangoCortes['start'], $rangoCortes['end']);
+            $cortes = ContextoNegocio::nuevo()
+                ? FinanzasNegocio::cortes(Producto::getDB(), ContextoNegocio::unidad($ctx), $rangoCortes['start'], $rangoCortes['end'])
+                : self::cortes($rangoCortes['start'], $rangoCortes['end']);
         } catch (\Throwable $e) {
             error_log('AdminFinanzasController::cortes - ' . $e->getMessage());
         }
@@ -213,6 +255,7 @@ class AdminFinanzasController
         $cortesVisibles = array_slice($cortes, $cortesDesde, self::CORTES_POR_PAGINA);
 
         $diagnostico = DiagnosticoFinanciero::armar([
+            'giro' => $ctx,
             'ingresos' => $ingresos,
             'cogs' => $cogs,
             'merma' => $merma,
@@ -236,6 +279,12 @@ class AdminFinanzasController
         self::render('finanzas/index', [
             'title' => 'Finanzas',
             'topbarSection' => 'Finanzas',
+            // Lo que la vista dice distinto por negocio: a dónde mandan sus
+            // formularios y enlaces, y si hay propinas (en la caja de
+            // Panadería no las hay).
+            'finAmbito' => $ctx,
+            'finBase' => self::base($ctx),
+            'finPropinas' => $ctx === 'restaurante',
             'rango' => $rango,
             'diagnostico' => $diagnostico,
             'cortes' => $cortesVisibles,
@@ -308,9 +357,9 @@ class AdminFinanzasController
     private static function mermaDelPeriodo(\mysqli $db, string $start, string $end): float
     {
         $res = $db->query(
-            "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo, 0)), 0) AS valor
+            "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor
                FROM movimientos_inventario mi
-               LEFT JOIN ingredientes i ON i.id = mi.ingrediente_id
+               JOIN ingredientes i ON i.id = mi.ingrediente_id
               WHERE mi.tipo = 'merma'
                 AND mi.created_at >= '{$start} 00:00:00'
                 AND mi.created_at <= '{$end} 23:59:59'"
@@ -408,12 +457,18 @@ class AdminFinanzasController
 
     public static function guardarGasto(Router $router): void
     {
+        $ctx = self::negocioQueEdita();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::PATH);
+            self::redirect(self::base($ctx));
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $gasto = $id ? GastoFijo::find($id) : new GastoFijo();
+        if ($id && !$gasto && ContextoNegocio::nuevo()) {
+            GastoFijo::setAlerta('error', 'El gasto no existe en ' . Contextos::NOMBRES[$ctx] . '.');
+            self::index($router);
+            return;
+        }
         if (!$gasto) {
             $gasto = new GastoFijo();
         }
@@ -423,8 +478,12 @@ class AdminFinanzasController
         $alertas = $gasto->validar();
 
         if (empty($alertas)) {
-            $gasto->guardar();
-            GastoFijo::setAlerta('exito', $id ? 'Gasto actualizado' : 'Gasto agregado');
+            $guardado = $gasto->guardar();
+            if (!ContextoNegocio::nuevo() || $guardado === true || (is_array($guardado) && ($guardado['resultado'] ?? false))) {
+                GastoFijo::setAlerta('exito', $id ? 'Gasto actualizado' : 'Gasto agregado');
+            } else {
+                GastoFijo::setAlerta('error', 'No se confirmó el guardado del gasto.');
+            }
         }
 
         self::index($router);
@@ -432,14 +491,17 @@ class AdminFinanzasController
 
     public static function eliminarGasto(Router $router): void
     {
+        $ctx = self::negocioQueEdita();
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::PATH);
+            self::redirect(self::base($ctx));
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $gasto = $id ? GastoFijo::find($id) : null;
         if ($gasto && $gasto->eliminar()) {
             GastoFijo::setAlerta('exito', 'Gasto eliminado');
+        } elseif (ContextoNegocio::nuevo()) {
+            GastoFijo::setAlerta('error', 'No se confirmó la eliminación del gasto.');
         }
 
         self::index($router);
@@ -519,6 +581,61 @@ class AdminFinanzasController
         // Más reciente primero.
         krsort($dias);
         return array_values($dias);
+    }
+
+    /**
+     * Finanzas de Global: el pulso de hoy, el periodo lado a lado y el total
+     * de la organización (ConsolidadoFinanciero). Sólo lectura.
+     */
+    private static function globalIndex(array $rango): void
+    {
+        $consolidado = null;
+        try {
+            $consolidado = ConsolidadoFinanciero::armar($rango);
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['PERMISO_DENEGADO', 'AMBITO_DENEGADO'], true)) {
+                http_response_code(403);
+            }
+            GastoFijo::setAlerta('error', 'No tienes permiso para ver las finanzas de la organización.');
+        } catch (\Throwable $e) {
+            error_log('AdminFinanzasController::globalIndex - ' . $e->getMessage());
+            GastoFijo::setAlerta('error', 'No se pudieron cargar las finanzas de la organización.');
+        }
+        // A la pantalla de un negocio sólo se ofrece ir si la persona puede
+        // abrirla: el consolidado no concede las finanzas de cada negocio.
+        $enlaces = [];
+        foreach (FinanzasNegocio::NEGOCIOS as $slug) {
+            if (\Classes\Auth::puede('finanzas', 'ver', $slug)) {
+                $enlaces[$slug] = self::base($slug) . '?' . http_build_query(array_intersect_key($_GET, array_flip(['rango', 'desde', 'hasta'])));
+            }
+        }
+
+        self::render('finanzas/global', [
+            'title' => 'Finanzas',
+            'topbarSection' => 'Finanzas',
+            'rango' => $rango,
+            'consolidado' => $consolidado,
+            'enlacesNegocio' => $enlaces,
+            'alertas' => GastoFijo::getAlertas(),
+        ]);
+    }
+
+    /** Ruta de Finanzas del ámbito. */
+    private static function base(string $ctx): string
+    {
+        return $ctx === 'restaurante' ? self::PATH : Contextos::inicio($ctx) . '/finanzas';
+    }
+
+    /** El negocio cuyos gastos se editan: el de la ruta, con permiso de editar. */
+    private static function negocioQueEdita(): string
+    {
+        if (!ContextoNegocio::nuevo()) return 'restaurante';
+        $ctx = ContextoNegocio::slug();
+        if (!in_array($ctx, FinanzasNegocio::NEGOCIOS, true)) {
+            throw new \RuntimeException('Los gastos fijos son de cada negocio: Restaurante o Panadería.');
+        }
+        ContextoNegocio::exigir('finanzas', 'editar', $ctx);
+        return $ctx;
     }
 
     private static function render(string $view, array $data = []): void

@@ -3,12 +3,18 @@
 namespace Services\Notifications;
 
 use Model\ActiveRecord;
+use Model\RegistroRestaurante;
+use Services\Security\ContextoNegocio;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
 
 /** Aplica callbacks idempotentes sin mezclar transporte con estados de dominio. */
 final class ReservationNotificationResultService
 {
+    private static function unidadSql(string $alias = ''): string
+    {
+        return ContextoNegocio::nuevo() ? RegistroRestaurante::filtroUnidad($alias) : '';
+    }
     public static function registrar(
         string $event,
         int $sourceId,
@@ -43,8 +49,8 @@ final class ReservationNotificationResultService
                 'SELECT ir.id, ir.notification_attempts, ir.notification_delivery_status,
                         r.contacto_tipo
                  FROM horario_impacto_reservaciones ir
-                 JOIN reservaciones r ON r.id = ir.reservacion_id
-                 WHERE ir.id = ? LIMIT 1 FOR UPDATE'
+                 JOIN reservaciones r ON r.id = ir.reservacion_id' . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=ir.unidad_id' : '') . '
+                 WHERE ir.id = ?' . self::unidadSql('ir') . ' LIMIT 1 FOR UPDATE'
             );
             $stmt->bind_param('i', $sourceId);
             $stmt->execute();
@@ -70,7 +76,7 @@ final class ReservationNotificationResultService
                 $stmt = $db->prepare(
                     "UPDATE horario_impacto_reservaciones
                      SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
-                     WHERE id = ?"
+                     WHERE id = ?" . self::unidadSql()
                 );
                 $stmt->bind_param('i', $sourceId);
                 $stmt->execute();
@@ -88,7 +94,7 @@ final class ReservationNotificationResultService
                      SET notification_delivery_status = 'failed', notification_delivery_updated_at = NOW(),
                          access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
                          access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
-                     WHERE id = ?"
+                     WHERE id = ?" . self::unidadSql()
                 );
                 $stmt->bind_param('i', $sourceId);
                 $stmt->execute();
@@ -122,8 +128,8 @@ final class ReservationNotificationResultService
                 "SELECT rr.id, rr.notification_delivery_status, rr.tipo, r.contacto_tipo,
                         rr.notification_attempts, rr.transport_claimed_at
                  FROM reservacion_recordatorios rr
-                 JOIN reservaciones r ON r.id = rr.reservacion_id
-                 WHERE rr.id = ? AND rr.tipo = 'dia_anterior' LIMIT 1 FOR UPDATE"
+                 JOIN reservaciones r ON r.id = rr.reservacion_id" . (ContextoNegocio::nuevo() ? ' AND r.unidad_id=rr.unidad_id' : '') . "
+                 WHERE rr.id = ? AND rr.tipo = 'dia_anterior'" . self::unidadSql('rr') . " LIMIT 1 FOR UPDATE"
             );
             $stmt->bind_param('i', $sourceId);
             $stmt->execute();
@@ -149,7 +155,7 @@ final class ReservationNotificationResultService
                 $stmt = $db->prepare(
                     "UPDATE reservacion_recordatorios
                      SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
-                     WHERE id = ?"
+                     WHERE id = ?" . self::unidadSql()
                 );
             } else {
                 $stmt = $db->prepare(
@@ -157,7 +163,7 @@ final class ReservationNotificationResultService
                      SET notification_delivery_status = 'failed', notification_delivery_updated_at = NOW(),
                          access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
                          access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
-                     WHERE id = ?"
+                     WHERE id = ?" . self::unidadSql()
                 );
             }
             $stmt->bind_param('i', $sourceId);
@@ -165,7 +171,7 @@ final class ReservationNotificationResultService
             $stmt->close();
             if ($status === 'failed') {
                 $retry = (int)$retryable;
-                $stmt = $db->prepare('UPDATE reservacion_recordatorios SET retryable = ? WHERE id = ?');
+                $stmt = $db->prepare('UPDATE reservacion_recordatorios SET retryable = ? WHERE id = ?' . self::unidadSql());
                 $stmt->bind_param('ii', $retry, $sourceId);
                 $stmt->execute();
                 $stmt->close();

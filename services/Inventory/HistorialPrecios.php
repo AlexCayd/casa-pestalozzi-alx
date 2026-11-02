@@ -2,6 +2,8 @@
 
 namespace Services\Inventory;
 
+use Services\Security\ContextoNegocio;
+
 use Model\HistorialPrecio;
 
 /**
@@ -38,8 +40,10 @@ final class HistorialPrecios
         $anterior,
         $nuevo,
         string $motivo = 'edicion',
-        ?int $proveedorId = null
+        ?int $proveedorId = null,
+        ?int $unidadId = null
     ): bool {
+        if (ContextoNegocio::nuevo()) return self::registrarMultinegocio($entidad,$refId,$anterior,$nuevo,$motivo,$proveedorId,$unidadId);
         if (!in_array($entidad, HistorialPrecio::ENTIDADES, true)) {
             return false;
         }
@@ -80,11 +84,22 @@ final class HistorialPrecios
     }
 
     /** Atajo para el alta, donde no hay precio anterior. */
-    public static function registrarAlta(string $entidad, int $refId, $precio): bool
+    public static function registrarAlta(string $entidad, int $refId, $precio, ?int $unidadId = null): bool
     {
         return self::registrar($entidad, $refId, null, $precio, 'alta');
     }
 
+    private static function registrarMultinegocio(string $entidad,int $refId,$anterior,$nuevo,string $motivo,?int $proveedorId,?int $unidadId): bool
+    {
+        if (!in_array($entidad,HistorialPrecio::ENTIDADES,true) || $refId<1 || !is_numeric($nuevo)) return false;
+        if (!in_array($motivo,HistorialPrecio::MOTIVOS,true)) $motivo='edicion';
+        $nuevo=(float)$nuevo; $anterior=($anterior===null || $anterior==='')?null:(float)$anterior;
+        if ($anterior!==null && abs($nuevo-$anterior)<self::EPSILON) return false;
+        try {
+            $unidadId??=ContextoNegocio::unidad(ContextoNegocio::slug());
+            return HistorialPrecio::registrar(['unidad_id'=>$unidadId,'oferta_id'=>$entidad===HistorialPrecio::ENTIDAD_PRODUCTO?$refId:null,'articulo_id'=>$entidad===HistorialPrecio::ENTIDAD_INGREDIENTE?$refId:null,'precio_anterior'=>$anterior,'precio_nuevo'=>$nuevo,'motivo'=>$motivo,'proveedor_id'=>$proveedorId,'usuario_id'=>ContextoNegocio::actorId() ?: null]);
+        } catch (\Throwable $e) { error_log('HistorialPrecios::registrar - '.$e->getMessage()); return false; }
+    }
     private static function usuarioActual(): ?int
     {
         if (session_status() === PHP_SESSION_NONE) {

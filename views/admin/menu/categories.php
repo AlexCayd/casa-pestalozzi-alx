@@ -1,7 +1,15 @@
 <?php
+    $menuBase = $menuBase ?? '/admin/menu';
+    $menuPuedeEditar = $menuPuedeEditar ?? true;
+    $menuContexto = $menuContexto ?? 'restaurante';
+    $menuRecetas = $menuRecetas ?? true;
+    $menuVariantes = $menuVariantes ?? true;
+    $menuCsrf = $menuCsrf ?? '';
+
     use Model\CategoriasMenu;
 
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
+    $cartas = $menuCartas ?? $cartas ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : CategoriasMenu::CARTAS;
 ?>
 
@@ -10,16 +18,16 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Categorías</h2>
-            <p class="admin-page__subtitle">Administra las categorías de las dos cartas: la de comida y la de maridaje.</p>
+            <p class="admin-page__subtitle">Administra las categorías y cartas propias de este negocio.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu">
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="m15 18-6-6 6-6"/>
                 </svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="/admin/menu" title="Se crean desde el listado de platillos" aria-label="Nueva categoría">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>" title="Se crean desde el listado de platillos" aria-label="Nueva categoría">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/>
                     <path d="M5 12h14"/>
@@ -61,7 +69,7 @@
                     </thead>
                     <tbody>
                         <?php foreach ($categorias as $cat) : ?>
-                            <tr data-row-href="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>">
+                            <tr data-row-href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias/edit?id=<?php echo (int) $cat->id; ?>">
                                 <td>
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($cat->nombre); ?></span>
                                 </td>
@@ -84,7 +92,8 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <form method="POST" action="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>">
+                                    <form method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias/edit?id=<?php echo (int) $cat->id; ?>">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
                                         <input type="hidden" name="nombre" value="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>">
                                         <?php /* Sin este oculto, apagar una categoría la devolvería a la
                                                  carta de comida: el POST reconstruye la fila entera y lo que
@@ -94,7 +103,7 @@
                                             <input type="hidden" name="activo" value="1">
                                         <?php endif; ?>
                                         <button
-                                            type="submit"
+                                            type="submit" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?>
                                             class="admin-status-switch <?php echo $cat->activo ? 'is-on' : 'is-off'; ?>"
                                             title="<?php echo $cat->activo ? 'Ocultar categoría' : 'Mostrar categoría'; ?>"
                                             aria-label="<?php echo $cat->activo ? 'Ocultar categoría ' : 'Mostrar categoría '; ?><?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"
@@ -110,7 +119,7 @@
                                     <div class="admin-table-actions">
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
-                                            href="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>"
+                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias/edit?id=<?php echo (int) $cat->id; ?>"
                                             title="Editar"
                                             aria-label="Editar categoría <?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"
                                         >
@@ -119,16 +128,17 @@
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <form method="POST" action="/admin/menu/categorias/delete"
+                                        <form method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias/delete"
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar categoría"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>»?"
                                               data-confirm-require="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"
-                                              data-confirm-description="Los platillos que la usan quedarán sin categoría."
+                                              data-confirm-description="Solo puedes eliminar una categoría sin ofertas asociadas."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
+        <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
                                             <input type="hidden" name="id" value="<?php echo (int) $cat->id; ?>">
                                             <button
-                                                type="submit"
+                                                type="submit" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?>
                                                 class="admin-icon-button admin-icon-button--danger"
                                                 title="Eliminar"
                                                 aria-label="Eliminar categoría <?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"

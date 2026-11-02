@@ -35,6 +35,37 @@ class UsuarioService
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const ERROR_GUARDADO = 'ERROR_GUARDADO';
 
+    /** Operaciones del esquema directo 3B; el CRUD legacy conserva su ruta actual. */
+    public static function listarDirectos(int $actorId, $contexto, array $filtros = []): array
+    {
+        return AccesosUsuario::listarDirectos($actorId, $contexto, $filtros);
+    }
+
+    public static function detalleDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::detalleDirecto($actorId, $contexto, $id);
+    }
+
+    public static function guardarDirecto(int $actorId, $contexto, ?int $id, array $datos): array
+    {
+        return AccesosUsuario::guardarDirecto($actorId, $contexto, $id, $datos);
+    }
+
+    public static function estadoDirecto(int $actorId, $contexto, int $id, bool $activo): array
+    {
+        return AccesosUsuario::estadoDirecto($actorId, $contexto, $id, $activo);
+    }
+
+    public static function eliminarDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::eliminarDirecto($actorId, $contexto, $id);
+    }
+
+    public static function regenerarNipDirecto(int $actorId, $contexto, int $id): array
+    {
+        return AccesosUsuario::regenerarNipDirecto($actorId, $contexto, $id);
+    }
+
     public static function crear(Usuario $usuario): array
     {
         $db = ActiveRecord::getDB();
@@ -70,8 +101,8 @@ class UsuarioService
                 }
 
                 $stmt = $db->prepare(
-                    'INSERT INTO usuarios (username, nombre, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO usuarios (username, nombre, email, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 if (!$stmt) {
                     throw new \RuntimeException($db->error);
@@ -79,10 +110,12 @@ class UsuarioService
 
                 $activo = (int) $usuario->activo;
                 $unidadId = self::unidadPara($usuario);
+                $email = self::emailPara($usuario);
                 $stmt->bind_param(
-                    'ssssssii',
+                    'sssssssii',
                     $usuario->username,
                     $usuario->nombre,
+                    $email,
                     $usuario->password_hash,
                     $nipHash,
                     $nipLookup,
@@ -219,9 +252,9 @@ class UsuarioService
             $filasAfectadas = 0;
 
             for ($intento = 1; $intento <= NipService::MAX_INTENTOS; $intento++) {
-                $columnas = ['username = ?', 'nombre = ?', 'rol = ?', 'unidad_id = ?', 'activo = ?'];
-                $tipos = 'sssii';
-                $valores = [$usuario->username, $usuario->nombre, $usuario->rol, self::unidadPara($usuario), (int) $usuario->activo];
+                $columnas = ['username = ?', 'nombre = ?', 'email = ?', 'rol = ?', 'unidad_id = ?', 'activo = ?'];
+                $tipos = 'ssssii';
+                $valores = [$usuario->username, $usuario->nombre, self::emailPara($usuario), $usuario->rol, self::unidadPara($usuario), (int) $usuario->activo];
 
                 if ($usaContrasena) {
                     $columnas[] = 'nip_hash = NULL';
@@ -545,7 +578,7 @@ class UsuarioService
 
     private static function seleccionarUsuario(int $usuarioId, bool $forUpdate = false): ?array
     {
-        $sql = 'SELECT id, username, nombre, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo, created_at, updated_at
+        $sql = 'SELECT id, username, nombre, email, password_hash, nip_hash, nip_lookup, rol, unidad_id, activo, created_at, updated_at
                 FROM usuarios WHERE id = ? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
         $stmt = ActiveRecord::getDB()->prepare($sql);
         if (!$stmt) {
@@ -613,6 +646,12 @@ class UsuarioService
         $unidad = (int) ($usuario->unidad_id ?? 0);
 
         return $unidad > 0 ? $unidad : null;
+    }
+
+    /** El correo sólo lo usan los roles de sistema (segundo paso); el resto guarda NULL. */
+    private static function emailPara(Usuario $usuario): ?string
+    {
+        return Permisos::esSistema((string) $usuario->rol) ? $usuario->email : null;
     }
 
     private static function filaEsAdminActivo(array $fila): bool

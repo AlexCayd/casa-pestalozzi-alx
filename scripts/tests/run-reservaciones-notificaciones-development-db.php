@@ -44,6 +44,7 @@ function developmentAvailableSlot(): array
 }
 
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $reservationId = 0;
 $impactId = 0;
 $impactItemId = 0;
@@ -99,14 +100,14 @@ try {
     developmentNotificationsAssert(($confirmedRow['estado'] ?? '') === 'confirmada', 'el dominio no quedó confirmado');
 
     $dedup = hash('sha256', 'development-impact-' . bin2hex(random_bytes(8)));
-    $stmt = $db->prepare("INSERT INTO horario_impactos (tipo_origen, estado, dedup_key) VALUES ('fixture', 'pendiente', ?)");
-    $stmt->bind_param('s', $dedup);
+    $stmt = $db->prepare("INSERT INTO horario_impactos (unidad_id, tipo_origen, estado, dedup_key) VALUES (?, 'fixture', 'pendiente', ?)");
+    $stmt->bind_param('is', $restaurantUnitId, $dedup);
     developmentNotificationsAssert($stmt->execute(), 'no se pudo crear el impacto development');
     $impactId = (int)$db->insert_id;
     $stmt->close();
     developmentNotificationsAssert($db->query(
-        "INSERT INTO horario_impacto_reservaciones (impacto_id, reservacion_id, estado)
-         VALUES ({$impactId}, {$reservationId}, 'pendiente_notificacion')"
+        "INSERT INTO horario_impacto_reservaciones (unidad_id, impacto_id, reservacion_id, estado)
+         VALUES ({$restaurantUnitId}, {$impactId}, {$reservationId}, 'pendiente_notificacion')"
     ) !== false, 'no se pudo crear el seguimiento development');
     $impactItemId = (int)$db->insert_id;
 
@@ -126,7 +127,8 @@ try {
     developmentNotificationsAssert(($debugItem['test_link_disponible'] ?? false) === true, 'development no habilitó el enlace de gestión');
     $beforeDebugAttempts = (int)($debugItem['notification_attempts'] ?? -1);
     $beforeDebugStatus = (string)($debugItem['notification_delivery_status'] ?? '');
-    $debugLink = HorarioOperacionImpactoService::regenerarAccesoDePrueba($impactId, $impactItemId, null);
+    notificationsTestAuthenticateStaff();
+    $debugLink = HorarioOperacionImpactoService::regenerarAccesoDePrueba($impactId, $impactItemId, NOTIFICATIONS_TEST_STAFF_ID);
     developmentNotificationsAssert(($debugLink['ok'] ?? false) === true && str_starts_with((string)($debugLink['test_access_url'] ?? ''), 'http://localhost'), 'development no generó el enlace de prueba');
     $afterDebugItem = HorarioOperacionImpactoService::obtenerPorItem($impactItemId);
     developmentNotificationsAssert((int)($afterDebugItem['notification_attempts'] ?? -1) === $beforeDebugAttempts, 'el enlace de prueba incrementó attempt');
@@ -147,6 +149,11 @@ try {
     }
     if ($reservationId > 0) {
         $db->query('DELETE FROM reservacion_recordatorios WHERE reservacion_id = ' . $reservationId);
+        $db->query('DELETE FROM verificaciones_contacto WHERE reservacion_id = ' . $reservationId);
+        $db->query('DELETE FROM reservacion_mesas WHERE reservacion_id = ' . $reservationId);
+        $db->query('DELETE FROM verificaciones_contacto WHERE reservacion_id = ' . $reservationId . ' AND unidad_id = ' . NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID);
+        $db->query('DELETE FROM reservacion_mesas WHERE reservacion_id = ' . $reservationId);
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id = {$reservationId}");
         $db->query('DELETE FROM reservaciones WHERE id = ' . $reservationId);
     }
     if ($oldEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $oldEnvironment;

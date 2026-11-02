@@ -8,16 +8,18 @@ use Services\Notifications\ReservationNotificationResultService as Result;
 use Services\Notifications\ReservacionNotificacionConfigService;
 function reminderAssert(bool $ok, string $message): void { if (!$ok) throw new RuntimeException($message); }
 $db = ActiveRecord::getDB();
+$restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 $_ENV['APP_ENV'] = 'test'; $_ENV['RESERVATION_TEST_NOW'] = '2037-01-14 18:00:00';
 $_ENV['RESERVATION_PUBLIC_BASE_URL'] = 'https://example.test';
 $config = ReservacionNotificacionConfigService::obtener();
 $ids = [];
 try {
+    notificationsTestAuthenticateStaff();
     ReservacionNotificacionConfigService::guardar(['recordatorio_dia_anterior_activo' => true, 'hora_recordatorio' => '18:00'], null);
     foreach (['email', 'telefono'] as $channel) {
         $contact = $channel === 'email' ? 'reminder.recovery@example.test' : '+525500000098';
-        $stmt = $db->prepare("INSERT INTO reservaciones (nombre,contacto_tipo,contacto,fecha,hora,comensales,origen,estado) VALUES ('FIXTURE recovery',?,?,'2037-01-15','13:00',2,'landing','confirmada')");
-        $stmt->bind_param('ss', $channel, $contact); $stmt->execute(); $ids[] = $db->insert_id; $stmt->close();
+        $stmt = $db->prepare("INSERT INTO reservaciones (unidad_id,unidad_tipo,nombre,contacto_tipo,contacto,fecha,hora,comensales,origen,estado) VALUES (?,'negocio','FIXTURE recovery',?,?,'2037-01-15','13:00',2,'landing','confirmada')");
+        $stmt->bind_param('iss', $restaurantUnitId, $channel, $contact); $stmt->execute(); $ids[] = $db->insert_id; $stmt->close();
     }
     $first = Reminder::preparar()['notifications']; reminderAssert(count($first) === 2, 'preparación dos canales');
     reminderAssert(Reminder::preparar()['notifications'] === [], 'scheduler duplicado');
@@ -51,7 +53,11 @@ try {
 } finally {
     if ($ids) {
         $db->query('DELETE FROM reservacion_recordatorios WHERE reservacion_id IN (' . implode(',', $ids) . ')');
+        $db->query('DELETE FROM verificaciones_contacto WHERE reservacion_id IN (' . implode(',', $ids) . ')');
+        $db->query('DELETE FROM reservacion_mesas WHERE reservacion_id IN (' . implode(',', $ids) . ')');
+        $db->query("DELETE FROM buzon_notificaciones WHERE entidad_tipo = 'reservacion' AND entidad_id IN (" . implode(',', $ids) . ')');
         $db->query('DELETE FROM reservaciones WHERE id IN (' . implode(',', $ids) . ')');
     }
+    notificationsTestAuthenticateStaff();
     ReservacionNotificacionConfigService::guardar($config, null);
 }

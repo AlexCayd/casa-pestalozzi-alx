@@ -48,7 +48,7 @@ class CataService
 
         $sql = "SELECT *
                 FROM catas
-                WHERE TIMESTAMP(fecha, hora) >= '" . ActiveRecord::escaparString($ahora) . "'
+                WHERE TIMESTAMP(fecha, hora) >= '" . ActiveRecord::escaparString($ahora) . "'" . Cata::filtroUnidad() . "
                 ORDER BY fecha ASC, hora ASC
                 LIMIT {$limite}";
 
@@ -67,6 +67,10 @@ class CataService
     public static function listaAdministrativa(string $disponibilidad = '', string $busqueda = ''): array
     {
         $condiciones = [];
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            \Services\Security\ContextoNegocio::exigir('catas','ver','restaurante');
+            $condiciones[]='unidad_id='.Cata::unidadRestaurante();
+        }
 
         if ($disponibilidad === '1' || $disponibilidad === '0') {
             $condiciones[] = 'disponible = ' . (int)$disponibilidad;
@@ -110,6 +114,16 @@ class CataService
      */
     public static function cambiarDisponibilidad(int $cataId, bool $disponible): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            $r=\Services\Security\ContextoNegocio::transaccion(static function () use($cataId,$disponible): array {
+                \Services\Security\ContextoNegocio::exigir('catas','editar','restaurante',true);
+                if (!Cata::find($cataId)) throw new \DomainException('La cata no existe en este negocio.');
+                $stmt=Cata::getDB()->prepare('UPDATE catas SET disponible=? WHERE id=? AND unidad_id=?');
+                $stmt->execute([(int)$disponible,$cataId,Cata::unidadRestaurante()]); $stmt->close();
+                return ['codigo'=>self::OK,'mensaje'=>$disponible?'La cata vuelve a admitir gente.':'La cata se marcó sin cupo. Sigue anunciada en la landing.','disponible'=>$disponible];
+            });
+            return $r;
+        }
         $cata = Cata::find($cataId);
         if (!$cata) {
             return self::error(self::NO_EXISTE, 'La cata no existe.');
@@ -143,6 +157,22 @@ class CataService
      */
     public static function guardar(Cata $cata): array
     {
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            return \Services\Security\ContextoNegocio::transaccion(static function () use($cata): array {
+                \Services\Security\ContextoNegocio::exigir('catas','editar','restaurante',true);
+                if ($cata->validar()!==[]) throw new \DomainException('Revisa los datos de la cata.');
+                $datos=[$cata->titulo,self::nuloSiVacio($cata->descripcion),$cata->fecha,Cata::horaCompleta((string)$cata->hora),(int)$cata->duracion_min,$cata->precio,(int)$cata->estaDisponible()];
+                if ($cata->id) {
+                    if (!Cata::find((int)$cata->id)) throw new \DomainException('La cata no pertenece a Restaurante.');
+                    $stmt=Cata::getDB()->prepare('UPDATE catas SET titulo=?,descripcion=?,fecha=?,hora=?,duracion_min=?,precio=?,disponible=? WHERE id=? AND unidad_id=?');
+                    $stmt->execute(array_merge($datos,[(int)$cata->id,Cata::unidadRestaurante()]));
+                } else {
+                    $stmt=Cata::getDB()->prepare('INSERT INTO catas(unidad_id,titulo,descripcion,fecha,hora,duracion_min,precio,disponible) VALUES (?,?,?,?,?,?,?,?)');
+                    $stmt->execute(array_merge([Cata::unidadRestaurante()],$datos)); $cata->id=(int)Cata::getDB()->insert_id;
+                }
+                $stmt->close(); return ['codigo'=>self::OK,'mensaje'=>'Cata guardada correctamente.','cata'=>$cata];
+            });
+        }
         $alertas = $cata->validar();
         if (!empty($alertas)) {
             return self::error(self::DATOS_INVALIDOS, self::primerMensaje($alertas));

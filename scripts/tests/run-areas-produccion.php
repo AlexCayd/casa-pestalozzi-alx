@@ -79,10 +79,12 @@ foreach (['controllers/AreaController.php', 'controllers/AdminAreaController.php
     $assert(preg_match("/'color'\s*=>\s*'#/", $codigo) === 0, "{$controlador} no tiene colores de estación escritos a mano.");
 }
 
-// 5 · La semilla usa colores de la paleta, distintos entre sí.
-$deploy = $leer('database/deploy.sql');
-$assert(preg_match('/INSERT INTO areas_produccion \(id, nombre, slug, color\) VALUES(.*?);/s', $deploy, $semilla) === 1, 'deploy.sql siembra las áreas.');
-preg_match_all("/'(#[0-9a-fA-F]{6})'/", $semilla[1], $hexes);
+// 5 · La semilla usa colores de la paleta, distintos entre sí. Con el esquema
+// multinegocio, las estaciones del Restaurante (unidad 2) las siembra
+// menu-restaurante.sql junto con el menú original.
+$menu = $leer('database/menu-restaurante.sql');
+$assert(preg_match('/INSERT INTO areas_produccion\s*\([^)]*\)\s*VALUES(.*?);/s', $menu, $semilla) === 1, 'menu-restaurante.sql siembra las áreas.');
+preg_match_all("/\(\s*'\d+'\s*,\s*'2'\s*,[^)]*'(#[0-9a-fA-F]{6})'/", $semilla[1], $hexes);
 $claves = array_map([AreasProduccion::class, 'clave'], $hexes[1]);
 $assert(count($claves) === 4 && !in_array(null, $claves, true), 'Las cuatro áreas sembradas tienen un color de la paleta.');
 $assert(count(array_unique($claves)) === 4, 'Las cuatro áreas sembradas tienen colores distintos.');

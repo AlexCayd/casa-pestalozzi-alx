@@ -787,6 +787,41 @@
   gap: 18px;
 }
 
+.admin-turnos {
+  display: grid;
+  gap: 8px;
+}
+.admin-turnos__cabecera, .admin-turnos__fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9.5rem 9.5rem;
+  gap: 10px;
+}
+.admin-turnos__cabecera span {
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+@media (max-width: 600px) {
+  .admin-turnos__cabecera {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-turnos__cabecera span:first-child {
+    display: none;
+  }
+  .admin-turnos__fila {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-turnos__fila input[type=text] {
+    grid-column: 1/-1;
+  }
+  .admin-turnos__fila + .admin-turnos__fila {
+    padding-top: 8px;
+    border-top: 1px solid var(--admin-border);
+  }
+}
+
 .admin-pos-setting__states {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -3,7 +3,7 @@
 namespace Model;
 
 /** Resultado de seguimiento de una reservación dentro de un impacto. */
-class HorarioImpactoReservacion extends ActiveRecord
+class HorarioImpactoReservacion extends RegistroRestaurante
 {
     protected static $tabla = 'horario_impacto_reservaciones';
     protected static $columnasDB = [
