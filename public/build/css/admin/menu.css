@@ -547,6 +547,9 @@
 .admin-menu {
   min-width: 0;
 }
+.admin-menu__composicion {
+  margin-bottom: 18px;
+}
 .admin-menu__fieldset {
   border: 0;
   padding: 0;

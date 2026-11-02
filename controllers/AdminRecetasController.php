@@ -157,6 +157,15 @@ class AdminRecetasController
             return;
         }
 
+        $configuracion=\Services\Menu\ComposicionComercial::consultar($ctx,(int)$producto->id);
+        if(in_array($configuracion['modo'],['presentaciones','sin'],true)){
+            if($_SERVER['REQUEST_METHOD']==='GET'&&$configuracion['url']){
+                $volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+                header('Location: '.\Services\Menu\ComposicionComercial::conRetorno($configuracion['url'],$ctx,$volver?:('/admin/menu/edit?id='.(int)$producto->id)),true,302);return;
+            }
+            http_response_code($_SERVER['REQUEST_METHOD']==='POST'?409:403);
+            AdminController::render('recetas/error',['title'=>'Configurar composición','activeModule'=>'productos','mensaje'=>'Este producto se configura mediante Presentaciones. Se requiere consulta de Menú y Artículos y preparaciones. La receta anterior no se modificó.','volver'=>'/admin/recetas']);return;
+        }
         $alertas = Producto::getAlertas();
         $aviso = $_SERVER['REQUEST_METHOD'] === 'GET' ? self::consumirAvisoGuardado() : null;
         if ($aviso !== null) $alertas['exito'][] = $aviso;
@@ -168,9 +177,11 @@ class AdminRecetasController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
+            if(!$configuracion['edicionCompatible']){http_response_code(409);AdminController::render('recetas/error',['title'=>'Consulta de receta anterior','activeModule'=>'productos','mensaje'=>ucfirst($configuracion['motivoConsulta']).'. Consúltala sin cambios; configura una presentación nueva para definir otro consumo.','volver'=>'/admin/recetas']);return;}
             $guardado = self::guardarComponentes($ctx, (int) $producto->id);
             $componentes = count($guardado['componentes'] ?? []);
             if (empty($guardado['ok'])) {
+                http_response_code(422);
                 Producto::setAlerta('error', $guardado['mensaje'] ?? 'No se pudo guardar la receta.');
                 self::render('recetas/form', [
                     'title' => 'Receta de ' . $producto->nombre,
@@ -183,6 +194,8 @@ class AdminRecetasController
                     'alertas' => Producto::getAlertas(),
                     'accion' => 'Guardar receta',
                     'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
+                    'configuracionComposicion'=>$configuracion,
+                    'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
                     'volverUrl' => $volver ?? self::PATH,
                 ]);
                 return;
@@ -237,6 +250,8 @@ class AdminRecetasController
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
             'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
+                    'configuracionComposicion'=>$configuracion,
+                    'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
             'volverUrl' => $volver ?? self::PATH,
         ]);
@@ -381,6 +396,9 @@ class AdminRecetasController
             }
             $componentes[] = ['tipo' => $tipo, 'ref_id' => $ref, 'cantidad' => $cant];
         }
+        $actuales=RecetasOferta::componentes($ctx,$ofertaId);$permitidos=array_map('intval',array_column(array_filter($actuales,static fn($h)=>$h['tipo']==='ingrediente'),'ref_id'));
+        $preparaciones=\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx);
+        foreach($componentes as $h)if($h['tipo']==='ingrediente'&&in_array($h['ref_id'],$preparaciones,true)&&!in_array($h['ref_id'],$permitidos,true))return ['ok'=>false,'mensaje'=>'Añade esta preparación desde Presentaciones para elegir cómo se consume y su versión. La receta anterior no se modificó.'];
         return RecetasOferta::guardar($ctx, $ofertaId, $componentes);
     }
 

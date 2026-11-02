@@ -21,7 +21,7 @@ final class AdminArticulosController
         try{$ruta=(string)($_SERVER['PATH_INFO']??'');if(str_ends_with($ruta,'/presentaciones')&&C::slug()==='global')self::presentacionesGlobal($router);elseif(str_ends_with($ruta,'/presentaciones'))self::presentaciones($router);elseif(str_ends_with($ruta,'/editar'))self::ficha($router);else self::index($router);}
         catch(\Throwable $e){
             $codigo=$e instanceof InventarioError?$e->codigo:'';
-            http_response_code(in_array($codigo,['ID_INVALIDO','FILTRO_INVALIDO'],true)?400:(in_array($codigo,['ARTICULO_INVALIDO','OFERTA_DENEGADA'],true)?404:($e instanceof InventarioError?403:500)));
+            http_response_code(in_array($codigo,['ID_INVALIDO','FILTRO_INVALIDO'],true)?400:(in_array($codigo,['ARTICULO_INVALIDO','OFERTA_DENEGADA','VERSION_DENEGADA'],true)?404:($e instanceof InventarioError?403:500)));
             self::errorVista( $e instanceof InventarioError?self::mensaje($e):'No se pudo cargar la información. Recarga la página o vuelve al inicio.');
         }
     }
@@ -40,6 +40,13 @@ final class AdminArticulosController
     public static function ficha(Router $router): void
     {
         $ctx=C::slug();C::exigir('productos','ver',$ctx);$id=self::id();$f=A::ficha($ctx,$id);$alertas=[];$preview=null;
+        if(isset($_GET['version'])||isset($_GET['comparar'])){
+            if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET'){http_response_code(405);self::errorVista('Las versiones publicadas se consultan sin modificarlas. Abre la ficha actual para preparar una versión nueva.');return;}
+            $version=filter_var($_GET['version']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$version)throw new InventarioError('ID_INVALIDO','Selecciona una versión publicada válida.');
+            $consulta=A::consultarVersion($ctx,$id,$version);$comparacion=null;
+            if(isset($_GET['comparar'])){$comparar=filter_var($_GET['comparar'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$comparar)throw new InventarioError('ID_INVALIDO','Selecciona una versión válida para comparar.');$comparacion=A::consultarVersion($ctx,$id,$comparar);}
+            self::render('articulo-version',$f+['versionConsultada'=>$consulta,'versionComparada'=>$comparacion]+self::opciones($ctx));return;
+        }
         $raw=['rendimiento'=>'1.000','unidad'=>$f['articulo']['unidad'],'procedencia'=>'Elaboración propia','componentes'=>[]];
         if($f['versiones']){$r=A::cargarReceta((int)$f['versiones'][0]['id'],C::unidad($ctx));$raw=array_intersect_key($r,$raw);}
         if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
@@ -60,14 +67,24 @@ final class AdminArticulosController
     }
     public static function presentacionesGlobal(Router $router): void
     {
-        C::exigir('menu','ver','global');$producto=self::id();$v=P::previaEstandar($producto);$nombre=ProductosCasa::bloquear($producto)['nombre'];$raw=['clave'=>'','nombre'=>'','precio'=>$v['producto']['borrador']['precio'],'activo'=>0,'componentes'=>[]];$alertas=[];$preview=null;
+        C::exigir('menu','ver','global');$producto=self::id();$v=P::previaEstandar($producto);$nombre=ProductosCasa::bloquear($producto)['nombre'];$oficiales=P::oficiales($producto);$referencia=$_GET['referencia']??null;
+        if($referencia!==null&&(!is_string($referencia)||!preg_match('/^[a-z0-9_-]{1,40}$/D',$referencia)))throw new InventarioError('ID_INVALIDO','La referencia de presentación no es válida.');
+        if($referencia!==null&&!isset($oficiales[$referencia]))throw new InventarioError('VERSION_DENEGADA','La presentación oficial no pertenece a este producto.');
+        $actual=$referencia!==null?$oficiales[$referencia]['datos']:null;
+        $raw=$actual??['clave'=>'','nombre'=>'','precio'=>$v['producto']['borrador']['precio'],'activo'=>0,'componentes'=>[]];$alertas=[];$preview=null;$impacto=[];
         if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
             if(!self::csrf())return;C::facultad('comercial.identidad.editar','global','menu');
-            try{$raw=['clave'=>$_POST['presentacion_clave']??'','nombre'=>$_POST['nombre']??'','precio'=>$_POST['precio']??'','activo'=>isset($_POST['activo'])?1:0,'componentes'=>self::filas()];$preview=P::plan(C::unidad('global'),0,A::componentes($raw['componentes']),[],false);
-                if(($_POST['accion']??'')==='publicar'){$r=P::publicarEstandar($producto,$raw,self::valor($_POST['huella']??''),self::valor($_POST['clave']??''),($_POST['confirmar']??'')==='1');self::resultado($r);$_SESSION['_m2_resultado'][(string)($_SERVER['PATH_INFO']??'').':'.(string)($_GET['id']??'')]='Cambios confirmados correctamente.';header('Location: '.self::conRetorno('/admin/global/productos/presentaciones?id='.$producto.'&guardado=1'),true,303);return;}
-            }catch(\Throwable $e){http_response_code(422);$alertas['error'][]= $e instanceof InventarioError?self::mensaje($e):'No se pudo publicar en todos los negocios. No se confirmó ningún cambio.';}
+            try{
+                $raw=['clave'=>$_POST['presentacion_clave']??'','nombre'=>$_POST['nombre']??'','precio'=>$_POST['precio']??'','activo'=>isset($_POST['activo'])?1:0,'componentes'=>self::filas()];
+                if($referencia!==null&&$raw['clave']!==$referencia)throw new InventarioError('REFERENCIA_INVALIDA','La referencia es permanente. Selecciona la presentación que deseas actualizar.');
+                if($referencia===null&&is_string($raw['clave'])&&isset($oficiales[$raw['clave']]))throw new InventarioError('REFERENCIA_EXISTENTE','Esa referencia ya existe. Carga la presentación oficial para actualizarla.');
+                $preview=P::plan(C::unidad('global'),0,A::componentes($raw['componentes']),[],false);$impacto=P::preverEstandar($producto,$raw);
+                $accion=self::valor($_POST['accion']??'');
+                if($accion==='publicar'){$r=P::publicarEstandar($producto,$raw,self::valor($_POST['huella']??''),self::valor($_POST['clave']??''),($_POST['confirmar']??'')==='1');self::resultado($r);$_SESSION['_m2_resultado'][(string)($_SERVER['PATH_INFO']??'').':'.(string)($_GET['id']??'')]='Presentación oficial publicada correctamente.';header('Location: '.self::conRetorno('/admin/global/productos/presentaciones?'.http_build_query(['id'=>$producto,'referencia'=>$raw['clave']])),true,303);return;}
+                if($accion!=='prever')throw new InventarioError('ACCION_INVALIDA','La acción no está disponible.');
+            }catch(\Throwable $e){http_response_code(422);$alertas['error'][]=$e instanceof InventarioError?self::mensaje($e):'No se pudo publicar en todos los negocios. No se confirmó ningún cambio.';}
         }
-        self::render('presentaciones-global',['productoId'=>$producto,'nombreProducto'=>$nombre,'revisionEstandar'=>$v,'raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas]+self::opciones('global'));
+        self::render('presentaciones-global',['productoId'=>$producto,'nombreProducto'=>$nombre,'revisionEstandar'=>$v,'oficiales'=>$oficiales,'referenciaOficial'=>$referencia,'configuracionOficial'=>$actual,'impactoOficial'=>$impacto,'raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas]+self::opciones('global'));
     }
     public static function presentaciones(Router $router): void
     {
@@ -97,11 +114,13 @@ final class AdminArticulosController
             }catch(\Throwable $e){http_response_code(422);$alertas['error'][]= $e instanceof InventarioError?self::mensaje($e):'No se pudo guardar la presentación. Revisa los datos.';}
         }
         $origenes=AlmacenesConsumo::paraFormulario($ctx,$oferta);
-        self::render('presentaciones',['oferta'=>$o,'ofertaId'=>$oferta,'presentaciones'=>$lista,'presentacion'=>$p,'raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas,'origenes'=>$origenes,'protegida'=>!ProductosCasa::permite((int)$o['producto_id'],'receta'),'basePresentaciones'=>self::presentacionesBase($ctx)]+self::opciones($ctx));
+        $configuracionComercial=\Services\Menu\ComposicionComercial::consultar($ctx,$oferta);
+        $recetaAnterior=$configuracionComercial['receta_id']?\Services\Menu\RecetasOferta::componentes($ctx,$oferta):[];
+        self::render('presentaciones',['oferta'=>$o,'ofertaId'=>$oferta,'configuracionComercial'=>$configuracionComercial,'recetaAnterior'=>$recetaAnterior,'presentaciones'=>$lista,'presentacion'=>$p,'raw'=>$raw,'preview'=>$preview,'alertas'=>$alertas,'origenes'=>$origenes,'protegida'=>!ProductosCasa::permite((int)$o['producto_id'],'receta'),'basePresentaciones'=>self::presentacionesBase($ctx)]+self::opciones($ctx));
     }
     private static function opciones(string $ctx): array
     {
-        $u=C::unidad($ctx);$articulos=A::sql('SELECT id,nombre,unidad FROM ingredientes WHERE activo=1 ORDER BY nombre,id')->get_result()->fetch_all(MYSQLI_ASSOC);
+        $u=C::unidad($ctx);$articulos=A::sql('SELECT id,nombre,unidad,activo FROM ingredientes ORDER BY nombre,id')->get_result()->fetch_all(MYSQLI_ASSOC);
         $versiones=A::sql("SELECT r.id,r.articulo_id,r.version,r.rendimiento,r.unidad,i.nombre,u.slug FROM articulo_recetas r JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE r.publicada=1 AND (r.unidad_id=? OR u.slug='global') ORDER BY i.nombre,r.version DESC",[$u])->get_result()->fetch_all(MYSQLI_ASSOC);
         return ['opcionesArticulos'=>$articulos,'opcionesVersiones'=>$versiones];
     }
@@ -138,6 +157,8 @@ final class AdminArticulosController
         $ctx=C::slug();$editar=Auth::puede('productos','editar',$ctx);$perfil=C::exigir('productos','ver',$ctx);$facultades=$perfil['ambitos']['global']['facultades']??[];
         $global=$ctx!=='global'||(Auth::puede('menu','editar','global')&&in_array('comercial.identidad.editar',$facultades,true));
         $configurar=$editar&&($ctx!=='global'||(Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$facultades,true)));
+        $data['requiereConfiguracionFisica']=isset($data['estadoEfectivo'])&&(int)($data['configuracion']['revision']??0)===0&&!Auth::puede('inventario','editar',$ctx)&&(!empty($data['configuracion']['almacenable'])||!empty($data['configuracion']['produccion_previa'])||!empty($data['configuracion']['costo_conocido']));
+        if($data['requiereConfiguracionFisica'])$configurar=false;
         $data['volverContextual']=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
         $data['puedeCrearArticulo']=Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$facultades,true);
         $comercial=str_starts_with($vista,'presentaciones');

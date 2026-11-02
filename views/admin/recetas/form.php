@@ -15,6 +15,8 @@
     $pendientesAlmacen = count(array_filter($almacenesConsumo, static fn(array $f): bool => $f['almacen_id'] === null));
     $volverQuery = $volverUrl !== '/admin/recetas' ? '&volver=' . rawurlencode($volverUrl) : '';
 
+    $referenciasActuales=array_map('intval',array_column(array_filter($componentes,static fn($h)=>$h['tipo']==='ingrediente'),'ref_id'));
+    $ingredientes=array_filter(is_array($ingredientes)?$ingredientes:iterator_to_array($ingredientes),static fn($i)=>!in_array((int)$i->id,$preparacionesVersionadas??[],true)||in_array((int)$i->id,$referenciasActuales,true));
     // Catálogo de opciones para el buscador de componentes (ingredientes + subrecetas).
     $opciones = [];
     foreach ($ingredientes as $ing) {
@@ -57,6 +59,8 @@
     <p class="admin-field__hint">Este editor conserva las recetas anteriores. Las preparaciones versionadas y sus modalidades de consumo se configuran en Presentaciones. Las recetas existentes no se convierten automáticamente.</p>
     <?php if($prod && \Classes\Auth::puede('menu','ver','restaurante')): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars('/admin/menu/presentaciones?'.http_build_query(['id'=>(int)$prod->id,'volver'=>'/admin/recetas/editar?id='.(int)$prod->id]),ENT_QUOTES,'UTF-8') ?>">Configurar presentaciones</a></p><?php endif; ?>
 
+    <?php if(!empty($configuracionComposicion['referencias'])): ?><section class="admin-panel admin-card"><h3>Elaboraciones fijadas en la receta vigente</h3><p><?= !empty($configuracionComposicion['edicionCompatible'])?'Las cantidades se editan conservando estas versiones.':'Estas versiones se conservan en consulta.' ?> Para añadir una preparación o elegir otra modalidad, configura una presentación.</p><ul><?php foreach($configuracionComposicion['referencias'] as $r): ?><li><?= htmlspecialchars($r['nombre'].' · Versión '.$r['version'].' · '.($r['contexto']==='global'?'Global':ucfirst($r['contexto'])),ENT_QUOTES,'UTF-8') ?> · Preparar usando su elaboración</li><?php endforeach; ?></ul></section><?php endif; ?>
+    <?php if(empty($configuracionComposicion['edicionCompatible'])): ?><p role="status">Solo consulta: <?= htmlspecialchars($configuracionComposicion['motivoConsulta'],ENT_QUOTES,'UTF-8') ?>. No se modificará desde el editor anterior.</p><?php endif; ?>
     <?php if ($prod) : ?>
         <?php
             // Los datos del platillo van en solo lectura: se editan en Gestión
@@ -91,7 +95,7 @@
 
     <?php if(!empty($recetaCasaProtegida)): ?><p>Definido por Global. Usando receta estándar; la preparación se consulta en Productos de la casa.</p><?php endif; ?>
     <form method="POST" data-recipe-builder>
-    <fieldset class="admin-menu__fieldset" <?= !empty($recetaCasaProtegida)?'disabled':'' ?>>
+    <fieldset class="admin-menu__fieldset" <?= !empty($recetaCasaProtegida)||empty($configuracionComposicion['edicionCompatible'])||!\Classes\Auth::puede('productos','editar','restaurante')?'disabled':'' ?>>
         <section class="admin-panel admin-card admin-recipe">
             <div class="admin-recipe__head">
                 <div>

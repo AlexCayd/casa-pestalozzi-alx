@@ -13,6 +13,10 @@
 .admin-menu {
   min-width: 0;
 
+  &__composicion {
+    margin-bottom: 18px;
+  }
+
   &__fieldset {
     border: 0;
     padding: 0;

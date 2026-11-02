@@ -55,7 +55,8 @@ final class AdminProductosCasaController
         $negocios=[];foreach(['restaurante'=>'Restaurante','panaderia'=>'Panadería'] as $ctx=>$nombre){try{C::exigir('menu','ver',$ctx);$u=C::unidad($ctx);$negocios[$ctx]=['nombre'=>$nombre,'categorias'=>P::sql('SELECT id,nombre,carta FROM categorias WHERE unidad_id=? AND activo=1 ORDER BY carta,orden',[$u])->get_result()->fetch_all(MYSQLI_ASSOC),'areas'=>P::sql('SELECT id,nombre FROM areas_produccion WHERE unidad_id=? ORDER BY orden,id',[$u])->get_result()->fetch_all(MYSQLI_ASSOC)];}catch(\Throwable){}}
         $versiones=$id?P::sql('SELECT id,version FROM receta_casa_versiones WHERE producto_id=? ORDER BY version DESC',[$id])->get_result()->fetch_all(MYSQLI_ASSOC):[];
         $historial=$id?P::sql('SELECT p.version,p.created_at,u.nombre FROM producto_publicaciones p JOIN usuarios u ON u.id=p.usuario_id WHERE p.producto_id=? ORDER BY p.version DESC',[$id])->get_result()->fetch_all(MYSQLI_ASSOC):[];
-        AdminController::render('menu/casa-form',M::vista()+['activeModule'=>'menu','title'=>'Producto de la casa','d'=>$d,'productoCasaId'=>$id,'revision'=>$revision,'clave'=>$clave,'preview'=>$v,'negociosCasa'=>$negocios,'versionesCasa'=>$versiones,'historialCasa'=>$historial,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'alertas'=>$alertas,'foto'=>$foto?$foto->vista():FotoPlatillo::vistaInicial($d['img']??null),'styles'=>['/build/css/admin/menu.css']]);
+        $puedePresentaciones=false;if($id&&$c&&\Classes\Auth::puede('productos','ver','global')){try{\Services\Menu\PresentacionesOferta::previaEstandar($id);$puedePresentaciones=true;}catch(\Throwable){}}
+        AdminController::render('menu/casa-form',M::vista()+['activeModule'=>'menu','title'=>'Producto de la casa','d'=>$d,'productoCasaId'=>$id,'revision'=>$revision,'clave'=>$clave,'preview'=>$v,'negociosCasa'=>$negocios,'versionesCasa'=>$versiones,'historialCasa'=>$historial,'puedePresentaciones'=>$puedePresentaciones,'puedeCasa'=>\Services\Menu\CatalogoComercial::puedeEditar(),'alertas'=>$alertas,'foto'=>$foto?$foto->vista():FotoPlatillo::vistaInicial($d['img']??null),'styles'=>['/build/css/admin/menu.css']]);
     }
     public static function datos(array $p): array {
         $out=[];foreach(['nombre','descripcion','precio','activo','tipo','receta_version_id','requiere_receta'] as $k){if(isset($p[$k])&&!is_scalar($p[$k]))P::error('DATO_INVALIDO','El formulario contiene un dato inválido.');$out[$k]=$p[$k]??(in_array($k,['nombre','descripcion'])?'':0);}
@@ -86,6 +87,11 @@ final class AdminProductosCasaController
     private static function recetaLocalInterna(Router $router): void {
         M::autorizar();$ctx=C::slug();C::exigir('productos','ver',$ctx);$oferta=self::id();$p=\Services\Menu\Ofertas::obtener($oferta,$ctx);if(!$p||!($oficial=P::publicada((int)$p['producto_id']))){http_response_code(404);return;}
         $alertas=[];$editable=\Classes\Auth::puede('menu','editar',$ctx)&&\Classes\Auth::puede('productos','editar',$ctx)&&!empty($oficial['reglas']['receta']);
+        $configuracion=\Services\Menu\ComposicionComercial::consultar($ctx,$oferta);
+        if($configuracion['modo']==='presentaciones'){
+            if(($_SERVER['REQUEST_METHOD']??'GET')==='GET'){header('Location: '.\Services\Menu\ComposicionComercial::conRetorno($configuracion['url'],$ctx,$_GET['volver']??(M::base().'/edit?id='.$oferta)),true,302);return;}
+            http_response_code(409);AdminController::render('recetas/error',['title'=>'Composición por presentaciones','activeModule'=>'menu','mensaje'=>'El consumo vigente se configura en Presentaciones. No se modificó la receta anterior.','volver'=>$configuracion['url']]);return;
+        }
         try{if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
             if(($_POST['accion']??'')==='volver')$result=\Services\Menu\RecetasCasa::volver($ctx,$oferta);
             else {C::exigir('productos','editar',$ctx);$items=array_map(static fn($i)=>['tipo'=>'ingrediente','ref_id'=>$i['articulo_id'],'cantidad'=>$i['cantidad'],'version_receta_id'=>$i['version_receta_id']??null],self::componentes($_POST));$result=\Services\Menu\RecetasOferta::guardar($ctx,$oferta,$items);}

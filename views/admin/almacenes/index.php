@@ -2,6 +2,7 @@
 require_once __DIR__.'/../partials/_icons.php';
 use Services\Security\Contextos;
 use Services\Inventory\DecimalInventario;
+$volverContextual=$volverContextual??null;
 $esc=static fn($v): string=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');
 $ctx=(string)$contextoAlmacenes;
 $opcionesAlmacen=$opcionesAlmacen??[];

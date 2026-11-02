@@ -19,6 +19,7 @@ final class Articulos
         $u=C::unidad($ctx);$like='%'.str_replace(['!','%','_'],['!!','!%','!_'],trim($q)).'%';
         $total=(int)self::sql("SELECT COUNT(*) FROM ingredientes WHERE nombre LIKE ? ESCAPE '!'",[$like])->get_result()->fetch_row()[0];
         $rows=self::sql("SELECT i.id,i.nombre,i.unidad,i.activo,c.comprable,c.componente,c.elaborable,c.almacenable,c.revision,(SELECT MAX(version) FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND publicada=1) version FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? WHERE i.nombre LIKE ? ESCAPE '!' ORDER BY i.nombre,i.id LIMIT 30 OFFSET ?",[$u,$u,$like,($pagina-1)*30])->get_result()->fetch_all(MYSQLI_ASSOC);
+        foreach($rows as &$row)$row['estadoEfectivo']=self::estadoAdministrativo($ctx,(int)$row['id']);unset($row);
         return ['articulos'=>$rows,'total'=>$total,'pagina'=>$pagina,'paginas'=>max(1,(int)ceil($total/30))];
     }
     public static function ficha(string $ctx,int $id): array
@@ -26,9 +27,35 @@ final class Articulos
         C::exigir('productos','ver',$ctx);$u=C::unidad($ctx);
         $a=self::sql('SELECT id,nombre,unidad,activo FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();
         if(!$a)self::error('ARTICULO_INVALIDO','El artículo no existe.');
-        $c=self::sql('SELECT * FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=?',[$id,$u])->get_result()->fetch_assoc();
         $versiones=self::sql('SELECT id,version,rendimiento,unidad,procedencia,created_at FROM articulo_recetas WHERE articulo_id=? AND unidad_id=? AND publicada=1 ORDER BY version DESC',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
-        return ['articulo'=>$a,'configuracion'=>$c?:['revision'=>0,'comprable'=>0,'componente'=>1,'elaborable'=>0,'almacenable'=>0,'produccion_previa'=>0,'costo_conocido'=>0,'activo'=>1],'versiones'=>$versiones];
+        $estado=self::estadoAdministrativo($ctx,$id);
+        return ['articulo'=>$a,'configuracion'=>$estado['configuracion'],'estadoEfectivo'=>$estado,'versiones'=>$versiones];
+    }
+    /** Proyección administrativa del mismo lector efectivo que usa el motor.
+     * No materializa compatibilidad ni infiere capacidades por nombre o saldo. */
+    public static function estadoAdministrativo(string $ctx,int $id): array
+    {
+        C::exigirUno(['productos'=>'ver','inventario'=>'ver'],$ctx);$u=C::unidad($ctx);
+        $efectivo=self::cargarArticulo($id,$u);if(!$efectivo)self::error('ARTICULO_INVALIDO','El artículo no existe.');
+        $c=self::sql('SELECT * FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=?',[$id,$u])->get_result()->fetch_assoc();
+        $m=self::sql("SELECT EXISTS(SELECT 1 FROM articulo_configuraciones c JOIN unidades u ON u.id=c.unidad_id WHERE c.articulo_id=? AND u.slug='global') compartida,EXISTS(SELECT 1 FROM articulo_recetas r WHERE r.articulo_id=? AND r.unidad_id=? AND r.publicada=1) elaboracion,EXISTS(SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.articulo_id=? AND aa.unidad_id=? AND aa.activo=1 AND a.activo=1) asociacion,EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=? AND aa.unidad_id=? AND aa.saldo<>0) existencia",[$id,$id,$u,$id,$u,$id,$u])->get_result()->fetch_assoc();
+        $configuracion=$c?:['revision'=>0,'comprable'=>0,'componente'=>(int)$efectivo['componente'],'elaborable'=>0,'almacenable'=>(int)$efectivo['almacenable'],'produccion_previa'=>(int)$efectivo['produccion_previa'],'costo_conocido'=>$efectivo['costo']!==null?1:0,'activo'=>(int)$efectivo['activo']];
+        $origen=$c?'explicita':($m['compartida']?'compartida':'heredada');
+        $estado=$origen;$etiqueta=match($origen){'explicita'=>'Configuración explícita','compartida'=>'Configuración compartida efectiva',default=>'Configuración heredada efectiva'};
+        $detalle=$c?'Capacidades propias de este negocio.':'Se muestran las capacidades que reconoce el consumo. Guardar capacidades creará una configuración propia; consultar no modifica el artículo.';
+        if(!$efectivo['activo']||($efectivo['produccion_previa']&&!$efectivo['almacenable'])){$estado='incompatible';$etiqueta='Configuración incompatible';$detalle='El artículo está inactivo o sus capacidades impiden el consumo. Revisa la configuración antes de utilizarlo.';}
+        elseif(!empty($configuracion['elaborable'])&&!$m['elaboracion']){$estado='incompleta';$etiqueta='Elaboración pendiente de publicar';$detalle='Habilitar elaboración no publica una receta. Configura y revisa su composición antes de usarla para preparar.';}
+        elseif(!$efectivo['componente']&&!$efectivo['almacenable']){$estado='incompleta';$etiqueta='Configuración incompleta';$detalle='No hay una capacidad de consumo habilitada. Revisa los usos que necesita este artículo.';}
+        $fisico=null;if(\Classes\Auth::puede('inventario','ver',$ctx))$fisico=$m['asociacion']?($m['existencia']?'Con asociación y existencias registradas.':'Con asociación física, sin existencias registradas.'):'Sin asociación física activa en este negocio.';
+        return compact('configuracion','efectivo','origen','estado','etiqueta','detalle','fisico');
+    }
+    /** La consulta no resuelve ingredientes actuales ni escribe versiones. */
+    public static function consultarVersion(string $ctx,int $articulo,int $version): array
+    {
+        C::exigir('productos','ver',$ctx);$r=self::cargarReceta($version,C::unidad($ctx));
+        if(!$r||!(int)$r['publicada']||(int)$r['articulo_id']!==$articulo)self::error('VERSION_DENEGADA','La versión no pertenece a este artículo o no está disponible en el negocio.');
+        $r['componentes']=self::sql("SELECT c.*,i.nombre,r.version version_referenciada,u.slug contexto_version FROM articulo_receta_componentes c JOIN ingredientes i ON i.id=c.articulo_id LEFT JOIN articulo_recetas r ON r.id=c.version_receta_id LEFT JOIN unidades u ON u.id=r.unidad_id WHERE c.receta_id=? ORDER BY c.id",[$version])->get_result()->fetch_all(MYSQLI_ASSOC);
+        return $r;
     }
     public static function configurar(string $ctx,int $id,array $raw,int $revision): array
     {

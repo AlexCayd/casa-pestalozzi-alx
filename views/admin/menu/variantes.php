@@ -49,13 +49,11 @@ $datosJson = $editorVariantes !== null
             </p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">
+            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
-                Menú
+                <?= $volverContextual?'Volver al origen':'Menú' ?>
             </a>
-            <a class="admin-btn admin-btn--ghost" href="<?= $menuContexto==='panaderia'?'/admin/panaderia/menu/presentaciones':'/admin/recetas/editar' ?>?id=<?php echo (int) ($platillo->id ?? 0); ?>">
-                <?= $menuContexto==='panaderia'?'Presentaciones del producto':'Receta base' ?>
-            </a>
+            <?php if(!empty($composicionActual['url'])): ?><a class="admin-btn admin-btn--ghost" href="<?= $h($composicionActual['url']) ?>"><?= $h($composicionActual['accion']) ?></a><?php endif; ?>
         </div>
     </header>
 

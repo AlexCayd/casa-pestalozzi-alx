@@ -90,14 +90,37 @@ final class PresentacionesOferta
             $componentes=A::componentes($raw['componentes']??null);foreach($componentes as $c)if($c['version_receta_id']!==null){$r=A::cargarReceta($c['version_receta_id'],$u);if(!$r||empty($r['global']))throw new InventarioError('RECETA_AJENA','Una presentación oficial solo utiliza elaboraciones Global.');}
             $resultados=[];foreach($v['ofertas'] as $o){C::exigir('menu','editar',$o['slug'],true);C::exigir('productos','editar',$o['slug'],true);$revision=0;foreach($v['presentaciones'][$o['id']] as $p)if($p['clave']===($raw['clave']??''))$revision=(int)$p['revision'];$efectivo=$raw;
                 $anterior=null;foreach($v['presentaciones'][$o['id']] as $pp)if($pp['clave']===($raw['clave']??''))$anterior=$pp;
-                if($anterior){$base=A::sql('SELECT e.configuracion FROM presentacion_estandares e JOIN presentacion_versiones v ON v.id=e.version_id WHERE v.presentacion_id=? ORDER BY v.version DESC LIMIT 1',[$anterior['id']])->get_result()->fetch_row();if($base){$base=json_decode($base[0],true,512,JSON_THROW_ON_ERROR);$componentesActuales=self::componentes((int)$anterior['version_id']);
-                    if(ProductosCasa::permite($producto,'receta')&&A::huella(A::componentes($componentesActuales))!==A::huella(A::componentes($base['componentes'])))$efectivo['componentes']=$componentesActuales;
-                    if(ProductosCasa::permite($producto,'precio')&&bccomp($anterior['precio'],(string)$base['precio'],2)!==0)$efectivo['precio']=$anterior['precio'];
-                    if(ProductosCasa::permite($producto,'activo')&&(int)$anterior['activo']!==(int)($base['activo']??0))$efectivo['activo']=(int)$anterior['activo'];
-                }}
+                $efectivo=self::configuracionDestino($producto,$raw,$anterior)['datos'];
                 $r=self::guardarVersion($o['slug'],(int)$o['id'],$efectivo,$revision,$clave.'_'.$o['slug'],true,$publicacion,$raw);if(($r['ok']??null)===false)throw new InventarioError($r['codigo']??'PUBLICACION_FALLIDA',$r['mensaje']??'No se pudo publicar en todos los destinos.');$resultados[$o['slug']]=$r['version_id'];}
             $r=['ok'=>true,'versiones'=>$resultados];A::recordar($u,$clave,$hash,$r);return $r;
         });
+    }
+    /** La configuración oficial se lee de su publicación; una adaptación local
+     * nunca se convierte en el nuevo valor oficial al abrir el formulario. */
+    public static function oficiales(int $producto): array
+    {
+        C::exigir('menu','ver','global');if(!ProductosCasa::configuracion($producto))throw new InventarioError('ESTANDAR_INVALIDO','El producto no tiene una configuración de la casa.');
+        $rows=A::sql('SELECT e.configuracion,v.created_at,v.version,p.clave FROM presentacion_estandares e JOIN presentacion_versiones v ON v.id=e.version_id AND v.publicada=1 JOIN oferta_presentaciones p ON p.id=v.presentacion_id JOIN ofertas_producto o ON o.id=p.oferta_id AND o.unidad_id=p.unidad_id JOIN producto_publicaciones pp ON pp.id=e.publicacion_producto_id AND pp.producto_id=o.producto_id WHERE o.producto_id=? ORDER BY v.id DESC',[$producto])->get_result()->fetch_all(MYSQLI_ASSOC);
+        $out=[];foreach($rows as $r){$key=$r['clave'];if(isset($out[$key]))continue;$datos=json_decode($r['configuracion'],true,512,JSON_THROW_ON_ERROR);$out[$key]=['datos'=>$datos,'fecha'=>$r['created_at']];}return $out;
+    }
+    private static function configuracionDestino(int $producto,array $raw,?array $anterior): array
+    {
+        $efectivo=$raw;$conservados=[];
+        if($anterior){$base=A::sql('SELECT e.configuracion FROM presentacion_estandares e JOIN presentacion_versiones v ON v.id=e.version_id WHERE v.presentacion_id=? ORDER BY v.version DESC LIMIT 1',[$anterior['id']])->get_result()->fetch_row();if($base){$base=json_decode($base[0],true,512,JSON_THROW_ON_ERROR);$componentesActuales=self::componentes((int)$anterior['version_id']);
+            if(ProductosCasa::permite($producto,'receta')&&A::huella(A::componentes($componentesActuales))!==A::huella(A::componentes($base['componentes']))){$efectivo['componentes']=$componentesActuales;$conservados[]='Composición local';}
+            if(ProductosCasa::permite($producto,'precio')&&bccomp($anterior['precio'],(string)$base['precio'],2)!==0){$efectivo['precio']=$anterior['precio'];$conservados[]='Precio local';}
+            if(ProductosCasa::permite($producto,'activo')&&(int)$anterior['activo']!==(int)($base['activo']??0)){$efectivo['activo']=(int)$anterior['activo'];$conservados[]='Disponibilidad local';}
+        }}
+        return ['datos'=>$efectivo,'conservados'=>$conservados];
+    }
+    public static function preverEstandar(int $producto,array $raw): array
+    {
+        $v=self::previaEstandar($producto);$impacto=[];
+        foreach($v['ofertas'] as $o){$anterior=null;foreach($v['presentaciones'][$o['id']] as $p)if($p['clave']===($raw['clave']??''))$anterior=$p;
+            $destino=self::configuracionDestino($producto,$raw,$anterior);$plan=self::plan((int)$o['unidad_id'],(int)$o['id'],A::componentes($destino['datos']['componentes']),[],false);
+            $impacto[]=['negocio'=>$o['slug'],'anterior'=>$anterior,'nuevo'=>$destino['datos'],'conservados'=>$destino['conservados'],'plan'=>$plan];
+        }
+        return $impacto;
     }
     public static function componentes(int $version): array {return A::sql('SELECT articulo_id,cantidad,unidad,modalidad,version_receta_id,etapa FROM presentacion_componentes WHERE version_id=? ORDER BY id',[$version])->get_result()->fetch_all(MYSQLI_ASSOC);}
     public static function version(int $presentacion,int $oferta,int $u): array

@@ -657,7 +657,7 @@
     }
 
     function pintarReceta(elegidas, precio) {
-        if (datos.usa_presentaciones || datos.composicion_unificada || elegidas.some(function (o) { return o.ajustes.some(function (a) { return !!a.receta_destino_id; }); })) { cReceta.innerHTML = '<p class="admin-vreceta__vacia">El consumo y el costo dependen de la presentación y sus versiones. <a href="' + esc(datos.url_presentaciones) + '">Revisar composición y orígenes</a>. Los costos desconocidos no se presentan como cero.</p>'; return; }
+        if (datos.usa_presentaciones || datos.composicion_unificada || elegidas.some(function (o) { return o.ajustes.some(function (a) { return !!a.receta_destino_id; }); })) { cReceta.innerHTML = '<p class="admin-vreceta__vacia">El consumo y el costo dependen de la presentación y sus versiones. ' + (datos.url_presentaciones ? '<a href="' + esc(datos.url_presentaciones) + '">Revisar composición y orígenes</a>.' : 'La consulta de composición requiere acceso a Artículos y preparaciones.') + ' Los costos desconocidos no se presentan como cero.</p>'; return; }
         var baseT = explotar([]);
         var t = explotar(elegidas);
         var ids = Object.keys(t);
@@ -1058,7 +1058,7 @@
                 window.AppNotice && window.AppNotice.show({
                     variant: 'warning',
                     timeout: 0,
-                    text: 'Variantes guardadas. Falta elegir de qué almacén sale ' + (pendientes === 1 ? '1 ingrediente' : pendientes + ' ingredientes') + ': asígnalo en «Receta base». Mientras tanto el POS no puede vender este platillo.'
+                    text: 'Variantes guardadas. Falta elegir de qué almacén sale ' + (pendientes === 1 ? '1 ingrediente' : pendientes + ' ingredientes') + ': configura los orígenes en la composición vigente del producto. Mientras tanto el POS no puede vender este platillo.'
                 });
             } else {
                 aviso('Variantes guardadas. El POS las toma al recargar el mapa.', 'success');

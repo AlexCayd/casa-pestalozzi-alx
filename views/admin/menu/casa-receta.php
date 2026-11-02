@@ -1,7 +1,7 @@
 <?php require_once __DIR__.'/../partials/_icons.php';$esc=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8'); ?>
 <section class="admin-menu admin-page">
-<p><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/presentaciones?id=<?= (int)$productoCasaId ?>">Presentaciones oficiales del producto</a></p>
-<header class="admin-page__header"><div><h1 class="admin-page__title">Receta estándar de la casa</h1><p class="admin-page__subtitle">Preparación compartida. Cada negocio conserva sus almacenes y costos.</p></div><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/casa?id=<?= $productoCasaId ?>">Volver al producto</a></header>
+<?php if(\Classes\Auth::puede('productos','ver','global')): ?><p><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/presentaciones?id=<?= (int)$productoCasaId ?>">Presentaciones oficiales del producto</a></p><?php endif; ?>
+<header class="admin-page__header"><div><h1 class="admin-page__title">Receta estándar de la casa</h1><p class="admin-page__subtitle">Receta comercial estándar. Cada negocio conserva sus almacenes y costos; las presentaciones publicadas mantienen su propia composición.</p></div><a class="admin-btn admin-btn--secondary" href="/admin/global/productos/casa?id=<?= $productoCasaId ?>">Volver al producto</a></header>
 <?php include __DIR__.'/../partials/alertas.php'; ?>
 <?php if(isset($_GET['guardado'])): ?><p role="status">Cambios guardados correctamente.</p><?php endif; ?>
 <form method="POST" class="casa-editor"><input type="hidden" name="menu_csrf" value="<?= $esc($menuCsrf) ?>"><input type="hidden" name="revision" value="<?= $revision ?>"><input type="hidden" name="accion" value="guardar">

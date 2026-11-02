@@ -641,6 +641,7 @@ class AdminMenuController
             'title' => $titulo,
             'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
+            'composicionActual'=>!empty($platillo->id)&&ContextoNegocio::slug()!=='global'?\Services\Menu\ComposicionComercial::consultar(ContextoNegocio::slug(),(int)$platillo->id):null,
             'categorias' => CategoriasMenu::ordenadas(),
             'areas' => self::areas(),
             'alertas' => $alertas,
@@ -712,12 +713,21 @@ class AdminMenuController
             $alertas = ['error' => ['No fue posible cargar las variantes. Revisa que existan las tablas `producto_variantes` y `variante_ajustes` (database/ddl.sql).']];
         }
 
+        $ctx=ContextoNegocio::slug();$base=AdministracionMenu::base();$retorno=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+        $composicion=\Services\Menu\ComposicionComercial::consultar($ctx,(int)$platillo->id);
+        if($composicion['url']){
+            $u=parse_url($retorno??'');parse_str($u['query']??'',$q);
+            if($composicion['modo']==='presentaciones'&&($u['path']??'')===$base.'/presentaciones'&&(int)($q['id']??0)===(int)$platillo->id)$composicion['url']=$retorno;
+            else $composicion['url']=\Services\Menu\ComposicionComercial::conRetorno($composicion['url'],$ctx,$base.'/variantes?'.http_build_query(array_filter(['id'=>(int)$platillo->id,'volver'=>$retorno])));
+        }
+        if($editor!==null)$editor['url_presentaciones']=$composicion['url'];
         self::render('menu/variantes', [
             'title' => 'Variantes · ' . $platillo->nombre,
             'topbarSection' => 'Menú',
             'platillo' => $platillo,
             'categoriasMap' => self::mapaCategorias(),
             'editorVariantes' => $editor,
+            'composicionActual'=>$composicion,
             'adminCsrfToken' => ContextoNegocio::slug()==='panaderia'?hash_hmac('sha256','variantes:panaderia',AdminCsrfService::token()):AdminCsrfService::token(),
             'alertas' => $alertas,
             'styles' => [self::MENU_CSS, '/build/css/admin/variantes.css'],

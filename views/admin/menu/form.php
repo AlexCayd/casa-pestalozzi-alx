@@ -106,7 +106,7 @@
             Volver
         </a>
     </header>
-    <?php if(!$esNuevo && \Classes\Auth::puede('productos','ver',$menuContexto) && ($menuContexto!=='global' || \Services\Menu\ProductosCasa::configuracion((int)$platillo->id))): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase.'/presentaciones?'.http_build_query(['id'=>(int)$platillo->id,'volver'=>$menuBase.'/edit?'.http_build_query(array_filter(['id'=>(int)$platillo->id,'volver'=>$volverContextual??null]))]),ENT_QUOTES,'UTF-8') ?>">Presentaciones y consumo de artículos</a></p><?php endif; ?>
+    <?php if(!$esNuevo && !empty($composicionActual)): ?><section class="admin-panel admin-card admin-menu__composicion"><h3>Composición vigente</h3><p><?= htmlspecialchars($composicionActual['texto'],ENT_QUOTES,'UTF-8') ?></p><?php if($composicionActual['url']): ?><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars(\Services\Menu\ComposicionComercial::conRetorno($composicionActual['url'],$menuContexto,$menuBase.'/edit?'.http_build_query(array_filter(['id'=>(int)$platillo->id,'volver'=>$volverContextual??null]))),ENT_QUOTES,'UTF-8') ?>"><?= htmlspecialchars($composicionActual['accion'],ENT_QUOTES,'UTF-8') ?></a><?php else: ?><p class="admin-field__hint">La composición requiere acceso de consulta a Artículos y preparaciones y, para presentaciones, a Menú.</p><?php endif; ?></section><?php endif; ?>
 
     <?php if ($identidadMaestra) : ?>
     <section class="admin-card"><h3>Ofertas consultables</h3>
@@ -289,10 +289,7 @@
         <div class="admin-form-grid__actions">
             <?php if ($menuPuedeEditar && (!$identidadMaestra || $identidadEditable)) : ?><button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button><?php endif; ?>
             <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">Cancelar</a>
-            <?php if($casaPolitica&&!empty($menuRecetaCasa)): ?><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($menuBase,ENT_QUOTES) ?>/casa-receta?id=<?= (int)$platillo->id ?>"><?= ($casaLocales['receta']??'')==='adaptada'?'Receta adaptada':($casaPolitica['receta_version_id']?'Usando receta estándar':'Sin receta') ?></a>
-            <?php elseif (!$esNuevo && !$identidadMaestra && $menuRecetas) : ?>
-                <a class="admin-btn admin-btn--secondary" href="/admin/recetas/editar?id=<?php echo (int) $platillo->id; ?>">Editar receta</a>
-            <?php endif; ?>
+
         </div>
     </form>
 
