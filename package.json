@@ -31,7 +31,7 @@
     "test:menu:m1-ui": "node scripts/tests/run-menu-confirmacion.cjs",
     "test:menu:m12-estructura": "php scripts/tests/run-estandares-estructura-m12.php",
     "test:menu:m11": "php scripts/tests/run-menu-m11.php",
-    "test:articulos:m2": "php scripts/tests/run-resolucion-articulos-m2.php && node scripts/tests/run-articulos-m2-ui.cjs",
+    "test:articulos:m2": "php scripts/tests/run-resolucion-articulos-m2.php && node scripts/tests/run-articulos-m2-ui.cjs && node scripts/tests/run-articulos-capacidades-ux.cjs",
     "test:articulos:m2:db": "php scripts/tests/run-articulos-m2.php",
     "test:articulos:m2:http": "php scripts/tests/pruebas-http-m2.php"
   },
