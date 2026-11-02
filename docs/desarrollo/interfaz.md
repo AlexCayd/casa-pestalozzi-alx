@@ -489,3 +489,27 @@ Pruebas dirigidas: `php scripts/tests/run-ux2.php` y
 `php scripts/tests/pruebas-http-ux2.php --fixture ARCHIVO_PRIVADO_DEL_HARNESS`.
 El segundo runner exige el harness 127.0.0.1:8094, base aleatoria con propietario,
 y crea únicamente datos/perfiles de prueba; excluye la base activa.
+
+
+## Composiciones y versiones UX-3
+
+La ficha comercial presenta una sola entrada de composición vigente, preparada por
+`ComposicionComercial`: anterior compatible, receta de la casa o Presentaciones.
+Se reutiliza el editor de componentes M2 y sus selectores, cantidades, modalidades,
+versiones y previsión; no se incorpora otro editor. Las recetas anteriores conservan
+lectura y escritura compatible, con sus referencias fijadas visibles. Las que no
+pueden representarse fielmente en ese contrato se muestran en consulta.
+
+La selección oficial usa `referencia` y carga la configuración canónica publicada;
+la revisión de cambios e impacto precede a la confirmación de publicación. Los
+controles externos de confirmación pertenecen al mismo formulario mediante `form`;
+volver a revisar no exige confirmar la propuesta anterior. El servidor sigue
+validando composición, permisos y publicación. Los IDs seleccionados que se hayan
+inactivado se conservan visibles; no se sustituyen por la primera opción.
+
+El historial de artículo utiliza una página de lectura y tablas compartidas,
+con comparación de versiones y enlaces a las referencias fijadas. Las capacidades
+heredadas se muestran según el estado efectivo del servicio; consultar no las
+materializa. Los detalles físicos se ocultan sin permiso de Inventario. Los
+retornos validados conservan versión, comparación, referencia oficial y presentación
+al entrar y salir de Variantes. Ver el [contrato de composiciones](../modulos/recetas.md#integracion-de-composiciones-ux-3).
