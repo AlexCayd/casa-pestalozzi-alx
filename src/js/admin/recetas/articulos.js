@@ -1,5 +1,24 @@
 (function () {
     'use strict';
+    var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
+    var composicion = document.querySelector('[data-m2-builder]');
+    if (accionCapacidades && composicion) {
+        var capacidades = accionCapacidades.form;
+        var receta = composicion.closest('form');
+        var inicial = JSON.stringify(Array.from(new FormData(receta).entries()));
+        capacidades.addEventListener('submit', function (event) {
+            if (capacidades.dataset.descarteConfirmado === '1' || (!receta.hasAttribute('data-m2-pendiente') && inicial === JSON.stringify(Array.from(new FormData(receta).entries())))) return;
+            event.preventDefault();
+            if (!window.ConfirmationModal) return;
+            window.ConfirmationModal.get().open({
+                variant: 'warning', eyebrow: 'Cambios pendientes', title: 'La elaboración tiene cambios sin publicar',
+                description: 'Guardar capacidades recarga la ficha y descarta los cambios pendientes de elaboración. Cancela para seguir editándolos.',
+                consequence: 'La receta no se guardará ni publicará al cambiar capacidades.',
+                secondaryLabel: 'Seguir editando', primaryLabel: 'Descartar y guardar capacidades',
+                onPrimary: function () { capacidades.dataset.descarteConfirmado = '1'; capacidades.requestSubmit(); }
+            });
+        });
+    }
     document.querySelectorAll('[data-m2-builder]').forEach(function (builder) {
         var rows = builder.querySelector('[data-m2-rows]');
         var template = builder.querySelector('[data-m2-template]');

@@ -1,5 +1,31 @@
 # Guía técnica de interfaz
 
+## UX-1: interacción y datos pendientes posteriores a M2
+
+Se conserva la organización de Inicio/sidebar/Menú/Recetas y el modelo M2.
+El cierre encadenado de modales finaliza la limpieza del anterior y conserva
+el disparador visible de origen. El selector de ingredientes mantiene el fondo
+inerte y contiene Tab/Shift+Tab desde el inicio de apertura; Escape restaura foco.
+
+Guardar capacidades advierte antes de descartar cambios de elaboración, incluida
+una previsión todavía no publicada. Cancelar conserva los campos; confirmar
+guarda exclusivamente capacidades. No hay persistencia adicional de recetas.
+Los resultados M2 usan un flash de sesión consumible por ruta/recurso: el parámetro
+`guardado` por sí solo no acredita éxito. Los rechazos conservan los campos de
+capacidades enviados y muestran el error sin éxito simultáneo.
+
+El preview de variantes normaliza las cantidades DECIMAL recibidas como cadenas
+y obtiene el costo referencial efectivo del artículo según M2. Cero explícito y
+desconocido permanecen distintos. Los errores de artículos/presentaciones conservan
+el layout y retorno contextual; una identidad local Global no ofrece publicación
+de presentaciones oficiales sin configuración de la casa.
+
+Verificación dirigida: `node scripts/tests/run-ux1-ui.cjs` compara también tres
+casos de costos con el motor PHP M2 mediante `fixture-ux1-costos.php`.
+`php scripts/tests/pruebas-http-ux1.php --fixture <ARCHIVO_PRIVADO>` requiere el
+harness aislado 3E; comprueba PRG, flash, rechazos, acceso Global y permisos parciales.
+Las pruebas no modifican el esquema ni conceden permisos.
+
 ## Productos y recetas de la casa M1.2
 
 Se conserva la identidad visual de Restaurante y los componentes compartidos:
