@@ -733,3 +733,6 @@
 .almacen-entry-picker { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); }
 .almacen-entry-picker .admin-btn { justify-content: flex-start; text-align: left; white-space: normal; }
 .almacen-actions { flex-wrap: wrap; }
+.almacen-contextual { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.almacen-contextual h3 { margin: 0 0 4px; }
+.almacen-contextual p { margin: 4px 0; }

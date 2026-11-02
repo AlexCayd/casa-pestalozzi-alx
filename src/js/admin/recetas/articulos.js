@@ -59,6 +59,26 @@
     });
     var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
     var composicion = document.querySelector('[data-m2-builder]');
+    if (accionCapacidades && accionCapacidades.form) {
+        var capacidadesForm = accionCapacidades.form;
+        var dependenciaError = document.querySelector('[data-m2-capacidad-error]');
+        capacidadesForm.addEventListener('submit', function (event) {
+            var previa = document.querySelector('[data-m2-capacidad="produccion_previa"]');
+            var elaborable = document.querySelector('[data-m2-capacidad="elaborable"]');
+            var almacenable = document.querySelector('[data-m2-capacidad="almacenable"]');
+            if (!previa || !elaborable || !almacenable || !previa.checked || (elaborable.checked && almacenable.checked)) {
+                if (dependenciaError) dependenciaError.hidden = true;
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (dependenciaError) {
+                dependenciaError.textContent = 'Para elaborar antes de vender, activa también elaboración propia y almacenamiento.';
+                dependenciaError.hidden = false;
+            }
+            (elaborable.checked ? almacenable : elaborable).focus();
+        });
+    }
     if (accionCapacidades && composicion) {
         var capacidades = accionCapacidades.form;
         var receta = composicion.closest('form');

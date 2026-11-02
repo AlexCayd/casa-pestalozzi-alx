@@ -190,3 +190,22 @@ Las asociaciones mantienen el alcance consolidado Global o físico local autoriz
 
 Pruebas: `run-ux4-ui.cjs` y `pruebas-http-ux4.php`, además de UX-1/2/3 y M2.
 No se modifica el versionado, motor de consumo, variantes, estándares ni SQL.
+
+## Capacidades y continuidad de alta UX
+
+Las siete capacidades conservan los campos y el escritor M2 existentes. La ficha
+las presenta en «Uso y preparación», «Obtención e inventario» y «Costo»; el estado
+activo de la configuración local queda junto al estado del artículo. La única
+dependencia que se explica como regla es que la producción previa requiere
+elaboración propia y almacenamiento. El navegador ayuda a localizar esa regla y
+el servicio M2 vuelve a validarla al guardar.
+
+La identidad y la ficha muestran un resumen calculado a partir del estado M2, sus
+versiones publicadas y las asociaciones/existencias autorizadas del contexto. La
+asociación solo se ofrece cuando el artículo mantiene existencias y el actor puede
+editar Almacenes. El retorno conserva el ID y el contexto; editar capacidades no
+publica una elaboración ni persiste el borrador de receta.
+
+Pruebas dirigidas: `run-articulos-capacidades-ux.cjs` y
+`pruebas-http-capacidades-ux.php --fixture ARCHIVO_PRIVADO`. La prueba HTTP usa
+únicamente la instalación desechable 3E.

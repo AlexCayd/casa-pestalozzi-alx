@@ -6,9 +6,14 @@ $volverContextual=$volverContextual??null;
 $esc=static fn($v): string=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');
 $ctx=(string)$contextoAlmacenes;
 $opcionesAlmacen=$opcionesAlmacen??[];
+$almacenesDisponiblesAsociacion=$almacenesDisponiblesAsociacion??[];
+$almacenesAsociadosActuales=$almacenesAsociadosActuales??[];
+$articuloContextual=$articuloContextual??null;
 $puedeNuevoArticulo=$puedeNuevoArticulo??false;
 $propios=array_values(array_filter($opcionesAlmacen,static fn($a)=>(string)$a['slug']===$ctx));
 $activos=array_values(array_filter($propios,static fn($a)=>(int)$a['activo']===1));
+$almacenesAsociarForm=$articuloContextual?$almacenesDisponiblesAsociacion:$activos;
+$puedeAsociarContextual=$puedeEditar&&(!$articuloContextual||(int)$articuloContextual['activo']===1);
 $seleccionados=isset($filtros['almacen_ids'])?(array)$filtros['almacen_ids']:(isset($filtros['almacen_id'])?[(int)$filtros['almacen_id']]:array_column(array_filter($opcionesAlmacen,static fn($a)=>empty($filtros['negocio'])||$a['slug']===$filtros['negocio']),'almacen_id'));
 $seleccionados=array_map('intval',$seleccionados);
 $url=static fn(string $tab,array $cambios=[]): string=>$base.'?'.http_build_query(array_merge($filtros,array_filter(['volver'=>$volverContextual]),['vista'=>$tab],$cambios));
@@ -16,8 +21,8 @@ $campos=static function(string $accion,array $extra=[]) use($esc,$csrf,$filtros,
     foreach(array_merge(['admin_csrf'=>$csrf,'volver_contextual'=>$volverContextual??'','accion'=>$accion,'volver_vista'=>'existencias','volver_filtros'=>http_build_query($filtros)],$extra) as $campo=>$valor) echo '<input type="hidden" name="'.$esc($campo).'" value="'.$esc($valor).'">';
 };
 $seleccionOculta=static function() use($seleccionados,$volverContextual,$esc): void { if($volverContextual)echo '<input type="hidden" name="volver" value="'.$esc($volverContextual).'">'; if(!$seleccionados)return; echo '<input type="hidden" name="seleccion" value="1">'; foreach($seleccionados as $id)echo '<input type="hidden" name="almacen_ids[]" value="'.$id.'">'; };
-$modalInicio=static function(string $id,string $titulo) use($esc): void { ?>
-<div class="admin-modal almacen-modal" id="<?php echo $esc($id); ?>" data-admin-modal hidden>
+$modalInicio=static function(string $id,string $titulo,bool $inicial=false) use($esc): void { ?>
+<div class="admin-modal almacen-modal" id="<?php echo $esc($id); ?>" data-admin-modal <?= $inicial?'data-contextual-open="1"':'' ?> hidden>
   <div class="admin-modal__backdrop" data-admin-modal-close></div>
   <section class="admin-modal__dialog" data-admin-modal-dialog role="dialog" aria-modal="true" aria-labelledby="<?php echo $esc($id); ?>-title" tabindex="-1">
     <header class="almacen-modal__header"><h3 id="<?php echo $esc($id); ?>-title"><?php echo $esc($titulo); ?></h3><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close aria-label="Cerrar ventana"><?php echo admin_icon('cerrar'); ?></button></header>
@@ -34,13 +39,14 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <div class="almacen-actions">
       <?php if($puedeNuevoArticulo): ?><a class="admin-btn admin-btn--primary" href="<?= $esc($base.'/catalogo/nuevo?'.http_build_query(['volver'=>$origenCatalogo])) ?>"><?php echo admin_icon('mas'); ?> Nuevo artículo</a><?php endif; ?>
       <?php if($puedeEditar && $activos): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-elegir-entrada"><?php echo admin_icon('mas'); ?> Registrar entrada</button><?php endif; ?>
-      <?php if($puedeEditar && $activos): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-asociar"><?php echo admin_icon('mas'); ?> Asociar artículo</button><?php endif; ?>
+      <?php if($puedeEditar && $activos&&!$articuloContextual): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-asociar"><?php echo admin_icon('mas'); ?> Asociar artículo</button><?php endif; ?>
       <?php if($puedeCrearAlmacen): ?><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-config"><?php echo admin_icon('inventario'); ?> Crear almacén</button><?php endif; ?>
       <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-config"><?php echo admin_icon('configuration'); ?> <?php echo $puedeEditar?'Configurar almacenes':'Ver almacenes'; ?></button>
       <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="almacen-transferencias"><?php echo admin_icon('reloj'); ?> Transferencias</button>
     </div>
   </header>
   <?php include __DIR__.'/../partials/alertas.php'; ?>
+  <?php if($articuloContextual): ?><section class="admin-panel admin-card almacen-contextual" aria-labelledby="almacen-contextual-title"><div><h3 id="almacen-contextual-title">Artículo seleccionado</h3><p><strong><?= $esc($articuloContextual['nombre']) ?></strong> · <?= $esc($articuloContextual['unidad']) ?></p><?php if($almacenesAsociadosActuales): ?><p>Asociado a <?= $esc(implode(', ',$almacenesAsociadosActuales)) ?>.</p><p class="admin-field__hint">Una asociación nueva empieza sin existencias ni movimientos.</p><?php endif; ?><?php if($mensajeAsociacion): ?><p class="admin-field__hint" role="status"><?= $esc($mensajeAsociacion) ?></p><?php endif; ?></div><?php if($puedeAsociarContextual&&$almacenesAsociarForm): ?><button type="button" class="admin-btn admin-btn--primary" data-admin-modal-open="almacen-asociar"><?= $almacenesAsociadosActuales?'Asociar a otro almacén':'Asociar a un almacén' ?></button><?php elseif($puedeAsociarContextual&&!$mensajeAsociacion): ?><p class="admin-field__hint">No hay almacenes activos disponibles para una asociación nueva.</p><?php elseif(!$puedeEditar): ?><p class="admin-field__hint">Asociar artículos requiere permiso de edición de Almacenes en este contexto.</p><?php endif; ?></section><?php endif; ?>
   <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-selection" data-warehouse-selection>
     <?php if($volverContextual): ?><input type="hidden" name="volver" value="<?= $esc($volverContextual) ?>"><?php endif; ?>
     <input type="hidden" name="seleccion" value="1">
@@ -100,11 +106,11 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   <?php $modalFin();endif; ?>
   <?php $modalInicio('almacen-config','Almacenes físicos');$filasAlmacen=$almacenes['almacenes']??[];include __DIR__.'/_almacenes.php';$modalFin(); ?>
 
-  <?php if($puedeEditar&&$activos): $modalInicio('almacen-asociar','Asociar artículo existente'); ?>
+  <?php if(($articuloContextual?$puedeAsociarContextual:$puedeEditar)&&($articuloContextual?$almacenesAsociarForm:$activos)): $modalInicio('almacen-asociar','Asociar artículo existente',!empty($abrirAsociacion)); ?>
     <p>La asociación comienza sin saldo. Después puedes registrar una entrada.</p>
     <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid"><?php $campos('asociar'); ?>
-      <div class="admin-field"><label for="asociar-almacen">Almacén propio</label><select id="asociar-almacen" name="almacen_id" required><option value="">Elige el almacén</option><?php foreach($activos as $a): ?><option value="<?php echo (int)$a['almacen_id']; ?>"><?php echo $esc($a['nombre']); ?></option><?php endforeach; ?></select></div>
-      <div class="admin-field"><label for="asociar-articulo">Artículo compartido</label><select id="asociar-articulo" name="articulo_id" required><option value="">Elige el artículo</option><?php foreach($catalogo['articulos'] as $a): if(!(int)$a['activo'])continue; ?><option value="<?php echo (int)$a['id']; ?>" <?= (int)($filtros['articulo_id']??0)===(int)$a['id']?'selected':'' ?>><?php echo $esc($a['nombre'].' · '.$a['unidad']); ?></option><?php endforeach; ?></select><p class="admin-field__hint"><?php echo (int)$catalogo['total']; ?> coincidencias. Usa la búsqueda principal para afinar la lista.</p></div>
+      <div class="admin-field"><label for="asociar-almacen">Almacén propio</label><select id="asociar-almacen" name="almacen_id" required><option value="">Elige el almacén</option><?php foreach($almacenesAsociarForm as $a): ?><option value="<?php echo (int)$a['almacen_id']; ?>"><?php echo $esc($a['nombre']); ?></option><?php endforeach; ?></select></div>
+      <?php if($articuloContextual): ?><div class="admin-field"><label>Artículo</label><p class="almacen-modal__balance"><?= $esc($articuloContextual['nombre'].' · '.$articuloContextual['unidad']) ?></p><input type="hidden" name="articulo_id" value="<?= (int)$articuloContextual['id'] ?>"></div><?php else: ?><div class="admin-field"><label for="asociar-articulo">Artículo compartido</label><select id="asociar-articulo" name="articulo_id" required><option value="">Elige el artículo</option><?php foreach($catalogo['articulos'] as $a): if(!(int)$a['activo'])continue; ?><option value="<?php echo (int)$a['id']; ?>" <?= (int)($filtros['articulo_id']??0)===(int)$a['id']?'selected':'' ?>><?php echo $esc($a['nombre'].' · '.$a['unidad']); ?></option><?php endforeach; ?></select><p class="admin-field__hint"><?php echo (int)$catalogo['total']; ?> coincidencias. Usa la búsqueda principal para afinar la lista.</p></div><?php endif; ?>
       <div class="admin-field"><label for="asociar-minimo">Mínimo físico</label><input id="asociar-minimo" name="minimo" type="number" min="0" step="0.001" value="0.000" required></div><button type="submit" class="admin-btn admin-btn--primary">Asociar artículo</button>
     </form><?php $modalFin();endif; ?>
   <?php $modalInicio('almacen-movimientos','Movimientos del alcance seleccionado'); ?>

@@ -459,8 +459,10 @@
                 field.addEventListener('change', function () { request.querySelector('[name="destino_id"]').setCustomValidity(''); });
             });
         }
+        const contextual = document.querySelector('[data-admin-modal][data-contextual-open="1"]');
+        if (contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:contextual.id}}));
         const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', transferencias:'almacen-transferencias'}[workspace.dataset.initialView];
-        if (initial) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
+        if (initial && !contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
     }
     if (document.readyState !== 'complete') document.addEventListener('DOMContentLoaded', bootAlmacenes);
     else bootAlmacenes();

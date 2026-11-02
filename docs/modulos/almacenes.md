@@ -212,3 +212,12 @@ almacenes. No se aceptan hosts, selecciones mixtas ajenas o parámetros arbitrar
 Verificación dirigida: `pruebas-http-ux4.php --fixture ARCHIVO_PRIVADO_DEL_HARNESS`.
 Requiere el harness loopback y propiedad de base temporal verificables. Prepara
 solo identidades sintéticas y restaura los cambios de permisos de sus perfiles.
+
+La continuidad UX de M2 usa `/admin[/panaderia|global]/almacenes?articulo_id=ID&asociar=ID&volver=…`.
+El servidor comprueba que ambos IDs coincidan, conserva la consulta exacta de la
+identidad, limita el selector a almacenes activos del contexto y excluye los que
+ya tienen una asociación. El modal compartido solo se abre automáticamente si
+hay permiso, artículo activo y un almacén elegible. Guardar continúa usando
+`AdministracionAlmacenes::guardar` y el escritor existente; la asociación no crea
+saldo ni movimiento. El resultado permanece dentro del layout y el retorno
+autorizado conduce a la ficha exacta.

@@ -433,6 +433,21 @@
 .m2-disclosure:not([open]) { padding-top: 12px; padding-bottom: 12px; }
 .m2-disclosure[open] > summary { margin-bottom: 12px; }
 .m2-capacidades { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 20px; }
+.m2-capacidad-grupos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; }
+.m2-capacidad-grupo { min-width: 0; }
+.m2-capacidad-grupo + .m2-capacidad-grupo { border-top: 1px solid var(--admin-border); padding-top: 12px; }
+.m2-capacidad-grupo h3 { margin: 0 0 4px; font-size: 1rem; }
+.m2-capacidad-grupo > p { margin: 0 0 6px; color: var(--admin-muted); font-size: .875rem; }
+.m2-capacidad-grupo .m2-capacidades { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.m2-articulo .m2-capacidad-grupo .m2-capacidad small { color: var(--admin-muted); font-size: .8125rem; font-weight: 400; line-height: 1.4; }
+.m2-capacidad-dependencia { margin-top: 4px !important; }
+.m2-capacidad-estado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.m2-capacidad-estado .m2-capacidad { padding: 0; }
+.m2-configuracion__lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 0; }
+.m2-configuracion__lista > div { min-width: 0; }
+.m2-configuracion__lista dt { color: var(--admin-muted); font-size: .8125rem; }
+.m2-configuracion__lista dd { margin: 2px 0 0; font-weight: 600; }
+.m2-configuracion .admin-actions { margin-bottom: 0; }
 .m2-articulo .m2-capacidad { min-height: 44px; padding: 6px 0; align-items: start; }
 .m2-articulo .m2-capacidad input { margin-top: 3px; }
 .m2-articulo .admin-panel + .admin-panel { margin-top: 16px; }
@@ -446,7 +461,9 @@
 .m2-catalogo .admin-table td { vertical-align: middle; }
 @media (max-width: 900px) { .m2-capacidades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
- .m2-capacidades { grid-template-columns: minmax(0, 1fr); gap: 0; }
+ .m2-capacidades, .m2-capacidad-grupos, .m2-configuracion__lista { grid-template-columns: minmax(0, 1fr); gap: 0; }
+ .m2-capacidad-grupo + .m2-capacidad-grupo { margin-top: 12px; }
+ .m2-capacidad-estado { align-items: flex-start; flex-direction: column; }
  .m2-catalogo__filtros { grid-template-columns: minmax(0, 1fr); }
  .m2-articulo .admin-page__header .admin-actions { width: 100%; }
  .m2-catalogo .admin-page__title { overflow-wrap: anywhere; }

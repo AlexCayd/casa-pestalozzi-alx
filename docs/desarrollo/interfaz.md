@@ -561,3 +561,18 @@ Esta consolidación no implementa producción ni POS Panadería. Para M2.5 queda
 por diseñar y validar transformaciones físicas, rendimientos reales, entradas y
 salidas atómicas, lotes, costos y compensaciones; la configuración administrativa
 de una elaboración no crea existencias terminadas.
+
+## Continuidad de capacidades M2 UX
+
+La ficha agrupa capacidades por responsabilidad y muestra sus dependencias reales.
+El estado de configuración queda cerca del artículo; la elaboración previa avisa
+si falta elaboración propia o almacenamiento y el servicio conserva la validación
+final. Los siete campos se envían al mismo formulario existente, aunque el botón de
+guardado esté en el encabezado. Un borrador de receta conserva la advertencia
+UX-1/UX-4 y no se guarda al cambiar capacidades.
+
+La identidad posterior al alta informa lo que está configurado y ofrece la
+siguiente acción autorizada. La asociación toma el artículo exacto en Almacenes,
+oculta destinos ya asociados y ofrece volver a la ficha al completar la operación. Los
+permisos parciales no presentan acciones de escritura no disponibles; el estado y
+el retorno usan rutas autorizadas del contexto.
