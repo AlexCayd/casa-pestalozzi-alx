@@ -244,17 +244,14 @@ final class Permisos
         '/api/cancelar-mesa' => ['pdv'],
         '/api/enviar-comanda' => ['pdv'],
         '/api/entregar-item' => ['pdv'],
-        '/api/actualizar-ticket' => ['pdv'],
         '/api/cancelar-item' => ['pdv'],
         '/api/punto-de-venta/reservaciones' => ['pdv'],
-        '/api/punto-de-venta/mesa-contexto' => ['pdv'],
         '/api/punto-de-venta/reservaciones/comenzar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/cancelar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/no-show' => ['pdv'],
         '/api/punto-de-venta/reservaciones/disponibilidad' => ['pdv'],
         '/api/punto-de-venta/reservaciones/crear' => ['pdv'],
         '/api/punto-de-venta/reservaciones/asignar-mesas' => ['pdv'],
-        '/api/punto-de-venta/reservaciones/reasignar' => ['pdv'],
         '/api/punto-de-venta/reservaciones/comentario' => ['pdv'],
         '/api/punto-de-venta/reservaciones/reubicaciones/revisar' => ['pdv'],
         '/api/corte-caja' => ['pdv'],
@@ -265,11 +262,9 @@ final class Permisos
         '/api/avanzar-item' => ['area'],
         '/api/retroceder-item' => ['area'],
         // Lecturas que necesitan las dos pantallas de piso.
-        '/api/productos' => ['pdv', 'area'],
         '/api/ticket-items' => ['pdv', 'area'],
         // Escrituras de horario que viven fuera de /admin/.
         '/api/configuracion/horarios/semanales' => ['configuration'],
-        '/api/configuracion/horarios/especiales' => ['configuration'],
         '/api/configuracion/horarios/excepciones' => ['configuration'],
         '/api/configuracion/horarios/excepciones/estado' => ['configuration'],
     ];
@@ -369,7 +364,7 @@ final class Permisos
         $clasificada=self::clasificar($normal);
         if ($clasificada['tipo']==='publica' && str_starts_with($url,'/api/')) {
             // Las APIs públicas actuales conservan sus guardias de token/integración.
-            $publicas=['/api/reservaciones/horarios','/api/reservaciones/disponibilidad','/api/reservaciones/retencion','/api/reservaciones/crear','/api/reservaciones/modificar','/api/reservaciones/confirmar-modificacion','/api/reservaciones/cancelar','/api/reservaciones/contacto/codigo','/api/reservaciones/contacto/estado','/api/reservaciones/contacto/verificar','/api/reservaciones/mis-reservaciones','/api/reservaciones/contacto/logout','/api/reservaciones/cambio-horario/disponibilidad','/api/reservaciones/cambio-horario/modificar','/api/reservaciones/cambio-horario/cancelar','/api/reservaciones/gestionar/disponibilidad','/api/reservaciones/gestionar/modificar','/api/reservaciones/gestionar/cancelar','/api/integraciones/n8n/reservaciones/recordatorios/preparar','/api/integraciones/n8n/reservaciones/recordatorios/reclamar','/api/integraciones/n8n/reservaciones/notificacion-resultado','/api/feedback','/api/feedback-n8n'];
+            $publicas=['/api/reservaciones/horarios','/api/reservaciones/disponibilidad','/api/reservaciones/retencion','/api/reservaciones/crear','/api/reservaciones/modificar','/api/reservaciones/confirmar-modificacion','/api/reservaciones/cancelar','/api/reservaciones/contacto/codigo','/api/reservaciones/contacto/estado','/api/reservaciones/contacto/verificar','/api/reservaciones/mis-reservaciones','/api/reservaciones/contacto/logout','/api/reservaciones/gestionar/disponibilidad','/api/reservaciones/gestionar/modificar','/api/reservaciones/gestionar/cancelar','/api/integraciones/n8n/reservaciones/recordatorios/preparar','/api/integraciones/n8n/reservaciones/recordatorios/reclamar','/api/integraciones/n8n/reservaciones/notificacion-resultado','/api/feedback','/api/feedback-n8n'];
             if (in_array($url,$publicas,true)) return $clasificada;
             return ['tipo'=>'solo_sistema','modulos'=>[]];
         }

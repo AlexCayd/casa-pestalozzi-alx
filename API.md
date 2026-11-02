@@ -78,15 +78,13 @@ Controlador: `ReservationManagementAccessController`.
 | GET, POST | `/api/reservaciones/gestionar/disponibilidad` | `disponibilidad` | sesión de acceso temporal |
 | POST | `/api/reservaciones/gestionar/modificar` | `modificar` | sesión de acceso temporal |
 | POST | `/api/reservaciones/gestionar/cancelar` | `cancelar` | sesión de acceso temporal |
-| GET, POST | `/api/reservaciones/cambio-horario/disponibilidad` | alias de `gestionar/disponibilidad` | sesión de acceso temporal |
-| POST | `/api/reservaciones/cambio-horario/modificar` | alias de `gestionar/modificar` | sesión de acceso temporal |
-| POST | `/api/reservaciones/cambio-horario/cancelar` | alias de `gestionar/cancelar` | sesión de acceso temporal |
 
 Al abrir el enlace, la página canjea el token por una sesión de acceso
 temporal (`ReservationManagementAccessSession`, con CSRF propio); los
-endpoints exigen esa sesión, no el token. Las tres de `cambio-horario`
-(`ScheduleChangeAccessController`) sólo delegan en
-las de `gestionar`; se conservan por los enlaces ya enviados a clientes.
+endpoints exigen esa sesión, no el token. Los enlaces ya enviados a clientes
+apuntan a la página `/reservaciones/cambio-horario`
+(`ScheduleChangeAccessController::show`), que es la misma de gestión y llama a
+estas APIs; sus antiguas APIs alias se retiraron (ver «APIs retiradas»).
 
 ## 2. Integraciones (máquina a máquina)
 
@@ -129,19 +127,16 @@ Controlador: `PuntoVentaController`, salvo donde se indica
 | Método | Ruta | Acción | Acceso |
 |---|---|---|---|
 | GET | `/api/punto-de-venta` | `api`: estado del mapa (mesas, tickets, alertas de impresión) | módulo: pdv |
-| GET | `/api/productos` | `productos`: catálogo para el POS | módulo: pdv o area |
 | GET | `/api/ticket-items` | `ticketItems` | módulo: pdv o area |
 | POST | `/api/abrir-ticket` | `abrirTicket` | módulo: pdv |
 | POST | `/api/enviar-comanda` | `enviarComanda` (resuelve precio de variantes en servidor) | módulo: pdv |
 | POST | `/api/entregar-item` | `entregarItem` | módulo: pdv |
 | POST | `/api/cancelar-item` | `cancelarItem` | módulo: pdv |
-| POST | `/api/actualizar-ticket` | `actualizarTicket` | módulo: pdv |
 | POST | `/api/cerrar-ticket` | `cerrarTicket` | módulo: pdv |
 | POST | `/api/cancelar-mesa` | `cancelarMesa` | módulo: pdv |
 | GET | `/api/corte-caja` | `corteCaja` (sólo lectura) | módulo: pdv |
 | POST | `/api/sugerencias` | `sugerencias` | módulo: pdv |
 | POST | `/api/impresion/alertas/atender` | `atenderAlertasImpresion` | módulo: pdv |
-| GET | `/api/punto-de-venta/mesa-contexto` | `mesaContexto` | módulo: pdv |
 
 ### Reservaciones desde el POS
 
@@ -154,7 +149,6 @@ Controlador: `PuntoVentaController`, salvo donde se indica
 | GET | `/api/punto-de-venta/reservaciones/disponibilidad` | `PosReservacionController::disponibilidad` | módulo: pdv |
 | POST | `/api/punto-de-venta/reservaciones/crear` | `PosReservacionController::crear` | módulo: pdv |
 | POST | `/api/punto-de-venta/reservaciones/asignar-mesas` | `PosReservacionController::asignarMesas` | módulo: pdv |
-| POST | `/api/punto-de-venta/reservaciones/reasignar` | `PosReservacionController::reasignar` | módulo: pdv |
 | POST | `/api/punto-de-venta/reservaciones/comentario` | `PosReservacionController::comentario` | módulo: pdv (+ `reservations` en editar para el comentario interno) |
 | POST | `/api/punto-de-venta/reservaciones/reubicaciones/revisar` | `PosReservacionController::revisarReubicacion` | módulo: pdv |
 
@@ -177,7 +171,6 @@ pero son del panel: están en `Permisos::APIS` con el módulo `configuration`.
 |---|---|---|---|
 | GET | `/api/configuracion/horarios/semanales` | `apiObtenerHorarios` | módulo: configuration (ver) |
 | POST | `/api/configuracion/horarios/semanales` | `apiGuardarHorarios` | módulo: configuration (editar) |
-| POST | `/api/configuracion/horarios/especiales` | `apiGuardarEspecial` | módulo: configuration (editar) |
 | POST | `/api/configuracion/horarios/excepciones` | `apiGuardarExcepcion` | módulo: configuration (editar) |
 | DELETE | `/api/configuracion/horarios/excepciones` | `apiEliminarExcepcion` | módulo: configuration (editar) |
 | POST | `/api/configuracion/horarios/excepciones/estado` | `apiCambiarEstadoExcepcion` | módulo: configuration (editar) |
@@ -228,6 +221,26 @@ No son `/api/`, pero devuelven datos y no una página del sistema:
 El resto de las rutas de `public/index.php` son páginas HTML o formularios del
 panel con POST-redirect-GET (`/admin/menu/edit`, `/admin/inventario/entrada`,
 etc.) y no se documentan aquí.
+
+## APIs retiradas
+
+Se retiraron por completo (ruta, permiso, controlador y servicio que sólo
+servía a la ruta) tras comprobar que ningún consumidor las llamaba: ni el
+JavaScript de `src/js/` ni los bundles de `public/build/`, ni las vistas, ni los
+workflows de `n8n/`, ni el servidor; y un recorrido del POS y del panel no las
+pidió. Una llamada nueva recibe 403 de la guardia (una `/api/` desconocida se
+deniega) o 404 del router; `run-roles-permisos.php` lo comprueba.
+
+| Ruta | Por qué |
+|---|---|
+| `GET /api/productos` | **Rota**: apuntaba a `PuntoVentaController::productos`, que se borró en «limpieza parte 1» (2 ago 2026); cualquier llamada daba error fatal. El POS dejó de pedirla ese mismo día: el catálogo llega en la página (`CP_MENU`). |
+| `POST /api/actualizar-ticket` | **Rota**: `Comercial::actualizarTicket` llamaba a `ticketAbiertoBloqueado()`, que no existe; respondía error sin renombrar nunca el ticket. Ninguna pantalla la usó. |
+| `GET /api/punto-de-venta/mesa-contexto` | Sin consumidor desde que existe: el POS arma el contexto de cada mesa con `GET /api/punto-de-venta`. |
+| `POST /api/punto-de-venta/reservaciones/reasignar` | Sin consumidor desde que existe: la reasignación automática se hace desde el panel (`POST /admin/reservaciones/reasignar`). |
+| `POST /api/configuracion/horarios/especiales` | Sin consumidor desde que existe: la pantalla de horarios guarda los horarios especiales con `POST /api/configuracion/horarios/excepciones` (tipo `horario_especial`). |
+| `GET/POST /api/reservaciones/cambio-horario/disponibilidad`, `POST …/modificar`, `POST …/cancelar` | Alias de `gestionar` sin consumidor desde «Implementa gestión y comunicaciones de reservaciones» (22 ago 2026). Los enlaces enviados llevan a la **página** `/reservaciones/cambio-horario`, que se conserva y llama a `/api/reservaciones/gestionar/*`. |
+
+`/api/feedback-n8n` se había retirado antes (sección 2).
 
 ---
 

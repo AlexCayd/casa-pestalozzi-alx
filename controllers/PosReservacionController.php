@@ -119,22 +119,6 @@ final class PosReservacionController
         ));
     }
 
-    /** POST /api/punto-de-venta/reservaciones/reasignar — vuelve a la asignación automática. */
-    public static function reasignar(Router $router): void
-    {
-        $datos = self::entrada();
-        if (!self::csrfValido($datos)) {
-            return;
-        }
-        $id = self::reservacionId($datos);
-        if ($id < 1) {
-            self::json(['ok' => false, 'codigo' => AsignacionMesasService::DATOS_INCOMPLETOS], 422);
-            return;
-        }
-
-        self::resultadoAsignacion(AsignacionMesasService::asignarAutomaticamente($id));
-    }
-
     /**
      * POST /api/punto-de-venta/reservaciones/comentario
      *

@@ -183,7 +183,7 @@ try {
 
     // ── 10. Rutas nuevas: en el router y en la lista exacta del POS ───
     $index = (string)file_get_contents($root . '/public/index.php');
-    foreach (['disponibilidad', 'crear', 'asignar-mesas', 'reasignar', 'comentario', 'reubicaciones/revisar'] as $accion) {
+    foreach (['disponibilidad', 'crear', 'asignar-mesas', 'comentario', 'reubicaciones/revisar'] as $accion) {
         $ruta = '/api/punto-de-venta/reservaciones/' . $accion;
         $clasificacion = \Services\Security\Permisos::clasificarDirecto($ruta);
         $assert($clasificacion['tipo'] === 'modulos' && in_array('pdv', $clasificacion['modulos'], true)

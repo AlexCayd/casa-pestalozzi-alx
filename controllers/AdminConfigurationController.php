@@ -241,18 +241,6 @@ class AdminConfigurationController
         }
     }
 
-    /** POST /api/configuracion/horarios/especiales */
-    public static function apiGuardarEspecial(Router $router): void
-    {
-        $datos = self::entradaApi();
-        $datos['tipo'] = 'horario_especial';
-        self::json(HorarioOperacionService::guardarExcepcion(
-            $datos,
-            self::usuarioAutenticadoId(),
-            !empty($datos['confirmar_conflictos'])
-        ));
-    }
-
     /** POST /api/configuracion/horarios/excepciones */
     public static function apiGuardarExcepcion(Router $router): void
     {

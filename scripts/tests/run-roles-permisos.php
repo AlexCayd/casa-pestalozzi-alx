@@ -51,8 +51,19 @@ foreach (array_unique($rutas[1]) as $ruta) {
 $assert($sinMapear === [], 'Rutas del panel sin módulo (sólo las abriría un rol de sistema): ' . implode(', ', $sinMapear));
 
 // 3 · Las APIs del personal: todas con módulo; las públicas, públicas.
-foreach (['/api/punto-de-venta', '/api/enviar-comanda', '/api/area-items', '/api/productos', '/api/configuracion/horarios/semanales'] as $api) {
+foreach (['/api/punto-de-venta', '/api/enviar-comanda', '/api/area-items', '/api/ticket-items', '/api/configuracion/horarios/semanales'] as $api) {
     $assert(Permisos::clasificar($api)['tipo'] === 'modulos', "{$api} exige módulo.");
+}
+
+// 3b · APIs retiradas por no tener consumidor (dos estaban rotas): no se
+// registran (el router responde 404) y ninguna queda pública: se deniegan o,
+// las de reservaciones del POS, siguen exigiendo el módulo por su prefijo.
+foreach (['/api/productos', '/api/actualizar-ticket', '/api/punto-de-venta/mesa-contexto',
+    '/api/punto-de-venta/reservaciones/reasignar', '/api/configuracion/horarios/especiales',
+    '/api/reservaciones/cambio-horario/disponibilidad', '/api/reservaciones/cambio-horario/modificar',
+    '/api/reservaciones/cambio-horario/cancelar'] as $retirada) {
+    $assert(!str_contains($index, "'{$retirada}'"), "{$retirada} ya no está registrada.");
+    $assert(in_array(Permisos::clasificarDirecto($retirada)['tipo'], ['solo_sistema', 'modulos'], true), "{$retirada} no queda pública.");
 }
 foreach (['/', '/menu', '/api/reservaciones/crear', '/login', '/admin/login'] as $publica) {
     $assert(Permisos::clasificar($publica)['tipo'] === 'publica', "{$publica} es pública.");

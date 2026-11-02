@@ -155,27 +155,6 @@ final class Comercial
         });
     }
 
-    public static function actualizarTicket(int $ticketId, ?string $nombre, string $ctx): array
-    {
-        try {
-            return ContextoNegocio::en($ctx, static function () use ($ticketId, $nombre, $ctx): array {
-                ContextoNegocio::exigir('pdv', 'operar', $ctx);
-                self::soloRestaurante($ctx);
-                $unidad = ContextoNegocio::vendedora($ctx); $db = ActiveRecord::getDB();
-                $nombre = $nombre !== null ? trim($nombre) : null;
-                if ($ticketId < 1 || ($nombre !== null && (mb_strlen($nombre) > 120 || str_contains($nombre, "\0")))) throw new InventarioError('DATOS_INVALIDOS', 'El nombre del ticket no es válido.');
-                $r = ContextoNegocio::transaccion(static function () use ($db, $ticketId, $unidad, $ctx, $nombre): array {
-                    ContextoNegocio::exigir('pdv', 'operar', $ctx, true);
-                    self::soloRestaurante($ctx);
-                    self::ticketAbiertoBloqueado($db, $ticketId, $unidad);
-                    self::sql($db, 'UPDATE tickets SET nombre=? WHERE id=? AND unidad_id=? AND estado=\'abierto\' AND closed_at IS NULL', [$nombre, $ticketId, $unidad]);
-                    return ['ok' => true, 'codigo' => 'TICKET_ACTUALIZADO', 'id' => $ticketId];
-                });
-                return $r['pendiente'] ?? false ? ['ok' => false, 'confirmado' => false, 'codigo' => 'OPERACION_PENDIENTE'] : $r;
-            });
-        } catch (\Throwable $e) { return self::error($e); }
-    }
-
     /** Lectura usada por HTTP: id, precio y estados son del snapshot vendido. */
     public static function ticketItems(int $ticketId, string $ctx): array
     {

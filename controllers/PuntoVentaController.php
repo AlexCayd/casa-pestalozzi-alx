@@ -992,41 +992,6 @@ class PuntoVentaController {
     }
 
     // POST /admin/api/update-ticket { ticket_id, nombre }
-    public static function actualizarTicket(Router $router) {
-        header('Content-Type: application/json');
-
-        $data     = self::entradaJson();
-        if (!self::validarCsrfMutacion($data)) {
-            return;
-        }
-        $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
-        $nombre   = isset($data['nombre']) && trim($data['nombre'] ?? '') !== ''
-                    ? trim($data['nombre']) : null;
-
-        if (!$ticketId) {
-            self::errorJson('TICKET_ID_REQUERIDO');
-            return;
-        }
-
-        if (ContextoNegocio::nuevo()) {
-            self::responderComercial(Comercial::actualizarTicket($ticketId, $nombre, ContextoNegocio::slug()));
-            return;
-        }
-
-        try {
-            $val = $nombre ? "'" . Ticket::escaparString($nombre) . "'" : 'NULL';
-            Ticket::ejecutarSQL(
-                "UPDATE tickets
-                 SET nombre = {$val}
-                 WHERE id = {$ticketId}
-                   AND " . TicketMesa::condicionSqlAbierto('tickets')
-            );
-            echo json_encode(['ok' => true]);
-        } catch (\Throwable $e) {
-            error_log('PuntoVentaController::actualizarTicket - ' . $e->getMessage());
-            self::errorJson('TICKET_ACTUALIZACION_FALLIDA');
-        }
-    }
 
     // GET /admin/api/ticket-items?ticket_id=X
     public static function ticketItems(Router $router) {
@@ -1137,15 +1102,6 @@ class PuntoVentaController {
         $fecha = trim((string)($_GET['fecha'] ?? ReservacionConfig::fechaActual()));
         self::responder(PuntoVentaReservacionService::listar(
             $fecha,
-            Auth::puede('reservations') ? 'admin' : 'waiter'
-        ));
-    }
-
-    /** GET /api/punto-de-venta/mesa-contexto?mesa_id=N */
-    public static function mesaContexto(Router $router): void
-    {
-        self::responder(PuntoVentaReservacionService::contextoMesa(
-            (int)($_GET['mesa_id'] ?? 0),
             Auth::puede('reservations') ? 'admin' : 'waiter'
         ));
     }

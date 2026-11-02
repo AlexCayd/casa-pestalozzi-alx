@@ -99,8 +99,12 @@ impactoAssert(!str_contains($accessService, 'ReservationClientSession'), 'el acc
 impactoAssert(str_contains($accessSession, 'source_id') && str_contains($accessSession, 'reservation_id'), 'sesión limitada sólo guarda fuente e ids');
 impactoAssert(is_string($accessController) && str_contains($accessController, "['GET', 'POST']"), 'disponibilidad acepta GET y POST');
 impactoAssert(str_contains($accessController, "\$_SERVER['REQUEST_METHOD'] === 'GET' ? \$_GET : \$_POST"), 'disponibilidad lee la fuente correcta de parámetros');
-impactoAssert(is_string($routes) && str_contains($routes, '/api/reservaciones/cambio-horario/modificar'), 'ruta pública directa de modificación');
-impactoAssert(is_string($routes) && str_contains($routes, '/api/reservaciones/cambio-horario/disponibilidad'), 'ruta GET de disponibilidad pública');
+// La página de cambio de horario sigue viva para los enlaces ya enviados;
+// sus APIs alias se retiraron: la página llama a las de gestión.
+impactoAssert(is_string($routes) && str_contains($routes, "get('/reservaciones/cambio-horario'"), 'la página de cambio de horario sigue registrada');
+impactoAssert(is_string($routes) && str_contains($routes, "post('/api/reservaciones/gestionar/modificar'"), 'ruta pública directa de modificación');
+impactoAssert(is_string($routes) && str_contains($routes, "get('/api/reservaciones/gestionar/disponibilidad'"), 'ruta GET de disponibilidad pública');
+impactoAssert(is_string($routes) && !str_contains($routes, '/api/reservaciones/cambio-horario/'), 'APIs alias de cambio de horario retiradas');
 impactoAssert(is_string($routes) && !str_contains($routes, '/reservaciones/acceso-cambio-horario'), 'rutas del puente anterior retiradas');
 
 impactoAssert(is_string($impactView) && !str_contains($impactView, 'admin-modal__dialog--workflow'), 'horarios no abre workflow bloqueante');

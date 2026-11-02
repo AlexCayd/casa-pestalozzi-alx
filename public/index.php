@@ -75,10 +75,6 @@ $router->post('/api/reservaciones/contacto/estado', [ReservacionController::clas
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
-$router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
-$router->get('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
-$router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
-$router->post('/api/reservaciones/cambio-horario/cancelar', [ScheduleChangeAccessController::class, 'cancelar']);
 $router->get('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
@@ -164,7 +160,6 @@ $router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigur
 $router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);
 $router->get('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiObtenerHorarios']);
 $router->post('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiGuardarHorarios']);
-$router->post('/api/configuracion/horarios/especiales', [AdminConfigurationController::class, 'apiGuardarEspecial']);
 $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiGuardarExcepcion']);
 $router->post('/api/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'apiCambiarEstadoExcepcion']);
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
@@ -392,9 +387,7 @@ if (\Classes\Auth::multinegocio()) {
 // Vistas standalone del personal (POS meseros y KDS cocina)
 $router->get('/punto-de-venta',        [PuntoVentaController::class, 'index']);
 $router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
-$router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
 $router->get('/api/punto-de-venta/reservaciones', [PuntoVentaController::class, 'reservaciones']);
-$router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 'mesaContexto']);
 $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
@@ -402,7 +395,6 @@ $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController
 $router->get('/api/punto-de-venta/reservaciones/disponibilidad', [PosReservacionController::class, 'disponibilidad']);
 $router->post('/api/punto-de-venta/reservaciones/crear', [PosReservacionController::class, 'crear']);
 $router->post('/api/punto-de-venta/reservaciones/asignar-mesas', [PosReservacionController::class, 'asignarMesas']);
-$router->post('/api/punto-de-venta/reservaciones/reasignar', [PosReservacionController::class, 'reasignar']);
 $router->post('/api/punto-de-venta/reservaciones/comentario', [PosReservacionController::class, 'comentario']);
 $router->post('/api/punto-de-venta/reservaciones/reubicaciones/revisar', [PosReservacionController::class, 'revisarReubicacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
@@ -415,7 +407,6 @@ $router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCa
 $router->post('/api/entregar-item',       [PuntoVentaController::class, 'entregarItem']);
 // Estaba incrustada por error entre las rutas de /admin/menu/items.
 $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancelarItem']);
-$router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
 $router->get('/area',        [AreaController::class, 'index']);
