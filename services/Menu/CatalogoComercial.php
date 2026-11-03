@@ -104,6 +104,7 @@ final class CatalogoComercial
             if ($nombre === '' || mb_strlen($nombre) > 120 || $descripcion === '') throw new \RuntimeException('Nombre y descripción son obligatorios; máximo 120 caracteres para nombre.');
             $s = $db->prepare('UPDATE productos SET nombre=?,descripcion=?,img=? WHERE id=?');
             $s->execute([$nombre, $descripcion, $datos['img'] ?? null, $id]);
+            DatosComercialesOferta::sincronizarProducto($id);
             return ['id' => $id];
         });
     }

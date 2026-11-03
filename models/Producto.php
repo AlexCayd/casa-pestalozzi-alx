@@ -2,6 +2,7 @@
 namespace Model;
 
 use Services\Security\ContextoNegocio;
+use Services\Menu\DatosComercialesOferta;
 
 /**
  * Catalogo unico de platillos y bebidas (tabla 'productos'): fuente unica.
@@ -579,6 +580,7 @@ class ProductoMultinegocio extends Producto
             self::ejecutar($stmt);
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
+            DatosComercialesOferta::sincronizarOferta($ofertaId);
             self::registrarPrecio($ofertaId, $unidad, null, $precio);
             return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
         });
@@ -644,6 +646,7 @@ class ProductoMultinegocio extends Producto
             $stmt->bind_param('isiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
             self::ejecutar($stmt);
             $stmt->close();
+            if ($cambioIdentidad) DatosComercialesOferta::sincronizarProducto($productoId);
             if ((string)$actual['precio_anterior'] !== $precio) self::registrarPrecio($oferta, $unidad, $actual['precio_anterior'], $precio);
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
         });

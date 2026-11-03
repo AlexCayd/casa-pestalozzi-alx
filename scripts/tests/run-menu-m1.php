@@ -38,6 +38,7 @@ try {
     $db->query('CREATE DATABASE `'.$name.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'); $created=true; $db->select_db($name);
     $db->query('CREATE TABLE _cp_multinegocio_owner(token CHAR(64) PRIMARY KEY)'); $db->execute_query('INSERT INTO _cp_multinegocio_owner VALUES (?)',[$token]);
     foreach (['ddl','deploy','menu-restaurante','development'] as $file) SqlArchivo::ejecutar($db,$root.'/database/'.$file.'.sql');
+    SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/a1-datos-comerciales-oferta.sql');
     ActiveRecord::setDB($db);
     if (session_status()!==PHP_SESSION_ACTIVE) session_start();
     $super=FixtureAutorizacion3B::usuario($db,'m1_super',[],true);

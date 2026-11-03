@@ -16,6 +16,7 @@ function m12Pruebas(callable $pruebas,string $etiqueta="M1.2"): void {
         $db->query('CREATE DATABASE `'.$name.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');$created=true;$db->select_db($name);
         $db->query('CREATE TABLE _cp_multinegocio_owner(token CHAR(64) PRIMARY KEY)');$db->execute_query('INSERT INTO _cp_multinegocio_owner VALUES (?)',[$token]);
         foreach(['ddl','deploy','menu-restaurante','development'] as $file)Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/'.$file.'.sql');
+        Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/a1-datos-comerciales-oferta.sql');
         Model\ActiveRecord::setDB($db);if(session_status()!==PHP_SESSION_ACTIVE)session_start();
         $u=FixtureAutorizacion3B::usuario($db,'m12_super',[],true);
         $_SESSION=['id'=>$u['id'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];

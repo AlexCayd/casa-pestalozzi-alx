@@ -79,7 +79,7 @@ final class ProductosCasa
         return C::transaccion(static function()use($id,$revision,$huella,$clave,$confirmado,$hash){
             self::autorizar();self::bloquear($id);$c=self::configuracion($id,true);
             $prev=self::sql('SELECT id,producto_id,solicitud_hash FROM producto_publicaciones WHERE clave=?',[$clave])->get_result()->fetch_assoc();
-            if($prev){if((int)$prev['producto_id']!==$id||!hash_equals($prev['solicitud_hash'],$hash))self::error('CONFLICTO_IDEMPOTENCIA','La solicitud ya se utilizó para otro contenido.');return ['publicacion_id'=>(int)$prev['id']];}
+            if($prev){if((int)$prev['producto_id']!==$id||!hash_equals($prev['solicitud_hash'],$hash))self::error('CONFLICTO_IDEMPOTENCIA','La solicitud ya se utilizó para otro contenido.');DatosComercialesOferta::sincronizarProducto($id);return ['publicacion_id'=>(int)$prev['id']];}
             self::ofertas($id,true);$v=self::vistaPrevia($id);
             if(!$c||(int)$c['revision']!==$revision||!hash_equals($v['huella'],$huella))self::error('VERSION_CONFLICTO','Cambió el producto o alguna oferta. Revisa de nuevo el impacto.');
             if(!$confirmado)self::error('CONFIRMACION_REQUERIDA','Confirma la publicación tras revisar los negocios afectados.');
@@ -109,6 +109,7 @@ final class ProductosCasa
                 if($d['receta_version_id']&&!isset($local['receta']))RecetasCasa::aplicar($id,(int)$o['id'],$ctx,(int)$d['receta_version_id']);
                 if(!$d['receta_version_id']&&!isset($local['receta']))self::sql('UPDATE recetas SET activo=0 WHERE oferta_id=?',[$o['id']]);
             }
+            DatosComercialesOferta::sincronizarProducto($id);
             return ['publicacion_id'=>$pub,'version'=>$version];
         });
     }
@@ -151,6 +152,7 @@ final class ProductosCasa
             $categoria=(int)($datos['categoria_id']??$o['categoria_id']);$area=(int)($datos['area_id']??$o['area_id']);$orden=(int)($datos['orden']??$o['orden']);
             Ofertas::validarLocal(ActiveRecord::getDB(),$categoria,$area,$u);self::precio($oferta,$u,$antes['precio'],(string)$o['precio']);
             self::sql('UPDATE ofertas_producto SET categoria_id=?,area_id=?,orden=?,precio=?,activo=? WHERE id=? AND unidad_id=?',[$categoria,$area,$orden,$o['precio'],$o['activo'],$oferta,$u]);
+            DatosComercialesOferta::sincronizarOferta($oferta);
             return ['resultado'=>true,'id'=>$oferta];
         });
     }
