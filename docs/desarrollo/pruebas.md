@@ -1,6 +1,38 @@
 # Pruebas y criterios de aceptación
 
+## Cierre A4
+
+Rama `codex/eliminar-productos-casa`. Las suites de integración usaron bases
+temporales propias y las eliminaron al terminar. No se aplicaron migraciones ni
+fixtures a la base operativa.
+
+| Comprobación | Resultado A4 |
+|---|---|
+| `npm run test:php` | PASS; incluye 17 contratos del Inicio M1.1 actualizado para Global sin Menú y con Inventario/Transferencias |
+| `npm run test:js` | PASS; incluye validación de 229 enlaces documentales, perfiles, confirmación y UI A4 |
+| M1 / `run-menu-m1.php` | PASS: 2,219 comprobaciones A4 en DB temporal |
+| A3 / `run-a3-datos-comerciales.php` | PASS: 59 comprobaciones; incluye filas compartidas heredadas construidas solo como fixture |
+| M2 / `run-articulos-m2.php` | PASS: 130 comprobaciones en DB temporal con A3 y M2 |
+| HTTP M2 / `pruebas-http-m2.php` | PASS: 27 comprobaciones con instalación 3E propia, incluida la ruta Global retirada |
+| Estructura histórica M1.2 | PASS: 16 comprobaciones; tablas, fixtures y migración repetida conservados |
+| Contratos M2 puros/UI | PASS: resolución 29 comprobaciones; artículos, modalidades, foco y capacidades UX |
+| `run-menu-a4-ui.cjs` | PASS: rutas locales, formularios simples y retiro del módulo |
+| Sass de Menú | PASS compilado directamente desde el SCSS a `public/build/css/admin/menu.css`; advertencias de deprecación existentes |
+| `npm run build` | No ejecutable en este checkout: `gulp` no está instalado en `node_modules` ni disponible en PATH |
+
+El instalador 3E de pruebas prepara A1/A3 sobre su base nueva; en instalaciones
+existentes el marcador debe validarse antes de habilitar el runtime A4. El runner
+A4 verifica retiro de rutas y escritores, cierre de permisos Global,
+edición local e independencia entre negocios, menú público/admin, PDF, POS,
+recetas y presentaciones heredadas, variantes, consumo, cancelaciones y snapshots.
+El build completo quedó limitado por la ausencia local de Gulp; la hoja afectada
+sí fue regenerada con el compilador Sass instalado, que es la operación de
+`adminModuleCss` para ese archivo.
+
 ## Cierre M2
+
+Esta evidencia describe la implementación anterior a A4 y no representa los flujos
+comerciales Global vigentes.
 
 Revisión local del 30 de octubre de 2026. Rama
 `codex/m2-articulos-recetas-unificados`; HEAD inicial `baf089b` (M1.2 integrado).
@@ -35,7 +67,7 @@ productos, ofertas, publicaciones, tickets, saldos y movimientos anteriores.
 
 Los principales archivos son `services/Inventory/{Articulos,ResolucionArticulos,
 ConsumoOferta,Almacenes,AlmacenesConsumo}.php`,
-`services/Menu/{PresentacionesOferta,RecetasCasa,RecetasOferta,Variantes,Comercial,
+`services/Menu/{PresentacionesOferta,RecetasOferta,Variantes,Comercial,
 Carta,MenuPdf}.php`, `models/Subreceta.php`, controladores admin y seguridad,
 `public/index.php`, parciales/vistas de recetas y variantes, JS de editor y POS,
 SCSS y sus recursos generados. Las pruebas nuevas están en `scripts/tests/`.
@@ -180,6 +212,9 @@ snapshots; no declara terminados esos módulos.
 
 ## Cierre M1.2
 
+Esta sección conserva los resultados de la etapa anterior; sus flujos de
+publicación comercial fueron retirados por A4.
+
 Rama `codex/m12-estandarizacion-productos-recetas`, base aprobada M1.1-E
 `a0562c344c0c66c7d197a03a5bd350006ff6742e`. Fases A `3f5447d`, B `3eb1acc`,
 C `a9e375c`; D es el commit de interfaz, fixtures y cierre de esta rama.
@@ -226,17 +261,19 @@ almacenes ajenos.
 
 ```text
 php scripts/tests/run-estandares-estructura-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
-php scripts/tests/run-estandares-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
-php scripts/tests/run-recetas-casa-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m12-ui
-php scripts/tests/pruebas-http-m12.php --fixture <ruta-privada-del-harness-3e>
+npm run test:menu:a4:db -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 ```
+
+Los runners de publicación oficial y receta Global fueron retirados. La
+verificación estructural conserva las entidades históricas; los nuevos contratos
+de menú y preservación se ejecutan en A4 y HTTP M2.
 
 La migración aditiva añade `producto_estandares`, `producto_publicaciones`,
 `oferta_personalizaciones`, `producto_cambios_locales`, `recetas_casa`,
 `receta_casa_versiones`, `receta_casa_componentes` y `receta_origen_casa`, además de
 `productos_oferta` y triggers de inmutabilidad. Contrato/matriz de permisos en
-[Catálogo](../modulos/catalogo-comercial.md#estado-vigente-m12) y
+[Catálogo](../modulos/catalogo-comercial.md#estado-vigente) y
 [Recetas](../modulos/recetas.md). Archivo SQL:
 `database/actualizaciones/m12-estandares.sql`, incluido también en el DDL nuevo.
 
@@ -283,16 +320,14 @@ operaciones físicas. Resultados, evidencia y limitaciones en la
 ```text
 npm run test:menu:m11 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m11-ui
-php scripts/tests/pruebas-http-m11.php --fixture <ruta-privada-del-harness-3e>
 ```
 
 El runner M1.1 amplía M1 sin quitar sus 52 aserciones y conserva creación/limpieza
 de la base marcada. Comprueba PDF por dueño, vacío/inactivo, filtros, alta rápida
 con doble autorización y métricas físicas. La prueba JS ejecuta el archivo real
 de inventario y verifica milésimas con BigInt, negativos, precisión y confirmación.
-HTTP usa únicamente el harness 3E identificado. Resultados, fallos históricos
-reproducidos en el commit base y evidencia visual en
-[refinamiento M1.1](../modulos/catalogo-comercial.md#refinamiento-m11).
+Esta sección conserva evidencia histórica; el runner HTTP M1.1 se retiró en A4.
+Los permisos PDF vigentes se validan mediante `MenuPdf` en A4 y HTTP M2.
 
 El [contrato rector](../arquitectura.md) fija los criterios de entrega. Este documento
 identifica comandos y alcance; los números y resultados de cada ejecución deben
@@ -486,41 +521,18 @@ No modificar pruebas para permitir una limpieza incompatible con sus consumidore
 ```sh
 npm run test:menu:m1 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m1-ui
-php scripts/tests/pruebas-http-menu-m1.php --fixture <ruta-privada-del-harness-3e>
 ```
 
-El runner M1 crea y limpia una base aleatoria marcada desde los cuatro SQL
-versionados. Verifica nuevas identidades, oferta explícita, independencia,
-permisos/revocación, facultad separada de inventario, precios exactos, retiro con
-ventas, referencias de imágenes, fallos después de la primera escritura y carreras
-entre dos procesos. No selecciona ni migra la base activa identificada por argumentos.
+El nombre del comando M1 se conserva por compatibilidad, pero ahora ejecuta la
+suite A4 sobre su propia base temporal: edición local, aislamiento, permisos,
+lectores, venta y preservación histórica. La UI A4 verifica rutas locales,
+formularios simples y retiro del módulo; el recorrido HTTP M2 cubre rutas,
+CSRF, permisos, artículos y presentaciones en el harness 3E. No se habilita un
+escritor comercial Global.
 
-El cliente HTTP 3E incorpora perfiles `menu/ver` y `menu/editar`. La suite M1
-verifica CSRF contextual, IDs manipulados, categorías ajenas, asociación, edición
-maestra con confirmación y huella, fotos pendientes/confirmadas y retiro de sus
-archivos propios, además de PDFs públicos y superficies futuras bloqueadas.
-Sus datos viven únicamente durante el harness. El cliente común admite multipart
-para imágenes efímeras sin exponer credenciales. La prueba UI usa el componente
-real de confirmación en JSDOM, disponible en las dependencias bloqueadas.
-Completar con recorrido real de temas, teclado, categorías, filtros, modal,
-Global, Restaurante y Panadería en escritorio y móvil; las capturas quedan fuera
-de Git. Resultados de la revisión en [Catálogo y Menú](../modulos/catalogo-comercial.md).
+### Cierre UX-5 anterior a A4
 
-### Cierre UX-5
-
-Después de los diez recorridos reales, ejecutar
-`php scripts/tests/pruebas-http-ux5.php --fixture ARCHIVO_PRIVADO ESCENARIOS_UI_JSON`.
-El segundo JSON identifica ingrediente, café, plato, pan, estándar y oferta local
-creados en la UI del harness. La prueba verifica propietario y entorno test,
-rechaza la base activa y solo utiliza `127.0.0.1:8094`. Antes de simular un origen
-pendiente comprueba la identidad sintética «UX5 Café» y restaura la asignación en
-`finally`. El guardado exacto del borrador oficial no publica versiones.
-
-Cubrir preselección contextual fuera del filtro, retorno tras rechazo, orígenes
-persistentes al recargar, permisos locales/Global, mensajes de un uso, conservación
-10 g oficiales/12 g adaptados y huellas invariables de saldos, ledger y versiones.
-Completar con pruebas UX1–4, M2, M1.2, Menú, Almacenes, permisos, instalación y
-contrato POS Restaurante en bases desechables. La matriz visual usa nueve rutas
-en los tres tamaños y ambos temas; registrar medidas y capturas reales fuera de
-Git. El conteo de hitos conserva el criterio UX-0 y distingue preparativos extra,
-inspecciones y reintentos de automatización.
+Las pruebas HTTP de publicación y personalización UX-5 se retiraron al eliminar
+Productos de la casa. Sus recorridos oficiales no son parte del conjunto vigente;
+la suite A4 las reemplaza con independencia local, rutas retiradas y preservación
+de recetas, presentaciones, variantes y snapshots.

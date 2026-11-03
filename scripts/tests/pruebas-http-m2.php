@@ -22,12 +22,14 @@ try{
     $r=A::configurar('panaderia',$id,['componente'=>1,'elaborable'=>1,'almacenable'=>1,'produccion_previa'=>1],0);$a(!empty($r['ok']),'Preparar capacidades sin saldos');
     $db->query("INSERT INTO productos(nombre) VALUES('Presentaciones HTTP M2')");$producto=(int)$db->insert_id;$o=$db->execute_query('SELECT categoria_id,area_id FROM ofertas_producto WHERE unidad_id=? LIMIT 1',[$u])->fetch_assoc();
     $db->execute_query('INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo) VALUES(?,?,?,?,?,0)',[$producto,$u,$o['categoria_id'],'50.00',$o['area_id']]);$oferta=(int)$db->insert_id;
+    $db->execute_query('INSERT INTO oferta_datos_comerciales(oferta_id,nombre,descripcion,img) VALUES(?,?,?,NULL)',[$oferta,'Presentaciones HTTP M2','Oferta local sintética del recorrido']);
     $lector=$f['cuentas']['lectura_panaderia'];$db->execute_query('INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE nivel=VALUES(nivel)',[$lector['id'],$u,'productos','ver']);
     $huellaSaldo=static fn()=>hash('sha256',json_encode($db->query('SELECT * FROM almacen_articulos ORDER BY almacen_id,articulo_id')->fetch_all(MYSQLI_ASSOC)));$saldoAntes=$huellaSaldo();$movimientos=(int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0];
     session_destroy();
     $admin=new ClienteInstalacion3E();$clients[]=$admin;$admin->login(['username'=>'admin_demo','password'=>$_ENV['DEV_SUPERADMIN_PASSWORD']??getenv('DEV_SUPERADMIN_PASSWORD')]);
     $path='/admin/panaderia/recetas/articulos/editar?id='.$id;
-    foreach(['/admin/recetas/articulos','/admin/panaderia/recetas/articulos','/admin/global/recetas/articulos',$path,'/admin/global/productos/presentaciones?id=1201','/admin/panaderia/menu/variantes?id=1003'] as $p)$a($valid($admin->request('GET',$p)),'Lectura funcional '.$p);
+    foreach(['/admin/recetas/articulos','/admin/panaderia/recetas/articulos','/admin/global/recetas/articulos',$path,'/admin/panaderia/menu/variantes?id=1003'] as $p)$a($valid($admin->request('GET',$p)),'Lectura funcional '.$p);
+    $retirada=$admin->request('GET','/admin/global/productos/presentaciones?id=1201');$a(in_array($retirada['status'],[403,404],true),'La ruta de presentaciones oficiales Global está retirada.');
     $a($admin->request('GET','/admin/panaderia/recetas/articulos/editar?id[]=1')['status']===400,'ID estructurado rechazado');
     $a($admin->request('GET','/admin/panaderia/recetas/articulos/editar?id=999999')['status']===404,'Artículo inexistente sin detalle interno');
     $a($admin->request('GET','/admin/panaderia/menu/presentaciones?id=1001')['status']===404,'Oferta ajena rechazada');

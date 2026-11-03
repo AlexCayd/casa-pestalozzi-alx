@@ -9,6 +9,8 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $no=static function(callable $f,string $m)use($a){try{$r=$f();$ok=is_array($r)&&empty($r['ok']);}catch(Throwable){$ok=true;}$a($ok,$m);};
     $hash=static function(string $table)use($db){return hash('sha256',json_encode($db->query('SELECT * FROM '.$table.' ORDER BY 1')->fetch_all(MYSQLI_ASSOC),JSON_THROW_ON_ERROR));};
     $original=[];foreach(['productos','ofertas_producto','ticket_items','movimientos_inventario','almacen_articulos','producto_publicaciones','receta_casa_versiones'] as $t)$original[$t]=$hash($t);
+    $legacyTables=['producto_estandares','producto_publicaciones','oferta_personalizaciones','producto_cambios_locales','recetas_casa','receta_casa_versiones','receta_casa_componentes','receta_casa_composiciones','receta_origen_casa','presentacion_estandares'];
+    $legacyBefore=[];foreach($legacyTables as $t)$legacyBefore[$t]=$hash($t);
     Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/m2-articulos.sql');Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/m2-articulos.sql');
     foreach($original as $t=>$h)$a($hash($t)===$h,'Migración repetida conserva '.$t);
     $motor=new Almacenes($db,C::actorId(),C::nivelAuth());
@@ -31,6 +33,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $db->query("INSERT INTO productos(nombre) VALUES('Vino de prueba M2')");$prod=(int)$db->insert_id;
     $base=$db->query('SELECT * FROM ofertas_producto WHERE unidad_id=2 ORDER BY id LIMIT 1')->fetch_assoc();
     $db->execute_query('INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo) VALUES(?,2,?,?,?,1)',[$prod,$base['categoria_id'],'100.00',$base['area_id']]);$oferta=(int)$db->insert_id;
+    $db->execute_query('INSERT INTO oferta_datos_comerciales(oferta_id,nombre,descripcion,img) VALUES(?,?,?,NULL)',[$oferta,'Vino de prueba M2','Comercio sintético de la prueba']);
     $r=A::publicar('restaurante',$vino,['rendimiento'=>'750.000','unidad'=>'ml','procedencia'=>'Apertura explícita prevista; sin transformación física M2','componentes'=>[['articulo_id'=>$botella,'cantidad'=>'1.000','unidad'=>'pza','modalidad'=>'almacenado']]],1,'apertura_vino_prevista_m2',true);$a(!empty($r['ok'])&&$r['plan']['lineas'][0]['articulo_id']===$botella,'Apertura prevista relaciona botella sellada y vino abierto sin movimientos');
     $rootVino=['articulo_id'=>$vino,'cantidad'=>'150.000','unidad'=>'ml','modalidad'=>'almacenado'];
     $p=['clave'=>'copa','nombre'=>'Copa','precio'=>'100.00','activo'=>0,'componentes'=>[$rootVino]];
@@ -78,31 +81,10 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $g=['rendimiento'=>'100.000','unidad'=>'g','componentes'=>[['articulo_id'=>1001,'cantidad'=>'200.000','unidad'=>'g','modalidad'=>'almacenado']]];$prev=A::prever('global',$masa,$g);$g['huella']=$prev['huella'];
     $r=A::publicar('global',$masa,$g,1,'receta_articulo_global_m2',true);$a(!empty($r['ok']),'Publicación Global con revisión y huella');
     $hist=A::cargarReceta((int)$r['version_id'],C::unidad('panaderia'));$a(!empty($hist['global']),'Receta Global compartida sin inventario privado');
-    // La publicación comercial M1.2 conserva el coordinador y fija la receta anidada Global.
-    $versionGlobal=(int)$r['version_id'];
-    $comercial=['nombre'=>'Preparación oficial anidada M2','descripcion'=>'Estándar de prueba con preparación compartida.','precio'=>'80.00','activo'=>0,'reglas'=>[],'negocios'=>[]];
-    foreach(['restaurante','panaderia'] as $ctx){$uid=C::unidad($ctx);$cat=(int)$db->query('SELECT id FROM categorias WHERE unidad_id='.$uid.' LIMIT 1')->fetch_row()[0];$area=(int)$db->query('SELECT id FROM areas_produccion WHERE unidad_id='.$uid.' LIMIT 1')->fetch_row()[0];$comercial['negocios'][$ctx]=['categoria_id'=>$cat,'area_id'=>$area,'precio'=>'80.00','activo'=>0];}
-    $creado=Services\Menu\ProductosCasa::crear($comercial,'producto_anidado_global_m2');$oficial=(int)$creado['producto_id'];$v=Services\Menu\ProductosCasa::vistaPrevia($oficial);$a(!empty(Services\Menu\ProductosCasa::publicar($oficial,1,$v['huella'],'publicar_producto_anidado_m2',true)['ok']),'Crear destinos oficiales sin activarlos');
-    $estandar=['rendimiento'=>'1.000','unidad'=>'pza','componentes'=>[['articulo_id'=>$masa,'cantidad'=>'50.000','unidad'=>'g','modalidad'=>'desglosar','version_receta_id'=>$versionGlobal]]];
-    $a(!empty(Services\Menu\RecetasCasa::guardar($oficial,$estandar,0)['ok']),'Borrador oficial referencia elaboración Global');
-    $v=Services\Menu\RecetasCasa::previa($oficial);$no(fn()=>Services\Menu\RecetasCasa::publicar($oficial,1,$v['huella'],'estandar_sin_origen_m2_01',true),'Una falla de origen revierte todos los destinos');
-    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_casa_versiones WHERE producto_id=?',[$oficial])->fetch_row()[0]===0,'Rollback incluye versión oficial');
-    $destinos=Services\Menu\ProductosCasa::ofertas($oficial);$origenes=[];foreach($destinos as $o)$origenes[$o['id']]=[1001=>$o['slug']==='restaurante'?1002:1003];
-    $a(!empty(Services\Menu\RecetasCasa::origenes($oficial,$origenes)['ok']),'Orígenes por artículo final y negocio');$v=Services\Menu\RecetasCasa::previa($oficial);$pub=Services\Menu\RecetasCasa::publicar($oficial,1,$v['huella'],'publicar_estandar_anidado_m2',true);$a(!empty($pub['ok']),'Aplicación atómica de composición anidada a dos negocios');
-    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_componentes_articulos ca JOIN receta_componentes rc ON rc.id=ca.componente_id JOIN receta_origen_casa oc ON oc.receta_id=rc.receta_id WHERE oc.version_id=?',[$pub['version_id']])->fetch_row()[0]===2,'Dos ofertas fijan la misma versión de artículo');
-    $no(fn()=>$db->execute_query('DELETE FROM receta_casa_composiciones WHERE version_id=?',[$pub['version_id']]),'Composición anidada oficial inmutable');
-    $v=Services\Menu\ProductosCasa::vistaPrevia($oficial);$d=$v['borrador'];$d['activo']=1;Services\Menu\ProductosCasa::guardar($oficial,$d,(int)$v['configuracion']['revision']);$v=Services\Menu\ProductosCasa::vistaPrevia($oficial);$a(!empty(Services\Menu\ProductosCasa::publicar($oficial,(int)$v['configuracion']['revision'],$v['huella'],'activar_estandar_anidado_m2',true)['ok']),'Activación comercial conserva la receta oficial');
-    $rest=array_values(array_filter($destinos,static fn($o)=>$o['slug']==='restaurante'))[0];$antesHarina=$saldo(1001);$sale=Comercial::enviarComanda($ticket,[['oferta_id'=>(int)$rest['id'],'cantidad'=>1]],'comanda_estandar_anidado_m2','restaurante');$a(!empty($sale['ok']),'POS existente consume estándar anidado sin presentación artificial');$a(bcsub($antesHarina,$saldo(1001),3)==='100.000','Desglose exacto de estándar Global');
-    $no(fn()=>Services\Menu\RecetasOferta::guardar('restaurante',(int)$rest['id'],[['tipo'=>'ingrediente','ref_id'=>1001,'cantidad'=>'1.000']]),'Protección Global de composición conserva autorización');
-    $oficialRaw=['clave'=>'porcion','nombre'=>'Porción oficial','precio'=>'90.25','activo'=>1,'componentes'=>[['articulo_id'=>$masa,'cantidad'=>'50.000','unidad'=>'g','modalidad'=>'desglosar','version_receta_id'=>$versionGlobal]]];
-    $vp=P::previaEstandar($oficial);$pp=P::publicarEstandar($oficial,$oficialRaw,$vp['huella'],'presentacion_oficial_m2_01',true);$a(!empty($pp['ok'])&&count($pp['versiones'])===2,'Presentación oficial y precio propio publicados atómicamente');
-    $a(!empty(P::publicarEstandar($oficial,$oficialRaw,$vp['huella'],'presentacion_oficial_m2_01',true)['reintento']),'Publicación oficial de presentación idempotente');
-    $presentacionRest=P::listar('restaurante',(int)$rest['id'])[0];
-    $no(fn()=>P::publicar('restaurante',(int)$rest['id'],$oficialRaw,(int)$presentacionRest['revision'],'alterar_presentacion_oficial_m2',true),'No alterar una presentación oficial protegida localmente');
-    $sale=Comercial::enviarComanda($ticket,[['oferta_id'=>(int)$rest['id'],'presentacion_id'=>(int)$presentacionRest['id'],'cantidad'=>1]],'comanda_presentacion_oficial_m2','restaurante');$a(!empty($sale['ok']),'POS consume presentación oficial protegida');$a($db->execute_query('SELECT precio FROM ticket_items WHERE id=?',[$sale['item_ids'][0]])->fetch_row()[0]==='90.25','Precio de presentación aprobado por Global independiente de la oferta base');
-    $carta=Services\Menu\Carta::publica(null);$dishes=[];foreach($carta as $cat)$dishes=array_merge($dishes,$cat['dishes']);$a(count(array_filter($dishes,static fn($d)=>str_contains($d['n'],'Porción oficial')&&(string)$d['p']==='90.25'))===1,'Carta pública muestra el precio autorizado de presentación');
-    $cartaPos=Services\Menu\Carta::paraPos();$dishes=[];foreach($cartaPos as $cat)$dishes=array_merge($dishes,$cat['dishes']);$a(count(array_filter($dishes,static fn($d)=>(int)($d['presentacion_id']??0)===(int)$presentacionRest['id']))===1,'POS emite ID de presentación sin duplicar oferta');
-    $cartaSlug=$db->execute_query('SELECT c.carta FROM ofertas_producto o JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.id=?',[$rest['id']])->fetch_row()[0];$pdf=Services\Menu\MenuPdf::datosAdministrativos('restaurante',$cartaSlug);$rows=[];foreach($pdf['categorias'] as $cat)$rows=array_merge($rows,$cat['platillos']);$a(count(array_filter($rows,static fn($d)=>str_contains($d->nombre,'Porción oficial')&&$d->precio==='90.25'))===1,'PDF usa la misma presentación y precio que POS y carta');
+    $a(!method_exists(Services\Menu\Ofertas::class,'crear'),'M2 no expone un escritor para asociar ofertas entre negocios.');
+    $a(!method_exists(P::class,'publicarEstandar'),'M2 conserva solo publicación de presentaciones locales.');
+    $a(!method_exists(P::class,'previaEstandar'),'El runtime no genera vistas previas de estándares comerciales Global.');
+    $a((int)$db->execute_query('SELECT COUNT(*) FROM receta_origen_casa')->fetch_row()[0]>0,'Los registros heredados de recetas siguen presentes mientras M2 opera.');
     // Escenarios culinarios reales del modelo, exclusivamente de resolución.
     $movimientosAntes=(int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0];
     $publicar=static function(int $id,string $unidad,string $rendimiento,array $componentes,string $clave)use($a){$rev=(int)A::ficha('restaurante',$id)['configuracion']['revision'];$r=A::publicar('restaurante',$id,['rendimiento'=>$rendimiento,'unidad'=>$unidad,'componentes'=>$componentes],$rev,$clave,true);$a(!empty($r['ok']),'Publicar escenario '.$clave);return (int)$r['version_id'];};
@@ -129,4 +111,5 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $no(fn()=>P::publicar('restaurante',$oferta,$p,3,'editor_sin_menu_m2_0001',true),'Editar receta no concede precio');
     $db->execute_query('DELETE FROM usuario_unidad_permisos WHERE usuario_id=?',[$editor['id']]);$no(fn()=>A::ficha('restaurante',$masa),'Revocación efectiva sin nuevo login');$_SESSION['id']=$super;
     $a((int)$db->query('SELECT COUNT(*) FROM productos WHERE id<1000')->fetch_row()[0]===112,'112 productos preservados');
-},'M2');
+    foreach($legacyTables as $t)$a($hash($t)===$legacyBefore[$t],"M2 no modifica el histórico de {$t}.");
+},'M2',true);

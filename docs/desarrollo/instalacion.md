@@ -1,5 +1,14 @@
 # Instalación de desarrollo
 
+## Requisito A3 para el runtime A4
+
+El menú A4 requiere el marcador `a3-datos-comerciales-local-v1`; sin él, las
+operaciones comerciales fallan de forma cerrada. Las instalaciones nuevas de
+desarrollo/QA aplican A1 y A3 después de cargar su semilla versionada, preservando
+explícitamente los valores locales del fixture. Para una instalación existente,
+seguir el preflight y las migraciones A1/A3 aprobadas antes de desplegar este
+código. A4 no altera esas migraciones ni aplica cambios a una base operativa.
+
 ## Actualización M1.2
 
 Para instalaciones existentes, la ampliación aditiva está en
@@ -11,10 +20,11 @@ en una copia antes de aplicarla en una instalación operativa. Esta entrega no
 migró la base activa. La compatibilidad del DDL con otros motores debe verificarse
 antes del despliegue (usa `CREATE TRIGGER IF NOT EXISTS`).
 
-`development.sql` solo corresponde a instalaciones nuevas desechables. Sus seis
-adhesiones M1.2 son explícitas y sintéticas: Rol de canela, Croissant, Focaccia,
-Café americano, Concha de chocolate y Galleta de chocolate. Hay 138 productos,
-142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
+`development.sql` solo corresponde a instalaciones nuevas desechables. Conserva
+seis adhesiones M1.2 explícitas y sintéticas como datos históricos: Rol de canela,
+Croissant, Focaccia, Café americano, Concha de chocolate y Galleta de chocolate.
+Tras A4, las filas de estándares/publicaciones no habilitan un flujo Global. Hay
+138 productos, 142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
 productos originales siguen íntegros; permanecen 7 almacenes, 47 asociaciones
 físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
 rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes

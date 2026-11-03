@@ -267,7 +267,6 @@ HTML GET/POST contextual con sesión, membresía, CSRF y permisos recargados:
 | `/admin[/global|/panaderia]/recetas/articulos` | Catálogo operativo compartido; asociación manual de preparación antigua por IDs |
 | `/admin[/global|/panaderia]/recetas/articulos/editar?id=…` | ID de artículo; configurar capacidades, prever y publicar versión inmutable con revisión/huella/confirmación/clave |
 | `/admin[/panaderia]/menu/presentaciones?id=…` | ID de oferta local; composición/precio versionados y orígenes propios |
-| `/admin/global/productos/presentaciones?id=…` | ID comercial; publicación oficial atómica entre destinos, sin eludir políticas M1.2 |
 | `/admin/panaderia/menu/variantes?id=…` | Mismo editor y DTO de opciones contextual |
 | `POST /admin/panaderia/api/menu/variantes` | JSON; CSRF ligado a Panadería, política separada de precio y composición |
 

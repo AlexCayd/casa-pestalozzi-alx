@@ -25,8 +25,6 @@ use MVC\Router;
 
 class AdminRecetasController
 {
-    private const PATH = '/admin/recetas';
-    private const SUBPATH = '/admin/recetas/subrecetas';
     private const CSS = '/build/css/admin/recetas.css';
     // Diez por página, como el listado de Menú: son las mismas filas de la
     // misma tabla y alternar entre los dos módulos con dos ventanas distintas
@@ -102,7 +100,7 @@ class AdminRecetasController
             'totalPaginas' => $totalPaginas,
             'porPagina' => self::POR_PAGINA,
             'alertas' => Producto::getAlertas(),
-            'partialUrl' => AdminController::filterUrl(self::PATH, array_merge(
+            'partialUrl' => AdminController::filterUrl(self::path($ctx), array_merge(
                 $filtros,
                 $paginaActual > 1 ? ['page' => $paginaActual] : []
             )),
@@ -161,23 +159,19 @@ class AdminRecetasController
         if(in_array($configuracion['modo'],['presentaciones','sin'],true)){
             if($_SERVER['REQUEST_METHOD']==='GET'&&$configuracion['url']){
                 $volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
-                header('Location: '.\Services\Menu\ComposicionComercial::conRetorno($configuracion['url'],$ctx,$volver?:('/admin/menu/edit?id='.(int)$producto->id)),true,302);return;
+                $menuBase=$ctx==='restaurante'?'/admin':'/admin/'.$ctx.'/menu';
+                header('Location: '.\Services\Menu\ComposicionComercial::conRetorno($configuracion['url'],$ctx,$volver?:($menuBase.'/edit?id='.(int)$producto->id)),true,302);return;
             }
             http_response_code($_SERVER['REQUEST_METHOD']==='POST'?409:403);
-            AdminController::render('recetas/error',['title'=>'Configurar composición','activeModule'=>'productos','mensaje'=>'Este producto se configura mediante Presentaciones. Se requiere consulta de Menú y Artículos y preparaciones. La receta anterior no se modificó.','volver'=>'/admin/recetas']);return;
+            AdminController::render('recetas/error',['title'=>'Configurar composición','activeModule'=>'productos','mensaje'=>'Este producto se configura mediante Presentaciones. Se requiere consulta de Menú y Artículos y preparaciones. La receta anterior no se modificó.','volver'=>self::path($ctx)]);return;
         }
         $alertas = Producto::getAlertas();
         $aviso = $_SERVER['REQUEST_METHOD'] === 'GET' ? self::consumirAvisoGuardado() : null;
         if ($aviso !== null) $alertas['exito'][] = $aviso;
         $volver = self::volverSeguro($_GET['volver'] ?? null);
-        $oficialCasa=\Services\Menu\ProductosCasa::publicada((int)$producto->producto_id);
-        if($oficialCasa&&$_SERVER['REQUEST_METHOD']==='GET'&&\Classes\Auth::puede('menu','ver',$ctx)){
-            header('Location: '.\Services\Menu\AdministracionMenu::base().'/casa-receta?id='.(int)$producto->id,true,302);return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-            if(!$configuracion['edicionCompatible']){http_response_code(409);AdminController::render('recetas/error',['title'=>'Consulta de receta anterior','activeModule'=>'productos','mensaje'=>ucfirst($configuracion['motivoConsulta']).'. Consúltala sin cambios; configura una presentación nueva para definir otro consumo.','volver'=>'/admin/recetas']);return;}
+            if(!$configuracion['edicionCompatible']){http_response_code(409);AdminController::render('recetas/error',['title'=>'Consulta de receta anterior','activeModule'=>'productos','mensaje'=>ucfirst($configuracion['motivoConsulta']).'. Consúltala sin cambios; configura una presentación nueva para definir otro consumo.','volver'=>self::path($ctx)]);return;}
             $guardado = self::guardarComponentes($ctx, (int) $producto->id);
             $componentes = count($guardado['componentes'] ?? []);
             if (empty($guardado['ok'])) {
@@ -193,10 +187,10 @@ class AdminRecetasController
                     'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
                     'alertas' => Producto::getAlertas(),
                     'accion' => 'Guardar receta',
-                    'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
                     'configuracionComposicion'=>$configuracion,
                     'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
-                    'volverUrl' => $volver ?? self::PATH,
+                    'volverUrl' => $volver ?? self::path($ctx),
+                    'recetasContexto' => $ctx,
                 ]);
                 return;
             }
@@ -249,11 +243,11 @@ class AdminRecetasController
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
-            'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
                     'configuracionComposicion'=>$configuracion,
                     'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
-            'volverUrl' => $volver ?? self::PATH,
+            'volverUrl' => $volver ?? self::path($ctx),
+            'recetasContexto' => $ctx,
         ]);
     }
 
@@ -331,7 +325,7 @@ class AdminRecetasController
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::SUBPATH);
+            self::redirect(self::subPath($ctx));
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
@@ -369,8 +363,16 @@ class AdminRecetasController
 
     private static function urlReceta(int $id, ?string $volver): string
     {
-        return self::PATH . '/editar?id=' . $id . ($volver !== null ? '&volver=' . rawurlencode($volver) : '');
+        return self::path() . '/editar?id=' . $id . ($volver !== null ? '&volver=' . rawurlencode($volver) : '');
     }
+
+    private static function path(?string $ctx=null): string
+    {
+        $ctx??=ContextoNegocio::slug();
+        return $ctx==='restaurante'?'/admin/recetas':'/admin/'.$ctx.'/recetas';
+    }
+
+    private static function subPath(?string $ctx=null): string { return self::path($ctx).'/subrecetas'; }
 
     private static function guardarComponentes(string $ctx, int $ofertaId): array
     {
@@ -624,6 +626,10 @@ class AdminRecetasController
         // icono y renombrarla obligaría a añadir una entrada nueva sin ganancia.
         AdminController::render($view, array_merge([
             'activeModule' => 'productos',
+            'recetasBase' => self::path(),
+            'recetasSubBase' => self::subPath(),
+            'recetaMenuBase' => ContextoNegocio::slug()==='restaurante'?'/admin/menu':'/admin/'.ContextoNegocio::slug().'/menu',
+            'recetasContexto' => ContextoNegocio::slug(),
             'styles' => [self::CSS],
             'scripts' => ['/build/js/admin/recipe-builder.js'],
         ], $data));

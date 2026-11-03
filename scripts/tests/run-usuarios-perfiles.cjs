@@ -56,6 +56,8 @@ async function montar(caso) {
     const f = await montar({ ambitos: ['global', 'restaurante', 'panaderia'] });
     const panel = f.doc.querySelector('[data-user-presets]');
     assert.equal(panel.hidden, false, 'La mejora progresiva no mostró los perfiles.');
+    assert.equal(f.doc.getElementById('scope-global-menu'), null, 'Los perfiles de usuario no ofrecen Menú comercial en Global.');
+    assert.ok(f.doc.getElementById('scope-global-productos'), 'Global conserva Artículos y preparaciones.');
     assert.equal(f.marcado(), null, 'Un alta vacía no debe marcar perfil.');
     assert.deepEqual(
       [...f.doc.querySelectorAll('[data-user-preset]')].map((r) => r.value),
@@ -111,12 +113,12 @@ async function montar(caso) {
     casos++;
 
     // Un ajuste manual convierte la selección en personalizada.
-    const menu = f.doc.getElementById('scope-global-menu');
-    menu.value = 'ver';
-    f.change(menu);
+    const inventario = f.doc.getElementById('scope-global-inventario');
+    inventario.value = 'ver';
+    f.change(inventario);
     assert.equal(f.marcado(), 'personalizado');
-    menu.value = 'editar';
-    f.change(menu);
+    inventario.value = 'editar';
+    f.change(inventario);
     assert.equal(f.marcado(), 'acceso_total', 'Volver al estado del perfil lo reconoce.');
     casos++;
   }

@@ -18,24 +18,6 @@
     $platillo = $platillo ?? null;
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $areas = isset($areas) && is_iterable($areas) ? $areas : [];
-    $identidadMaestra = $identidadMaestra ?? false;
-    $identidadEditable = ($identidadEditable ?? true) && $menuPuedeEditar;
-    $identidadCompartida = $identidadCompartida ?? false;
-    $a3Activa=$a3Activa??false;
-    $casaPolitica=$casaPolitica??null;$casaLocales=$casaLocales??[];
-    $esComercial=static fn(string $campo):bool => in_array($campo,['nombre','descripcion','img'],true);
-    $campoCasa=static fn(string $campo):bool => $a3Activa&&$esComercial($campo) ? $menuPuedeEditar : ($casaPolitica ? !empty($casaPolitica['reglas'][$campo])&&$menuPuedeEditar : $identidadEditable);
-    $estadoCasa=static function(string $campo)use($casaPolitica,$casaLocales,$campoCasa,$a3Activa,$esComercial):void {
-        if(!$casaPolitica)return;
-        if($a3Activa&&$esComercial($campo)){
-            $volver=['nombre'=>'Volver al nombre publicado por Global','descripcion'=>'Volver a la descripción publicada por Global','img'=>'Volver a la imagen publicada por Global'][$campo];
-            echo '<p class="admin-field__hint">Dato comercial independiente de este negocio.</p>';
-            echo '<label><input type="checkbox" name="restaurar_casa[]" value="'.$campo.'"> '.$volver.'</label>';
-            return;
-        }
-        echo '<p class="admin-field__hint">'.($campoCasa($campo)?(array_key_exists($campo,$casaLocales)?'Personalización permitida · Usando valor propio':'Personalización permitida · Usando versión de la casa'):'Definido por Global').'</p>';
-        if($campoCasa($campo)&&array_key_exists($campo,$casaLocales))echo '<label><input type="checkbox" name="restaurar_casa[]" value="'.$campo.'"> Volver a la versión de la casa</label>';
-    };
     $esNuevo = empty($platillo->id);
 
     require_once __DIR__ . '/../partials/_icons.php';
@@ -107,7 +89,7 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Producto'); ?></h2>
-            <p class="admin-page__subtitle"><?php echo $identidadMaestra ? 'Datos maestros compartidos; los precios y la disponibilidad se administran en cada negocio.' : ($menuContexto === 'panaderia' ? 'Administra la identidad y las condiciones locales de esta oferta de Panadería.' : 'Este producto se publica en la carta y en el PDF, y es el mismo que el mesero toca en el punto de venta.'); ?></p>
+            <p class="admin-page__subtitle"><?php echo $menuContexto === 'panaderia' ? 'Administra el producto y las condiciones locales de esta oferta de Panadería.' : 'Este producto se publica en la carta y en el PDF, y es el mismo que el mesero toca en el punto de venta.'; ?></p>
         </div>
         <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
@@ -116,34 +98,26 @@
     </header>
     <?php if(!$esNuevo && !empty($composicionActual)): ?><section class="admin-panel admin-card admin-menu__composicion"><h3>Composición vigente</h3><p><?= htmlspecialchars($composicionActual['texto'],ENT_QUOTES,'UTF-8') ?></p><?php if($composicionActual['url']): ?><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars(\Services\Menu\ComposicionComercial::conRetorno($composicionActual['url'],$menuContexto,$menuBase.'/edit?'.http_build_query(array_filter(['id'=>(int)$platillo->id,'volver'=>$volverContextual??null]))),ENT_QUOTES,'UTF-8') ?>"><?= htmlspecialchars($composicionActual['accion'],ENT_QUOTES,'UTF-8') ?></a><?php else: ?><p class="admin-field__hint">La composición requiere acceso de consulta a Artículos y preparaciones y, para presentaciones, a Menú.</p><?php endif; ?></section><?php endif; ?>
 
-    <?php if ($identidadMaestra) : ?>
-    <section class="admin-card"><h3>Ofertas consultables</h3>
-        <?php if (empty($usos)) : ?><p>Sin ofertas consultables con tus permisos actuales.</p><?php endif; ?>
-        <ul><?php foreach (($usos ?? []) as $uso) : ?><li><?php echo htmlspecialchars(($uso['slug']==='panaderia'?'Panadería':'Restaurante').' · '.$uso['categoria'].' · $'.$uso['precio'].' · '.($uso['activo']?'Disponible':'Retirada / no disponible')); ?></li><?php endforeach; ?></ul>
-    </section>
-    <?php endif; ?>
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="menu_csrf" value="<?php echo htmlspecialchars($menuCsrf, ENT_QUOTES); ?>">
         <fieldset class="admin-menu__fieldset" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?>><section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-            <?php if($identidadMaestra&&$a3Activa): ?><p class="admin-field__hint">La edición comercial independiente está activa. Edita nombre, descripción e imagen desde cada oferta.</p><?php elseif($casaPolitica): ?><p class="admin-badge admin-badge--neutral">Producto de la casa</p><?php elseif($a3Activa): ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a esta oferta y son independientes entre negocios.</p><?php elseif ($identidadCompartida) : ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a una identidad compartida. <?php echo $identidadEditable ? 'Cambiarlos afecta a todos los negocios que la utilizan.' : 'Solo puedes modificar las condiciones de tu oferta; la identidad requiere autorización Global.'; ?></p><?php endif; ?>
-            <input type="hidden" name="identidad_huella" value="<?php echo htmlspecialchars($identidadHuella ?? '', ENT_QUOTES); ?>">
+            <p class="admin-field__hint">Nombre, descripción e imagen pertenecen a esta oferta y son independientes entre negocios.</p>
             <div class="admin-form-grid">
                 <div class="admin-field admin-form-grid__full">
                     <label class="admin-field__label" for="nombre">Nombre del producto</label>
-                    <?php $estadoCasa('nombre'); ?><input type="text" id="nombre" name="nombre" <?php echo $campoCasa('nombre') ? '' : 'readonly'; ?> maxlength="120" required
+                    <input type="text" id="nombre" name="nombre" maxlength="120" required
                            value="<?php echo htmlspecialchars($platillo->nombre ?? ''); ?>">
                     <p class="admin-field__hint">La identidad se reconoce por su identificador permanente; el nombre puede coincidir con otro producto.</p>
                 </div>
 
                 <div class="admin-field admin-form-grid__full">
                     <label class="admin-field__label" for="descripcion">Descripción</label>
-                    <?php $estadoCasa('descripcion'); ?><textarea id="descripcion" name="descripcion" <?php echo $campoCasa('descripcion') ? '' : 'readonly'; ?> rows="3" <?= $casaPolitica?'':'required' ?>><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
-                    <p class="admin-field__hint"><?php echo $menuContexto === 'restaurante' ? 'Es el texto que ve el comensal en la carta y en el PDF.' : ($a3Activa?'Descripción comercial de esta oferta.':'Descripción de la identidad comercial compartida.'); ?></p>
+                    <textarea id="descripcion" name="descripcion" rows="3" required><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
+                    <p class="admin-field__hint"><?php echo $menuContexto === 'restaurante' ? 'Es el texto que ve el comensal en la carta y en el PDF.' : 'Descripción comercial de esta oferta.'; ?></p>
                 </div>
 
-                <?php if (!$identidadMaestra) : ?>
                 <div class="admin-field admin-form-grid__full">
                     <span class="admin-field__label">Categoría</span>
                     <div class="admin-tabs" role="radiogroup" aria-label="Categoría">
@@ -163,7 +137,6 @@
                     </div>
                 </div>
 
-                <?php endif; ?>
                 <?php /* Va justo debajo de Categoría porque depende de ella: sin foto
                          propia, la carta enseña la de la categoría, y la vista previa
                          cambia en cuanto se elige otra.
@@ -174,7 +147,7 @@
                          sustituyen los botones, con vista previa al instante. Quién
                          decide cuál de los dos se ve es menu.scss, por el
                          [data-admin-theme] que el layout pone antes de pintar. */ ?>
-                <?php $estadoCasa('img'); ?><fieldset class="admin-menu__fieldset admin-form-grid__full" <?php echo $campoCasa('img') ? '' : 'disabled'; ?>>
+                <fieldset class="admin-menu__fieldset admin-form-grid__full">
                 <div class="admin-field admin-form-grid__full admin-foto<?php echo !empty($fotoErrores) ? ' has-error' : ''; ?>"
                      data-foto-platillo
                      data-estado="<?php echo $fotoEstado; ?>"
@@ -248,10 +221,6 @@
                 </div>
 
                 </fieldset>
-                <?php if (!$casaPolitica && $identidadCompartida && $identidadEditable) : ?>
-                <label class="admin-field admin-form-grid__full"><span><input type="checkbox" name="confirmar_identidad" value="1"> Autorizo cambiar los datos maestros para todos los negocios que utilizan esta identidad.</span></label>
-                <?php endif; ?>
-                <?php if (!$identidadMaestra) : ?>
                 <div class="admin-field admin-form-grid__full">
                     <span class="admin-field__label">Área de producción</span>
                     <div class="admin-tabs" role="radiogroup" aria-label="Área de producción">
@@ -268,7 +237,7 @@
 
                 <div class="admin-field">
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
-                    <?php $estadoCasa('precio'); ?><input type="number" id="precio" name="precio" step="0.01" min="0" required <?= $casaPolitica&&!$campoCasa('precio')?'readonly':'' ?>
+                    <input type="number" id="precio" name="precio" step="0.01" min="0" required
                            value="<?php echo htmlspecialchars((string) ($platillo->precio ?? '')); ?>">
                     <?php if (!empty($platillo->id) && $menuContexto === 'restaurante') : ?>
                         <p class="admin-field__hint">
@@ -285,17 +254,15 @@
 
                 <label class="admin-field"><span class="admin-field__label">Orden local</span><input type="number" name="orden" step="1" value="<?php echo (int)($platillo->orden ?? 0); ?>"></label>
                 <label class="admin-switch admin-form-grid__full">
-                    <input type="checkbox" name="activo" value="1" <?= $casaPolitica&&!$campoCasa('activo')?'disabled':'' ?> <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
+                    <input type="checkbox" name="activo" value="1" <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
                     <span class="admin-switch__label"><?php echo $menuContexto === 'panaderia' ? 'Oferta disponible en Panadería' : 'Producto activo (visible en la carta y vendible en el punto de venta)'; ?></span>
                 </label>
-                <?php if($casaPolitica&&!$campoCasa('activo')&&(int)$platillo->activo): ?><input type="hidden" name="activo" value="1"><?php endif; ?><?php $estadoCasa('activo'); ?>
-                <?php endif; ?>
             </div>
         </section></fieldset>
 
         <div class="admin-form-grid__actions">
-            <?php if ($menuPuedeEditar && (!$identidadMaestra || $identidadEditable)) : ?><button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button><?php endif; ?>
+            <?php if ($menuPuedeEditar) : ?><button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button><?php endif; ?>
             <a class="admin-btn admin-btn--secondary" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">Cancelar</a>
 
         </div>

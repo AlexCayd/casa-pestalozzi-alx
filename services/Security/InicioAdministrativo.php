@@ -16,11 +16,11 @@ final class InicioAdministrativo
         $base = $ctx === 'restaurante' ? '/admin' : '/admin/'.$ctx;
         $defs = [
             'inventario'=>['Almacenes','Consulta existencias y registra operaciones físicas.','inventario',$base.'/almacenes'],
-            'menu'=>[$ctx==='global'?'Productos de la casa':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
             'productos'=>['Artículos y preparaciones','Configura artículos, capacidades y recetas de preparación.','products',$base.'/recetas/articulos'],
             'transferencias'=>['Transferencias','Consulta envíos, recepciones e incidencias.','transferencias',$base.'/almacenes?vista=transferencias'],
             'users'=>['Usuarios','Consulta el equipo y sus accesos autorizados.','users',$base.'/usuarios'],
         ];
+        if ($ctx !== 'global') $defs['menu']=['Menú','Organiza productos, precios y disponibilidad propios.','menu',$base.'/menu'];
         foreach ($defs as $mod=>$d) {
             if (!$puede($ctx,$mod==='transferencias'?'inventario':$mod)) continue;
             if ($mod==='users' && !in_array('usuarios.gestionar',$perfil['ambitos'][$ctx]['facultades']??[],true)) continue;

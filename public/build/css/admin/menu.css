@@ -546,6 +546,22 @@
 }
 .admin-menu {
   min-width: 0;
+  /* Los formularios largos ocupan el ancho del panel y reparten en dos
+     columnas. 720px es la medida correcta para un formulario de dos o tres
+     campos —una columna de lectura cómoda—, pero con ocho campos y tres grupos
+     de opciones se convierte en una tira vertical con la mitad derecha del
+     módulo vacía. Es un modificador y no un cambio del valor base porque
+     .admin-menu__panel--form lo comparten cinco vistas y las otras cuatro sí
+     son formularios cortos. */
+  /* Cada campo es su propia celda de la rejilla: sin este envoltorio, la
+     etiqueta y su input caen en columnas distintas y el formulario se lee en
+     zigzag. */
+  /* `&__badge` y `&__tag` se retiraron. El badge de estado (Activa/Inactiva)
+     pasó a .admin-badge--success/--danger y la etiqueta de categoría a
+     .admin-tag, los dos de _tables.scss: eran una tercera copia del mismo
+     vocabulario, y además __tag pintaba en dorado tanto el ROL como la
+     CONEXIÓN de una impresora, así que "Cuenta" y "Red" se leían como el
+     mismo tipo de dato. */
 }
 .admin-menu__composicion {
   margin-bottom: 18px;
@@ -642,15 +658,6 @@
 .admin-menu__panel--form {
   max-width: 720px;
 }
-.admin-menu {
-  /* Los formularios largos ocupan el ancho del panel y reparten en dos
-     columnas. 720px es la medida correcta para un formulario de dos o tres
-     campos —una columna de lectura cómoda—, pero con ocho campos y tres grupos
-     de opciones se convierte en una tira vertical con la mitad derecha del
-     módulo vacía. Es un modificador y no un cambio del valor base porque
-     .admin-menu__panel--form lo comparten cinco vistas y las otras cuatro sí
-     son formularios cortos. */
-}
 .admin-menu__panel--wide {
   max-width: none;
 }
@@ -658,11 +665,6 @@
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   align-items: start;
   gap: 14px 18px;
-}
-.admin-menu {
-  /* Cada campo es su propia celda de la rejilla: sin este envoltorio, la
-     etiqueta y su input caen en columnas distintas y el formulario se lee en
-     zigzag. */
 }
 .admin-menu__field {
   display: flex;
@@ -820,14 +822,6 @@
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
 }
-.admin-menu {
-  /* `&__badge` y `&__tag` se retiraron. El badge de estado (Activa/Inactiva)
-     pasó a .admin-badge--success/--danger y la etiqueta de categoría a
-     .admin-tag, los dos de _tables.scss: eran una tercera copia del mismo
-     vocabulario, y además __tag pintaba en dorado tanto el ROL como la
-     CONEXIÓN de una impresora, así que "Cuenta" y "Red" se leían como el
-     mismo tipo de dato. */
-}
 .admin-menu__muted, .admin-menu__help {
   color: var(--admin-muted);
 }
@@ -960,17 +954,21 @@
   display: flex;
   align-items: flex-end;
   gap: 12px;
-}
-.admin-filters__search {
-  flex: 1 1 auto;
-}
-.admin-filters {
   margin-top: 16px;
   margin-bottom: 18px;
   padding: 14px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
+  /*
+   * select.js sustituye cada <select> nativo por un botón `.admin-select__trigger`
+   * y esconde el original, así que la regla de arriba solo alcanza a un nodo
+   * invisible. El control que se ve traía 15.5px/46px contra los 13px/42px del
+   * buscador de al lado; aquí se igualan.
+   */
+}
+.admin-filters__search {
+  flex: 1 1 auto;
 }
 .admin-filters label {
   display: block;
@@ -998,14 +996,6 @@
   border-color: var(--admin-gold);
   outline: 0;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
-}
-.admin-filters {
-  /*
-   * select.js sustituye cada <select> nativo por un botón `.admin-select__trigger`
-   * y esconde el original, así que la regla de arriba solo alcanza a un nodo
-   * invisible. El control que se ve traía 15.5px/46px contra los 13px/42px del
-   * buscador de al lado; aquí se igualan.
-   */
 }
 .admin-filters .admin-select__trigger {
   min-height: 42px;
@@ -1386,6 +1376,24 @@
  * Todo cuelga de `.admin-body .admin-foto` (0,2,0) y no de la clase sola:
  * `.admin-body p` y `.admin-body button` suman (0,1,1) y le ganarían el color
  * al texto de estado y el tamaño al botón «Deshacer» (ver CLAUDE.md). */
+.admin-body .admin-foto {
+  /* Sin JS los controles son los NATIVOS: el <input type="file"> enseña el
+     nombre del archivo elegido —la única confirmación posible sin script— y la
+     casilla de «Quitar foto» se ve marcada. La etiqueta-botón «Subir foto»
+     sobraría junto al selector nativo, así que sólo existe con JS.
+
+     La señal es `[data-admin-theme]` en <html>: lo pone el script en línea de
+     views/admin/layout.php ANTES del primer pintado, así que no hay un parpadeo
+     de controles nativos mientras llega admin.js (que va con `defer`). */
+  /* Con JS: el input y la casilla reales, recortados pero presentes —con
+     display:none saldrían del recorrido de teclado—. `!important` acotado
+     porque la regla global de campos de _forms.scss suma (0,6,1) e impone
+     ancho, alto y relleno a cualquier input que no sea casilla o radio. */
+  /* Vacío se recorta, no se apaga: es un role="alert", y con display:none
+     sale del árbol de accesibilidad; una región que aparece y se llena en el
+     mismo instante no todos los lectores la anuncian. Así sigue presente y sin
+     ocupar sitio (el panel es position: relative). */
+}
 .admin-body .admin-foto .admin-foto__opcional {
   margin-left: 6px;
   color: var(--admin-faint);
@@ -1507,24 +1515,8 @@
 .admin-body .admin-foto .admin-foto__boton[hidden] {
   display: none;
 }
-.admin-body .admin-foto {
-  /* Sin JS los controles son los NATIVOS: el <input type="file"> enseña el
-     nombre del archivo elegido —la única confirmación posible sin script— y la
-     casilla de «Quitar foto» se ve marcada. La etiqueta-botón «Subir foto»
-     sobraría junto al selector nativo, así que sólo existe con JS.
-
-     La señal es `[data-admin-theme]` en <html>: lo pone el script en línea de
-     views/admin/layout.php ANTES del primer pintado, así que no hay un parpadeo
-     de controles nativos mientras llega admin.js (que va con `defer`). */
-}
 html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-arrastre] {
   display: none;
-}
-.admin-body .admin-foto {
-  /* Con JS: el input y la casilla reales, recortados pero presentes —con
-     display:none saldrían del recorrido de teclado—. `!important` acotado
-     porque la regla global de campos de _forms.scss suma (0,6,1) e impone
-     ancho, alto y relleno a cualquier input que no sea casilla o radio. */
 }
 [data-admin-theme] .admin-body .admin-foto .admin-foto__input, [data-admin-theme] .admin-body .admin-foto .admin-foto__quitar input {
   position: absolute !important;
@@ -1549,12 +1541,6 @@ html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:no
 }
 .admin-body .admin-foto .admin-foto__ayuda {
   margin-top: 0;
-}
-.admin-body .admin-foto {
-  /* Vacío se recorta, no se apaga: es un role="alert", y con display:none
-     sale del árbol de accesibilidad; una región que aparece y se llena en el
-     mismo instante no todos los lectores la anuncian. Así sigue presente y sin
-     ocupar sitio (el panel es position: relative). */
 }
 .admin-body .admin-foto .admin-field__error:empty {
   position: absolute;
@@ -1641,172 +1627,4 @@ html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:no
   order: -1;
 }
 
-.admin-catalogo-filters {
-  flex-wrap: wrap;
-}
-.admin-catalogo-filters .admin-field:first-child {
-  flex: 2 1 220px;
-}
-
-.admin-menu .casa-editor,
-.admin-menu .casa-impacto {
-  margin-block: 24px;
-  min-width: 0;
-}
-.admin-menu .casa-editor h2,
-.admin-menu .casa-impacto h2 {
-  margin: 0 0 16px;
-  font-size: 21px;
-}
-.admin-menu .casa-editor h3,
-.admin-menu .casa-impacto h3 {
-  margin: 24px 0 12px;
-}
-.admin-menu .casa-editor p,
-.admin-menu .casa-impacto p {
-  max-width: 72ch;
-  line-height: 1.6;
-}
-.admin-menu .casa-editor .admin-card,
-.admin-menu .casa-impacto .admin-card {
-  padding: clamp(18px, 3vw, 32px);
-  margin-bottom: 24px;
-}
-.admin-menu .casa-editor .admin-form-grid,
-.admin-menu .casa-impacto .admin-form-grid {
-  gap: 20px;
-  margin-block: 20px;
-}
-.admin-menu .casa-editor details,
-.admin-menu .casa-impacto details {
-  margin-top: 20px;
-}
-.admin-menu .casa-editor summary,
-.admin-menu .casa-impacto summary {
-  cursor: pointer;
-  padding-block: 12px;
-  font-weight: 700;
-}
-.admin-menu .casa-editor input[type=checkbox],
-.admin-menu .casa-impacto input[type=checkbox] {
-  accent-color: var(--admin-accent);
-}
-.admin-menu .casa-editor :focus-visible,
-.admin-menu .casa-impacto :focus-visible {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 3px;
-}
-.admin-menu .casa-editor td,
-.admin-menu .casa-impacto td {
-  overflow-wrap: anywhere;
-  max-width: 36ch;
-}
-
-.admin-menu .casa-impacto {
-  padding: clamp(18px, 3vw, 32px);
-}
-
-.casa-negocio {
-  min-width: 0;
-  margin: 0;
-  padding: 20px;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-}
-.casa-negocio legend {
-  padding-inline: 8px;
-  font-weight: 700;
-}
-.casa-negocio .admin-field {
-  margin-bottom: 16px;
-}
-
-.casa-foto {
-  display: block;
-  width: 160px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: var(--admin-radius-sm);
-  margin-block: 12px;
-}
-
-.casa-componentes {
-  display: grid;
-  gap: 16px;
-  margin-block: 24px;
-}
-
-.casa-componente {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(100px, 1fr) auto;
-  gap: 16px;
-  align-items: end;
-  min-width: 0;
-}
-
-@media (max-width: 600px) {
-  .casa-componente {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .casa-componente .admin-field:first-child {
-    grid-column: 1/-1;
-  }
-  .casa-negocio {
-    padding: 14px;
-  }
-}
-.admin-catalogo-table td:first-child {
-  max-width: 360px;
-  overflow-wrap: anywhere;
-}
-
-.admin-catalogo-table .admin-table__cell-sub {
-  max-width: 56ch;
-  white-space: normal;
-}
-
-@media (max-width: 700px) {
-  .admin-catalogo-table {
-    min-width: 0;
-  }
-  .admin-catalogo-table, .admin-catalogo-table tbody, .admin-catalogo-table tr, .admin-catalogo-table td {
-    display: block;
-  }
-  .admin-catalogo-table thead {
-    display: none;
-  }
-  .admin-catalogo-table tr {
-    padding: 12px;
-    border-bottom: 1px solid var(--admin-border-soft);
-  }
-  .admin-catalogo-table td {
-    padding: 6px 0;
-    max-width: none;
-    border: 0;
-  }
-  .admin-catalogo-table td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 11px;
-    color: var(--admin-muted);
-    margin-bottom: 4px;
-  }
-}
-.admin-catalogo-table td > small {
-  display: block;
-  margin-top: 6px;
-  color: var(--admin-muted);
-}
-
-.casa-componente--versionada {
-  grid-template-columns: minmax(0, 2fr) minmax(100px, 1fr) minmax(0, 2fr) auto;
-}
-
-@media (max-width: 800px) {
-  .casa-componente--versionada {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .casa-componente--versionada .admin-field {
-    grid-column: 1/-1;
-  }
-}
+/*# sourceMappingURL=menu.css.map */

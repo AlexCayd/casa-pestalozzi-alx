@@ -149,7 +149,6 @@
             <?php if ($menuContexto==='panaderia') : ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/pdf">Ver PDF del menú</a><?php endif; ?>
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Categorías</a>
             <?php if ($menuPuedeEditar) : ?>
-            <a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/asociar">Asociar existente</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/create" title="Nuevo producto">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
@@ -584,7 +583,7 @@
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo $esc($catNombre); ?></span>
                                     <span class="admin-table__cell-sub admin-menu__area"><?php echo $esc($areasMap[(int) $platillo->area_id] ?? 'Sin área'); ?></span>
                                 </td>
-                                <td class="admin-menu__col-visible"><?php if(isset($politicasCasa[(int)$platillo->id])): ?><small class="admin-table__cell-sub"><?= !empty($politicasCasa[(int)$platillo->id]['activo'])?'Producto de la casa':'Definido por Global' ?></small><?php endif; ?>
+                                <td class="admin-menu__col-visible">
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos
                                             fallaba la validación al faltarle area_id. La query de la
                                             acción devuelve a esta misma página del mismo filtro. */ ?>
@@ -593,7 +592,7 @@
                                         <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                         <button
                                             type="submit"
-                                            <?php echo $menuPuedeEditar && (!isset($politicasCasa[(int)$platillo->id]) || !empty($politicasCasa[(int)$platillo->id]['activo'])) ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
+                                            <?php echo $menuPuedeEditar ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
                                             title="<?php echo $platillo->activo ? 'Ocultar producto' : 'Mostrar producto'; ?>"
                                             aria-label="<?php echo $platillo->activo ? 'Ocultar producto ' : 'Mostrar producto '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
@@ -643,7 +642,6 @@
                                             <button
                                                 type="submit"
                                                 class="admin-icon-button admin-icon-button--danger"
-                                                <?= isset($politicasCasa[(int)$platillo->id])&&empty($politicasCasa[(int)$platillo->id]['activo'])?'disabled':'' ?>
                                                 title="Eliminar"
                                                 aria-label="Eliminar producto <?php echo $esc($platillo->nombre); ?>"
                                             >

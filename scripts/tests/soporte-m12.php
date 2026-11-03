@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-function m12Pruebas(callable $pruebas,string $etiqueta="M1.2"): void {
+function m12Pruebas(callable $pruebas,string $etiqueta="M1.2",bool $aplicarA3=false): void {
     if(PHP_SAPI!=='cli')exit(1);
     $root=dirname(__DIR__,2);require_once $root.'/vendor/autoload.php';
     require_once $root.'/scripts/multinegocio/SqlArchivo.php';require_once __DIR__.'/fixture-3b.php';
@@ -17,6 +17,7 @@ function m12Pruebas(callable $pruebas,string $etiqueta="M1.2"): void {
         $db->query('CREATE TABLE _cp_multinegocio_owner(token CHAR(64) PRIMARY KEY)');$db->execute_query('INSERT INTO _cp_multinegocio_owner VALUES (?)',[$token]);
         foreach(['ddl','deploy','menu-restaurante','development'] as $file)Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/'.$file.'.sql');
         Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/a1-datos-comerciales-oferta.sql');
+        if($aplicarA3){$db->query('SET @cp_a3_preservar_locales=1');Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/a3-datos-comerciales-local.sql');}
         Model\ActiveRecord::setDB($db);if(session_status()!==PHP_SESSION_ACTIVE)session_start();
         $u=FixtureAutorizacion3B::usuario($db,'m12_super',[],true);
         $_SESSION=['id'=>$u['id'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];

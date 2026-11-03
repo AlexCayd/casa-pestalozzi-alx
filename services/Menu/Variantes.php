@@ -207,8 +207,8 @@ final class Variantes
         }
 
         return [
-            'puede_composicion'=>\Classes\Auth::puede('productos','editar',$ctx)&&ProductosCasa::permite((int)$db->execute_query('SELECT producto_id FROM ofertas_producto WHERE id=? AND unidad_id=?',[$productoId,$unidadId])->fetch_row()[0],'receta'),
-            'puede_precio'=>ProductosCasa::permite((int)$db->execute_query('SELECT producto_id FROM ofertas_producto WHERE id=? AND unidad_id=?',[$productoId,$unidadId])->fetch_row()[0],'precio'),
+            'puede_composicion'=>\Classes\Auth::puede('productos','editar',$ctx),
+            'puede_precio'=>\Classes\Auth::puede('menu','editar',$ctx),
             'usa_presentaciones'=>(bool)$db->execute_query('SELECT id FROM oferta_presentaciones WHERE oferta_id=? AND unidad_id=? LIMIT 1',[$productoId,$unidadId])->fetch_row(),
             'composicion_unificada'=>(bool)$db->execute_query('SELECT ca.componente_id FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 LIMIT 1',[$productoId,$unidadId])->fetch_row(),
             'url_presentaciones'=>($ctx==='restaurante'?'/admin':'/admin/'.$ctx).'/menu/presentaciones?id='.$productoId,
@@ -446,18 +446,14 @@ final class Variantes
                 return ContextoNegocio::transaccion(static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
                     ContextoNegocio::exigir('menu', 'editar', $ctx, true);
                     self::exigirOferta($db, $productoId, $unidadId, true);
-                    $maestro=ProductosCasa::sql('SELECT producto_id FROM ofertas_producto WHERE id=? AND unidad_id=?',[$productoId,$unidadId])->get_result()->fetch_row();
-                    if($maestro){
-                        $antes=self::deProducto($productoId,$ctx);$precios=[];$composiciones=[];
-                        foreach($antes as $g)foreach($g['opciones'] as $op){$precios[(int)$op['id']]=number_format($op['precio_delta'],2,'.','');$composiciones[(int)$op['id']]=$op['ajustes'];}
-                        $nuevosPrecios=[];$nuevasComposiciones=[];
-                        foreach($limpios as $g)foreach($g['opciones'] as $k=>$op){$ref=(int)($op['id']??0);$ref=$ref>0?$ref:'nuevo_'.$g['nombre'].'_'.$k;$nuevosPrecios[$ref]=number_format((float)$op['precio_delta'],2,'.','');$nuevasComposiciones[$ref]=$op['ajustes'];}
-                        foreach(array_unique(array_merge(array_keys($precios),array_keys($nuevosPrecios))) as $ref)if(($precios[$ref]??'0.00')!==($nuevosPrecios[$ref]??'0.00')&&!ProductosCasa::permite((int)$maestro[0],'precio'))throw new \RuntimeException('El precio de las variantes está definido por Global.');
-                        foreach(array_unique(array_merge(array_keys($composiciones),array_keys($nuevasComposiciones))) as $ref)if(($composiciones[$ref]??[])!==($nuevasComposiciones[$ref]??[])){
-                            ContextoNegocio::exigir('productos','editar',$ctx,true);
-                            if(!ProductosCasa::permite((int)$maestro[0],'receta'))throw new \RuntimeException('Los ajustes de composición están definidos por Global.');
-                        }
+                    $antes=self::deProducto($productoId,$ctx);$ajustesAntes=[];$ajustesDespues=[];
+                    foreach($antes as $g)foreach($g['opciones'] as $op)if($op['ajustes']!==[])$ajustesAntes[(int)$op['id']]=$op['ajustes'];
+                    foreach($limpios as $g)foreach($g['opciones'] as $op){
+                        $id=(int)($op['id']??0);
+                        if($id>0&&$op['ajustes']!==[])$ajustesDespues[$id]=$op['ajustes'];
+                        elseif($op['ajustes']!==[])$ajustesDespues['nuevo:'.count($ajustesDespues)]=$op['ajustes'];
                     }
+                    if($ajustesAntes!==$ajustesDespues)ContextoNegocio::exigir('productos','editar',$ctx,true);
                     $existentes = [];
                     $sel = $db->prepare('SELECT id FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? FOR UPDATE');
                     $sel->bind_param('ii', $productoId, $unidadId);

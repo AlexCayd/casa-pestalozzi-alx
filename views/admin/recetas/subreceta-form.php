@@ -31,7 +31,7 @@
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Preparación anterior'); ?></h2>
             <p class="admin-page__subtitle">Define la preparación y los ingredientes que consume para producir su rendimiento base.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas/subrecetas">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?= htmlspecialchars($recetasSubBase ?? '/admin/recetas/subrecetas',ENT_QUOTES,'UTF-8') ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
@@ -132,7 +132,7 @@
 
         <div class="admin-form-grid__actions admin-recipe__actions">
             <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/subrecetas">Cancelar</a>
+            <a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($recetasSubBase ?? '/admin/recetas/subrecetas',ENT_QUOTES,'UTF-8') ?>">Cancelar</a>
         </div>
     </form>
 </section>

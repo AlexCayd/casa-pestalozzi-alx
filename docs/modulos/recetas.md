@@ -1,61 +1,33 @@
-# Recetas operativas y recetas de la casa
+# Recetas operativas
 
 La receta operativa pertenece a una oferta y a su negocio. `RecetasOferta` conserva
 su contrato de versiones en `recetas` y `receta_componentes`; las subrecetas y
-variantes locales existentes siguen funcionando para los productos anteriores.
-No se modifican automáticamente los 112 productos preservados.
+variantes locales siguen funcionando. A4 no modifica recetas, componentes,
+versiones, tickets ni snapshots existentes.
 
-Global administra recetas de la casa dentro de Productos de la casa. El borrador
-usa ingredientes del catálogo compartido, cantidades en su unidad canónica y un
-rendimiento positivo. La publicación crea una versión inmutable con actor y fecha.
-Los triggers rechazan cambios, eliminación o adición de componentes posteriores a
-su cierre. Las subpreparaciones se desglosan en ingredientes; no se referencia una
-subreceta privada desde un estándar Global.
+Las recetas materializadas anteriormente desde Productos de la casa son recetas
+locales. Continúan siendo consultables y utilizables por sus ofertas. Una edición
+local crea una versión nueva bajo las reglas de inmutabilidad existentes; no
+sincroniza cambios de un estándar Global ni reemplaza versiones ya utilizadas.
+Global ya no tiene recetario comercial, publicación de recetas ni rutas de
+adaptación/restauración de estándares.
 
-Publicar exige `menu/editar` Global y `comercial.identidad.editar`; activar en los
-negocios exige los permisos locales de Menú y Recetas. Configurar un origen exige
-además `inventario/editar` del propietario. Las lecturas de almacenes respetan su
-permiso de Inventario. Ni los destinos ni los IDs del formulario conceden acceso.
-
-Para un producto nuevo, puede publicarse primero su oferta sin activar y sin
-receta. Después se guarda el borrador de ingredientes y se eligen explícitamente
-los orígenes de consumo por negocio entre asociaciones físicas activas existentes.
-Publicar la receta valida todas las ofertas que la siguen y prepara conjuntamente
-sus nuevas versiones operativas. La ficha del producto permite activar después la
-disponibilidad. No se crean asociaciones físicas, existencias o movimientos.
-
-El rendimiento convierte cantidades del lote a la cantidad por unidad vendida.
-Se usan enteros escalados: si el resultado no se expresa exactamente a milésimas,
-se rechaza y se pide ajustar cantidades/rendimiento. Un ingrediente inactivo, un
-origen ausente/ajeno o una variante incompatible revierte toda la publicación,
-incluida la versión estándar. No se dejan negocios parcialmente activados.
-
-Una oferta sigue la receta de la casa, usa una adaptación permitida o está sin
-receta. `receta_origen_casa` identifica inequívocamente la versión estándar aplicada
-a cada receta operativa. Adaptar exige autorización por campo y permiso local de
-Recetas; las adaptaciones de productos de la casa usan ingredientes desglosados y
-validan sus orígenes. Volver a la casa revalida esos orígenes. Una receta requerida
-no se puede retirar para activar una oferta incompleta.
-
-La publicación no publica implícitamente otro borrador comercial pendiente. Primero
-debe revisarse ese borrador; después la receta actualiza la versión elegida mediante
-el mismo coordinador de publicación comercial, con revisión, huella y confirmación.
-Dos procesos compiten por la misma revisión: uno publica y el otro debe recargar.
+Al crear una oferta nueva no se exige receta ni se inventa una composición. El
+negocio puede configurar después una receta operativa, presentación o variante en
+su propio contexto. Seleccionar orígenes físicos requiere las autorizaciones
+locales de Artículos e Inventario aplicables. No se crean asociaciones, existencias
+ni movimientos para completar una receta.
 
 El POS Restaurante continúa tomando `ticket_items.receta_id` al enviar la comanda;
-el consumo y las compensaciones usan esa versión y los movimientos congelados.
-Las nuevas recetas no reescriben snapshots ni componentes históricos. Las variantes
-se comprueban contra los ingredientes y cantidades nuevas y sus orígenes locales.
-No se habilita POS ni producción por lotes de Panadería. M2 habilita el catálogo y las elaboraciones administrativas de Panadería,
-conservando estos contratos de oferta como adaptadores.
+el consumo y las compensaciones usan la versión y los movimientos congelados. Las
+nuevas versiones no reescriben snapshots ni componentes históricos. M2 habilita
+artículos y elaboraciones administrativas de Panadería, pero no su POS ni la
+producción física por lotes.
 
-Recetario: `/admin/global/productos/recetario`, con búsqueda y paginación.
-Rutas: `/admin/global/productos/receta?id=…`,
-`/admin/menu/casa-receta?id=…` y `/admin/panaderia/menu/casa-receta?id=…`.
-El identificador local es de oferta; el Global identifica el producto. Los formularios
-comparten el parcial de ingredientes, estilos del Menú y confirmación del panel.
-Pruebas independientes: `run-recetas-casa-m12.php`; incluye consumo real desde Cocina,
-publicación concurrente, receta histórica, inmutabilidad SQL y snapshot de comanda.
+Las tablas `recetas_casa`, `receta_casa_versiones`, `receta_casa_componentes` y
+`receta_origen_casa`, junto con sus referencias y triggers, se conservan como
+histórico. El código operativo de A4 no depende de ellas para componer, autorizar
+ni vender.
 
 ## Artículos y elaboraciones M2
 
@@ -85,13 +57,12 @@ cantidades, se guarda correspondencia única y se fijan versiones de los usos
 vigentes. Después se editan desde su artículo; los históricos siguen disponibles.
 No se deduplican nombres ni se copian automáticamente productos comerciales.
 
-Las recetas de la casa pueden fijar elaboraciones Global. Publicar, adaptar y
-volver al estándar conservan revisión, huella, confirmación, permisos y rollback
-de todos los negocios. Los orígenes se validan sobre los artículos físicos
-resultantes, no sobre una preparación virtual intermedia.
+Las recetas históricas pueden conservar referencias a elaboraciones Global ya
+fijadas. Esa procedencia no habilita publicación ni sincronización comercial;
+los orígenes se validan sobre los artículos físicos resultantes.
 
 Ver [arquitectura](../arquitectura.md),
-[catálogo](catalogo-comercial.md#presentaciones-y-variantes-m2) y
+[menú local A4](catalogo-comercial.md#estado-vigente) y
 [pruebas](../desarrollo/pruebas.md#cierre-m2).
 
 
@@ -99,27 +70,23 @@ Ver [arquitectura](../arquitectura.md),
 
 La elaboración de un **artículo** define un lote, rendimiento y componentes de una
 versión publicada. Una **presentación** define cantidades y modalidades por unidad
-vendida, precio y disponibilidad de una oferta. La **receta de la casa** es un
-estándar comercial con sus adaptadores operativos y políticas M1.2. No se fusionan
-estas identidades ni se convierten recetas al consultar o editar datos comerciales.
+vendida, precio y disponibilidad de una oferta. Los estándares comerciales de
+Productos de la casa son únicamente historia preservada por A4; ya no tienen
+adaptadores ni políticas operativas. No se fusionan identidades ni se convierten
+recetas al consultar o editar datos comerciales.
 
-`ComposicionComercial` proyecta el mecanismo vigente para la ficha y sus enlaces;
-no resuelve consumo. Las configuraciones comerciales nuevas utilizan el editor
-compartido de Presentaciones. Las recetas anteriores de Restaurante conservan su
-escritor compatible y muestran sus elaboraciones fijadas. El editor anterior no
-ofrece preparaciones versionadas nuevas como ingredientes simples: ese caso pasa
-a Presentaciones, donde se eligen modalidad y versión. Si una receta anterior fija
-varias versiones de un mismo artículo o una preparación anterior vinculada a una
-versión publicada, se conserva consultable y se bloquea su escritura visual: el
-escritor anterior no puede mantener fielmente esas referencias por fila.
-Los escritores de servicios usados por compatibilidad y publicación siguen activos.
+`ComposicionComercial` proyecta el mecanismo local vigente para la ficha y sus
+enlaces; no resuelve consumo. Las configuraciones comerciales nuevas utilizan el
+editor local de Presentaciones. Las recetas anteriores de Restaurante conservan
+su lector y escritor compatible versionado. Si una receta histórica contiene
+referencias que su editor no puede representar fielmente, sigue siendo consultable
+y se bloquea esa edición visual.
 
-Una oferta con presentaciones publicadas utiliza ese editor como vía de consumo;
-los accesos y POST de los editores comerciales anteriores no crean una composición
-operativa paralela. La receta anterior se conserva y puede consultarse. En
-Panadería no se envían IDs locales al editor de Restaurante: la presentación
-muestra la receta anterior conservada y permite configurar un consumo nuevo de
-forma explícita. Guardar un atributo comercial no publica ni convierte recetas.
+Las presentaciones vigentes usan versiones locales por oferta; la receta anterior
+se conserva y puede consultarse. Guardar nombre, descripción, imagen, precio u
+otros datos de oferta no publica ni convierte recetas. A4 no crea una composición
+operativa paralela ni transforma automáticamente recetas anteriores en
+presentaciones M2.
 
 La ficha de artículo y su listado usan `Articulos::estadoAdministrativo`, que
 consulta `cargarArticulo`, el mismo lector efectivo del motor. Distinguen origen
@@ -140,24 +107,20 @@ rechazan. El historial no acepta POST y enlaza a la ficha actual para preparar u
 versión nueva. Los nombres de artículos siguen siendo etiquetas del catálogo;
 las cantidades, identidades y versiones consultadas proceden del registro publicado.
 
-Las presentaciones oficiales se seleccionan por `referencia` estable dentro del
-producto. Se cargan desde `presentacion_estandares.configuracion`, nunca desde una
-adaptación local. La referencia no cambia al actualizar. La revisión muestra el
-oficial vigente, la propuesta, las nuevas versiones por destino y las
-personalizaciones que se conservarán. Previsión y publicación reutilizan la misma
-selección de configuración efectiva por destino. Se mantienen la transacción,
-huella, permisos, confirmación e idempotencia existentes; actualizar añade versiones
-sin reemplazar las anteriores. Los artículos inactivos ya referenciados permanecen
-identificables en el formulario, aunque el servidor rechaza su nueva publicación.
+Las presentaciones que antiguamente se publicaron como estándares conservan sus
+versiones locales y referencias históricas. El código de venta no consulta
+`presentacion_estandares`; la autorización y validez se resuelven con la oferta y
+la versión local. Las ediciones locales añaden versiones sin reemplazar las
+anteriores, y los artículos inactivos ya referenciados siguen identificables en
+el historial.
 
 Los retornos de UX-2 conservan selección de presentación al visitar variantes,
 filtros, origen y versiones consultadas. Todos los parámetros nuevos tienen rutas,
 formatos y pertenencia validados. No se añade persistencia de navegación ni SQL.
 
-Pruebas dirigidas: `run-ux3.php`; preparar `fixture-ux3.php --fixture ARCHIVO_PRIVADO`
-y ejecutar `pruebas-http-ux3.php --fixture ARCHIVO_PRIVADO` en el harness 3E aislado.
-Cada preparación genera identidades sintéticas nuevas; el runner modifica solo su
-base temporal verificada y restaura los permisos de prueba al terminar.
+El recorrido UX-3 de publicación oficial fue retirado en A4. Sus contratos
+operativos se sustituyen por preservación de recetas/presentaciones locales en
+`scripts/tests/run-menu-a4.php` y por los recorridos HTTP M2/A4.
 
 
 ## Catálogo y ficha UX-4
@@ -182,14 +145,15 @@ no anunciar cambios falsos. Cancelar conserva valores y foco.
 
 «Dónde se utiliza» consulta hasta 20 referencias por sección y anuncia si hay más:
 elaboraciones publicadas propias/Global, preparaciones anteriores, recetas
-comerciales, presentaciones, ajustes de variantes, recetas de la casa y asociaciones.
+operativas, presentaciones, ajustes de variantes y asociaciones históricas.
 Cada familia exige sus permisos y contexto; no expone recetas privadas ajenas.
 Las versiones históricas de elaboraciones enlazan a la consulta inmutable; las
 referencias comerciales indican que su enlace abre la configuración actual.
 Las asociaciones mantienen el alcance consolidado Global o físico local autorizado.
 
 Pruebas: `run-ux4-ui.cjs` y `pruebas-http-ux4.php`, además de UX-1/2/3 y M2.
-No se modifica el versionado, motor de consumo, variantes, estándares ni SQL.
+Los contratos históricos de estándares se validan como preservación, no como
+flujos operativos.
 
 ## Capacidades y continuidad de alta UX
 

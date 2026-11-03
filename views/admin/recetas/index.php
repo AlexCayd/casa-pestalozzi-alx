@@ -40,7 +40,11 @@
     $busqueda = (string) ($filtros['q'] ?? '');
     $sinReceta = max(0, $totalProductos - $conReceta);
 
-    $buildRecetasUrl = static function (int $page) use ($filtros): string {
+    $recetasBase = $recetasBase ?? '/admin/recetas';
+    $recetasSubBase = $recetasSubBase ?? $recetasBase . '/subrecetas';
+    $recetasContexto = $recetasContexto ?? 'restaurante';
+    $recetaMenuBase = $recetaMenuBase ?? '/admin/menu';
+    $buildRecetasUrl = static function (int $page) use ($filtros,$recetasBase): string {
         $params = [];
 
         foreach ($filtros as $clave => $valor) {
@@ -51,7 +55,7 @@
 
         $params['page'] = $page;
 
-        return '/admin/recetas?' . http_build_query($params);
+        return $recetasBase . '?' . http_build_query($params);
     };
 
     // Lo que se está viendo, para que el editor de la receta devuelva aquí
@@ -60,9 +64,9 @@
     if ($paginaActual > 1) {
         $consultaLista['page'] = $paginaActual;
     }
-    $volverAqui = '/admin/recetas' . (empty($consultaLista) ? '' : '?' . http_build_query($consultaLista));
-    $editarUrl = static function (int $id) use ($volverAqui): string {
-        return '/admin/recetas/editar?' . http_build_query(['id' => $id, 'volver' => $volverAqui]);
+    $volverAqui = $recetasBase . (empty($consultaLista) ? '' : '?' . http_build_query($consultaLista));
+    $editarUrl = static function (int $id) use ($volverAqui,$recetasBase): string {
+        return $recetasBase . '/editar?' . http_build_query(['id' => $id, 'volver' => $volverAqui]);
     };
 ?>
 
@@ -75,10 +79,10 @@
             <p class="admin-page__subtitle">Consulta la composición de cada platillo y sus orígenes. Los artículos y sus elaboraciones se administran desde una identidad compartida; la configuración de venta determina el consumo. Nombre, precio y categoría se editan en Menú.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/articulos">Artículos y preparaciones</a>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="/admin/recetas/subrecetas">Preparaciones anteriores</a>
-            <?php if (\Classes\Auth::puede('inventario', 'ver', 'restaurante')): ?><a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="/admin/inventario">Almacenes</a><?php endif; ?>
-            <?php if (\Classes\Auth::puede('menu', 'editar', 'restaurante')): ?><a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create">
+            <a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars(($recetasContexto==='restaurante'?'/admin':'/admin/'.$recetasContexto).'/recetas/articulos',ENT_QUOTES,'UTF-8') ?>">Artículos y preparaciones</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="<?= htmlspecialchars($recetasSubBase,ENT_QUOTES,'UTF-8') ?>">Preparaciones anteriores</a>
+            <?php if (\Classes\Auth::puede('inventario', 'ver', $recetasContexto)): ?><a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="<?= htmlspecialchars(($recetasContexto==='restaurante'?'/admin':'/admin/'.$recetasContexto).'/almacenes',ENT_QUOTES,'UTF-8') ?>">Almacenes</a><?php endif; ?>
+            <?php if (\Classes\Auth::puede('menu', 'editar', $recetasContexto)): ?><a class="admin-btn admin-btn--primary admin-create-button" href="<?= htmlspecialchars($recetaMenuBase.'/create',ENT_QUOTES,'UTF-8') ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>Nuevo producto</span>
             </a><?php endif; ?>
@@ -108,7 +112,7 @@
                         ? number_format($totalProductos - $ocultos) . ' en la carta · ' . number_format($ocultos) . ($ocultos === 1 ? ' oculto' : ' ocultos')
                         : 'Todos en la carta',
                     'accion' => 'Ver todos',
-                    'href' => '/admin/recetas',
+                    'href' => $recetasBase,
                     'activa' => !$enPendientes,
                 ],
                 [
@@ -118,7 +122,7 @@
                     'total' => $totalProductos,
                     'pendientesTexto' => 'sin receta',
                     'completoTexto' => 'Todos con receta',
-                    'href' => $enPendientes ? '/admin/recetas' : '/admin/recetas?estado=sin',
+                    'href' => $enPendientes ? $recetasBase : $recetasBase.'?estado=sin',
                     'activa' => $enPendientes,
                 ],
             ];
@@ -128,7 +132,7 @@
         <form
             class="admin-filters admin-filtro-buscar"
             method="GET"
-            action="/admin/recetas"
+            action="<?= htmlspecialchars($recetasBase,ENT_QUOTES,'UTF-8') ?>"
             aria-label="Buscar recetas"
             data-reactive-filters
             data-reactive-target="#recetas-results"
@@ -186,7 +190,7 @@
                 <h3 id="pendientes-titulo">Platillos sin receta</h3>
                 <p>Sin receta, vender un platillo no descuenta inventario y su costo sale en cero. Al guardar la receta, sale de esta lista.</p>
             </div>
-            <a class="admin-btn admin-btn--secondary admin-btn--small admin-tareas-cabeza__volver" href="/admin/recetas">
+            <a class="admin-btn admin-btn--secondary admin-btn--small admin-tareas-cabeza__volver" href="<?= htmlspecialchars($recetasBase,ENT_QUOTES,'UTF-8') ?>">
                 <?php echo admin_icon('flecha-izquierda', 16, 'admin-btn__icon'); ?>
                 Todos los platillos
             </a>
@@ -202,7 +206,7 @@
                 <?php
                     $tcTitulo = 'Todos los platillos tienen receta';
                     $tcTexto = number_format($totalProductos) . ' de ' . number_format($totalProductos) . '. Cada venta descuenta su inventario y el costo de cada platillo es real.';
-                    $tcAcciones = [['href' => '/admin/recetas', 'texto' => 'Volver a la lista']];
+                    $tcAcciones = [['href' => $recetasBase, 'texto' => 'Volver a la lista']];
                     include __DIR__ . '/../partials/_tareas-completas.php';
                 ?>
             <?php endif; ?>

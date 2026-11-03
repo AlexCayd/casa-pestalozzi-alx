@@ -81,8 +81,8 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $sufijo=bin2hex(random_bytes(5));
     $rest=a3Destino($db,'restaurante');$pan=a3Destino($db,'panaderia');
     $candidato=(int)$db->query('SELECT id FROM ofertas_producto WHERE unidad_id=2 ORDER BY id LIMIT 1')->fetch_row()[0];
-    $presentacionesAntes=Services\Menu\PresentacionesOferta::paraCartas($rest['unidad_id']);
-    $recetaAntes=Services\Menu\RecetasOferta::componentes('restaurante',$candidato);
+    $presentacionesAntes=$db->query('SELECT * FROM presentacion_versiones ORDER BY id')->fetch_all(MYSQLI_ASSOC);
+    $recetaAntes=$db->query('SELECT * FROM receta_componentes WHERE unidad_id=2 ORDER BY id')->fetch_all(MYSQLI_ASSOC);
     $tiposVistaAntes=$db->query("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_TYPE,IS_NULLABLE,CHARACTER_MAXIMUM_LENGTH,NUMERIC_PRECISION,NUMERIC_SCALE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='productos_oferta' ORDER BY ORDINAL_POSITION")->fetch_all(MYSQLI_ASSOC);
     $productosAntes=array_map('intval',array_column($db->query('SELECT id FROM productos ORDER BY id')->fetch_all(MYSQLI_ASSOC),'id'));
     $ofertasAntes=$db->query('SELECT id,producto_id,unidad_id FROM ofertas_producto ORDER BY id')->fetch_all(MYSQLI_ASSOC);
@@ -95,6 +95,8 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $referenciasAntes=$db->query('SELECT id,ticket_id,unidad_id,oferta_id,producto_id,nombre,precio FROM ticket_items ORDER BY id')->fetch_all(MYSQLI_ASSOC);
     $productosAntes=array_map('intval',array_column($db->query('SELECT id FROM productos ORDER BY id')->fetch_all(MYSQLI_ASSOC),'id'));
     $ofertasAntes=$db->query('SELECT id,producto_id,unidad_id FROM ofertas_producto ORDER BY id')->fetch_all(MYSQLI_ASSOC);
+    $legacyTables=['producto_estandares','producto_publicaciones','oferta_personalizaciones','producto_cambios_locales','recetas_casa','receta_casa_versiones','receta_casa_componentes','receta_origen_casa','presentacion_estandares'];
+    $legacyAntes=[];foreach($legacyTables as $tabla)$legacyAntes[$tabla]=$db->query("SELECT * FROM {$tabla} ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
 
     // El corte estricto detecta una divergencia deliberada y conserva la vista vieja.
     $ofertaDiscrepante=(int)$db->query('SELECT oferta_id FROM oferta_datos_comerciales ORDER BY oferta_id LIMIT 1')->fetch_row()[0];
@@ -112,10 +114,7 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $db->query('SET @cp_a3_preservar_locales=1');
     Multinegocio\SqlArchivo::ejecutar($db,$migracion);
     $afirmar(Services\Menu\DatosComercialesOferta::a3Activa(),'El marcador A3 se inserta después del cambio de vista.');
-    $legacyDesactivado=false;
-    try { Services\Menu\DatosComercialesOferta::sincronizarOfertaLegacy($ofertaDiscrepante); }
-    catch(LogicException) { $legacyDesactivado=true; }
-    $afirmar($legacyDesactivado,'El sincronizador legacy rechaza escrituras después del corte y no forma una dependencia circular.');
+    $afirmar(!method_exists(Services\Menu\DatosComercialesOferta::class,'sincronizarOfertaLegacy'),'A3 no expone el sincronizador de compatibilidad A2.');
     $vista=$db->execute_query('SELECT nombre FROM productos_oferta WHERE oferta_id=?',[$ofertaDiscrepante])->fetch_row()[0];
     $afirmar($vista===$valorLocal,'La vista A3 lee el dato local preservado exactamente.');
     $afirmar($db->query('SELECT COUNT(*) FROM ofertas_producto o LEFT JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE d.oferta_id IS NULL')->fetch_row()[0]==0,'Cada oferta cuenta con datos comerciales después de la migración.');
@@ -126,8 +125,8 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $afirmar($productosDespues===$productosAntes&&$ofertasDespues===$ofertasAntes,'La migración conserva IDs y relaciones técnicas de productos y ofertas.');
     $idsTicketDespues=array_map(static fn(array $r):int=>(int)$r['id'],$ticketsDespues);
     $afirmar($ticketsDespues===$referenciasAntes&&in_array((int)$ticketPreCorte['id'],$idsTicketDespues,true),'La migración conserva las referencias y snapshots históricos del ticket.');
-    $afirmar(Services\Menu\PresentacionesOferta::paraCartas($rest['unidad_id'])===$presentacionesAntes,'Las presentaciones M2 conservan su lectura antes y después de cambiar productos_oferta.');
-    $afirmar(Services\Menu\RecetasOferta::componentes('restaurante',$candidato)===$recetaAntes,'La receta M2 conserva su DTO antes y después del cambio de vista.');
+    $afirmar($db->query('SELECT * FROM presentacion_versiones ORDER BY id')->fetch_all(MYSQLI_ASSOC)===$presentacionesAntes,'Las versiones de presentaciones conservan sus filas al cambiar productos_oferta.');
+    $afirmar($db->query('SELECT * FROM receta_componentes WHERE unidad_id=2 ORDER BY id')->fetch_all(MYSQLI_ASSOC)===$recetaAntes,'Los componentes de recetas conservan sus filas al cambiar productos_oferta.');
     foreach($tablasM2 as $tabla)$afirmar($db->query("SELECT * FROM {$tabla} ORDER BY 1")->fetch_all(MYSQLI_ASSOC)===$m2Antes[$tabla],"La migración no cambia registros de {$tabla}.");
     $tiposVistaDespues=$db->query("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_TYPE,IS_NULLABLE,CHARACTER_MAXIMUM_LENGTH,NUMERIC_PRECISION,NUMERIC_SCALE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='productos_oferta' ORDER BY ORDINAL_POSITION")->fetch_all(MYSQLI_ASSOC);
     $afirmar($tiposVistaDespues===$tiposVistaAntes&&array_column($tiposVistaDespues,'COLUMN_NAME')===['id','oferta_id','created_at','updated_at','nombre','descripcion','img'],'La vista conserva nombres, orden y tipos de columnas del contrato previo: '.json_encode([$tiposVistaAntes,$tiposVistaDespues]));
@@ -139,9 +138,12 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $afirmar($filaNueva===['nombre'=>'A3 Panadería '.$sufijo,'descripcion'=>'Producto nuevo Panadería','img'=>null],'La creación conserva imagen NULL y crea datos comerciales antes del commit.');
 
     $shared=a3Crear('restaurante','A3 Compartido '.$sufijo,'Identidad técnica original', 'build/images/a3-original.webp',$rest);
-    $asociacion=Services\Menu\Ofertas::crear($shared['producto_id'],'panaderia',['categoria_id'=>$pan['categoria_id'],'area_id'=>$pan['area_id'],'precio'=>'28.50','activo'=>1]);
-    $ofertaPan=(int)($asociacion['oferta_id']??0);$ofertaRest=$shared['oferta_id'];
-    $afirmar(!empty($asociacion['confirmado'])&&$ofertaPan>0,'Crear segunda oferta para una identidad técnica compartida.');
+    // Fixture de fila cruzada heredada: A4 conserva su lectura, pero ya no ofrece
+    // un escritor operativo para crear asociaciones entre negocios.
+    $db->execute_query('INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo) VALUES(?,?,?,?,?,1)',[$shared['producto_id'],$pan['unidad_id'],$pan['categoria_id'],'28.50',$pan['area_id']]);
+    $ofertaPan=(int)$db->insert_id;$ofertaRest=$shared['oferta_id'];
+    $db->execute_query('INSERT INTO oferta_datos_comerciales(oferta_id,nombre,descripcion,img) VALUES(?,?,?,?)',[$ofertaPan,'A3 Compartido '.$sufijo,'Identidad técnica original','build/images/a3-original.webp']);
+    $afirmar($ofertaPan>0,'Prepara una asociación comercial histórica compartida para verificar preservación A3/A4.');
     $relaciones=$db->execute_query('SELECT id,producto_id,unidad_id FROM ofertas_producto WHERE id IN (?,?) ORDER BY id',[$ofertaRest,$ofertaPan])->fetch_all(MYSQLI_ASSOC);
     $afirmar(count($relaciones)===2&&(int)$relaciones[0]['producto_id']===$shared['producto_id']&&(int)$relaciones[1]['producto_id']===$shared['producto_id'],'Ambas ofertas conservan producto_id y sus IDs propios.');
     $afirmar($db->execute_query('SELECT nombre FROM productos WHERE id=?',[$shared['producto_id']])->fetch_row()[0]==='A3 Compartido '.$sufijo,'La identidad técnica queda intacta al crear ofertas.');
@@ -192,52 +194,16 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $afirmar($ticketActual===$ticketCompartido,'Editar una oferta no reescribe snapshots históricos de tickets.');
     $casos[]='creación, independencia por negocio, permisos, rollback y lectores administrativo/público/PDF/POS';
 
-    // Productos de la casa permanece disponible, con restricciones explícitas tras activar A3.
-    $casaDatos=['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp','precio'=>'40.00','activo'=>1,'tipo'=>'compartido',
-        'reglas'=>['nombre'=>false,'descripcion'=>false,'img'=>false,'precio'=>false,'receta'=>false,'activo'=>false],
-        'negocios'=>['restaurante'=>['categoria_id'=>$rest['categoria_id'],'area_id'=>$rest['area_id'],'precio'=>'40.00','activo'=>1],
-            'panaderia'=>['categoria_id'=>$pan['categoria_id'],'area_id'=>$pan['area_id'],'precio'=>'42.00','activo'=>1]]];
-    $productoCasa=(int)(Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::crear($casaDatos,'a3_crear_'.$sufijo.bin2hex(random_bytes(4))))['producto_id']??0);
-    $previa=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::vistaPrevia($productoCasa));
-    $publicada=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::publicar($productoCasa,(int)$previa['configuracion']['revision'],$previa['huella'],'a3_pub_'.$sufijo.bin2hex(random_bytes(4)),true));
-    $ofertasCasa=$db->execute_query('SELECT id,unidad_id FROM ofertas_producto WHERE producto_id=? ORDER BY unidad_id',[$productoCasa])->fetch_all(MYSQLI_ASSOC);
-    $ofertaCasaRest=(int)$ofertasCasa[0]['id'];$ofertaCasaPan=(int)$ofertasCasa[1]['id'];
-    $afirmar(!empty($publicada['ok'])&&count($ofertasCasa)===2,'Productos de la casa puede publicar nuevas ofertas con filas locales inicializadas.');
-    $_SESSION['id']=$usuarioLocal['id'];
-    try {
-        $cambioCasa=Services\Menu\ProductosCasa::guardarLocal('restaurante',$ofertaCasaRest,['nombre'=>'Casa Restaurante local','descripcion'=>'Texto local casa','img'=>null]);
-        $datosCasa=a3Comerciales($db,[$ofertaCasaRest,$ofertaCasaPan]);
-        $restaurar=Services\Menu\ProductosCasa::guardarLocal('restaurante',$ofertaCasaRest,[],['nombre','descripcion','img']);
-    } finally { $_SESSION['id']=$superadminId; }
-    $afirmar(!empty($cambioCasa['ok'])&&$datosCasa[$ofertaCasaRest]===['nombre'=>'Casa Restaurante local','descripcion'=>'Texto local casa','img'=>null],'Personalización de casa permite datos locales aunque sus reglas Global sean falsas: '.json_encode($cambioCasa,JSON_UNESCAPED_UNICODE));
-    $afirmar($datosCasa[$ofertaCasaPan]===['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp'],'La personalización de casa no altera la oferta del otro negocio.');
-    $afirmar(!empty($restaurar['ok'])&&a3Comerciales($db,[$ofertaCasaRest])[$ofertaCasaRest]===['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp'],'La restauración local devuelve los valores de publicación sin cambiar otras ofertas.');
-    $db->query("CREATE TRIGGER trg_a3_no_redundante BEFORE UPDATE ON oferta_datos_comerciales FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='escritura comercial redundante'");
-    try { $guardadoSinCambios=Services\Menu\ProductosCasa::guardarLocal('restaurante',$ofertaCasaRest,[]); }
-    finally { $db->query('DROP TRIGGER trg_a3_no_redundante'); }
-    $afirmar(!empty($guardadoSinCambios['ok']),'Una operación sin cambio comercial no escribe otra vez en la fuente A3.');
-    $configCasa=Services\Menu\ProductosCasa::configuracion($productoCasa);
-    $borradorAlterado=array_replace($casaDatos,['nombre'=>'Cambio Global no debe propagar '.$sufijo]);
-    $guardado=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::guardar($productoCasa,$borradorAlterado,(int)$configCasa['revision']));
-    $previaAlterada=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::vistaPrevia($productoCasa));
-    $publicacionAlterada=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\ProductosCasa::publicar($productoCasa,(int)$previaAlterada['configuracion']['revision'],$previaAlterada['huella'],'a3_pub_bloqueada_'.$sufijo.bin2hex(random_bytes(3)),true));
-    $tecnicos=$db->execute_query('SELECT nombre,descripcion,img FROM productos WHERE id=?',[$productoCasa])->fetch_assoc();
-    $afirmar(!empty($guardado['ok'])&&empty($publicacionAlterada['ok'])&&str_contains($publicacionAlterada['mensaje']??'','pertenece a cada negocio'),'La publicación rechaza un cambio global de identidad cuando ya hay ofertas locales.');
-    $comercialesCasaFinal=a3Comerciales($db,[$ofertaCasaRest,$ofertaCasaPan]);
-    $esperadosCasa=[$ofertaCasaRest=>['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp'],$ofertaCasaPan=>['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp']];ksort($comercialesCasaFinal);ksort($esperadosCasa);
-    $afirmar($tecnicos===['nombre'=>'A3 Casa '.$sufijo,'descripcion'=>'Publicación base A3','img'=>'build/images/a3-casa.webp']&&$comercialesCasaFinal===$esperadosCasa,'La publicación rechazada no cambia productos ni ofertas: '.json_encode([$tecnicos,$comercialesCasaFinal],JSON_UNESCAPED_UNICODE));
-    $actual=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\CatalogoComercial::identidad($productoCasa));
-    $globalBloqueado=Services\Security\ContextoNegocio::en('global',static fn()=>Services\Menu\CatalogoComercial::actualizar($productoCasa,['nombre'=>'Global no debe cambiar','descripcion'=>'Prueba','img'=>null],Services\Menu\CatalogoComercial::huella($actual),true));
-    $afirmar(empty($globalBloqueado['ok'])&&str_contains($globalBloqueado['mensaje'],'edición comercial por negocio'),'La edición compartida de Global queda deshabilitada con respuesta explícita.');
-    $afirmar(!empty($publicada['publicacion_id']),'La publicación oficial mantiene su referencia histórica.');
-    $casos[]='compatibilidad transitoria con publicación, personalización, restauración y bloqueo de propagación Global';
+    $afirmar(!class_exists(Services\Menu\ProductosCasa::class)&&!class_exists(Services\Menu\CatalogoComercial::class),'Los servicios de publicación comercial ya no forman parte del runtime.');
+    foreach($legacyTables as $tabla)$afirmar($db->query("SELECT * FROM {$tabla} ORDER BY 1")->fetch_all(MYSQLI_ASSOC)===$legacyAntes[$tabla],"El corte A3 conserva las filas históricas de {$tabla}.");
+    $casos[]='A3 activa la fuente local y mantiene los registros comerciales históricos sin escritores operativos';
 
     // Reejecutar A1 y A3 debe ser no destructivo incluso después de ediciones locales.
-    $comercialesAntes=a3Comerciales($db,[$ofertaRest,$ofertaPan,$ofertaCasaRest,$ofertaCasaPan]);
+    $comercialesAntes=a3Comerciales($db,[$ofertaRest,$ofertaPan]);
     $datosM2Antes=[];foreach($tablasM2 as $tabla)$datosM2Antes[$tabla]=$db->query("SELECT * FROM {$tabla} ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
     Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/a1-datos-comerciales-oferta.sql');
     Multinegocio\SqlArchivo::ejecutar($db,$migracion);
-    $afirmar(a3Comerciales($db,[$ofertaRest,$ofertaPan,$ofertaCasaRest,$ofertaCasaPan])===$comercialesAntes,'Repetir A1 y A3 no sobrescribe ediciones locales posteriores al corte.');
+    $afirmar(a3Comerciales($db,[$ofertaRest,$ofertaPan])===$comercialesAntes,'Repetir A1 y A3 no sobrescribe ediciones locales posteriores al corte.');
     foreach($tablasM2 as $tabla)$afirmar($db->query("SELECT * FROM {$tabla} ORDER BY 1")->fetch_all(MYSQLI_ASSOC)===$datosM2Antes[$tabla],"La activación repetida conserva {$tabla}.");
     foreach(['nombre','descripcion','img'] as $campo){
         $columnasPermitidas=['nombre'=>'nombre','descripcion'=>'descripcion','img'=>'img'];$col=$columnasPermitidas[$campo];

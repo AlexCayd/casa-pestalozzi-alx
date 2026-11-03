@@ -39,7 +39,6 @@ final class Articulos
         if(\Classes\Auth::puede('productos','ver',$ctx)){
             $out['elaboraciones']=self::sql("SELECT DISTINCT r.id,r.articulo_id,r.version,i.nombre FROM articulo_receta_componentes c JOIN articulo_recetas r ON r.id=c.receta_id JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE c.articulo_id=? AND r.publicada=1 AND (r.unidad_id=? OR u.slug='global') ORDER BY r.id DESC LIMIT 21",[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
             $out['anteriores']=self::sql('SELECT DISTINCT s.id,s.nombre FROM subreceta_ingredientes c JOIN subrecetas s ON s.id=c.subreceta_id AND s.unidad_id=c.unidad_id WHERE c.articulo_id=? AND s.unidad_id=? ORDER BY s.id DESC LIMIT 21',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
-            if($ctx==='global'&&\Classes\Auth::puede('menu','ver',$ctx))$out['casa']=self::sql('SELECT DISTINCT v.id,v.producto_id,v.version,p.nombre FROM receta_casa_componentes c JOIN receta_casa_versiones v ON v.id=c.version_id JOIN productos p ON p.id=v.producto_id WHERE c.articulo_id=? AND v.publicada=1 ORDER BY v.id DESC LIMIT 21',[$id])->get_result()->fetch_all(MYSQLI_ASSOC);
             if(\Classes\Auth::puede('menu','ver',$ctx)&&$ctx!=='global'){
                 $out['presentaciones']=self::sql('SELECT DISTINCT p.id,p.oferta_id,p.nombre,v.version FROM presentacion_componentes c JOIN presentacion_versiones v ON v.id=c.version_id JOIN oferta_presentaciones p ON p.id=v.presentacion_id AND p.unidad_id=v.unidad_id WHERE c.articulo_id=? AND p.unidad_id=? AND v.publicada=1 ORDER BY v.version DESC,p.id LIMIT 21',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
                 $out['variantes']=self::sql('SELECT DISTINCT v.id,v.oferta_id,v.nombre FROM variante_ajustes a JOIN producto_variantes v ON v.id=a.variante_id AND v.unidad_id=a.unidad_id WHERE (a.articulo_id=? OR a.articulo_nuevo_id=?) AND v.unidad_id=? ORDER BY v.id DESC LIMIT 21',[$id,$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -137,7 +136,7 @@ final class Articulos
     public static function publicar(string $ctx,int $id,array $raw,int $revision,string $clave,bool $confirmado): array
     {
         return C::transaccion(static function()use($ctx,$id,$raw,$revision,$clave,$confirmado){
-            C::exigir('productos','editar',$ctx,true);if($ctx==='global')C::facultad('comercial.identidad.editar','global','menu',true);
+            C::exigir('productos','editar',$ctx,true);if($ctx==='global'){C::exigir('inventario','editar','global',true);C::facultad('catalogo.editar','global','inventario',true);}
             $u=C::unidad($ctx);$hash=hash('sha256',json_encode([C::actorId(),'receta',$id,$revision,$raw],JSON_THROW_ON_ERROR));
             $anterior=self::comando($u,$clave,$hash);if($anterior!==null)return $anterior+['reintento'=>true];
             if(!$confirmado)self::error('CONFIRMACION_REQUERIDA','Confirma la nueva versión y su composición.');

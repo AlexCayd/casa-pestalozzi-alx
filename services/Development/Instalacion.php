@@ -16,6 +16,10 @@ final class Instalacion
         require_once $root.'/scripts/multinegocio/SqlArchivo.php';
         $archivos=['database/ddl.sql','database/deploy.sql','database/menu-restaurante.sql'];
         if ($simulados) $archivos[]='database/development.sql';
+        // A4 exige A3 antes de operar el menú. Las instalaciones temporales y
+        // nuevas reciben la misma fuente local que requiere el runtime vigente.
+        $archivos[]='database/actualizaciones/a1-datos-comerciales-oferta.sql';
+        $archivos[]='database/actualizaciones/a3-datos-comerciales-local.sql';
         foreach ($archivos as $archivo) if (!is_file($root.'/'.$archivo)) throw new \RuntimeException('Falta un recurso versionado de instalación: '.$archivo);
         $stmt=$server->prepare('SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');
         $stmt->execute([$base]); $existente=$stmt->get_result()->fetch_row(); $stmt->close();
@@ -29,12 +33,17 @@ final class Instalacion
         if ($alCrear!==null) $alCrear($base,$token);
         foreach ($archivos as $archivo) {
             $adminSeed=$archivo==='database/development.sql';
+            $corteA3=$archivo==='database/actualizaciones/a3-datos-comerciales-local.sql';
             if ($adminSeed) $server->query('SET @cp_dev_admin_demo_seed=1');
+            if ($corteA3) $server->query('SET @cp_a3_preservar_locales=1');
             try {
                 foreach (\Multinegocio\SqlArchivo::sentencias((string)file_get_contents($root.'/'.$archivo)) as $sql) {
                     $r=$server->query($sql); if ($r instanceof \mysqli_result) $r->free();
                 }
-            } finally { if ($adminSeed) $server->query('SET @cp_dev_admin_demo_seed=NULL'); }
+            } finally {
+                if ($adminSeed) $server->query('SET @cp_dev_admin_demo_seed=NULL');
+                if ($corteA3) $server->query('SET @cp_a3_preservar_locales=NULL');
+            }
         }
         $hash=hash('sha256',implode('',array_map(static fn($a)=>hash_file('sha256',$root.'/'.$a),$archivos)));
         $stmt=$server->prepare('INSERT INTO instalacion_desarrollo(id,entorno,propietario_token,dml_sha256,administrador_id) VALUES (1,?,?,?,(SELECT id FROM usuarios WHERE username=?))');

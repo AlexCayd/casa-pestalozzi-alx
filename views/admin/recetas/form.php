@@ -10,10 +10,13 @@
     // controlador), «Volver» y «Cancelar» regresan allí. El formulario no
     // lleva `action`: se envía a esta misma URL, con su `volver`, y al guardar
     // el controlador redirige a esa lista.
-    $volverUrl = (string) ($volverUrl ?? '/admin/recetas');
+    $recetasBase = $recetasBase ?? '/admin/recetas';
+    $recetasContexto = $recetasContexto ?? 'restaurante';
+    $recetaMenuBase = $recetaMenuBase ?? '/admin/menu';
+    $volverUrl = (string) ($volverUrl ?? $recetasBase);
     $almacenesConsumo = is_array($almacenesConsumo ?? null) ? $almacenesConsumo : [];
     $pendientesAlmacen = count(array_filter($almacenesConsumo, static fn(array $f): bool => $f['almacen_id'] === null));
-    $volverQuery = $volverUrl !== '/admin/recetas' ? '&volver=' . rawurlencode($volverUrl) : '';
+    $volverQuery = $volverUrl !== $recetasBase ? '&volver=' . rawurlencode($volverUrl) : '';
 
     $referenciasActuales=array_map('intval',array_column(array_filter($componentes,static fn($h)=>$h['tipo']==='ingrediente'),'ref_id'));
     $ingredientes=array_filter(is_array($ingredientes)?$ingredientes:iterator_to_array($ingredientes),static fn($i)=>!in_array((int)$i->id,$preparacionesVersionadas??[],true)||in_array((int)$i->id,$referenciasActuales,true));
@@ -57,7 +60,7 @@
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
     <p class="admin-field__hint">Este editor conserva las recetas anteriores. Las preparaciones versionadas y sus modalidades de consumo se configuran en Presentaciones. Las recetas existentes no se convierten automáticamente.</p>
-    <?php if($prod && \Classes\Auth::puede('menu','ver','restaurante')): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars('/admin/menu/presentaciones?'.http_build_query(['id'=>(int)$prod->id,'volver'=>'/admin/recetas/editar?id='.(int)$prod->id]),ENT_QUOTES,'UTF-8') ?>">Configurar presentaciones</a></p><?php endif; ?>
+    <?php if($prod && \Classes\Auth::puede('menu','ver',$recetasContexto)): ?><p><a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($recetaMenuBase.'/presentaciones?'.http_build_query(['id'=>(int)$prod->id,'volver'=>$recetasBase.'/editar?id='.(int)$prod->id]),ENT_QUOTES,'UTF-8') ?>">Configurar presentaciones</a></p><?php endif; ?>
 
     <?php if(!empty($configuracionComposicion['referencias'])): ?><section class="admin-panel admin-card"><h3>Elaboraciones fijadas en la receta vigente</h3><p><?= !empty($configuracionComposicion['edicionCompatible'])?'Las cantidades se editan conservando estas versiones.':'Estas versiones se conservan en consulta.' ?> Para añadir una preparación o elegir otra modalidad, configura una presentación.</p><ul><?php foreach($configuracionComposicion['referencias'] as $r): ?><li><?= htmlspecialchars($r['nombre'].' · Versión '.$r['version'].' · '.($r['contexto']==='global'?'Global':ucfirst($r['contexto'])),ENT_QUOTES,'UTF-8') ?> · Preparar usando su elaboración</li><?php endforeach; ?></ul></section><?php endif; ?>
     <?php if(empty($configuracionComposicion['edicionCompatible'])): ?><p role="status">Solo consulta: <?= htmlspecialchars($configuracionComposicion['motivoConsulta'],ENT_QUOTES,'UTF-8') ?>. No se modificará desde el editor anterior.</p><?php endif; ?>
@@ -86,16 +89,15 @@
                 <?php if (\Classes\Auth::puede('menu', 'ver')) : ?>
                     <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/variantes?id=<?php echo (int) $prod->id; ?>">Variantes</a>
                 <?php endif; ?>
-                <?php if (\Classes\Auth::puede('menu','ver','restaurante')): ?><a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/menu/edit?id=<?php echo (int) $prod->id; ?>">
+                <?php if (\Classes\Auth::puede('menu','ver',$recetasContexto)): ?><a class="admin-btn admin-btn--secondary admin-btn--small" href="<?= htmlspecialchars($recetaMenuBase.'/edit?id='.(int)$prod->id,ENT_QUOTES,'UTF-8') ?>">
                     Datos del producto
                 </a><?php endif; ?>
             </div>
         </section>
     <?php endif; ?>
 
-    <?php if(!empty($recetaCasaProtegida)): ?><p>Definido por Global. Usando receta estándar; la preparación se consulta en Productos de la casa.</p><?php endif; ?>
     <form method="POST" data-recipe-builder>
-    <fieldset class="admin-menu__fieldset" <?= !empty($recetaCasaProtegida)||empty($configuracionComposicion['edicionCompatible'])||!\Classes\Auth::puede('productos','editar','restaurante')?'disabled':'' ?>>
+    <fieldset class="admin-menu__fieldset" <?= empty($configuracionComposicion['edicionCompatible'])||!\Classes\Auth::puede('productos','editar',$recetasContexto)?'disabled':'' ?>>
         <section class="admin-panel admin-card admin-recipe">
             <div class="admin-recipe__head">
                 <div>
@@ -171,7 +173,7 @@
     <?php if ($prod && $almacenesConsumo !== []) : ?>
         <?php /* Formulario aparte: la lista sale de la receta y las variantes ya
                  guardadas. Sin fila, ConsumoOferta rechaza la venta; no hay respaldo. */ ?>
-        <form method="POST" action="/admin/recetas/almacenes?id=<?php echo (int) $prod->id . htmlspecialchars($volverQuery, ENT_QUOTES, 'UTF-8'); ?>" id="almacenes" class="admin-panel admin-card admin-recipe">
+        <form method="POST" action="<?= htmlspecialchars($recetasBase.'/almacenes?id='.(int)$prod->id.$volverQuery,ENT_QUOTES,'UTF-8') ?>" id="almacenes" class="admin-panel admin-card admin-recipe">
             <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
             <div class="admin-recipe__head">
                 <div>

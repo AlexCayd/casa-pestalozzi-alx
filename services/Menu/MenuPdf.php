@@ -122,7 +122,7 @@ class MenuPdf
 
     public static function biblioteca(): array
     {
-        $perfil=\Services\Security\ContextoNegocio::exigir('menu','ver','global');$docs=[];
+        $perfil=\Services\Security\ContextoNegocio::exigirUno(['inventario'=>'ver','users'=>'ver','productos'=>'ver'],'global');$docs=[];
         foreach (self::definiciones() as $doc) {
             if (!\Services\Security\PermisosUsuario::permitido($perfil,$doc['contexto'],'menu','ver')) continue;
             try { self::datosAdministrativos($doc['contexto'],$doc['carta']); }

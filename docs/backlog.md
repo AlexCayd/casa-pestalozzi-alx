@@ -2,11 +2,12 @@
 
 ## Estado posterior a M2
 
-Productos de la casa, políticas por campo y recetas estándar versionadas quedan
-implementados. M2 incorpora artículos unificados, elaboraciones anidadas e
-inmutables, presentaciones y variantes administrativas de Panadería, con un único
-resolvedor y snapshots históricos. Siguen pendientes POS de Panadería (M3),
-producción física por lotes (M2.5) y módulos consolidados.
+Productos de la casa y sus políticas dejaron de ser una funcionalidad operativa
+en A4; no se planea un módulo equivalente. Los datos históricos se preservan.
+M2 incorpora artículos unificados, elaboraciones anidadas e inmutables,
+presentaciones y variantes administrativas de Panadería, con un único resolvedor
+y snapshots históricos. Siguen pendientes POS de Panadería (M3), producción
+física por lotes (M2.5) y módulos consolidados.
 Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 

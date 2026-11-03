@@ -26,6 +26,17 @@ final class DatosComercialesOferta
         }
     }
 
+    /** Fail closed: commercial code must never fall back to the A2 projection. */
+    public static function exigirA3(): void
+    {
+        try {
+            if (self::a3Activa()) return;
+        } catch (\Throwable) {
+            throw new \Services\Inventory\InventarioError('A3_REQUERIDO', 'Aplica la migración A3 antes de operar el menú multinegocio.');
+        }
+        throw new \Services\Inventory\InventarioError('A3_REQUERIDO', 'Aplica la migración A3 antes de operar el menú multinegocio.');
+    }
+
     /** Crea la fila local de una oferta nueva desde la identidad técnica. No reemplaza una fila existente. */
     public static function crearDesdeIdentidad(int $ofertaId, int $productoId): void
     {
@@ -63,61 +74,6 @@ final class DatosComercialesOferta
         self::validarPersistido($ofertaId, $nombre, $descripcion, $img, true);
     }
 
-    /**
-     * Compatibilidad A2 para código preparado antes del corte A3.
-     * Calcula el antiguo valor efectivo con sus tablas originales; nunca lee productos_oferta.
-     */
-    public static function sincronizarOfertaLegacy(int $ofertaId): void
-    {
-        self::exigirModoLegacy();
-        if ($ofertaId < 1) throw new \InvalidArgumentException('El identificador de oferta no es válido.');
-        $stmt = self::db()->prepare(self::proyeccionLegacy() . ' WHERE o.id=? LIMIT 1');
-        if (!$stmt) throw new \RuntimeException(self::db()->error);
-        try {
-            if (!$stmt->execute([$ofertaId])) throw new \RuntimeException($stmt->error);
-            $datos = $stmt->get_result()->fetch_assoc();
-        } finally {
-            $stmt->close();
-        }
-        if (!$datos) throw new \RuntimeException("La oferta {$ofertaId} no tiene una proyección heredada.");
-        self::guardar(self::db(), $datos);
-        self::validarPersistido($ofertaId, $datos['nombre'], $datos['descripcion'], $datos['img'], true);
-    }
-
-    /** Compatibilidad A2: conserva la proyección anterior para cada oferta de la identidad. */
-    public static function sincronizarProductoLegacy(int $productoId): int
-    {
-        self::exigirModoLegacy();
-        if ($productoId < 1) throw new \InvalidArgumentException('El identificador de producto no es válido.');
-        $stmt = self::db()->prepare(self::proyeccionLegacy() . ' WHERE p.id=? ORDER BY o.id');
-        if (!$stmt) throw new \RuntimeException(self::db()->error);
-        try {
-            if (!$stmt->execute([$productoId])) throw new \RuntimeException($stmt->error);
-            $ofertas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        } finally {
-            $stmt->close();
-        }
-        foreach ($ofertas as $oferta) {
-            self::guardar(self::db(), $oferta);
-            self::validarPersistido((int) $oferta['oferta_id'], $oferta['nombre'], $oferta['descripcion'], $oferta['img'], true);
-        }
-        return count($ofertas);
-    }
-
-    private static function proyeccionLegacy(): string
-    {
-        return "SELECT o.id AS oferta_id,
-            CASE WHEN pn.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.nombre'))='true' THEN JSON_UNQUOTE(pn.valor) ELSE p.nombre END AS nombre,
-            CASE WHEN pd.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.descripcion'))='true' THEN JSON_UNQUOTE(pd.valor) ELSE p.descripcion END AS descripcion,
-            CASE WHEN pi.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.img'))='true' THEN CASE WHEN JSON_TYPE(pi.valor)='NULL' THEN NULL ELSE JSON_UNQUOTE(pi.valor) END ELSE p.img END AS img
-            FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id
-            LEFT JOIN producto_estandares pe ON pe.producto_id=p.id
-            LEFT JOIN producto_publicaciones pp ON pp.id=pe.publicacion_id
-            LEFT JOIN oferta_personalizaciones pn ON pn.oferta_id=o.id AND pn.campo='nombre'
-            LEFT JOIN oferta_personalizaciones pd ON pd.oferta_id=o.id AND pd.campo='descripcion'
-            LEFT JOIN oferta_personalizaciones pi ON pi.oferta_id=o.id AND pi.campo='img'";
-    }
-
     private static function guardar(\mysqli $db, array $datos): void
     {
         $stmt = $db->prepare(self::UPSERT);
@@ -145,11 +101,6 @@ final class DatosComercialesOferta
         if ($comparar && ($fila['nombre'] !== $nombre || $fila['descripcion'] !== $descripcion || $fila['img'] !== $img)) {
             throw new \RuntimeException("La validación de datos comerciales falló para la oferta {$ofertaId}.");
         }
-    }
-
-    private static function exigirModoLegacy(): void
-    {
-        if (self::a3Activa()) throw new \LogicException('La sincronización heredada está deshabilitada después del corte A3.');
     }
 
     private static function db(): \mysqli

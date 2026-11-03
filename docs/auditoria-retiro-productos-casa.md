@@ -1,6 +1,10 @@
 # Auditoría inicial: retirada de Productos de la casa
 
-Estado: investigación inicial; no es una implementación ni una migración aprobada para producción.
+Estado de esta nota: evidencia inicial previa a A4, conservada como registro de
+decisiones y riesgos. La implementación y aceptación vigente están en
+[Pruebas A4](desarrollo/pruebas.md#cierre-a4) y en el [contrato A4](modulos/catalogo-comercial.md).
+Las referencias a controladores, clases y flujos activos describen la base
+investigada entonces; no son instrucciones para la versión posterior a A4.
 
 ## Bases revisadas
 

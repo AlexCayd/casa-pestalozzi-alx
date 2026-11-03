@@ -17,36 +17,30 @@ capacidades enviados y muestran el error sin éxito simultáneo.
 El preview de variantes normaliza las cantidades DECIMAL recibidas como cadenas
 y obtiene el costo referencial efectivo del artículo según M2. Cero explícito y
 desconocido permanecen distintos. Los errores de artículos/presentaciones conservan
-el layout y retorno contextual; una identidad local Global no ofrece publicación
-de presentaciones oficiales sin configuración de la casa.
+el layout y retorno contextual. Global no tiene identidad ni publicación comercial;
+sus artículos operativos no son productos de venta.
 
 Verificación dirigida: `node scripts/tests/run-ux1-ui.cjs` compara también tres
 casos de costos con el motor PHP M2 mediante `fixture-ux1-costos.php`.
-`php scripts/tests/pruebas-http-ux1.php --fixture <ARCHIVO_PRIVADO>` requiere el
-harness aislado 3E; comprueba PRG, flash, rechazos, acceso Global y permisos parciales.
-Las pruebas no modifican el esquema ni conceden permisos.
+El HTTP UX-1 asociado a publicación comercial se retiró en A4. Las rutas y
+permisos vigentes se comprueban en `pruebas-http-m2.php` sobre una instalación
+3E aislada y en `run-menu-a4-ui.cjs`; no se conceden permisos ni se modifica el
+esquema desde la prueba de interfaz.
 
-## Productos y recetas de la casa M1.2
+## Menú comercial local A4
 
-Se conserva la identidad visual de Restaurante y los componentes compartidos:
-encabezado, filtros, tabla compacta, selectores, botones, alertas, confirmación y
-temas. La ficha Global separa información, negocios, personalización, receta e
-historial. El recetario se consulta dentro de Productos de la casa. No hay un
-modal que concentre la configuración: solo se confirma allí la publicación.
+Restaurante y Panadería editan nombre, descripción, imagen, precio, categoría,
+área, disponibilidad y orden dentro de su propio contexto. La ficha no muestra
+valores “definidos por Global”, personalizaciones ni controles de publicación.
+Crear una oferta no exige receta ni genera una composición automática; su estado
+sin receta se presenta explícitamente. La navegación Global no presenta Productos
+de la casa y conserva Artículos, inventario, usuarios, transferencias y PDFs
+autorizados.
 
-Los campos locales explican «Definido por Global» o «Personalización permitida»,
-su valor oficial/personalizado y el regreso a la casa. Disponibilidad protegida y
-eliminación local quedan deshabilitadas en la tabla; las variantes protegidas no
-ofrecen una acción de edición. Las categorías, áreas y orden siguen disponibles.
-Los ingredientes se agregan con el selector compartido, IDs únicos y foco en la
-fila nueva. El teclado abre y cierra el selector con Enter/Escape.
-
-Se inspeccionaron escritorio (1280), tableta (768) y móvil (390), temas claro y
-oscuro, campos readonly, imágenes, foco y menú de ingredientes. No hubo overflow
-del documento en las vistas comprobadas (375/390 y 753/768). Las tablas de impacto
-mantienen su desplazamiento dentro del contenedor. Los estilos nuevos no añaden
-animaciones y respetan la preferencia de movimiento reducido del panel. Capturas
-reales y alcance de la validación en [Pruebas](pruebas.md#cierre-m12).
+Las recetas y presentaciones heredadas siguen consultables desde las rutas locales.
+Los editores de versiones preservan sus datos y no sustituyen publicaciones
+históricas ni convierten recetas a presentaciones automáticamente. El contrato y
+las comprobaciones de interfaz están en [Pruebas A4](pruebas.md#cierre-a4).
 
 
 ## M1.1-E: inicio Restaurante y selección compacta
@@ -417,26 +411,15 @@ tablet, escritorio, teclado, foco, solo consulta, errores y reduced-motion.
 Consultar [pruebas](pruebas.md); reglas de negocio permanecen en backend.
 
 
-## Catálogo comercial y Menú M1
+## Menú multinegocio M1 y retirada A4
 
-Restaurante y Panadería comparten `views/admin/menu/`, configuración de
-`AdministracionMenu` y el CSS existente. La ruta efectiva prepara enlaces,
-cartas, permisos y acciones. Panadería permite configurar artículos, elaboraciones,
-presentaciones y variantes; mantiene pendientes el POS y la producción física.
-El formulario conserva la foto pendiente y la previsualización existente.
-
-Global usa `/admin/global/productos` para identidades comerciales: fichas con ID,
-datos maestros y ofertas de negocios consultables, sin edición de precios locales.
-`/admin/global/catalogo` sigue siendo inventariable. La ficha maestra reutiliza
-el formulario del producto ocultando condiciones locales. Los datos compartidos
-explican el impacto y exigen marcar confirmación; sin facultad son consulta.
-
-Solo lectura oculta altas/ediciones destructivas y deshabilita controles de
-mutación; el servidor revalida toda petición. Confirmación escrita del modal
-compartido hace visible su ranura personalizada, enfoca el campo y habilita la
-acción solo al coincidir el nombre. Se verificó en navegador la cancelación y
-el nombre requerido, además de temas, selector, escritorio y móvil a 390 px.
-Ver evidencia y límites en el [contrato del módulo](../modulos/catalogo-comercial.md).
+M1 incorporó menús locales y una biblioteca PDF autorizada. A4 retiró la ficha y
+el catálogo comercial Global, sus enlaces y la confirmación de publicación. La
+UI vigente conserva los formularios locales de Restaurante y Panadería; el
+servidor aplica permisos por negocio. Los PDFs Global solo leen cartas de los
+negocios para los que se autorizó acceso. El [contrato A4](../modulos/catalogo-comercial.md)
+describe la operación y preservación vigentes. La evidencia visual M1 pertenece
+a entregas históricas.
 
 ## Artículos y composiciones M2
 
@@ -467,9 +450,9 @@ pantalla conservada de Recetas Restaurante. Se mantuvieron sus tokens y jerarqu�
 La clave técnica `productos` conserva sus permisos efectivos y se presenta como
 **Artículos y preparaciones** en sidebar, Inicio, encabezado y catálogo en Global,
 Restaurante y Panadería. La tarjeta reutiliza el icono `products` del sidebar.
-Menú conserva la responsabilidad comercial local y Productos de la casa la global.
-Presentaciones pertenece al módulo comercial; las recetas anteriores se consultan
-desde Artículos y preparaciones, sin convertir datos históricos automáticamente.
+Menú conserva la responsabilidad comercial local por negocio. Presentaciones
+pertenece al módulo comercial local; las recetas anteriores siguen consultables
+desde sus rutas de negocio, sin convertir datos históricos automáticamente.
 
 El parámetro `volver` conserva el recorrido por URL, sin una navegación compartida
 en sesión. `RetornoAdministrativo` valida rutas exactas, contexto, permisos e IDs,
@@ -482,8 +465,8 @@ no se consume desde otra pestaña que consulte una presentación distinta.
 El alta de identidad de artículo exige las mismas facultades que Almacenes. Sin
 ellas se explica la coordinación con una persona autorizada y se conserva la
 búsqueda/configuración permitida de artículos existentes. No hay nuevas solicitudes.
-Las confirmaciones comerciales usan el modal compartido con variante neutra,
-título, consecuencia y acción específicos; mantienen revisión e idempotencia.
+Las confirmaciones de operaciones que mantienen revisión usan el modal compartido
+con variante neutra, título, consecuencia y acción específicos.
 
 Pruebas dirigidas: `php scripts/tests/run-ux2.php` y
 `php scripts/tests/pruebas-http-ux2.php --fixture ARCHIVO_PRIVADO_DEL_HARNESS`.

@@ -11,11 +11,11 @@
             <p class="admin-page__subtitle">Consulta las preparaciones anteriores. Puedes conservar sus recetas y vincularlas explícitamente a un artículo; las preparaciones nuevas se configuran en Artículos y preparaciones.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas">
+            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?= htmlspecialchars($recetasBase ?? '/admin/recetas',ENT_QUOTES,'UTF-8') ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
                 Volver
             </a>
-            <?php if($puedeEditarAnterior): ?><a class="admin-btn admin-btn--primary admin-create-button" href="/admin/recetas/articulos#crear-preparacion">
+            <?php if($puedeEditarAnterior): ?><a class="admin-btn admin-btn--primary admin-create-button" href="<?= htmlspecialchars(($recetasContexto==='restaurante'?'/admin':'/admin/'.$recetasContexto).'/recetas/articulos#crear-preparacion',ENT_QUOTES,'UTF-8') ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>Crear una preparación</span>
             </a><?php endif; ?>
@@ -43,7 +43,7 @@
                     <tbody>
                         <?php foreach ($subrecetas as $sub) : ?>
                             <?php $n = (int) ($conteosSub[(int) $sub->id] ?? 0); ?>
-                            <tr <?php if($puedeEditarAnterior): ?>data-row-href="/admin/recetas/subrecetas/edit?id=<?php echo (int) $sub->id; ?>"<?php endif; ?>>
+                            <tr <?php if($puedeEditarAnterior): ?>data-row-href="<?= htmlspecialchars(($recetasSubBase ?? '/admin/recetas/subrecetas').'/edit?id='.(int)$sub->id,ENT_QUOTES,'UTF-8') ?>"<?php endif; ?>>
                                 <td><span class="admin-table__cell-main"><?php echo htmlspecialchars($sub->nombre); ?></span></td>
                                 <td><span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($sub->unidad); ?></span></td>
                                 <td><span class="admin-table__cell-sub"><?php echo rtrim(rtrim(number_format((float) $sub->rendimiento, 3, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($sub->unidad); ?></span></td>
@@ -57,10 +57,10 @@
                                 <td><span class="admin-badge admin-badge--<?php echo $sub->activo ? 'neutral' : 'danger'; ?>"><?php echo $sub->activo ? 'Activa' : 'Inactiva'; ?></span></td>
                                 <td>
                                     <?php if($puedeEditarAnterior): ?><div class="admin-table-actions">
-                                        <a class="admin-icon-button admin-icon-button--edit" href="/admin/recetas/subrecetas/edit?id=<?php echo (int) $sub->id; ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
+                                        <a class="admin-icon-button admin-icon-button--edit" href="<?= htmlspecialchars(($recetasSubBase ?? '/admin/recetas/subrecetas').'/edit?id='.(int)$sub->id,ENT_QUOTES,'UTF-8') ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                         </a>
-                                        <form method="POST" action="/admin/recetas/subrecetas/delete"
+                                        <form method="POST" action="<?= htmlspecialchars(($recetasSubBase ?? '/admin/recetas/subrecetas').'/delete',ENT_QUOTES,'UTF-8') ?>"
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar preparación anterior"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>»?"
