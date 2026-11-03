@@ -27,6 +27,7 @@
     "test:menu:m12": "php scripts/tests/run-estandares-m12.php",
     "test:menu:a1:db": "php scripts/tests/run-a1-datos-comerciales.php",
     "test:menu:a2:db": "php scripts/tests/run-a2-datos-comerciales.php",
+    "test:menu:a3:db": "php scripts/tests/run-a3-datos-comerciales.php",
     "test:menu:m1": "php scripts/tests/run-menu-m1.php",
     "test:menu:m11-ui": "php scripts/tests/run-inicio-m11.php && node scripts/tests/run-almacenes-m11-ui.cjs && node scripts/tests/run-almacenes-auto-selection.cjs && node scripts/tests/run-almacenes-selection-ui.cjs",
     "test:menu:m12-ui": "node scripts/tests/run-casa-receta-ui.cjs",

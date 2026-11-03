@@ -232,16 +232,17 @@ class AdminMenuController
             $imagenActual = $platillo->img;
 
             $identidadActual = ['nombre'=>$platillo->nombre,'descripcion'=>$platillo->descripcion,'img'=>$imagenActual];
+            $a3Activa=\Services\Menu\DatosComercialesOferta::a3Activa();
             $casa=\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id);
             self::sincronizarPlatillo($platillo);
             $alertas = $casa?[]:$platillo->validar();
-            $bloqueada = !$casa && CatalogoComercial::compartida((int)$platillo->producto_id) && !CatalogoComercial::puedeEditar();
-            if($casa&&!$casa['reglas']['img']&&(!empty($_POST['quitar_imagen'])||!empty($_POST['imagen_pendiente'])||ImagenUploader::seEnvioArchivo($_FILES['imagen']??null)))$alertas['error'][]='Imagen: Definido por Global.';
+            $bloqueada = !$a3Activa&&!$casa && CatalogoComercial::compartida((int)$platillo->producto_id) && !CatalogoComercial::puedeEditar();
+            if(!$a3Activa&&$casa&&!$casa['reglas']['img']&&(!empty($_POST['quitar_imagen'])||!empty($_POST['imagen_pendiente'])||ImagenUploader::seEnvioArchivo($_FILES['imagen']??null)))$alertas['error'][]='Imagen: Definido por Global.';
             if ($bloqueada) {
                 $intento = $platillo->nombre !== $identidadActual['nombre'] || $platillo->descripcion !== $identidadActual['descripcion'] || !empty($_POST['quitar_imagen']) || !empty($_POST['imagen_pendiente']) || ImagenUploader::seEnvioArchivo($_FILES['imagen'] ?? null);
                 if ($intento) $alertas['error'][] = 'No tienes autorización para cambiar esta identidad compartida.';
             }
-            $fotoBloqueada=$bloqueada||($casa&&!$casa['reglas']['img']);
+            $fotoBloqueada=$bloqueada||(!$a3Activa&&$casa&&!$casa['reglas']['img']);
             $foto = FotoPlatillo::desdeFormulario($platillo, $imagenActual, $fotoBloqueada ? [] : $_POST, $fotoBloqueada ? [] : $_FILES);
             $alertas = self::sumarErrores($alertas, $foto->errores());
 
@@ -551,6 +552,7 @@ class AdminMenuController
     {
         AdministracionMenu::autorizar();
         ContextoNegocio::exigir('menu', 'ver', 'global');
+        $a3Activa=\Services\Menu\DatosComercialesOferta::a3Activa();
         $id = (int)($_GET['id'] ?? 0);
         if(\Services\Menu\ProductosCasa::configuracion($id)){header('Location: /admin/global/productos/casa?id='.$id,true,302);return;}
         $actual = CatalogoComercial::identidad($id);
@@ -559,7 +561,10 @@ class AdminMenuController
         $producto->sincronizar($actual);
         $alertas = []; $foto = null;
         $huella = CatalogoComercial::huella($actual);
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && $a3Activa) {
+            http_response_code(409);
+            $alertas['error'][]='La edición comercial por negocio está activa. Edita nombre, descripción e imagen desde cada oferta.';
+        } elseif (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!CatalogoComercial::puedeEditar()) {
                 http_response_code(403);
                 echo 'No tienes autorización para editar identidades comerciales.';
@@ -577,13 +582,13 @@ class AdminMenuController
                 if (!empty($r['ok']) && !empty($r['confirmado'])) {
                     $foto->confirmar(); Producto::setAlerta('exito', 'Identidad comercial actualizada'); self::globalIndex($router); return;
                 }
-                $alertas['error'][] = 'No se pudo guardar. Confirma el impacto compartido o recarga si otra persona modificó la identidad.';
+                $alertas['error'][] = $r['mensaje']??'No se pudo guardar. Confirma el impacto compartido o recarga si otra persona modificó la identidad.';
             }
             $foto->revertir($producto);
         }
         self::render('menu/form', ['title'=>'Datos maestros', 'topbarSection'=>'Productos de la casa / Datos maestros',
             'platillo'=>$producto, 'accion'=>'Guardar datos maestros', 'categorias'=>[], 'areas'=>[],
-            'identidadMaestra'=>true, 'identidadCompartida'=>true, 'identidadEditable'=>CatalogoComercial::puedeEditar(),
+            'identidadMaestra'=>true, 'identidadCompartida'=>true, 'a3Activa'=>$a3Activa, 'identidadEditable'=>!$a3Activa&&CatalogoComercial::puedeEditar(),
             'identidadHuella'=>$huella, 'usos'=>CatalogoComercial::usos($id), 'alertas'=>$alertas,
             'foto'=>$foto ? $foto->vista() : FotoPlatillo::vistaInicial($actual['img'])]);
     }
@@ -647,8 +652,9 @@ class AdminMenuController
             'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => $accion,
-            'identidadCompartida' => !empty($platillo->producto_id) && CatalogoComercial::compartida((int)$platillo->producto_id),
-            'identidadEditable' => empty($platillo->producto_id) || !CatalogoComercial::compartida((int)$platillo->producto_id) || CatalogoComercial::puedeEditar(),
+            'a3Activa'=>\Services\Menu\DatosComercialesOferta::a3Activa(),
+            'identidadCompartida' => !\Services\Menu\DatosComercialesOferta::a3Activa() && !empty($platillo->producto_id) && CatalogoComercial::compartida((int)$platillo->producto_id),
+            'identidadEditable' => \Services\Menu\DatosComercialesOferta::a3Activa() || empty($platillo->producto_id) || !CatalogoComercial::compartida((int)$platillo->producto_id) || CatalogoComercial::puedeEditar(),
             'identidadHuella' => $platillo->identidad_huella ?? CatalogoComercial::huella(['nombre'=>$platillo->nombre,'descripcion'=>$platillo->descripcion,'img'=>$platillo->img]),
             'casaPolitica'=>!empty($platillo->producto_id)?\Services\Menu\ProductosCasa::publicada((int)$platillo->producto_id):null,
             'casaLocales'=>!empty($platillo->oferta_id)?\Services\Menu\ProductosCasa::locales((int)$platillo->oferta_id):[],

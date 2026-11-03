@@ -77,19 +77,22 @@ final class ProductosCasa
     public static function publicar(int $id,int $revision,string $huella,string $clave,bool $confirmado): array {
         self::autorizar();self::clave($clave);$hash=hash('sha256',self::json([$id,$revision,$huella]));
         return C::transaccion(static function()use($id,$revision,$huella,$clave,$confirmado,$hash){
-            self::autorizar();self::bloquear($id);$c=self::configuracion($id,true);
+            self::autorizar();$productoActual=self::bloquear($id);$c=self::configuracion($id,true);
             $prev=self::sql('SELECT id,producto_id,solicitud_hash FROM producto_publicaciones WHERE clave=?',[$clave])->get_result()->fetch_assoc();
-            if($prev){if((int)$prev['producto_id']!==$id||!hash_equals($prev['solicitud_hash'],$hash))self::error('CONFLICTO_IDEMPOTENCIA','La solicitud ya se utilizó para otro contenido.');DatosComercialesOferta::sincronizarProducto($id);return ['publicacion_id'=>(int)$prev['id']];}
+            if($prev){if((int)$prev['producto_id']!==$id||!hash_equals($prev['solicitud_hash'],$hash))self::error('CONFLICTO_IDEMPOTENCIA','La solicitud ya se utilizó para otro contenido.');if(!DatosComercialesOferta::a3Activa())DatosComercialesOferta::sincronizarProductoLegacy($id);return ['publicacion_id'=>(int)$prev['id']];}
             self::ofertas($id,true);$v=self::vistaPrevia($id);
             if(!$c||(int)$c['revision']!==$revision||!hash_equals($v['huella'],$huella))self::error('VERSION_CONFLICTO','Cambió el producto o alguna oferta. Revisa de nuevo el impacto.');
             if(!$confirmado)self::error('CONFIRMACION_REQUERIDA','Confirma la publicación tras revisar los negocios afectados.');
             $d=$v['borrador'];foreach(array_unique([...array_keys($d['negocios']),...array_column($v['ofertas'],'slug')]) as $ctx)C::exigir('menu','editar',$ctx,true);
+            $a3Activa=DatosComercialesOferta::a3Activa();
+            if($a3Activa&&$v['ofertas']&&($d['nombre']!==$productoActual['nombre']||$d['descripcion']!==$productoActual['descripcion']||$d['img']!==$productoActual['img']))
+                self::error('IDENTIDAD_LOCAL_ACTIVA','La identidad comercial ya pertenece a cada negocio. Cambia nombre, descripción o imagen desde cada oferta antes de publicar; esta publicación no puede reemplazarlos.');
             if($d['receta_version_id']&&!self::sql('SELECT id FROM receta_casa_versiones WHERE id=? AND producto_id=? AND publicada=1',[$d['receta_version_id'],$id])->get_result()->fetch_row())self::error('RECETA_AJENA','Selecciona una versión publicada de receta perteneciente a este producto.');
             if($d['requiere_receta']&&$d['activo']&&!$d['receta_version_id'])self::error('RECETA_PENDIENTE','Completa la receta antes de activar este producto.');
             $version=(int)($c['version']??0)+1;
             self::sql('INSERT INTO producto_publicaciones(producto_id,version,datos,impacto,usuario_id,clave,solicitud_hash) VALUES (?,?,?,?,?,?,?)',[$id,$version,self::json($d),self::json(['ofertas'=>$v['ofertas'],'personalizaciones'=>$v['personalizaciones'],'impacto'=>$v['impacto'],'recetas'=>$v['recetas']]),C::actorId(),$clave,$hash]);$pub=(int)ActiveRecord::getDB()->insert_id;
             self::sql('UPDATE producto_estandares SET publicacion_id=?,revision=revision+1 WHERE producto_id=?',[$pub,$id]);
-            self::sql('UPDATE productos SET nombre=?,descripcion=?,img=? WHERE id=?',[$d['nombre'],$d['descripcion'],$d['img'],$id]);
+            if(!$a3Activa||!$v['ofertas'])self::sql('UPDATE productos SET nombre=?,descripcion=?,img=? WHERE id=?',[$d['nombre'],$d['descripcion'],$d['img'],$id]);
             $existentes=[];foreach($v['ofertas'] as $o)$existentes[$o['slug']]=$o;
             foreach($existentes as $ctx=>$o)if(!isset($d['negocios'][$ctx]))self::sql('UPDATE ofertas_producto SET activo=0 WHERE id=?',[$o['id']]);
             foreach($d['negocios'] as $ctx=>$n){
@@ -109,7 +112,7 @@ final class ProductosCasa
                 if($d['receta_version_id']&&!isset($local['receta']))RecetasCasa::aplicar($id,(int)$o['id'],$ctx,(int)$d['receta_version_id']);
                 if(!$d['receta_version_id']&&!isset($local['receta']))self::sql('UPDATE recetas SET activo=0 WHERE oferta_id=?',[$o['id']]);
             }
-            DatosComercialesOferta::sincronizarProducto($id);
+            if(!$a3Activa)DatosComercialesOferta::sincronizarProductoLegacy($id);
             return ['publicacion_id'=>$pub,'version'=>$version];
         });
     }
@@ -136,23 +139,34 @@ final class ProductosCasa
             self::bloquear((int)$o['producto_id']);$c=self::configuracion((int)$o['producto_id'],true);self::exigirDestino((int)$o['producto_id'],$ctx);
             self::sql('SELECT id FROM ofertas_producto WHERE id=? FOR UPDATE',[$oferta]);
             $d=self::dato($c['publicados']??null);if(!$d)self::error('SIN_ESTANDAR','El producto todavía no tiene una publicación.');
+            $a3Activa=DatosComercialesOferta::a3Activa();
             $ef=self::sql('SELECT * FROM productos_oferta WHERE oferta_id=?',[$oferta])->get_result()->fetch_assoc();$antes=$o;
+            if(!$ef)self::error('DATOS_COMERCIALES_AUSENTES','La oferta no tiene datos comerciales; recarga el menú o contacta a soporte.');
+            $comerciales=['nombre'=>$ef['nombre'],'descripcion'=>$ef['descripcion'],'img'=>$ef['img']];
             foreach(['nombre','descripcion','img','precio','activo'] as $campo){
                 $actual=$campo==='precio'?ImporteOferta::normalizar($o[$campo]):($campo==='activo'?(int)$o[$campo]:$ef[$campo]);
-                if(in_array($campo,$restaurar,true)){self::retirarPersonalizacion($oferta,$campo);$valor=$d[$campo];}
+                if(in_array($campo,$restaurar,true)){
+                    self::retirarPersonalizacion($oferta,$campo);$valor=$d[$campo];
+                }
                 elseif(array_key_exists($campo,$datos)){
                     $valor=$datos[$campo];if($campo==='precio')$valor=ImporteOferta::normalizar($valor);elseif($campo==='activo')$valor=(int)(bool)$valor;
-                    if($valor!==$actual){if(empty($d['reglas'][$campo]))self::error('CAMPO_PROTEGIDO',self::CAMPOS[$campo].': Definido por Global.');
-                        $validado=self::normalizar(array_replace($d,[$campo=>$valor]));$valor=$validado[$campo];self::personalizacion($oferta,$campo,$valor);
+                    if($valor!==$actual){
+                        $comercialLocal=$a3Activa&&in_array($campo,['nombre','descripcion','img'],true);
+                        if(!$comercialLocal&&empty($d['reglas'][$campo]))self::error('CAMPO_PROTEGIDO',self::CAMPOS[$campo].': Definido por Global.');
+                        $validado=self::normalizar(array_replace($d,[$campo=>$valor]));$valor=$validado[$campo];
+                        self::personalizacion($oferta,$campo,$valor);
                     }
                 } else $valor=$actual;
+                if(in_array($campo,['nombre','descripcion','img'],true))$comerciales[$campo]=$valor;
                 if(in_array($campo,['precio','activo'],true))$o[$campo]=$valor;
             }
             if($d['requiere_receta']&&(int)$o['activo']&&!self::sql('SELECT id FROM recetas WHERE oferta_id=? AND activo=1',[$oferta])->get_result()->fetch_row())self::error('RECETA_PENDIENTE','Configura una receta antes de activar la oferta.');
             $categoria=(int)($datos['categoria_id']??$o['categoria_id']);$area=(int)($datos['area_id']??$o['area_id']);$orden=(int)($datos['orden']??$o['orden']);
             Ofertas::validarLocal(ActiveRecord::getDB(),$categoria,$area,$u);self::precio($oferta,$u,$antes['precio'],(string)$o['precio']);
             self::sql('UPDATE ofertas_producto SET categoria_id=?,area_id=?,orden=?,precio=?,activo=? WHERE id=? AND unidad_id=?',[$categoria,$area,$orden,$o['precio'],$o['activo'],$oferta,$u]);
-            DatosComercialesOferta::sincronizarOferta($oferta);
+            $cambioComercial=$comerciales['nombre']!==$ef['nombre']||$comerciales['descripcion']!==$ef['descripcion']||$comerciales['img']!==$ef['img'];
+            if($a3Activa){if($cambioComercial)DatosComercialesOferta::guardarLocal($oferta,$comerciales['nombre'],$comerciales['descripcion'],$comerciales['img']);}
+            else DatosComercialesOferta::sincronizarOfertaLegacy($oferta);
             return ['resultado'=>true,'id'=>$oferta];
         });
     }

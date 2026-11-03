@@ -580,7 +580,11 @@ class ProductoMultinegocio extends Producto
             self::ejecutar($stmt);
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
-            DatosComercialesOferta::sincronizarOferta($ofertaId);
+            if (DatosComercialesOferta::a3Activa()) {
+                DatosComercialesOferta::crearDesdeIdentidad($ofertaId, $productoId);
+            } else {
+                DatosComercialesOferta::sincronizarOfertaLegacy($ofertaId);
+            }
             self::registrarPrecio($ofertaId, $unidad, null, $precio);
             return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
         });
@@ -611,7 +615,14 @@ class ProductoMultinegocio extends Producto
             ContextoNegocio::exigir('menu', 'editar', $ctx, true);
             $lock = $db->prepare('SELECT p.id FROM productos p JOIN ofertas_producto o ON o.producto_id=p.id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
             $lock->execute([$oferta, $unidad]); $lock->get_result()->fetch_all(); $lock->close();
-            $stmt = $db->prepare('SELECT o.producto_id, o.precio AS precio_anterior, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
+            $a3Activa = DatosComercialesOferta::a3Activa();
+            $selectComercial = $a3Activa
+                ? 'd.nombre,d.descripcion,d.img'
+                : 'p.nombre,p.descripcion,p.img';
+            $joinComercial = $a3Activa
+                ? ' JOIN oferta_datos_comerciales d ON d.oferta_id=o.id'
+                : '';
+            $stmt = $db->prepare("SELECT o.producto_id, o.precio AS precio_anterior, {$selectComercial}, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id{$joinComercial} WHERE o.id=? AND o.unidad_id=? FOR UPDATE");
             if (!$stmt) throw new \RuntimeException($db->error);
             $stmt->bind_param('ii', $oferta, $unidad);
             self::ejecutar($stmt);
@@ -624,12 +635,12 @@ class ProductoMultinegocio extends Producto
             $descripcion = $this->descripcion;
             $img = $this->img;
             $cambioIdentidad = $nombre !== (string)$actual['nombre'] || $descripcion !== $actual['descripcion'] || $img !== $actual['img'];
-            if ($cambioIdentidad && (int)$actual['ofertas'] > 1) {
+            if (!$a3Activa && $cambioIdentidad && (int)$actual['ofertas'] > 1) {
                 ContextoNegocio::facultad(\Services\Menu\CatalogoComercial::FACULTAD, 'global', 'menu', true);
                 if (!$this->confirmar_identidad) throw new \RuntimeException('Confirma el cambio de identidad compartida.');
             }
             if ($cambioIdentidad && $this->identidad_huella !== null && !hash_equals(\Services\Menu\CatalogoComercial::huella($actual), $this->identidad_huella)) throw new \RuntimeException('La identidad cambió. Recarga el formulario.');
-            if ($cambioIdentidad) {
+            if (!$a3Activa && $cambioIdentidad) {
                 $stmt = $db->prepare('UPDATE productos SET nombre=?, descripcion=?, img=? WHERE id=? LIMIT 1');
                 if (!$stmt) throw new \RuntimeException($db->error);
                 $stmt->bind_param('sssi', $nombre, $descripcion, $img, $productoId);
@@ -646,7 +657,11 @@ class ProductoMultinegocio extends Producto
             $stmt->bind_param('isiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
             self::ejecutar($stmt);
             $stmt->close();
-            if ($cambioIdentidad) DatosComercialesOferta::sincronizarProducto($productoId);
+            if ($a3Activa && $cambioIdentidad) {
+                DatosComercialesOferta::guardarLocal($oferta, $nombre, $descripcion, $img);
+            } elseif ($cambioIdentidad) {
+                DatosComercialesOferta::sincronizarProductoLegacy($productoId);
+            }
             if ((string)$actual['precio_anterior'] !== $precio) self::registrarPrecio($oferta, $unidad, $actual['precio_anterior'], $precio);
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
         });

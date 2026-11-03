@@ -21,10 +21,18 @@
     $identidadMaestra = $identidadMaestra ?? false;
     $identidadEditable = ($identidadEditable ?? true) && $menuPuedeEditar;
     $identidadCompartida = $identidadCompartida ?? false;
+    $a3Activa=$a3Activa??false;
     $casaPolitica=$casaPolitica??null;$casaLocales=$casaLocales??[];
-    $campoCasa=static fn(string $campo):bool => $casaPolitica ? !empty($casaPolitica['reglas'][$campo])&&$menuPuedeEditar : $identidadEditable;
-    $estadoCasa=static function(string $campo)use($casaPolitica,$casaLocales,$campoCasa):void {
+    $esComercial=static fn(string $campo):bool => in_array($campo,['nombre','descripcion','img'],true);
+    $campoCasa=static fn(string $campo):bool => $a3Activa&&$esComercial($campo) ? $menuPuedeEditar : ($casaPolitica ? !empty($casaPolitica['reglas'][$campo])&&$menuPuedeEditar : $identidadEditable);
+    $estadoCasa=static function(string $campo)use($casaPolitica,$casaLocales,$campoCasa,$a3Activa,$esComercial):void {
         if(!$casaPolitica)return;
+        if($a3Activa&&$esComercial($campo)){
+            $volver=['nombre'=>'Volver al nombre publicado por Global','descripcion'=>'Volver a la descripción publicada por Global','img'=>'Volver a la imagen publicada por Global'][$campo];
+            echo '<p class="admin-field__hint">Dato comercial independiente de este negocio.</p>';
+            echo '<label><input type="checkbox" name="restaurar_casa[]" value="'.$campo.'"> '.$volver.'</label>';
+            return;
+        }
         echo '<p class="admin-field__hint">'.($campoCasa($campo)?(array_key_exists($campo,$casaLocales)?'Personalización permitida · Usando valor propio':'Personalización permitida · Usando versión de la casa'):'Definido por Global').'</p>';
         if($campoCasa($campo)&&array_key_exists($campo,$casaLocales))echo '<label><input type="checkbox" name="restaurar_casa[]" value="'.$campo.'"> Volver a la versión de la casa</label>';
     };
@@ -119,7 +127,7 @@
         <fieldset class="admin-menu__fieldset" <?php echo $menuPuedeEditar ? '' : 'disabled'; ?>><section class="admin-panel admin-card">
             <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-            <?php if($casaPolitica): ?><p class="admin-badge admin-badge--neutral">Producto de la casa</p><?php elseif ($identidadCompartida) : ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a una identidad compartida. <?php echo $identidadEditable ? 'Cambiarlos afecta a todos los negocios que la utilizan.' : 'Solo puedes modificar las condiciones de tu oferta; la identidad requiere autorización Global.'; ?></p><?php endif; ?>
+            <?php if($identidadMaestra&&$a3Activa): ?><p class="admin-field__hint">La edición comercial independiente está activa. Edita nombre, descripción e imagen desde cada oferta.</p><?php elseif($casaPolitica): ?><p class="admin-badge admin-badge--neutral">Producto de la casa</p><?php elseif($a3Activa): ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a esta oferta y son independientes entre negocios.</p><?php elseif ($identidadCompartida) : ?><p class="admin-field__hint">Nombre, descripción e imagen pertenecen a una identidad compartida. <?php echo $identidadEditable ? 'Cambiarlos afecta a todos los negocios que la utilizan.' : 'Solo puedes modificar las condiciones de tu oferta; la identidad requiere autorización Global.'; ?></p><?php endif; ?>
             <input type="hidden" name="identidad_huella" value="<?php echo htmlspecialchars($identidadHuella ?? '', ENT_QUOTES); ?>">
             <div class="admin-form-grid">
                 <div class="admin-field admin-form-grid__full">
@@ -132,7 +140,7 @@
                 <div class="admin-field admin-form-grid__full">
                     <label class="admin-field__label" for="descripcion">Descripción</label>
                     <?php $estadoCasa('descripcion'); ?><textarea id="descripcion" name="descripcion" <?php echo $campoCasa('descripcion') ? '' : 'readonly'; ?> rows="3" <?= $casaPolitica?'':'required' ?>><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
-                    <p class="admin-field__hint"><?php echo $menuContexto === 'restaurante' ? 'Es el texto que ve el comensal en la carta y en el PDF.' : 'Descripción de la identidad comercial compartida.'; ?></p>
+                    <p class="admin-field__hint"><?php echo $menuContexto === 'restaurante' ? 'Es el texto que ve el comensal en la carta y en el PDF.' : ($a3Activa?'Descripción comercial de esta oferta.':'Descripción de la identidad comercial compartida.'); ?></p>
                 </div>
 
                 <?php if (!$identidadMaestra) : ?>

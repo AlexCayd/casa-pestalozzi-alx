@@ -91,6 +91,9 @@ final class CatalogoComercial
     public static function actualizar(int $id, array $datos, string $huella, bool $confirmado): array
     {
         ContextoNegocio::facultad(self::FACULTAD, 'global', 'menu');
+        if (DatosComercialesOferta::a3Activa()) {
+            return ['ok'=>false,'confirmado'=>false,'mensaje'=>'La edición comercial por negocio está activa. Edita cada oferta desde su menú; la identidad técnica compartida no puede cambiarse desde Global.'];
+        }
         return ContextoNegocio::transaccion(static function () use ($id, $datos, $huella, $confirmado): array {
             ContextoNegocio::facultad(self::FACULTAD, 'global', 'menu', true);
             if(ProductosCasa::configuracion($id))throw new \RuntimeException('Este producto se administra mediante borrador y publicación de la casa.');
@@ -104,7 +107,7 @@ final class CatalogoComercial
             if ($nombre === '' || mb_strlen($nombre) > 120 || $descripcion === '') throw new \RuntimeException('Nombre y descripción son obligatorios; máximo 120 caracteres para nombre.');
             $s = $db->prepare('UPDATE productos SET nombre=?,descripcion=?,img=? WHERE id=?');
             $s->execute([$nombre, $descripcion, $datos['img'] ?? null, $id]);
-            DatosComercialesOferta::sincronizarProducto($id);
+            DatosComercialesOferta::sincronizarProductoLegacy($id);
             return ['id' => $id];
         });
     }
