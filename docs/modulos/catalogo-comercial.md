@@ -278,7 +278,7 @@ Las ramas mononegocio conservan consumidores de pruebas: no se borran.
 | Vistas | `views/admin/menu/index.php`, `form.php`, `categories.php`, `category-form.php`, `variantes.php`, `asociar.php`, `global.php` en la misma carpeta |
 | Fuentes visuales | `src/scss/admin/modules/menu.scss`, `src/js/components/confirmation-modal.js` |
 | Compilados afectados | `public/build/css/admin/menu.css`; `public/build/js/admin.js`, `admin/map.js`, `admin/reservation-form.js`, `bundle.min.js` y sus mapas; copia pública `assets/js/bundle.min.js` y su mapa |
-| Persistencia/configuración | `database/deploy.sql`, `database/actualizaciones/m1-facultad-comercial.sql`, `package.json` |
+| Persistencia/configuración | `database/deploy.sql`, `package.json` |
 | Pruebas | `scripts/tests/run-menu-m1.php`, `pruebas-http-menu-m1.php`, `run-menu-confirmacion.cjs`, `cliente-http-3e.php`, `servir-instalacion-3e.php`, `pruebas-http-3e.php` en la misma carpeta |
 | Guías | Este contrato, `docs/arquitectura.md`, `docs/backlog.md`, `docs/desarrollo/interfaz.md`, `docs/desarrollo/pruebas.md`, `docs/panaderia/README.md` |
 
@@ -369,11 +369,9 @@ reclamables desde otro contexto. Ninguna aserción existente fue reducida.
 
 ### Despliegue y límites
 
-Registrar la facultad con `database/actualizaciones/m1-facultad-comercial.sql`
-antes de desplegar sobre una instalación existente. Es aditivo e idempotente;
-no asigna permisos automáticamente. Delegar la facultad comercial desde Usuarios
-con los techos actuales. Las instalaciones nuevas ya la obtienen de `deploy.sql`.
-Este SQL no se aplicó a la base activa durante la revisión.
+La facultad se registra desde `deploy.sql` (sin migración aparte; una base
+anterior se reinstala). No asigna permisos automáticamente: delegar la facultad
+comercial desde Usuarios con los techos actuales.
 
 No se proporcionó el paquete privado exigido por `run-multinegocio-3a.php`,
 `run-restaurante-3d1.php`, `run-restaurante-3d2.php` y `run-restaurante-3d3.php`;

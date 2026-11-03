@@ -4102,8 +4102,33 @@ function initMapa() {
   // Hoja encima del modal de mesa —no un diálogo aparte— para que el ticket
   // siga a la vista detrás, velado. Los grupos vienen en CP_MENU (dish.g); el precio
   // que se ve aquí es orientativo: el servidor lo recalcula al enviar.
+  //
+  // Un PASO por grupo. Antes la hoja apilaba todos los grupos sobre un solo
+  // botón, y con tres el mesero la recorría de arriba abajo buscando qué
+  // faltaba. Ahora se ve un grupo a la vez; la fila de pasos dice qué se eligió
+  // en cada uno y deja saltar a cualquiera, hacia delante o hacia atrás; tocar
+  // una opción pasa sola al paso siguiente. Cuando no falta nada obligatorio,
+  // «Agregar» está a un toque desde el primer paso: aceptar lo predeterminado
+  // sigue siendo el camino corto.
+  //
+  // Cada opción lleva su icono (dish.g[].o[].i: una clave op-* del catálogo
+  // AdminIcons que el servidor ya resolvió, elegida en el editor o deducida
+  // del nombre). Sin icono va la inicial en el mismo hueco, para que las
+  // opciones de un paso queden alineadas.
 
   var opcionesHoja = null;
+
+  // El respiro entre tocar una opción y pasar al siguiente paso: lo bastante
+  // para ver la opción marcarse, lo bastante corto para no esperar.
+  var OPCIONES_AVANCE_MS = 180;
+
+  // Doble toque. Antes de los pasos, tocar dos veces la misma opción daba lo
+  // mismo; con el avance automático el segundo toque cae en el paso que acaba
+  // de entrar —otra opción en ese mismo sitio, o «Agregar» donde estaba
+  // «Siguiente»— y elige algo que nadie pidió. Un toque que llega antes de
+  // este tiempo desde el anterior, y ya en otro paso, se descarta. Quien toca
+  // a ritmo, de memoria, va por encima de esto.
+  var OPCIONES_DOBLE_TOQUE_MS = 320;
 
   function tieneOpciones(dish) {
     return !!(dish && dish.g && dish.g.length);
@@ -4181,15 +4206,35 @@ function initMapa() {
     };
   }
 
+  // La opción elegida de un grupo, o null.
+  function opcionElegida(h, gi) {
+    var id = h.seleccion[gi];
+    return h.dish.g[gi].o.filter(function(o) { return o.id === id; })[0] || null;
+  }
+
+  // Primer paso al que le falta su elección (sólo puede faltar en un grupo
+  // obligatorio: los demás nacen con su predeterminada), o -1.
+  function primerPasoFaltante(h) {
+    for (var gi = 0; gi < h.dish.g.length; gi++) {
+      if (!opcionElegida(h, gi)) return gi;
+    }
+    return -1;
+  }
+
   /*
-   * El botón principal de la hoja: verbo a la izquierda y precio a la derecha.
+   * El botón de agregar: verbo a la izquierda y precio a la derecha.
    * El precio va SIEMPRE, también mientras falta un grupo obligatorio —antes
    * ese estado decía «Elige término» y nada más, y era justo cuando el mesero
    * quería saber cuánto iba a costar—. Al editar una línea con varias
    * unidades lo dice («2 × $90»): cambiar las opciones cambia todas a la vez,
    * y sin el multiplicador eso sólo se descubría en el subtotal.
+   *
+   * Con pasos, lo que falta puede estar en OTRO paso. Entonces el botón no se
+   * apaga: dice «Elige leche» y lleva a ese paso (data-opts-ir). Sólo se apaga
+   * cuando lo que falta es el paso que se está viendo: ahí la respuesta está
+   * en las opciones de encima.
    */
-  function botonConfirmarOpciones(h, r) {
+  function botonConfirmarOpciones(h, r, variante) {
     var editando = h.ctx.editIdx !== undefined;
     var item = editando ? commandaItems[h.ctx.editIdx] : null;
     var qty = item && item.qty > 1 ? item.qty : 1;
@@ -4200,8 +4245,12 @@ function initMapa() {
       ? 'desde ' + dineroCorto(r.minimo)
       : dineroCorto(r.faltan.length ? r.minimo : r.precio);
     if (qty > 1) precio = qty + ' \xD7 ' + precio;
-    return '<button type="button" class="mmodal-btn mmodal-btn--primary mmodal-opts__confirmar" data-opts-confirmar' +
-      (r.faltan.length ? ' disabled' : '') + '>' +
+    var falta = primerPasoFaltante(h);
+    var irA = r.faltan.length && falta !== h.paso ? falta : -1;
+    var apagado = r.faltan.length && irA < 0;
+    return '<button type="button" class="mmodal-btn mmodal-btn--' + (variante || 'primary') + ' mmodal-opts__confirmar" data-opts-confirmar' +
+      (irA >= 0 ? ' data-opts-ir="' + irA + '"' : '') +
+      (apagado ? ' disabled' : '') + '>' +
       // El espacio entre los dos <span> no se ve (es un flex) pero hace que
       // el nombre accesible sea «Agregar $90» y no «Agregar$90».
       '<span class="mmodal-opts__verbo">' + escHtml(verbo) + '</span> ' +
@@ -4209,47 +4258,290 @@ function initMapa() {
       '</button>';
   }
 
-  function pintarOpciones(enfocar) {
+  // El hueco del icono: el trazo del catálogo o, sin él, la inicial. Siempre
+  // decorativo: el nombre de la opción es su etiqueta. `extra` va dentro de la
+  // caja: la palomita de la elegida cuelga de su esquina (ver _variantes.scss).
+  function iconoOpcionHtml(o, extra) {
+    var svg = o.i && window.AdminIcons ? window.AdminIcons.get(o.i, 24) : '';
+    if (svg) return '<span class="mmodal-opts__pill-icono" aria-hidden="true">' + svg + (extra || '') + '</span>';
+    var inicial = String(o.n || '').trim().charAt(0).toUpperCase();
+    return '<span class="mmodal-opts__pill-icono mmodal-opts__pill-icono--inicial" aria-hidden="true">' + escHtml(inicial) + (extra || '') + '</span>';
+  }
+
+  /*
+   * Un paso: el grupo como pregunta y sus opciones como teselas. Patrón de
+   * radiogroup con tabindex móvil (un tope de tabulador, flechas dentro). La
+   * etiqueta del grupo lleva oculto «Paso 2 de 3:», que es lo que oye el
+   * lector de pantalla cuando el foco entra en el paso.
+   */
+  function pasoOpcionesHtml(h, gi) {
+    var gr = h.dish.g[gi];
+    var elegido = h.seleccion[gi];
+    var falta = gr.req && !elegido;
+    var total = h.dish.g.length;
+    var html = '<section class="mmodal-opts__grupo' + (falta ? ' is-falta' : '') + '" data-opts-paso="' + gi + '">' +
+      '<p class="mmodal-opts__grupo-nombre" id="mmodal-opts-g' + gi + '">' +
+      (total > 1 ? '<span class="operational-visually-hidden">Paso ' + (gi + 1) + ' de ' + total + ': </span>' : '') +
+      '<span class="mmodal-opts__grupo-texto">' + escHtml(gr.n) + '</span>' +
+      (gr.req ? '<span class="mmodal-opts__req">' + (falta ? 'Elige una' : 'Obligatorio') + '</span>' : '') + '</p>' +
+      '<div class="mmodal-opts__pills" role="radiogroup" aria-labelledby="mmodal-opts-g' + gi + '">';
+    gr.o.forEach(function(o) {
+      var on = o.id === elegido;
+      var foco = on || (!elegido && o === gr.o[0]);
+      html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '"' +
+        ' class="mmodal-opts__pill' + (on ? ' is-on' : '') + '" data-opt-g="' + gi + '" data-opt-id="' + o.id + '">' +
+        iconoOpcionHtml(o, '<span class="mmodal-opts__pill-marca">' + svgIcon('check', 12) + '</span>') +
+        '<span class="mmodal-opts__pill-nombre">' + escHtml(o.n) + '</span>' +
+        (Number(o.d) ? '<span class="mmodal-opts__pill-delta">' + (o.d > 0 ? '+' : '−') + dineroCorto(Math.abs(o.d)) + '</span>' : '') +
+        '</button>';
+    });
+    return html + '</div></section>';
+  }
+
+  /*
+   * La fila de pasos. Cada paso dice su grupo y lo que lleva elegido; el
+   * estado se lee por FORMA y texto, no sólo por color: el actual va con
+   * aria-current y relleno, uno ya visto con palomita, uno obligatorio sin
+   * elegir con borde discontinuo y «Elige una». Un solo tope de tabulador
+   * para la fila (flechas para moverse); todos llevan a su paso.
+   */
+  function pasosOpcionesHtml(h) {
+    if (h.dish.g.length < 2) return '';
+    var html = '<ol class="mmodal-opts__pasos-lista">';
+    h.dish.g.forEach(function(gr, gi) {
+      var op = opcionElegida(h, gi);
+      var actual = gi === h.paso;
+      var estado = actual ? 'is-actual' : (!op ? 'is-falta' : (h.visitados[gi] ? 'is-hecho' : 'is-pendiente'));
+      var marca = estado === 'is-hecho' ? svgIcon('check', 13) : String(gi + 1);
+      html += '<li><button type="button" class="mmodal-opts__paso ' + estado + '" data-opts-ir="' + gi + '"' +
+        (actual ? ' aria-current="step"' : '') + ' tabindex="' + (actual ? '0' : '-1') + '">' +
+        '<span class="mmodal-opts__paso-marca" aria-hidden="true">' + marca + '</span>' +
+        '<span class="mmodal-opts__paso-texto">' +
+        '<span class="mmodal-opts__paso-grupo">' + escHtml(gr.n) + '</span> ' +
+        '<span class="mmodal-opts__paso-valor">' + escHtml(op ? op.n : 'Elige una') + '</span>' +
+        '</span></button></li>';
+    });
+    return html + '</ol>';
+  }
+
+  /*
+   * El pie: el resumen y las acciones del paso. A la izquierda «Atrás» (o
+   * «Cancelar» en el primero). A la derecha, en el último paso, agregar; en
+   * los anteriores, «Siguiente» —apagado si el paso es obligatorio y aún no
+   * se elige— y, si no falta nada, también agregar en contorno, para no
+   * obligar a recorrer pasos que ya están bien como vienen.
+   */
+  function pieOpcionesHtml(h, r) {
+    var ultimo = h.paso === h.dish.g.length - 1;
+    var atras = h.paso > 0
+      ? '<button type="button" class="mmodal-btn mmodal-btn--ghost mmodal-opts__atras" data-opts-atras>' + btnLabel('left', 'Atrás') + '</button>'
+      : '<button type="button" class="mmodal-btn mmodal-btn--ghost" data-opts-cerrar>Cancelar</button>';
+    var derecha;
+    var tres = false;
+    if (ultimo) {
+      derecha = botonConfirmarOpciones(h, r, 'primary');
+    } else {
+      var siguiente = '<button type="button" class="mmodal-btn mmodal-btn--primary mmodal-opts__siguiente" data-opts-siguiente' +
+        (opcionElegida(h, h.paso) ? '' : ' disabled') + '>' + btnLabel('right', 'Siguiente', true) + '</button>';
+      if (r.faltan.length) {
+        derecha = siguiente;
+      } else {
+        derecha = botonConfirmarOpciones(h, r, 'outline') + siguiente;
+        tres = true;
+      }
+    }
+    return '<p class="mmodal-opts__resumen">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</p>' +
+      '<div class="mmodal-opts__acciones' + (tres ? ' mmodal-opts__acciones--tres' : '') + '">' + atras + derecha + '</div>';
+  }
+
+  function eyebrowOpciones(h) {
+    var editando = h.ctx.editIdx !== undefined;
+    var total = h.dish.g.length;
+    if (total < 2) return editando ? 'Cambiar opciones' : 'Opciones';
+    return (editando ? 'Cambiar opciones · ' : '') + 'Paso ' + (h.paso + 1) + ' de ' + total;
+  }
+
+  function sinMovimientoOpciones() {
+    return document.body.classList.contains('no-anim') ||
+      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  /*
+   * Los moldes: una copia invisible de cada paso, apilada en la misma celda que
+   * el cuerpo (`__escenario`, ver _variantes.scss), para que la hoja mida lo
+   * que su paso más alto y NO cambie de alto al pasar de uno a otro. En la
+   * tablet la hoja va centrada: con el alto variable, cada paso movía la
+   * primera fila de opciones y el pie medio renglón, justo donde el pulgar
+   * iba a tocar. Antes se interpolaba el alto con una animación de `height`,
+   * que además es layout en cada cuadro; ahora no hay nada que interpolar.
+   *
+   * Sin ids, roles, datos ni tope de tabulador: no son controles, y ninguna
+   * consulta de la hoja (que busca por data-opt-* / data-opts-*) los encuentra.
+   */
+  function moldesOpcionesHtml(h) {
+    if (h.dish.g.length < 2) return '';
+    var html = '';
+    h.dish.g.forEach(function(gr, gi) {
+      html += pasoOpcionesHtml(h, gi)
+        .replace(/ (?:id|role|aria-[a-z]+|data-[a-z-]+)="[^"]*"/g, '')
+        .replace(/ tabindex="[^"]*"/g, ' tabindex="-1"');
+    });
+    return '<div class="mmodal-opts__moldes" aria-hidden="true" inert>' + html + '</div>';
+  }
+
+  // El armazón de la hoja se pinta UNA vez: el paso entra y sale dentro de
+  // `vista`, y la fila de pasos y el pie se repintan solos. Repintar la hoja
+  // entera en cada toque (como antes) mataba la transición y el foco. Los
+  // moldes van DESPUÉS del cuerpo: el primer `.mmodal-opts__grupo` de la hoja
+  // sigue siendo el paso visible.
+  function pintarHojaOpciones() {
     var h = opcionesHoja;
     if (!h) return;
-    var r = resumenOpciones();
-    var html = '<div class="mmodal-opts__head">' +
-      '<div><p class="mmodal-opts__eyebrow">' + (h.ctx.editIdx !== undefined ? 'Cambiar opciones' : 'Opciones') + '</p>' +
+    h.card.innerHTML = '<div class="mmodal-opts__head">' +
+      '<div><p class="mmodal-opts__eyebrow" data-opts-eyebrow></p>' +
       '<h3 class="mmodal-opts__titulo" id="mmodal-opts-titulo">' + escHtml(h.dish.n) + '</h3></div>' +
       '<button type="button" class="mmodal-opts__cerrar" data-opts-cerrar aria-label="Cerrar opciones">' +
       '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>' +
-      '</div><div class="mmodal-opts__cuerpo">';
-    h.dish.g.forEach(function(gr, gi) {
-      var elegido = h.seleccion[gi];
-      var falta = gr.req && !elegido;
-      html += '<div class="mmodal-opts__grupo' + (falta ? ' is-falta' : '') + '">' +
-        '<p class="mmodal-opts__grupo-nombre" id="mmodal-opts-g' + gi + '">' + escHtml(gr.n) +
-        (gr.req ? '<span class="mmodal-opts__req">' + (falta ? 'Elige una' : 'Obligatorio') + '</span>' : '') + '</p>' +
-        '<div class="mmodal-opts__pills" role="radiogroup" aria-labelledby="mmodal-opts-g' + gi + '">';
-      gr.o.forEach(function(o) {
-        var on = o.id === elegido;
-        // Roving tabindex: un solo tope de tabulador por grupo, flechas dentro.
-        var foco = on || (!elegido && o === gr.o[0]);
-        html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '"' +
-          ' class="mmodal-opts__pill' + (on ? ' is-on' : '') + '" data-opt-g="' + gi + '" data-opt-id="' + o.id + '">' +
-          '<span class="mmodal-opts__pill-nombre">' + escHtml(o.n) + '</span>' +
-          (Number(o.d) ? '<span class="mmodal-opts__pill-delta">' + (o.d > 0 ? '+' : '−') + dineroCorto(Math.abs(o.d)) + '</span>' : '') +
-          '</button>';
-      });
-      html += '</div></div>';
-    });
-    html += '</div><div class="mmodal-opts__pie">' +
-      '<p class="mmodal-opts__resumen">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</p>' +
-      '<div class="mmodal-opts__acciones">' +
-      '<button type="button" class="mmodal-btn mmodal-btn--ghost" data-opts-cerrar>Cancelar</button>' +
-      botonConfirmarOpciones(h, r) +
-      '</div></div>';
-    h.card.innerHTML = html;
+      '</div>' +
+      (h.dish.g.length > 1 ? '<nav class="mmodal-opts__pasos" aria-label="Pasos" data-opts-pasos></nav>' : '') +
+      '<div class="mmodal-opts__escenario">' +
+      '<div class="mmodal-opts__cuerpo"><div class="mmodal-opts__vista" data-opts-vista>' + pasoOpcionesHtml(h, h.paso) + '</div></div>' +
+      moldesOpcionesHtml(h) +
+      '</div>' +
+      '<div class="mmodal-opts__pie" data-opts-pie></div>';
+    pintarEstadoOpciones();
+  }
 
-    if (enfocar) {
-      var destino = h.card.querySelector(enfocar);
-      if (destino) destino.focus();
+  function pintarEstadoOpciones() {
+    var h = opcionesHoja;
+    if (!h) return;
+    h.card.querySelector('[data-opts-eyebrow]').textContent = eyebrowOpciones(h);
+    var pasos = h.card.querySelector('[data-opts-pasos]');
+    if (pasos) {
+      pasos.innerHTML = pasosOpcionesHtml(h);
+      var actual = pasos.querySelector('[aria-current="step"]');
+      // La fila desborda en móvil: el paso actual se trae a la vista dentro de
+      // su propio carril (scrollIntoView movería también la hoja).
+      if (actual) {
+        var izq = actual.offsetLeft;
+        var der = izq + actual.offsetWidth;
+        if (izq < pasos.scrollLeft || der > pasos.scrollLeft + pasos.clientWidth) {
+          pasos.scrollLeft = Math.max(0, izq - (pasos.clientWidth - actual.offsetWidth) / 2);
+        }
+      }
     }
+    h.card.querySelector('[data-opts-pie]').innerHTML = pieOpcionesHtml(h, resumenOpciones());
+  }
+
+  // Marca la elección en el paso visible sin repintarlo: el foco y la
+  // transición de la tesela se quedan donde están.
+  function marcarOpcionElegida(gi) {
+    var h = opcionesHoja;
+    var paso = h.card.querySelector('.mmodal-opts__grupo[data-opts-paso="' + gi + '"]:not(.is-saliendo)');
+    if (!paso) return;
+    var elegido = h.seleccion[gi];
+    Array.prototype.forEach.call(paso.querySelectorAll('[data-opt-id]'), function(b) {
+      var on = Number(b.getAttribute('data-opt-id')) === elegido;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+    var falta = h.dish.g[gi].req && !elegido;
+    paso.classList.toggle('is-falta', falta);
+    var req = paso.querySelector('.mmodal-opts__req');
+    if (req) req.textContent = falta ? 'Elige una' : 'Obligatorio';
+  }
+
+  // `avanzar`: sólo con el puntero. Las flechas eligen sin moverse de paso
+  // (patrón de radiogroup) y Enter avanza por su cuenta.
+  function elegirOpcion(gi, id, avanzar) {
+    var h = opcionesHoja;
+    if (!h) return;
+    clearTimeout(h.avance);
+    h.seleccion[gi] = id;
+    marcarOpcionElegida(gi);
+    pintarEstadoOpciones();
+    if (avanzar && gi === h.paso && gi < h.dish.g.length - 1) {
+      h.avance = window.setTimeout(function() {
+        if (opcionesHoja === h && h.paso === gi) irAPasoOpciones(gi + 1);
+      }, OPCIONES_AVANCE_MS);
+    }
+  }
+
+  function enfocarPasoOpciones(paso) {
+    var destino = paso && (paso.querySelector('[data-opt-id][tabindex="0"]') || paso.querySelector('[data-opt-id]'));
+    if (destino) destino.focus({ preventScroll: true });
+  }
+
+  function detenerCambioOpciones(h) {
+    (h.anims || []).forEach(function(a) { try { a.cancel(); } catch (e) { /* ya terminó */ } });
+    h.anims = [];
+    var vista = h.card ? h.card.querySelector('[data-opts-vista]') : null;
+    if (!vista) return;
+    vista.classList.remove('is-cambiando');
+    Array.prototype.forEach.call(vista.querySelectorAll('.is-saliendo'), function(el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
+  /*
+   * Cambio de paso: el que sale se va hacia el lado contrario y el que entra
+   * llega del lado del viaje (adelante desde la derecha, atrás desde la
+   * izquierda). El alto no se mueve: lo fijan los moldes. Web Animations y no
+   * clases: un toque a media transición la cancela y empieza la siguiente
+   * desde el estado final, sin esperar.
+   */
+  function irAPasoOpciones(n) {
+    var h = opcionesHoja;
+    if (!h || n < 0 || n > h.dish.g.length - 1 || n === h.paso) return;
+    clearTimeout(h.avance);
+    detenerCambioOpciones(h);
+    var dir = n > h.paso ? 1 : -1;
+    var vista = h.card.querySelector('[data-opts-vista]');
+    var cuerpo = h.card.querySelector('.mmodal-opts__cuerpo');
+    var vieja = vista.querySelector('.mmodal-opts__grupo');
+
+    h.paso = n;
+    h.visitados[n] = true;
+    var molde = document.createElement('div');
+    molde.innerHTML = pasoOpcionesHtml(h, n);
+    var nueva = molde.firstChild;
+    if (vieja) {
+      vieja.classList.add('is-saliendo');
+      vieja.setAttribute('aria-hidden', 'true');
+      vieja.inert = true;
+    }
+    vista.appendChild(nueva);
+    cuerpo.scrollTop = 0;
+    pintarEstadoOpciones();
+    enfocarPasoOpciones(nueva);
+
+    if (!vieja) return;
+    if (sinMovimientoOpciones() || typeof nueva.animate !== 'function') {
+      detenerCambioOpciones(h);
+      // Movimiento reducido no es quieto: sin desplazamiento, pero el paso
+      // nuevo entra con un fundido corto, que es la señal de que cambió (dos
+      // pasos de dos opciones se parecen mucho). `.no-anim`, el ajuste del
+      // POS, sí es en seco.
+      if (typeof nueva.animate === 'function' && !document.body.classList.contains('no-anim')) {
+        h.anims = [nueva.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: 'ease-out' })];
+      }
+      return;
+    }
+    var dx = 24 * dir;
+    vista.classList.add('is-cambiando');
+    var salida = vieja.animate(
+      [{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: 'translateX(' + (-dx) + 'px)' }],
+      { duration: 140, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }
+    );
+    var entrada = nueva.animate(
+      [{ opacity: 0, transform: 'translateX(' + dx + 'px)' }, { opacity: 1, transform: 'translateX(0)' }],
+      { duration: 220, delay: 40, easing: 'cubic-bezier(.22, .61, .36, 1)', fill: 'backwards' }
+    );
+    h.anims = [salida, entrada];
+    entrada.onfinish = function() {
+      if (opcionesHoja === h) detenerCambioOpciones(h);
+    };
   }
 
   function abrirOpciones(dish, ctx) {
@@ -4276,13 +4568,31 @@ function initMapa() {
       dish: dish,
       ctx: ctx,
       seleccion: seleccion,
-      origen: ctx.origen || document.activeElement
+      origen: ctx.origen || document.activeElement,
+      paso: 0,
+      visitados: { 0: true },
+      avance: 0,
+      toque: null,
+      anims: []
     };
-    pintarOpciones();
-    // El foco va al primer grupo que falte por elegir; si no falta ninguno,
-    // directo al botón de agregar: lo normal es aceptar lo predeterminado.
-    var primeraFalta = hoja.querySelector('.mmodal-opts__grupo.is-falta [tabindex="0"]');
-    (primeraFalta || hoja.querySelector('[data-opts-confirmar]')).focus();
+    // Al AGREGAR, la hoja abre en el primer paso que pide respuesta: los de
+    // antes ya traen su predeterminada y la fila de pasos la enseña, con su
+    // número (no visitados) para volver si el cliente pidió otra cosa. Abrir
+    // en el 1 obligaba a pasar por ellos: con «Pan, Término*, Extras» eran
+    // cuatro toques donde la hoja de un solo vistazo pedía dos. Al EDITAR, desde
+    // el primero, para repasar la línea entera.
+    var faltaAlAbrir = primerPasoFaltante(opcionesHoja);
+    if (ctx.editIdx === undefined && faltaAlAbrir > 0) {
+      opcionesHoja.paso = faltaAlAbrir;
+      opcionesHoja.visitados = {};
+      opcionesHoja.visitados[faltaAlAbrir] = true;
+    }
+    pintarHojaOpciones();
+    // Si no falta nada, el foco va directo a agregar: lo normal es aceptar lo
+    // predeterminado. Si falta algo, a la primera opción del paso.
+    var destino = resumenOpciones().faltan.length ? null : hoja.querySelector('[data-opts-confirmar]');
+    if (destino) destino.focus();
+    else enfocarPasoOpciones(hoja.querySelector('[data-opts-vista] .mmodal-opts__grupo'));
     window.requestAnimationFrame(function() { hoja.classList.add('is-open'); });
   }
 
@@ -4290,6 +4600,8 @@ function initMapa() {
     if (!opcionesHoja) return;
     var h = opcionesHoja;
     opcionesHoja = null;
+    clearTimeout(h.avance);
+    (h.anims || []).forEach(function(a) { try { a.cancel(); } catch (e) { /* ya terminó */ } });
     h.el.parentNode && h.el.parentNode.removeChild(h.el);
     if (devolverFoco !== false && h.origen && document.body.contains(h.origen)) h.origen.focus();
   }
@@ -4331,22 +4643,53 @@ function initMapa() {
     addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal, d.oferta_id || d.id);
   }
 
+  // ¿Es este toque el segundo de un doble toque que ya cambió de paso? Sólo
+  // puntero (e.detail > 0): Enter y Espacio llegan con detail 0 y siempre
+  // son a propósito. Un toque descartado no cuenta como el anterior.
+  function toqueRepetidoOpciones(h, e) {
+    if (!(e.detail > 0)) return false;
+    var ahora = Date.now();
+    if (h.toque && h.toque.paso !== h.paso && ahora - h.toque.t < OPCIONES_DOBLE_TOQUE_MS) return true;
+    h.toque = { t: ahora, paso: h.paso };
+    return false;
+  }
+
   if (modal) {
     modal.addEventListener('click', function(e) {
-      if (!opcionesHoja || !opcionesHoja.el.contains(e.target)) return;
+      var h = opcionesHoja;
+      if (!h || !h.el.contains(e.target)) return;
       if (e.target.closest('[data-opts-cerrar]')) {
         cerrarOpciones();
         return;
       }
-      if (e.target.closest('[data-opts-confirmar]')) {
-        confirmarOpciones();
+      // Lo que cambia de sitio al cambiar de paso: opciones y pie. La fila de
+      // pasos y el cierre no se mueven, no necesitan la guarda.
+      if (e.target.closest('[data-opt-id], [data-opts-pie] button') && toqueRepetidoOpciones(h, e)) return;
+      var confirmar = e.target.closest('[data-opts-confirmar]');
+      if (confirmar) {
+        var ir = confirmar.getAttribute('data-opts-ir');
+        if (ir !== null) irAPasoOpciones(Number(ir));
+        else confirmarOpciones();
+        return;
+      }
+      if (e.target.closest('[data-opts-atras]')) {
+        irAPasoOpciones(h.paso - 1);
+        return;
+      }
+      if (e.target.closest('[data-opts-siguiente]')) {
+        irAPasoOpciones(h.paso + 1);
+        return;
+      }
+      var paso = e.target.closest('.mmodal-opts__paso[data-opts-ir]');
+      if (paso) {
+        irAPasoOpciones(Number(paso.getAttribute('data-opts-ir')));
         return;
       }
       var pill = e.target.closest('[data-opt-id]');
-      if (pill) {
-        var gi = Number(pill.getAttribute('data-opt-g'));
-        opcionesHoja.seleccion[gi] = Number(pill.getAttribute('data-opt-id'));
-        pintarOpciones('[data-opt-g="' + gi + '"][data-opt-id="' + pill.getAttribute('data-opt-id') + '"]');
+      if (pill && !pill.closest('.is-saliendo')) {
+        // e.detail > 0: clic o toque. Espacio sobre la opción también llega
+        // como clic, con detail 0: elige sin avanzar, como las flechas.
+        elegirOpcion(Number(pill.getAttribute('data-opt-g')), Number(pill.getAttribute('data-opt-id')), e.detail > 0);
       }
     });
   }
@@ -7319,8 +7662,14 @@ function initMapa() {
     }
   });
 
-  // Hoja de opciones: Escape la cierra, Tab no sale de ella y las flechas se
-  // mueven dentro del grupo (patrón de radiogroup) eligiendo al moverse.
+  // Hoja de opciones, por pasos:
+  //   · Escape la cierra y Tab no sale de ella.
+  //   · Flechas dentro de un paso: eligen sin cambiar de paso (radiogroup).
+  //   · Enter sobre una opción: la elige y pasa al siguiente paso; en el
+  //     último, agrega si ya no falta nada (si falta, lleva a ese paso).
+  //   · Retroceso: vuelve al paso anterior.
+  //   · En la fila de pasos: flechas, Inicio y Fin mueven el foco; Enter o
+  //     Espacio (el clic nativo del botón) llevan a ese paso.
   function teclaOpciones(e) {
     var h = opcionesHoja;
     if (e.key === 'Escape') {
@@ -7328,32 +7677,55 @@ function initMapa() {
       cerrarOpciones();
       return;
     }
-    var pill = e.target.closest ? e.target.closest('[data-opt-id]') : null;
+    var t = e.target;
+    var pill = t && t.closest ? t.closest('[data-opt-id]') : null;
+    var chip = t && t.closest ? t.closest('.mmodal-opts__paso') : null;
     if (pill && /^Arrow(Left|Right|Up|Down)$/.test(e.key)) {
       e.preventDefault();
       var hermanos = Array.prototype.slice.call(pill.parentNode.querySelectorAll('[data-opt-id]'));
       var paso = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
       var siguiente = hermanos[(hermanos.indexOf(pill) + paso + hermanos.length) % hermanos.length];
-      var gi = Number(siguiente.getAttribute('data-opt-g'));
-      h.seleccion[gi] = Number(siguiente.getAttribute('data-opt-id'));
-      pintarOpciones('[data-opt-g="' + gi + '"][data-opt-id="' + siguiente.getAttribute('data-opt-id') + '"]');
+      elegirOpcion(Number(siguiente.getAttribute('data-opt-g')), Number(siguiente.getAttribute('data-opt-id')), false);
+      siguiente.focus();
       return;
     }
-    // Enter sobre una opción la elige Y agrega si ya no falta nada: el camino
-    // corto del teclado es «flecha hasta la opción, Enter».
+    if (chip && /^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) {
+      e.preventDefault();
+      var chips = Array.prototype.slice.call(h.card.querySelectorAll('.mmodal-opts__paso'));
+      var i = chips.indexOf(chip);
+      var j = e.key === 'Home' ? 0
+        : e.key === 'End' ? chips.length - 1
+        : (i + (e.key === 'ArrowRight' ? 1 : -1) + chips.length) % chips.length;
+      chips.forEach(function(c, k) { c.tabIndex = k === j ? 0 : -1; });
+      chips[j].focus();
+      return;
+    }
     if (e.key === 'Enter' && pill) {
       e.preventDefault();
-      var giEnter = Number(pill.getAttribute('data-opt-g'));
-      h.seleccion[giEnter] = Number(pill.getAttribute('data-opt-id'));
-      if (resumenOpciones().faltan.length) {
-        pintarOpciones('.mmodal-opts__grupo.is-falta [tabindex="0"]');
+      var gi = Number(pill.getAttribute('data-opt-g'));
+      elegirOpcion(gi, Number(pill.getAttribute('data-opt-id')), false);
+      if (gi < h.dish.g.length - 1) {
+        irAPasoOpciones(gi + 1);
+        return;
+      }
+      var falta = primerPasoFaltante(h);
+      if (falta >= 0) {
+        irAPasoOpciones(falta);
         return;
       }
       confirmarOpciones();
       return;
     }
+    if (e.key === 'Backspace' && !(t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))) {
+      if (h.paso > 0) {
+        e.preventDefault();
+        irAPasoOpciones(h.paso - 1);
+      }
+      return;
+    }
     if (e.key !== 'Tab') return;
-    var items = Array.prototype.slice.call(h.card.querySelectorAll('button:not([disabled]):not([tabindex="-1"])'));
+    var items = Array.prototype.slice.call(h.card.querySelectorAll('button:not([disabled]):not([tabindex="-1"])'))
+      .filter(function(b) { return !b.closest('.is-saliendo'); });
     if (!items.length) return;
     var primero = items[0];
     var ultimo = items[items.length - 1];

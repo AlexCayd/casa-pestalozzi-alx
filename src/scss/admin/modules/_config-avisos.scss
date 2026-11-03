@@ -1,0 +1,803 @@
+// ── Configuración → Avisos de la carta ──────────────────────────
+//
+// views/admin/configuration/avisos.php · src/js/admin/configuration/avisos.js
+//
+// Lista y editor lado a lado. La lista es un mapa del PDF: agrupada por el
+// lugar donde se imprime cada aviso y en su orden. El editor es un campo de
+// texto con su barra de formato pegada arriba —una sola caja, como el
+// compositor de un CRM— y la vista previa con la jerarquía del bloque impreso
+// (rótulo, título, filete corto con rombo, cuerpo): a la derecha cuando cabe,
+// justo debajo del texto cuando no.
+//
+// Sistema administrativo: sólo tokens del panel, sin serif ni color de marca.
+// La carta real se abre desde la lista; la vista previa enseña estructura, no
+// la tinta del PDF.
+
+.admin-avisos {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 20px;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Los [hidden] que el JS conmuta: .admin-btn y la barra traen su propio
+// display, que le gana al de la hoja del navegador.
+.admin-aviso-form__barra[hidden],
+.admin-body [data-aviso-descartar][hidden] {
+  display: none !important;
+}
+
+// ── Lista ───────────────────────────────────────────────────────
+
+.admin-avisos__cuenta {
+  margin-left: 4px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.admin-avisos__vacio {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 30px 18px;
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  color: var(--admin-muted);
+  text-align: center;
+
+  strong {
+    color: var(--admin-text);
+    font-size: 14px;
+  }
+
+  p {
+    max-width: 34ch;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+.admin-avisos__vacio-icono {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  place-items: center;
+
+  svg { stroke-width: 1.7; }
+}
+
+.admin-avisos__grupo + .admin-avisos__grupo {
+  margin-top: 20px;
+}
+
+.admin-body .admin-avisos__lugar {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 0 9px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+
+  span {
+    color: var(--admin-muted);
+    font-family: var(--admin-font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+.admin-body .admin-avisos__lugar-vacio {
+  padding: 10px 12px;
+  border: 1px dashed var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-muted);
+  font-size: 12.5px;
+}
+
+.admin-avisos__items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@keyframes admin-aviso-llega {
+  from { background: color-mix(in srgb, var(--admin-accent) 12%, var(--admin-surface)); }
+}
+
+.admin-aviso-item {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  scroll-margin-top: 110px;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover { border-color: var(--admin-border); }
+
+  // El que está abierto en el editor: borde de tinta y superficie plena.
+  &.is-actual {
+    border-color: var(--admin-accent);
+    background: var(--admin-surface);
+  }
+
+  // Al volver de guardar, mover o pausar, la página llega con #aviso-ID: el
+  // aviso tocado se ilumina un momento para que la vista lo encuentre.
+  &:target { animation: admin-aviso-llega 1.6s var(--admin-ease-out); }
+}
+
+.admin-aviso-item__abrir {
+  display: grid;
+  gap: 3px;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .admin-aviso-item__titulo {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 4px;
+  }
+}
+
+.admin-aviso-item__titulo {
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.admin-aviso-item__extracto {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+// Pausado: el título baja a la tinta tenue (sigue sobre 4.5:1) y la
+// insignia lo dice con palabras; no depende del color.
+.admin-aviso-item.is-pausado .admin-aviso-item__titulo {
+  color: var(--admin-muted);
+}
+
+.admin-aviso-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-aviso-item__acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.admin-aviso-item__form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.admin-aviso-item__orden {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.admin-body .admin-aviso-item__mover[disabled] {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+// El interruptor de la lista es un botón de envío (funciona sin JS) con la
+// forma de .admin-switch, más compacto. Activo: el verde de estado; pausado:
+// neutro, porque pausar no es un error.
+.admin-body .admin-aviso-switch {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 2px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 2px;
+  }
+}
+
+.admin-aviso-switch__track {
+  display: inline-flex;
+  width: 34px;
+  height: 20px;
+  flex: 0 0 34px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-aviso-switch__thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--admin-muted);
+  transition: transform var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-aviso-switch[aria-checked="true"] {
+  .admin-aviso-switch__track {
+    border-color: var(--admin-success-border);
+    background: var(--admin-success-bg);
+  }
+
+  .admin-aviso-switch__thumb {
+    background: var(--admin-success);
+    transform: translateX(14px);
+  }
+}
+
+.admin-body .admin-avisos__ver {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--admin-border-soft);
+  color: var(--admin-muted);
+  font-size: 12.5px;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--admin-text);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+}
+
+// ── Editor ──────────────────────────────────────────────────────
+
+// La rejilla interior (campos | vista previa) depende del ancho del panel,
+// no de la ventana: el panel cambia de ancho con el sidebar.
+.admin-avisos__editor {
+  container-type: inline-size;
+}
+
+.admin-body .admin-avisos__estado {
+  min-height: 0;
+  margin: 4px 0 0;
+  white-space: nowrap;
+}
+
+.admin-avisos__plantillas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 20px;
+}
+
+.admin-avisos__plantillas-rotulo {
+  margin-right: 2px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-avisos__plantilla {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    border-style: solid;
+    background: var(--admin-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 2px;
+  }
+}
+
+.admin-body .admin-avisos__tope,
+.admin-body .admin-avisos__solo-lectura {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-body .admin-avisos__solo-lectura {
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+}
+
+.admin-aviso-form__campos {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+// Una sola rejilla con los cinco controles y la vista previa en el orden del
+// marcado (título, contenido, vista previa, cartas, lugar, interruptor).
+// Apilada, la vista previa cae bajo el texto que se escribe; a dos columnas
+// sube a la derecha, a lo alto de los cinco controles, y se queda a la vista.
+// Antes vivía después de todo el formulario: en un portátil con el sidebar
+// abierto el panel no llega a 760 px y quedaba al fondo, lejos del texto.
+.admin-aviso-form__rejilla {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+@container (min-width: 760px) {
+  .admin-aviso-form__rejilla {
+    grid-template-columns: minmax(0, 1.25fr) minmax(250px, 0.9fr);
+    column-gap: 28px;
+    align-items: start;
+
+    > * { grid-column: 1; }
+
+    > .admin-aviso-preview {
+      position: sticky;
+      top: 92px;
+      grid-column: 2;
+      grid-row: 1 / span 5;
+    }
+  }
+}
+
+.admin-body .admin-aviso-form__contador {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+
+  &.is-cerca {
+    color: var(--admin-warning-text);
+    font-weight: 700;
+  }
+
+  &.is-limite {
+    color: var(--admin-danger-text);
+    font-weight: 700;
+  }
+}
+
+// La barra y el área de texto son una sola caja: el borde y el anillo de
+// foco los lleva el contenedor, y el textarea va sin los suyos.
+.admin-aviso-form__escritorio {
+  overflow: hidden;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
+
+  &:focus-within {
+    border-color: var(--admin-accent);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-focus-ring);
+  }
+
+  .has-error & {
+    border-color: var(--admin-danger);
+    box-shadow: 0 0 0 3px var(--admin-danger-bg);
+  }
+}
+
+.admin-aviso-form__barra {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+}
+
+.admin-body .admin-aviso-form__formato {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px 0 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    border-color: var(--admin-border-soft);
+    background: var(--admin-surface-soft);
+  }
+
+  &:active { background: var(--admin-surface-strong); }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 1px;
+  }
+
+  // Pulsado: el formato que hay bajo el cursor (avisos.js). La tecla se
+  // enciende —glifo en tinta plena, como una tecla con su luz— y el botón
+  // conserva su fondo de reposo para que no se confunda con el hover.
+  &[aria-pressed="true"] {
+    border-color: var(--admin-border);
+
+    .admin-aviso-form__formato-glifo {
+      border-color: var(--admin-accent);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+    }
+  }
+
+  // Negritas dentro de un subtítulo: la carta las ignora (el subtítulo ya es
+  // la voz más fuerte del aviso), así que el botón se apaga en vez de escribir
+  // marcas que no harían nada. aria-disabled y no disabled: sigue en el
+  // recorrido del toolbar y el lector puede anunciarlo.
+  &[aria-disabled="true"] {
+    border-color: transparent;
+    background: none;
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
+.admin-aviso-form__formato-glifo {
+  display: inline-grid;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 3px;
+  border: 1px solid var(--admin-border);
+  border-radius: 5px;
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  place-items: center;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+
+  &--b {
+    font-family: var(--admin-font-sans);
+    font-size: 13px;
+    font-weight: 900;
+  }
+}
+
+.admin-aviso-form__atajos {
+  margin-left: auto;
+  padding-right: 6px;
+  color: var(--admin-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+
+  kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--admin-border);
+    border-radius: 4px;
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+  }
+
+  @media (max-width: 560px) { display: none; }
+}
+
+// El textarea del compositor: sin caja propia (la pone el contenedor) y
+// creciendo con el texto hasta media pantalla. field-sizing donde existe; el
+// JS lo hace a mano donde no.
+.admin-body .admin-aviso-form__escritorio textarea,
+.admin-body .admin-aviso-form__escritorio textarea:hover,
+.admin-body .admin-aviso-form__escritorio textarea:focus,
+.admin-body .admin-aviso-form__escritorio textarea:focus-visible {
+  display: block;
+  min-height: 11.5em;
+  max-height: 60vh;
+  padding: 13px 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.6;
+  field-sizing: content;
+  resize: vertical;
+}
+
+.admin-body .admin-aviso-form__ayuda {
+  margin-top: 8px;
+
+  code {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+  }
+}
+
+// Casillas con la forma de .admin-pill (que sólo contempla radios): la marca
+// es un cuadro, no un círculo, porque aquí se puede elegir más de una.
+.admin-pill--casilla {
+  input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &::before { border-radius: 4px; }
+
+  &:has(input[type="checkbox"]:checked) {
+    border-color: var(--admin-accent);
+    background: color-mix(in srgb, var(--admin-accent) 8%, var(--admin-surface));
+
+    &::before {
+      border-color: var(--admin-accent);
+      background: var(--admin-accent);
+      box-shadow: inset 0 0 0 3px var(--admin-surface);
+    }
+  }
+
+  &:has(input[type="checkbox"]:focus-visible) {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 2px;
+  }
+}
+
+// Sin :has() la marca dibujada no se entera de nada: vuelve la casilla nativa,
+// como hace .admin-pill con sus radios en el mismo caso.
+@supports not selector(:has(*)) {
+  .admin-pill--casilla input[type="checkbox"] {
+    position: static;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    overflow: visible;
+    clip-path: none;
+    accent-color: var(--admin-accent);
+  }
+
+  .admin-pill--casilla::before { display: none; }
+}
+
+.admin-aviso-form__grupo.has-error .admin-pill {
+  border-color: var(--admin-danger);
+}
+
+.admin-aviso-form__activo {
+  margin-top: -4px;
+}
+
+// Apagado, neutro como el interruptor de la lista: el .admin-switch del panel
+// pinta de rojo el estado apagado, y aquí pausar un aviso no es un error. En
+// la misma pantalla, el mismo estado tenía dos colores.
+.admin-aviso-form__activo .admin-switch__track {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface);
+}
+
+.admin-aviso-form__activo .admin-switch__thumb {
+  background: var(--admin-muted);
+}
+
+// ── Vista previa ────────────────────────────────────────────────
+
+.admin-aviso-preview {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  align-content: start;
+}
+
+.admin-body .admin-aviso-preview__panel {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-aviso-preview__hoja {
+  padding: 24px 22px 20px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  text-align: center;
+
+  // Pausado: el borde punteado y la palabra «pausado» debajo. El texto no
+  // se atenúa: seguiría siendo texto y bajaría del 4.5:1.
+  &.is-pausado {
+    border-style: dashed;
+    border-color: var(--admin-border-strong);
+    box-shadow: none;
+  }
+}
+
+// El filete corto con el rombo, bajo el título como en la carta, en tinta del
+// panel.
+.admin-aviso-preview__filete {
+  display: flex;
+  width: 76px;
+  align-items: center;
+  gap: 6px;
+  margin: 10px auto 4px;
+
+  &::before,
+  &::after {
+    height: 1px;
+    flex: 1;
+    background: var(--admin-border-strong);
+    content: "";
+  }
+
+  span {
+    width: 7px;
+    height: 7px;
+    background: var(--admin-text);
+    transform: rotate(45deg);
+  }
+}
+
+.admin-body .admin-aviso-preview__eyebrow {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.admin-body .admin-aviso-preview__titulo {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  &.is-vacio { color: var(--admin-muted); }
+}
+
+// Una medida como la de la carta: apilada, la vista previa ocupa todo el
+// panel y sin tope el texto centrado corría renglones de 90 caracteres.
+.admin-aviso-preview__cuerpo {
+  max-width: 60ch;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+  color: var(--admin-muted);
+}
+
+.admin-body .admin-aviso-preview__h2 {
+  margin: 12px 0 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.admin-body .admin-aviso-preview__p {
+  margin: 6px 0 0;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.admin-aviso-preview__b {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+
+.admin-body .admin-aviso-preview__donde {
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-align: center;
+
+  strong { color: var(--admin-text); }
+}
+
+// Con el dedo, los controles propios de la pantalla suben al estándar de 44
+// px (los iconos de la lista ya traen los 38 del panel).
+@media (pointer: coarse) {
+  .admin-body .admin-aviso-form__formato,
+  .admin-body .admin-aviso-switch,
+  .admin-avisos__plantilla {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-aviso-item,
+  .admin-aviso-switch__track,
+  .admin-aviso-switch__thumb,
+  .admin-avisos__plantilla,
+  .admin-aviso-form__escritorio,
+  .admin-aviso-form__formato,
+  .admin-aviso-form__formato-glifo {
+    transition: none;
+  }
+
+  .admin-aviso-item:target { animation: none; }
+}

@@ -188,6 +188,13 @@ $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
 $router->get('/admin/configuracion/areas', [AdminConfigurationController::class, 'areas']);
 $router->post('/admin/configuracion/areas', [AdminConfigurationController::class, 'guardarAreas']);
+// Avisos de la carta: se imprimen en los PDF de comida y maridaje del
+// Restaurante. Prefijo /admin/configuracion → módulo `configuration`.
+$router->get('/admin/configuracion/avisos', [AdminConfigurationController::class, 'avisos']);
+$router->post('/admin/configuracion/avisos', [AdminConfigurationController::class, 'guardarAviso']);
+$router->post('/admin/configuracion/avisos/estado', [AdminConfigurationController::class, 'cambiarEstadoAviso']);
+$router->post('/admin/configuracion/avisos/mover', [AdminConfigurationController::class, 'moverAviso']);
+$router->post('/admin/configuracion/avisos/eliminar', [AdminConfigurationController::class, 'eliminarAviso']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -215,6 +222,7 @@ $router->post('/admin/menu/categorias/edit',    [AdminMenuController::class, 'ca
 $router->post('/admin/menu/categorias/delete',  [AdminMenuController::class, 'categoryDelete']);
 $router->get('/admin/punto-de-venta', [AdminPuntoVentaController::class, 'index']);
 $router->get('/admin/area', [AdminAreaController::class, 'index']);
+// Redirigen al KDS de piso (/area/<slug>): el tablero del panel está comentado.
 $router->get('/admin/area/cafe', [AdminAreaController::class, 'cafe']);
 $router->get('/admin/area/jugos', [AdminAreaController::class, 'jugos']);
 $router->get('/admin/area/cocina', [AdminAreaController::class, 'cocina']);

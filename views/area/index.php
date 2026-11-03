@@ -96,12 +96,14 @@ $operationalShellClass = 'area-shell';
 $operationalMainClass = 'area-main operational-layout';
 $operationalMainId = 'area-main';
 // El color de la estación (areas_produccion.color) es dato de negocio, no un
-// token, y es EL color del tablero: corona las tres bandas por igual. Ya no
-// hay un color por estado con el que pudiera chocar — el estado de cada banda
-// lo dice su rótulo, en palabras.
+// token, y es EL color del tablero: llena el lomo de cada banda según su
+// estado —velo, medio, lleno—, con un solo hue. --area-ink es la tinta sobre el
+// lomo lleno (AreasProduccion::tintaSobre), siempre una de las dos anclas del
+// panel.
 $operationalMainAttributes = [
   'aria-label' => 'Tablero de producción',
-  'style' => '--area-accent: ' . $area['color'],
+  'style' => '--area-accent: ' . $area['color']
+    . '; --area-ink: var(--admin-' . (($area['tinta'] ?? 'ink') === 'paper' ? 'paper' : 'ink') . ')',
 ];
 
 ob_start();
@@ -110,8 +112,10 @@ ob_start();
 
   <section class="area-banda area-banda--enviados" aria-labelledby="area-banda-enviados-label">
     <header class="area-banda__lomo">
-      <span class="area-banda__rotulo" id="area-banda-enviados-label">Enviados</span>
-      <span class="area-banda__cuenta admin-num" id="count-enviados">0</span>
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-enviados-label">Enviados</span>
+        <span class="area-banda__cuenta admin-num" id="count-enviados">0</span>
+      </div>
     </header>
     <div class="area-banda__riel" id="list-enviados">
       <?= $areaVacio ?>
@@ -120,8 +124,10 @@ ob_start();
 
   <section class="area-banda area-banda--prep" aria-labelledby="area-banda-prep-label">
     <header class="area-banda__lomo">
-      <span class="area-banda__rotulo" id="area-banda-prep-label">En preparación</span>
-      <span class="area-banda__cuenta admin-num" id="count-prep">0</span>
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-prep-label">En preparación</span>
+        <span class="area-banda__cuenta admin-num" id="count-prep">0</span>
+      </div>
     </header>
     <div class="area-banda__riel" id="list-prep">
       <?= $areaVacio ?>
@@ -130,8 +136,10 @@ ob_start();
 
   <section class="area-banda area-banda--listo" aria-labelledby="area-banda-listo-label">
     <header class="area-banda__lomo">
-      <span class="area-banda__rotulo" id="area-banda-listo-label">Listos</span>
-      <span class="area-banda__cuenta admin-num" id="count-listo">0</span>
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-listo-label">Listos</span>
+        <span class="area-banda__cuenta admin-num" id="count-listo">0</span>
+      </div>
     </header>
     <div class="area-banda__riel" id="list-listo">
       <?= $areaVacio ?>

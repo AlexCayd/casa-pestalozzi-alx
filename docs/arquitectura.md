@@ -43,9 +43,9 @@ por porción. No se crean asociaciones, saldos ni movimientos para completar rec
 La receta adaptada y sin receta son estados explícitos; adaptar requiere permiso
 de Recetas local y autorización de la política vigente. Panadería no habilita POS.
 
-La migración es aditiva e idempotente, compartida por instalaciones nuevas y pruebas
-temporales. No modifica productos, precios, imágenes ni recetas preservados. No se
-aplica a la base activa durante esta entrega. Se amplían fachadas de escritura,
+El esquema M1.2 es aditivo y vive en `ddl.sql`, el mismo para instalaciones nuevas
+y pruebas temporales (sin migración aparte). No modifica productos, precios,
+imágenes ni recetas preservados. Se amplían fachadas de escritura,
 lecturas del menú/PDF/POS y referencias de imagen; snapshots, stock, compensación,
 pagos y analítica histórica conservan sus contratos. No se introduce reescritura SQL.
 
@@ -133,6 +133,10 @@ Las recetas/versiones, subrecetas y variantes pertenecen a la oferta. Los ajuste
 
 El DML preserva el menú original de Restaurante: 112 productos y sus 112 ofertas, IDs y relaciones, 15 categorías, 3 cartas, 4 áreas de producción y disponibilidad/orden/precios/descripciones originales. Las 13 imágenes propias están versionadas y se sirven desde los assets de aplicación; el fallback de categoría continúa disponible. Los productos y ofertas sintéticos (IDs desde 1000, sin prefijos visibles) son adiciones independientes para escenarios de prueba y no alteran esos 112 registros. Panadería usa una oferta sintética propia en desarrollo, no una copia del menú real.
 
+**Avisos de la carta (2 nov 2026).** `MenuPdf` es contrato compartido de la carta pública y de los PDF administrativos; se amplía sólo con un parámetro de avisos ya resueltos. `MenuPdf::documento()` compone la carta y `emitir()` la transmite, sin cambiar rutas, permisos ni nombres de archivo. Los avisos son de Restaurante (`configuracion_avisos`, Configuración → Avisos de la carta, módulo `configuration`) y se imprimen en comida y maridaje; la Panadería conserva su PDF sin ellos. El contenido es marcado ligero que `AvisosCarta::html()` escapa y traduce: la plantilla nunca recibe HTML guardado. La lectura del PDF es tolerante: sin tabla o sin base, la carta sale sin avisos. La tabla está en `database/ddl.sql`, sin migración aparte.
+
+**Iconos de variantes (2 nov 2026).** `producto_variantes.icono` es presentación de la opción, no identidad: NULL deduce el icono del nombre (`Variantes::ICONO_REGLAS`, mismas reglas en editor y servidor) y nada se resuelve ni se une por él. `Variantes::paraPos` sólo añade `i` (clave ya resuelta o null) a cada opción; `resolver`, snapshots, consumo y precio no cambian. El editor de variantes se abre también desde «Editar platillo» con las mismas rutas, CSRF y permiso `menu/editar`; el formulario del platillo no envía variantes. La columna está en `database/ddl.sql`, sin migración aparte: una base instalada antes se reinstala con el procedimiento único.
+
 ## 7. Tickets, operación y consumo
 
 Todo ticket pertenece a una unidad vendedora. Global nunca es vendedor. Restaurante conserva mesas, mapa, reservas, toma y envío de comandas, KDS, impresión, entrega, cobro y cancelación. Los snapshots guardan oferta, negocio, nombres, precio, categoría, área, variante, receta/costo conocido y cantidad; el cliente no determina el precio ni resuelve el producto por nombre.
@@ -165,7 +169,7 @@ El instalador exige base inexistente y conserva evidencia del destino/propiedad.
 
 ## 10. Interfaz y diseño
 
-Global y Panadería parten de los layouts, sidebar, topbar, encabezados, tablas, filtros, formularios, botones, modales, alertas, iconos y estilos responsive de Restaurante. Preferir componentes parametrizados por ámbito/permisos/acciones frente a interfaces completas duplicadas. Conservar el selector de contexto debajo del logotipo y la identificación visible del ámbito activo. El servidor vuelve a autorizar cada acción; ocultar un botón no es seguridad.
+Global y Panadería parten de los layouts, sidebar, topbar, encabezados, tablas, filtros, formularios, botones, modales, alertas, iconos y estilos responsive de Restaurante. Preferir componentes parametrizados por ámbito/permisos/acciones frente a interfaces completas duplicadas. El ámbito activo es el estado del panel y se muestra una sola vez, al inicio del header, como selector (decisión del 2 nov 2026: antes iba bajo el logotipo del sidebar y repetido como texto en el header); con un solo ámbito autorizado es una etiqueta fija. El inicio de cada ámbito presenta los módulos autorizados con icono y título, agrupados; los grupos son presentación y no conceden acceso. El servidor vuelve a autorizar cada acción; ocultar un botón no es seguridad.
 
 No rediseñar Restaurante en el cierre. Editar fuentes de `src/` y compilar con Gulp; no editar bundles generados a mano. La interfaz de Almacenes debe desglosar unidades/almacenes en tablas; no se exigen gráficas avanzadas. Los formularios de Usuarios reflejan los techos de delegación y el mismo servicio compartido.
 
@@ -247,8 +251,6 @@ y huella vigente. El administrador local sin esa facultad modifica solo su ofert
 La navegación, el CSRF y el destino de login son contextuales; la sesión no acepta
 IDs de unidad u oferta enviados para sustituir el recurso de la ruta.
 
-Las instalaciones nuevas incorporan la facultad desde `deploy.sql`. Para una
-instalación existente, el despliegue aditivo está en
-`database/actualizaciones/m1-facultad-comercial.sql`; no concede facultades a
-usuarios ni requiere migrar datos del menú. Las pruebas nunca lo aplican a la
-base activa. M2 y M3 permanecen fuera de esta entrega.
+Las instalaciones incorporan la facultad desde `deploy.sql`; no concede
+facultades a usuarios ni requiere migrar datos del menú. M2 y M3 permanecen
+fuera de esta entrega.

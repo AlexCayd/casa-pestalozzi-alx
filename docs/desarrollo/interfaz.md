@@ -30,7 +30,7 @@ Rama `codex/m11-refinamiento-menus-ux`; HEAD inicial
 `Completa Home Restaurante y selección compacta de M1.1-E` (hash/HEAD final en
 `git log -1 --oneline`). Sin push ni merge; árbol limpio al cierre.
 
-`/admin` muestra Inicio · Restaurante y el selector de contexto lleva a esa ruta.
+`/admin` muestra el inicio de Restaurante y el selector de ámbito lleva a esa ruta.
 `/admin/analytics` conserva el dashboard, sus métricas y recursos. El inicio usa
 `InicioAdministrativo` y los parciales contextos existentes; quince accesos posibles
 en el orden del catálogo, filtrados por autorización vigente. Usuarios exige su
@@ -87,9 +87,12 @@ El servidor, sesiones y base temporal se limpian al terminar. M1.2 no se inicia.
 
 ## Componentes M1.1
 
-Los inicios Global y Panadería comparten `contextos/_accesos.php`: tarjetas con SVG
-del repertorio administrativo, título, explicación y enlace autorizado. El inicio
-Restaurante comparte este inicio desde M1.1-E y mantiene el dashboard en Analíticas.
+Los inicios de Global, Restaurante y Panadería comparten `contextos/inicio.php` y
+`contextos/_modulos.php`: el ámbito como titular, grupos con rótulo mono, cuenta y
+filete (`InicioAdministrativo::GRUPOS`; Global no se agrupa) y teselas con icono y
+título, sin descripción; el primer grupo con módulos en teselas grandes con icono
+relleno, el resto compactas. La biblioteca PDF conserva `contextos/_accesos.php`.
+El inicio Restaurante mantiene el dashboard en Analíticas.
 Se proyectan únicamente módulos operativos;
 transferencias enlaza al espacio de Almacenes. El catálogo Global utiliza tabla
 compacta, filtros y paginación; la ficha conserva confirmación de impacto maestro.
@@ -226,7 +229,16 @@ admin-pagination, admin-field, admin-switch, admin-tabs y admin-pills.
 - Filtros/tareas: _filtros-estado.php y _tareas-completas.php. Filtro en URL,
   selección aria-current; tareas cuentan lo hecho y métricas independientes de
   búsqueda. Enlace estirado sin position/overflow/transform que reduzca su área.
-- Modales alternan hidden e is-open. Prohibidos alert/confirm/prompt nativos.
+- Variantes en «Editar platillo»: resumen por grupo (_variantes-resumen.php) y el
+  editor completo en `#variantes-modal`, fuera del `<form>` (mismo
+  _variantes-editor.php que la página propia). En el panel Ctrl+S sólo guarda
+  abierto, guardar cierra y repinta el resumen, y cerrar con cambios pregunta.
+  Icono de opción: borde punteado automático, pleno elegido; selector portado
+  al body con búsqueda y rejilla (aria-activedescendant, flechas 2D).
+- Modales alternan hidden e is-open. `admin:modal-before-close` es cancelable
+  (quien tiene cambios pendientes pregunta y cierra con `admin:close-modal`
+  `{id, forzar}`); un Escape ya atendido dentro (preventDefault) no cierra el
+  modal. Prohibidos alert/confirm/prompt nativos.
   ConfirmationModal.get().open devuelve promesa de acción; customContent muestra
   dependencias y requireText exige leer el elemento (data-confirm-require en form).
   Diálogo especializado captura en document antes del genérico, preservando respaldo.
@@ -242,16 +254,17 @@ no concatenar la misma lista obtenida desde dos modelos.
 
 ## Selector de contexto y Almacenes
 
-`views/admin/partials/_contexto.php` muestra icono, nombre y chevron con el sidebar
-expandido; en escritorio contraído conserva solo el icono centrado. El popover
-usa la capa superior para evitar recortes del sidebar. Sus enlaces proceden de
+`views/admin/partials/_contexto.php` vive al inicio del header (`_topbar.php`),
+una sola vez: el sidebar ya no lo lleva. Es una píldora de 40 px —círculo relleno
+con el icono del ámbito, rótulo mono «Ámbito», nombre y chevron— que hace pareja
+con la del usuario al otro extremo; con un solo ámbito autorizado es una etiqueta
+fija, sin botón. Cuando la celda del header no deja sitio al nombre (container
+query `ambito`, 150 px) queda icono y chevron; el nombre sigue en la etiqueta
+accesible y en el menú. El popover usa la capa superior. Sus enlaces proceden de
 `contextosDisponibles` del servidor y conservan `/admin/contexto` y la autorización
 existente; el selector no concede acceso por sí mismo. `src/js/admin/core/contextos.js`
 gestiona ArrowUp/ArrowDown, Home/End y Escape con devolución de foco al disparador.
-Escape en el selector no cierra el drawer móvil. En móvil, incluido un viewport
-de 320 px y una preferencia previa de escritorio contraído, el control recupera
-nombre y chevron y el popover conserva margen respecto al viewport. El respaldo
-`noscript` usa un select nativo etiquetado y botón de envío.
+El respaldo `noscript` usa un select nativo etiquetado y botón de envío.
 
 Almacenes reutiliza tokens, tipografías, iconos y modales administrativos sin una
 biblioteca visual nueva. La pantalla única agrupa tarjetas de almacén por
@@ -308,11 +321,17 @@ ocasionales en menú de usuario.
 
 KDS: tres bandas apiladas (Enviados, En preparación, Listos) sin scroll propio;
 comandas en mampostería que recuerdan su columna (`empaquetar()` en
-`modules/area.js`); sólo desplaza el tablero. Color de estación sólo en el filete
-superior de las tres bandas. Todo lo demás neutro, incluidos avances. Hora ámbar
+`modules/area.js`); sólo desplaza el tablero. Color de estación sólo en el
+lomo de cada banda (columna de ancho fijo a toda su altura; franja superior en
+vertical), que dice el estado por cantidad de color: velo al 22 % en Enviados,
+50 % en En preparación y lleno en Listos (tinta de `AreasProduccion::tintaSobre`,
+rótulo de 19 px bold para que cuente como texto grande). El contador contrasta
+con su lomo: sólido del color, invertido sobre el lleno. Una banda vacía deja
+el lomo neutro (el color mide trabajo) y el contador en contorno. Bandas rectas, sin radio ni
+filete. Todo lo demás neutro, incluidos avances. Hora ámbar
 a 5 minutos, roja a 10; entregados atenuados al 62%; notas hundidas sin ámbar.
-Mono cifras, sans palabras, pesos 400/600/700. Bandas surface-soft sin borde;
-comanda surface-strong. No llevar color de estación a la tarjeta donde compita
+Mono cifras, sans palabras, pesos 400/600/700. Rejilla de comandas
+surface-soft sin borde; comanda surface-strong. No llevar color de estación a la tarjeta donde compita
 con urgencia. El color de cada estación del Restaurante se elige en
 Configuración → Colores de las áreas (`AreasProduccion`: sólo los diez de la
 paleta funcional, sin repetir; el espejo PHP lo vigila `run-areas-produccion.php`).
@@ -323,6 +342,14 @@ para evitar recorte. Agenda administrativa: libreta diaria, hora una vez por
 franja, estado con forma y palabra. Solo ausencia elegible es urgencia. Búsqueda
 conserva periodo/estado; sincronizar nombres entre presenter y pos-reserva-vista.js.
 
+Opciones de platillo por pasos: un grupo por paso, fila de pasos con lo elegido
+(actual relleno, visto con palomita, obligatorio pendiente discontinuo con
+«Elige una») y salto a cualquiera; al agregar abre en el primer obligatorio que
+falte, al editar en el 1. Tocar una opción avanza a los 180 ms (se descarta un
+segundo toque inmediato); flechas eligen sin avanzar, Enter avanza y agrega en
+el último, Retroceso vuelve. Sin nada pendiente, «Agregar» en contorno desde el
+primer paso. Teselas con icono op-* (AdminIcons) o la inicial en el mismo hueco;
+la hoja mide su paso más alto y no cambia de alto; movimiento reducido funde.
 Modal POS: título solo nombre; número adicional si no está incluido como palabra.
 Cancelar mesa se oculta desde primera fila enviada, incluso cancelada. Cerrar se
 deshabilita sin filas o con pendientes; backend revalida. Barras/Llevar: tablero,

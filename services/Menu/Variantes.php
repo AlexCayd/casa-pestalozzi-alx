@@ -62,6 +62,145 @@ final class Variantes
     ];
 
     /**
+     * Iconos que puede llevar una opción (clave => nombre para el selector del
+     * editor). Es la lista permitida del servidor: el trazo vive en
+     * src/js/admin/core/icons.js y en views/admin/partials/_icons.php, y
+     * run-variantes-iconos.php vigila que las tres listas sean la misma.
+     */
+    public const ICONOS = [
+        'op-taza' => 'Taza',
+        'op-caliente' => 'Caliente',
+        'op-frio' => 'Frío',
+        'op-tamano-chico' => 'Chico',
+        'op-tamano-mediano' => 'Mediano',
+        'op-tamano-grande' => 'Grande',
+        'op-leche' => 'Leche',
+        'op-planta' => 'Vegetal',
+        'op-grano' => 'Café',
+        'op-sin' => 'Sin',
+        'op-extra' => 'Extra',
+        'op-doble' => 'Doble',
+        'op-mitad' => 'Media',
+        'op-plato' => 'Porción',
+        'op-termino-rojo' => 'Término rojo',
+        'op-termino-medio' => 'Término medio',
+        'op-termino-tres-cuartos' => 'Tres cuartos',
+        'op-termino-bien' => 'Bien cocido',
+        'op-fuego' => 'Al fuego',
+        'op-picante' => 'Picante',
+        'op-dulce' => 'Dulce',
+        'op-queso' => 'Queso',
+        'op-huevo' => 'Huevo',
+        'op-pan' => 'Pan',
+        'op-carne' => 'Carne',
+        'op-pollo' => 'Pollo',
+        'op-pescado' => 'Pescado',
+        'op-ensalada' => 'Verdura',
+        'op-fruta' => 'Fruta',
+        'op-chocolate' => 'Chocolate',
+        'op-limon' => 'Cítrico',
+        'op-copa' => 'Copa',
+        'op-vaso' => 'Vaso',
+        'op-botella' => 'Botella',
+        'op-estrella' => 'Clásico',
+        'op-bolsa' => 'Para llevar',
+    ];
+
+    /**
+     * Icono automático: cuando la opción no tiene uno elegido (icono NULL) se
+     * deduce de su nombre y, si hace falta, de su grupo. Gana la primera regla
+     * que case; `grupo` y `opcion` son expresiones sobre el texto en
+     * minúsculas y sin acentos. Las del grupo con contexto van primero
+     * («Medio» es un término en «Término» y una media orden en «Porción»);
+     * las que sólo miran el grupo, al final, como respaldo.
+     *
+     * Es presentación, no identidad: nada se resuelve ni se une por este
+     * nombre. Viaja tal cual al editor (datosEditor) para que la vista previa
+     * deduzca lo mismo que el servidor sin repetir las reglas en JS.
+     */
+    public const ICONO_REGLAS = [
+        ['grupo' => 'termin|coccion|cocid', 'opcion' => 'tres cuartos|3/4', 'icono' => 'op-termino-tres-cuartos'],
+        ['grupo' => 'termin|coccion|cocid', 'opcion' => 'bien|cocid|well', 'icono' => 'op-termino-bien'],
+        ['grupo' => 'termin|coccion|cocid', 'opcion' => 'rojo|crudo|ingles|azul|sellad', 'icono' => 'op-termino-rojo'],
+        ['grupo' => 'termin|coccion|cocid', 'opcion' => 'medio', 'icono' => 'op-termino-medio'],
+        ['grupo' => 'tama|size|onzas|\\boz\\b', 'opcion' => 'chic|peque|mini|corto|sencill|individual|nino', 'icono' => 'op-tamano-chico'],
+        ['grupo' => 'tama|size|onzas|\\boz\\b', 'opcion' => 'grand|jumbo|venti|familiar|\\bxl\\b', 'icono' => 'op-tamano-grande'],
+        ['grupo' => 'tama|size|onzas|\\boz\\b', 'opcion' => 'median|regular|normal|estandar|clasic', 'icono' => 'op-tamano-mediano'],
+        ['opcion' => '^sin\\b|^ningun|^nada\\b|^no\\b', 'icono' => 'op-sin'],
+        ['opcion' => '\\bdobl|\\bx2\\b', 'icono' => 'op-doble'],
+        ['opcion' => 'media orden|\\bmitad\\b|^medi[oa]\\b', 'icono' => 'op-mitad'],
+        ['opcion' => 'extra|adicional|\\bmas\\b|agrega', 'icono' => 'op-extra'],
+        ['opcion' => 'avena|almendra|soya|soja|coco|vegetal|vegan|arroz', 'icono' => 'op-planta'],
+        ['opcion' => 'leche|entera|deslactos|lactos|light|crema', 'icono' => 'op-leche'],
+        ['opcion' => 'hielo|\\bfri[oa]|frapp|helad|iced|rocas', 'icono' => 'op-frio'],
+        ['opcion' => 'calient|tibi|\\bhot\\b', 'icono' => 'op-caliente'],
+        ['opcion' => 'picant|chile|habaner|jalapen|chipotle|serrano|diabla', 'icono' => 'op-picante'],
+        ['opcion' => 'azucar|dulce|miel|endulz|stevia|splenda|cajeta|caramel|piloncillo|vainilla', 'icono' => 'op-dulce'],
+        ['opcion' => 'chocolat|cacao|moka|mocha', 'icono' => 'op-chocolate'],
+        ['opcion' => 'queso|gratin|parmes|mozzarel|manchego|panela', 'icono' => 'op-queso'],
+        ['opcion' => 'huevo|estrellad|revuelt|omelet', 'icono' => 'op-huevo'],
+        ['opcion' => 'pollo|pechuga|alitas', 'icono' => 'op-pollo'],
+        ['opcion' => '\\bres\\b|arracher|carne|cerdo|tocino|jamon|chorizo|salchich|pastor|bistec|sirloin|ribeye|hamburgues', 'icono' => 'op-carne'],
+        ['opcion' => 'pescad|salmon|atun|camaron|marisc|pulpo', 'icono' => 'op-pescado'],
+        ['opcion' => 'ensalad|verdur|lechug|espinac|aguacate|champi|hongo', 'icono' => 'op-ensalada'],
+        ['opcion' => 'fresa|frut|mango|platano|manzana|berr|frambues|zarzamor|durazno|\\bpina\\b|maracuya|guayaba', 'icono' => 'op-fruta'],
+        ['opcion' => 'limon|naranj|citric|\\blima\\b|toronj|mandarin', 'icono' => 'op-limon'],
+        ['opcion' => '\\bpan\\b|tostad|baguette|croissant|bolillo|focaccia|tortilla|brioche|integral|centeno', 'icono' => 'op-pan'],
+        ['opcion' => 'espresso|expres|\\bshot|carga|descafein|americano|\\bcafe\\b', 'icono' => 'op-grano'],
+        ['opcion' => '\\bvino\\b|tinto|rosado|\\bcopa\\b|espumos|mezcal|tequila|whisky|ginebra|\\bron\\b', 'icono' => 'op-copa'],
+        ['opcion' => 'cerveza|botella|\\blata\\b', 'icono' => 'op-botella'],
+        ['opcion' => 'jugo|agua|refresco|soda|\\bvaso\\b', 'icono' => 'op-vaso'],
+        ['opcion' => 'llevar|to go', 'icono' => 'op-bolsa'],
+        ['opcion' => 'clasic|tradicional|original|de la casa|especial', 'icono' => 'op-estrella'],
+        ['opcion' => 'orden|porcion|plato|completa', 'icono' => 'op-plato'],
+        ['opcion' => 'brasa|asad|parrill|horno|fuego|ahumad|flamead', 'icono' => 'op-fuego'],
+        ['grupo' => 'leche', 'icono' => 'op-leche'],
+        ['grupo' => 'tama|size', 'icono' => 'op-tamano-mediano'],
+        ['grupo' => 'termin|coccion', 'icono' => 'op-fuego'],
+        ['grupo' => 'cafe|espresso', 'icono' => 'op-grano'],
+        ['grupo' => 'temperatura', 'icono' => 'op-caliente'],
+        ['grupo' => 'extra|adicional|agrega', 'icono' => 'op-extra'],
+        ['grupo' => 'proteina', 'icono' => 'op-carne'],
+        ['grupo' => 'salsa|picante', 'icono' => 'op-picante'],
+        ['grupo' => 'guarnicion|acompan', 'icono' => 'op-plato'],
+        ['grupo' => 'bebida', 'icono' => 'op-vaso'],
+        ['grupo' => '\\bpan\\b', 'icono' => 'op-pan'],
+    ];
+
+    /**
+     * Icono deducido para una opción, o null si ninguna regla la reconoce (el
+     * POS pinta entonces la inicial de la opción).
+     */
+    public static function iconoSugerido(string $grupo, string $opcion): ?string
+    {
+        $g = self::paraReglas($grupo);
+        $o = self::paraReglas($opcion);
+        foreach (self::ICONO_REGLAS as $regla) {
+            if (isset($regla['grupo']) && !preg_match('~' . $regla['grupo'] . '~u', $g)) {
+                continue;
+            }
+            if (isset($regla['opcion']) && !preg_match('~' . $regla['opcion'] . '~u', $o)) {
+                continue;
+            }
+            return $regla['icono'];
+        }
+        return null;
+    }
+
+    /** El elegido si es válido; si no (NULL = automático), el deducido. */
+    public static function iconoEfectivo(?string $icono, string $grupo, string $opcion): ?string
+    {
+        return $icono !== null && isset(self::ICONOS[$icono]) ? $icono : self::iconoSugerido($grupo, $opcion);
+    }
+
+    /** Minúsculas y sin acentos, igual que hace el editor antes de probar las reglas. */
+    private static function paraReglas(string $texto): string
+    {
+        $texto = mb_strtolower(trim($texto), 'UTF-8');
+        return strtr($texto, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+    }
+
+    /**
      * Grupos de un producto para el panel, con opciones apagadas y ajustes.
      *
      * @return list<array{nombre: string, opciones: list<array>}>
@@ -74,7 +213,7 @@ final class Variantes
         $unidadId = ContextoNegocio::unidad($ctx);
         $productoId = max(0, $productoId); // ID comercial: ofertas_producto.id
         self::exigirOferta($db, $productoId, $unidadId);
-        $stmt = $db->prepare('SELECT id, grupo, nombre, precio_delta, predeterminada, activo FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? ORDER BY orden_grupo, orden, id');
+        $stmt = $db->prepare('SELECT id, grupo, nombre, icono, precio_delta, predeterminada, activo FROM producto_variantes WHERE oferta_id = ? AND unidad_id = ? ORDER BY orden_grupo, orden, id');
         $stmt->bind_param('ii', $productoId, $unidadId);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -95,6 +234,8 @@ final class Variantes
             $grupos[$grupo]['opciones'][$id] = [
                 'id' => $id,
                 'nombre' => (string) $row['nombre'],
+                // null = automático; el editor muestra cuál deduciría.
+                'icono' => isset(self::ICONOS[(string) $row['icono']]) ? (string) $row['icono'] : null,
                 'precio_delta' => (float) $row['precio_delta'],
                 'predeterminada' => (int) $row['predeterminada'] === 1,
                 'activo' => (int) $row['activo'] === 1,
@@ -214,12 +355,13 @@ final class Variantes
             'grupos' => self::deProducto($productoId, $ctx),
             'plantillas' => self::PLANTILLAS,
             'limites' => ['grupos' => self::MAX_GRUPOS, 'opciones' => self::MAX_OPCIONES],
+            'iconos' => ['catalogo' => self::ICONOS, 'reglas' => self::ICONO_REGLAS],
         ];
     }
 
     /**
      * Variantes activas de todo el catálogo, indexadas por producto, en la
-     * forma comprimida de CP_MENU: [{n, req, o: [{id, n, d, def}]}].
+     * forma comprimida de CP_MENU: [{n, req, o: [{id, n, d, def, i}]}].
      *
      * `req` sale de la regla de la casa: un grupo sin predeterminada obliga a
      * elegir. Un grupo con menos de dos opciones activas no se envía —con una
@@ -234,7 +376,7 @@ final class Variantes
         $unidadId = ContextoNegocio::vendedora($ctx);
         $db = Producto::getDB();
         $stmt = $db->prepare(
-            "SELECT pv.id, pv.oferta_id, pv.grupo, pv.nombre, pv.precio_delta, pv.predeterminada
+            "SELECT pv.id, pv.oferta_id, pv.grupo, pv.nombre, pv.icono, pv.precio_delta, pv.predeterminada
                FROM producto_variantes pv
                JOIN ofertas_producto o ON o.id = pv.oferta_id AND o.unidad_id = pv.unidad_id
               WHERE pv.activo = 1 AND o.activo = 1 AND o.unidad_id = ?
@@ -258,6 +400,8 @@ final class Variantes
                 'n' => (string) $row['nombre'],
                 'd' => (float) $row['precio_delta'],
                 'def' => (int) $row['predeterminada'] === 1,
+                // Icono ya resuelto (elegido o deducido); null = la inicial.
+                'i' => self::iconoEfectivo($row['icono'] !== null ? (string) $row['icono'] : null, $grupo, (string) $row['nombre']),
             ];
         }
         $res->free();
@@ -450,19 +594,19 @@ final class Variantes
                     if ($existentes !== []) {
                         $db->query("UPDATE producto_variantes SET grupo = CONCAT('~', id) WHERE oferta_id = {$productoId} AND unidad_id = {$unidadId}");
                     }
-                    $upd = $db->prepare('UPDATE producto_variantes SET grupo=?, nombre=?, precio_delta=?, predeterminada=?, activo=?, orden_grupo=?, orden=? WHERE id=? AND oferta_id=? AND unidad_id=?');
-                    $ins = $db->prepare('INSERT INTO producto_variantes (oferta_id, unidad_id, grupo, nombre, precio_delta, predeterminada, activo, orden_grupo, orden) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                    $upd = $db->prepare('UPDATE producto_variantes SET grupo=?, nombre=?, icono=?, precio_delta=?, predeterminada=?, activo=?, orden_grupo=?, orden=? WHERE id=? AND oferta_id=? AND unidad_id=?');
+                    $ins = $db->prepare('INSERT INTO producto_variantes (oferta_id, unidad_id, grupo, nombre, icono, precio_delta, predeterminada, activo, orden_grupo, orden) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
                     $insAj = $db->prepare('INSERT INTO variante_ajustes (variante_id, oferta_id, unidad_id, articulo_id, subreceta_id, cantidad, accion, articulo_nuevo_id, subreceta_nueva_id, nueva_cantidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
                     if (!$upd || !$ins || !$insAj) throw new \RuntimeException($db->error);
                     $conservados = [];
                     foreach ($limpios as $ordenGrupo => $grupo) foreach ($grupo['opciones'] as $orden => $op) {
-                        $id = (int)($op['id'] ?? 0); $nombreGrupo=$grupo['nombre']; $nombre=$op['nombre']; $delta=$op['precio_delta'];
+                        $id = (int)($op['id'] ?? 0); $nombreGrupo=$grupo['nombre']; $nombre=$op['nombre']; $icono=$op['icono']; $delta=$op['precio_delta'];
                         $def=$op['predeterminada']?1:0; $activo=$op['activo']?1:0;
                         if ($id > 0 && isset($existentes[$id])) {
-                            $upd->bind_param('ssdiiiiiii',$nombreGrupo,$nombre,$delta,$def,$activo,$ordenGrupo,$orden,$id,$productoId,$unidadId);
+                            $upd->bind_param('sssdiiiiiii',$nombreGrupo,$nombre,$icono,$delta,$def,$activo,$ordenGrupo,$orden,$id,$productoId,$unidadId);
                             if (!$upd->execute()) throw new \RuntimeException($upd->error);
                         } else {
-                            $ins->bind_param('iissdiiii',$productoId,$unidadId,$nombreGrupo,$nombre,$delta,$def,$activo,$ordenGrupo,$orden);
+                            $ins->bind_param('iisssdiiii',$productoId,$unidadId,$nombreGrupo,$nombre,$icono,$delta,$def,$activo,$ordenGrupo,$orden);
                             if (!$ins->execute()) throw new \RuntimeException($ins->error);
                             $id=(int)$db->insert_id;
                         }
@@ -570,9 +714,16 @@ final class Variantes
                     }
                 }
 
+                // Vacío o null = automático. Uno fuera de la lista no se
+                // guarda «por si acaso»: el POS no tendría con qué pintarlo.
+                $icono = isset($op['icono']) && is_string($op['icono']) ? trim($op['icono']) : '';
+                if ($icono !== '' && !isset(self::ICONOS[$icono])) {
+                    $errores[] = "El icono de «{$nombre}» no está en el catálogo.";
+                }
                 $limpiasOpciones[] = [
                     'id' => (int) ($op['id'] ?? 0),
                     'nombre' => $nombre,
+                    'icono' => $icono !== '' && isset(self::ICONOS[$icono]) ? $icono : null,
                     'precio_delta' => $delta,
                     'predeterminada' => $def,
                     'activo' => $activo,

@@ -84,7 +84,7 @@ class MenuPdf
             ];
         }
 
-        self::emitir($pieza,$categorias,$nombreArchivo);
+        self::emitir($pieza,$categorias,$nombreArchivo,\Services\Configuration\AvisosCarta::paraPdf($carta));
     }
 
     /** Documento privado: el propietario es una constante de ruta, nunca un parámetro GET. */
@@ -96,6 +96,9 @@ class MenuPdf
         $pieza=$contexto==='panaderia'?[
             'rotulo'=>'MENÚ DE PANADERÍA','bajada'=>'Panes y dulces de la casa',
             'archivo'=>'menu-panaderia-casa-pestalozzi.pdf','vacio'=>'No hay ofertas disponibles para imprimir.',
+            // Faltaba: emitir() la lee y la plantilla caía a su respaldo con
+            // un aviso de índice indefinido.
+            'cierre'=>'Buon appetito',
         ]:self::PIEZAS[$carta];
         $db=\Model\ActiveRecord::getDB();
         $s=$db->prepare('SELECT slug FROM cartas WHERE unidad_id=? AND slug=? AND activo=1');$s->execute([$unidad,$carta]);
@@ -116,7 +119,10 @@ class MenuPdf
             if (isset($_GET['carta']) && (!is_string($_GET['carta']) || $_GET['carta']!==$carta)) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no corresponde al documento solicitado.');
             $datos=self::datosAdministrativos($contexto,$carta);
             header('Cache-Control: private, no-store');
-            self::emitir($datos['pieza'],$datos['categorias']);
+            // Los avisos son del Restaurante (Configuración → Avisos de la
+            // carta): la Panadería imprime su carta sin ellos.
+            $avisos=$datos['contexto']==='restaurante'?\Services\Configuration\AvisosCarta::paraPdf($datos['carta']):[];
+            self::emitir($datos['pieza'],$datos['categorias'],null,$avisos);
         } catch (\Services\Inventory\InventarioError $e) {
             http_response_code(in_array($e->codigo,['CARTA_INVALIDA','CARTA_VACIA','AMBITO_NO_VENDEDOR'],true)?404:403);
             echo htmlspecialchars($e->getMessage(),ENT_QUOTES,'UTF-8');
@@ -144,7 +150,23 @@ class MenuPdf
         ];
     }
 
-    private static function emitir(array $pieza,array $categorias,?string $nombreArchivo=null): void
+    private static function emitir(array $pieza,array $categorias,?string $nombreArchivo=null,array $avisos=[]): void
+    {
+        $dompdf = self::documento($pieza,$categorias,$avisos);
+
+        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
+        $dompdf->stream($nombreArchivo ?: $pieza['archivo'], ['Attachment' => false]);
+        exit;
+    }
+
+    /**
+     * La carta ya compuesta, sin enviarla: emitir() la transmite y las pruebas
+     * la escriben a un archivo para revisarla.
+     *
+     * `$avisos` es lo que da AvisosCarta::paraPdf(): ['inicio' => [...],
+     * 'final' => [...]], cada aviso con su título y su HTML ya escapado.
+     */
+    public static function documento(array $pieza,array $categorias,array $avisos=[]): \Dompdf\Dompdf
     {
         // La clase vive en services/Menu; la raíz del proyecto está dos niveles arriba.
         $projectRoot = realpath(dirname(__DIR__, 2));
@@ -163,8 +185,12 @@ class MenuPdf
         $pdfRotulo = $pieza['rotulo'];
         $pdfBajada = $pieza['bajada'];
         $pdfVacio = $pieza['vacio'];
-        $pdfCierre = $pieza['cierre'];
+        $pdfCierre = $pieza['cierre'] ?? 'Buon appetito';
         $pdfTitulo = pathinfo($pieza['archivo'], PATHINFO_FILENAME);
+        $pdfAvisos = [
+            'inicio' => array_values($avisos['inicio'] ?? []),
+            'final' => array_values($avisos['final'] ?? []),
+        ];
 
         ob_start();
         $generado = date('d/m/Y H:i');
@@ -183,9 +209,7 @@ class MenuPdf
         $dompdf->render();
         self::folios($dompdf);
 
-        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
-        $dompdf->stream($nombreArchivo ?: $pieza['archivo'], ['Attachment' => false]);
-        exit;
+        return $dompdf;
     }
 
     /**

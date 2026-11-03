@@ -1,5 +1,13 @@
 /**
- * Editor de variantes de platillo (Menú → Variantes).
+ * Editor de variantes de platillo (Menú → Variantes y el panel de «Editar
+ * platillo»).
+ *
+ * Dos modos, el mismo editor (data-variantes-modo en la raíz):
+ *  · `pagina` — /admin/menu/variantes, con su barra pegada abajo.
+ *  · `modal`  — dentro de #variantes-modal en el formulario del platillo. Ctrl+S
+ *    sólo guarda con el panel abierto, cerrar con cambios pendientes pregunta
+ *    antes (admin:modal-before-close) y, al guardar, se cierra y se repinta el
+ *    resumen del formulario ([data-variantes-resumen]).
  *
  * Todo el estado vive aquí y se guarda de una vez por JSON
  * (POST /admin/api/menu/variantes). Dos reglas de la casa que el editor
@@ -36,6 +44,8 @@
     }
 
     var csrf = raiz.getAttribute('data-admin-csrf') || '';
+    var modo = raiz.getAttribute('data-variantes-modo') === 'modal' ? 'modal' : 'pagina';
+    var modal = modo === 'modal' ? raiz.closest('[data-admin-modal]') : null;
     var cGrupos = raiz.querySelector('[data-variantes-grupos]');
     var cPlantillas = raiz.querySelector('[data-variantes-plantillas]');
     var cPos = raiz.querySelector('[data-variantes-pos]');
@@ -112,6 +122,64 @@
     var siguienteClave = 1;
     function clave() { return 'k' + (siguienteClave++); }
 
+    // ── Iconos de opción ────────────────────────────────────────
+    //
+    // `icono: null` es automático: se deduce del nombre de la opción y de su
+    // grupo con las reglas del servidor (Variantes::ICONO_REGLAS, que llegan
+    // en datos.iconos), para que el editor enseñe lo mismo que pintará el POS.
+    // Sin regla que case, la opción lleva su inicial.
+
+    var CATALOGO_ICONOS = (datos.iconos && datos.iconos.catalogo) || {};
+    var REGLAS_ICONOS = ((datos.iconos && datos.iconos.reglas) || []).map(function (r) {
+        try {
+            return {
+                grupo: r.grupo ? new RegExp(r.grupo) : null,
+                opcion: r.opcion ? new RegExp(r.opcion) : null,
+                icono: r.icono
+            };
+        } catch (e) {
+            return null;
+        }
+    }).filter(Boolean);
+
+    function paraReglas(texto) {
+        return normal(String(texto || '').trim());
+    }
+
+    function iconoSugerido(grupo, opcion) {
+        var tg = paraReglas(grupo);
+        var to = paraReglas(opcion);
+        for (var i = 0; i < REGLAS_ICONOS.length; i++) {
+            var r = REGLAS_ICONOS[i];
+            if (r.grupo && !r.grupo.test(tg)) continue;
+            if (r.opcion && !r.opcion.test(to)) continue;
+            return r.icono;
+        }
+        return null;
+    }
+
+    function iconoEfectivo(o, nombreGrupo) {
+        return o.icono && CATALOGO_ICONOS[o.icono] ? o.icono : iconoSugerido(nombreGrupo, o.nombre);
+    }
+
+    function inicial(nombre) {
+        var t = String(nombre || '').trim();
+        return t ? t.charAt(0).toLocaleUpperCase('es') : '?';
+    }
+
+    // El dibujo del icono o, sin él, la inicial en el mismo hueco: así las
+    // opciones de un paso quedan alineadas aunque alguna no tenga icono.
+    function marcaIcono(claveIcono, nombre, tam) {
+        var svg = claveIcono ? icono(claveIcono, tam) : '';
+        return svg || '<span class="admin-vicono-inicial" aria-hidden="true">' + esc(inicial(nombre)) + '</span>';
+    }
+
+    function etiquetaIcono(o, nombreGrupo) {
+        var efectivo = iconoEfectivo(o, nombreGrupo);
+        var nombre = efectivo ? (CATALOGO_ICONOS[efectivo] || efectivo) : 'su inicial';
+        return 'Icono de «' + (o.nombre || 'esta opción') + '»: ' + nombre + (o.icono ? '' : ', automático') + '. Cambiar';
+    }
+
     function aviso(texto, variante) {
         if (window.AppNotice && texto) {
             window.AppNotice.show({ text: texto, variant: variante || 'info' });
@@ -136,6 +204,7 @@
                         key: clave(),
                         id: o.id || 0,
                         nombre: o.nombre,
+                        icono: o.icono && CATALOGO_ICONOS[o.icono] ? o.icono : null,
                         precio_delta: Number(o.precio_delta) || 0,
                         predeterminada: !!o.predeterminada,
                         activo: o.activo !== false,
@@ -156,6 +225,15 @@
         });
     }
 
+    // Las cantidades viajan como cadenas decimales exactas a milésimas: el
+    // servidor las lee con DecimalInventario::leer, que rechaza un número JSON
+    // (y con él cualquier ajuste de receta: «necesita una cantidad mayor que
+    // cero» aunque la pantalla dijera 50 ml).
+    function decimal(n) {
+        var v = Number(n);
+        return isFinite(v) && v > 0 ? v.toFixed(3) : '0';
+    }
+
     function serializar() {
         return estado.grupos.map(function (g) {
             return {
@@ -164,6 +242,7 @@
                     return {
                         id: o.id || 0,
                         nombre: o.nombre.trim(),
+                        icono: o.icono || null,
                         precio_delta: Number(o.precio_delta) || 0,
                         predeterminada: !!o.predeterminada,
                         activo: !!o.activo,
@@ -172,10 +251,10 @@
                                 accion: a.accion,
                                 tipo: a.tipo,
                                 ref_id: a.ref_id,
-                                cantidad: Number(a.cantidad) || 0,
+                                cantidad: decimal(a.cantidad),
                                 nuevo_tipo: a.accion === 'sustituir' ? a.nuevo_tipo : null,
                                 nuevo_ref_id: a.accion === 'sustituir' ? a.nuevo_ref_id : null,
-                                nueva_cantidad: a.accion === 'sustituir' ? (Number(a.nueva_cantidad) || 0) : null
+                                nueva_cantidad: a.accion === 'sustituir' ? decimal(a.nueva_cantidad) : null
                             };
                         })
                     };
@@ -355,15 +434,20 @@
             var r = disparador.getBoundingClientRect();
             var ancho = Math.max(r.width, 300);
             var izquierda = Math.min(r.left, window.innerWidth - ancho - 12);
-            var abajo = window.innerHeight - r.bottom;
+            var abajo = window.innerHeight - r.bottom - 18;
+            var arriba = r.top - 18;
             caja.style.width = ancho + 'px';
             caja.style.left = Math.max(12, izquierda) + 'px';
-            if (abajo < 320 && r.top > abajo) {
+            // Del lado con más sitio y nunca más alta que ese sitio: sin el
+            // tope, abierta hacia arriba se salía por el borde de la ventana.
+            if (abajo < 320 && arriba > abajo) {
                 caja.style.top = '';
                 caja.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+                caja.style.maxHeight = Math.min(380, arriba) + 'px';
             } else {
                 caja.style.bottom = '';
                 caja.style.top = (r.bottom + 6) + 'px';
+                caja.style.maxHeight = Math.min(380, abajo) + 'px';
             }
         }
 
@@ -394,7 +478,9 @@
             else if (e.key === 'ArrowUp') { e.preventDefault(); marcar(activo - 1); }
             else if (e.key === 'Enter') { e.preventDefault(); elegir(activo); }
             else if (e.key === 'Escape') { e.preventDefault(); cerrar(true); }
-            else if (e.key === 'Tab') { cerrar(false); }
+            // Tab cierra y vuelve al botón que lo abrió: la caja vive al final
+            // del <body> y el tabulador natural se saldría del panel.
+            else if (e.key === 'Tab') { e.preventDefault(); cerrar(true); }
         });
         lista.addEventListener('mousedown', function (e) { e.preventDefault(); });
         lista.addEventListener('click', function (e) {
@@ -412,8 +498,194 @@
         return {
             abrir: function (boton, cb) {
                 if (disparador === boton) { cerrar(true); return; }
+                if (selectorIconos) selectorIconos.cerrar(false);
                 disparador = boton;
                 alElegir = cb;
+                boton.setAttribute('aria-expanded', 'true');
+                input.value = '';
+                caja.hidden = false;
+                pintar();
+                posicionar();
+                input.focus();
+            },
+            cerrar: cerrar
+        };
+    })();
+
+    // ── Selector de icono (uno solo, portado al <body>) ─────────
+    //
+    // Mismo patrón que el de componentes: el foco se queda en la búsqueda y
+    // las flechas recorren la rejilla con aria-activedescendant. La primera
+    // casilla, a lo ancho, es «Automático»: vuelve a dejar que el nombre
+    // decida. Izquierda/derecha avanzan de una en una; arriba/abajo, de fila
+    // en fila.
+
+    var selectorIconos = (function () {
+        var caja = document.createElement('div');
+        caja.className = 'admin-viconos';
+        caja.hidden = true;
+        caja.setAttribute('role', 'dialog');
+        caja.setAttribute('aria-labelledby', 'admin-viconos-titulo');
+        caja.innerHTML =
+            '<p class="admin-viconos__titulo" id="admin-viconos-titulo"></p>' +
+            '<div class="admin-viconos__buscar">' + icono('buscar', 16) +
+            '<input type="search" class="admin-viconos__input" placeholder="Buscar icono: leche, término, picante…" aria-label="Buscar icono" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="admin-viconos-lista" aria-autocomplete="list">' +
+            '</div>' +
+            '<div class="admin-viconos__lista" id="admin-viconos-lista" role="listbox" aria-label="Iconos" data-scrollable></div>';
+        document.body.appendChild(caja);
+        var titulo = caja.querySelector('.admin-viconos__titulo');
+        var input = caja.querySelector('input');
+        var lista = caja.querySelector('[role="listbox"]');
+        var disparador = null;
+        var alElegir = null;
+        var ctx = null;
+        var visibles = [];
+        var activo = 0;
+
+        function pintar() {
+            var q = normal(input.value.trim());
+            var todos = [{ clave: null, nombre: 'Automático' }].concat(Object.keys(CATALOGO_ICONOS).map(function (k) {
+                return { clave: k, nombre: CATALOGO_ICONOS[k] };
+            }));
+            visibles = todos.filter(function (it) {
+                if (!q) return true;
+                if (it.clave === null) return 'automatico'.indexOf(q) !== -1;
+                return normal(it.nombre).indexOf(q) !== -1 || it.clave.indexOf(q) !== -1;
+            });
+            if (!visibles.length) {
+                lista.innerHTML = '<p class="admin-viconos__vacio">Ningún icono se llama «' + esc(input.value.trim()) + '».</p>';
+                input.removeAttribute('aria-activedescendant');
+                return;
+            }
+            lista.innerHTML = visibles.map(function (it, i) {
+                var actual = (it.clave || null) === (ctx.actual || null);
+                if (it.clave === null) {
+                    var sug = ctx.sugerido;
+                    return '<div class="admin-viconos__op admin-viconos__op--auto' + (actual ? ' is-actual' : '') + '" role="option" id="admin-viconos-op-' + i + '" data-i="' + i + '" aria-selected="false">' +
+                        '<span class="admin-viconos__dibujo">' + marcaIcono(sug, ctx.nombre, 22) + '</span>' +
+                        '<span class="admin-viconos__auto-texto"><strong>Automático</strong>' +
+                        '<span>' + (sug ? 'Según el nombre: ' + esc(CATALOGO_ICONOS[sug] || sug) : 'Sin coincidencia: lleva su inicial') + '</span></span>' +
+                        (actual ? '<span class="admin-viconos__marca">' + icono('check', 14) + '<span class="admin-visually-hidden">(actual)</span></span>' : '') +
+                        '</div>';
+                }
+                return '<div class="admin-viconos__op' + (actual ? ' is-actual' : '') + '" role="option" id="admin-viconos-op-' + i + '" data-i="' + i + '" aria-selected="false" title="' + esc(it.nombre) + '">' +
+                    '<span class="admin-viconos__dibujo">' + icono(it.clave, 22) + '</span>' +
+                    '<span class="admin-viconos__nombre">' + esc(it.nombre) + (actual ? '<span class="admin-visually-hidden"> (actual)</span>' : '') + '</span>' +
+                    '</div>';
+            }).join('');
+            var inicialActivo = 0;
+            visibles.forEach(function (it, i) { if ((it.clave || null) === (ctx.actual || null)) inicialActivo = i; });
+            marcar(q ? 0 : inicialActivo);
+        }
+
+        function marcar(i) {
+            var nodos = lista.querySelectorAll('[role="option"]');
+            if (!nodos.length) return;
+            activo = Math.max(0, Math.min(nodos.length - 1, i));
+            nodos.forEach(function (n, j) {
+                n.classList.toggle('is-active', j === activo);
+                n.setAttribute('aria-selected', j === activo ? 'true' : 'false');
+            });
+            input.setAttribute('aria-activedescendant', nodos[activo].id);
+            nodos[activo].scrollIntoView({ block: 'nearest' });
+        }
+
+        // Columnas reales de la rejilla (cambian con el ancho de la caja).
+        function columnas() {
+            var nodos = lista.querySelectorAll('.admin-viconos__op:not(.admin-viconos__op--auto)');
+            if (nodos.length < 2) return 1;
+            var top = nodos[0].offsetTop;
+            var n = 0;
+            for (var i = 0; i < nodos.length && nodos[i].offsetTop === top; i++) n++;
+            return Math.max(1, n);
+        }
+
+        function moverVertical(paso) {
+            var conAuto = visibles.length && visibles[0].clave === null;
+            var desplaz = conAuto ? 1 : 0;
+            var cols = columnas();
+            if (conAuto && activo === 0) { if (paso > 0) marcar(1); return; }
+            var pos = activo - desplaz;
+            var destino = pos + paso * cols;
+            if (destino < 0) { marcar(conAuto ? 0 : activo); return; }
+            if (destino > visibles.length - 1 - desplaz) return;
+            marcar(destino + desplaz);
+        }
+
+        function posicionar() {
+            if (!disparador) return;
+            var r = disparador.getBoundingClientRect();
+            var ancho = Math.min(420, window.innerWidth - 24);
+            var izquierda = Math.min(r.left, window.innerWidth - ancho - 12);
+            var abajo = window.innerHeight - r.bottom - 18;
+            var arriba = r.top - 18;
+            caja.style.width = ancho + 'px';
+            caja.style.left = Math.max(12, izquierda) + 'px';
+            if (abajo < 360 && arriba > abajo) {
+                caja.style.top = '';
+                caja.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+                caja.style.maxHeight = Math.min(460, arriba) + 'px';
+            } else {
+                caja.style.bottom = '';
+                caja.style.top = (r.bottom + 6) + 'px';
+                caja.style.maxHeight = Math.min(460, abajo) + 'px';
+            }
+        }
+
+        function cerrar(devolverFoco) {
+            if (caja.hidden) return;
+            caja.hidden = true;
+            if (disparador) {
+                disparador.setAttribute('aria-expanded', 'false');
+                if (devolverFoco && document.body.contains(disparador)) disparador.focus();
+            }
+            disparador = null;
+            alElegir = null;
+        }
+
+        function elegir(i) {
+            var it = visibles[i];
+            if (!it || !alElegir) return;
+            var cb = alElegir;
+            cerrar(false);
+            cb(it.clave);
+        }
+
+        input.addEventListener('input', pintar);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowRight') { e.preventDefault(); marcar(activo + 1); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); marcar(activo - 1); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); moverVertical(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); moverVertical(-1); }
+            else if (e.key === 'Home' && !input.value) { e.preventDefault(); marcar(0); }
+            else if (e.key === 'End' && !input.value) { e.preventDefault(); marcar(visibles.length - 1); }
+            else if (e.key === 'Enter') { e.preventDefault(); elegir(activo); }
+            else if (e.key === 'Escape') { e.preventDefault(); cerrar(true); }
+            // Tab cierra y vuelve al botón que lo abrió: la caja vive al final
+            // del <body> y el tabulador natural se saldría del panel.
+            else if (e.key === 'Tab') { e.preventDefault(); cerrar(true); }
+        });
+        lista.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        lista.addEventListener('click', function (e) {
+            var nodo = e.target.closest('[data-i]');
+            if (nodo) elegir(Number(nodo.getAttribute('data-i')));
+        });
+        document.addEventListener('mousedown', function (e) {
+            if (!caja.hidden && !caja.contains(e.target) && !(disparador && disparador.contains(e.target))) {
+                cerrar(false);
+            }
+        });
+        window.addEventListener('resize', posicionar);
+        window.addEventListener('scroll', posicionar, true);
+
+        return {
+            abrir: function (boton, contexto, cb) {
+                if (disparador === boton) { cerrar(true); return; }
+                selector.cerrar(false);
+                disparador = boton;
+                alElegir = cb;
+                ctx = contexto;
+                titulo.textContent = 'Icono de «' + (contexto.nombre || 'esta opción') + '»';
                 boton.setAttribute('aria-expanded', 'true');
                 input.value = '';
                 caja.hidden = false;
@@ -478,6 +750,10 @@
         } else {
             html += '<span class="admin-vopcion__base admin-vopcion__base--vacia" aria-hidden="true"></span>';
         }
+        // El icono que verá el mesero en el paso. Automático: borde punteado.
+        html += '<button type="button" class="admin-vopcion__icono' + (o.icono ? '' : ' is-auto') + '" aria-haspopup="dialog" aria-expanded="false"' +
+            ' aria-label="' + esc(etiquetaIcono(o, g.nombre)) + '" data-icono-opcion data-g="' + gi + '" data-o="' + oi + '">' +
+            marcaIcono(iconoEfectivo(o, g.nombre), o.nombre, 20) + '</button>';
         html += '<label class="admin-vopcion__nombre"><span class="admin-visually-hidden">Nombre de la opción</span>' +
             '<input type="text" maxlength="60" value="' + esc(o.nombre) + '" placeholder="Nombre de la opción" data-campo="nombre" data-g="' + gi + '" data-o="' + oi + '"></label>' +
             '<label class="admin-vopcion__precio"><span class="admin-vopcion__signo" aria-hidden="true">$</span>' +
@@ -550,7 +826,7 @@
                     ? 'No hay opción predeterminada: el POS no deja agregar el platillo sin elegir.'
                     : 'Si nadie elige, va <strong>' + esc(def ? def.nombre || 'la predeterminada' : '') + '</strong>, que es la receta base y no se imprime en la comanda.') + '</p>' +
                 '</div>' +
-                '<div class="admin-vgrupo__cabecera" aria-hidden="true"><span>' + (obligatorio ? '' : 'Base') + '</span><span>Opción</span><span>Precio</span><span>Receta</span><span></span></div>' +
+                '<div class="admin-vgrupo__cabecera" aria-hidden="true"><span>' + (obligatorio ? '' : 'Base') + '</span><span>Icono</span><span>Opción</span><span>Precio</span><span>Receta</span><span></span></div>' +
                 '<ul class="admin-vgrupo__opciones">';
             g.opciones.forEach(function (o, oi) { html += pintarOpcion(g, o, gi, oi); });
             html += '</ul>' +
@@ -605,19 +881,26 @@
             '<div class="admin-vpos__cabeza"><span class="admin-vpos__nombre">' + esc(datos.nombre) + '</span>' +
             '<span class="admin-vpos__precio admin-num">' + dinero(precio) + '</span></div>';
         var visibles = 0;
+        // En el POS cada grupo es un paso: aquí se numeran en el mismo orden
+        // (los grupos con menos de dos opciones activas no se ofrecen y no
+        // cuentan).
+        var pasos = estado.grupos.filter(function (g) {
+            return g.opciones.filter(function (o) { return o.activo; }).length >= 2;
+        }).length;
         estado.grupos.forEach(function (g) {
             var activas = g.opciones.filter(function (o) { return o.activo; });
             if (activas.length < 2) return;
             visibles++;
             var obligatorio = grupoObligatorio(g);
             var elegida = sel.elegidas.filter(function (o) { return activas.indexOf(o) !== -1; })[0];
-            html += '<div class="admin-vpos__grupo" role="radiogroup" aria-label="' + esc(g.nombre) + '">' +
-                '<p class="admin-vpos__grupo-nombre">' + esc(g.nombre || 'Sin nombre') +
+            html += '<div class="admin-vpos__grupo" role="radiogroup" aria-label="Paso ' + visibles + ' de ' + pasos + ': ' + esc(g.nombre) + '">' +
+                '<p class="admin-vpos__grupo-nombre"><span class="admin-vpos__paso admin-num">' + visibles + '/' + pasos + '</span>' + esc(g.nombre || 'Sin nombre') +
                 (obligatorio && !elegida ? ' <span class="admin-vpos__falta">Elige</span>' : '') + '</p><div class="admin-vpos__pills">';
             activas.forEach(function (o, i) {
                 var on = elegida === o;
                 var foco = on || (!elegida && i === 0);
                 html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '" class="admin-vpos__pill' + (on ? ' is-on' : '') + '" data-probar="' + o.key + '" data-grupo-key="' + g.key + '">' +
+                    '<span class="admin-vpos__icono" aria-hidden="true">' + marcaIcono(iconoEfectivo(o, g.nombre), o.nombre, 16) + '</span>' +
                     '<span>' + esc(o.nombre || '—') + '</span>' +
                     (Number(o.precio_delta) ? '<span class="admin-vpos__delta admin-num">' + (o.precio_delta > 0 ? '+' : '−') + '$' + Math.abs(o.precio_delta) + '</span>' : '') +
                     '</button>';
@@ -724,10 +1007,24 @@
 
     // ── Eventos ─────────────────────────────────────────────────
 
+    // El icono automático depende del nombre de la opción y del grupo: se
+    // actualiza mientras se escribe, sin repintar la fila (perdería el foco).
+    function refrescarIconos(gi) {
+        var gr = g(gi);
+        if (!gr) return;
+        gr.opciones.forEach(function (o, oi) {
+            var b = cGrupos.querySelector('[data-icono-opcion][data-g="' + gi + '"][data-o="' + oi + '"]');
+            if (!b) return;
+            b.innerHTML = marcaIcono(iconoEfectivo(o, gr.nombre), o.nombre, 20);
+            b.setAttribute('aria-label', etiquetaIcono(o, gr.nombre));
+        });
+    }
+
     raiz.addEventListener('input', function (e) {
         var t = e.target;
         if (t.hasAttribute('data-campo-grupo')) {
             g(t.getAttribute('data-g')).nombre = t.value;
+            refrescarIconos(t.getAttribute('data-g'));
             pintarPreview(); pintarBarra();
             return;
         }
@@ -736,6 +1033,7 @@
             if (!o) return;
             var campo = t.getAttribute('data-campo');
             o[campo] = campo === 'precio_delta' ? (t.value === '' ? 0 : Number(t.value)) : t.value;
+            if (campo === 'nombre') refrescarIconos(t.getAttribute('data-g'));
             pintarPreview(); pintarBarra();
             return;
         }
@@ -832,6 +1130,22 @@
 
         if (b.hasAttribute('data-plantilla')) {
             agregarGrupo(b.getAttribute('data-plantilla'));
+            return;
+        }
+        if (b.hasAttribute('data-icono-opcion')) {
+            var giI = b.getAttribute('data-g'), oiI = b.getAttribute('data-o');
+            var grI = g(giI), oI = op(giI, oiI);
+            if (!grI || !oI) return;
+            selectorIconos.abrir(b, {
+                nombre: oI.nombre,
+                actual: oI.icono,
+                sugerido: iconoSugerido(grI.nombre, oI.nombre)
+            }, function (elegido) {
+                oI.icono = elegido;
+                pintarGrupos(); pintarPreview(); pintarBarra();
+                var vuelta = cGrupos.querySelector('[data-icono-opcion][data-g="' + giI + '"][data-o="' + oiI + '"]');
+                if (vuelta) vuelta.focus();
+            });
             return;
         }
         if (b.hasAttribute('data-agregar-opcion')) {
@@ -1025,6 +1339,12 @@
             guardado = JSON.stringify(serializar());
             mostrarErrores([]);
             pintarTodo();
+            if (modal) {
+                // En el formulario: se repinta su resumen y el panel se cierra,
+                // que es lo que se espera de «Guardar» en un diálogo.
+                pintarResumen(res.grupos || []);
+                document.dispatchEvent(new CustomEvent('admin:close-modal', { detail: { id: modal.id, forzar: true } }));
+            }
             var pendientes = Number(res.almacenes_pendientes) || 0;
             if (pendientes > 0) {
                 // Persistente: hasta asignar el almacén, el POS rechaza la venta de este platillo.
@@ -1052,21 +1372,125 @@
             primaryLabel: 'Descartar cambios',
             variant: 'danger'
         }).then(function (si) {
-            if (!si) return;
-            estado.grupos = desdeServidor(JSON.parse(guardado));
-            abiertos = {};
-            seleccion = {};
-            mostrarErrores([]);
-            pintarTodo();
+            if (si) restaurarGuardado();
         });
     });
 
+    function restaurarGuardado() {
+        estado.grupos = desdeServidor(JSON.parse(guardado));
+        abiertos = {};
+        seleccion = {};
+        mostrarErrores([]);
+        pintarTodo();
+    }
+
+    // Con el panel cerrado, Ctrl+S es del navegador: el editor no está a la vista.
+    function editorVisible() {
+        return !modal || (!modal.hidden && modal.classList.contains('is-open'));
+    }
+
     document.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+            if (!editorVisible()) return;
             e.preventDefault();
             guardar();
         }
     });
+
+    // ── Resumen del formulario del platillo ─────────────────────
+    //
+    // Mismo marcado que views/admin/menu/_variantes-resumen.php: si cambia
+    // uno, cambia el otro.
+
+    // Mismo formato que la pastilla del POS (dineroCorto): $8 o $8.50, nunca $8.5.
+    function deltaCorto(n) {
+        var v = Math.round(Math.abs(Number(n) || 0) * 100) / 100;
+        return (n > 0 ? '+' : '−') + '$' + (v % 1 === 0 ? String(v) : v.toFixed(2));
+    }
+
+    function pintarResumen(grupos) {
+        var cont = document.querySelector('[data-variantes-resumen]');
+        var cuenta = document.querySelector('[data-variantes-cuenta]');
+        var textoAbrir = document.querySelector('[data-variantes-abrir-texto]');
+        var nOpciones = grupos.reduce(function (s, gr) { return s + (gr.opciones || []).length; }, 0);
+        if (cuenta) {
+            cuenta.textContent = grupos.length
+                ? grupos.length + ' ' + (grupos.length === 1 ? 'grupo' : 'grupos') + ' · ' + nOpciones + ' ' + (nOpciones === 1 ? 'opción' : 'opciones')
+                : '';
+        }
+        if (textoAbrir) textoAbrir.textContent = grupos.length ? 'Editar variantes' : 'Agregar variantes';
+        if (!cont) return;
+        if (!grupos.length) {
+            cont.innerHTML = '<p class="admin-vresumen__vacio">Sin variantes: se vende tal como está en la receta base, con un toque en el POS.</p>';
+            return;
+        }
+        var html = '<ol class="admin-vresumen__grupos">';
+        grupos.forEach(function (gr, i) {
+            var base = (gr.opciones || []).filter(function (o) { return o.predeterminada; })[0];
+            var activas = (gr.opciones || []).filter(function (o) { return o.activo !== false; }).length;
+            html += '<li class="admin-vresumen__grupo"><p class="admin-vresumen__nombre">' +
+                '<span class="admin-vresumen__paso admin-num" aria-hidden="true">' + String(i + 1).padStart(2, '0') + '</span>' +
+                '<span>' + esc(gr.nombre) + '</span>' +
+                // Con menos de dos opciones disponibles el POS no ofrece el paso.
+                (activas < 2
+                    ? '<span class="admin-vresumen__aviso">No sale en el POS: necesita dos opciones disponibles</span>'
+                    : '<span class="admin-vresumen__regla">' + (base ? 'Si nadie elige: ' + esc(base.nombre) : 'El mesero siempre elige') + '</span>') +
+                '</p><ul class="admin-vresumen__opciones">';
+            (gr.opciones || []).forEach(function (o) {
+                var d = Number(o.precio_delta) || 0;
+                html += '<li class="admin-vresumen__op' + (o.predeterminada ? ' is-base' : '') + (o.activo === false ? ' is-off' : '') + '">' +
+                    '<span class="admin-vresumen__icono" aria-hidden="true">' + marcaIcono(iconoEfectivo(o, gr.nombre), o.nombre, 16) + '</span>' +
+                    '<span class="admin-vresumen__op-nombre">' + esc(o.nombre) + '</span>' +
+                    (d ? '<span class="admin-vresumen__delta admin-num">' + deltaCorto(d) + '</span>' : '') +
+                    (o.activo === false ? '<span class="admin-vresumen__off">Apagada</span>' : '') +
+                    '</li>';
+            });
+            html += '</ul></li>';
+        });
+        cont.innerHTML = html + '</ol>';
+    }
+
+    // ── Panel de «Editar platillo» ──────────────────────────────
+
+    if (modal) {
+        modal.addEventListener('admin:modal-opened', function () {
+            // En táctil el foco se queda en el diálogo: enfocar un campo de
+            // texto abriría el teclado del sistema y taparía medio panel.
+            if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+            var foco = cGrupos.querySelector('[data-campo-grupo]') || cPlantillas.querySelector('button:not([disabled])');
+            if (foco) foco.focus();
+        });
+
+        modal.addEventListener('admin:modal-closed', function () {
+            selector.cerrar(false);
+            selectorIconos.cerrar(false);
+        });
+
+        // Cerrar con cambios sin guardar pregunta antes; mientras se guarda,
+        // no se cierra (la respuesta todavía tiene que repintar el resumen).
+        modal.addEventListener('admin:modal-before-close', function (e) {
+            if (guardando) {
+                e.preventDefault();
+                aviso('Espera a que terminen de guardarse las variantes.', 'info');
+                return;
+            }
+            if (!sucio()) return;
+            e.preventDefault();
+            confirmar({
+                eyebrow: 'Variantes',
+                title: '¿Cerrar sin guardar?',
+                description: 'Las variantes de «' + (datos.nombre || 'este platillo') + '» tienen cambios que todavía no se guardan.',
+                consequence: 'Si cierras, vuelven a como estaban en el último guardado.',
+                primaryLabel: 'Descartar y cerrar',
+                secondaryLabel: 'Seguir editando',
+                variant: 'danger'
+            }).then(function (si) {
+                if (!si) return;
+                restaurarGuardado();
+                document.dispatchEvent(new CustomEvent('admin:close-modal', { detail: { id: modal.id, forzar: true } }));
+            });
+        });
+    }
 
     // ── Arranque ────────────────────────────────────────────────
 

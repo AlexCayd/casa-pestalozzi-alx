@@ -170,9 +170,10 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   `restaurante` (el slug sólo es único dentro de su negocio). Se elige
   sólo entre los diez colores de la paleta funcional y dos estaciones no pueden
   repetirlo (`Services\Configuration\AreasProduccion::validar()`); se guarda el
-  hex. Lo leen los dos tableros KDS (`/area/*` y `/admin/area/*`), el selector
-  de estación, Impresoras y el encabezado de área al confirmar una comanda en
-  el POS. Un tablero abierto lo toma al recargarse.
+  hex. Lo leen el tablero KDS de piso (`/area/*`), las tarjetas de Producción
+  del panel (`/admin/area`, que enlazan a ese tablero; `/admin/area/<slug>`
+  redirige ahí), el selector de estación, Impresoras y el encabezado de área
+  al confirmar una comanda en el POS. Un tablero abierto lo toma al recargarse.
 - `/admin/configuracion/paleta`: los **cuatro colores de marca de la landing**
   (verde musgo, oro, beige y crema, los del manual de identidad; tabla
   `configuracion_paleta`, fila única). Son la capa 1 de
@@ -185,9 +186,31 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   `NULL`, para que siga al manual si la capa 1 cambia. Si alguna comprobación
   de contraste (el texto más tenue de cada sección a 4.5:1, y los botones)
   queda por debajo, el guardado pide confirmación explícita.
+- `/admin/configuracion/avisos`: los **avisos del restaurante en las cartas
+  PDF** (tabla `configuracion_avisos`, varias filas por unidad; hasta 12). Cada
+  aviso lleva título (80 caracteres), contenido (1 500), en qué carta se
+  imprime (Menú, Maridaje o las dos), lugar (al inicio, después de la portada;
+  o al final, antes de la despedida), orden dentro de su lugar y si está
+  activo. El contenido se guarda como marcado ligero, nunca HTML: `## ` al
+  inicio de un renglón es subtítulo, `**texto**` va en negritas y un renglón en
+  blanco abre párrafo; todo lo demás se escapa
+  (`Services\Configuration\AvisosCarta::html()`, la única traducción, que usan
+  el PDF y la vista previa). Lo imprimen `/menu/pdf`, `/maridaje/pdf` y los PDF
+  administrativos de Restaurante; la Panadería no. Sin la tabla, la carta sale
+  igual y sin avisos. Permiso: el módulo `configuration` (ver para consultar,
+  editar para cambiar; las escrituras lo releen en su transacción). El editor
+  tiene barra de formato con Ctrl/⌘+B (negritas), Ctrl/⌘+Mayús+2 (subtítulo)
+  y Ctrl/⌘+Enter (guardar), vista previa en vivo y aviso de cambios sin
+  guardar; sin JS funciona como formulario. La tabla está en `database/ddl.sql`.
 
 - **Variantes por platillo**: opciones de precio y receta de la oferta local;
-  administración en Menú. Identidad de oferta, componentes y snapshots se rigen
+  administración en Menú, en su página (`/admin/menu/variantes`) o desde
+  «Editar platillo», que las resume y abre el mismo editor en un panel. Cada
+  opción lleva un icono (`producto_variantes.icono`): uno de la familia `op-*`
+  (`Variantes::ICONOS`) o NULL, automático, que se deduce del nombre de la
+  opción y de su grupo (`Variantes::ICONO_REGLAS`, las mismas reglas en el
+  editor y en el servidor); sin regla que case, el POS pinta la inicial. En el
+  POS cada grupo es un paso. Identidad de oferta, componentes y snapshots se rigen
   por [Arquitectura](arquitectura.md#6-catalogo-productos-cartas-ofertas-y-menu-preservado).
 - **Foto por platillo**: ImagenUploader valida y publica la imagen; sin foto propia
   la carta utiliza la de categoría. No retirar imágenes preservadas del menú.

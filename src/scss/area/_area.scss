@@ -10,17 +10,20 @@
 // UN SOLO COLOR EN TODO EL TABLERO: el de la estación.
 //
 // `areas_produccion.color` llega por --area-accent desde la vista —es dato de
-// negocio, no un token— y corona las tres bandas POR IGUAL. No hay color por
-// estado, ni filete de antigüedad en cada comanda, ni sello azul de entregado.
-// El tablero es su estación; lo demás es superficie y tinta.
+// negocio, no un token— y dice el ESTADO de cada banda por cantidad de color,
+// no por hue, en el lomo: velo en Enviados, medio en En preparación, lleno en
+// Listos, neutro si está vacía (ver .area-banda). Un solo hue que se llena
+// conforme avanza el platillo; no hay un color por estado, ni filete de
+// antigüedad en cada comanda, ni sello azul de entregado. Lo demás es
+// superficie y tinta.
 //
-// La razón no es sobriedad: es que ninguno de esos colores aportaba. El estado
-// de una banda ya lo dice su rótulo, en palabras y a dos centímetros del
-// contador, así que repetirlo en color era decorar un dato que ya estaba. Y el
-// filete de antigüedad acababa pintado en CADA comanda en cuanto el servicio se
-// acumulaba, con lo que dejaba de señalar la que iba tarde — su único trabajo.
-// La antigüedad se quedó donde siempre se leyó: la hora de la cabecera de la
-// comanda, que enrojece cuando hay que mirarla.
+// Hubo un filete arriba, idéntico en las tres bandas. Seguía la curva de las
+// esquinas y bajaba por los dos lados, y no distinguía una banda de otra.
+//
+// El filete de antigüedad acababa pintado en CADA comanda en cuanto el servicio
+// se acumulaba, con lo que dejaba de señalar la que iba tarde — su único
+// trabajo. La antigüedad se quedó donde siempre se leyó: la hora de la cabecera
+// de la comanda, que enrojece cuando hay que mirarla.
 //
 // La separación entre planos tampoco la hacen bordes, sino LUZ. Antes la
 // columna y la comanda eran las dos --admin-surface —el mismo color exacto—,
@@ -122,14 +125,19 @@
 
 /* ── Banda ─────────────────────────────────────────────────────
  *
- * Una franja con superficie CONSTANTE y dos zonas: el lomo a la izquierda
- * (rótulo y contador) y la rejilla de comandas. El lomo en vez de una cabecera
- * encima: una fila de 44 px por banda eran 132 px de alto, y el alto es lo que
- * decide cuántos platillos se ven sin desplazar.
+ * Una franja con dos zonas: el LOMO a la izquierda (rótulo y contador) y la
+ * rejilla de comandas. El lomo en vez de una cabecera encima: una fila de 44 px
+ * por banda eran 132 px de alto, y el alto es lo que decide cuántos platillos
+ * se ven sin desplazar.
  *
- * La división la siguen haciendo tres cosas, ninguna de ellas un borde: el
- * hueco entre bandas, una superficie que nunca baja al fondo y el filete de la
- * estación que corona cada una.
+ * El lomo es además lo que lleva el color de la estación: un bloque a toda la
+ * altura de la banda, relleno del color según el estado (ver --banda-lomo). La
+ * rejilla de comandas sigue neutra.
+ *
+ * Esquinas RECTAS. Con el radio de la banda, el color del lomo —y antes el
+ * filete de arriba— seguía la curva de las esquinas y se doblaba por los
+ * lados. Rectas, las tres bandas son tres rieles y el lomo, un canto de color
+ * limpio. Las comandas conservan su radio: son lo que se toca.
  */
 .area-banda {
   position: relative;
@@ -148,67 +156,112 @@
    * lo que necesita, y las demás se reparten el resto.
    */
   flex: 1 1 0;
-  grid-template-columns: 148px minmax(0, 1fr);
+  // Ancho FIJO en los tres estados, también vacía: el color de los tres lomos
+  // forma una sola columna con el canto derecho alineado.
+  grid-template-columns: var(--banda-lomo-ancho) minmax(0, 1fr);
   align-items: start;
-  border: 0;
-  border-radius: var(--admin-radius-lg);
-  background: var(--admin-surface-soft);
+
   /*
-   * EL ÚNICO COLOR DEL TABLERO: el de la estación.
+   * El color de la estación (dato de negocio, llega por --area-accent desde la
+   * vista) y la tinta que contrasta con él (--area-ink, calculada en el
+   * servidor), con respaldo por si un área se queda sin color en base.
    *
-   * Corona las tres bandas por igual —el mismo color en las tres, no uno por
-   * estado—. Un tablero de cocina es una pantalla fija que se mira el turno
-   * entero, y lo que le da identidad es la estación a la que pertenece, no un
-   * arcoíris de tres hues repartidos por banda: el estado de cada una ya lo dice
-   * su rótulo, en palabras y junto al contador.
+   * Por estado, CUÁNTO color lleva el lomo: un solo hue que se llena conforme
+   * avanza el platillo.
    *
-   * `areas_produccion.color` llega por --area-accent desde la vista (es dato de
-   * negocio, no un token), y el respaldo cubre el caso de que un área se quede
-   * sin color en base. Sigue arriba y a lo ancho, lejos de la hora de una
-   * comanda: es lo que evita que el rojo de Cocina se confunda con el de «lleva
-   * diez minutos» (ver CLAUDE.md).
+   *   Enviados        velo   (22 %)  — llegó y nadie lo ha tocado
+   *   En preparación  medio  (50 %)  — está en el fuego
+   *   Listos          lleno  (100 %) — terminado, a recoger
    *
-   * Sombra interior y no un ::before de 3 px. A una caja de 3 px de alto el
-   * navegador le reduce el radio de 20 px a 3 (los radios de un lado no pueden
-   * sumar más que el lado), así que el filete salía RECTO y asomaba por fuera de
-   * la curva de las dos esquinas. La sombra interior sigue el radio de la banda
-   * —se afina en las esquinas como un borde superior— y no se recorta con nada.
+   * No hay un hue por estado (estuvo neutro/ámbar/verde y el ámbar acababa
+   * diciendo dos cosas) y se lee por intensidad, no por matiz: el rótulo sigue
+   * diciéndolo en palabras. Lleno es el que más se ve porque es el que pide que
+   * alguien venga a recogerlo.
+   *
+   * Sobre el velo y el medio el texto va en papel (--admin-text): ≥ 4.6:1 con
+   * los diez de la paleta. Sobre el lleno, en --area-ink.
    */
-  box-shadow: inset 0 3px 0 var(--area-accent, var(--admin-border-strong));
+  --banda-lomo-ancho: 168px;
+  --banda-acento: var(--area-accent, var(--admin-border-strong));
+  --banda-tinta: var(--area-ink, var(--admin-ink));
+  --banda-lomo: color-mix(in srgb, var(--banda-acento) 22%, var(--admin-surface-soft));
+  --banda-lomo-tinta: var(--admin-text);
+
+  border: 0;
+  border-radius: 0;
+  background: var(--admin-surface-soft);
   font-family: var(--operational-font-ui);
 }
 
-// Vacía, sólo lo que mide: el lomo en una línea y el aviso a su lado.
+.area-banda--prep {
+  --banda-lomo: color-mix(in srgb, var(--banda-acento) 50%, var(--admin-surface-soft));
+}
+
+.area-banda--listo {
+  --banda-lomo: var(--banda-acento);
+  --banda-lomo-tinta: var(--banda-tinta);
+}
+
+/*
+ * Vacía, sólo lo que mide, y con el lomo NEUTRO sea cual sea su estado: un lomo
+ * lleno en Listos sin nada que recoger sería lo más llamativo del tablero y
+ * desde lejos diría «hay algo listo» justo cuando no hay nada. El color mide
+ * trabajo; sin trabajo no hay color, y de qué estación es lo sigue diciendo el
+ * contorno del contador.
+ *
+ * Neutro y no un velo más bajo. Estuvo al 12 %, y contra el 22 % de Enviados
+ * el salto de luz era 1.07–1.10:1 en rojo, rosa, magenta e índigo: la comanda
+ * que caía en un Enviados vacío casi no cambiaba el lomo. De neutro a teñido es
+ * un salto de categoría (aparece el hue), y es justo el aviso de que llegó algo.
+ *
+ * (0,3,0): le gana a .area-banda--listo sin !important.
+ */
 .area-banda:has(> .area-banda__riel > .area-empty) {
+  --banda-lomo: var(--admin-surface-soft);
+  --banda-lomo-tinta: var(--admin-text);
+
   flex: 0 0 auto;
-  // El lomo en una línea («En preparación 0») no cabe en 148 px y partía el
-  // rótulo en dos: vacía, la columna del lomo mide lo que su contenido.
-  grid-template-columns: minmax(148px, max-content) minmax(0, 1fr);
   align-items: center;
 }
 
-// El lomo: rótulo arriba y contador debajo, alineados a la izquierda, a la
-// altura del canto superior de las comandas.
-//
-// Pegajoso: cuando el servicio no cabe y el tablero desplaza, una banda alta
-// pasa por la pantalla con su rótulo y su contador fuera de la vista, y el
-// cocinero trabajaba media banda sin saber cuál era ni cuánto le quedaba. El
-// lomo vive en su propia columna, así que se queda arriba sin tapar nada.
+/*
+ * El lomo: el bloque de color, a toda la altura de la banda (`stretch`), con el
+ * rótulo arriba y el contador debajo.
+ *
+ * Lo que se pega es la MARCA de dentro, no el lomo: cuando el servicio no cabe
+ * y el tablero desplaza, una banda alta pasa por la pantalla con su rótulo y su
+ * contador fuera de la vista, y el cocinero trabajaba media banda sin saber cuál
+ * era ni cuánto le quedaba. El bloque de color se queda a toda la altura y la
+ * marca baja con la vista dentro de él.
+ */
 .area-banda__lomo {
+  display: flex;
+  min-width: 0;
+  align-self: stretch;
+  flex-direction: column;
+  padding: 16px 12px 14px 18px;
+  background-color: var(--banda-lomo);
+  color: var(--banda-lomo-tinta);
+  transition: background-color 240ms ease, color 240ms ease;
+
+  .area-banda:has(> .area-banda__riel > .area-empty) & {
+    justify-content: center;
+    padding-block: 12px;
+  }
+}
+
+.area-banda__marca {
   position: sticky;
-  top: 0;
+  top: 16px;
   display: flex;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px 8px 14px 18px;
 
   .area-banda:has(> .area-banda__riel > .area-empty) & {
-    flex-direction: row;
-    align-items: center;
-    gap: 14px;
-    padding-block: 14px;
+    position: static;
+    gap: 8px;
   }
 }
 
@@ -226,17 +279,20 @@
  * Pesos: 700 para cifras y nombres fuertes, 600 para el platillo, 400 para lo
  * secundario. Tres, y ninguno más.
  *
- * Puede partir en dos renglones: «En preparación» cabe en el lomo a 15 px,
- * pero un rótulo más largo no debe salir con puntos suspensivos.
+ * 19 px y 700: texto GRANDE para WCAG (≥ 18.66 px en negrita). Sobre el lomo
+ * lleno de rosa ninguna de las dos tintas llega a 4.5:1 (4.36 la mejor), y como
+ * texto grande basta 3:1. De paso es el rótulo de una estación que se lee desde
+ * el pase. Puede partir en dos renglones («En / preparación»), nunca con puntos
+ * suspensivos.
  */
 .area-banda__rotulo {
   min-width: 0;
   max-width: 100%;
-  color: var(--admin-text);
+  color: inherit;
   font-family: var(--operational-font-ui);
-  font-size: 15px;
-  font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0;
+  font-size: 19px;
+  font-weight: var(--operational-weight-bold);
+  letter-spacing: -0.01em;
   line-height: 1.15;
 }
 
@@ -245,9 +301,13 @@
  * de la cocina: 20 px en una píldora de 34, radio 10 para igualar el de
  * .area-card__btn (un solo radio de control en el tablero).
  *
- * NEUTRO en las tres bandas. Estuvo con un color por estado —neutro, ámbar,
- * verde— y era un color de más: la banda ya dice en qué estado estás con su
- * rótulo, que está justo encima y en palabras.
+ * Contrasta con SU lomo: sólido del color de la estación sobre el velo y el
+ * medio; invertido —tinta de fondo, cifra del color— sobre el lleno, donde un
+ * sólido del mismo color desaparecería. La cifra va siempre en una de las dos
+ * tintas o en el color de la estación: ≥ 4.1:1 en los diez de la paleta (cifra
+ * de 20 px bold, texto grande).
+ *
+ * Vacía, hueco: sólo el contorno, el único color de una banda sin trabajo.
  */
 .area-banda__cuenta {
   display: grid;
@@ -257,13 +317,25 @@
   place-items: center;
   border: 0;
   border-radius: 10px;
-  background: var(--admin-surface-strong);
-  color: var(--admin-text);
+  background: var(--banda-acento);
+  color: var(--banda-tinta);
   font-family: var(--admin-font-mono);
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
   line-height: 1;
+
+  .area-banda--listo & {
+    background: var(--banda-tinta);
+    color: var(--banda-acento);
+  }
+
+  // (0,4,0): gana al sólido y al invertido de arriba sin !important.
+  .area-banda:has(> .area-banda__riel > .area-empty) & {
+    background: transparent;
+    box-shadow: inset 0 0 0 2px var(--banda-acento);
+    color: var(--admin-text);
+  }
 }
 
 /*
@@ -290,12 +362,13 @@
   grid-auto-flow: row dense;
   align-items: start;
   gap: 12px;
-  // Arriba 12 para despegar las comandas del filete de la estación; a la
-  // izquierda casi nada, porque el lomo ya pone el aire. Abajo sólo 2: el
+  // Arriba 12 para despegar las comandas del canto de la banda; a la
+  // izquierda 14, el aire entre el bloque de color del lomo y la primera
+  // comanda. Abajo sólo 2: el
   // hueco lo pone el margen de la última comanda (ver .is-empaquetado), y
   // cada píxel de aire se paga tres veces —una por banda— en lo que cabe sin
   // desplazar.
-  padding: 12px 14px 2px 2px;
+  padding: 12px 14px 2px 14px;
 
   /*
    * Empaquetado («mampostería»). Con filas normales la comanda más alta fija el
@@ -836,7 +909,7 @@
    * de la columna 1— y encima nunca coincidían de columna. Verde y ámbar
    * aparecían juntos en una banda cuyo contador era de un tercer color.
    *
-   * Ahora el color de estado vive SÓLO en la cabecera de la banda, y el botón
+   * Ahora el estado vive SÓLO en el contador de la banda, y el botón
    * es el relleno primario del sistema —casi blanco sobre casi negro— idéntico
    * en las tres columnas. Es el mismo verbo en los dos sitios («avanza esto»),
    * así que tiene que ser el mismo botón; a dónde avanza ya lo dicen la palabra
@@ -844,7 +917,7 @@
    *
    * Consecuencia asumida: el KDS deja de pintar sus botones con los tokens
    * --admin-estado-* del POS. A cambio, el tablero pasa de cinco significados
-   * de color a dos: ESTADO (cabecera de banda) y ANTIGÜEDAD (filete).
+   * de color a dos: ESTADO (contador de la banda) y ANTIGÜEDAD (la hora).
    */
   &--prep,
   &--listo {
@@ -863,6 +936,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .area-banda__lomo,
   .area-card,
   .area-card__btn {
     transition: none;
@@ -877,20 +951,30 @@
 // de las bandas no cambia —es el flujo de la cocina—, y el tablero ya desplaza
 // en vertical cuando no cabe; aquí no hay nada más que cambiar.
 @media (max-width: 900px) {
+  // Filas explícitas: con dos filas `auto`, el alto que le sobra a la banda se
+  // repartía entre las dos y la franja del lomo crecía vacía por debajo del
+  // rótulo. La franja mide su contenido; el resto es de las comandas.
   .area-banda,
   .area-banda:has(> .area-banda__riel > .area-empty) {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  // Aquí el lomo es una cabecera ENCIMA de las comandas, sin fondo propio:
-  // pegajoso, pasaría por encima de ellas al desplazar.
+  // Aquí el lomo es una franja de color ENCIMA de las comandas, a todo el
+  // ancho: rótulo a la izquierda y contador a la derecha. Sin pegar: no tiene
+  // columna propia y pasaría por encima de las comandas al desplazar.
   .area-banda__lomo,
   .area-banda:has(> .area-banda__riel > .area-empty) .area-banda__lomo {
+    padding: 10px 14px 10px 16px;
+  }
+
+  .area-banda__marca,
+  .area-banda:has(> .area-banda__riel > .area-empty) .area-banda__marca {
     position: static;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 14px 0 16px;
+    gap: 12px;
   }
 
   .area-banda__riel {

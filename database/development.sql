@@ -325,6 +325,13 @@ INSERT INTO historial_precios(id,unidad_id,oferta_id,articulo_id,precio_anterior
  (1003,2,NULL,1002,NULL,0.0150,'proveedor',1001,@dev_cierre),
  (1004,2,NULL,1004,NULL,0.0300,'proveedor',1001,@dev_cierre),
  (1005,2,NULL,1005,NULL,0.0600,'proveedor',1001,@dev_cierre);
+-- Avisos de la carta PDF de Restaurante: uno al inicio sólo en comida y otro
+-- al final en comida y maridaje, para ver las dos posiciones, las dos cartas
+-- y el marcado ligero (## subtítulo, **negritas**). CHAR(10) es el salto de
+-- renglón: así no depende de cómo se escapen las cadenas al cargar el archivo.
+INSERT INTO configuracion_avisos(id,unidad_id,titulo,contenido,activo,en_comida,en_maridaje,posicion,orden,updated_by) VALUES
+ (1001,2,'De temporada',CONCAT('Algunos platillos dependen de la cosecha y del mercado del día. ','**Pregúntale a tu mesero** qué hay hoy.'),1,1,0,'inicio',0,NULL),
+ (1002,2,'Servicio',CONCAT('## Formas de pago',CHAR(10 USING utf8mb4),'Efectivo y tarjeta.',CHAR(10 USING utf8mb4),CHAR(10 USING utf8mb4),'La propina es **voluntaria** y no está incluida en la cuenta.'),1,1,1,'final',0,NULL);
 -- =====================================================================
 -- BLOQUE DE COBERTURA MULTIPERIODO — arquitectura 3E
 --

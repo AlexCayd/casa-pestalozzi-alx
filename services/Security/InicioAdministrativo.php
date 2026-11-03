@@ -5,6 +5,28 @@ namespace Services\Security;
 /** Proyecta accesos reales desde el perfil vigente; no concede permisos. */
 final class InicioAdministrativo
 {
+    /**
+     * Grupos del inicio, en el orden en que se leen. Sólo ordenan la pantalla:
+     * el primer grupo con módulos va en teselas grandes y el resto compactas.
+     * No concede ni oculta nada; el acceso lo decide el perfil, como siempre.
+     */
+    public const GRUPOS = [
+        'operacion' => 'Operación',
+        'carta' => 'Carta y almacén',
+        'clientes' => 'Clientes',
+        'numeros' => 'Números',
+        'sistema' => 'Equipo y sistema',
+    ];
+
+    /** Módulo → grupo del inicio (clave del catálogo de permisos). */
+    public const GRUPO_MODULO = [
+        'pdv' => 'operacion', 'area' => 'operacion', 'reservations' => 'operacion', 'tickets' => 'operacion',
+        'menu' => 'carta', 'productos' => 'carta', 'inventario' => 'carta', 'transferencias' => 'carta',
+        'catas' => 'clientes', 'feedback' => 'clientes',
+        'finanzas' => 'numeros', 'analytics' => 'numeros', 'ia' => 'numeros',
+        'users' => 'sistema', 'configuration' => 'sistema', 'printers' => 'sistema',
+    ];
+
     public static function preparar(array $perfil, string $ctx, string $nivel, array $documentos = []): array
     {
         $puede = static fn(string $slug, string $mod): bool => $nivel==='contrasena' && PermisosUsuario::decidir($perfil, $slug, $mod, 'ver', $nivel)['ok'];
@@ -26,7 +48,9 @@ final class InicioAdministrativo
         foreach ($defs as $mod=>$d) {
             if (!$puede($ctx,$mod==='transferencias'?'inventario':$mod)) continue;
             if ($mod==='users' && !in_array('usuarios.gestionar',$perfil['ambitos'][$ctx]['facultades']??[],true)) continue;
-            $administracion[]=['titulo'=>$d[0],'descripcion'=>$d[1],'icono'=>$d[2],'ruta'=>$d[3],'accion'=>'Abrir'];
+            // Global no se agrupa: su administración es un solo bloque.
+            $administracion[]=['titulo'=>$d[0],'descripcion'=>$d[1],'icono'=>$d[2],'ruta'=>$d[3],'accion'=>'Abrir']
+                +($ctx==='global'?[]:['grupo'=>self::GRUPO_MODULO[$mod]??'sistema']);
         }
         $secciones=[];
         if ($ctx==='global') {
@@ -50,7 +74,8 @@ final class InicioAdministrativo
             if ($mod==='reservations_map' || !$puede($mod)) continue;
             $tarjetas[]=['titulo'=>$mod==='inventario'?'Almacenes':$def['titulo'],
                 'descripcion'=>$mod==='inventario'?'Consulta existencias y registra operaciones físicas.':$def['detalle'],
-                'icono'=>$mod==='productos'?'products':$mod,'ruta'=>$def['ruta'],'accion'=>'Abrir'];
+                'icono'=>$mod==='productos'?'products':$mod,'ruta'=>$def['ruta'],'accion'=>'Abrir',
+                'grupo'=>self::GRUPO_MODULO[$mod]??'sistema'];
         }
         return ['inicioContexto'=>'restaurante','seccionesInicio'=>[['titulo'=>'Tus módulos','tarjetas'=>$tarjetas,'vacio'=>'No hay módulos disponibles con tus permisos actuales.']]];
     }

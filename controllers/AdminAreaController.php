@@ -9,7 +9,8 @@ use Services\Security\ContextoNegocio;
 class AdminAreaController
 {
     private const AREA_CSS = '/build/css/admin/area.css';
-    private const AREA_JS = '/build/js/admin/area.js';
+    // Sólo lo cargaba el tablero del panel, comentado abajo (show()).
+    // private const AREA_JS = '/build/js/admin/area.js';
 
     // Nombre, etiqueta y color de cada estación salen de areas_produccion
     // (Services\Configuration\AreasProduccion), que se edita en Configuración →
@@ -57,24 +58,33 @@ class AdminAreaController
         ]);
     }
 
+    // /admin/area/<slug> ya no pinta un tablero propio: lleva al KDS de piso,
+    // que es el que trabaja la estación. Se conservan para que un enlace o una
+    // pestaña vieja no acabe en 404.
     public static function cafe(Router $router): void
     {
-        self::show('cafe');
+        self::alTablero('cafe');
     }
 
     public static function jugos(Router $router): void
     {
-        self::show('jugos');
+        self::alTablero('jugos');
     }
 
     public static function cocina(Router $router): void
     {
-        self::show('cocina');
+        self::alTablero('cocina');
     }
 
     public static function horno(Router $router): void
     {
-        self::show('horno');
+        self::alTablero('horno');
+    }
+
+    /** El KDS de piso valida permiso y estación (AreaController::renderArea). */
+    private static function alTablero(string $slug): void
+    {
+        self::redirect('/area/' . $slug);
     }
 
     public static function areaItems(Router $router): void
@@ -92,6 +102,16 @@ class AdminAreaController
         AreaController::retrocederItem($router);
     }
 
+    /*
+     * Tablero KDS dentro del panel — COMENTADO.
+     *
+     * Era un segundo KDS (tres columnas con el sidebar alrededor) con su propio
+     * marcado (views/admin/area/show.php) y su propio JS (src/js/admin/area/
+     * area.js) para lo mismo que hace el de piso. Producción enlazaba aquí y no
+     * al tablero que usa la estación. Se conserva para poder reactivarlo: basta
+     * con descomentar esto y AREA_JS y volver a llamar a show() desde las
+     * cuatro rutas de arriba. Las APIs /admin/api/* siguen registradas.
+     *
     private static function show(string $slug): void
     {
         $areas = self::conInk(self::areasActuales());
@@ -112,6 +132,7 @@ class AdminAreaController
             'scripts' => [self::AREA_JS],
         ]);
     }
+     */
 
     /** Áreas dinámicas en el Restaurante nuevo; IDs fijos solo en el esquema legado. */
     private static function areasActuales(): array
@@ -130,7 +151,8 @@ class AdminAreaController
             $nombre=(string)$row['nombre'];
             $color=(string)$row['color'];
             if(!preg_match('/^#(?:[0-9a-fA-F]{3}){1,2}$/',$color)) $color='#8b8b8b';
-            $areas[$slug]=['id'=>(int)$row['id'],'nombre'=>$nombre,'label'=>$nombre,'path'=>'/admin/area/'.$slug,'color'=>$color];
+            // Al KDS de piso, como en el esquema legado (AreasProduccion::todas()).
+            $areas[$slug]=['id'=>(int)$row['id'],'nombre'=>$nombre,'label'=>$nombre,'path'=>'/area/'.$slug,'color'=>$color];
         }
         return $areas;
     }

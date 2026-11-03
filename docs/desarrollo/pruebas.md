@@ -59,8 +59,7 @@ La migración aditiva añade `producto_estandares`, `producto_publicaciones`,
 `receta_casa_versiones`, `receta_casa_componentes` y `receta_origen_casa`, además de
 `productos_oferta` y triggers de inmutabilidad. Contrato/matriz de permisos en
 [Catálogo](../modulos/catalogo-comercial.md#estado-vigente-m12) y
-[Recetas](../modulos/recetas.md). Archivo SQL:
-`database/actualizaciones/m12-estandares.sql`, incluido también en el DDL nuevo.
+[Recetas](../modulos/recetas.md). El bloque SQL vive sólo en `database/ddl.sql`.
 
 Defectos corregidos durante aceptación: carrera de creación de identidad, ámbito
 del historial de precios, resolución SQL de booleanos/imagen null, receta anterior

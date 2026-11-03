@@ -5,7 +5,7 @@
  * Una fila por estación de producción con los diez colores de la paleta
  * funcional como radios. El radio es real (recortado, como en .admin-pills):
  * conserva el envío, las flechas dentro del grupo y el estado tras un POST
- * fallido sin una línea de JS. La vista previa de cada fila (el filete del
+ * fallido sin una línea de JS. La vista previa de cada fila (los lomos del
  * tablero) la pinta el CSS con :has(); configuration.js sólo marca, mientras se
  * elige, los colores que ya tiene otra estación.
  *
@@ -35,7 +35,7 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Configuración</span>
             <h1 class="admin-page__title">Colores de las áreas</h1>
-            <p class="admin-page__subtitle">Cada estación de producción tiene un color: corona su tablero y la identifica en el selector de estación, en Impresoras y en el POS. Se elige entre los colores del sistema, y dos estaciones no pueden repetirlo.</p>
+            <p class="admin-page__subtitle">Cada estación de producción tiene un color: marca los estados de su tablero y la identifica en el selector de estación, en Impresoras y en el POS. Se elige entre los colores del sistema, y dos estaciones no pueden repetirlo.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/configuracion">
@@ -72,8 +72,12 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
                     $inicial = $elegido !== null
                         ? 'var(--admin-c-' . $elegido . ')'
                         : (string) $area['color'];
+                    // La tinta del contador relleno, del mismo color que arranca.
+                    $tintaInicial = ($elegido !== null ? ($paleta[$elegido]['tinta'] ?? null) : null)
+                        ?? ($area['tinta'] ?? 'ink');
+                    $tintaInicial = $tintaInicial === 'paper' ? 'paper' : 'ink';
                     ?>
-                    <fieldset class="admin-area-color" data-area-color="<?php echo $h($slug); ?>" style="--area-inicial: <?php echo $h($inicial); ?>">
+                    <fieldset class="admin-area-color" data-area-color="<?php echo $h($slug); ?>" style="--area-inicial: <?php echo $h($inicial); ?>; --area-tinta-inicial: var(--admin-<?php echo $h($tintaInicial); ?>)">
                         <legend class="admin-area-color__name"><?php echo $h($area['nombre']); ?></legend>
 
                         <div class="admin-area-color__fila">
@@ -88,13 +92,14 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
                         </div>
 
                         <?php /* El tablero en miniatura: las tres bandas, porque
-                                 el color corona las tres por igual, y en oscuro,
-                                 porque el KDS siempre lo es. Lo único que el
-                                 color pinta ahí es el filete de arriba. */ ?>
+                                 el color marca el estado de cada una, y en
+                                 oscuro, porque el KDS siempre lo es. Lo único
+                                 que el color pinta ahí es el lomo de cada
+                                 banda: velo, medio y lleno. */ ?>
                         <div class="admin-area-color__preview" aria-hidden="true">
-                            <span class="admin-area-color__band">Enviados <span class="admin-area-color__cuenta">3</span></span>
-                            <span class="admin-area-color__band">En preparación <span class="admin-area-color__cuenta">2</span></span>
-                            <span class="admin-area-color__band">Listos <span class="admin-area-color__cuenta">1</span></span>
+                            <span class="admin-area-color__band admin-area-color__band--enviados"><span class="admin-area-color__lomo">Enviados <span class="admin-area-color__cuenta">3</span></span></span>
+                            <span class="admin-area-color__band admin-area-color__band--prep"><span class="admin-area-color__lomo">En preparación <span class="admin-area-color__cuenta">2</span></span></span>
+                            <span class="admin-area-color__band admin-area-color__band--listo"><span class="admin-area-color__lomo">Listos <span class="admin-area-color__cuenta">1</span></span></span>
                         </div>
                         </div>
 
@@ -114,6 +119,7 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
                                         type="radio"
                                         name="areas[<?php echo $h($slug); ?>]"
                                         value="<?php echo $h($clave); ?>"
+                                        data-tinta="<?php echo $h(($color['tinta'] ?? 'ink') === 'paper' ? 'paper' : 'ink'); ?>"
                                         <?php echo $elegido === $clave ? 'checked' : ''; ?>
                                     >
                                     <span class="admin-area-swatch__dot" aria-hidden="true"></span>
@@ -132,7 +138,7 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
             <?php if ($nombresDeEspera !== []) : ?>
                 <p class="admin-area-colors__nota">
                     <?php echo admin_icon('info', 16); ?>
-                    <span>En el tablero, <?php echo $h(implode(' y ', $nombresDeEspera)); ?> también marcan una comanda atrasada: tiñen su hora a los 5 y a los 10 minutos. Se pueden elegir, porque el color de la estación sólo va en el filete de arriba de cada banda.</span>
+                    <span>En el tablero, <?php echo $h(implode(' y ', $nombresDeEspera)); ?> también marcan una comanda atrasada: tiñen su hora a los 5 y a los 10 minutos. Se pueden elegir, porque el color de la estación sólo pinta el lomo de cada banda, fuera de las comandas.</span>
                 </p>
             <?php endif; ?>
 

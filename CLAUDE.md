@@ -82,8 +82,9 @@ usuario y lista permitida para identificadores SQL dinámicos.
 - **Instalación**: sólo `php scripts/desarrollo/instalar.php` sobre una base **nueva**
   (rechaza una existente). Carga `ddl.sql` → `deploy.sql` → `menu-restaurante.sql`
   (112 productos originales, intocables) → `development.sql` y hace el bootstrap de
-  `admin_demo`. Para bases existentes hay migraciones aditivas en
-  `database/actualizaciones/`. Ver [instalación](docs/desarrollo/instalacion.md).
+  `admin_demo`. No hay migraciones aparte: esquema en `ddl.sql`, datos
+  estructurales en `deploy.sql` y fixtures en `development.sql`; una base anterior
+  se reinstala. Ver [instalación](docs/desarrollo/instalacion.md).
 - Nunca versionar `.env`, secretos en claro, dumps, sesiones ni resultados de pruebas.
 
 ## Build y pruebas

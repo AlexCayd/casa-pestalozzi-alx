@@ -153,6 +153,7 @@ const paths = {
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/configuration/configuration.js",
+    "src/js/admin/configuration/avisos.js",
   ],
   // Asistente IA. Un solo archivo: ConfirmationModal, AppNotice y el catálogo
   // de iconos (que trae la marca `ia`) ya llegan en admin.js, que el layout

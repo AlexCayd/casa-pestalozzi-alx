@@ -9,6 +9,7 @@ use Services\Configuration\AnuncioConfig;
 use Model\ConfiguracionPaleta;
 use Services\Configuration\PaletaLanding;
 use Services\Configuration\AreasProduccion;
+use Services\Configuration\AvisosCarta;
 use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
@@ -30,6 +31,7 @@ class AdminConfigurationController
     private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
     private const PALETTE_PATH = '/admin/configuracion/paleta';
     private const AREAS_PATH = '/admin/configuracion/areas';
+    private const AVISOS_PATH = '/admin/configuracion/avisos';
 
     public static function index(Router $router): void
     {
@@ -50,6 +52,12 @@ class AdminConfigurationController
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                ],
+                [
+                    'titulo' => 'Avisos de la carta',
+                    'descripcion' => 'Notas del restaurante que se imprimen en el menú y el maridaje en PDF: alergias, formas de pago, temporada.',
+                    'ruta' => self::AVISOS_PATH,
+                    'icono' => '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7.5h6"/><path d="M12 11.5v3.5"/><path d="M12 18h.01"/>',
                 ],
                 [
                     'titulo' => 'Paleta de la landing',
@@ -707,6 +715,214 @@ class AdminConfigurationController
         self::redirect(self::AREAS_PATH . '?resultado=areas_actualizadas');
     }
 
+    // ── Avisos de la carta ──────────────────────────────────────
+    //
+    // Lista y editor en la misma pantalla, como un CRM: a la izquierda los
+    // avisos en el orden en que salen en la carta, a la derecha el editor
+    // (nuevo por omisión, ?editar=ID para uno existente). Todo es un POST
+    // clásico con redirección, así que funciona sin JS; avisos.js añade la
+    // barra de formato, la vista previa en vivo y la guarda de cambios.
+
+    public static function avisos(Router $router): void
+    {
+        $alertas = self::alertasAvisos((string) ($_GET['resultado'] ?? ''));
+        $editar = filter_var($_GET['editar'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $plantilla = is_string($_GET['plantilla'] ?? null) ? (string) $_GET['plantilla'] : '';
+
+        [$avisos, $disponible] = self::listaAvisos($alertas);
+        $formulario = AvisosCarta::nuevo($plantilla);
+        if ($editar) {
+            $encontrado = array_values(array_filter($avisos, static fn (array $a): bool => $a['id'] === (int) $editar));
+            if ($encontrado !== []) {
+                $formulario = $encontrado[0];
+            } elseif ($disponible) {
+                $alertas['error'][] = 'Ese aviso ya no existe; puede que alguien lo haya eliminado.';
+            }
+        }
+
+        self::renderAvisos($avisos, $formulario, $alertas, [], $disponible, false);
+    }
+
+    /** POST /admin/configuracion/avisos — crea (sin aviso_id) o actualiza. */
+    public static function guardarAviso(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::AVISOS_PATH);
+        }
+
+        $id = filter_var($_POST['aviso_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+        $validacion = AvisosCarta::validar([
+            'titulo' => $_POST['titulo'] ?? '',
+            'contenido' => $_POST['contenido'] ?? '',
+            'cartas' => isset($_POST['cartas']) && is_array($_POST['cartas']) ? $_POST['cartas'] : [],
+            'posicion' => $_POST['posicion'] ?? '',
+            'activo' => $_POST['activo'] ?? '0',
+        ]);
+        $formulario = ['id' => $id] + $validacion['aviso'];
+
+        $alertas = [];
+        [$avisos, $disponible] = self::listaAvisos($alertas);
+
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+            $alertas['error'][] = 'La sesión del formulario venció. Recarga la página; tu texto sigue aquí para copiarlo.';
+            self::renderAvisos($avisos, $formulario, $alertas, [], $disponible, true);
+            return;
+        }
+        if ($validacion['errores'] !== []) {
+            $alertas['error'][] = count($validacion['errores']) === 1
+                ? 'Revisa el campo marcado antes de guardar.'
+                : 'Revisa los campos marcados antes de guardar.';
+            self::renderAvisos($avisos, $formulario, $alertas, $validacion['errores'], $disponible, true);
+            return;
+        }
+
+        $resultado = AvisosCarta::guardar($id, $validacion['aviso']);
+        if (!$resultado['ok']) {
+            $alertas['error'][] = self::mensajeAviso($resultado);
+            self::renderAvisos($avisos, $formulario, $alertas, [], $disponible, true);
+            return;
+        }
+
+        self::redirect(self::AVISOS_PATH . '?' . http_build_query([
+            'resultado' => $id === null ? 'aviso_creado' : 'aviso_actualizado',
+            'editar' => (int) $resultado['id'],
+        ]) . '#aviso-' . (int) $resultado['id']);
+    }
+
+    /** POST /admin/configuracion/avisos/estado — activa o pausa sin abrir el editor. */
+    public static function cambiarEstadoAviso(Router $router): void
+    {
+        [$id, $volver] = self::entradaAccionAviso();
+        $activo = (string) ($_POST['activo'] ?? '') === '1';
+        $resultado = AvisosCarta::cambiarEstado($id, $activo);
+        self::volverAvisos($resultado['ok'] ? ($activo ? 'aviso_activado' : 'aviso_pausado') : self::codigoAviso($resultado), $volver, $id);
+    }
+
+    /** POST /admin/configuracion/avisos/mover — sube o baja dentro de su lugar. */
+    public static function moverAviso(Router $router): void
+    {
+        [$id, $volver] = self::entradaAccionAviso();
+        $resultado = AvisosCarta::mover($id, (string) ($_POST['direccion'] ?? ''));
+        self::volverAvisos($resultado['ok'] ? 'aviso_movido' : self::codigoAviso($resultado), $volver, $id);
+    }
+
+    /** POST /admin/configuracion/avisos/eliminar — la confirmación la pide el panel. */
+    public static function eliminarAviso(Router $router): void
+    {
+        [$id, $volver] = self::entradaAccionAviso();
+        $resultado = AvisosCarta::eliminar($id);
+        // Si se borró el que estaba abierto en el editor, el editor vuelve a «nuevo».
+        self::volverAvisos($resultado['ok'] ? 'aviso_eliminado' : self::codigoAviso($resultado), $volver === $id ? null : $volver, null);
+    }
+
+    /** @return array{0: int, 1: ?int} el aviso y el que estaba abierto en el editor */
+    private static function entradaAccionAviso(): array
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::AVISOS_PATH);
+        }
+        $volver = filter_var($_POST['editar'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+            self::volverAvisos('sesion_vencida', $volver, null);
+        }
+        $id = filter_var($_POST['aviso_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!$id) {
+            self::volverAvisos('aviso_no_encontrado', $volver, null);
+        }
+        return [(int) $id, $volver];
+    }
+
+    private static function volverAvisos(string $resultado, ?int $editar, ?int $ancla): void
+    {
+        $query = ['resultado' => $resultado];
+        if ($editar) {
+            $query['editar'] = $editar;
+        }
+        self::redirect(self::AVISOS_PATH . '?' . http_build_query($query) . ($ancla ? '#aviso-' . $ancla : ''));
+    }
+
+    private static function codigoAviso(array $resultado): string
+    {
+        return match ($resultado['codigo'] ?? '') {
+            'AVISO_NO_ENCONTRADO' => 'aviso_no_encontrado',
+            'PERMISO_DENEGADO', 'AMBITO_DENEGADO', 'NO_AUTORIZADO', 'NIVEL_AUTH_REQUERIDO' => 'sin_permiso',
+            default => 'aviso_error',
+        };
+    }
+
+    /** Mensaje para el editor: el del servicio si es de negocio; uno propio si es técnico. */
+    private static function mensajeAviso(array $resultado): string
+    {
+        $codigo = (string) ($resultado['codigo'] ?? '');
+        if (in_array($codigo, ['AVISOS_LIMITE', 'AVISO_NO_ENCONTRADO'], true) && ($resultado['mensaje'] ?? '') !== '') {
+            return (string) $resultado['mensaje'];
+        }
+        if (self::codigoAviso($resultado) === 'sin_permiso') {
+            return 'No tienes permiso para cambiar los avisos de la carta.';
+        }
+        return 'No fue posible guardar el aviso. Revisa que exista la tabla `configuracion_avisos` (database/ddl.sql) e intenta de nuevo.';
+    }
+
+    private static function alertasAvisos(string $resultado): array
+    {
+        return match ($resultado) {
+            'aviso_creado' => ['exito' => ['Aviso guardado. Sale en las cartas PDF que marcaste desde la próxima vez que se abren.']],
+            'aviso_actualizado' => ['exito' => ['Cambios guardados en el aviso.']],
+            'aviso_activado' => ['exito' => ['El aviso vuelve a imprimirse en la carta.']],
+            'aviso_pausado' => ['exito' => ['Aviso pausado: se conserva, pero ya no se imprime.']],
+            'aviso_movido' => ['exito' => ['Orden actualizado.']],
+            'aviso_eliminado' => ['exito' => ['El aviso se eliminó de las cartas.']],
+            'aviso_no_encontrado' => ['error' => ['Ese aviso ya no existe; puede que alguien lo haya eliminado.']],
+            'sesion_vencida' => ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']],
+            'sin_permiso' => ['error' => ['No tienes permiso para cambiar los avisos de la carta.']],
+            'aviso_error' => ['error' => ['No fue posible completar el cambio. Intenta de nuevo.']],
+            default => [],
+        };
+    }
+
+    /** @return array{0: list<array>, 1: bool} los avisos y si la tabla está disponible */
+    private static function listaAvisos(array &$alertas): array
+    {
+        try {
+            return [AvisosCarta::listar(), true];
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::avisos - ' . $e->getMessage());
+            $alertas['error'][] = 'No fue posible cargar los avisos. Revisa que exista la tabla `configuracion_avisos` (database/ddl.sql).';
+            return [[], false];
+        }
+    }
+
+    /**
+     * @param array<string, string> $errores por campo, junto a su control
+     * @param bool $conCambios el editor trae texto que no está guardado (un
+     *   POST rechazado): avisos.js arranca con la guarda de cambios puesta
+     */
+    private static function renderAvisos(array $avisos, array $formulario, array $alertas, array $errores, bool $disponible, bool $conCambios): void
+    {
+        self::render('configuration/avisos', [
+            'title' => 'Avisos de la carta',
+            'topbarSection' => 'Configuración',
+            'avisos' => $avisos,
+            'formulario' => $formulario,
+            'erroresAviso' => $errores,
+            'avisosDisponibles' => $disponible,
+            'avisoConCambios' => $conCambios,
+            'cartasAviso' => AvisosCarta::CARTAS,
+            'posicionesAviso' => AvisosCarta::POSICIONES,
+            'plantillasAviso' => AvisosCarta::PLANTILLAS,
+            'limitesAviso' => [
+                'avisos' => AvisosCarta::MAX_AVISOS,
+                'titulo' => AvisosCarta::MAX_TITULO,
+                'contenido' => AvisosCarta::MAX_CONTENIDO,
+            ],
+            // Sólo presentación: con `ver` el panel enseña los avisos sin
+            // controles de cambio. El servidor revalida cada POST de todos modos.
+            'puedeEditarAvisos' => \Classes\Auth::puede('configuration', 'editar', 'restaurante'),
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+        ]);
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -756,9 +972,11 @@ class AdminConfigurationController
         self::render('configuration/areas', [
             'title' => 'Colores de las áreas',
             'topbarSection' => 'Configuración',
-            'areas' => AreasProduccion::todas(),
+            // 'tinta': la que contrasta con cada color, para el contador relleno
+            // (Listos) de la vista previa del tablero.
+            'areas' => array_map(static fn (array $a): array => $a + ['tinta' => AreasProduccion::tintaSobre($a['color'])], AreasProduccion::todas()),
             'elegidos' => $elegidos,
-            'paleta' => AreasProduccion::PALETA,
+            'paleta' => array_map(static fn (array $c): array => $c + ['tinta' => AreasProduccion::tintaSobre($c['hex'])], AreasProduccion::PALETA),
             'deEspera' => AreasProduccion::DE_ESPERA,
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,

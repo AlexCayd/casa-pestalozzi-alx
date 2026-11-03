@@ -637,7 +637,13 @@ class AdminMenuController
         array $alertas,
         ?FotoPlatillo $foto = null
     ): void {
+        $variantes = self::variantesDelFormulario($platillo);
+        $conEditor = ($variantes['estado'] ?? '') === 'ok' && !empty($variantes['puedeEditar']);
         self::render('menu/form', [
+            'variantesFormulario' => $variantes,
+            'adminCsrfToken' => $conEditor ? AdminCsrfService::token() : '',
+            'styles' => $variantes !== null ? [self::MENU_CSS, '/build/css/admin/variantes.css'] : [self::MENU_CSS],
+            'scripts' => $conEditor ? ['/build/js/admin/variantes.js'] : [],
             'title' => $titulo,
             'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
@@ -653,6 +659,41 @@ class AdminMenuController
             'menuRecetaCasa'=>!empty($platillo->producto_id)&&\Classes\Auth::puede('productos','ver',ContextoNegocio::slug()),
             'foto' => $foto ? $foto->vista() : FotoPlatillo::vistaInicial($platillo->img),
         ]);
+    }
+
+    /**
+     * Variantes del formulario del platillo, o null cuando el negocio no las
+     * administra (Panadería, Global). Mismas reglas que el icono del listado y
+     * que Variantes::guardar(): un producto de la casa sólo las admite si
+     * Global deja personalizar precio y receta. El servidor vuelve a validar
+     * todo al guardar; esto sólo decide qué se enseña.
+     *
+     * @return array{estado: string, editor?: array, puedeEditar?: bool}|null
+     */
+    private static function variantesDelFormulario(Producto $platillo): ?array
+    {
+        $vista = AdministracionMenu::vista();
+        if (empty($vista['menuVariantes'])) {
+            return null;
+        }
+        if (empty($platillo->id)) {
+            return ['estado' => 'nuevo'];
+        }
+        if (!empty($platillo->producto_id)) {
+            $casa = \Services\Menu\ProductosCasa::publicada((int) $platillo->producto_id);
+            if ($casa && (empty($casa['reglas']['precio']) || empty($casa['reglas']['receta']))) {
+                return ['estado' => 'protegido'];
+            }
+        }
+        try {
+            $editor = Variantes::datosEditor((int) $platillo->id)
+                + ['nombre' => (string) $platillo->nombre, 'precio' => (float) ($platillo->precio ?? 0)];
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::variantesDelFormulario - ' . $e->getMessage());
+            return ['estado' => 'error'];
+        }
+
+        return ['estado' => 'ok', 'editor' => $editor, 'puedeEditar' => !empty($vista['menuPuedeEditar'])];
     }
 
     /** Áreas de producción, para las pestañas del formulario. */

@@ -1,0 +1,18 @@
+[
+  {"nombre": "negritas en un renglón", "entrada": "Hola **mundo**", "html": "<p>Hola <strong>mundo</strong></p>"},
+  {"nombre": "subtítulo y párrafo", "entrada": "## Título\nTexto", "html": "<h2>Título</h2><p>Texto</p>"},
+  {"nombre": "salto simple y párrafo nuevo", "entrada": "a\nb\n\nc", "html": "<p>a<br>b</p><p>c</p>"},
+  {"nombre": "saltos de Windows", "entrada": "a\r\nb\r\n\r\nc", "html": "<p>a<br>b</p><p>c</p>"},
+  {"nombre": "marca sin pareja se queda como texto", "entrada": "a **b", "html": "<p>a **b</p>"},
+  {"nombre": "una pareja y una sin pareja", "entrada": "**a** y **b", "html": "<p><strong>a</strong> y **b</p>"},
+  {"nombre": "HTML escrito se escapa", "entrada": "<script>alert(1)</script>", "html": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>"},
+  {"nombre": "comillas y ampersand", "entrada": "\"x\" & 'y'", "html": "<p>&quot;x&quot; &amp; &#039;y&#039;</p>"},
+  {"nombre": "negritas dentro de un subtítulo se ignoran", "entrada": "## **Sub** título", "html": "<h2>Sub título</h2>"},
+  {"nombre": "tres almohadillas no son subtítulo", "entrada": "###x", "html": "<p>###x</p>"},
+  {"nombre": "subtítulo sin espacio", "entrada": "##Pagos", "html": "<h2>Pagos</h2>"},
+  {"nombre": "subtítulo vacío no imprime nada", "entrada": "##\n\n   ", "html": ""},
+  {"nombre": "espacios a la orilla del renglón", "entrada": "   uno  \n  dos", "html": "<p>uno<br>dos</p>"},
+  {"nombre": "negritas que sólo tienen espacios", "entrada": "a ** ** b", "html": "<p>a   b</p>"},
+  {"nombre": "subtítulo corta el párrafo", "entrada": "uno\n## Dos\ntres", "html": "<p>uno</p><h2>Dos</h2><p>tres</p>"},
+  {"nombre": "con clases", "entrada": "## T\n**b** c", "clases": {"h2": "k", "p": "q", "b": "r"}, "html": "<h2 class=\"k\">T</h2><p class=\"q\"><strong class=\"r\">b</strong> c</p>"}
+]

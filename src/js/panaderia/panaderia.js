@@ -52,8 +52,9 @@ function bootPanaderia() {
   tonoBajoLaMarca();
   initPortadaPanaderia();
 
+  // Las pestañas de la vitrina y su cambio de familia (vitrina.js).
   var vitrina = $("[data-vitrina]");
-  if (vitrina) initPestanasImpresas(vitrina, vitrina.querySelector(".pan-vitrina__pestanas"));
+  if (vitrina) initVitrinaPanaderia(vitrina);
 
   initLightbox();
 

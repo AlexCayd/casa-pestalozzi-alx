@@ -3,7 +3,8 @@
 /**
  * Las cuatro estaciones de producción (`areas_produccion`) y su color.
  *
- * El color de una estación corona su tablero KDS, pinta su tarjeta en el
+ * El color de una estación llena el lomo de cada banda de su tablero KDS
+ * según el estado (velo, medio, lleno), pinta su tarjeta en el
  * selector de estación y en Producción del panel, tiñe su fila en Impresoras y
  * el encabezado de su grupo al confirmar una comanda en el POS. Se elige en
  * Configuración → Colores de las áreas, y SÓLO entre los diez de la paleta
@@ -50,7 +51,7 @@ class AreasProduccion
     /**
      * Los dos colores con que el KDS marca la hora de una comanda atrasada (a
      * los 5 y a los 10 minutos). Se pueden elegir —el color de la estación sólo
-     * va en el filete de arriba de las bandas, lejos de la hora—, pero la
+     * va en el lomo de cada banda, fuera de la comanda y lejos de la hora—, pero la
      * pantalla lo avisa: si algún día el color de estación vuelve a pintar algo
      * dentro de la comanda, chocarían.
      */
@@ -236,6 +237,42 @@ class AreasProduccion
 
             return false;
         }
+    }
+
+    /**
+     * 'ink' o 'paper': la de las dos anclas del panel que más contrasta con un
+     * color, por luminancia relativa de WCAG (no por el promedio «percibido»,
+     * que se equivoca en los tonos medios: al naranja le daba papel a 2.7:1).
+     * Los dos valores son los de --admin-ink (#0b0b0c) y --admin-paper
+     * (#fbfbfa) en _globals.scss, ya convertidos a luminancia.
+     *
+     * La pide todo lo que va RELLENO del color de una estación: la fila de su
+     * área en Impresoras y el lomo de Listos del KDS.
+     */
+    public static function tintaSobre(string $hex): string
+    {
+        $hex = ltrim(trim($hex), '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        if (preg_match('/^[0-9a-fA-F]{6}$/', $hex) !== 1) {
+            return 'ink';
+        }
+
+        $canal = static function (string $par): float {
+            $c = hexdec($par) / 255;
+            return $c <= 0.04045 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        };
+        $l = 0.2126 * $canal(substr($hex, 0, 2))
+            + 0.7152 * $canal(substr($hex, 2, 2))
+            + 0.0722 * $canal(substr($hex, 4, 2));
+
+        $lInk = 0.0037;
+        $lPaper = 0.9640;
+        $contraInk = ($l + 0.05) / ($lInk + 0.05);
+        $contraPaper = ($lPaper + 0.05) / ($l + 0.05);
+
+        return $contraInk >= $contraPaper ? 'ink' : 'paper';
     }
 
     /** '#F5B400' / 'f5b400' → '#f5b400'; null si no es un hex de seis cifras. */

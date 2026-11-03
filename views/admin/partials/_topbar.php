@@ -72,10 +72,10 @@ if ($buzonCantidadAccionable > 0) {
         <span></span>
     </button>
 
+    <?php /* El ámbito de trabajo es el estado del panel: va aquí, una sola vez,
+             donde empieza la lectura (antes también en el sidebar). */ ?>
     <div class="admin-topbar__heading">
-        <p class="admin-topbar__module">
-            <span class="admin-context-name"><?php echo \Services\Security\Contextos::NOMBRES[$contextoActivo]; ?></span>
-        </p>
+        <?php include __DIR__ . '/_contexto.php'; ?>
     </div>
 
     <div class="admin-topbar__actions">

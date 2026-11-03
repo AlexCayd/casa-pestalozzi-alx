@@ -6,8 +6,8 @@ Pestalozzi 1250: son **dos casas en dos calles**, y cada una firma con sus datos
 
 Secciones, en este orden y con su tono: portada (crema) · vitrina (beige) ·
 temporada (verde) · encargos (oro) · el restaurante (beige) · visítanos (verde)
-· pie. Hoja y JS propios: `panaderia.css` (~69 KB) y `panaderia.min.js`
-(~27 KB), frente a los ~233 y ~179 KB de la portada.
+· pie. Hoja y JS propios: `panaderia.css` (~70 KB) y `panaderia.min.js`
+(~32 KB), frente a los ~233 y ~179 KB de la portada.
 `PaletaLanding::estiloEnLinea()` va después de su hoja, como en toda página de
 marca.
 
@@ -45,10 +45,19 @@ copia.
   Lenis, cursor, imán, menú, visor, revelados, negativo de la marca y
   `pestanas.js`—. `src/js/panaderia/` está excluido del bundle general. Si la
   panadería necesita otro módulo de `modules/`, se añade a esa lista.
-- `modules/pestanas.js` (`initPestanasImpresas(raiz, lista)`) es de marca:
-  pestañas WAI-ARIA sobre secciones impresas en el servidor. Lo usan la carta
-  de maridaje (`maridaje.js`) y la vitrina. Un panel con `display: grid`/`flex`
-  necesita `&[hidden] { display: none; }`, o salen todos a la vez.
+- `modules/pestanas.js` (`initPestanasImpresas(raiz, lista, opciones)`) es de
+  marca: pestañas WAI-ARIA sobre secciones impresas en el servidor. Lo usan la
+  carta de maridaje (`maridaje.js`, cambio en seco) y la vitrina. Un panel con
+  `display: grid`/`flex` necesita `&[hidden] { display: none; }`, o salen todos
+  a la vez. `opciones.transicion(desde, hacia, dir)` toma el cambio de panel y
+  `opciones.alElegir(pestana, i)` avisa de cada selección; ARIA cambia siempre
+  en el acto.
+- El cambio de familia de la vitrina es de la panadería
+  (`src/js/panaderia/vitrina.js`): la píldora se estira hacia la pestaña nueva,
+  las piezas salen hacia el lado contrario, la foto nueva entra como persiana
+  sobre la anterior, las piezas entran en fila trazando los puntos guía y la
+  altura del marco (`.pan-vitrina__paneles`) se interpola. Interrumpible;
+  movimiento reducido, `.no-anim` o sin GSAP funden en seco.
 - El adelanto de la portada (`views/home/_adelanto-panaderia.php` +
   `components/_adelanto-panaderia.scss`) es del **restaurante**: lleva
   «Conocer la panadería» (`/panaderia`) y «Cómo llegar»

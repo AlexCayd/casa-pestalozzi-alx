@@ -2,6 +2,8 @@
 @use '../shared/abstracts/mixins' as mixins;
 @use '../../components/announcement';
 @use '../../layout/caras-de-marca' as marca;
+// Avisos de la carta (views/admin/configuration/avisos.php).
+@use 'config-avisos';
 
 // La vista previa del aviso habla con la cara del cuerpo de la landing.
 @include marca.tt-wellingtons("../../fonts");
@@ -2060,6 +2062,9 @@
 
 .admin-area-color {
   --area-accent: var(--area-inicial);
+  // La tinta del contador relleno (Listos): la manda la vista por cada color
+  // (AreasProduccion::tintaSobre) y abajo la cambia el radio elegido.
+  --area-ink: var(--area-tinta-inicial, var(--admin-ink));
 
   min-width: 0;
   margin: 0;
@@ -2133,14 +2138,12 @@
   // fuerza), así que la vista previa también, en los dos temas del panel: un
   // ámbar, un lima o un turquesa se leen muy distinto sobre papel que sobre la
   // tablet, y lo que se decide aquí es cómo se verá allí. Los grises son los
-  // del tema oscuro escritos desde las dos anclas (el fondo es la tinta, la
-  // banda el gris-3 y el contador el gris-4), porque en esta caja no rige
-  // [data-admin-theme="dark"]. Si cambian esos pasos en _globals.scss, cambian
-  // aquí.
+  // del tema oscuro escritos desde las dos anclas (el fondo es la tinta y la
+  // banda el gris-3), porque en esta caja no rige [data-admin-theme="dark"].
+  // Si cambian esos pasos en _globals.scss, cambian aquí.
   &__preview {
     --kds-fondo: var(--admin-ink);
     --kds-banda: color-mix(in srgb, var(--admin-paper) 11%, var(--admin-ink));
-    --kds-cuenta: color-mix(in srgb, var(--admin-paper) 16%, var(--admin-ink));
     --kds-tinta: var(--admin-paper);
 
     display: grid;
@@ -2153,35 +2156,68 @@
     box-shadow: 0 0 0 1px var(--admin-border-soft);
   }
 
-  // Cada banda, con el filete de la estación arriba. Sombra interior y no
-  // border-top, como en _area.scss: sigue la curva de las esquinas y no suma
-  // alto a la caja.
+  // Cada banda como en _area.scss: recta, neutra, con el lomo de color a la
+  // izquierda y del mismo ancho en las tres. Lo que cambia por estado es cuánto
+  // color lleva el lomo: velo (22 %), medio (50 %) y lleno. La muestra nunca va
+  // vacía (3, 2, 1), así que no replica el lomo neutro de una banda sin
+  // comandas.
   &__band {
+    --kds-lomo: color-mix(in srgb, var(--area-accent) 22%, var(--kds-banda));
+    --kds-lomo-tinta: var(--kds-tinta);
+
     display: flex;
-    align-items: center;
-    gap: 8px;
     min-height: 25px;
-    padding: 4px 6px 2px 9px;
-    border-radius: 6px;
+    border-radius: 0;
     background: var(--kds-banda);
-    box-shadow: inset 0 3px 0 var(--area-accent);
     color: var(--kds-tinta);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.2;
-    transition: box-shadow var(--admin-t-fast) var(--admin-ease-out);
   }
 
-  // Mono para la cifra, como el contador del tablero.
+  &__band--prep {
+    --kds-lomo: color-mix(in srgb, var(--area-accent) 50%, var(--kds-banda));
+  }
+
+  &__band--listo {
+    --kds-lomo: var(--area-accent);
+    --kds-lomo-tinta: var(--area-ink);
+  }
+
+  &__lomo {
+    display: flex;
+    flex: 0 0 140px;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px 3px 9px;
+    background: var(--kds-lomo);
+    color: var(--kds-lomo-tinta);
+    transition:
+      background-color var(--admin-t-fast) var(--admin-ease-out),
+      color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // Mono para la cifra, como el contador del tablero, y el mismo contraste
+  // (.area-banda__cuenta): sólido del color sobre el velo y el medio,
+  // invertido sobre el lomo lleno.
   &__cuenta {
     min-width: 22px;
     padding: 1px 6px;
     border-radius: 5px;
-    background: var(--kds-cuenta);
+    background: var(--area-accent);
+    color: var(--area-ink);
     font-family: var(--admin-font-mono);
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     text-align: center;
+    transition:
+      background-color var(--admin-t-fast) var(--admin-ease-out),
+      color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  &__band--listo &__cuenta {
+    background: var(--area-ink);
+    color: var(--area-accent);
   }
 
   // `.admin-area-color .admin-area-color__aviso`: es un <p>, y `.admin-body p`
@@ -2216,6 +2252,11 @@
     --area-accent: var(--admin-c-#{$clave});
   }
 }
+
+// La tinta del contador relleno sigue al radio elegido: cada uno trae la suya
+// en data-tinta, calculada en el servidor, para no copiar aquí la tabla.
+.admin-area-color:has(input[data-tinta="ink"]:checked) { --area-ink: var(--admin-ink); }
+.admin-area-color:has(input[data-tinta="paper"]:checked) { --area-ink: var(--admin-paper); }
 
 // Dos filas de cinco, o una de diez cuando cabe: siempre filas llenas.
 .admin-area-swatches {
@@ -2375,5 +2416,6 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-area-swatch,
   .admin-area-swatch__dot,
-  .admin-area-color__band { transition: none; }
+  .admin-area-color__lomo,
+  .admin-area-color__cuenta { transition: none; }
 }

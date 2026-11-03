@@ -13,7 +13,7 @@ $valid=static fn($r)=>$r['status']===200&&!preg_match('/Fatal error|Warning:|Unc
 try{
  $admin=new ClienteInstalacion3E();$clients[]=$admin;$admin->login(['username'=>'admin_demo','password'=>$_ENV['DEV_SUPERADMIN_PASSWORD']??getenv('DEV_SUPERADMIN_PASSWORD')]);
  $lector=new ClienteInstalacion3E();$clients[]=$lector;$lector->login($f['cuentas']['lectura_global']);
- foreach(['/admin/global','/admin/panaderia'] as $path){$r=$admin->request('GET',$path);$a($valid($r),'Home real '.$path);$a(str_contains($r['body'],'admin-access-grid'),'Cuadrícula de accesos '.$path);}
+ foreach(['/admin/global','/admin/panaderia'] as $path){$r=$admin->request('GET',$path);$a($valid($r),'Home real '.$path);$a(str_contains($r['body'],'admin-inicio__teselas'),'Teselas de módulos '.$path);}
  $r=$admin->request('GET','/admin/global');foreach(['Negocios','Administración','Menús','/admin/contexto?contexto=restaurante','/admin/global/productos'] as $text)$a(str_contains($r['body'],$text),'Home Global contiene '.$text);
  $r=$admin->request('GET','/admin/panaderia');foreach(['/admin/panaderia/menu','/admin/panaderia/almacenes?vista=transferencias','/admin/panaderia/usuarios'] as $text)$a(str_contains($r['body'],$text),'Acceso Panadería '.$text);
  $a(!str_contains($r['body'],'href="/admin/panaderia/recetas"'),'No enlazar módulo pendiente');

@@ -1,15 +1,19 @@
 # Instalación de desarrollo
 
-## Actualización M1.2
+## `database/` sin migraciones
 
-Para instalaciones existentes, la ampliación aditiva está en
-`database/actualizaciones/m12-estandares.sql`; el mismo bloque está incorporado al
-DDL de instalación nueva. Crea ocho tablas, la vista `productos_oferta` y triggers
-de inmutabilidad. La migración se comprobó dos veces consecutivas con MariaDB de
-XAMPP; no transforma ni adhiere productos existentes. Preparar respaldo y ensayar
-en una copia antes de aplicarla en una instalación operativa. Esta entrega no
-migró la base activa. La compatibilidad del DDL con otros motores debe verificarse
-antes del despliegue (usa `CREATE TRIGGER IF NOT EXISTS`).
+`database/` lleva sólo el esquema (`ddl.sql`), los datos estructurales
+(`deploy.sql`) y los fixtures de desarrollo (`development.sql`), además del menú
+preservado (`menu-restaurante.sql`) que carga el instalador. No hay migraciones
+aparte: un cambio de esquema se escribe en `ddl.sql` y una base instalada antes
+se reinstala con el procedimiento de abajo sobre una base nueva.
+
+## M1.2
+
+El bloque M1.2 (ocho tablas, la vista `productos_oferta` y triggers de
+inmutabilidad) está en `ddl.sql`; no transforma ni adhiere productos existentes.
+La compatibilidad del DDL con otros motores debe verificarse antes del despliegue
+(usa `CREATE TRIGGER IF NOT EXISTS`).
 
 `development.sql` solo corresponde a instalaciones nuevas desechables. Sus seis
 adhesiones M1.2 son explícitas y sintéticas: Rol de canela, Croissant, Focaccia,
@@ -20,6 +24,16 @@ físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
 rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes
 de Focaccia son fotografías de contexto de Panadería reutilizadas para probar
 personalización. No se crean credenciales activas adicionales mediante SQL.
+
+## Avisos de la carta e iconos de variantes
+
+La tabla `configuracion_avisos` y la columna `producto_variantes.icono` están
+sólo en `database/ddl.sql`; no hay migración aparte. Una base instalada antes de
+este cambio no las tiene: se reinstala con el procedimiento de abajo sobre una
+base nueva. Sin la tabla, las cartas PDF salen igual y sin avisos; sin la
+columna, el POS y el editor de variantes no cargan. `development.sql` siembra
+dos avisos de Restaurante: «De temporada» al inicio de la carta de comida y
+«Servicio» al final de comida y maridaje.
 
 
 Esta guía es el procedimiento único para reconstruir la aplicación desde los

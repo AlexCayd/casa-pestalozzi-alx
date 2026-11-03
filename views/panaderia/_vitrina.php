@@ -47,6 +47,10 @@ $vitApartar = PanaderiaConfig::whatsappUrl(PanaderiaConfig::MENSAJE_VITRINA);
           <?php endforeach; ?>
         </div>
 
+        <?php /* Marco de los paneles: su altura se interpola al cambiar de
+                 familia (src/js/panaderia/vitrina.js). No es el [data-reveal]
+                 de arriba, al que GSAP le escribe opacidad y transform. */ ?>
+        <div class="pan-vitrina__paneles">
         <?php foreach ($vitrina as $vi => $vcat) : ?>
           <div class="pan-vitrina__panel" id="vit-panel-<?php echo (int) $vi; ?>" role="tabpanel" aria-labelledby="vit-tab-<?php echo (int) $vi; ?>">
             <div class="pan-vitrina__piezas">
@@ -72,6 +76,7 @@ $vitApartar = PanaderiaConfig::whatsappUrl(PanaderiaConfig::MENSAJE_VITRINA);
             </figure>
           </div>
         <?php endforeach; ?>
+        </div>
       </div>
 
       <p class="pan-vitrina__apartar" data-reveal>

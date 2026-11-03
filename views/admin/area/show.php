@@ -1,3 +1,11 @@
+<?php
+/*
+ * COMENTADA: esta vista ya no se pinta. AdminAreaController::show() está
+ * comentado y /admin/area/<slug> redirige al KDS de piso (views/area/index.php),
+ * que es el que trabaja la estación. Se conserva, con src/js/admin/area/area.js,
+ * para poder reactivarla.
+ */
+?>
 <section class="admin-area admin-area--show admin-page" data-admin-area>
     <header class="admin-page__header admin-area__header">
         <div class="admin-page__intro">

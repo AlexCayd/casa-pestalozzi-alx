@@ -42,14 +42,16 @@ class AreaController {
             } catch (\Throwable $e) {
                 http_response_code(403); echo 'No tienes permiso para consultar esta área.'; return;
             }
-            include __DIR__ . '/../views/area/index.php';
-            return;
+        } else {
+            $area = AreasProduccion::porSlug($slug);
+            if ($area === null) {
+                header('Location: /area', true, 302);
+                exit;
+            }
         }
-        $area = AreasProduccion::porSlug($slug);
-        if ($area === null) {
-            header('Location: /area', true, 302);
-            exit;
-        }
+        // La tinta que contrasta con el color de la estación: la pide el
+        // contador de Listos, que va relleno de ese color.
+        $area['tinta'] = AreasProduccion::tintaSobre((string) $area['color']);
         include __DIR__ . '/../views/area/index.php';
     }
 
