@@ -102,6 +102,11 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a)use($extensionM11
     $ofertaNuevaRest=(int)$altaRest['id'];$productoNuevoRest=(int)$db->execute_query('SELECT producto_id FROM ofertas_producto WHERE id=?',[$ofertaNuevaRest])->fetch_row()[0];
     $ofertaNuevaPan=(int)$altaPan['id'];$productoNuevoPan=(int)$db->execute_query('SELECT producto_id FROM ofertas_producto WHERE id=?',[$ofertaNuevaPan])->fetch_row()[0];
     $a($productoNuevoRest>0&&$productoNuevoPan>0&&$productoNuevoRest!==$productoNuevoPan,'La creación no crea una identidad compartida entre negocios.');
+    $localPan=$db->execute_query('SELECT o.categoria_id,o.area_id,o.precio,o.activo,o.orden,d.nombre,d.descripcion,d.img FROM ofertas_producto o JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE o.id=?',[$ofertaNuevaPan])->fetch_assoc();
+    $a((int)$localPan['categoria_id']===$categoriaPan&&(int)$localPan['area_id']===$areaPan&&$localPan['precio']==='75.25'&&(int)$localPan['activo']===1&&(int)$localPan['orden']===2&&$localPan['nombre']===$nuevoPan->nombre&&$localPan['descripcion']==='Producto A4 local'&&$localPan['img']===null,'Panadería conserva precio, disponibilidad, categoría, área e imagen nula en su oferta.');
+    $menuPan=Services\Security\ContextoNegocio::en('panaderia',static fn()=>Model\Producto::buscarAdmin([],null,0));$enMenuPan=false;
+    foreach($menuPan as $platillo)if($platillo->nombre===$nuevoPan->nombre)$enMenuPan=true;
+    $a($enMenuPan,'El menú administrativo de Panadería lee su producto comercial local.');
     $a((int)$db->execute_query('SELECT COUNT(*) FROM recetas WHERE oferta_id=? AND unidad_id=?',[$ofertaNuevaRest,$unidadRest])->fetch_row()[0]===0,'Crear un producto no inventa una receta.');
     $sin=Services\Security\ContextoNegocio::en('restaurante',static fn()=>Services\Menu\ComposicionComercial::consultar('restaurante',$ofertaNuevaRest));
     $a($sin['modo']==='sin'&&str_contains($sin['texto'],'Sin composición.'),'La ficha comunica claramente que el producto aún no tiene composición.');
@@ -153,6 +158,11 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a)use($extensionM11
     $a(!empty($cancelacion['ok']),'La cancelación revierte el consumo heredado.');
     $stockDespues=$db->query('SELECT almacen_id,articulo_id,saldo FROM almacen_articulos WHERE unidad_id=2 AND almacen_id=1002 AND articulo_id IN(1001,1002) ORDER BY articulo_id')->fetch_all(MYSQLI_ASSOC);
     $a($stockDespues===$stockAntes,'La reversión restablece las existencias y almacenes originales.');
+    $movimientosCancelacion=$db->execute_query('SELECT * FROM movimientos_inventario WHERE ticket_item_id=? ORDER BY id',[$itemReceta])->fetch_all(MYSQLI_ASSOC);
+    $reintentoCancelacion=Services\Pos\Comercial::cancelarItem($itemReceta,'restaurante');
+    $movimientosTrasReintento=$db->execute_query('SELECT * FROM movimientos_inventario WHERE ticket_item_id=? ORDER BY id',[$itemReceta])->fetch_all(MYSQLI_ASSOC);
+    $stockTrasReintento=$db->query('SELECT almacen_id,articulo_id,saldo FROM almacen_articulos WHERE unidad_id=2 AND almacen_id=1002 AND articulo_id IN(1001,1002) ORDER BY articulo_id')->fetch_all(MYSQLI_ASSOC);
+    $a(!empty($reintentoCancelacion['ok'])&&!empty($reintentoCancelacion['idempotente'])&&$movimientosTrasReintento===$movimientosCancelacion&&$stockTrasReintento===$stockDespues,'Repetir una cancelación no duplica movimientos ni revierte existencias otra vez.');
 
     // Una presentación marcada históricamente como estándar se puede vender por su propia versión local.
     $db->execute_query('INSERT INTO oferta_presentaciones(oferta_id,unidad_id,clave,nombre,activo) VALUES(?,2,\'a4-heredada\',\'Presentación heredada A4\',0)',[$ofertaRest]);
