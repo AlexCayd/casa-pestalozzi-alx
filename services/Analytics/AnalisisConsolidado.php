@@ -11,10 +11,7 @@ declare(strict_types=1);
  *
  *   - por negocio: ventas, tickets, ticket promedio, piezas y piezas por
  *     ticket, contra el periodo anterior, su venta por día y lo más vendido;
- *   - el total de la organización y la parte de cada negocio en la venta;
- *   - los PRODUCTOS DE LA CASA (producto_estandares) lado a lado: el precio
- *     de oferta vigente en cada negocio y lo que cada uno vendió de él. Se
- *     une por producto_id, que es la identidad comercial; nunca por nombre.
+ *   - el total de la organización y la parte de cada negocio en la venta.
  *
  * Las analíticas diagnósticas (ingeniería de menú, horas, qué se pide junto)
  * no se repiten aquí: son de cada menú y mezclarlas no dice nada.
@@ -45,11 +42,9 @@ final class AnalisisConsolidado
         $end = (string) $rango['end'];
 
         $negocios = [];
-        $unidades = [];
         $etiquetas = [];
         foreach (AnalisisNegocio::NEGOCIOS as $slug) {
             $unidad = ContextoNegocio::unidad($slug);
-            $unidades[$slug] = $unidad;
             $actual = AnalisisNegocio::totales($db, $unidad, $start, $end);
             $previo = AnalisisNegocio::totales($db, $unidad, (string) $rango['prevStart'], (string) $rango['prevEnd']);
             $porDia = AnalisisNegocio::ventasPorDia($db, $unidad, $start, $end);
@@ -86,7 +81,6 @@ final class AnalisisConsolidado
             'negocios' => $negocios,
             'etiquetasDia' => $etiquetas,
             'total' => self::total($negocios),
-            'productosCasa' => self::productosCasa($db, $unidades, $start, $end),
         ];
     }
 
@@ -113,64 +107,4 @@ final class AnalisisConsolidado
         return $t;
     }
 
-    /**
-     * Cada producto de la casa con su oferta en cada negocio (precio vigente y
-     * si está activa) y lo vendido en el periodo. Un negocio que no lo ofrece
-     * sale como null: no es lo mismo que ofrecerlo y no venderlo.
-     *
-     * @param array<string, int> $unidades
-     * @return list<array<string, mixed>>
-     */
-    private static function productosCasa(\mysqli $db, array $unidades, string $start, string $end): array
-    {
-        $productos = self::filas($db, 'SELECT p.id, p.nombre FROM producto_estandares pe JOIN productos p ON p.id = pe.producto_id ORDER BY p.nombre', []);
-        if ($productos === []) {
-            return [];
-        }
-        $porProducto = [];
-        foreach ($productos as $p) {
-            $porProducto[(int) $p['id']] = ['id' => (int) $p['id'], 'nombre' => (string) $p['nombre'], 'negocios' => array_fill_keys(array_keys($unidades), null)];
-        }
-        $slugDe = array_flip($unidades);
-        $ids = array_keys($porProducto);
-        $en = implode(', ', array_fill(0, count($ids), '?'));
-        $enUnidades = implode(', ', array_fill(0, count($unidades), '?'));
-
-        foreach (self::filas($db, "SELECT o.producto_id, o.unidad_id, o.precio, o.activo FROM ofertas_producto o
-                WHERE o.producto_id IN ({$en}) AND o.unidad_id IN ({$enUnidades})", array_merge($ids, array_values($unidades))) as $o) {
-            $porProducto[(int) $o['producto_id']]['negocios'][$slugDe[(int) $o['unidad_id']]] = [
-                'precio' => (float) $o['precio'],
-                'activo' => (int) $o['activo'] === 1,
-                'piezas' => 0,
-                'ventas' => 0.0,
-                'precioCobrado' => null,
-            ];
-        }
-
-        $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
-        foreach (self::filas($db, "SELECT ti.producto_id, ti.unidad_id, SUM(ti.cantidad) AS piezas, SUM(ti.precio * ti.cantidad) AS ventas
-                FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id AND t.unidad_id = ti.unidad_id
-               WHERE ti.producto_id IN ({$en}) AND ti.unidad_id IN ({$enUnidades}) AND t.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                 AND {$cierre} >= ? AND {$cierre} <= ?
-               GROUP BY ti.producto_id, ti.unidad_id", array_merge($ids, array_values($unidades), [$start . ' 00:00:00', $end . ' 23:59:59'])) as $v) {
-            $slug = $slugDe[(int) $v['unidad_id']];
-            $celda = &$porProducto[(int) $v['producto_id']]['negocios'][$slug];
-            // Vendido sin oferta vigente (se retiró después): se cuenta igual.
-            $celda ??= ['precio' => null, 'activo' => false, 'piezas' => 0, 'ventas' => 0.0, 'precioCobrado' => null];
-            $celda['piezas'] = (int) $v['piezas'];
-            $celda['ventas'] = (float) $v['ventas'];
-            $celda['precioCobrado'] = (int) $v['piezas'] > 0 ? (float) $v['ventas'] / (int) $v['piezas'] : null;
-            unset($celda);
-        }
-
-        return array_values($porProducto);
-    }
-
-    private static function filas(\mysqli $db, string $sql, array $args): array
-    {
-        $s = $db->prepare($sql);
-        $s->execute($args);
-
-        return $s->get_result()->fetch_all(MYSQLI_ASSOC);
-    }
 }

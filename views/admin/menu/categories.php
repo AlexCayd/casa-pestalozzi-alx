@@ -27,7 +27,7 @@
                 </svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>" title="Se crean desde el listado de platillos" aria-label="Nueva categoría">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>" title="Se crean desde el listado de productos" aria-label="Nueva categoría">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/>
                     <path d="M5 12h14"/>

@@ -36,17 +36,17 @@ final class RecetasOferta
             return ContextoNegocio::en($ctx, static function () use ($db, $ctx, $unidadId, $ofertaId, $normalizados): array {
                 return ContextoNegocio::transaccion(static function () use ($db, $ctx, $unidadId, $ofertaId, $normalizados): array {
                     ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-                    $ofertaLock = $db->prepare('SELECT id,producto_id FROM ofertas_producto WHERE id = ? AND unidad_id = ? FOR UPDATE');
+                    $ofertaLock = $db->prepare('SELECT id FROM ofertas_producto WHERE id = ? AND unidad_id = ? FOR UPDATE');
                     $ofertaLock->bind_param('ii', $ofertaId, $unidadId);
-                    if (!$ofertaLock->execute() || !($ofertaCasa=$ofertaLock->get_result()->fetch_assoc())) {
+                    if (!$ofertaLock->execute() || !$ofertaLock->get_result()->fetch_assoc()) {
                         $ofertaLock->close();
                         throw new InventarioError('OFERTA_DENEGADA', 'La oferta no pertenece al negocio activo.');
                     }
                     $ofertaLock->close();
-                    if(!ProductosCasa::permite((int)$ofertaCasa['producto_id'],'receta'))throw new InventarioError('CAMPO_PROTEGIDO','Receta: Definido por Global.');
-                    $oficialCasa=ProductosCasa::publicada((int)$ofertaCasa['producto_id']);
-                    if($oficialCasa&&$normalizados===[]&&!empty($oficialCasa['requiere_receta']))throw new InventarioError('RECETA_REQUERIDA','Este producto requiere receta.');
-                    if($oficialCasa){RecetasCasa::validarAdaptacion($ofertaId,$unidadId,$normalizados);ProductosCasa::personalizacion($ofertaId,'receta',$normalizados===[]?'sin':'adaptada');}
+                    foreach($normalizados as &$comp){
+                        if(!empty($comp['_conservar_version'])&&$comp['articulo_id']!==null){$prev=$db->execute_query('SELECT ca.version_receta_id FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 AND rc.articulo_id=? ORDER BY rc.id LIMIT 1',[$ofertaId,$unidadId,$comp['articulo_id']])->fetch_row();if($prev)$comp['version_receta_id']=(int)$prev[0];}
+                        if($comp['version_receta_id']!==null){$ar=\Services\Inventory\Articulos::cargarReceta($comp['version_receta_id'],$unidadId);if(!$ar||!(int)$ar['publicada']||(int)$ar['articulo_id']!==(int)$comp['articulo_id'])throw new InventarioError('VERSION_DENEGADA','La versión de elaboración no está autorizada para este artículo.');}
+                    }unset($comp);
                     foreach ($normalizados as $comp) {
                         if ($comp['subreceta_id'] !== null) {
                             self::exigirSubrecetaLocal($db, $comp['subreceta_id'], $unidadId);
@@ -112,6 +112,13 @@ final class RecetasOferta
                         if (!$componente->execute()) {
                             throw new \RuntimeException($componente->error);
                         }
+                        $componenteId=(int)$componente->insert_id;
+                        if($articuloId!==null && $item['version_receta_id']!==null)$db->execute_query('INSERT INTO receta_componentes_articulos(componente_id,articulo_id,version_receta_id) VALUES(?,?,?)',[$componenteId,$articuloId,$item['version_receta_id']]);
+                        if($subrecetaId!==null){
+                            $m=$db->execute_query('SELECT ac.articulo_id,(SELECT id FROM articulo_recetas ar WHERE ar.articulo_id=ac.articulo_id AND ar.unidad_id=ac.unidad_id AND publicada=1 ORDER BY version DESC LIMIT 1) version_receta_id FROM articulo_correspondencias ac WHERE ac.subreceta_id=? AND ac.unidad_id=?',[$subrecetaId,$unidadId])->fetch_assoc();
+                            if($m && $m['version_receta_id']!==null)$db->execute_query('INSERT INTO receta_componentes_articulos(componente_id,articulo_id,version_receta_id) VALUES(?,?,?)',[(int)$componente->insert_id,(int)$m['articulo_id'],(int)$m['version_receta_id']]);
+                        }
+
                     }
                     $componente->close();
                     return ['ok' => true, 'activa' => true, 'receta_id' => $recetaId, 'version' => $version, 'componentes' => self::componentes($ctx, $ofertaId)];
@@ -146,10 +153,11 @@ final class RecetasOferta
         $db = Producto::getDB();
         self::exigirOfertaLocal($db, $ofertaId, $unidadId);
         $stmt = $db->prepare(
-            "SELECT rc.articulo_id, rc.subreceta_id, rc.cantidad,
+            "SELECT rc.articulo_id, rc.subreceta_id, rc.cantidad,ca.version_receta_id,
                     CASE WHEN rc.articulo_id IS NOT NULL THEN i.nombre ELSE s.nombre END AS nombre,
                     CASE WHEN rc.articulo_id IS NOT NULL THEN i.unidad ELSE s.unidad END AS unidad
                FROM recetas r JOIN receta_componentes rc ON rc.receta_id = r.id AND rc.unidad_id = r.unidad_id
+               LEFT JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id
                LEFT JOIN ingredientes i ON i.id = rc.articulo_id
                LEFT JOIN subrecetas s ON s.id = rc.subreceta_id AND s.unidad_id = rc.unidad_id
               WHERE r.oferta_id = ? AND r.unidad_id = ? AND r.activo = 1 ORDER BY rc.id"
@@ -165,6 +173,8 @@ final class RecetasOferta
         $salida = [];
         while ($row = $result->fetch_assoc()) {
             $salida[] = [
+                'version_receta_id'=>$row['version_receta_id']===null?null:(int)$row['version_receta_id'],
+                'modalidad'=>$row['version_receta_id']===null?'almacenado':'desglosar',
                 'tipo' => $row['articulo_id'] !== null ? 'ingrediente' : 'subreceta',
                 'ref_id' => (int) ($row['articulo_id'] ?? $row['subreceta_id']),
                 'cantidad' => (string) $row['cantidad'],
@@ -193,7 +203,9 @@ final class RecetasOferta
             if (!in_array($tipo, ['ingrediente', 'subreceta'], true) || !$ref || $cantidadEscalada <= 0) {
                 return ['error' => 'Los componentes requieren un artículo o subreceta y una cantidad positiva.'];
             }
-            $salida[] = ['articulo_id' => $tipo === 'ingrediente' ? (int) $ref : null, 'subreceta_id' => $tipo === 'subreceta' ? (int) $ref : null, 'cantidad' => DecimalInventario::cantidad($cantidadEscalada)];
+            $version=$item['version_receta_id']??null;$version=$version===''?null:$version;
+            if($version!==null && (!filter_var($version,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])||$tipo!=='ingrediente'))return ['error'=>'Selecciona una versión válida del artículo.'];
+            $salida[] = ['version_receta_id'=>$version===null?null:(int)$version,'_conservar_version'=>!array_key_exists('version_receta_id',$item),'articulo_id' => $tipo === 'ingrediente' ? (int) $ref : null, 'subreceta_id' => $tipo === 'subreceta' ? (int) $ref : null, 'cantidad' => DecimalInventario::cantidad($cantidadEscalada)];
         }
         return $salida;
     }

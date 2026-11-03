@@ -62,6 +62,8 @@ class ReservationClientSession
                     if (!is_dir($localPath) || !is_writable($localPath)) {
                         $localPath = sys_get_temp_dir();
                     }
+                } else {
+                    $localPath = $pathToCheck;
                 }
                 if (is_dir($localPath) && is_writable($localPath)) {
                     ini_set('session.save_path', $localPath);

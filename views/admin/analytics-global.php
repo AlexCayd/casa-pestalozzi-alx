@@ -9,7 +9,7 @@
  *      cada negocio) junto a la venta diaria de los dos en la misma gráfica;
  *   2. cada negocio lado a lado, con el mismo orden de datos en las dos
  *      tarjetas para que el ojo compare renglón con renglón;
- *   3. los productos de la casa: precio vigente y venta de cada negocio.
+ *   3. los productos más vendidos de cada negocio, con los datos del menú local.
  *
  * Las analíticas diagnósticas no van aquí (son de cada menú): cada tarjeta
  * enlaza al análisis de su negocio cuando la persona puede abrirlo.
@@ -54,7 +54,6 @@ $delta = static function (?float $d) use ($e): string {
 
 $negocios = is_array($consolidado['negocios'] ?? null) ? $consolidado['negocios'] : [];
 $total = is_array($consolidado['total'] ?? null) ? $consolidado['total'] : [];
-$productosCasa = is_array($consolidado['productosCasa'] ?? null) ? $consolidado['productosCasa'] : [];
 
 /*
  * Un negocio sin un ticket en el periodo ni en el anterior no tuvo un mal mes:
@@ -245,7 +244,7 @@ $omitidos = array_keys(array_filter($sinRegistros));
                 <?php if (!empty($sinRegistros[$slug])) : ?>
                     <div class="admin-an-negocio__pendiente">
                         <span class="admin-badge"><?php echo admin_icon($slug === 'panaderia' ? 'caja' : 'info', 14); ?><?php echo $slug === 'panaderia' ? 'Caja pendiente' : 'Sin registros'; ?></span>
-                        <p><?php echo $e($textoSinRegistros($slug)); ?> Sus cifras aparecerán aquí, en la gráfica y en los productos de la casa cuando empiece a cobrar.</p>
+                        <p><?php echo $e($textoSinRegistros($slug)); ?> Sus cifras aparecerán aquí y en la gráfica cuando empiece a cobrar.</p>
                     </div>
                 <?php else : ?>
                     <div class="admin-an-negocio__venta">
@@ -311,110 +310,6 @@ $omitidos = array_keys(array_filter($sinRegistros));
             </article>
         <?php endforeach; ?>
     </section>
-
-    <?php /* ── 3 · Productos de la casa ────────────────────────────────
-             Una fila por estándar publicado desde Global; por negocio, su
-             oferta y lo vendido. «No lo ofrece» ocupa las cuatro celdas del
-             negocio; «Sin ventas» sólo las tres de venta, porque el precio
-             vigente sí existe. */ ?>
-    <article class="admin-panel admin-table-panel admin-an-casa" aria-labelledby="an-casa-titulo">
-        <header>
-            <div>
-                <p class="admin-page-eyebrow">Productos de la casa</p>
-                <h3 id="an-casa-titulo">Cómo ofrece y vende cada negocio los estándares</h3>
-            </div>
-            <span><?php echo count($productosCasa); ?> <?php echo count($productosCasa) === 1 ? 'producto' : 'productos'; ?></span>
-        </header>
-
-        <?php if ($productosCasa === []) : ?>
-            <p class="admin-an-sin-filas">Global todavía no publica productos de la casa.</p>
-        <?php else : ?>
-            <p class="admin-an-nota">
-                Precio de la oferta vigente en cada negocio y lo vendido en el periodo.
-                «Cobrado» es el precio promedio que realmente se cobró.
-                <?php foreach ($omitidos as $slug) : ?>
-                    <strong><?php echo $e($textoSinRegistros($slug)); ?></strong> De <?php echo $e($nombres[$slug] ?? $slug); ?> sólo se muestra su precio.
-                <?php endforeach; ?>
-            </p>
-            <div class="admin-table-wrap" data-scrollable>
-                <table class="admin-table admin-table--compact admin-an-casa__tabla">
-                    <caption class="admin-visually-hidden">Productos de la casa por negocio: precio vigente, piezas, ingreso y precio cobrado</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col" rowspan="2" class="admin-an-casa__producto">Producto</th>
-                            <?php foreach (['restaurante', 'panaderia'] as $i => $slug) : ?>
-                                <th scope="colgroup" colspan="4" class="admin-an-casa__grupo">
-                                    <span class="admin-an-muestra admin-an-serie--<?php echo $i + 1; ?>" aria-hidden="true"></span><?php echo $e($nombres[$slug]); ?>
-                                </th>
-                            <?php endforeach; ?>
-                        </tr>
-                        <tr>
-                            <?php foreach (['restaurante', 'panaderia'] as $slug) : ?>
-                                <th scope="col" class="admin-table__num admin-an-casa__inicio">Precio</th>
-                                <th scope="col" class="admin-table__num">Piezas</th>
-                                <th scope="col" class="admin-table__num">Ingreso</th>
-                                <th scope="col" class="admin-table__num">Cobrado</th>
-                            <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($productosCasa as $prod) : ?>
-                            <?php
-                                $ofertas = is_array($prod['negocios'] ?? null) ? $prod['negocios'] : [];
-                                $precios = [];
-                                foreach ($ofertas as $o) {
-                                    if (is_array($o) && ($o['precio'] ?? null) !== null) {
-                                        $precios[] = round((float) $o['precio'], 2);
-                                    }
-                                }
-                                // Mismo producto de la casa con precio distinto en
-                                // cada negocio: dato que el dueño querrá ver.
-                                $precioDistinto = count($precios) === 2 && $precios[0] !== $precios[1];
-                            ?>
-                            <tr>
-                                <th scope="row" class="admin-an-casa__producto">
-                                    <span class="admin-table__cell-main"><?php echo $e($prod['nombre']); ?></span>
-                                    <?php if ($precioDistinto) : ?>
-                                        <span class="admin-table__cell-sub">Precio distinto entre negocios</span>
-                                    <?php endif; ?>
-                                </th>
-                                <?php foreach (['restaurante', 'panaderia'] as $slug) : ?>
-                                    <?php $o = $ofertas[$slug] ?? null; ?>
-                                    <?php if (!is_array($o)) : ?>
-                                        <td colspan="4" class="admin-an-casa__inicio admin-an-casa__estado admin-an-casa__ausente">No lo ofrece</td>
-                                    <?php else : ?>
-                                        <td class="admin-table__num admin-an-casa__inicio">
-                                            <?php if (($o['precio'] ?? null) === null) : ?>
-                                                <span class="admin-an-casa__estado">Sin oferta vigente</span>
-                                            <?php else : ?>
-                                                <span class="admin-table__cell-main"><?php echo $e($money($o['precio'])); ?></span>
-                                                <?php if (empty($o['activo'])) : ?>
-                                                    <span class="admin-table__cell-sub">Oferta inactiva</span>
-                                                <?php endif; ?>
-                                            <?php endif; ?>
-                                        </td>
-                                        <?php if ((int) ($o['piezas'] ?? 0) <= 0) : ?>
-                                            <td colspan="3" class="admin-an-casa__estado">Sin ventas</td>
-                                        <?php else : ?>
-                                            <td class="admin-table__num"><?php echo $e($entero($o['piezas'])); ?></td>
-                                            <td class="admin-table__num"><?php echo $e($money($o['ventas'])); ?></td>
-                                            <td class="admin-table__num">
-                                                <?php echo ($o['precioCobrado'] ?? null) === null ? '—' : $e($money($o['precioCobrado'])); ?>
-                                                <?php if (($o['precioCobrado'] ?? null) !== null && ($o['precio'] ?? null) !== null
-                                                    && abs((float) $o['precioCobrado'] - (float) $o['precio']) >= 0.5) : ?>
-                                                    <span class="admin-table__cell-sub">distinto al vigente</span>
-                                                <?php endif; ?>
-                                            </td>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </article>
 
     <p class="admin-an-global__pie">
         La ingeniería de menú, las franjas que más rinden y qué se pide junto con qué son de

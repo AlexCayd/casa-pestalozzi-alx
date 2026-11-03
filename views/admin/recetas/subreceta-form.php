@@ -27,11 +27,11 @@
 <section class="admin-recetas admin-recetas--form admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
-            <span class="admin-page__eyebrow">Subrecetas</span>
-            <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Subreceta'); ?></h2>
+            <span class="admin-page__eyebrow">Preparaciones anteriores</span>
+            <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Preparación anterior'); ?></h2>
             <p class="admin-page__subtitle">Define la preparación y los ingredientes que consume para producir su rendimiento base.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas/subrecetas">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="<?= htmlspecialchars($recetasSubBase ?? '/admin/recetas/subrecetas',ENT_QUOTES,'UTF-8') ?>">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
@@ -43,7 +43,7 @@
 
             <div class="admin-form-grid">
                 <div class="admin-field admin-form-grid__full">
-                    <label class="admin-field__label" for="nombre">Nombre de la subreceta</label>
+                    <label class="admin-field__label" for="nombre">Nombre de la preparación anterior</label>
                     <input type="text" id="nombre" name="nombre" maxlength="120" required
                            value="<?php echo htmlspecialchars($sub->nombre ?? ''); ?>">
                 </div>
@@ -66,7 +66,7 @@
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?php echo (int) ($sub->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
-                    <span class="admin-switch__label">Subreceta activa</span>
+                    <span class="admin-switch__label">Preparación activa</span>
                 </label>
             </div>
         </section>
@@ -75,7 +75,7 @@
             <div class="admin-recipe__head">
                 <div>
                     <span class="admin-recipe__eyebrow">Ingredientes</span>
-                    <h3>Composición de la subreceta</h3>
+                    <h3>Composición de la preparación anterior</h3>
                     <p>Cantidades para producir el rendimiento indicado arriba.</p>
                 </div>
             </div>
@@ -132,7 +132,7 @@
 
         <div class="admin-form-grid__actions admin-recipe__actions">
             <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/subrecetas">Cancelar</a>
+            <a class="admin-btn admin-btn--secondary" href="<?= htmlspecialchars($recetasSubBase ?? '/admin/recetas/subrecetas',ENT_QUOTES,'UTF-8') ?>">Cancelar</a>
         </div>
     </form>
 </section>

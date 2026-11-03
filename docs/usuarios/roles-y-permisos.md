@@ -1,18 +1,18 @@
 # Permisos directos y ámbitos
 
-## Productos y recetas de la casa M1.2
+## Menú local después de A4
 
-Estandarizar exige `menu/editar` Global y la facultad existente
-`comercial.identidad.editar`. Publicar revalida además Menú de cada negocio
-impactado; aplicar receta exige `productos/editar` local. Seleccionar orígenes
-exige `inventario/editar` del propietario. Un administrador Global sin facultad
-puede supervisar según sus lecturas, pero no crear ni publicar estándares.
-`menu/editar` local solo permite personalizaciones autorizadas; tampoco permite
-alterar las reglas oficiales. Los permisos se recargan bajo bloqueo antes del
-commit. El superadministrador conserva su excepción organizacional.
+Productos de la casa, las publicaciones comerciales oficiales y la facultad
+`comercial.identidad.editar` están retirados del flujo operativo. La clave puede
+permanecer en el esquema histórico, pero el catálogo de facultades no la ofrece
+ni la toma como autorización. Global no tiene módulo `menu`; conserva `productos`
+para artículos y preparaciones compartidas.
 
-La adaptación de recetas de casa dentro de Menú usa el permiso ya existente de
-Recetas (`productos`), sin habilitar el módulo completo de Panadería ni su POS.
+Las ofertas, recetas, presentaciones y variantes se autorizan en el contexto del
+negocio propietario. `menu/editar` de Restaurante no autoriza escrituras sobre
+Panadería, ni al contrario. Los documentos PDF de otro negocio se leen solo con
+los permisos de Menú requeridos en Global y en el negocio dueño. Véase el
+[contrato A4](../modulos/catalogo-comercial.md).
 
 
 El nombre del archivo se conserva para no romper referencias históricas. La
@@ -120,3 +120,20 @@ Ver [pruebas de aceptación](../desarrollo/pruebas.md).
 - [Contrato técnico 3B](../arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
 - [Instalación y bootstrap](../desarrollo/instalacion.md).
 - [Índice documental](../desarrollo/clasificacion-documental.md).
+
+## Artículos, presentaciones y variantes M2
+
+`productos/ver` permite consultar artículos, versiones y previsiones del contexto.
+`productos/editar` permite configurar capacidades locales y publicar elaboraciones;
+no modifica saldos ni precio comercial. Las acciones Global requieren los permisos
+de Artículos e Inventario definidos para cada operación. La ficha muestra
+únicamente acciones autorizadas.
+
+Presentaciones y ajustes de composición requieren los permisos locales de Menú y
+Artículos aplicables. No hay políticas comerciales M1.2 ni publicación de
+presentaciones desde Global.
+
+Elegir orígenes operativos conserva `productos/editar`, sin autorizar movimientos
+ni nuevas asociaciones físicas. Revocaciones en sesiones abiertas,
+IDs de negocio/oferta manipulados y CSRF se comprueban en servidor, incluyendo
+la API contextual de variantes de Panadería. No se conceden permisos por migración.

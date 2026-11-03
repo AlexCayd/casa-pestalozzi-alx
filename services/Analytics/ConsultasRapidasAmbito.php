@@ -22,7 +22,7 @@
  *     Además pregunta por sus almacenes y por su menú.
  *   - Global no vende. Lee el CONSOLIDADO de todos los almacenes, como hace
  *     Almacenes con permiso de ver (AlcanceInventario::almacen), desglosado por
- *     negocio, más las transferencias y los productos de la casa. Una lectura
+ *     negocio, más las transferencias. Una lectura
  *     consolidada nunca concede escritura ni suma ventas de los negocios
  *     (docs/arquitectura.md §3).
  *
@@ -50,7 +50,6 @@ final class ConsultasRapidasAmbito
         ],
         'global' => [
             'stock', 'bajo_stock', 'consumo', 'entradas', 'mermas', 'transferencias',
-            'productos_casa',
         ],
     ];
 
@@ -71,11 +70,11 @@ final class ConsultasRapidasAmbito
         'ticket_promedio' => 'ventas', 'sin_venta' => 'ventas', 'horas_pico' => 'ventas', 'cancelaciones' => 'ventas',
         'stock' => 'almacen', 'bajo_stock' => 'almacen', 'consumo' => 'almacen', 'entradas' => 'almacen',
         'mermas' => 'almacen', 'transferencias' => 'almacen',
-        'sin_receta' => 'menu', 'productos_casa' => 'menu',
+        'sin_receta' => 'menu',
     ];
 
     /** Preguntas sin periodo: una fotografía de ahora. */
-    private const SIN_PERIODO = ['stock', 'bajo_stock', 'transferencias', 'sin_receta', 'productos_casa'];
+    private const SIN_PERIODO = ['stock', 'bajo_stock', 'transferencias', 'sin_receta'];
 
     /**
      * Una transferencia abierta es la que todavía pide algo de alguien:
@@ -132,7 +131,6 @@ final class ConsultasRapidasAmbito
         'mermas' => 'Mermas',
         'transferencias' => 'Transferencias en curso',
         'sin_receta' => 'Productos sin receta',
-        'productos_casa' => 'Productos de la casa',
     ];
 
     /** Qué contesta cada pregunta, en una línea: el Asistente la pone bajo la pregunta armada. */
@@ -161,7 +159,6 @@ final class ConsultasRapidasAmbito
             'entradas' => 'Cuánto se recibió de un artículo en todos los almacenes. Las transferencias internas no cuentan.',
             'mermas' => 'Lo que se mermó en toda la organización y cuánto costó, por negocio.',
             'transferencias' => 'Todas las transferencias de la organización que siguen abiertas.',
-            'productos_casa' => 'Los productos de la casa, en qué negocios se ofrecen y si tienen receta estándar publicada.',
         ],
     ];
 
@@ -861,7 +858,7 @@ final class ConsultasRapidasAmbito
             (string) $p['previo_etiqueta'], 'cantidad', $sentido, $medida);
     }
 
-    // ── Menú y productos de la casa ─────────────────────────────
+    // ── Menú de Panadería ───────────────────────────────────────
 
     /** @return array<string, mixed>|null */
     private static function menu(\mysqli $db, string $ctx, string $int): ?array
@@ -894,44 +891,7 @@ final class ConsultasRapidasAmbito
             ]];
         }
 
-        // productos_casa: la identidad la publica Global y cada negocio la
-        // ofrece, o no, con su propia oferta.
-        $filas = self::filas($db, "SELECT p.id, p.nombre, pp.version AS publicada,
-                   GROUP_CONCAT(DISTINCT un.nombre ORDER BY un.id SEPARATOR ', ') AS negocios,
-                   (SELECT MAX(v.version) FROM receta_casa_versiones v WHERE v.producto_id = p.id AND v.publicada = 1) AS receta
-              FROM producto_estandares pe
-              JOIN productos p ON p.id = pe.producto_id
-              LEFT JOIN producto_publicaciones pp ON pp.id = pe.publicacion_id
-              LEFT JOIN ofertas_producto o ON o.producto_id = p.id AND o.activo = 1
-              LEFT JOIN unidades un ON un.id = o.unidad_id
-             GROUP BY p.id, p.nombre, pp.version
-             ORDER BY p.nombre", []);
-        $ofrecidos = 0;
-        $conReceta = 0;
-        foreach ($filas as $f) {
-            $ofrecidos += $f['negocios'] !== null ? 1 : 0;
-            $conReceta += $f['receta'] !== null ? 1 : 0;
-        }
-        foreach (array_slice($filas, 0, self::TOPE_DESGLOSE) as $f) {
-            $donde = $f['publicada'] === null ? 'Sin publicar' : ($f['negocios'] ?? 'En ningún negocio');
-            $receta = $f['receta'] !== null ? 'receta v' . (int) $f['receta'] : 'sin receta estándar';
-            $detalle[] = self::renglon((string) $f['nombre'], null, $donde . ' · ' . $receta);
-        }
-        $n = count($filas);
-
-        return ['respuesta' => [
-            'tipo' => 'productos_casa',
-            'titulo' => 'Productos de la casa',
-            'cifra' => self::numero($n),
-            'unidad' => $n === 1 ? 'producto' : 'productos',
-            'frase' => $n > 0
-                ? self::conteo($ofrecidos, 'se ofrece', 'se ofrecen') . ' en algún negocio y ' . self::conteo($conReceta, 'tiene', 'tienen') . ' receta estándar publicada.'
-                : 'Todavía no hay productos de la casa.',
-            'comparacion' => null,
-            'detalle_titulo' => $detalle !== [] ? 'Dónde se ofrecen' : null,
-            'detalle' => $detalle,
-            'enlace' => ['href' => '/admin/global/productos', 'texto' => 'Abrir productos de la casa'],
-        ]];
+        return null;
     }
 
     // ── Plantilla y ejemplos ────────────────────────────────────

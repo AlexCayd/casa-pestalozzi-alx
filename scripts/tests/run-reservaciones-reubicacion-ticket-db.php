@@ -31,7 +31,10 @@ $assert = static function (bool $condition, string $message): void {
 
 $db = ActiveRecord::getDB();
 $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
-$ahora = ReservacionConfig::ahora();
+// Fijamos sólo la hora lógica de prueba, conservando la fecha dinámica. Las
+// reservas +40 min y +3 h quedan el mismo día y dentro del horario habitual,
+// aun cuando la suite se ejecute de noche.
+$ahora = ReservacionConfig::ahora()->setTime(15, 0);
 $creadas = [];
 $tickets = [];
 
@@ -65,8 +68,8 @@ $ocupar = static function (array $mesas) use ($db, &$tickets, $restaurantUnitId)
 };
 
 try {
-    // El día de hoy tiene que quedar dentro del horario: la prueba no depende
-    // de la hora real a la que corra, sólo de minutos relativos.
+    // La fecha es dinámica y la hora lógica es 15:00, dentro del horario de
+    // Restaurante incluso el lunes, que abre más tarde.
     $cercana = $sembrar('Reubicar Cercana', $ahora->modify('+40 minutes'), [1]);
     $lejana = $sembrar('Reubicar Lejana', $ahora->modify('+3 hours'), [2]);
     $ocupar([1]);

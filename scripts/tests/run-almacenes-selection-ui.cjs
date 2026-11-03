@@ -19,7 +19,11 @@ const workspace = {
     querySelector(selector){return selector === '[data-warehouse-selection]' ? selection : selector === '[data-selection-status]' ? status : null;},
     querySelectorAll(){return [];}
 };
-vm.runInNewContext(source, {window:{setTimeout(){return 1;},clearTimeout(){},addEventListener(){}},document:{readyState:'complete', querySelector(){return workspace;}}});
+const modal={id:'almacen-asociar'};const dispatched=[];
+const document={readyState:'complete',querySelector(selector){return selector==='[data-almacenes-workspace]'?workspace:selector==='[data-admin-modal][data-contextual-open="1"]'?modal:null;},dispatchEvent(event){dispatched.push(event);}};
+class CustomEvent { constructor(type,options){this.type=type;this.detail=options&&options.detail;} }
+vm.runInNewContext(source, {window:{setTimeout(){return 1;},clearTimeout(){},addEventListener(){}},document,CustomEvent});
+assert.deepEqual(dispatched.map(event=>[event.type,event.detail.id]),[['admin:open-modal','almacen-asociar']],'La llegada contextual abre el modal compartido una sola vez');
 boxes[0].checked=false;handlers.change({target:boxes[0]});
 assert.equal(selected().length,2,'Se permite combinar dos almacenes');
 assert.match(status.textContent,/2 seleccionados/,'El cambio pendiente se anuncia sin fingir resultados actualizados');
@@ -42,7 +46,8 @@ const tip = {id:'stock', style:{}, offsetWidth:200, offsetHeight:100, open:false
     matches(selector){return selector === ':hover' ? this.hovered : this.open;}
 };
 const triggers = [0,1].map(() => ({events:{}, getAttribute(){return 'stock';}, getBoundingClientRect(){return {left:20,bottom:50};}, addEventListener(name,fn){this.events[name]=fn;}}));
-const tooltipDocument = {readyState:'complete',activeElement:null,getElementById(){return tip;},querySelector(){return {dataset:{initialView:'existencias'},querySelector(){return null;},querySelectorAll(selector){return selector === '[data-stock-tip]' ? triggers : [];}};}};
+const tooltipWorkspace={dataset:{initialView:'existencias'},querySelector(){return null;},querySelectorAll(selector){return selector==='[data-stock-tip]'?triggers:[];}};
+const tooltipDocument = {readyState:'complete',activeElement:null,getElementById(){return tip;},querySelector(selector){return selector==='[data-almacenes-workspace]'?tooltipWorkspace:null;}};
 vm.runInNewContext(source,{document:tooltipDocument,window:{innerWidth:800,innerHeight:600,setTimeout(fn){timers.set(++nextTimer,fn);return nextTimer;},clearTimeout(id){timers.delete(id);}}});
 const flush = () => {const pending = [...timers.values()];timers.clear();pending.forEach(fn=>fn());};
 triggers[0].events.pointerenter();assert.equal(tip.open,true,'Hover abre detalle');

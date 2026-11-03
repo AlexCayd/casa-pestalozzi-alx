@@ -19,7 +19,7 @@
  *
  * Es la misma pantalla en los tres ámbitos. Lo que cambia por ámbito es el
  * catálogo (Panadería pregunta por su caja, sus almacenes y su menú; Global por
- * el consolidado de almacenes y los productos de la casa: ver
+ * el consolidado de almacenes y las transferencias: ver
  * ConsultasRapidasAmbito), cómo se agrupa, la ruta de la API y el historial del
  * navegador, que se guarda aparte para no mezclar conversaciones de negocios
  * distintos.
@@ -71,7 +71,7 @@ class AdminIaController
         ],
         'global' => [
             ['tema' => 'Almacenes de la organización', 'intenciones' => ['stock', 'bajo_stock', 'consumo', 'entradas', 'mermas']],
-            ['tema' => 'Entre negocios', 'intenciones' => ['transferencias', 'productos_casa']],
+            ['tema' => 'Entre negocios', 'intenciones' => ['transferencias']],
         ],
     ];
 
@@ -100,7 +100,7 @@ class AdminIaController
             'todo' => 'toda la organización',
             'elige_ventas' => 'elige un producto',
             'elige_articulo' => 'elige un artículo',
-            'nota' => 'Responde con los almacenes de toda la organización, las transferencias y los productos de la casa.',
+            'nota' => 'Responde con los almacenes de toda la organización y las transferencias.',
             'rubros' => [],
         ],
     ];
@@ -126,7 +126,6 @@ class AdminIaController
         'mermas' => 'basura',
         'transferencias' => 'transferencias',
         'sin_receta' => 'products',
-        'productos_casa' => 'menu',
     ];
 
     public static function index(Router $router): void

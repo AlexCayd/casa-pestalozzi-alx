@@ -12,5 +12,5 @@ $esc=static fn($v):string=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');
         <?php endif; ?>
     </section>
     <?php endforeach; ?>
-    <?php if ($inicioContexto==='panaderia') : ?><p class="admin-field__hint">POS, recetas administrativas y producción se habilitarán en una etapa posterior.</p><?php endif; ?>
+    <?php if ($inicioContexto==='panaderia') : ?><p class="admin-field__hint">Puedes configurar artículos, recetas, presentaciones y variantes. La producción física y el punto de venta de Panadería todavía no están disponibles.</p><?php endif; ?>
 </section>

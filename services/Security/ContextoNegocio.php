@@ -4,6 +4,7 @@ namespace Services\Security;
 
 use Classes\Auth;
 use Model\ActiveRecord;
+use Services\Menu\DatosComercialesOferta;
 use Services\Inventory\InventarioError;
 use Services\Inventory\TransaccionInventario;
 
@@ -15,13 +16,28 @@ final class ContextoNegocio
     /** Disponibilidad técnica; los permisos se comprueban por separado. */
     public static function modulosHabilitados(string $ctx): array
     {
-        if ($ctx !== 'restaurante') return ['users','inventario','menu','ia','finanzas','analytics'];
-        return array_values(array_diff(array_keys(PermisosUsuario::catalogo($ctx)), ['roles']));
+        $catalogo = PermisosUsuario::catalogo($ctx);
+        if ($ctx === 'global') {
+            return array_values(array_intersect(
+                ['users', 'inventario', 'productos', 'finanzas', 'analytics', 'ia'],
+                array_keys($catalogo)
+            ));
+        }
+        if ($ctx === 'panaderia') {
+            return array_values(array_intersect(
+                ['users', 'inventario', 'menu', 'productos', 'finanzas', 'analytics', 'ia'],
+                array_keys($catalogo)
+            ));
+        }
+        return array_values(array_diff(array_keys($catalogo), ['roles']));
     }
 
     public static function nuevo(): bool
     {
-        return ActiveRecord::getDB() instanceof \mysqli && Auth::multinegocio();
+        if (!(ActiveRecord::getDB() instanceof \mysqli)) return false;
+        if (!Auth::multinegocio()) return false;
+        DatosComercialesOferta::exigirA3();
+        return true;
     }
 
     public static function slug(): string
@@ -69,6 +85,9 @@ final class ContextoNegocio
     public static function exigir(string $modulo,string $nivel='ver',?string $ctx=null,bool $bloquear=false): array
     {
         $ctx??=self::slug();
+        if (in_array($ctx,['restaurante','panaderia'],true) && in_array($modulo,['menu','productos'],true)) {
+            \Services\Menu\DatosComercialesOferta::exigirA3();
+        }
         $perfil=PermisosUsuario::cargar(self::actorId(),self::db(),$bloquear);
         $decision=PermisosUsuario::decidir($perfil,$ctx,$modulo,$nivel,self::nivelAuth());
         if(!$decision['ok']) throw new InventarioError($decision['codigo'],'No tienes permiso para esta operación en el ámbito solicitado.');

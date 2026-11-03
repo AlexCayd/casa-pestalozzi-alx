@@ -41,6 +41,13 @@ final class AdministracionAlmacenes
         self::exigirResultado($movimientos);
         $catalogo = $this->catalogo($ctx, (string)($filtros['q']??''), (int)($filtros['pagina']??1));
         self::exigirResultado($catalogo);
+        // La ficha de origen conserva su artículo aunque quede fuera de esta página del selector.
+        $seleccionado=(int)($filtros['articulo_id']??0);
+        if($seleccionado&&!in_array($seleccionado,array_map('intval',array_column($catalogo['articulos'],'id')),true)){
+            $columnas=$ctx==='global'?'id,nombre,unidad,costo,activo':'id,nombre,unidad,activo';
+            $s=$this->db->prepare("SELECT {$columnas} FROM ingredientes WHERE id=?");$s->execute([$seleccionado]);$elegido=$s->get_result()->fetch_assoc();$s->close();
+            if($elegido)array_unshift($catalogo['articulos'],$elegido);
+        }
         $paginaTransferencias=$filtros['transferencia_pagina']??'1';
         if(!is_scalar($paginaTransferencias)||!preg_match('/^[1-9][0-9]{0,5}$/D',(string)$paginaTransferencias))throw new InventarioError('FILTRO_INVALIDO','Página de transferencias inválida.');
         $transferencias=$this->transferencias->consultar($ctx,(int)$paginaTransferencias);

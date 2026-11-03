@@ -78,6 +78,9 @@
         var destino  = null;   // el .admin-picker que abrió el modal
         var ultimoFoco = null;
         var inicialActiva = 'todos';
+        var fondo = [];
+        var cierrePendiente = null;
+        var abierto = false;
 
         function visibles() {
             var q = (searchEl && searchEl.value || '').trim().toLowerCase();
@@ -149,7 +152,18 @@
             pintarTabs();
             pintarGrid();
 
+            window.clearTimeout(cierrePendiente);
+            abierto = true;
             modal.hidden = false;
+            // Inhabilita los hermanos de cada ancestro sin volver inerte el diálogo.
+            fondo = [];
+            var rama = modal;
+            while (rama.parentElement && rama !== document.body) {
+                Array.from(rama.parentElement.children).forEach(function (el) {
+                    if (el !== rama) { fondo.push([el, el.inert]); el.inert = true; }
+                });
+                rama = rama.parentElement;
+            }
             // AdminScrollLock para además del overflow. Sin pararlo, Lenis
             // seguía desplazando el fondo con la rueda estando el modal abierto.
             if (window.AdminScrollLock) {
@@ -158,6 +172,7 @@
                 document.body.style.overflow = 'hidden';
             }
             window.requestAnimationFrame(function () {
+                if (!abierto) return;
                 modal.classList.add('is-open');
                 if (searchEl) searchEl.focus();
             });
@@ -169,12 +184,15 @@
             }
 
             modal.classList.remove('is-open');
+            abierto = false;
+            fondo.forEach(function (item) { item[0].inert = item[1]; });
+            fondo = [];
             if (window.AdminScrollLock) {
                 window.AdminScrollLock.desbloquear();
             } else {
                 document.body.style.overflow = '';
             }
-            window.setTimeout(function () { modal.hidden = true; }, 220);
+            cierrePendiente = window.setTimeout(function () { modal.hidden = true; }, 220);
             destino = null;
             if (ultimoFoco) ultimoFoco.focus();
         }
@@ -234,8 +252,14 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            if (modal.hidden) return;
-            if (event.key === 'Escape') cerrar();
+            if (!abierto) return;
+            if (event.key === 'Escape') { event.preventDefault(); cerrar(); }
+            if (event.key === 'Tab') {
+                var controles = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]')).filter(function (el) { return el.getClientRects().length; });
+                var primero = controles[0], ultimo = controles[controles.length - 1];
+                if (event.shiftKey && document.activeElement === primero) { event.preventDefault(); ultimo.focus(); }
+                else if (!event.shiftKey && document.activeElement === ultimo) { event.preventDefault(); primero.focus(); }
+            }
         });
 
         return { abrir: abrir };

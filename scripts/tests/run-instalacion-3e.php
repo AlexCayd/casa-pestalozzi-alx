@@ -27,6 +27,12 @@ try {
         $result=Services\Development\Instalacion::ejecutar($db,$name,'test',$password,true,static function($n,$token)use(&$bases){$bases[$n]=$token;});
         $assert($result['ok']===true,'La instalación debe finalizar.');
         $datos=probarDatos3E($db,$root,$count);
+        $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='a1-datos-comerciales-oferta-v1'")->fetch_row()[0]===1,'La instalación nueva termina con el marcador A1.');
+        $assert((int)$db->query("SELECT COUNT(*) FROM esquema_versiones WHERE version='a3-datos-comerciales-local-v1'")->fetch_row()[0]===1,'La instalación nueva termina con el marcador A3.');
+        $ofertas=(int)$db->query('SELECT COUNT(*) FROM ofertas_producto')->fetch_row()[0];
+        $comerciales=(int)$db->query('SELECT COUNT(*) FROM oferta_datos_comerciales')->fetch_row()[0];
+        $sinDatos=(int)$db->query('SELECT COUNT(*) FROM ofertas_producto o LEFT JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE d.oferta_id IS NULL')->fetch_row()[0];
+        $assert($comerciales===$ofertas&&$sinDatos===0,'La instalación nueva materializa datos comerciales locales para cada oferta.');
         if($fixtureCanonico===null)$fixtureCanonico=$datos;else $assert($fixtureCanonico['conteos']===$datos['conteos']&&$fixtureCanonico['periodo_tickets']===$datos['periodo_tickets'],'Las dos bases nuevas deben reproducir los mismos conteos y periodos.');
         $user=$db->query("SELECT id,password_hash,activo,es_superadmin,nip_hash,nip_lookup FROM usuarios WHERE username='admin_demo'")->fetch_assoc();
         $id=(int)($user['id']??0);
