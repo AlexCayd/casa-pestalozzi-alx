@@ -4010,7 +4010,7 @@ function initMapa() {
             abrirOpciones(d, { comensal: selectedComensal, origen: boton });
             return;
           }
-          addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '', null, null, d.oferta_id || d.id);
+          addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '', null, null, d.oferta_id || d.id, d.presentacion_id);
         });
       })(dish, row);
       dishesEl.appendChild(row);
@@ -4070,7 +4070,7 @@ function initMapa() {
     return (ids || []).slice().sort(function(a, b) { return a - b; }).join(',');
   }
 
-  function addToComanda(name, price, areaSlug, categoria, variante, comensal, ofertaId) {
+  function addToComanda(name, price, areaSlug, categoria, variante, comensal, ofertaId, presentacionId) {
     var areaId = (window.CP_AREAS && window.CP_AREAS[areaSlug])
                  ? window.CP_AREAS[areaSlug].id : 3;
     var para = typeof comensal === 'number' ? comensal : selectedComensal;
@@ -4079,7 +4079,7 @@ function initMapa() {
     var found = false;
     for (var i = 0; i < commandaItems.length; i++) {
       var ci = commandaItems[i];
-      if (ci.n === name && ci.oferta_id === Number(ofertaId || 0) && ci.comensal === para && claveVariante(ci.v) === clave) {
+      if (ci.n === name && ci.oferta_id === Number(ofertaId || 0) && Number(ci.presentacion_id || 0) === Number(presentacionId || 0) && ci.comensal === para && claveVariante(ci.v) === clave) {
         ci.qty++;
         found = true;
         break;
@@ -4089,7 +4089,7 @@ function initMapa() {
       commandaItems.push({
         n: name, p: price, area: areaSlug, area_id: areaId,
         categoria: categoria, comensal: para, qty: 1, nota: '',
-        oferta_id: Number(ofertaId || 0),
+        oferta_id: Number(ofertaId || 0), presentacion_id: presentacionId || null,
         v: ids, vl: variante && variante.label ? variante.label : ''
       });
     }
@@ -4328,7 +4328,7 @@ function initMapa() {
     }
     var comensal = typeof h.ctx.comensal === 'number' ? h.ctx.comensal : selectedComensal;
     cerrarOpciones();
-    addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal, d.oferta_id || d.id);
+    addToComanda(d.n, r.precio, d.area || 'cocina', d._cat || '', { ids: r.ids, label: r.label }, comensal, d.oferta_id || d.id, d.presentacion_id);
   }
 
   if (modal) {
@@ -6686,6 +6686,7 @@ function initMapa() {
       var ci = commandaItems[i];
       payload.items.push({
         oferta_id:  ci.oferta_id,
+        presentacion_id: ci.presentacion_id || null,
         nombre:    ci.n,
         precio:    ci.p,
         categoria: ci.categoria,

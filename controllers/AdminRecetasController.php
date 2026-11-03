@@ -25,8 +25,6 @@ use MVC\Router;
 
 class AdminRecetasController
 {
-    private const PATH = '/admin/recetas';
-    private const SUBPATH = '/admin/recetas/subrecetas';
     private const CSS = '/build/css/admin/recetas.css';
     // Diez por página, como el listado de Menú: son las mismas filas de la
     // misma tabla y alternar entre los dos módulos con dos ventanas distintas
@@ -102,7 +100,7 @@ class AdminRecetasController
             'totalPaginas' => $totalPaginas,
             'porPagina' => self::POR_PAGINA,
             'alertas' => Producto::getAlertas(),
-            'partialUrl' => AdminController::filterUrl(self::PATH, array_merge(
+            'partialUrl' => AdminController::filterUrl(self::path($ctx), array_merge(
                 $filtros,
                 $paginaActual > 1 ? ['page' => $paginaActual] : []
             )),
@@ -157,20 +155,27 @@ class AdminRecetasController
             return;
         }
 
+        $configuracion=\Services\Menu\ComposicionComercial::consultar($ctx,(int)$producto->id);
+        if(in_array($configuracion['modo'],['presentaciones','sin'],true)){
+            if($_SERVER['REQUEST_METHOD']==='GET'&&$configuracion['url']){
+                $volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
+                $menuBase=$ctx==='restaurante'?'/admin':'/admin/'.$ctx.'/menu';
+                header('Location: '.\Services\Menu\ComposicionComercial::conRetorno($configuracion['url'],$ctx,$volver?:($menuBase.'/edit?id='.(int)$producto->id)),true,302);return;
+            }
+            http_response_code($_SERVER['REQUEST_METHOD']==='POST'?409:403);
+            AdminController::render('recetas/error',['title'=>'Configurar composición','activeModule'=>'productos','mensaje'=>'Este producto se configura mediante Presentaciones. Se requiere consulta de Menú y Artículos y preparaciones. La receta anterior no se modificó.','volver'=>self::path($ctx)]);return;
+        }
         $alertas = Producto::getAlertas();
         $aviso = $_SERVER['REQUEST_METHOD'] === 'GET' ? self::consumirAvisoGuardado() : null;
         if ($aviso !== null) $alertas['exito'][] = $aviso;
         $volver = self::volverSeguro($_GET['volver'] ?? null);
-        $oficialCasa=\Services\Menu\ProductosCasa::publicada((int)$producto->producto_id);
-        if($oficialCasa&&$_SERVER['REQUEST_METHOD']==='GET'&&\Classes\Auth::puede('menu','ver',$ctx)){
-            header('Location: '.\Services\Menu\AdministracionMenu::base().'/casa-receta?id='.(int)$producto->id,true,302);return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
+            if(!$configuracion['edicionCompatible']){http_response_code(409);AdminController::render('recetas/error',['title'=>'Consulta de receta anterior','activeModule'=>'productos','mensaje'=>ucfirst($configuracion['motivoConsulta']).'. Consúltala sin cambios; configura una presentación nueva para definir otro consumo.','volver'=>self::path($ctx)]);return;}
             $guardado = self::guardarComponentes($ctx, (int) $producto->id);
             $componentes = count($guardado['componentes'] ?? []);
             if (empty($guardado['ok'])) {
+                http_response_code(422);
                 Producto::setAlerta('error', $guardado['mensaje'] ?? 'No se pudo guardar la receta.');
                 self::render('recetas/form', [
                     'title' => 'Receta de ' . $producto->nombre,
@@ -182,8 +187,10 @@ class AdminRecetasController
                     'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
                     'alertas' => Producto::getAlertas(),
                     'accion' => 'Guardar receta',
-                    'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
-                    'volverUrl' => $volver ?? self::PATH,
+                    'configuracionComposicion'=>$configuracion,
+                    'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
+                    'volverUrl' => $volver ?? self::path($ctx),
+                    'recetasContexto' => $ctx,
                 ]);
                 return;
             }
@@ -236,9 +243,11 @@ class AdminRecetasController
             'adminCsrfToken' => AdminCsrfService::token(),
             'alertas' => $alertas,
             'accion' => 'Guardar receta',
-            'recetaCasaProtegida' => $oficialCasa&&!$oficialCasa['reglas']['receta'],
+                    'configuracionComposicion'=>$configuracion,
+                    'preparacionesVersionadas'=>\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx),
             // «Volver» y «Cancelar» regresan a la lista de la que se vino.
-            'volverUrl' => $volver ?? self::PATH,
+            'volverUrl' => $volver ?? self::path($ctx),
+            'recetasContexto' => $ctx,
         ]);
     }
 
@@ -251,12 +260,12 @@ class AdminRecetasController
         try {
             $subrecetas = Subreceta::todas($ctx);
         } catch (\Throwable $e) {
-            Subreceta::setAlerta('error', 'No se pudieron cargar las subrecetas.');
+            Subreceta::setAlerta('error', 'No se pudieron cargar las preparaciones anteriores.');
         }
 
         self::render('recetas/subrecetas', [
-            'title' => 'Subrecetas',
-            'topbarSection' => 'Recetas / Subrecetas',
+            'title' => 'Preparaciones anteriores',
+            'topbarSection' => 'Artículos y preparaciones / Preparaciones anteriores',
             'subrecetas' => $subrecetas,
             'conteosSub' => self::conteoSubrecetaIngredientes(),
             'alertas' => Subreceta::getAlertas(),
@@ -265,34 +274,8 @@ class AdminRecetasController
 
     public static function subrecetaCreate(Router $router): void
     {
-        $ctx = ContextoNegocio::slug();
-        ContextoNegocio::exigir('productos', 'editar', $ctx, true);
-        $subreceta = new Subreceta();
-        $alertas = [];
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $subreceta->sincronizar($_POST);
-            $subreceta->activo = isset($_POST['activo']) ? 1 : 0;
-            $alertas = $subreceta->validar();
-
-            if (empty($alertas)) {
-                $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
-                if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
-                    Subreceta::setAlerta('exito', 'Subreceta creada correctamente');
-                    self::subrecetas($router);
-                    return;
-                }
-                if (!empty($resultado['pendiente'])) {
-                    Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
-                } else {
-                    $subreceta->id = null;
-                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
-                }
-                $alertas = Subreceta::getAlertas();
-            }
-        }
-
-        self::renderSubrecetaForm($subreceta, $alertas, 'Crear subreceta', 'Nueva subreceta', []);
+        ContextoNegocio::exigir('productos','editar',null,true);
+        header('Location: '.\Services\Inventory\Articulos::base(ContextoNegocio::slug()).'#crear-preparacion',true,303);
     }
 
     public static function subrecetaEdit(Router $router): void
@@ -301,9 +284,12 @@ class AdminRecetasController
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $id = self::validarId($_GET['id'] ?? null, $router);
         $subreceta = Subreceta::find($id, $ctx);
+        $vinculo=Subreceta::getDB()->execute_query('SELECT articulo_id FROM articulo_correspondencias WHERE subreceta_id=? AND unidad_id=?',[$id,ContextoNegocio::unidad($ctx)])->fetch_row();
+        if($vinculo){header('Location: '.\Services\Inventory\Articulos::base($ctx).'/editar?id='.(int)$vinculo[0],true,303);return;}
+
 
         if (!$subreceta) {
-            Subreceta::setAlerta('error', 'La subreceta no existe');
+            Subreceta::setAlerta('error', 'La preparación anterior no existe');
             self::subrecetas($router);
             return;
         }
@@ -318,20 +304,20 @@ class AdminRecetasController
             if (empty($alertas)) {
                 $resultado = self::guardarSubrecetaCompleta($ctx, $subreceta);
                 if (!empty($resultado['ok']) && !empty($resultado['confirmado'])) {
-                    Subreceta::setAlerta('exito', 'Subreceta actualizada correctamente');
+                    Subreceta::setAlerta('exito', 'Preparación anterior actualizada correctamente');
                     self::subrecetas($router);
                     return;
                 }
                 if (!empty($resultado['pendiente'])) {
                     Subreceta::setAlerta('error', 'El guardado quedó pendiente de confirmación; no se registró como exitoso.');
                 } else {
-                    Subreceta::setAlerta('error', 'No se pudo guardar la subreceta y sus componentes. Intenta de nuevo.');
+                    Subreceta::setAlerta('error', 'No se pudo guardar la preparación anterior y sus componentes. Intenta de nuevo.');
                 }
                 $alertas = Subreceta::getAlertas();
             }
         }
 
-        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar subreceta', self::ingredientesDeSubreceta($ctx, (int) $subreceta->id));
+        self::renderSubrecetaForm($subreceta, $alertas, 'Guardar cambios', 'Editar preparación anterior', self::ingredientesDeSubreceta($ctx, (int) $subreceta->id));
     }
 
     public static function subrecetaDelete(Router $router): void
@@ -339,7 +325,7 @@ class AdminRecetasController
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::SUBPATH);
+            self::redirect(self::subPath($ctx));
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
@@ -377,8 +363,16 @@ class AdminRecetasController
 
     private static function urlReceta(int $id, ?string $volver): string
     {
-        return self::PATH . '/editar?id=' . $id . ($volver !== null ? '&volver=' . rawurlencode($volver) : '');
+        return self::path() . '/editar?id=' . $id . ($volver !== null ? '&volver=' . rawurlencode($volver) : '');
     }
+
+    private static function path(?string $ctx=null): string
+    {
+        $ctx??=ContextoNegocio::slug();
+        return $ctx==='restaurante'?'/admin/recetas':'/admin/'.$ctx.'/recetas';
+    }
+
+    private static function subPath(?string $ctx=null): string { return self::path($ctx).'/subrecetas'; }
 
     private static function guardarComponentes(string $ctx, int $ofertaId): array
     {
@@ -404,6 +398,9 @@ class AdminRecetasController
             }
             $componentes[] = ['tipo' => $tipo, 'ref_id' => $ref, 'cantidad' => $cant];
         }
+        $actuales=RecetasOferta::componentes($ctx,$ofertaId);$permitidos=array_map('intval',array_column(array_filter($actuales,static fn($h)=>$h['tipo']==='ingrediente'),'ref_id'));
+        $preparaciones=\Services\Menu\ComposicionComercial::preparacionesVersionadas($ctx);
+        foreach($componentes as $h)if($h['tipo']==='ingrediente'&&in_array($h['ref_id'],$preparaciones,true)&&!in_array($h['ref_id'],$permitidos,true))return ['ok'=>false,'mensaje'=>'Añade esta preparación desde Presentaciones para elegir cómo se consume y su versión. La receta anterior no se modificó.'];
         return RecetasOferta::guardar($ctx, $ofertaId, $componentes);
     }
 
@@ -464,7 +461,7 @@ class AdminRecetasController
             });
         } catch (\Throwable $e) {
             error_log('AdminRecetasController::guardarSubrecetaCompleta - ' . $e->getMessage());
-            return ['ok' => false, 'confirmado' => false, 'pendiente' => false, 'mensaje' => 'No se pudo guardar la subreceta y sus componentes.'];
+            return ['ok' => false, 'confirmado' => false, 'pendiente' => false, 'mensaje' => 'No se pudo guardar la preparación anterior y sus componentes.'];
         }
     }
 
@@ -613,7 +610,7 @@ class AdminRecetasController
 
         self::render('recetas/subreceta-form', [
             'title' => $titulo,
-            'topbarSection' => 'Recetas / ' . $titulo,
+            'topbarSection' => 'Artículos y preparaciones / ' . $titulo,
             'subreceta' => $subreceta,
             'unidades' => Ingrediente::UNIDADES,
             'ingredientes' => $ingredientes,
@@ -629,6 +626,10 @@ class AdminRecetasController
         // icono y renombrarla obligaría a añadir una entrada nueva sin ganancia.
         AdminController::render($view, array_merge([
             'activeModule' => 'productos',
+            'recetasBase' => self::path(),
+            'recetasSubBase' => self::subPath(),
+            'recetaMenuBase' => ContextoNegocio::slug()==='restaurante'?'/admin/menu':'/admin/'.ContextoNegocio::slug().'/menu',
+            'recetasContexto' => ContextoNegocio::slug(),
             'styles' => [self::CSS],
             'scripts' => ['/build/js/admin/recipe-builder.js'],
         ], $data));

@@ -7,12 +7,12 @@
     $menuCsrf = $menuCsrf ?? '';
 
 /**
- * Editor de variantes de un platillo.
+ * Editor de variantes de un producto.
  *
  * El servidor pinta el armazón y deja los datos en JSON; los grupos, las
  * opciones, los ajustes de receta y la vista previa los dibuja
  * src/js/admin/menu/variantes.js, que guarda por JSON sin recargar. Sin JS no
- * hay editor —el aviso <noscript> lo dice—, pero el platillo, su receta y el
+ * hay editor —el aviso <noscript> lo dice—, pero el producto, su receta y el
  * POS siguen funcionando: las variantes sólo se AÑADEN a lo que ya había.
  */
 require_once __DIR__ . '/../partials/_icons.php';
@@ -30,6 +30,7 @@ $datosJson = $editorVariantes !== null
 <section
     class="admin-variantes admin-page"
     data-variantes-editor
+    data-variantes-url="<?= $menuContexto==='panaderia'?'/admin/panaderia/api/menu/variantes':'/admin/api/menu/variantes' ?>"
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
     <header class="admin-page__header">
@@ -37,7 +38,7 @@ $datosJson = $editorVariantes !== null
             <span class="admin-page__eyebrow">Menú · Variantes</span>
             <h1 class="admin-page__title"><?php echo $h($platillo->nombre ?? ''); ?></h1>
             <p class="admin-page__subtitle">
-                Las opciones que el mesero elige al tomar la orden. Cada una puede mover el precio y ajustar la receta, y el inventario se descuenta con la receta que resulta.
+                <?= $menuContexto==='panaderia'?'Configura opciones, precios y ajustes de servicio. La venta en el POS de Panadería se habilitará en una etapa posterior.':'Las opciones que el mesero elige al tomar la orden. Cada una puede mover el precio y ajustar la receta, y el inventario se descuenta con la receta que resulta.' ?>
             </p>
             <p class="admin-variantes__ficha">
                 <span>Precio base <strong class="admin-num">$<?php echo number_format($precioBase, 2); ?></strong></span>
@@ -48,17 +49,16 @@ $datosJson = $editorVariantes !== null
             </p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>">
+            <a class="admin-btn admin-btn--secondary admin-back-button" href="<?php echo htmlspecialchars($volverContextual??$menuBase, ENT_QUOTES); ?>">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
-                Menú
+                <?= $volverContextual?'Volver al origen':'Menú' ?>
             </a>
-            <a class="admin-btn admin-btn--ghost" href="/admin/recetas/editar?id=<?php echo (int) ($platillo->id ?? 0); ?>">
-                Receta base
-            </a>
+            <?php if(!empty($composicionActual['url'])): ?><a class="admin-btn admin-btn--ghost" href="<?= $h($composicionActual['url']) ?>"><?= $h($composicionActual['accion']) ?></a><?php endif; ?>
         </div>
     </header>
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
+    <?php if(!empty($almacenesPendientes)&&!empty($composicionActual['url'])): ?><p class="admin-field__hint" role="status">Falta elegir el almacén de consumo de <?= (int)$almacenesPendientes ?> <?= (int)$almacenesPendientes===1?'artículo':'artículos' ?>. <a href="<?= $h(explode('#',$composicionActual['url'])[0].($composicionActual['modo']==='presentaciones'?'#origenes':'')) ?>">Configurar orígenes</a></p><?php endif; ?>
 
     <noscript>
         <p class="admin-variantes__noscript">El editor de variantes necesita JavaScript.</p>
@@ -70,7 +70,7 @@ $datosJson = $editorVariantes !== null
         <div class="admin-variantes__errores" data-variantes-errores role="alert" hidden></div>
 
         <div class="admin-variantes__layout">
-            <div class="admin-variantes__main">
+            <fieldset class="admin-variantes__main m2-fieldset" <?= $menuPuedeEditar?'':'disabled' ?>>
                 <?php /* Sin aria-live: el editor se repinta entero en cada cambio de
                          estructura, y una región viva aquí le leería al lector de
                          pantalla todos los grupos cada vez. Lo que hay que anunciar
@@ -82,7 +82,7 @@ $datosJson = $editorVariantes !== null
                     <p class="admin-variantes__nuevo-texto">Empieza en blanco o desde una plantilla; después ajusta nombres, precios y receta.</p>
                     <div class="admin-variantes__plantillas" data-variantes-plantillas></div>
                 </section>
-            </div>
+            </fieldset>
 
             <?php /* data-scrollable: la columna tiene tope y scroll propio mientras va
                      pegada; motion.js sólo le cede la rueda frente a Lenis cuando
@@ -103,8 +103,8 @@ $datosJson = $editorVariantes !== null
         <div class="admin-variantes__barra" data-variantes-barra>
             <p class="admin-variantes__estado" data-variantes-estado aria-live="polite">Sin cambios</p>
             <div class="admin-variantes__barra-acciones">
-                <button type="button" class="admin-btn admin-btn--ghost" data-variantes-descartar disabled>Descartar</button>
-                <button type="button" class="admin-btn admin-btn--primary" data-variantes-guardar disabled>
+                <button type="button" class="admin-btn admin-btn--ghost" data-variantes-descartar disabled <?= $menuPuedeEditar?'':'hidden' ?>>Descartar</button>
+                <button type="button" class="admin-btn admin-btn--primary" data-variantes-guardar disabled <?= $menuPuedeEditar?'':'hidden' ?>>
                     Guardar variantes
                     <kbd class="admin-variantes__kbd" aria-hidden="true">Ctrl S</kbd>
                 </button>

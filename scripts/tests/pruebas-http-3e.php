@@ -42,7 +42,7 @@ try {
 
  $phase='catálogo y almacenes físicos';$suffix=bin2hex(random_bytes(4));$articleName='HTTP3E-articulo-'.$suffix;
  $r=$admin->operation($bases['global'],'crear_articulo',['nombre'=>$articleName,'unidad'=>'g','costo'=>'0.1250','activo'=>'1'],'catalogo');$assert($confirmed($r),'Global crea identidad maestra compartida');
- $catalog=$admin->request('GET',$bases['global'].'?vista=catalogo&q='.$articleName);$article=ClienteInstalacion3E::article($catalog['body'],$articleName);$assert($article>0,'El artículo creado tiene identidad visible');
+ $catalog=$admin->request('GET',$bases['global'].'/catalogo?q='.$articleName);$article=ClienteInstalacion3E::article($catalog['body'],$articleName);$assert($article>0,'El artículo creado tiene identidad visible');
  $warehouses=[];
  foreach($bases as $ctx=>$base){$name='HTTP3E-'.$ctx.'-'.$suffix;$r=$admin->operation($bases['global'],'crear_almacen',['propietario'=>$ctx,'nombre'=>$name],'almacenes');$assert($confirmed($r),'Global crea almacén físico para '.$ctx);$list=$admin->request('GET',$bases['global'].'?vista=almacenes&q='.$name);$wh=ClienteInstalacion3E::warehouse($list['body'],$name);$assert($wh>0,'Almacén '.$ctx.' tiene identidad visible');$warehouses[$ctx]=$wh;
   $r=$operators[$ctx]->operation($base,'asociar',['almacen_id'=>(string)$wh,'articulo_id'=>(string)$article,'minimo'=>'1.000']);$assert($confirmed($r),'Asociación local '.$ctx.' confirmada');

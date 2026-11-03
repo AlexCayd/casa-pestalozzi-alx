@@ -91,6 +91,7 @@ class Subreceta extends ActiveRecord
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('productos', 'editar', $ctx, true);
         $unidadId = ContextoNegocio::unidad($ctx);
+        if($this->id && self::getDB()->execute_query('SELECT articulo_id FROM articulo_correspondencias WHERE subreceta_id=? AND unidad_id=?',[(int)$this->id,$unidadId])->fetch_row())throw new \Services\Inventory\InventarioError('PREPARACION_VINCULADA','Esta preparación se edita desde su artículo y sus versiones.');
         $nombre = trim((string)$this->nombre);
         $unidad = (string)$this->unidad;
         $rendimientoEntrada = is_int($this->rendimiento) ? (string)$this->rendimiento : $this->rendimiento;

@@ -12,7 +12,7 @@ analytics-global.php. No aplicar DDL ni seeds desde esta guía.
 |---|---|---|
 | Restaurante | `/admin/analytics` | Ventas, propinas, comensales, reservaciones, ingeniería de menú, RevPASH, horas y asociación |
 | Panadería | `/admin/panaderia/analytics` | Ventas en caja, ticket promedio, piezas por ticket, ingeniería de menú, **mapa de calor de venta**, horas y asociación |
-| Global | `/admin/global/analytics` | Comparativo de los dos negocios y productos de la casa, sólo lectura |
+| Global | `/admin/global/analytics` | Comparativo de ventas, tickets, indicadores y productos más vendidos por negocio, sólo lectura |
 
 - Cada pantalla la abre «Análisis de datos» de su ámbito; el comparativo de
   Global no abre el análisis de un negocio.
@@ -25,10 +25,10 @@ analytics-global.php. No aplicar DDL ni seeds desde esta guía.
   excepciones); el resumen diario, la venta por hora abierta. Lleva
   `medida: 'dia'` y `asientos: null`; el RevPASH de Restaurante, `medida:
   'asiento'`.
-- **Global** suma sólo las ventas de los negocios (el ticket promedio del total
-  sale de los totales) y une los productos de la casa por `producto_id`,
-  distinguiendo «no lo ofrece» de «lo ofrece y no vendió». Las analíticas
-  diagnósticas no se consolidan: son de cada menú.
+- **Global** suma las ventas de los negocios y calcula el ticket promedio desde
+  los totales. Los productos más vendidos se consultan por negocio en el mismo
+  tablero; los nombres locales no se comparan ni se enlazan entre negocios.
+  Las analíticas diagnósticas no se consolidan: son de cada menú.
 - La gráfica «Reservaciones por día» de Restaurante salía vacía siempre: el
   bucle reutilizaba la fecha final del periodo anterior. AnalisisNegocio la
   calcula con su propio rango.

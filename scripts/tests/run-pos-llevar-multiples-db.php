@@ -13,6 +13,9 @@ if (!is_string($database) || !preg_match('/^cp_notifications_test_[a-f0-9]{12}$/
 }
 
 require $root . '/includes/app.php';
+notificationsTestAuthenticateStaff();
+
+$actorId = NOTIFICATIONS_TEST_STAFF_ID;
 
 $assert = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -24,12 +27,12 @@ $primero = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [14],
     'comensales' => 2,
     'nombre' => 'Fixture Llevar 1',
-], 0);
+], $actorId);
 $segundo = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [14],
     'comensales' => 3,
     'nombre' => 'Fixture Llevar 2',
-], 0);
+], $actorId);
 $assert(($primero['ok'] ?? false) === true, 'No se pudo abrir el primer ticket para Llevar.');
 $assert(($segundo['ok'] ?? false) === true, 'Un ticket abierto bloqueó el siguiente pedido para Llevar.');
 $assert((int)$primero['ticket_id'] !== (int)$segundo['ticket_id'], 'Los pedidos para Llevar reutilizaron el mismo ticket.');
@@ -51,14 +54,14 @@ $sala = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [1],
     'comensales' => 2,
     'nombre' => 'Fixture Mesa salón',
-], 0);
+], $actorId);
 $assert(($sala['ok'] ?? false) === true, 'No se pudo abrir el ticket de control en una mesa del salón.');
 $salaDuplicada = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [1],
     'comensales' => 2,
     'nombre' => 'Fixture Mesa salón duplicada',
     'allow_multiple' => true,
-], 0);
+], $actorId);
 $assert(
     ($salaDuplicada['codigo'] ?? '') === PuntoVentaReservacionService::TICKET_ABIERTO,
     'allow_multiple permitió duplicar un ticket en una mesa física.'
@@ -68,7 +71,7 @@ $mezcla = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [1, 14],
     'comensales' => 2,
     'nombre' => 'Fixture Llevar y salón',
-], 0);
+], $actorId);
 $assert(
     ($mezcla['codigo'] ?? '') === PuntoVentaReservacionService::DATOS_INVALIDOS,
     'Un pedido para Llevar aceptó una mesa física adicional.'
@@ -91,7 +94,7 @@ for ($i = 1; $i <= 4; $i++) {
         'mesa_ids' => [12],
         'comensales' => 2,
         'nombre' => 'Fixture Barra ' . $i,
-    ], 0);
+    ], $actorId);
     $assert(($barra['ok'] ?? false) === true, "No se pudo abrir el ticket {$i} de la barra: " . json_encode($barra));
     $ticketsBarra[] = (int)$barra['ticket_id'];
 }
@@ -101,7 +104,7 @@ $quinto = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [12],
     'comensales' => 1,
     'nombre' => 'Fixture Barra 5',
-], 0);
+], $actorId);
 $assert(($quinto['codigo'] ?? '') === PuntoVentaReservacionService::BARRA_LLENA, 'Un quinto ticket entró a una barra con tope 4.');
 $assert(($quinto['tickets_abiertos'] ?? 0) === 4 && ($quinto['tope_tickets'] ?? 0) === 4, 'BARRA_LLENA no informa abiertos y tope.');
 
@@ -109,7 +112,7 @@ $barraYMesa = PuntoVentaReservacionService::abrirWalkIn([
     'mesa_ids' => [12, 2],
     'comensales' => 4,
     'nombre' => 'Fixture Barra y salón',
-], 0);
+], $actorId);
 $assert(($barraYMesa['codigo'] ?? '') === PuntoVentaReservacionService::DATOS_INVALIDOS, 'Una barra se unió a una mesa del salón.');
 
 $capacidadDespues = \Services\Tables\OcupacionMesasService::resumenCapacidad(

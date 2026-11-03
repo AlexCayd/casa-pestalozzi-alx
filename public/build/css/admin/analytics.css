@@ -1117,7 +1117,7 @@
  * tiene la suya (analytics-global.php). Todo lo de aquí abajo consume el
  * vocabulario de arriba (.admin-hero, .admin-chart-card, .admin-table) y
  * sólo añade lo que no existía: el estado sin registros, el comparativo
- * de negocios y la tabla de productos de la casa.
+ * de negocios.
  * ══════════════════════════════════════════════════════════════════ */
 .admin-analytics .admin-chart-card--fila {
   grid-column: 1/-1;
@@ -1494,54 +1494,6 @@
   height: 100%;
   border-radius: inherit;
   background: var(--admin-muted);
-}
-.admin-an-global .admin-an-casa__tabla th,
-.admin-an-global .admin-an-casa__tabla td {
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__producto {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  min-width: 170px;
-  max-width: 240px;
-  background: var(--admin-surface);
-}
-.admin-an-global .admin-an-casa__tabla thead .admin-an-casa__producto {
-  z-index: 2;
-  background: var(--admin-surface-soft);
-  vertical-align: bottom;
-}
-.admin-an-global .admin-an-casa__tabla tbody th {
-  color: var(--admin-text);
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: normal;
-}
-.admin-an-global .admin-an-casa__tabla tbody tr:hover .admin-an-casa__producto {
-  background: var(--admin-surface-soft);
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__grupo {
-  border-left: 1px solid var(--admin-border-soft);
-  text-align: left;
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__grupo .admin-an-muestra {
-  margin-right: 8px;
-  vertical-align: 0;
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__inicio {
-  border-left: 1px solid var(--admin-border-soft);
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__estado {
-  color: var(--admin-faint);
-  font-size: 12px;
-  text-align: center;
-}
-.admin-an-global .admin-an-casa__tabla .admin-an-casa__ausente {
-  background: var(--admin-surface-soft);
 }
 .admin-an-global .admin-an-global__pie {
   margin-top: 4px;

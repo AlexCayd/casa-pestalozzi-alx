@@ -113,13 +113,13 @@ Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbi
 | | Almacenes | Existencia, lo que está por agotarse, consumo, entradas, mermas, transferencias en curso | sólo sus almacenes |
 | | Menú | Productos sin receta | ofertas activas sin receta activa |
 | Global | Almacenes de la organización | Existencia, lo que está por agotarse, consumo, entradas, mermas | **consolidado** de todos los almacenes, desglosado por negocio |
-| | Entre negocios | Transferencias en curso, productos de la casa | transferencias abiertas de la organización; estándares, dónde se ofrecen y su receta publicada |
+| | Entre negocios | Transferencias en curso | transferencias abiertas de la organización |
 
 - **La caja de Panadería todavía no registra tickets**: sus preguntas de
   ventas ya consultan lo correcto y contestan en cero hasta que exista el POS
   de caja. No enlazan a Análisis, que Panadería no tiene.
-- **Global no vende**: no tiene preguntas de ventas ni suma las de los
-  negocios (consolidado financiero pendiente, arquitectura §3). Su lectura de
+- **Global no vende desde el Asistente**: no tiene preguntas de ventas ni suma las de los
+  negocios. Su lectura de
   almacenes es la misma que Almacenes concede con permiso de ver, y no abre la
   escritura de ningún almacén ajeno.
 - **Entradas** cuenta sólo movimientos `entrada`: una transferencia interna es

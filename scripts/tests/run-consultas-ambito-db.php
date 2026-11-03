@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   - el aislamiento: un id de otro negocio no revela nada, y un ámbito que no
  *     es el de la ruta se rechaza;
  *   - las cifras contra SQL directo: ventas en caja, consolidado de Global,
- *     entradas, productos sin receta y productos de la casa;
+ *     entradas y productos locales sin receta;
  *   - los permisos: cada familia de preguntas con su módulo y sin membresía,
  *     nada.
  *
@@ -169,12 +169,15 @@ try {
         $assert(abs($num($e['respuesta']['cifra']) - $entradas) < 0.001, 'Las entradas consolidadas cuadran con los movimientos.');
     }
 
-    // 6. Menú y productos de la casa contra SQL directo.
+    // 6. Menú local y retiro de la intención heredada.
     $sinReceta = (int) $uno('SELECT COUNT(*) FROM ofertas_producto o WHERE o.unidad_id = ? AND o.activo = 1
         AND NOT EXISTS (SELECT 1 FROM recetas r WHERE r.oferta_id = o.id AND r.unidad_id = o.unidad_id AND r.activo = 1)', [$unidad['panaderia']]);
     $assert($num(N::en('panaderia', static fn () => C::responderEstructurada('sin_receta'))['respuesta']['cifra']) == $sinReceta, 'Productos sin receta cuadra.');
-    $casa = (int) $uno('SELECT COUNT(*) FROM producto_estandares');
-    $assert($num(N::en('global', static fn () => C::responderEstructurada('productos_casa'))['respuesta']['cifra']) == $casa, 'Productos de la casa cuadra.');
+    $capacidadesGlobales = N::en('global', static fn () => C::capacidades());
+    $intencionesGlobales = array_column($capacidadesGlobales['intenciones'] ?? [], 'intencion');
+    $assert(!in_array('productos_casa', $intencionesGlobales, true), 'Global ya no anuncia la intención de Productos de la casa.');
+    $intencionRetirada = N::en('global', static fn () => C::responderEstructurada('productos_casa'));
+    $assert(($intencionRetirada['ok'] ?? true) === false && ($intencionRetirada['mensaje'] ?? '') === 'No reconozco esa consulta.', 'La API rechaza la intención retirada.');
 
     // 7. Ventas en caja: un ticket sembrado de Panadería se cuenta como en Restaurante.
     $ofertas = $db->query("SELECT o.id, o.producto_id, o.categoria_id, o.area_id, po.nombre, c.nombre AS categoria

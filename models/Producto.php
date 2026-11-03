@@ -2,6 +2,7 @@
 namespace Model;
 
 use Services\Security\ContextoNegocio;
+use Services\Menu\DatosComercialesOferta;
 
 /**
  * Catalogo unico de platillos y bebidas (tabla 'productos'): fuente unica.
@@ -26,9 +27,6 @@ class Producto extends ActiveRecord {
         'area_id', 'activo'
     ];
 
-    public bool $confirmar_identidad = false;
-    public ?string $identidad_huella = null;
-    public array $restaurar_casa = [];
     public $orden = 0;
     public $id;
     public $nombre;
@@ -526,8 +524,6 @@ class ProductoMultinegocio extends Producto
     protected static $columnasDB = ['id', 'nombre', 'descripcion', 'img', 'categoria_id', 'precio', 'area_id', 'activo', 'orden'];
 
     /** `id` permanece como alias de oferta_id para las interfaces existentes. */
-    public bool $confirmar_identidad = false;
-    public ?string $identidad_huella = null;
     public $id;
     public $oferta_id;
     public $producto_id;
@@ -579,6 +575,7 @@ class ProductoMultinegocio extends Producto
             self::ejecutar($stmt);
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
+            DatosComercialesOferta::crearDesdeIdentidad($ofertaId, $productoId);
             self::registrarPrecio($ofertaId, $unidad, null, $precio);
             return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
         });
@@ -590,16 +587,11 @@ class ProductoMultinegocio extends Producto
         return ['resultado' => true, 'id' => $this->id];
     }
 
-    /** Actualiza solo la oferta local; identidad compartida requiere facultad global. */
+    /** Actualiza los datos comerciales locales y las condiciones de esta oferta. */
     public function actualizar()
     {
         $ctx = ContextoNegocio::slug();
         ContextoNegocio::exigir('menu', 'editar', $ctx);
-        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) {
-            $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,(int)($this->oferta_id?:$this->id),['nombre'=>$this->nombre,'descripcion'=>$this->descripcion,'img'=>$this->img,'precio'=>$this->precio,'activo'=>$this->activo,'categoria_id'=>$this->categoria_id,'area_id'=>$this->area_id,'orden'=>$this->orden],$this->restaurar_casa);
-            if(empty($r['ok']))self::setAlerta('error',$r['mensaje']??'No se pudo guardar la personalización.');
-            return !empty($r['ok']) && !empty($r['confirmado']);
-        }
         if ($this->validar()) return false;
         $unidad = ContextoNegocio::unidad($ctx);
         $oferta = (int)($this->oferta_id ?: $this->id);
@@ -607,9 +599,7 @@ class ProductoMultinegocio extends Producto
         $db = self::getDB();
         $resultado = ContextoNegocio::transaccion(function () use ($db, $unidad, $oferta, $ctx) {
             ContextoNegocio::exigir('menu', 'editar', $ctx, true);
-            $lock = $db->prepare('SELECT p.id FROM productos p JOIN ofertas_producto o ON o.producto_id=p.id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
-            $lock->execute([$oferta, $unidad]); $lock->get_result()->fetch_all(); $lock->close();
-            $stmt = $db->prepare('SELECT o.producto_id, o.precio AS precio_anterior, p.nombre, p.descripcion, p.img, (SELECT COUNT(*) FROM ofertas_producto ox WHERE ox.producto_id=o.producto_id) AS ofertas FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
+            $stmt = $db->prepare('SELECT o.producto_id,o.precio AS precio_anterior,d.nombre,d.descripcion,d.img FROM ofertas_producto o JOIN productos p ON p.id=o.producto_id JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE o.id=? AND o.unidad_id=? FOR UPDATE');
             if (!$stmt) throw new \RuntimeException($db->error);
             $stmt->bind_param('ii', $oferta, $unidad);
             self::ejecutar($stmt);
@@ -621,19 +611,7 @@ class ProductoMultinegocio extends Producto
             $nombre = trim((string)$this->nombre);
             $descripcion = $this->descripcion;
             $img = $this->img;
-            $cambioIdentidad = $nombre !== (string)$actual['nombre'] || $descripcion !== $actual['descripcion'] || $img !== $actual['img'];
-            if ($cambioIdentidad && (int)$actual['ofertas'] > 1) {
-                ContextoNegocio::facultad(\Services\Menu\CatalogoComercial::FACULTAD, 'global', 'menu', true);
-                if (!$this->confirmar_identidad) throw new \RuntimeException('Confirma el cambio de identidad compartida.');
-            }
-            if ($cambioIdentidad && $this->identidad_huella !== null && !hash_equals(\Services\Menu\CatalogoComercial::huella($actual), $this->identidad_huella)) throw new \RuntimeException('La identidad cambió. Recarga el formulario.');
-            if ($cambioIdentidad) {
-                $stmt = $db->prepare('UPDATE productos SET nombre=?, descripcion=?, img=? WHERE id=? LIMIT 1');
-                if (!$stmt) throw new \RuntimeException($db->error);
-                $stmt->bind_param('sssi', $nombre, $descripcion, $img, $productoId);
-                self::ejecutar($stmt);
-                $stmt->close();
-            }
+            $cambioComercial = $nombre !== (string)$actual['nombre'] || $descripcion !== $actual['descripcion'] || $img !== $actual['img'];
             $categoria = (int)$this->categoria_id;
             $precio = \Services\Menu\ImporteOferta::normalizar($this->precio);
             $area = (int)$this->area_id;
@@ -644,6 +622,7 @@ class ProductoMultinegocio extends Producto
             $stmt->bind_param('isiiiii', $categoria, $precio, $area, $activo, $orden, $oferta, $unidad);
             self::ejecutar($stmt);
             $stmt->close();
+            if ($cambioComercial) DatosComercialesOferta::guardarLocal($oferta, $nombre, $descripcion, $img);
             if ((string)$actual['precio_anterior'] !== $precio) self::registrarPrecio($oferta, $unidad, $actual['precio_anterior'], $precio);
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
         });
@@ -796,7 +775,6 @@ public static function find($id)
     public function alternarVisibilidad(): bool
     {
         $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
-        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) { $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,$id,['activo'=>1-(int)$this->activo]);return !empty($r['ok'])&&!empty($r['confirmado']); }
         $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
             ContextoNegocio::exigir('menu','editar',$ctx,true);
             $stmt=$db->prepare('UPDATE ofertas_producto SET activo=1-activo WHERE id=? AND unidad_id=? LIMIT 1');
@@ -812,7 +790,6 @@ public static function find($id)
     public function retirar(): bool
     {
         $ctx=ContextoNegocio::slug(); $id=(int)($this->oferta_id?:$this->id); $unidad=ContextoNegocio::unidad($ctx); $db=self::getDB();
-        if (\Services\Menu\ProductosCasa::publicada((int)$this->producto_id)) { $r=\Services\Menu\ProductosCasa::guardarLocal($ctx,$id,['activo'=>0]);return !empty($r['ok'])&&!empty($r['confirmado']); }
         $resultado=ContextoNegocio::transaccion(function () use($ctx,$id,$unidad,$db): array {
             ContextoNegocio::exigir('menu','editar',$ctx,true);
             $stmt=$db->prepare('SELECT id FROM ofertas_producto WHERE id=? AND unidad_id=? LIMIT 1 FOR UPDATE');

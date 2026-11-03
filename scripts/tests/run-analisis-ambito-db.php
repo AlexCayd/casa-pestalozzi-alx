@@ -6,13 +6,12 @@ declare(strict_types=1);
  * Análisis de datos de Panadería y de Global contra la base de desarrollo.
  *
  * Corre en UNA transacción que se revierte (autocommit apagado). Siembra un
- * día de caja de Panadería, con un producto de la casa, y cuentas con
+ * día de caja de Panadería, con productos locales, y cuentas con
  * permisos acotados; no deja nada. Comprueba:
  *   - el tablero de Panadería: cifras contra lo sembrado y métricas de caja
  *     (sin propinas, comensales, mesas ni reservaciones);
  *   - el mapa de calor de venta de Panadería en lugar del RevPASH;
- *   - el comparativo de Global: suma exacta de los negocios, participación y
- *     productos de la casa unidos por producto_id;
+ *   - el comparativo de Global: suma exacta de los negocios y participación;
  *   - que Restaurante conserva su tablero y su RevPASH;
  *   - los permisos.
  *
@@ -87,18 +86,16 @@ $rango = RangoPeriodo::resolver(['rango' => '7d']);
 
 $db->autocommit(false);
 try {
-    // Un producto de la casa que Panadería ofrece, y otro producto cualquiera.
-    $casa = $db->query("SELECT o.id, o.producto_id, o.categoria_id, o.area_id, po.nombre, c.nombre AS categoria
+    // Dos productos locales de Panadería; el análisis no depende del catálogo histórico.
+    $producto = $db->query("SELECT o.id, o.producto_id, o.categoria_id, o.area_id, po.nombre, c.nombre AS categoria
         FROM ofertas_producto o JOIN productos_oferta po ON po.oferta_id = o.id JOIN categorias c ON c.id = o.categoria_id AND c.unidad_id = o.unidad_id
-        JOIN producto_estandares pe ON pe.producto_id = o.producto_id
         WHERE o.unidad_id = {$unidad['panaderia']} ORDER BY o.id LIMIT 1")->fetch_assoc();
     $otro = $db->query("SELECT o.id, o.producto_id, o.categoria_id, o.area_id, po.nombre, c.nombre AS categoria
         FROM ofertas_producto o JOIN productos_oferta po ON po.oferta_id = o.id JOIN categorias c ON c.id = o.categoria_id AND c.unidad_id = o.unidad_id
-        WHERE o.unidad_id = {$unidad['panaderia']} AND o.producto_id <> " . (int) ($casa['producto_id'] ?? 0) . ' ORDER BY o.id LIMIT 1')->fetch_assoc();
-    $assert($casa !== null && $otro !== null, 'Panadería ofrece un producto de la casa y otro propio (carga development.sql).');
+        WHERE o.unidad_id = {$unidad['panaderia']} AND o.producto_id <> " . (int) ($producto['producto_id'] ?? 0) . ' ORDER BY o.id LIMIT 1')->fetch_assoc();
+    $assert($producto !== null && $otro !== null, 'Panadería tiene dos ofertas locales para la prueba.');
 
     $antes = A::totales($db, $unidad['panaderia'], $hoy, $hoy);
-    $antesCasa = N::en('global', static fn () => AnalisisConsolidado::armar($rango));
     $hora = 9;
     $s = $db->prepare("INSERT INTO tickets (unidad_id, unidad_tipo, estado, nombre, hora_apertura, hora_cierre, metodo_pago)
         VALUES (?, 'negocio', 'cerrado', 'QA análisis', CURDATE() + INTERVAL ? HOUR, CURDATE() + INTERVAL ? HOUR + INTERVAL 3 MINUTE, ?)");
@@ -109,12 +106,12 @@ try {
     };
     $s->execute([$unidad['panaderia'], $hora, $hora, 'efectivo']);
     $t1 = (int) $db->insert_id;
-    $renglon($t1, $casa, '30.00', 2);              // 60, producto de la casa
+    $renglon($t1, $producto, '30.00', 2);          // 60, oferta local
     $renglon($t1, $otro, '20.00', 1);              // 20
     $renglon($t1, $otro, '20.00', 1, 'cancelado'); // no cuenta
     $s->execute([$unidad['panaderia'], $hora, $hora, 'tarjeta']);
     $t2 = (int) $db->insert_id;
-    $renglon($t2, $casa, '30.00', 1);              // 30
+    $renglon($t2, $producto, '30.00', 1);          // 30
 
     // 1. Totales y tablero de Panadería.
     $despues = A::totales($db, $unidad['panaderia'], $hoy, $hoy);
@@ -128,7 +125,7 @@ try {
     $assert($tablero['charts']['reservationsByDay']['values'] === [], 'Panadería no grafica reservaciones.');
     $assert($tablero['tickets'] !== [] && !array_key_exists('mesa', $tablero['tickets'][0]) && !array_key_exists('propina', $tablero['tickets'][0]), 'Los tickets de caja no llevan mesa ni propina.');
     $assert($casi($dinero($tablero['metrics'][0]['value']), round($despues['ventas'])), 'La cabecera dice lo cobrado.');
-    $assert(in_array($casa['nombre'], $tablero['charts']['topProducts']['labels'], true), 'Lo más vendido incluye el producto sembrado.');
+    $assert(in_array($producto['nombre'], $tablero['charts']['topProducts']['labels'], true), 'Lo más vendido incluye el producto local sembrado.');
 
     // 2. El mapa de calor de venta en lugar del RevPASH.
     $n1 = N::en('panaderia', static fn () => Analiticas::nivel1($hoy, $hoy));
@@ -162,14 +159,11 @@ try {
     $assert(count($c['etiquetasDia']) === count($c['negocios']['restaurante']['porDia']) && count($c['etiquetasDia']) === count($c['negocios']['panaderia']['porDia']), 'Las dos series de venta por día comparten fechas.');
     $resumenRest = A::totales($db, $unidad['restaurante'], (string) $rango['start'], (string) $rango['end']);
     $assert($casi($c['negocios']['restaurante']['ventas'], $resumenRest['ventas']), 'Global ve las mismas ventas que el negocio.');
-
-    $porId = array_column($c['productosCasa'], null, 'id');
-    $porIdAntes = array_column($antesCasa['productosCasa'], null, 'id');
-    $assert(isset($porId[(int) $casa['producto_id']]), 'El producto sembrado es de la casa.');
-    $pan = $porId[(int) $casa['producto_id']]['negocios']['panaderia'];
-    $panAntes = $porIdAntes[(int) $casa['producto_id']]['negocios']['panaderia'] ?? ['piezas' => 0, 'ventas' => 0.0];
-    $assert($pan !== null && $pan['piezas'] - $panAntes['piezas'] === 3 && $casi($pan['ventas'] - $panAntes['ventas'], 90.0), 'Lo vendido de un producto de la casa se une por producto_id.');
-    $assert(count($c['productosCasa']) === (int) $uno('SELECT COUNT(*) FROM producto_estandares'), 'Están todos los productos de la casa.');
+    $assert(!array_key_exists('productosCasa', $c), 'El comparativo no depende del catálogo comercial Global retirado.');
+    foreach (['restaurante', 'panaderia'] as $slug) {
+        $esperados = A::masVendidos($db, $unidad[$slug], (string) $rango['start'], (string) $rango['end'], 5);
+        $assert($c['negocios'][$slug]['masVendidos'] === $esperados, "Global conserva los productos más vendidos locales de {$slug}.");
+    }
 
     // 5. Permisos.
     $cuenta = static function (string $nombre, array $permisos) use ($db, $unidad): int {

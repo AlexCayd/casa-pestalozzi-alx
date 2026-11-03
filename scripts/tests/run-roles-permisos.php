@@ -69,6 +69,14 @@ foreach (['/', '/menu', '/api/reservaciones/crear', '/login', '/admin/login'] as
     $assert(Permisos::clasificar($publica)['tipo'] === 'publica', "{$publica} es pública.");
 }
 
+// 3c · Contextos integrados: biblioteca PDF sin Menú Global, artículos
+// locales habilitados y consultas del Asistente protegidas por su módulo.
+$menusGlobales = Permisos::clasificarDirecto('/admin/global/menus');
+$assert($menusGlobales['tipo'] === 'modulos' && !in_array('menu', $menusGlobales['modulos'], true), 'La biblioteca PDF Global no concede Menú comercial.');
+$assert(Permisos::clasificarDirecto('/admin/global/productos')['tipo'] === 'solo_sistema', 'La ruta Global retirada queda cerrada a roles de negocio.');
+$assert(Permisos::clasificarDirecto('/admin/global/api/consultas')['modulos'] === ['ia'], 'Las consultas Global requieren permiso IA.');
+$assert(Permisos::clasificarDirecto('/admin/panaderia/api/consultas')['modulos'] === ['ia'], 'Las consultas de Panadería requieren permiso IA.');
+
 // 4 · La decisión.
 $sistema = ['sistema' => true, 'permisos' => []];
 $mesero = ['sistema' => false, 'permisos' => Rol::PERMISOS_POR_DEFECTO['waiter']];

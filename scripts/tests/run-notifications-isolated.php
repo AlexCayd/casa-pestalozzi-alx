@@ -80,6 +80,15 @@ try {
         executeNotificationSql($db, file_get_contents($root . '/database/ddl.sql'));
     }
     executeNotificationSql($db, file_get_contents($root . '/database/deploy.sql'));
+    // Las rutas administrativas y POS validan el contrato comercial A3 en cada
+    // contexto. La base aislada debe tener el mismo corte de esquema que una
+    // instalación vigente, incluso cuando el caso probado sea de reservaciones.
+    foreach ([
+        'actualizaciones/a1-datos-comerciales-oferta.sql',
+        'actualizaciones/a3-datos-comerciales-local.sql',
+    ] as $migration) {
+        executeNotificationSql($db, file_get_contents($root . '/database/' . $migration));
+    }
     $browser = ($argv[1] ?? '') === '--browser';
     if ($browser) {
         $log = tempnam(sys_get_temp_dir(), 'cp-notifications-http-');

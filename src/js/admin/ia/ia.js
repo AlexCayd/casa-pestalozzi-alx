@@ -137,8 +137,7 @@
         entradas: { nombre: 'Entradas', icono: 'bolsa' },
         mermas: { nombre: 'Mermas', icono: 'basura' },
         transferencias: { nombre: 'Transferencias', icono: 'reubicar' },
-        sin_receta: { nombre: 'Productos sin receta', icono: 'nota' },
-        productos_casa: { nombre: 'Productos de la casa', icono: 'check' }
+        sin_receta: { nombre: 'Productos sin receta', icono: 'nota' }
     };
     (function (propios) {
         if (!propios || typeof propios !== 'object') return;

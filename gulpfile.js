@@ -108,7 +108,7 @@ const paths = {
     "src/js/modules/punto-de-venta.js",
   ],
   adminAreaJs: "src/js/admin/area/area.js",
-  adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
+  adminRecetasJs: ["src/js/admin/recetas/recipe-builder.js", "src/js/admin/recetas/articulos.js"],
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   // Casos del panel estratégico. ConfirmationModal y AppNotice ya llegan en
@@ -291,10 +291,6 @@ function adminRecetasJavascript() {
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
-}
-
-function adminCasaJavascript() {
-  return src('src/js/admin/menu/casa.js').pipe(sourcemaps.init()).pipe(concat('casa.js')).pipe(terser()).pipe(sourcemaps.write('.')).pipe(dest('./public/build/js/admin'));
 }
 
 function adminInventarioJavascript() {
@@ -585,7 +581,6 @@ exports.adminAreaJs = adminAreaJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
-exports.adminCasaJs = adminCasaJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminReservationEstrategiaJs = adminReservationEstrategiaJavascript;
 exports.adminUsersJs = adminUsersJavascript;
@@ -625,7 +620,6 @@ exports.dev = parallel(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
-  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
@@ -664,7 +658,6 @@ exports.build = series(
   adminFinanzasJavascript,
   adminRecetasJavascript,
   adminInventarioJavascript,
-  adminCasaJavascript,
   adminReservationListJavascript,
   adminReservationEstrategiaJavascript,
   adminUsersJavascript,
