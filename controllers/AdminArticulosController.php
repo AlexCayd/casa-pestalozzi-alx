@@ -106,7 +106,7 @@ final class AdminArticulosController
     public static function presentaciones(Router $router): void
     {
         $ctx=C::slug();C::exigir('menu','ver',$ctx);C::exigir('productos','ver',$ctx);$u=C::vendedora($ctx);$oferta=self::id();
-        $o=A::sql('SELECT p.nombre,o.precio,o.producto_id FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id WHERE o.id=? AND o.unidad_id=?',[$oferta,$u])->get_result()->fetch_assoc();if(!$o){http_response_code(404);return;}
+        $o=A::sql('SELECT p.nombre,o.precio,o.producto_id,o.tipo_venta,o.tipo_venta_estado FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id WHERE o.id=? AND o.unidad_id=?',[$oferta,$u])->get_result()->fetch_assoc();if(!$o){http_response_code(404);return;}
         $lista=P::listar($ctx,$oferta);$p=null;$pid=0;
         if(isset($_GET['presentacion'])){$pid=filter_var($_GET['presentacion'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$pid)throw new InventarioError('ID_INVALIDO','La presentación no es válida.');}foreach($lista as $h)if((int)$h['id']===$pid)$p=$h;
         if($pid&&!$p){http_response_code(404);return;}
