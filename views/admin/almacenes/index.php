@@ -52,11 +52,16 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <input type="hidden" name="seleccion" value="1">
     <?php foreach(['q','negocio','articulo_id','desde','hasta','tipo','solo_alertas'] as $campo): if(!isset($filtros[$campo])||$filtros[$campo]==='')continue; ?><input type="hidden" name="<?php echo $campo; ?>" value="<?php echo $esc($filtros[$campo]); ?>"><?php endforeach; ?>
     <?php if($vista!=='existencias'): ?><input type="hidden" name="vista" value="<?php echo $esc($vista); ?>"><?php endif; ?>
-    <div class="almacen-section-head"><div><h3>Almacenes en consulta</h3><p>Combina almacenes para consultar. Cada operación física se registra en uno solo.</p></div><div class="almacen-actions"><button type="button" class="admin-btn admin-btn--secondary" data-warehouse-all hidden>Seleccionar todos</button><button type="submit" class="admin-btn admin-btn--secondary">Aplicar selección</button></div></div>
+    <div class="almacen-section-head"><div><h3>Almacenes en consulta</h3><p>Combina almacenes para consultar. Cada operación física se registra en uno solo.</p></div><div class="almacen-actions"><button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-warehouse-all hidden>Seleccionar todos</button><button type="submit" class="admin-btn admin-btn--secondary admin-btn--small">Aplicar selección</button></div></div>
+    <?php /* La selección es el filtro de la consulta: cada almacén es una casilla con su
+       nombre y sólo lo excepcional (inactivo, bajo mínimo, agotado). Lo que siempre está
+       —total de artículos, estado activo— ya lo dicen el resumen y la tabla. El espacio
+       literal entre nombre y aviso separa las palabras en el nombre accesible. */ ?>
     <?php foreach(Contextos::NOMBRES as $slug=>$nombre): $grupo=array_values(array_filter($opcionesAlmacen,static fn($a)=>$a['slug']===$slug)); if(!$grupo)continue; ?>
-    <fieldset class="almacen-owner"><legend><?php echo $esc($nombre); ?></legend><div class="almacen-cards">
-      <?php foreach($grupo as $a): $aId=(int)$a['almacen_id']; ?>
-      <label class="almacen-choice"><input type="checkbox" name="almacen_ids[]" value="<?php echo $aId; ?>" <?php echo in_array($aId,$seleccionados,true)?'checked':''; ?>><span class="almacen-choice__body"><?php echo admin_icon('inventario'); ?><span><strong><?php echo $esc($a['nombre']); ?></strong><small><?php echo (int)$a['activo']?'Activo':'Inactivo'; ?><?php echo (int)$a['permitir_negativos']?' · Admite negativos':''; ?></small><small class="almacen-choice__metrics"><?php echo (int)($a['total_articulos']??0); ?> artículos · <?php echo (int)($a['bajo_minimo']??0); ?> bajo mínimo · <?php echo (int)($a['agotados']??0); ?> agotados</small></span></span></label>
+    <fieldset class="almacen-owner"><legend class="admin-eyebrow"><?php echo $esc($nombre); ?></legend><div class="almacen-owner__choices">
+      <?php foreach($grupo as $a): $aId=(int)$a['almacen_id']; $activo=(int)$a['activo']===1; $bajo=(int)($a['bajo_minimo']??0); $agotados=(int)($a['agotados']??0);
+        $avisos=array_filter([$bajo?$bajo.' bajo mínimo':'',$agotados?$agotados.' '.($agotados===1?'agotado':'agotados'):'']); ?>
+      <label class="almacen-choice<?php echo $activo?'':' is-inactive'; ?>"><input type="checkbox" name="almacen_ids[]" value="<?php echo $aId; ?>" <?php echo in_array($aId,$seleccionados,true)?'checked':''; ?>><span class="almacen-choice__name"><?php echo $esc($a['nombre']); ?></span><?php if(!$activo): ?> <span class="almacen-choice__meta">Inactivo</span><?php endif; ?><?php if($avisos): ?> <span class="almacen-choice__meta"><?php echo $esc(implode(' · ',$avisos)); ?></span><?php endif; ?></label>
       <?php endforeach; ?>
     </div></fieldset><?php endforeach; ?>
     <?php if(!$opcionesAlmacen): ?><p class="admin-empty">Todavía no hay almacenes autorizados. Un administrador de Global puede crear el primero.</p><?php endif; ?>

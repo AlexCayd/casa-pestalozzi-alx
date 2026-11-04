@@ -59,14 +59,18 @@ Restaurante incorpora Inicio primero, con su SVG existente y estado activo.
 Punto de venta y Producción usan las rutas operativas ya autorizadas del catálogo,
 `/punto-de-venta` y `/area`, sin conceder configuración ni operación por navegar.
 
-Las tarjetas de Almacenes conservan controles checkbox nativos, visualmente
-recortados a 1 px, y etiqueta clicable completa. Selección: borde de texto y fondo
-suave; deselección: borde atenuado y superficie base. El foco rodea la tarjeta;
-Tab y Espacio siguen operando el control nativo y su estado anunciado. No se usa
-`display:none`. La transición de fondo/borde respeta movimiento reducido.
-Altura medida en escritorio: aproximadamente 78.5 px frente a las tarjetas de
-M1.1 de aproximadamente 98 px, según contenido/ancho. Global conserva grupos de
-2/3/2, Restaurante tres por fila y Panadería dos cuando caben.
+La selección «Almacenes en consulta» es un filtro, no contenido (M3, Fase 3): un
+renglón por propietario con su rótulo (`.admin-eyebrow`) y casillas compactas de
+36 px (44 px con puntero táctil). Cada casilla muestra el control checkbox nativo
+visible (`accent-color`), el nombre y sólo lo excepcional: «Inactivo» y
+«N bajo mínimo · N agotado(s)» cuando son mayores que cero. Seleccionada: borde
+fuerte y texto pleno; sin seleccionar: borde suave y texto atenuado; inactiva:
+borde discontinuo además de la palabra. Con `:has()` el anillo de foco del sistema
+rodea la etiqueta completa; sin él, la casilla. Tab y Espacio operan el control
+nativo y su estado anunciado; la última casilla marcada no se desmarca. No se usa
+`display:none` y la transición respeta movimiento reducido. Con 7 almacenes en tres
+propietarios la franja mide unos 211 px en escritorio (antes 459 px) y 474 px en
+móvil de 390 px (antes 904 px). La política de negativos ya no aparece.
 
 Con JavaScript, los cambios se agrupan durante 600 ms antes de enviar el mismo
 formulario GET. No se duplica un envío pendiente y volver mediante historial

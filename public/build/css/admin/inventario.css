@@ -1054,91 +1054,118 @@
   max-width: 70ch;
 }
 
+/* «Almacenes en consulta» es el filtro de la tabla, no contenido: un renglón por
+   propietario con casillas compactas. Las existencias de abajo (y los avisos)
+   son lo que el operador viene a ver; esta franja sólo acota dónde se mira. */
 .almacen-selection {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 0 16px;
   margin-bottom: 20px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--admin-border);
 }
-.almacen-selection > .almacen-section-head, .almacen-selection > .almacen-selection__status, .almacen-selection > .admin-empty {
-  grid-column: 1/-1;
+.almacen-selection > .almacen-section-head {
+  gap: 12px 20px;
+  margin-bottom: 12px;
+}
+.almacen-selection > .almacen-section-head h3 {
+  font-size: 15px;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+.almacen-selection > .almacen-section-head p {
+  margin-top: 2px;
+  font-size: 12px;
 }
 
 .almacen-owner {
-  grid-column: 1/-1;
-  border: 0;
-  padding: 0;
-  margin: 12px 0 0;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.almacen-owner + .almacen-owner {
+  margin-top: 8px;
 }
 .almacen-owner legend {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--admin-muted);
-  margin-bottom: 8px;
+  float: left;
+  display: flex;
+  align-items: center;
+  width: 7.5rem;
+  min-height: 36px;
+  padding: 0 12px 0 0;
+  margin: 0;
 }
 
-.almacen-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 12px;
+.almacen-owner__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .almacen-choice {
   position: relative;
-  display: flex;
-  min-width: min(100%, 210px);
-  min-height: 76px;
-  max-width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 2px 8px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.3;
   cursor: pointer;
-  padding: 10px 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
 }
 .almacen-choice input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-.almacen-choice:has(input:checked) {
-  border-color: var(--admin-text);
-  background: var(--admin-surface-soft);
-}
-.almacen-choice:has(input:focus-visible) {
-  outline: 2px solid var(--admin-text);
-  outline-offset: 3px;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--admin-text);
+  cursor: inherit;
 }
 .almacen-choice:hover {
   background: var(--admin-surface-soft);
+  border-color: var(--admin-border);
 }
-.almacen-choice__body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.almacen-choice:has(input:checked) {
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text);
+}
+.almacen-choice__name {
   min-width: 0;
-  line-height: 1.35;
-}
-.almacen-choice strong {
-  display: block;
-  font-size: 14px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
-.almacen-choice svg {
-  flex-shrink: 0;
+.almacen-choice__meta {
   color: var(--admin-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.almacen-choice.is-inactive {
+  border-style: dashed;
 }
 
+@supports selector(:has(*)) {
+  .almacen-workspace .almacen-choice input:focus-visible {
+    outline: 0;
+    box-shadow: none;
+  }
+  .almacen-choice:has(input:focus-visible) {
+    box-shadow: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+  }
+}
+@media (pointer: coarse) {
+  .almacen-choice, .almacen-owner legend {
+    min-height: 44px;
+  }
+  .almacen-selection .admin-btn--small {
+    min-height: 44px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .almacen-choice {
     transition: none;
@@ -1147,8 +1174,8 @@
 .almacen-selection__status {
   color: var(--admin-muted);
   font-size: 12px;
-  margin: 12px 0 0;
-  min-height: 20px;
+  margin: 10px 0 0;
+  min-height: 18px;
 }
 
 .almacen-summary {
@@ -1463,8 +1490,17 @@
   .almacen-actions {
     justify-content: flex-start;
   }
-  .almacen-choice {
-    flex: 1 1 200px;
+  .almacen-owner legend {
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    margin-bottom: 6px;
+  }
+  .almacen-owner__choices {
+    clear: left;
+  }
+  .almacen-owner + .almacen-owner {
+    margin-top: 12px;
   }
   .almacen-pending {
     margin-left: 0;
@@ -1627,17 +1663,6 @@
     font-weight: 500;
   }
 }
-.almacen-choice__body small {
-  display: block;
-  line-height: 1.4;
-  margin-top: 2px;
-}
-
-.almacen-choice__metrics {
-  font-variant-numeric: tabular-nums;
-  color: var(--admin-muted);
-}
-
 .almacen-entry-picker {
   display: grid;
   gap: 10px;
