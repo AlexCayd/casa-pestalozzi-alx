@@ -8,12 +8,14 @@ final class AdministracionAlmacenes
     private Almacenes $motor;
     private AlcanceInventario $alcance;
     private Transferencias $transferencias;
+    private Faltantes $faltantes;
 
     public function __construct(private \mysqli $db, int $actorId, string $nivelAuth)
     {
         $this->motor = new Almacenes($db, $actorId, $nivelAuth);
         $this->alcance = new AlcanceInventario($db, $actorId, $nivelAuth);
         $this->transferencias = new Transferencias($db, $actorId, $nivelAuth);
+        $this->faltantes = new Faltantes($db, $actorId, $nivelAuth);
     }
 
     public function consultar(string $ctx, array $filtros, string $vista = 'existencias'): array
@@ -54,7 +56,11 @@ final class AdministracionAlmacenes
         self::exigirResultado($transferencias);
         $catalogoTransferencias=$this->catalogo($ctx);
         self::exigirResultado($catalogoTransferencias);
-        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina']];
+        // Faltantes por conciliar (§16): el aviso va arriba de todo; la bandeja sólo en su vista.
+        $faltantes=$vista==='faltantes'?$this->faltantes->bandeja($ctx):['ok'=>true,'confirmado'=>true,'faltantes'=>[]];
+        self::exigirResultado($faltantes);
+        $faltantesPendientes=$this->faltantes->contar($ctx);
+        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina'],'faltantes'=>$faltantes['faltantes'],'faltantesPendientes'=>$faltantesPendientes];
     }
 
     /** Datos maestros para elegir una asociación: no incluye existencias ajenas. */
@@ -87,9 +93,19 @@ final class AdministracionAlmacenes
                 }
                 return $this->transferencias->ejecutar($ctx,$comando,$doc);
             }
+            if($accion==='conciliar_faltante'){
+                $permitidas=['faltante_id','version','clave','asignaciones'];
+                if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas)))throw new InventarioError('DATOS_INVALIDOS','Campos de conciliación no permitidos.');
+                $doc=array_intersect_key($datos,array_flip($permitidas));
+                if(isset($doc['asignaciones'])&&is_array($doc['asignaciones'])){
+                    // Las filas vacías del formulario no declaran un origen de cero.
+                    $doc['asignaciones']=array_values(array_filter($doc['asignaciones'],static fn($l)=>!is_array($l)||!in_array($l['cantidad']??null,['','0','0.000'],true)));
+                }
+                return $this->faltantes->conciliar($ctx,$doc);
+            }
             $permitidas=match($accion) {
-                'crear_almacen'=>['propietario','nombre','permitir_negativos'],
-                'configurar_almacen'=>['almacen_id','nombre','activo','permitir_negativos'],
+                'crear_almacen'=>['propietario','nombre'],
+                'configurar_almacen'=>['almacen_id','nombre','activo'],
                 'eliminar_almacen'=>['almacen_id'],
                 'crear_articulo','editar_articulo'=>['articulo_id','nombre','unidad','costo','activo','contenido_pieza'],
                 'asociar'=>['almacen_id','articulo_id','minimo'],
@@ -101,9 +117,9 @@ final class AdministracionAlmacenes
             $id = static fn(string $campo): int => self::id($datos[$campo]??null);
             switch ($accion) {
                 case 'crear_almacen':
-                    return $this->motor->crearAlmacen($ctx,self::texto($datos,'propietario'),self::texto($datos,'nombre'),isset($datos['permitir_negativos']));
+                    return $this->motor->crearAlmacen($ctx,self::texto($datos,'propietario'),self::texto($datos,'nombre'));
                 case 'configurar_almacen':
-                    return $this->motor->configurarAlmacen($ctx,$id('almacen_id'),['nombre'=>self::texto($datos,'nombre'),'activo'=>isset($datos['activo']),'permitir_negativos'=>isset($datos['permitir_negativos'])]);
+                    return $this->motor->configurarAlmacen($ctx,$id('almacen_id'),['nombre'=>self::texto($datos,'nombre'),'activo'=>isset($datos['activo'])]);
                 case 'eliminar_almacen':
                     return $this->motor->eliminarAlmacen($ctx,$id('almacen_id'));
                 case 'crear_articulo':

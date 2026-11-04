@@ -71,7 +71,7 @@ INSERT INTO ingredientes(id,nombre,unidad,costo,activo) VALUES
  ('1005','Aguacate','g','0.0600','1');
 INSERT INTO almacenes(id,unidad_id,nombre,permitir_negativos,activo) VALUES
  ('1001','1','Almacén Central','0','1'),
- ('1002','2','Cocina','1','1'),
+ ('1002','2','Cocina','0','1'),
  ('1003','3','Producción','0','1'),
  ('1004','1','Almacén de Suministros','0','1'),
  ('1005','2','Barra y Maridaje','0','1'),
@@ -273,7 +273,6 @@ INSERT INTO movimientos_inventario(id,operacion_id,unidad_id,almacen_id,articulo
  (1111,1003,3,1007,1002,'entrada','125.375','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1002),@dev_cierre),
  (1112,1003,3,1007,1003,'entrada','125.375','apertura_ampliada','Existencia física inicial documentada.',(SELECT costo FROM ingredientes WHERE id=1003),@dev_cierre),
  (1113,1001,1,1001,1006,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','0.0180',@dev_cierre),
- (1114,1011,2,1002,1007,'ajuste','-1.125','apertura_ampliada','Conteo físico sintético documentado.','0.0125',@dev_cierre),
  (1115,1003,3,1003,1008,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.1450',@dev_cierre),
  (1116,1001,1,1004,1009,'entrada','125.625','apertura_ampliada','Conteo físico sintético documentado.','3.4500',@dev_cierre),
  (1117,1002,2,1006,1011,'entrada','2.375','apertura_ampliada','Conteo físico sintético documentado.','0.0900',@dev_cierre),
@@ -295,6 +294,13 @@ UPDATE almacen_articulos aa
 SET saldo=(SELECT COALESCE(SUM(m.delta),0) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id AND m.unidad_id=aa.unidad_id),
  version=(SELECT COUNT(*) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id AND m.unidad_id=aa.unidad_id)
 WHERE aa.almacen_id BETWEEN 1001 AND 1007;
+-- M3 (§16): el conteo sintético de Cocina que antes dejaba -1.125 de sal marina
+-- se representa como lo deja la migración m4: saldo 0 y un faltante pendiente de
+-- origen ligado a la misma operación, con su aviso de prioridad alta.
+INSERT INTO faltantes_inventario(id,unidad_id,almacen_id,articulo_id,ticket_item_id,operacion_id,origen,cantidad,creado_at) VALUES
+ (1001,2,1002,1007,NULL,1011,'migracion','1.125',@dev_cierre);
+INSERT INTO buzon_notificaciones(unidad_id,tipo,modulo,entidad_tipo,entidad_id,prioridad,requiere_accion,visible_from,dedup_key) VALUES
+ (2,'inventario.faltante','inventario','faltante_inventario',1001,'alta',1,@dev_cierre,CONCAT('inventario.faltante:1002:1007:',DATE_FORMAT(@dev_cierre,'%Y-%m-%d')));
 INSERT INTO proveedores(id,unidad_id,nombre,activo) VALUES
  ('1001','2','Proveedor Restaurante','1'),
  ('1002','3','Proveedor Panadería','1');

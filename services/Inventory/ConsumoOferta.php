@@ -89,7 +89,6 @@ final class ConsumoOferta
         $origenes=self::almacenesOferta($db,$oferta,$unidadId,array_values(array_unique(array_column($previa['lineas'],'articulo_id'))));foreach($origenes as &$o){$o['unidad_id']=$unidadId;$o['activo']=1;}unset($o);
         foreach($raices as &$r)$r['cantidad']=DecimalInventario::cantidad(DecimalInventario::leer(bcmul($r['cantidad'],(string)$cantidadTicket,3)));unset($r);
         $plan=ResolucionArticulos::resolver($raices,$unidadId,$cargarArticulo,$cargarReceta,$origenes,true,true);$plan['costo_unitario']=$previa['costo_unitario'];$plan['receta_legada_id']=$item['receta_id'];$plan['opciones']=$ids;$plan['ajustes']=$ajustes;$plan['composicion_base']=$base;$plan['subrecetas_pendientes']=$recetasLegadas;
-        \Services\Menu\PresentacionesOferta::exigirExistenciasPrevias($plan,$unidadId);
         $lineas=array_map(static fn($l)=>array_intersect_key($l,array_flip(['almacen_id','articulo_id','cantidad','costo_unitario'])),$plan['lineas']);
         return ['consume'=>$plan['consume'],'lineas'=>$lineas,'costo_unitario'=>$plan['costo_unitario'],'snapshot'=>$plan];
     }

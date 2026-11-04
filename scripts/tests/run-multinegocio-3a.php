@@ -247,9 +247,11 @@ function multinegocioPruebasIntegridad(mysqli $db, int &$total): void
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id) VALUES ($productPan,1,$categoryRest,10.00,$areaRest)"), [1452,3819], 'Oferta de venta para Global', $total);
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id) VALUES ($productPan,3,$categoryPan,1000000.00,$areaPan)"), [1264,1265], 'Precisión DECIMAL de oferta', $total);
 
-    $db->query("INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES (2,'QA Rest {$suffix}',0)");
+    $db->query("INSERT INTO almacenes(unidad_id,nombre) VALUES (2,'QA Rest {$suffix}')");
     $warehouseRest = (int)$db->insert_id;
-    $db->query("INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES (3,'QA Pan {$suffix}',1)");
+    // M3 (§16): ningún almacén admite negativos; un CHECK fija la columna en 0.
+    multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES (3,'QA Pan negativo {$suffix}',1)"), [3819], 'Almacén con negativos', $total);
+    $db->query("INSERT INTO almacenes(unidad_id,nombre) VALUES (3,'QA Pan {$suffix}')");
     $warehousePan = (int)$db->insert_id;
     $db->query("INSERT INTO almacenes(unidad_id,nombre) VALUES (1,'QA Global {$suffix}')");
     $warehouseGlobal = (int)$db->insert_id;
@@ -259,13 +261,12 @@ function multinegocioPruebasIntegridad(mysqli $db, int &$total): void
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO almacenes(unidad_id,nombre) VALUES (99,'QA unidad inexistente {$suffix}')"), [1452], 'Almacén con unidad inexistente', $total);
     $db->query("INSERT INTO ingredientes(nombre,unidad) VALUES ('QA ingrediente {$suffix}','g')");
     $ingredient = (int)$db->insert_id;
-    $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehousePan,$ingredient,3,-1,0)");
-    $negativePan = (string)$db->query("SELECT saldo FROM almacen_articulos WHERE almacen_id=$warehousePan AND articulo_id=$ingredient")->fetch_row()[0];
-    multinegocioAssert($negativePan === '-1.000', 'Almacén con negativos habilitados acepta saldo negativo.', $total);
+    multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehousePan,$ingredient,3,-1,0)"), [1644], 'Saldo negativo en Panadería', $total);
+    $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehousePan,$ingredient,3,0,0)");
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehouseRest,$ingredient,2,-1,0)"), [1644], 'Saldo negativo con negativos deshabilitados', $total);
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehouseRest,$ingredient,2,1,-0.001)"), [3819], 'Mínimo de inventario negativo', $total);
     $db->query("INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES ($warehouseRest,$ingredient,2,0,0)");
-    multinegocioSqlFail($db, static fn() => $db->query("UPDATE almacenes SET permitir_negativos=0 WHERE id=$warehousePan"), [1644], 'Deshabilitar negativos con saldo negativo existente', $total);
+    multinegocioSqlFail($db, static fn() => $db->query("UPDATE almacenes SET permitir_negativos=1 WHERE id=$warehousePan"), [3819], 'Habilitar negativos', $total);
 
     $db->query("UPDATE almacen_articulos SET saldo=5 WHERE almacen_id=$warehousePan AND articulo_id=$ingredient");
     multinegocioSqlFail($db, static fn() => $db->query("INSERT INTO oferta_consumos(oferta_id,articulo_id,unidad_id,almacen_id) VALUES ($offerRest,$ingredient,2,$warehousePan)"), [1452], 'Consumo desde almacén de otra unidad', $total);

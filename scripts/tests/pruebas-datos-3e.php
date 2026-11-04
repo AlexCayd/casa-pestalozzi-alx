@@ -43,8 +43,11 @@ function probarDatos3E(mysqli $db,string $root,int &$count): array
     $assert((string)$db->query('SELECT SUM(saldo) FROM almacen_articulos WHERE articulo_id=1001 AND almacen_id IN(1001,1002)')->fetch_row()[0]==='14920.000','La selección histórica Central/Cocina conserva su total.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos aa WHERE version<>(SELECT COUNT(*) FROM movimientos_inventario m WHERE m.almacen_id=aa.almacen_id AND m.articulo_id=aa.articulo_id)')->fetch_row()[0]===0,'Las versiones de apertura cuentan movimientos reales.');
     $assert((int)$db->query("SELECT COUNT(*) FROM operaciones_inventario WHERE referencia REGEXP '^(\\\\[DEV\\\\]|DEV[ _-])'")->fetch_row()[0]===0,'Las referencias documentales no muestran prefijos DEV.');
-    $assert((int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0]===51,'La apertura ampliada añade 27 movimientos trazables.');
-    $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id WHERE aa.saldo<0 AND a.permitir_negativos=1')->fetch_row()[0]===1,'Un saldo negativo explícitamente autorizado.');
+    // M3 (§16): el conteo que dejaba -1.125 en Cocina es ahora un faltante, no un movimiento.
+    $assert((int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0]===50,'La apertura ampliada añade 26 movimientos trazables.');
+    // M3 (§16): ningún saldo es negativo; Cocina conserva su faltante pendiente de origen.
+    $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos WHERE saldo<0')->fetch_row()[0]===0&&(int)$db->query('SELECT COUNT(*) FROM almacenes WHERE permitir_negativos<>0')->fetch_row()[0]===0,'Sin saldos negativos ni almacenes que los permitan.');
+    $assert((int)$db->query("SELECT COUNT(*) FROM faltantes_inventario WHERE almacen_id=1002 AND estado='pendiente'")->fetch_row()[0]===1,'Cocina muestra su faltante pendiente.');
     $assert((int)$db->query('SELECT COUNT(*) FROM almacen_articulos WHERE activo=0 AND saldo=0')->fetch_row()[0]===1,'Asociación inactiva sin existencias.');
     $assert((int)$db->query('SELECT COUNT(*) FROM ingredientes i WHERE activo=0 AND NOT EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=i.id AND aa.saldo<>0)')->fetch_row()[0]===1,'Artículo retirado compatible con saldos cero.');
     $assert((int)$db->query('SELECT COUNT(*) FROM ingredientes i WHERE NOT EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=i.id)')->fetch_row()[0]===1,'Identidad de catálogo sin asociación física.');

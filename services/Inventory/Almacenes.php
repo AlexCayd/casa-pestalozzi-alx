@@ -12,13 +12,14 @@ final class Almacenes
         $this->alcance = new AlcanceInventario($db, $actorId, $authNivel);
     }
 
-    public function crearAlmacen(string $ctx, string $propietario, string $nombre, bool $permitirNegativos = false): array
+    /** Ningún almacén admite saldo negativo (§16): la falta de saldo en venta es un faltante. */
+    public function crearAlmacen(string $ctx, string $propietario, string $nombre): array
     {
-        return $this->escribir(function () use ($ctx,$propietario,$nombre,$permitirNegativos) {
+        return $this->escribir(function () use ($ctx,$propietario,$nombre) {
             $this->global($ctx, 'almacenes.crear');
             $unidad = $this->unidad($propietario);
             $nombre = self::texto($nombre,100);
-            $this->sql('INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES (?,?,?)', [$unidad,$nombre,(int)$permitirNegativos]);
+            $this->sql('INSERT INTO almacenes(unidad_id,nombre) VALUES (?,?)', [$unidad,$nombre]);
             return ['codigo'=>'ALMACEN_CREADO','almacen_id'=>(int)$this->db->insert_id];
         });
     }
@@ -26,14 +27,12 @@ final class Almacenes
     public function configurarAlmacen(string $ctx, int $id, array $datos): array
     {
         return $this->escribir(function () use ($ctx,$id,$datos) {
-            self::claves($datos,['nombre','permitir_negativos','activo']);
+            self::claves($datos,['nombre','activo']);
             $a=$this->alcance->almacen($ctx,$id,'editar',true,false);
             $nombre=array_key_exists('nombre',$datos)?self::texto($datos['nombre'],100):$a['nombre'];
             $activo=array_key_exists('activo',$datos)?self::booleano($datos['activo']):(int)$a['activo'];
-            $negativos=array_key_exists('permitir_negativos',$datos)?self::booleano($datos['permitir_negativos']):(int)$a['permitir_negativos'];
-            if (!$negativos && $this->uno('SELECT 1 FROM almacen_articulos WHERE almacen_id=? AND saldo<0 LIMIT 1 FOR UPDATE',[$id])) throw new InventarioError('NEGATIVOS_PENDIENTES','Hay existencias negativas pendientes.');
             if (!$activo) $this->sinPendientes($id);
-            $this->sql('UPDATE almacenes SET nombre=?,activo=?,permitir_negativos=? WHERE id=?',[$nombre,$activo,$negativos,$id]);
+            $this->sql('UPDATE almacenes SET nombre=?,activo=? WHERE id=?',[$nombre,$activo,$id]);
             return ['codigo'=>'ALMACEN_CONFIGURADO','almacen_id'=>$id];
         });
     }
@@ -179,6 +178,8 @@ final class Almacenes
                 ConsumoOferta::ticketItem($this->db,$alcance['unidad_id'],$ticketItemId,true);
                 $previa=$this->resultadoComercial($alcance['unidad_id'],'cancelacion',$ticketItemId,'reversion');
                 if($previa!==null) return $previa;
+                // Lo no descontado se anula; lo descontado o conciliado se compensa abajo.
+                Faltantes::anularPorCancelacion($this->db,$alcance['unidad_id'],$ticketItemId,$this->alcance->actorId());
                 $pendientes=ConsumoOferta::movimientosPendientes($this->db,$alcance['unidad_id'],$ticketItemId);
                 if($pendientes===[]) return ['codigo'=>'VENTA_SIN_CONSUMO','ticket_item_id'=>$ticketItemId,'movimientos'=>[]];
                 $doc=['origen'=>'pos','clave'=>'cancel-ticket-item-'.$ticketItemId,'referencia'=>'cancel-ticket-item-'.$ticketItemId,
@@ -238,7 +239,7 @@ final class Almacenes
             ksort($almacenes,SORT_NUMERIC);
             foreach($almacenes as $id=>$_) $almacenes[$id]=$comercial?$this->almacenVenta($id,$alcance['unidad_id']):$this->alcance->almacen($ctx,$id,'editar',true);
             usort($lineas,static fn($a,$b)=>[(int)$a['almacen_id'],(int)$a['articulo_id'],(int)($a['movimiento_id']??0)] <=> [(int)$b['almacen_id'],(int)$b['articulo_id'],(int)($b['movimiento_id']??0)]);
-            $movimientos=[];
+            $movimientos=[];$faltantes=[];
             foreach($lineas as $l) {
                 $almacen=(int)$l['almacen_id']; $articulo=(int)$l['articulo_id'];
                 $a=$this->uno('SELECT * FROM almacen_articulos WHERE almacen_id=? AND articulo_id=? AND unidad_id=? FOR UPDATE',[$almacen,$articulo,$alcance['unidad_id']]);
@@ -248,6 +249,13 @@ final class Almacenes
                 $cantidad=DecimalInventario::leer($l['cantidad'],3,$tipo==='ajuste');
                 $saldo=DecimalInventario::leer($a['saldo'],3,true);
                 $delta=in_array($tipo,['merma','salida','venta'],true)?-$cantidad:$cantidad;
+                if($tipo==='venta') {
+                    // §16: la venta nunca se bloquea por saldo. Descuenta lo disponible
+                    // y el resto queda como faltante pendiente de origen.
+                    $descontar=min(max($saldo,0),$cantidad);
+                    $delta=-$descontar;
+                    if($cantidad>$descontar) $faltantes[]=Faltantes::registrarVenta($this->db,$alcance['unidad_id'],$almacen,$articulo,(int)$ticketItemId,$operacion,DecimalInventario::cantidad($cantidad-$descontar));
+                }
                 if($tipo==='ajuste') {
                     if((string)$a['version']!==(string)$l['version']) throw new InventarioError('VERSION_CONFLICTO','Las existencias cambiaron después del conteo.');
                     $delta=$cantidad-$saldo;
@@ -263,7 +271,7 @@ final class Almacenes
                 $nuevo=DecimalInventario::sumar($saldo,$delta);
                 $nuevoSql=DecimalInventario::cantidad($nuevo);
                 $deltaSql=DecimalInventario::cantidad($delta);
-                if($nuevo<0 && !(int)$almacenes[$almacen]['permitir_negativos']) throw new InventarioError('SALDO_INSUFICIENTE','El almacén no permite existencias negativas.');
+                if($nuevo<0) throw $tipo==='ajuste' ? new InventarioError('CONTEO_INVALIDO','Un conteo físico no puede ser negativo.') : new InventarioError('SALDO_INSUFICIENTE','El almacén no tiene saldo suficiente.');
                 if($delta===0) continue;
                 $costo=$tipo==='cancelacion'?$l['costo_unitario']:(array_key_exists('costo_unitario',$l)?$l['costo_unitario']:$maestro['costo']);
                 $this->sql('UPDATE almacen_articulos SET saldo=?,version=version+1 WHERE almacen_id=? AND articulo_id=?',[$nuevoSql,$almacen,$articulo]);
@@ -274,8 +282,10 @@ final class Almacenes
             $resultado=['codigo'=>'OPERACION_REGISTRADA','operacion_id'=>$operacion,'movimientos'=>$movimientos,'reintento'=>false];
             if($comercial) {
                 $resultado['ticket_item_id']=$ticketItemId;
-                if($tipo==='venta') $resultado['costo_unitario']=$costoVenta;
+                if($tipo==='venta') { $resultado['costo_unitario']=$costoVenta; $resultado['faltantes']=$faltantes; }
             }
+            // Una entrada puede cubrir faltantes que nadie pudo conciliar: se reabre su aviso.
+            if($tipo==='entrada') Faltantes::reactivarAvisos($this->db,array_map(static fn($l)=>(int)$l['articulo_id'],$lineas));
             $this->sql('UPDATE operaciones_inventario SET resultado=? WHERE id=?',[json_encode($resultado,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),$operacion]);
             return $resultado;
         });
@@ -351,7 +361,7 @@ final class Almacenes
     /** Bloqueo de almacén acotado por item POS; no abre permiso administrativo. */
     private function almacenVenta(int $id,int $unidadId): array
     {
-        $a=$this->uno('SELECT id,unidad_id,nombre,permitir_negativos,activo FROM almacenes WHERE id=? AND unidad_id=? FOR UPDATE',[$id,$unidadId]);
+        $a=$this->uno('SELECT id,unidad_id,nombre,activo FROM almacenes WHERE id=? AND unidad_id=? FOR UPDATE',[$id,$unidadId]);
         if(!$a) throw new InventarioError('RECURSO_NO_ENCONTRADO','El almacén de consumo no pertenece al negocio vendedor.');
         if(!(int)$a['activo']) throw new InventarioError('ALMACEN_INACTIVO','El almacén de consumo está inactivo.');
         return $a;

@@ -25,25 +25,25 @@ try{
  $servicio=new AdministracionAlmacenes($db,$actor['id'],'contrasena');$motor=new Almacenes($db,$actor['id'],'contrasena');
  $vacio=$ok($motor->consultarExistencias('global',['almacen_ids'=>[]]),'Sin almacenes permite selección vacía');$assert($vacio['total']===0,'El estado inicial vacío no inventa saldos.');
  $alm=[];
- foreach(['central'=>'global','r1'=>'restaurante','r2'=>'restaurante','pan'=>'panaderia'] as $key=>$ctx){$data=['propietario'=>$ctx,'nombre'=>'UX '.$key];if($key==='r2')$data['permitir_negativos']='1';$r=$ok($servicio->guardar('global','crear_almacen',$data),'Crear almacén');$alm[$key]=(int)$r['almacen_id'];}
+ foreach(['central'=>'global','r1'=>'restaurante','r2'=>'restaurante','pan'=>'panaderia'] as $key=>$ctx){$data=['propietario'=>$ctx,'nombre'=>'UX '.$key];$r=$ok($servicio->guardar('global','crear_almacen',$data),'Crear almacén');$alm[$key]=(int)$r['almacen_id'];}
  $r=$ok($servicio->guardar('global','crear_articulo',['nombre'=>'UX exacto','unidad'=>'g','costo'=>'1.0000','activo'=>'1']),'Crear artículo');$art=(int)$r['articulo_id'];
  foreach(['central'=>'global','r1'=>'restaurante','r2'=>'restaurante','pan'=>'panaderia'] as $key=>$ctx)$ok($servicio->guardar($ctx,'asociar',['almacen_id'=>(string)$alm[$key],'articulo_id'=>(string)$art,'minimo'=>'3.000']),'Asociar sin saldo');
  foreach(['r1'=>'1.001','pan'=>'4.004'] as $key=>$cantidad)$ok($servicio->guardar($key==='pan'?'panaderia':'restaurante','entrada',['almacen_id'=>(string)$alm[$key],'articulo_id'=>(string)$art,'cantidad'=>$cantidad,'clave'=>'ux-entrada-'.$key]),'Entrada exacta');
  $asoc=$ok($motor->existencia('restaurante',$alm['r2'],$art),'Leer versión')['existencia'];
- $ok($servicio->guardar('restaurante','ajuste',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$art,'cantidad'=>'-1.000','version'=>(string)$asoc['version'],'clave'=>'ux-negativo']),'Conteo negativo autorizado');
+ $ok($servicio->guardar('restaurante','ajuste',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$art,'cantidad'=>'0.500','version'=>(string)$asoc['version'],'clave'=>'ux-conteo-exacto']),'Conteo físico exacto (M3: sin negativos)');
  $todos=$ok($motor->consultarExistencias('global'),'Global por defecto');
- $assert($todos['articulos'][0]['saldo_total']==='4.005','Global suma exactamente los tres ámbitos, incluyendo cero y negativo.');
+ $assert($todos['articulos'][0]['saldo_total']==='5.505','Global suma exactamente los tres ámbitos, incluyendo cero.');
  $par=$ok($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r2']]]),'Seleccionar dos propios');
- $assert($par['articulos'][0]['saldo_total']==='0.001','Dos almacenes conservan DECIMAL exacto con negativos.');
+ $assert($par['articulos'][0]['saldo_total']==='1.501','Dos almacenes conservan DECIMAL exacto.');
  $assert($par['total_alertas']===1&&$par['articulos'][0]['alerta'],'Resumen y artículo comparten alertas por asociación.');
  $uno=$ok($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1']]]),'Seleccionar uno');$assert($uno['articulos'][0]['saldo_total']==='1.001','La selección cambia el total.');
- $duplicados=$ok($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r1'],$alm['r2']]]),'Deduplicar IDs');$assert($duplicados['articulos'][0]['saldo_total']==='0.001','IDs repetidos no duplican saldo.');
- $mov=$ok($motor->consultarMovimientos('restaurante',['almacen_ids'=>[$alm['r2']]]),'Historial seleccionado');$assert($mov['total']===1&&$mov['movimientos'][0]['delta']==='-1.000','Historial conserva la selección exacta.');
+ $duplicados=$ok($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r1'],$alm['r2']]]),'Deduplicar IDs');$assert($duplicados['articulos'][0]['saldo_total']==='1.501','IDs repetidos no duplican saldo.');
+ $mov=$ok($motor->consultarMovimientos('restaurante',['almacen_ids'=>[$alm['r2']]]),'Historial seleccionado');$assert($mov['total']===1&&$mov['movimientos'][0]['delta']==='0.500','Historial conserva la selección exacta.');
  foreach([[],['mal'],[$alm['r1'],$alm['pan']],[$alm['r1'],999999],'1'] as $ids){foreach(['consultarExistencias','consultarMovimientos','consultarAlmacenes'] as $metodo)$assert($motor->$metodo('restaurante',['almacen_ids'=>$ids])['ok']===false,'Cada consulta rechaza selección vacía, inválida o ajena.');}
  $assert($motor->consultarExistencias('global',['almacen_ids'=>[999999]])['ok']===false,'Global tampoco acepta almacenes inexistentes.');
  $assert($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1']],'almacen_id'=>$alm['r2']])['ok']===false,'Filtros físicos ambiguos se rechazan.');
  $lector=FixtureAutorizacion3B::usuario($db,'ux_lector',['restaurante'=>['permisos'=>['inventario'=>'ver']]]);$lectura=new AdministracionAlmacenes($db,$lector['id'],'contrasena');
- $r=$lectura->consultar('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r2']]]);$assert(count($r['opcionesAlmacen'])===2&&$r['existencias']['articulos'][0]['saldo_total']==='0.001','Solo lectura ve únicamente almacenes propios.');
+ $r=$lectura->consultar('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r2']]]);$assert(count($r['opcionesAlmacen'])===2&&$r['existencias']['articulos'][0]['saldo_total']==='1.501','Solo lectura ve únicamente almacenes propios.');
  $assert($lectura->guardar('restaurante','entrada',['almacen_id'=>(string)$alm['r1'],'articulo_id'=>(string)$art,'cantidad'=>'1.000','clave'=>'ux-denegada'])['ok']===false,'Selección no concede escritura.');
  $sin=$ok($servicio->guardar('global','crear_articulo',['nombre'=>'UX sin asociación','unidad'=>'g','costo'=>'0.0000','activo'=>'1']),'Artículo sin asociación');
  $r=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['central']]]),'Global con selección cero');$assert($r['total']===2&&$r['articulos'][1]['ambitos']===[],'El listado Global conserva artículos sin asociación en la selección.');

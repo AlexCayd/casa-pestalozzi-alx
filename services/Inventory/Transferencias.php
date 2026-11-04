@@ -6,7 +6,7 @@ namespace Services\Inventory;
 final class Transferencias
 {
     private AlcanceInventario $alcance;
-    public function __construct(private \mysqli $db, int $actor, string $nivel)
+    public function __construct(private \mysqli $db, int $actor, private string $nivel)
     {
         $this->alcance=new AlcanceInventario($db,$actor,$nivel);
     }
@@ -15,7 +15,7 @@ final class Transferencias
     {
         return TransaccionInventario::ejecutar($this->db,function()use($ctx,$accion,$datos){
             $permiso=$this->alcance->autorizar($ctx,'editar',null,true);
-            if(!in_array($accion,['solicitar','autorizar','enviar','recibir','incidencia','retornar','rechazar','cancelar'],true))throw new InventarioError('ACCION_INVALIDA','Acción de transferencia no válida.');
+            if(!in_array($accion,['solicitar','autorizar','enviar','recibir','incidencia','retornar','rechazar','cancelar','confirmar'],true))throw new InventarioError('ACCION_INVALIDA','Acción de transferencia no válida.');
             $permitidas=$accion==='solicitar'?['clave','origen_id','destino_id','lineas','motivo']:['clave','transferencia_id','version','lineas','motivo'];
             if(array_diff(array_keys($datos),$permitidas))throw new InventarioError('DATOS_INVALIDOS','Campos de transferencia no permitidos.');
             $clave=self::texto($datos['clave']??null,120);
@@ -50,6 +50,7 @@ final class Transferencias
                 if((string)self::version($datos['version']??null)!==(string)$t['version'])throw new InventarioError('VERSION_CONFLICTO','La transferencia cambió; recarga su estado.');
                 $origen=(int)$t['almacen_origen_id'];$destino=(int)$t['almacen_destino_id'];
                 $esOrigen=(int)$t['origen_unidad_id']===$unidad;$esDestino=(int)$t['destino_unidad_id']===$unidad;
+                if($t['tipo']==='regularizacion'||$accion==='confirmar')return $this->regularizacion($t,$accion,$esOrigen,$motivo,$actor,$unidad,$clave);
                 if((in_array($accion,['autorizar','enviar','retornar'],true)&&!$esOrigen)||(in_array($accion,['recibir','incidencia'],true)&&!$esDestino)||(!$esOrigen&&!$esDestino))throw new InventarioError('AMBITO_DENEGADO','Esta acción corresponde al propietario del almacén físico.');
                 $estados=['autorizar'=>['solicitada'],'enviar'=>['autorizada'],'recibir'=>['enviada','incidencia'],'incidencia'=>['enviada','incidencia'],'retornar'=>['incidencia'],'rechazar'=>['solicitada','autorizada'],'cancelar'=>['solicitada','autorizada']];
                 if(!in_array($t['estado'],$estados[$accion],true))throw new InventarioError('ESTADO_INVALIDO','La transferencia no admite esa acción en su estado actual.');
@@ -101,6 +102,31 @@ final class Transferencias
         });
     }
 
+    /**
+     * Regularización de un faltante (§16): el dueño del origen la confirma
+     * (envío, recepción y consumo en esta transacción) o la rechaza con motivo.
+     * No admite el flujo ordinario: se cancela sólo al cancelar el item vendido.
+     */
+    private function regularizacion(array $t,string $accion,bool $esOrigen,string $motivo,int $actor,int $unidad,string $clave): array
+    {
+        if($t['tipo']!=='regularizacion'||!in_array($accion,['confirmar','rechazar'],true))throw new InventarioError('ESTADO_INVALIDO','Una regularización de faltante sólo se confirma o se rechaza.');
+        if(!$esOrigen)throw new InventarioError('AMBITO_DENEGADO','La confirma o rechaza el dueño del almacén de origen.');
+        if($t['estado']!=='solicitada')throw new InventarioError('ESTADO_INVALIDO','La regularización ya no espera confirmación.');
+        $this->almacenes((int)$t['almacen_origen_id'],(int)$t['almacen_destino_id']);
+        $faltantes=new Faltantes($this->db,$actor,$this->nivel);
+        if($accion==='confirmar'){
+            $faltantes->confirmarRegularizacion($t);
+        }else{
+            $faltantes->rechazarRegularizacion($t,$motivo);
+            $this->sql("UPDATE transferencias SET estado='rechazada',version=version+1 WHERE id=?",[$t['id']]);
+            $this->sql('INSERT INTO transferencia_historial(transferencia_id,estado_anterior,estado_nuevo,actor_id,motivo) VALUES (?,?,?,?,?)',[$t['id'],$t['estado'],'rechazada',$actor,mb_substr('rechazar: '.$motivo,0,255)]);
+        }
+        $n=$this->uno('SELECT estado,version FROM transferencias WHERE id=?',[$t['id']]);
+        $r=['codigo'=>'TRANSFERENCIA_CONFIRMADA','transferencia_id'=>(int)$t['id'],'estado'=>$n['estado'],'version'=>(int)$n['version']];
+        $this->sql('UPDATE transferencia_comandos SET transferencia_id=?,resultado=? WHERE actor_id=? AND unidad_id=? AND clave=?',[$t['id'],json_encode($r,JSON_THROW_ON_ERROR),$actor,$unidad,$clave]);
+        return $r+['reintento'=>false];
+    }
+
     /** Cabeceras y cantidades documentales; nunca expone saldo ajeno. */
     public function consultar(string $ctx,int $pagina=1): array
     {
@@ -117,6 +143,7 @@ final class Transferencias
                 $t['historial']=$this->sql('SELECT h.*,u.nombre actor_nombre FROM transferencia_historial h LEFT JOIN usuarios u ON u.id=h.actor_id WHERE transferencia_id=? ORDER BY h.id',[$t['id']])->get_result()->fetch_all(MYSQLI_ASSOC);
                 $t['acciones']=[];
                 try{$this->alcance->autorizar($ctx,'editar');$propioO=(int)$t['origen_unidad_id']===$u;$propioD=(int)$t['destino_unidad_id']===$u;
+                    if($t['tipo']==='regularizacion'){if($propioO&&$t['estado']==='solicitada')array_push($t['acciones'],'confirmar','rechazar');continue;}
                     if($propioO&&$t['estado']==='solicitada')$t['acciones'][]='autorizar';
                     if($propioO&&$t['estado']==='autorizada')$t['acciones'][]='enviar';
                     if($propioD&&in_array($t['estado'],['enviada','incidencia'],true))$t['acciones'][]='recibir';

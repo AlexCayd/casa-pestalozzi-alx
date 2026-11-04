@@ -27,7 +27,7 @@ final class AdminAlmacenesController
             elseif(isset($_GET['articulo_id'])&&(!is_string($_GET['articulo_id'])||(int)$_GET['articulo_id']!==$asociar)){http_response_code(400);$asociar=null;$mensajeAsociacion='El artículo del filtro no coincide con el seleccionado.';}
             else{$_GET['articulo_id']=(string)$asociar;$vista='existencias';}
         }
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias','faltantes'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
         if($vista==='catalogo'){
             $q=is_string($_GET['q']??null)?$_GET['q']:'';$volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
             header('Location: '.$base.'/catalogo?'.http_build_query(array_filter(['q'=>$q,'volver'=>$volver])),true,302);return;
@@ -38,7 +38,7 @@ final class AdminAlmacenesController
         if (isset($_GET['solo_alertas'])) $filtros['solo_alertas']=true;
         $alertas=$_SESSION['_almacenes_flash'][$ctx]??$alertas;
         unset($_SESSION['_almacenes_flash'][$ctx]);
-        $datos=['existencias'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'almacenes'=>['almacenes'=>[],'total'=>0], 'movimientos'=>['movimientos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'catalogo'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>100], 'opcionesAlmacen'=>[], 'totalOpcionesAlmacen'=>0];
+        $datos=['existencias'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'almacenes'=>['almacenes'=>[],'total'=>0], 'movimientos'=>['movimientos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'catalogo'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>100], 'opcionesAlmacen'=>[], 'totalOpcionesAlmacen'=>0, 'faltantes'=>[], 'faltantesPendientes'=>0];
         try {
             foreach ($filtros as $campo=>$v) if ($campo!=='almacen_ids' && !is_scalar($v)) throw new InventarioError('FILTRO_INVALIDO','Los filtros no son válidos.');
             $datos=self::servicio()->consultar($ctx,$filtros,$vista);
@@ -97,7 +97,7 @@ final class AdminAlmacenesController
         $payload=$_POST;unset($payload['volver_contextual']);
         $resultado=self::servicio()->guardar($ctx,$accion,$payload);
         $vista=is_string($_POST['volver_vista']??null)?$_POST['volver_vista']:'existencias';
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias','faltantes'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
         try {
             AdministracionAlmacenes::exigirResultado($resultado);
             $_SESSION['_almacenes_flash'][$ctx]=['exito'=>['Operación confirmada correctamente.']];
