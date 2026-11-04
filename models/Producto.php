@@ -46,6 +46,10 @@ class Producto extends ActiveRecord {
     public $categoria_nombre;
     public $categoria_img;
     public $area_slug;
+    // Tipo de venta M3 (docs/arquitectura.md §16). Null en edición significa
+    // «no se envió»: no confirma ni cambia el tipo vigente.
+    public $tipo_venta;
+    public $tipo_venta_estado;
 
     /**
      * Alta y edición con sentencia preparada en lugar de las de ActiveRecord.
@@ -576,6 +580,7 @@ class ProductoMultinegocio extends Producto
             $ofertaId = (int)$db->insert_id;
             $stmt->close();
             DatosComercialesOferta::crearDesdeIdentidad($ofertaId, $productoId);
+            \Services\Menu\TipoVenta::fijar($ofertaId, $unidad, (string)$this->tipo_venta);
             self::registrarPrecio($ofertaId, $unidad, null, $precio);
             return ['resultado' => true, 'id' => $ofertaId, 'producto_id' => $productoId];
         });
@@ -623,6 +628,7 @@ class ProductoMultinegocio extends Producto
             self::ejecutar($stmt);
             $stmt->close();
             if ($cambioComercial) DatosComercialesOferta::guardarLocal($oferta, $nombre, $descripcion, $img);
+            if ($this->tipo_venta !== null) \Services\Menu\TipoVenta::fijar($oferta, $unidad, (string)$this->tipo_venta);
             if ((string)$actual['precio_anterior'] !== $precio) self::registrarPrecio($oferta, $unidad, $actual['precio_anterior'], $precio);
             return ['resultado' => true, 'id' => $oferta, 'producto_id' => $productoId];
         });
@@ -674,7 +680,7 @@ public static function find($id)
     private static function baseSelect(): string
     {
         $unidad = ContextoNegocio::unidad(ContextoNegocio::slug());
-        return 'SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, c.nombre AS categoria_nombre, c.img AS categoria_img, ap.slug AS area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id LEFT JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad;
+        return 'SELECT o.id AS id, o.id AS oferta_id, o.producto_id, o.unidad_id, p.nombre, p.descripcion, p.img, o.categoria_id, o.precio, o.area_id, o.activo, o.orden, o.tipo_venta, o.tipo_venta_estado, c.nombre AS categoria_nombre, c.img AS categoria_img, ap.slug AS area_slug FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id LEFT JOIN areas_produccion ap ON ap.id=o.area_id AND ap.unidad_id=o.unidad_id WHERE o.unidad_id=' . $unidad;
     }
 
     private static function agrupar(string $filtro): array
@@ -748,6 +754,8 @@ public static function find($id)
         $visible = (string)($f['visible'] ?? '');
         if ($visible === '0' || $visible === '1') $w[] = 'o.activo=' . $visible;
         if (($f['pendiente'] ?? '') === 'receta') $w[] = self::sinRecetaSql();
+        if (($f['tipo'] ?? '') === 'por_confirmar') $w[] = "o.tipo_venta_estado='sugerido'";
+        elseif (in_array($f['tipo'] ?? '', \Services\Menu\TipoVenta::TIPOS, true)) $w[] = "o.tipo_venta='" . $f['tipo'] . "'";
         return $w;
     }
 
@@ -817,6 +825,8 @@ public static function find($id)
         if ((int)$this->categoria_id < 1) static::setAlerta('error', 'La categoría es obligatoria');
         try { \Services\Menu\ImporteOferta::normalizar($this->precio); } catch (\InvalidArgumentException $e) { static::setAlerta('error', $e->getMessage()); }
                 if ((int)$this->area_id < 1) static::setAlerta('error', 'El área de producción es obligatoria');
+        // Un alta exige elegir tipo de venta; una edición sólo lo valida si se envió.
+        if ((empty($this->id) || $this->tipo_venta !== null) && !in_array($this->tipo_venta, \Services\Menu\TipoVenta::TIPOS, true)) static::setAlerta('error', 'Elige si el producto se prepara al momento o es de reventa');
         if (mb_strlen((string)$this->nombre) > 120) static::setAlerta('error', 'El nombre admite hasta 120 caracteres');
         return static::$alertas;
     }
@@ -841,6 +851,8 @@ public static function find($id)
 
     private static function transaccionResultado(array $resultado): array
     {
+        // Un rechazo de tipo de venta explica qué corregir; los demás conservan el mensaje genérico.
+        if (in_array($resultado['codigo'] ?? '', ['REVENTA_COMPOSICION','REVENTA_SIN_AJUSTES','TIPO_VENTA_INVALIDO'], true)) static::setAlerta('error', (string)$resultado['mensaje']);
         if (empty($resultado['ok']) || empty($resultado['confirmado'])) return [];
         return $resultado;
     }

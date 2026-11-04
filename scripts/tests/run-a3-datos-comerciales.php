@@ -22,6 +22,7 @@ function a3Crear(string $ctx, string $nombre, string $descripcion, ?string $img,
     $producto = new Model\Producto();
     $producto->sincronizar(['nombre'=>$nombre,'descripcion'=>$descripcion,'precio'=>'28.50','categoria_id'=>$destino['categoria_id'],'area_id'=>$destino['area_id'],'activo'=>1]);
     $producto->img = $img;
+    $producto->tipo_venta = 'preparado'; // M3: el alta exige tipo de venta (§16).
     $resultado = Services\Security\ContextoNegocio::en($ctx, static fn() => $producto->crear());
     $ofertaId = (int) ($resultado['id'] ?? 0);
     $relacion = $ofertaId ? Model\ActiveRecord::getDB()->execute_query('SELECT producto_id FROM ofertas_producto WHERE id=?', [$ofertaId])->fetch_row() : null;

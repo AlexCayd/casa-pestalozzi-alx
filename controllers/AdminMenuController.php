@@ -108,6 +108,9 @@ class AdminMenuController
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
             'cartaActiva' => $cartaActiva,
             'pendienteActivo' => (string) $filtros['pendiente'],
+            'tipoActivo' => (string) $filtros['tipo'],
+            'tiposPorConfirmar' => \Services\Menu\TipoVenta::pendientes(ContextoNegocio::slug()),
+            'tiposVenta' => \Services\Menu\TipoVenta::ETIQUETAS,
             'resumen' => $resumen,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
             // array_unique: $alertas es UN estático de ActiveRecord compartido
@@ -323,6 +326,30 @@ class AdminMenuController
         self::index($router);
     }
 
+    /**
+     * Confirmación en lote del tipo sugerido (§16). Las ofertas que ya no
+     * cumplen reventa quedan en «sugerido» y se explica por qué.
+     */
+    public static function confirmarTipoVenta(Router $router): void
+    {
+        AdministracionMenu::autorizar();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(AdministracionMenu::base());
+        }
+        $ids = $_POST['ofertas'] ?? [];
+        try {
+            if (!is_array($ids)) throw new \Services\Inventory\InventarioError('DATOS_INVALIDOS', 'Selecciona productos válidos.');
+            $r = \Services\Menu\TipoVenta::confirmarLote(ContextoNegocio::slug(), array_values($ids));
+            if (($r['ok'] ?? false) !== true) throw new \Services\Inventory\InventarioError((string)($r['codigo'] ?? 'ERROR'), (string)($r['mensaje'] ?? 'No se confirmó el tipo de venta.'));
+            $n = count($r['confirmadas']);
+            if ($n > 0) Producto::setAlerta('exito', $n === 1 ? 'Tipo de venta confirmado en 1 producto.' : "Tipo de venta confirmado en {$n} productos.");
+            foreach ($r['rechazadas'] as $x) Producto::setAlerta('error', $x['nombre'] . ': ' . $x['mensaje']);
+        } catch (\Throwable $e) {
+            Producto::setAlerta('error', $e instanceof \Services\Inventory\InventarioError ? $e->getMessage() : 'No se confirmó el tipo de venta.');
+        }
+        self::index($router);
+    }
+
     // ── Categorías ─────────────────────────────────────────────────────────
 
     public static function categories(Router $router): void
@@ -498,6 +525,8 @@ class AdminMenuController
         // mano al POST se copiaría tal cual a la columna.
         $platillo->img = $img;
         $platillo->activo = isset($_POST['activo']) ? 1 : 0;
+        // Sin campo en el POST no se toca el tipo vigente; enviarlo lo confirma (§16).
+        $platillo->tipo_venta = is_string($_POST['tipo_venta'] ?? null) ? $_POST['tipo_venta'] : null;
     }
 
     /**
@@ -729,11 +758,16 @@ class AdminMenuController
         $pendiente = $_GET['pendiente'] ?? '';
         $pendiente = ContextoNegocio::slug() === 'restaurante' && is_string($pendiente) && in_array($pendiente, self::PENDIENTES, true) ? $pendiente : '';
 
+        // Tipo de venta (§16): lista cerrada; «por_confirmar» son las sugerencias.
+        $tipo = $_GET['tipo'] ?? '';
+        $tipo = is_string($tipo) && in_array($tipo, ['por_confirmar', 'preparado', 'reventa'], true) ? $tipo : '';
+
         return [
             'q' => $q,
             'carta' => $carta,
             'categoria' => $categoryId ?: '',
             'pendiente' => $pendiente,
+            'tipo' => $tipo,
         ];
     }
 

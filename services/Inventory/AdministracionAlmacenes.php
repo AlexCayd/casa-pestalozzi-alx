@@ -91,10 +91,10 @@ final class AdministracionAlmacenes
                 'crear_almacen'=>['propietario','nombre','permitir_negativos'],
                 'configurar_almacen'=>['almacen_id','nombre','activo','permitir_negativos'],
                 'eliminar_almacen'=>['almacen_id'],
-                'crear_articulo','editar_articulo'=>['articulo_id','nombre','unidad','costo','activo'],
+                'crear_articulo','editar_articulo'=>['articulo_id','nombre','unidad','costo','activo','contenido_pieza'],
                 'asociar'=>['almacen_id','articulo_id','minimo'],
                 'configurar_asociacion'=>['almacen_id','articulo_id','minimo','activo'],
-                'entrada','ajuste','merma'=>['almacen_id','articulo_id','cantidad','costo_unitario','version','clave','motivo','nota'],
+                'entrada','ajuste','merma'=>['almacen_id','articulo_id','cantidad','piezas','costo_unitario','costo_por','version','clave','motivo','nota'],
                 default=>throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.'),
             };
             if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
@@ -109,6 +109,8 @@ final class AdministracionAlmacenes
                 case 'crear_articulo':
                 case 'editar_articulo':
                     $articulo=['nombre'=>self::texto($datos,'nombre'),'unidad'=>self::texto($datos,'unidad'),'costo'=>self::texto($datos,'costo'),'activo'=>isset($datos['activo'])];
+                    // Campo ausente conserva el contenido vigente; vacío lo retira.
+                    if(array_key_exists('contenido_pieza',$datos)) $articulo['contenido_pieza']=self::texto($datos,'contenido_pieza',false);
                     return $accion==='crear_articulo' ? $this->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
                 case 'asociar':
                     return $this->motor->asociarArticulo($ctx,$id('almacen_id'),$id('articulo_id'),self::texto($datos,'minimo'));
@@ -117,8 +119,21 @@ final class AdministracionAlmacenes
                 case 'entrada':
                 case 'ajuste':
                 case 'merma':
-                    $linea=['almacen_id'=>$id('almacen_id'),'articulo_id'=>$id('articulo_id'),'cantidad'=>self::texto($datos,'cantidad')];
-                    if ($accion==='entrada' && isset($datos['costo_unitario']) && $datos['costo_unitario']!=='') $linea['costo_unitario']=self::texto($datos,'costo_unitario');
+                    $linea=['almacen_id'=>$id('almacen_id'),'articulo_id'=>$id('articulo_id')];
+                    $pieza=null;
+                    if(self::texto($datos,'piezas',false)!==''){
+                        // Captura en piezas (8 botellas + 450 ml): el motor sólo recibe la unidad base.
+                        $pieza=$this->contenidoPieza($linea['articulo_id']);
+                        $linea['cantidad']=self::enUnidadBase(self::texto($datos,'piezas'),self::texto($datos,'cantidad',false),$pieza,$accion==='ajuste');
+                    } else $linea['cantidad']=self::texto($datos,'cantidad');
+                    if ($accion==='entrada' && isset($datos['costo_unitario']) && $datos['costo_unitario']!=='') {
+                        $costo=self::texto($datos,'costo_unitario');
+                        if(($datos['costo_por']??'')==='pieza'){
+                            $pieza??=$this->contenidoPieza($linea['articulo_id']);
+                            $costo=self::costoPorUnidadBase($costo,$pieza);
+                        } elseif(isset($datos['costo_por']) && !in_array($datos['costo_por'],['','unidad'],true)) throw new InventarioError('DATOS_INVALIDOS','Indica si el costo es por pieza o por unidad.');
+                        $linea['costo_unitario']=$costo;
+                    }
                     if ($accion==='ajuste') $linea['version']=self::texto($datos,'version');
                     $clave=self::texto($datos,'clave');
                     $documento=['clave'=>$clave,'referencia'=>$clave,'origen'=>'admin_almacenes','motivo'=>$accion==='merma'?self::texto($datos,'motivo'):'operacion_administrativa','nota'=>self::texto($datos,'nota',false),'lineas'=>[$linea]];
@@ -143,6 +158,37 @@ final class AdministracionAlmacenes
             if (empty($r['confirmado']) && !(($r['ok']??null)===null && !empty($r['pendiente']))) throw new InventarioError($r['codigo']??'ALTA_RECHAZADA',$r['mensaje']??'No se pudo crear el artículo.');
             return $r;
         });
+    }
+
+    private function contenidoPieza(int $articulo): string
+    {
+        $s=$this->db->prepare('SELECT contenido_pieza FROM ingredientes WHERE id=?');$s->execute([$articulo]);$r=$s->get_result()->fetch_row();$s->close();
+        if(!$r || $r[0]===null) throw new InventarioError('CONTENIDO_PIEZA_INVALIDO','Este artículo no declara contenido por pieza; captura la cantidad en su unidad.');
+        return (string)$r[0];
+    }
+
+    /** piezas × contenido + resto, exacto a milésimas. Un conteo admite cero. */
+    public static function enUnidadBase(string $piezas,string $resto,string $contenido,bool $permitirCero=false): string
+    {
+        $p=DecimalInventario::leer($piezas);$c=DecimalInventario::leer($contenido);$r=$resto===''?0:DecimalInventario::leer($resto);
+        // p y c tienen tres decimales implícitos: el producto trae seis y se exige exacto.
+        if($p>0 && $c>intdiv(PHP_INT_MAX,$p)) throw new InventarioError('DECIMAL_FUERA_RANGO','La cantidad supera el rango admitido.');
+        $bruto=$p*$c;
+        if($bruto%1000!==0) throw new InventarioError('CANTIDAD_INVALIDA','Las piezas por su contenido deben dar una cantidad exacta a milésimas.');
+        $total=DecimalInventario::sumar(intdiv($bruto,1000),$r);
+        if($total<=0 && !($permitirCero && $total===0)) throw new InventarioError('CANTIDAD_INVALIDA','La cantidad debe ser positiva.');
+        return DecimalInventario::cantidad($total);
+    }
+
+    /** Costo por pieza → costo por unidad base a cuatro decimales, mitad hacia arriba. */
+    public static function costoPorUnidadBase(string $costoPieza,string $contenido): string
+    {
+        $costo=DecimalInventario::leer($costoPieza,4);$c=DecimalInventario::leer($contenido);
+        if($c<=0) throw new InventarioError('CONTENIDO_PIEZA_INVALIDO','El contenido por pieza debe ser positivo.');
+        // (costo/10^4)/(c/10^3) expresado en diezmilésimas: costo*1000/c, redondeo half-up.
+        if($costo>intdiv(PHP_INT_MAX,1000)) throw new InventarioError('DECIMAL_FUERA_RANGO','El costo supera el rango admitido.');
+        $num=$costo*1000;$q=intdiv($num,$c);if(($num%$c)*2>=$c)$q++;
+        return DecimalInventario::formato($q,4);
     }
 
     public static function exigirResultado(array $resultado): void

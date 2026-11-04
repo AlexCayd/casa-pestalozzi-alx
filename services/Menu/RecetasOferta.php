@@ -47,6 +47,8 @@ final class RecetasOferta
                         if(!empty($comp['_conservar_version'])&&$comp['articulo_id']!==null){$prev=$db->execute_query('SELECT ca.version_receta_id FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 AND rc.articulo_id=? ORDER BY rc.id LIMIT 1',[$ofertaId,$unidadId,$comp['articulo_id']])->fetch_row();if($prev)$comp['version_receta_id']=(int)$prev[0];}
                         if($comp['version_receta_id']!==null){$ar=\Services\Inventory\Articulos::cargarReceta($comp['version_receta_id'],$unidadId);if(!$ar||!(int)$ar['publicada']||(int)$ar['articulo_id']!==(int)$comp['articulo_id'])throw new InventarioError('VERSION_DENEGADA','La versión de elaboración no está autorizada para este artículo.');}
                     }unset($comp);
+                    // Reventa confirmada (§16): un solo artículo de existencias, sin elaboración.
+                    if (TipoVenta::reventaConfirmada($ofertaId, $unidadId)) TipoVenta::validarReceta($normalizados);
                     foreach ($normalizados as $comp) {
                         if ($comp['subreceta_id'] !== null) {
                             self::exigirSubrecetaLocal($db, $comp['subreceta_id'], $unidadId);

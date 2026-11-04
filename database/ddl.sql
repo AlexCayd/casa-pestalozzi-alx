@@ -874,3 +874,15 @@ DROP TRIGGER IF EXISTS m2_componente_adoptado_delete//
 CREATE TRIGGER m2_componente_adoptado_delete BEFORE DELETE ON receta_componentes_articulos FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Versión adoptada histórica'; END//
 DELIMITER ;
+
+-- M3 · Fase 1 (docs/arquitectura.md §16): tipo de venta por oferta y contenido
+-- por pieza. Igual a database/actualizaciones/m3-tipo-venta.sql. El estado por
+-- omisión «sugerido» deja el menú original pendiente de revisión humana.
+ALTER TABLE ofertas_producto
+ ADD COLUMN tipo_venta ENUM('preparado','reventa') NOT NULL DEFAULT 'preparado',
+ ADD COLUMN tipo_venta_estado ENUM('sugerido','confirmado') NOT NULL DEFAULT 'sugerido',
+ ADD INDEX idx_oferta_tipo_venta(unidad_id,tipo_venta_estado,tipo_venta);
+ALTER TABLE ingredientes
+ ADD COLUMN contenido_pieza DECIMAL(12,3) NULL AFTER unidad,
+ ADD CONSTRAINT chk_ingrediente_contenido_pieza CHECK(contenido_pieza IS NULL OR (contenido_pieza>0 AND unidad<>'pza'));
+INSERT IGNORE INTO esquema_versiones(version) VALUES ('m3-tipo-venta');

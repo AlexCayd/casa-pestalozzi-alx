@@ -31,6 +31,24 @@ final class DecimalInventario
         return self::formato($valor);
     }
 
+    /**
+     * «8 piezas + 450 ml» para un artículo con contenido por pieza; null si no
+     * aplica o el saldo no es positivo. Sólo lectura: nunca redondea el saldo.
+     */
+    public static function enPiezas(string $saldo, ?string $contenido, string $unidad): ?string
+    {
+        if ($contenido === null || $contenido === '') return null;
+        $s = self::leer($saldo, 3, true);
+        $c = self::leer($contenido);
+        if ($s <= 0 || $c <= 0) return null;
+        $piezas = intdiv($s, $c);
+        $resto = $s % $c;
+        $texto = $piezas === 1 ? '1 pieza' : $piezas . ' piezas';
+        if ($resto === 0) return $texto;
+        $restoTxt = rtrim(rtrim(self::formato($resto), '0'), '.');
+        return ($piezas > 0 ? $texto . ' + ' : '') . $restoTxt . ' ' . $unidad;
+    }
+
     public static function sumar(int $a, int $b): int
     {
         if (($b > 0 && $a > PHP_INT_MAX - $b) || ($b < 0 && $a < PHP_INT_MIN - $b)) {

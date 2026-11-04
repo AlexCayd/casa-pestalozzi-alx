@@ -37,6 +37,8 @@ final class PresentacionesOferta
             $version=(int)A::sql('SELECT COALESCE(MAX(version),0)+1 FROM presentacion_versiones WHERE presentacion_id=?',[$pid])->get_result()->fetch_row()[0];
             $componentes=A::componentes($raw['componentes']??null);
             foreach($componentes as $h)if($h['merma']!=='0.000')throw new InventarioError('MERMA_INVALIDA','La merma se define en la elaboración, no en la presentación de servicio.');
+            // Reventa confirmada (§16): un solo artículo almacenado que se sirve tal cual.
+            if(TipoVenta::reventaConfirmada($oferta,$u))TipoVenta::validarPresentacion(array_map(static fn($h,$i)=>$h+['etapa'=>$raw['componentes'][$i]['etapa']??'servicio'],$componentes,array_keys($componentes)));
             A::sql('INSERT INTO presentacion_versiones(presentacion_id,oferta_id,unidad_id,version,precio,usuario_id) VALUES(?,?,?,?,?,?)',[$pid,$oferta,$u,$version,$precio,C::actorId()]);$vid=(int)C::db()->insert_id;
             foreach($componentes as $i=>$h){$etapa=$raw['componentes'][$i]['etapa']??'servicio';if(!in_array($etapa,['servicio','produccion'],true))throw new InventarioError('ETAPA_INVALIDA','Elige la etapa de consumo.');
                 if($activo && $etapa==='produccion')throw new InventarioError('PRODUCCION_PENDIENTE','Esta presentación depende de producción M2.5 y no puede venderse todavía.');

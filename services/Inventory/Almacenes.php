@@ -57,12 +57,13 @@ final class Almacenes
     {
         return $this->escribir(function () use ($ctx,$datos) {
             $this->global($ctx,'catalogo.editar');
-            self::claves($datos,['nombre','unidad','costo','activo']);
+            self::claves($datos,['nombre','unidad','costo','activo','contenido_pieza']);
             $nombre=self::texto($datos['nombre']??null,120);
             $unidad=self::medida($datos['unidad']??null);
             $costo=DecimalInventario::formato(DecimalInventario::leer($datos['costo']??'0.0000',4),4);
             $activo=array_key_exists('activo',$datos)?self::booleano($datos['activo']):1;
-            try { $this->sql('INSERT INTO ingredientes(nombre,unidad,costo,activo) VALUES (?,?,?,?)',[$nombre,$unidad,$costo,$activo]); }
+            $pieza=self::contenidoPieza($datos['contenido_pieza']??null,$unidad);
+            try { $this->sql('INSERT INTO ingredientes(nombre,unidad,contenido_pieza,costo,activo) VALUES (?,?,?,?,?)',[$nombre,$unidad,$pieza,$costo,$activo]); }
             catch (\mysqli_sql_exception $e) { if($e->getCode()===1062) throw new InventarioError('ARTICULO_DUPLICADO','El artículo ya existe en el catálogo maestro.'); throw $e; }
             return ['codigo'=>'ARTICULO_CREADO','articulo_id'=>(int)$this->db->insert_id];
         });
@@ -72,7 +73,7 @@ final class Almacenes
     {
         return $this->escribir(function () use($ctx,$id,$datos) {
             $this->global($ctx,'catalogo.editar');
-            self::claves($datos,['nombre','unidad','costo','activo']);
+            self::claves($datos,['nombre','unidad','costo','activo','contenido_pieza']);
             $a=$this->uno('SELECT * FROM ingredientes WHERE id=? FOR UPDATE',[$id]);
             if(!$a) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró el artículo.');
             $unidad=array_key_exists('unidad',$datos)?self::medida($datos['unidad']):$a['unidad'];
@@ -82,7 +83,9 @@ final class Almacenes
             if(!$activo && ($this->uno('SELECT 1 FROM almacen_articulos WHERE articulo_id=? AND saldo<>0 LIMIT 1 FOR SHARE',[$id]) || $this->uno("SELECT 1 FROM transferencia_lineas l JOIN transferencias t ON t.id=l.transferencia_id WHERE l.articulo_id=? AND t.estado IN('solicitada','autorizada','enviada','incidencia') LIMIT 1 FOR SHARE",[$id]))) throw new InventarioError('EXISTENCIAS_PENDIENTES','El artículo tiene existencias o transferencias pendientes.');
             $nombre=array_key_exists('nombre',$datos)?self::texto($datos['nombre'],120):$a['nombre'];
             $costo=array_key_exists('costo',$datos)?DecimalInventario::formato(DecimalInventario::leer($datos['costo'],4),4):$a['costo'];
-            try { $this->sql('UPDATE ingredientes SET nombre=?,unidad=?,costo=?,activo=? WHERE id=?',[$nombre,$unidad,$costo,$activo,$id]); }
+            // Cambiar el contenido por pieza no toca saldo ni ledger: sólo captura y lectura (§16).
+            $pieza=array_key_exists('contenido_pieza',$datos)?self::contenidoPieza($datos['contenido_pieza'],$unidad):($unidad==='pza'?null:$a['contenido_pieza']);
+            try { $this->sql('UPDATE ingredientes SET nombre=?,unidad=?,contenido_pieza=?,costo=?,activo=? WHERE id=?',[$nombre,$unidad,$pieza,$costo,$activo,$id]); }
             catch (\mysqli_sql_exception $e) { if($e->getCode()===1062) throw new InventarioError('ARTICULO_DUPLICADO','El artículo ya existe.'); throw $e; }
             return ['codigo'=>'ARTICULO_EDITADO','articulo_id'=>$id];
         });
@@ -387,6 +390,15 @@ final class Almacenes
     {
         if(!is_string($v) || ($obligatorio && trim($v)==='') || mb_strlen($v)>$max || str_contains($v,"\0")) throw new InventarioError('DATOS_INVALIDOS','Revisa los campos de texto y su longitud.');
         return trim($v);
+    }
+    /** Contenido de una pieza comercial en la unidad base; vacío = sin pieza. */
+    private static function contenidoPieza(mixed $v,string $unidad): ?string
+    {
+        if($v===null || $v==='') return null;
+        if($unidad==='pza') throw new InventarioError('CONTENIDO_PIEZA_INVALIDO','Un artículo que se cuenta en piezas no declara contenido por pieza.');
+        $q=DecimalInventario::leer(is_string($v)?trim($v):$v);
+        if($q<=0) throw new InventarioError('CONTENIDO_PIEZA_INVALIDO','El contenido por pieza debe ser positivo.');
+        return DecimalInventario::cantidad($q);
     }
     private static function booleano(mixed $v): int { if(!in_array($v,[true,false,0,1],true)) throw new InventarioError('DATOS_INVALIDOS','El estado debe ser booleano.'); return (int)$v; }
     private static function medida(mixed $v): string { if(!in_array($v,['g','kg','ml','l','pza'],true)) throw new InventarioError('UNIDAD_INVALIDA','La unidad de medida no es válida.'); return $v; }

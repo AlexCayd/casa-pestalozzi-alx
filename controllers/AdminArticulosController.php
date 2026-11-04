@@ -55,14 +55,14 @@ final class AdminArticulosController
         $alta=Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$fac,true);
         $editar=$ctx==='global'&&$alta;if($nuevo&&!$alta){http_response_code(403);self::errorVista('El alta requiere edición de Almacenes y la facultad de catálogo Global.');return;}$volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
         $alertas=($_SERVER['REQUEST_METHOD']??'GET')==='GET'?($_SESSION['_almacenes_flash'][$ctx]??[]):[];unset($_SESSION['_almacenes_flash'][$ctx]);$mensaje=null;$id=$nuevo?0:($ficha?self::id():0);
-        $datos=['nombre'=>'','unidad'=>'g','costo'=>'0.0000','activo'=>1];
-        if($id){$datos=A::sql('SELECT id,nombre,unidad,activo'.($ctx==='global'?',costo':'').' FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();if(!$datos)throw new InventarioError('ARTICULO_INVALIDO','El artículo no existe.');}
+        $datos=['nombre'=>'','unidad'=>'g','contenido_pieza'=>'','costo'=>'0.0000','activo'=>1];
+        if($id){$datos=A::sql('SELECT id,nombre,unidad,contenido_pieza,activo'.($ctx==='global'?',costo':'').' FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();if(!$datos)throw new InventarioError('ARTICULO_INVALIDO','El artículo no existe.');}
         if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
             if(!$ficha){http_response_code(405);return;}
             if(!self::csrf())return;
             if(!($nuevo?$alta:$editar)){http_response_code(403);self::errorVista('No tienes autorización para modificar la identidad maestra.');return;}
-            $datos=array_intersect_key($_POST,array_flip(['nombre','unidad','costo','activo']));$datos['activo']=isset($_POST['activo'])?1:0;
-            $payload=array_intersect_key($_POST,array_flip(['nombre','unidad','costo','activo']));if($id)$payload['articulo_id']=$id;
+            $datos=array_intersect_key($_POST,array_flip(['nombre','unidad','contenido_pieza','costo','activo']));$datos['activo']=isset($_POST['activo'])?1:0;
+            $payload=array_intersect_key($_POST,array_flip(['nombre','unidad','contenido_pieza','costo','activo']));if($id)$payload['articulo_id']=$id;
             $servicio=new \Services\Inventory\AdministracionAlmacenes(C::db(),C::actorId(),C::nivelAuth());
             $r=$servicio->guardar($ctx,$nuevo?'crear_articulo':'editar_articulo',$payload);
             try{\Services\Inventory\AdministracionAlmacenes::exigirResultado($r);$destino=$base.'/editar?id='.(int)($r['articulo_id']??$id);$_SESSION['_ux4_catalogo'][$ctx.':'.(int)($r['articulo_id']??$id)]=$nuevo?'Artículo creado sin existencias ni asociaciones.':'Identidad maestra guardada.';header('Location: '.$destino.($volver?'&'.http_build_query(['volver'=>$volver]):''),true,303);return;}

@@ -109,7 +109,7 @@ $router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 
 foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
     $router->get('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
-foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
+foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'/delete', 'confirmarTipoVenta'=>'/tipo-venta', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
 $router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
@@ -193,6 +193,7 @@ $router->get('/admin/menu/edit',                [AdminMenuController::class, 'ed
 $router->post('/admin/menu/edit',               [AdminMenuController::class, 'edit']);
 $router->post('/admin/menu/delete',             [AdminMenuController::class, 'delete']);
 $router->post('/admin/menu/toggle',             [AdminMenuController::class, 'toggle']);
+$router->post('/admin/menu/tipo-venta',         [AdminMenuController::class, 'confirmarTipoVenta']);
 $router->get('/admin/menu/variantes',           [AdminMenuController::class, 'variantes']);
 $router->post('/admin/api/menu/variantes',      [AdminMenuController::class, 'guardarVariantes']);
 $router->get('/admin/api/consultas',            [AdminConsultasController::class, 'consultar']);

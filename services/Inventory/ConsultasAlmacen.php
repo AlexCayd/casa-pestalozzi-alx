@@ -35,7 +35,7 @@ final class ConsultasAlmacen
             $alertasCond=($where?implode(' AND ',$where).' AND ':'').$alertaSql;
             $totalAlertas=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i WHERE '.$alertasCond,array_merge($args,$param))->get_result()->fetch_row()[0];
             // Ordenar antes de paginar: solo prioriza alertas del alcance elegido.
-            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.contenido_pieza,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             $mapa=[];
             foreach($articulos as $i) {
                 $id=(int)$i['articulo_id']; $i['articulo_id']=$id;
@@ -58,7 +58,13 @@ final class ConsultasAlmacen
                         'activo'=>(bool)$r['almacen_activo'],'asociacion_activa'=>(bool)$r['activo'],'version'=>(int)$r['version'],'alerta'=>$alerta];
                 }
             }
-            foreach($mapa as &$i) $i['ambitos']=array_values($i['ambitos']);
+            foreach($mapa as &$i) {
+                $i['ambitos']=array_values($i['ambitos']);
+                // Lectura en piezas (§16): el saldo sigue en la unidad base.
+                $i['saldo_piezas']=DecimalInventario::enPiezas($i['saldo_total'],$i['contenido_pieza'],$i['unidad']);
+                foreach($i['ambitos'] as &$amb) foreach($amb['almacenes'] as &$w) $w['saldo_piezas']=DecimalInventario::enPiezas($w['saldo'],$i['contenido_pieza'],$i['unidad']);
+                unset($amb,$w);
+            }
             unset($i);
             return ['codigo'=>'EXISTENCIAS_CONSULTADAS','contexto'=>$ctx,'total'=>$total,'total_alertas'=>$totalAlertas,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'articulos'=>array_values($mapa)];
         });
