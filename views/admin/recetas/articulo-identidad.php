@@ -12,6 +12,13 @@ $self=$baseCatalogo.($nuevo?'/nuevo':'/editar?id='.$id);$retorno=$self.($volverC
 <fieldset class="m2-fieldset" <?= $puedeGuardar?'':'disabled' ?>><div class="admin-form-grid">
 <label class="admin-field">Nombre<input name="nombre" maxlength="120" required value="<?= $esc($identidad['nombre']??'') ?>" autocomplete="off"></label>
 <label class="admin-field">Unidad<select name="unidad"><?php foreach(['g','kg','ml','l','pza'] as $u): ?><option <?= ($identidad['unidad']??'g')===$u?'selected':'' ?>><?= $u ?></option><?php endforeach; ?></select><span class="admin-field__hint">No cambia si tiene movimientos o composiciones referenciadas.</span></label>
+<?php
+// Contenido por pieza (arquitectura §16). DECIMAL exacto: se muestra sin los
+// ceros de relleno (750.000 → 750) y viaja tal cual; vacío = sin pieza.
+$contenidoPieza=(string)($identidad['contenido_pieza']??'');
+if(str_contains($contenidoPieza,'.'))$contenidoPieza=rtrim(rtrim($contenidoPieza,'0'),'.');
+?>
+<label class="admin-field">Contenido por pieza (opcional)<input name="contenido_pieza" type="number" min="0.001" max="999999999.999" step="0.001" inputmode="decimal" value="<?= $esc($contenidoPieza) ?>" placeholder="750" aria-describedby="contenido-pieza-ayuda"><span class="admin-field__hint" id="contenido-pieza-ayuda">Cuánto contiene una pieza comercial, en la unidad del artículo: 750 si es vino en ml y se compra por botella. Sólo para g, kg, ml o l; déjalo vacío si no se maneja por pieza.</span></label>
 <?php if($ctx==='global'||$nuevo): ?><label class="admin-field">Costo maestro por unidad<input name="costo" type="number" min="0" step="0.0001" inputmode="decimal" required value="<?= $esc($identidad['costo']??'0.0000') ?>"><span class="admin-field__hint">La capacidad «Costo de referencia conocido» distingue el cero real del costo desconocido.</span></label><?php endif; ?>
 <label class="m2-capacidad"><input name="activo" type="checkbox" value="1" <?= !empty($identidad['activo'])?'checked':'' ?>> Artículo activo</label>
 </div><?php if($puedeGuardar): ?><div class="admin-actions"><button class="admin-btn admin-btn--primary"><?= $nuevo?'Crear artículo':'Guardar identidad' ?></button></div><?php endif; ?></fieldset></form></section>

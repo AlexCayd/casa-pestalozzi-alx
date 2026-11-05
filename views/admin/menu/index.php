@@ -29,7 +29,7 @@
     $cartas = $menuCartas ?? $cartas ?? [];
     $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
     $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
-    $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'carta' => '', 'categoria' => '', 'pendiente' => ''];
+    $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'carta' => '', 'categoria' => '', 'pendiente' => '', 'tipo' => ''];
     $categoriaActiva = (int) ($categoriaActiva ?? 0);
     $cartaActiva = (string) ($cartaActiva ?? '');
     $pendienteActivo = (string) ($pendienteActivo ?? '');
@@ -135,6 +135,38 @@
     $resSinReceta = (int) $resumen['sinReceta'];
     $resOcultos = (int) $resumen['ocultos'];
     $enPendientes = $pendienteActivo === 'receta';
+
+    // Tipo de venta (arquitectura §16). «por_confirmar» es una lista de trabajo
+    // —como «sin receta»—; preparado y reventa sólo acotan el catálogo.
+    $tipoActivo = (string) ($tipoActivo ?? ($filtros['tipo'] ?? ''));
+    $tiposPorConfirmar = (int) ($tiposPorConfirmar ?? 0);
+    $tiposVenta = is_array($tiposVenta ?? null) && $tiposVenta ? $tiposVenta : \Services\Menu\TipoVenta::ETIQUETAS;
+    $enTipos = $tipoActivo === 'por_confirmar';
+
+    // Las pestañas de tipo conservan carta y categoría, como las de carta.
+    // Sueltan la lista de pendientes de receta: son dos modos del listado y
+    // mezclarlos daría cifras de tarjeta que no cuadran con la lista. Preparado
+    // y reventa conservan la búsqueda (acotan el catálogo); «Por confirmar» la
+    // suelta, porque pide la lista entera de ESA sección, como las tarjetas.
+    $buildTipoUrl = static function (string $tipo) use ($filtros, $menuBase): string {
+        $params = [];
+
+        foreach ($filtros as $key => $value) {
+            if ($key === 'tipo' || $key === 'pendiente' || (string) $value === '') {
+                continue;
+            }
+            if ($key === 'q' && $tipo === 'por_confirmar') {
+                continue;
+            }
+            $params[$key] = $value;
+        }
+
+        if ($tipo !== '') {
+            $params['tipo'] = $tipo;
+        }
+
+        return $menuBase . (empty($params) ? '' : '?' . http_build_query($params));
+    };
 ?>
 
 <?php if (!$partialOnly) : ?>
@@ -182,6 +214,10 @@
              había forma de saber cuál de los dos niveles decía qué. Si algún día
              hay una tercera carta, vuelve a «Todas» sola. */ ?>
     <?php $rotuloSinCarta = count($cartas) === 2 ? 'Ambas' : 'Todas'; ?>
+    <?php /* Carta y tipo de venta comparten renglón: los dos son el primer nivel
+             del filtro (qué pieza y cómo se vende) y apilados serían una franja
+             más entre el título y la tabla. En móvil cada uno baja a su línea. */ ?>
+    <div class="admin-menu__niveles">
     <nav class="admin-menu__cartas" aria-label="Carta del menú">
         <span class="admin-eyebrow admin-menu__cartas-label" aria-hidden="true">Carta</span>
         <div class="admin-tabs admin-tabs--links admin-menu__cartas-tabs">
@@ -199,6 +235,29 @@
             <?php endforeach; ?>
         </div>
     </nav>
+
+    <?php /* «Por confirmar» sólo aparece mientras haya algo que confirmar (o si
+             es el filtro vigente): es una tarea pasajera de la migración, no una
+             categoría del catálogo. La cifra es de todo el menú del negocio. */ ?>
+    <nav class="admin-menu__cartas admin-menu__tipos" aria-label="Tipo de venta">
+        <span class="admin-eyebrow admin-menu__cartas-label" aria-hidden="true">Tipo</span>
+        <div class="admin-tabs admin-tabs--links admin-menu__cartas-tabs">
+            <?php
+                $tiposTabs = ['' => 'Todos'] + $tiposVenta;
+                if ($tiposPorConfirmar > 0 || $enTipos) {
+                    $tiposTabs['por_confirmar'] = 'Por confirmar';
+                }
+            ?>
+            <?php foreach ($tiposTabs as $valor => $rotulo) : $valor = (string) $valor; ?>
+                <span class="admin-tabs__tab">
+                    <a href="<?php echo $esc($buildTipoUrl($valor)); ?>"
+                       class="<?php echo $tipoActivo === $valor ? 'is-active' : ''; ?>"
+                       <?php echo $tipoActivo === $valor ? 'aria-current="page"' : ''; ?>><span><?php echo $esc($rotulo); ?><?php if ($valor === 'por_confirmar') : ?> <b class="admin-menu__tipos-cuenta admin-num"><?php echo number_format($tiposPorConfirmar); ?></b><small class="admin-visually-hidden"> <?php echo $tiposPorConfirmar === 1 ? 'producto' : 'productos'; ?></small><?php endif; ?></span></a>
+                </span>
+            <?php endforeach; ?>
+        </div>
+    </nav>
+    </div>
 
     <?php /* Pestañas de categoría + tab "+" para crear una nueva en línea.
              El checkbox va aquí, hermano del formulario, para que el selector
@@ -295,7 +354,7 @@
                     'nota' => $notaPlatillos,
                     'accion' => 'Ver todos',
                     'href' => $buildPendienteUrl(''),
-                    'activa' => !$enPendientes,
+                    'activa' => !$enPendientes && !$enTipos,
                 ],
                 [
                     'tipo' => 'tarea',
@@ -331,7 +390,7 @@
               JS se oculta por _forms.scss.
             */ ?>
             <div class="admin-filters__search">
-                <label for="items-q"><?php echo $enPendientes ? 'Buscar entre los pendientes' : 'Buscar producto'; ?></label>
+                <label for="items-q"><?php echo $enPendientes || $enTipos ? 'Buscar entre los pendientes' : 'Buscar producto'; ?></label>
                 <p class="admin-filtro-buscar__nota" id="items-q-nota">Por nombre, <?php echo $alcanceAcotado ? $esc($alcanceTexto) : 'en todo el menú'; ?>.</p>
                 <input
                     aria-describedby="items-q-nota"
@@ -353,6 +412,9 @@
                          pendientes no debe devolver el catálogo entero. */ ?>
                 <input type="hidden" name="pendiente" data-reactive-control data-reactive-default=""
                        value="<?php echo $esc($filtros['pendiente'] ?? ''); ?>">
+                <?php /* Y el tipo de venta, incluida la lista «por confirmar». */ ?>
+                <input type="hidden" name="tipo" data-reactive-control data-reactive-default=""
+                       value="<?php echo $esc($filtros['tipo'] ?? ''); ?>">
             </div>
             <div class="admin-filters__actions">
                 <button type="submit" class="admin-btn admin-btn--primary" data-reactive-submit>Buscar</button>
@@ -363,7 +425,158 @@
     <div class="admin-reactive-results-shell">
         <div id="items-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
 <?php endif; ?>
-<?php if ($enPendientes) : ?>
+<?php if ($enTipos) : ?>
+    <?php /* ── Tipo de venta por confirmar (arquitectura §16) ──────────────
+             La migración sugirió un tipo para cada producto. Esta lista es la
+             revisión: se marcan los que están bien y se confirman juntos; el que
+             no, se abre y se elige en su ficha. Misma lámina que «sin receta»,
+             pero la marca es una casilla real, porque aquí sí hay un clic que
+             hacer en la fila. La fila no se estira como enlace: taparía la
+             casilla. Con la recarga parcial (búsqueda, páginas) el formulario
+             viaja dentro del bloque y el JS de selección va delegado. */ ?>
+    <?php
+        $tvEditar = $menuPuedeEditar;
+        $volverTipos = $buildTipoUrl('por_confirmar');
+        $tvBusqueda = (string) ($filtros['q'] ?? '') !== '';
+    ?>
+    <section class="admin-menu__panel admin-panel admin-card admin-menu__panel--tareas" id="items" aria-labelledby="tipos-titulo">
+        <div class="admin-panel-head admin-tareas-cabeza">
+            <div>
+                <span class="admin-eyebrow">Por confirmar<?php echo $alcanceAcotado ? ' · ' . $esc(preg_replace('/^en (la carta de )?/u', '', $alcanceTexto)) : ''; ?></span>
+                <h3 id="tipos-titulo">Tipo de venta por confirmar</h3>
+                <p>El tipo se sugirió según la composición de cada producto. Mientras no se confirme, el producto se vende como hasta ahora.<?php echo $tvEditar ? ' Marca los que estén bien y confírmalos; si uno no lo está, revísalo y elige su tipo en la ficha.' : ' Confirmarlo requiere permiso de edición del Menú.'; ?></p>
+            </div>
+            <a class="admin-btn admin-btn--secondary admin-btn--small admin-tareas-cabeza__volver" href="<?php echo $esc($buildTipoUrl('')); ?>">
+                <?php echo admin_icon('flecha-izquierda', 16, 'admin-btn__icon'); ?>
+                Todos los productos
+            </a>
+        </div>
+
+        <?php if (empty($platillos)) : ?>
+            <?php if ($tvBusqueda && $tiposPorConfirmar > 0) : ?>
+                <p class="admin-empty">Ningún producto por confirmar se llama así. Borra la búsqueda para ver los pendientes.</p>
+            <?php elseif ($resTotal === 0) : ?>
+                <p class="admin-empty">No hay productos <?php echo $esc($alcanceTexto); ?> todavía.</p>
+            <?php elseif ($alcanceAcotado && $tiposPorConfirmar > 0) : ?>
+                <?php
+                    $tcTitulo = 'Los productos ' . preg_replace('/^en /u', 'de ', $alcanceTexto) . ' tienen su tipo confirmado';
+                    $tcTexto = 'Quedan ' . number_format($tiposPorConfirmar) . ($tiposPorConfirmar === 1 ? ' producto' : ' productos') . ' por confirmar en el resto del menú.';
+                    $tcParcial = true;
+                    $tcAcciones = [
+                        ['href' => $menuBase . '?tipo=por_confirmar', 'texto' => 'Ver los que faltan', 'primaria' => true],
+                        ['href' => $buildTipoUrl(''), 'texto' => 'Volver a la lista'],
+                    ];
+                    include __DIR__ . '/../partials/_tareas-completas.php';
+                ?>
+            <?php else : ?>
+                <?php
+                    $tcTitulo = 'Todos los productos tienen su tipo de venta confirmado';
+                    $tcTexto = 'Cada uno declara si se prepara al momento o se revende tal cual.';
+                    $tcAcciones = [
+                        ['href' => $buildTipoUrl(''), 'texto' => 'Volver a la lista'],
+                    ];
+                    include __DIR__ . '/../partials/_tareas-completas.php';
+                ?>
+            <?php endif; ?>
+        <?php else : ?>
+            <?php if ($tvEditar) : ?>
+            <form method="POST" action="<?php echo $esc($menuBase . '/tipo-venta' . $sufijoLista); ?>" class="admin-menu__lote" data-seleccion-lote data-seleccion-singular="producto" data-seleccion-plural="productos">
+                <input type="hidden" name="menu_csrf" value="<?php echo $esc($menuCsrf); ?>">
+            <?php endif; ?>
+            <div class="admin-menu__lote-barra">
+                <p class="admin-tareas-cuenta">
+                    <?php if ($totalPaginas > 1 || $tvBusqueda) : ?>
+                        <span class="admin-num"><?php echo $desde; ?>–<?php echo $hasta; ?></span> de <span class="admin-num"><?php echo number_format($totalMenu); ?></span> por confirmar<?php echo $alcanceAcotado ? ' ' . $esc($alcanceTexto) : ''; ?>
+                    <?php else : ?>
+                        <span class="admin-num"><?php echo number_format($totalMenu); ?></span> por confirmar<?php echo $alcanceAcotado ? ' ' . $esc($alcanceTexto) : ''; ?>
+                    <?php endif; ?>
+                </p>
+                <?php if ($tvEditar) : ?>
+                    <?php /* «Todos» sólo existe con JS (seleccion-lote.js le quita el
+                             hidden): sin JS se marca casilla por casilla y el envío
+                             es el mismo. Alcanza la página visible, no el catálogo. */ ?>
+                    <label class="admin-menu__lote-todos" hidden data-seleccion-todos-envoltura>
+                        <input type="checkbox" data-seleccion-todos>
+                        <span>Seleccionar <?php echo count($platillos) === 1 ? 'el de esta página' : 'los ' . count($platillos) . ' de esta página'; ?></span>
+                    </label>
+                    <p class="admin-menu__lote-estado" data-seleccion-estado role="status" aria-live="polite">Marca los productos cuyo tipo sugerido es correcto.</p>
+                    <button type="submit" class="admin-btn admin-btn--primary admin-menu__lote-enviar">
+                        <?php echo admin_icon('check', 16, 'admin-btn__icon'); ?>
+                        Confirmar tipo sugerido
+                    </button>
+                <?php endif; ?>
+            </div>
+
+            <ul class="admin-tareas admin-tareas--con-foto admin-menu__tipos-lista" aria-labelledby="tipos-titulo">
+                <?php foreach ($platillos as $platillo) : ?>
+                    <?php
+                        $pid = (int) $platillo->id;
+                        $miniPropia = \Services\Menu\FotoPlatillo::url($platillo->img ?? null);
+                        $miniCategoria = $categoriasFoto[(int) $platillo->categoria_id] ?? null;
+                        $miniSrc = $miniPropia ?? $miniCategoria;
+                        $miniTipo = $miniPropia !== null ? 'propia' : ($miniCategoria !== null ? 'categoria' : 'vacia');
+                        $catNombre = $categoriasMap[(int) $platillo->categoria_id] ?? '';
+                        $areaNombre = $areasMap[(int) $platillo->area_id] ?? '';
+                        $tipoFila = (string) ($platillo->tipo_venta ?? '');
+                        $tipoTexto = $tiposVenta[$tipoFila] ?? 'Sin tipo';
+                        $fichaUrl = $menuBase . '/edit?' . http_build_query(['id' => $pid, 'volver' => $volverTipos]);
+                    ?>
+                    <li class="admin-tarea">
+                        <?php if ($tvEditar) : ?>
+                            <?php /* La celda entera es la etiqueta: el blanco táctil es la
+                                     franja de 64 px, no los 18 px de la casilla. */ ?>
+                            <label class="admin-tarea__casilla" for="tipo-oferta-<?php echo $pid; ?>">
+                                <input type="checkbox" id="tipo-oferta-<?php echo $pid; ?>" name="ofertas[]" value="<?php echo $pid; ?>"
+                                       aria-describedby="tipo-sugerido-<?php echo $pid; ?>" data-seleccion-item>
+                            </label>
+                        <?php else : ?>
+                            <span class="admin-tarea__marca" aria-hidden="true"></span>
+                        <?php endif; ?>
+                        <span class="admin-tarea__foto admin-menu__foto admin-menu__foto--<?php echo $miniTipo; ?>" aria-hidden="true">
+                            <?php if ($miniSrc !== null) : ?>
+                                <img src="<?php echo $esc($miniSrc); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
+                            <?php else : ?>
+                                <?php echo admin_icon('foto', 18); ?>
+                            <?php endif; ?>
+                        </span>
+                        <span class="admin-tarea__texto">
+                            <?php if ($tvEditar) : ?>
+                                <label class="admin-tarea__nombre" for="tipo-oferta-<?php echo $pid; ?>"><?php echo $esc($platillo->nombre); ?></label>
+                            <?php else : ?>
+                                <span class="admin-tarea__nombre"><?php echo $esc($platillo->nombre); ?></span>
+                            <?php endif; ?>
+                            <span class="admin-tarea__detalle">
+                                <?php echo $esc($catNombre !== '' ? $catNombre : 'Sin categoría'); ?><?php if ($areaNombre !== '') : ?><span aria-hidden="true"> · </span><span class="admin-visually-hidden">, </span><?php echo $esc($areaNombre); ?><?php endif; ?><?php if (!$platillo->activo) : ?><span aria-hidden="true"> · </span><span class="admin-visually-hidden">, </span>Oculto<?php endif; ?>
+                            </span>
+                        </span>
+                        <span class="admin-tarea__dato admin-menu__tipo-dato" id="tipo-sugerido-<?php echo $pid; ?>">
+                            <span class="admin-menu__tipo-rotulo">Sugerido</span>
+                            <span class="admin-menu__tipo-valor"><?php echo $esc($tipoTexto); ?></span>
+                        </span>
+                        <span class="admin-tarea__accion">
+                            <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $esc($fichaUrl); ?>"
+                               aria-label="<?php echo $tvEditar ? 'Revisar el tipo de ' : 'Consultar '; ?><?php echo $esc($platillo->nombre); ?>">
+                                <?php echo $tvEditar ? 'Revisar' : 'Consultar'; ?>
+                            </a>
+                        </span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <?php if ($tvEditar) : ?>
+            </form>
+            <?php endif; ?>
+
+            <?php
+            $pagPagina = $paginaActual;
+            $pagTotal = $totalPaginas;
+            $pagUrl = $buildItemsUrl;
+            $pagEtiqueta = 'Paginación de productos por confirmar';
+            $pagReactiva = true;
+            include __DIR__ . '/../partials/_pagination.php';
+            ?>
+        <?php endif; ?>
+    </section>
+<?php elseif ($enPendientes) : ?>
     <?php /* ── Lista de pendientes ────────────────────────────────────────
              Una fila por producto sin receta, con UNA acción: crearla. Sin la
              tabla de siete columnas: aquí no se compara nada, se trabaja de
@@ -519,6 +732,7 @@
                             <th data-sort-type="text">Producto</th>
                             <th data-sort-type="number" class="admin-menu__col-precio">Precio</th>
                             <th data-sort-type="text">Categoría y área</th>
+                            <th data-sort-type="text" class="admin-menu__col-tipo">Tipo de venta</th>
                             <th data-sort-disabled class="admin-menu__col-visible">Visible</th>
                             <th data-sort-disabled>Acciones</th>
                         </tr>
@@ -582,6 +796,20 @@
                                             pantallas sin tocar el esquema. */ ?>
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo $esc($catNombre); ?></span>
                                     <span class="admin-table__cell-sub admin-menu__area"><?php echo $esc($areasMap[(int) $platillo->area_id] ?? 'Sin área'); ?></span>
+                                </td>
+                                <?php
+                                    // Texto y no color: el tipo es un dato del producto, no
+                                    // un estado. Lo único que se marca es la sugerencia
+                                    // pendiente, con palabra, para no depender del tono.
+                                    $tipoFila = (string) ($platillo->tipo_venta ?? '');
+                                    $tipoTexto = $tiposVenta[$tipoFila] ?? 'Sin tipo';
+                                    $tipoPendiente = ($platillo->tipo_venta_estado ?? '') === 'sugerido';
+                                ?>
+                                <td class="admin-menu__col-tipo" data-sort-value="<?php echo $esc($tipoTexto . ($tipoPendiente ? ' 1' : ' 0')); ?>">
+                                    <span class="admin-menu__tipo"><?php echo $esc($tipoTexto); ?></span>
+                                    <?php if ($tipoPendiente) : ?>
+                                        <span class="admin-table__cell-sub admin-menu__tipo-pendiente">Sugerido</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="admin-menu__col-visible">
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos

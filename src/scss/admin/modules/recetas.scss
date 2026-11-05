@@ -468,3 +468,13 @@
  .m2-articulo .admin-page__header .admin-actions { width: 100%; }
  .m2-catalogo .admin-page__title { overflow-wrap: anywhere; }
 }
+
+// Reventa (arquitectura §16): una sola fila sin «Quitar», así que la columna
+// del botón sobra y el campo de cantidad cierra la fila.
+.admin-recipe__row--reventa {
+  grid-template-columns: minmax(0, 1fr) 150px;
+
+  @media (max-width: 560px) {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+}

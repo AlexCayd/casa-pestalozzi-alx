@@ -1354,3 +1354,205 @@
 .admin-table .admin-menu__foto {
   order: -1;
 }
+
+/* ── Tipo de venta (arquitectura §16) ─────────────────────────────
+ *
+ * Carta y tipo comparten el primer renglón del filtro; el `margin-bottom` que
+ * cada nav traía para apilarse lo pone ahora el contenedor, una sola vez. */
+.admin-menu__niveles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 28px;
+  margin-bottom: 12px;
+
+  .admin-menu__cartas {
+    margin-bottom: 0;
+  }
+}
+
+/* La cifra de «Por confirmar» va dentro de la pestaña. Hereda la tinta de la
+ * pestaña —apagada en reposo, la de la pastilla elegida cuando lo está— y la
+ * dibuja como contorno, así se lee en ambos estados y en ambos temas sin un
+ * color propio. Mono tabular para que no baile al confirmar en lote. */
+.admin-menu__tipos-cuenta {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
+// Columna de la tabla: un dato corto, sin cortes de línea en medio.
+.admin-menu__col-tipo {
+  white-space: nowrap;
+}
+
+.admin-menu__tipo {
+  color: var(--admin-text);
+  font-size: 13.5px;
+}
+
+.admin-table .admin-menu__tipo-pendiente {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+
+// Ficha: la nota de sugerencia va ANTES de las opciones —quien la lee sabe
+// que la opción marcada no la eligió nadie todavía— y la ayuda general,
+// después. Las dos con aire propio para no leerse como un solo párrafo.
+.admin-body .admin-menu__tipo-venta {
+  .admin-field__hint {
+    margin-top: 10px;
+  }
+
+  .admin-menu__tipo-sugerido {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin: 0 0 8px;
+  }
+}
+
+/* ── Lista «por confirmar» ───────────────────────────────────────
+ *
+ * Barra de lote: cuenta, «seleccionar todos», estado y la acción principal al
+ * final. Envuelve en pantallas estrechas y la acción toma el ancho completo,
+ * que es como se pulsa con el pulgar. */
+.admin-body .admin-menu__lote-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-bottom: 10px;
+
+  .admin-tareas-cuenta {
+    margin: 0;
+  }
+}
+
+.admin-body .admin-menu__lote-todos {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 9px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--admin-text);
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.admin-body .admin-menu__lote-estado {
+  min-height: 18px;
+  color: var(--admin-muted);
+  font-size: 12.5px;
+}
+
+.admin-body .admin-menu__lote-enviar {
+  margin-left: auto;
+}
+
+// La casilla ocupa la columna de la marca de las listas de pendientes. La
+// etiqueta llena la altura de la fila para que el blanco no sean 18 px.
+// Los márgenes negativos devuelven el relleno de la fila a la etiqueta.
+.admin-body .admin-tarea__casilla {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  align-self: stretch;
+  margin: -10px 0 -10px -12px;
+  padding-left: 12px;
+  place-items: center start;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--admin-text);
+    cursor: inherit;
+  }
+}
+
+.admin-body .admin-menu__tipos-lista label.admin-tarea__nombre {
+  cursor: pointer;
+}
+
+// Fila marcada: el fondo dice «va en el lote» además de la palomita.
+.admin-body .admin-menu__tipos-lista .admin-tarea:has(input[data-seleccion-item]:checked) {
+  background-color: var(--admin-surface-soft);
+}
+
+.admin-body .admin-menu__tipo-dato {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.admin-body .admin-menu__tipo-rotulo {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-body .admin-menu__tipo-valor {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+@include mixins.down(640px) {
+  // Las dos listas de trabajo de Menú (sin receta, tipo por confirmar): en el
+  // teléfono «Todos los productos» se comía la mitad del ancho y el texto de la
+  // cabecera quedaba en una columna de 60 px. El botón baja a su renglón.
+  .admin-body .admin-menu__panel--tareas .admin-tareas-cabeza {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-body .admin-menu__lote-enviar {
+    width: 100%;
+    min-height: 44px;
+    margin-left: 0;
+  }
+
+  .admin-body .admin-tarea__casilla {
+    margin: -10px 0 0 -4px;
+    padding-left: 4px;
+    place-items: start;
+    padding-top: 12px;
+  }
+
+  .admin-body .admin-menu__tipo-dato {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+}
+
+@media (pointer: coarse) {
+  .admin-body .admin-menu__lote-todos {
+    min-height: 44px;
+  }
+}

@@ -487,9 +487,11 @@
     function pintarOpcion(g, o, gi, oi) {
         var obligatorio = grupoObligatorio(g);
         var abierto = !!abiertos[o.key];
+        // Reventa confirmada (§16): la opción sólo mueve el precio; el resumen
+        // lo dice en vez de hablar de una receta que no se puede ajustar.
         var resumen = o.ajustes.length
             ? o.ajustes.map(fraseAjuste).join(' · ')
-            : (o.predeterminada ? 'Receta base, sin cambios' : 'No cambia la receta');
+            : (datos.solo_precio ? 'Sólo cambia el precio' : (o.predeterminada ? 'Receta base, sin cambios' : 'No cambia la receta'));
         var html = '<li class="admin-vopcion' + (o.activo ? '' : ' is-off') + (abierto ? ' is-open' : '') + '" data-opcion="' + o.key + '">' +
             '<div class="admin-vopcion__fila">';
         if (!obligatorio) {
@@ -512,10 +514,14 @@
             '</div>';
         if (abierto) {
             html += '<div class="admin-vopcion__panel">';
-            html += '<div class="admin-vopcion__panel-head"><p class="admin-vopcion__panel-titulo">Ajustes de receta de «' + esc(o.nombre || 'esta opción') + '»</p>' +
+            html += '<div class="admin-vopcion__panel-head"><p class="admin-vopcion__panel-titulo">' + (datos.solo_precio ? 'Opción «' : 'Ajustes de receta de «') + esc(o.nombre || 'esta opción') + '»</p>' +
                 '<label class="admin-switch admin-vopcion__activo"><input type="checkbox" ' + (o.activo ? 'checked' : '') + (o.predeterminada ? ' disabled' : '') + ' data-campo="activo" data-g="' + gi + '" data-o="' + oi + '">' +
                 '<span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>' +
                 '<span class="admin-switch__label">Disponible en el POS</span></label></div>';
+            if (datos.solo_precio) {
+                html += pintarSoloPrecio(o, gi, oi) + '</div>';
+                return html + '</li>';
+            }
             if (datos.puede_composicion === false) html += '<p class="admin-field__hint">Composición protegida: se requiere permiso de Recetas y autorización de Global.</p>';
             html += '<fieldset class="admin-vopcion__composicion"' + (datos.puede_composicion === false ? ' disabled' : '') + '>';
             if (o.ajustes.length) {
@@ -538,6 +544,23 @@
             html += '</fieldset></div>';
         }
         return html + '</li>';
+    }
+
+    // Panel de una opción en un producto de reventa confirmado: no se ofrece
+    // agregar, quitar ni cambiar artículos porque el servidor lo rechaza
+    // (REVENTA_SIN_AJUSTES). Si quedara algún ajuste anterior, se muestra con
+    // su botón de quitar para poder guardar; sin atajos para crear otros.
+    function pintarSoloPrecio(o, gi, oi) {
+        var html = '';
+        if (o.ajustes.length) {
+            html += '<p class="admin-vopcion__nota admin-vopcion__nota--aviso">Un producto de reventa sólo admite variantes de precio. Quita estos ajustes para poder guardar.</p>' +
+                '<fieldset class="admin-vopcion__composicion"><ol class="admin-vajustes">';
+            o.ajustes.forEach(function (a, ai) { html += pintarAjuste(a, gi, oi, ai); });
+            html += '</ol></fieldset>';
+        } else {
+            html += '<p class="admin-vopcion__vacio">Producto de reventa: esta opción sólo cambia el nombre y el precio de la línea. El artículo que se descuenta es el de su presentación o receta, y para cambiarlo se edita la composición.</p>';
+        }
+        return html;
     }
 
     function pintarGrupos() {

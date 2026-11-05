@@ -69,6 +69,9 @@ const paths = {
     // propio, así que va aquí como historial-precios; sin el campo en la
     // página no hace nada.
     "src/js/admin/core/foto-platillo.js",
+    // Selección en lote (Menú → tipo de venta por confirmar). Delegada en
+    // document porque el listado llega por recarga parcial.
+    "src/js/admin/core/seleccion-lote.js",
     // Consultas rápidas: la comparten Tickets, Análisis, Menú e Inventario.
     "src/js/admin/core/consultas-rapidas.js",
   ],

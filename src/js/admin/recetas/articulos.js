@@ -57,6 +57,22 @@
         var form = builder.closest('form');
         if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
     });
+    // Editor de reventa (un solo artículo): elegir el artículo propone su
+    // unidad, igual que en el editor general. Se puede cambiar después (750 ml
+    // de un vino guardado en l, por ejemplo); el servidor convierte.
+    document.querySelectorAll('[data-m2-reventa]').forEach(function (bloque) {
+        var articulo = bloque.querySelector('[data-m2-reventa-articulo]');
+        var unidad = bloque.querySelector('[data-m2-reventa-unidad]');
+        if (!articulo || !unidad) return;
+        articulo.addEventListener('change', function () {
+            var op = articulo.selectedOptions[0];
+            if (!op || !op.dataset.unidad) return;
+            unidad.value = op.dataset.unidad;
+            unidad.dispatchEvent(new Event('change', {bubbles:true}));
+        });
+        var form = bloque.closest('form');
+        if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
+    });
     var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
     var composicion = document.querySelector('[data-m2-builder]');
     if (accionCapacidades && accionCapacidades.form) {

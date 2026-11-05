@@ -1121,3 +1121,11 @@
     overflow-wrap: anywhere;
   }
 }
+.admin-recipe__row--reventa {
+  grid-template-columns: minmax(0, 1fr) 150px;
+}
+@media (max-width: 560px) {
+  .admin-recipe__row--reventa {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+}

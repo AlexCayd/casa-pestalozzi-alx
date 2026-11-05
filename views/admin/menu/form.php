@@ -235,6 +235,44 @@
                     <p class="admin-field__hint"><?php echo $menuContexto === 'panaderia' ? 'Área propia asignada. Puedes configurar su receta y presentación. La producción física todavía no está disponible.' : 'Determina a qué comanda se envía cuando el mesero lo pide.'; ?></p>
                 </div>
 
+                <?php /* Tipo de venta (arquitectura §16). Va junto al área porque las dos
+                         dicen cómo sale el producto, no cómo se presenta en la carta.
+                         admin-pills y no pestañas: cada opción necesita su explicación
+                         para elegir bien, y el radio real conserva el required nativo y
+                         el valor tras un POST fallido.
+
+                         En el alta no hay preselección a propósito: el servidor exige
+                         que alguien lo decida. En la edición se marca el vigente; si es
+                         una sugerencia de la migración, se dice que guardar la confirma. */ ?>
+                <?php
+                    $tiposVenta = \Services\Menu\TipoVenta::ETIQUETAS;
+                    $tipoVigente = in_array($platillo->tipo_venta ?? null, \Services\Menu\TipoVenta::TIPOS, true) ? (string) $platillo->tipo_venta : '';
+                    $tipoSugerido = !$esNuevo && ($platillo->tipo_venta_estado ?? '') === 'sugerido';
+                    $tiposAyuda = [
+                        'preparado' => 'Se descuenta con su receta o presentación: una copa de 150 ml, una pasta.',
+                        'reventa' => 'Se vende tal cual: cada unidad descuenta un solo artículo de existencias, como una botella.',
+                    ];
+                ?>
+                <fieldset class="admin-field admin-form-grid__full admin-pills admin-menu__tipo-venta" aria-describedby="tipo-venta-ayuda<?php echo $tipoSugerido ? ' tipo-venta-sugerido' : ''; ?>">
+                    <legend class="admin-field__label">Tipo de venta</legend>
+                    <?php if ($tipoSugerido) : ?>
+                        <p class="admin-field__hint admin-menu__tipo-sugerido" id="tipo-venta-sugerido"><span class="admin-badge admin-badge--neutral admin-badge--outline">Sugerido</span> Se eligió automáticamente según su composición actual y se confirmará al guardar. Mientras tanto se vende como hasta ahora.</p>
+                    <?php endif; ?>
+                    <div class="admin-pills__group">
+                        <?php foreach ($tiposVenta as $valor => $etiqueta) : ?>
+                            <label class="admin-pill">
+                                <input type="radio" name="tipo_venta" value="<?php echo htmlspecialchars($valor, ENT_QUOTES, 'UTF-8'); ?>"
+                                       <?php echo $tipoVigente === $valor ? 'checked' : ''; ?> required>
+                                <span class="admin-pill__body">
+                                    <span class="admin-pill__title"><?php echo htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="admin-pill__hint"><?php echo htmlspecialchars($tiposAyuda[$valor] ?? '', ENT_QUOTES, 'UTF-8'); ?></span>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="admin-field__hint" id="tipo-venta-ayuda">Un artículo puede ser ingrediente y reventa a la vez: la botella de vino se vende entera y también sirve las copas. Para elegir reventa, la composición vigente debe ser un solo artículo de existencias.</p>
+                </fieldset>
+
                 <div class="admin-field">
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
                     <input type="number" id="precio" name="precio" step="0.01" min="0" required

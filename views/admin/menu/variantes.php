@@ -23,8 +23,11 @@ $categoriasMap = is_array($categoriasMap ?? null) ? $categoriasMap : [];
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $precioBase = (float) ($platillo->precio ?? 0);
 $categoria = $categoriasMap[(int) ($platillo->categoria_id ?? 0)] ?? '';
+// Reventa confirmada (arquitectura §16): sólo variantes de precio. El servidor
+// rechaza los ajustes de artículos; aquí se dice antes y no se ofrecen.
+$soloPrecio = ($platillo->tipo_venta ?? '') === 'reventa' && ($platillo->tipo_venta_estado ?? '') === 'confirmado';
 $datosJson = $editorVariantes !== null
-    ? json_encode($editorVariantes + ['nombre' => (string) $platillo->nombre, 'precio' => $precioBase], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP)
+    ? json_encode($editorVariantes + ['nombre' => (string) $platillo->nombre, 'precio' => $precioBase, 'solo_precio' => $soloPrecio], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP)
     : 'null';
 ?>
 <section
@@ -38,7 +41,11 @@ $datosJson = $editorVariantes !== null
             <span class="admin-page__eyebrow">Menú · Variantes</span>
             <h1 class="admin-page__title"><?php echo $h($platillo->nombre ?? ''); ?></h1>
             <p class="admin-page__subtitle">
+                <?php if ($soloPrecio) : ?>
+                    Las opciones que el mesero elige al tomar la orden. Es un producto de reventa: cada opción sólo cambia el nombre y el precio de la línea, y el artículo que se descuenta es siempre el mismo.
+                <?php else : ?>
                 <?= $menuContexto==='panaderia'?'Configura opciones, precios y ajustes de servicio. La venta en el POS de Panadería se habilitará en una etapa posterior.':'Las opciones que el mesero elige al tomar la orden. Cada una puede mover el precio y ajustar la receta, y el inventario se descuenta con la receta que resulta.' ?>
+                <?php endif; ?>
             </p>
             <p class="admin-variantes__ficha">
                 <span>Precio base <strong class="admin-num">$<?php echo number_format($precioBase, 2); ?></strong></span>
