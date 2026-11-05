@@ -43,22 +43,18 @@ final class FinanzasNegocio
         $r = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0, 'sinCosto' => 0.0];
 
         $f = self::fila($db, "SELECT COALESCE(SUM(ti.precio*ti.cantidad),0) ingresos,
-            COALESCE(SUM(CASE WHEN ti.costo_unitario IS NULL THEN ti.precio*ti.cantidad ELSE 0 END),0) sin_costo
+            COALESCE(SUM(CASE WHEN ti.costo_unitario IS NULL THEN ti.precio*ti.cantidad ELSE 0 END),0) sin_costo,
+            COALESCE(SUM(ti.costo_unitario*ti.cantidad),0) cogs
             FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id
             WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND {$cierre}>=? AND {$cierre}<=?", [$unidad, $desde, $hasta]);
         $r['ingresos'] = (float) ($f['ingresos'] ?? 0);
         $r['sinCosto'] = (float) ($f['sin_costo'] ?? 0);
+        $r['cogs'] = (float) ($f['cogs'] ?? 0);
 
         $f = self::fila($db, "SELECT COUNT(*) n,COALESCE(SUM(t.propina),0) propinas FROM tickets t
             WHERE t.unidad_id=? AND t.estado='cerrado' AND {$cierre}>=? AND {$cierre}<=?", [$unidad, $desde, $hasta]);
         $r['tickets'] = (int) ($f['n'] ?? 0);
         $r['propinas'] = (float) ($f['propinas'] ?? 0);
-
-        $f = self::fila($db, "SELECT COALESCE(SUM(ti.costo_unitario*ti.cantidad),0) cogs
-            FROM tickets t JOIN ticket_items ti ON ti.ticket_id=t.id AND ti.unidad_id=t.unidad_id
-            WHERE t.unidad_id=? AND t.estado='cerrado' AND ti.estado<>'cancelado' AND ti.costo_unitario IS NOT NULL
-              AND {$cierre}>=? AND {$cierre}<=?", [$unidad, $desde, $hasta]);
-        $r['cogs'] = (float) ($f['cogs'] ?? 0);
 
         return $r;
     }

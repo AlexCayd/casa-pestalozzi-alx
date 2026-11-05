@@ -24,6 +24,7 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [docs/desarrollo/desarrollo.md](desarrollo.md) | Vigente | Guía de desarrollo |
 | [docs/desarrollo/instalacion.md](instalacion.md) | Vigente | Instalación de desarrollo |
 | [docs/desarrollo/interfaz.md](interfaz.md) | Vigente | Tokens, componentes y contratos visuales compartidos |
+| [docs/desarrollo/rendimiento.md](rendimiento.md) | Referencia técnica | Método, línea base y límites de medición |
 | [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
 | [docs/modelo-datos.md](../modelo-datos.md) | Referencia técnica | Inventario estático del esquema y dependencias |
 | [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
