@@ -7,7 +7,8 @@ en A4; no se planea un módulo equivalente. Los datos históricos se preservan.
 M2 incorpora artículos unificados, elaboraciones anidadas e inmutables,
 presentaciones y variantes administrativas de Panadería, con un único resolvedor
 y snapshots históricos. Siguen pendientes POS de Panadería (M3), producción
-física por lotes (M2.5) y módulos consolidados.
+física por lotes (M2.5) y devoluciones comerciales. Los comparativos de Finanzas
+y Análisis Global ya están disponibles en solo lectura.
 Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 

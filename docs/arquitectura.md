@@ -43,12 +43,11 @@ Este documento es la única fuente normativa para alcance, arquitectura, propied
 
 Casa Pestalozzi es una aplicación web PHP 8 MVC con MySQL. Una identidad compartida puede trabajar en tres ámbitos: Global, Restaurante y Panadería. Global es administrativo y no vende. Restaurante y Panadería son negocios distintos con oferta, almacenes, operaciones comerciales y finanzas propias.
 
-El cierre 3E dejó funcionales Usuarios y Almacenes en los tres ámbitos y conservó
-la operación comercial de Restaurante. M1 completó Menú de Panadería y la
-administración de identidades comerciales de Global, retirada posteriormente por
-A4. POS, tickets, pagos y finanzas de Panadería siguen pendientes; también los
-paneles consolidados de Global. La tabla, ruta, contrato preparado o elemento de
-menú de un módulo pendiente no se presenta como flujo liberado.
+Usuarios y Almacenes funcionan en los tres ámbitos; Restaurante conserva su
+operación comercial y Panadería administra su menú y recetas locales. POS,
+tickets y pagos de Panadería siguen pendientes. Finanzas y Análisis ofrecen
+comparativos Global de solo lectura. Una tabla, ruta o elemento de menú no
+convierte un módulo pendiente en flujo liberado.
 
 ## 2. Arquitectura de aplicación
 
@@ -72,7 +71,7 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
 | Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
-| Menú y ofertas | Sin módulo comercial; consulta PDF solo con permisos del dueño | Menú, ofertas y escritura comercial local | Menú, ofertas y escritura comercial local |
+| Menú y ofertas | Sin módulo comercial; consulta PDF con permisos Global y del dueño (ver §15) | Menú, ofertas y escritura comercial local | Menú, ofertas y escritura comercial local |
 | Recetas y variantes | Preparaciones de artículos compartidos; sin ofertas comerciales | Recetas operativas versionadas y variantes locales | Recetas operativas versionadas y variantes locales; POS pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
@@ -127,7 +126,7 @@ El POS futuro de Panadería sin mesas es una extensión preparada, no está habi
 
 Tickets y pagos pertenecen al negocio vendedor. Las finanzas registran egresos y hechos financieros no derivados de tickets según su contrato. Un informe no vuelve a sumar como ingreso una venta que ya calcula desde partidas/pagos del ticket. Las cuentas divididas cuadran con partidas entregadas; propina conserva su tratamiento explícito. Cancelaciones netean ventas y devoluciones futuras requieren un contrato propio.
 
-Las vistas e informes locales filtran tanto la raíz como sus relaciones. Los consolidados futuros agregarán sin multiplicar filas y sin tratar una transferencia entre negocios como venta o gasto. Costos históricos conocidos permanecen congelados; los desconocidos se muestran como desconocidos, no se sustituyen con el costo actual de una receta. Consumo neto y merma se separan.
+Las vistas e informes locales filtran tanto la raíz como sus relaciones. Los consolidados agregan sin multiplicar filas y sin tratar una transferencia entre negocios como venta o gasto. Costos históricos conocidos permanecen congelados; los desconocidos se muestran como desconocidos, no se sustituyen con el costo actual de una receta. Consumo neto y merma se separan.
 
 Restaurante conserva las consultas analíticas existentes. Los datos versionados incluyen 365 tickets analíticos con 803 líneas, además de una semana RevPASH de 26 tickets en las 11 mesas reservables y 44 asientos, sin solapamientos; también incluyen ventas locales del Asistente en 90–91 fechas observadas. El asistente actual ofrece 12 intenciones estructuradas: ventas por total/producto/categoría, top, ticket promedio, sin venta, meseros, horas pico, cancelaciones, stock, consumo y bajo stock. No calcula rentabilidad/costo, mesas, coocurrencias o finanzas como consulta del asistente, y no usa un proveedor LLM. Panadería y Global tienen su propio catálogo con el mismo motor (`ConsultasRapidasAmbito`, ver [configuración](config.md#panaderia-y-global)): Panadería pregunta por sus ventas en caja, almacenes y menú; Global lee el consolidado de almacenes con la regla de lectura de Almacenes y las transferencias, sin sumar ventas desde el Asistente. El comparativo de ventas y finanzas Global está disponible en sus módulos de sólo lectura.
 
@@ -187,7 +186,7 @@ Antes de trabajar, leer este documento y `CLAUDE.md`, identificar ámbito/propie
 
 Toda función nueva se integra con identidad, autorización, propiedad y visuales existentes. No crear autenticación, stock, oferta, tickets o UI paralelos. Cambios arquitectónicos requieren decisión justificada aquí y actualización de referencias técnicas. Separar correcciones de defectos, mejoras de lo existente y funcionalidades nuevas en el [backlog](backlog.md). Un defecto crítico no se difiere como UX.
 
-El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería, paneles financieros Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
+El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería y devoluciones comerciales posteriores siguen pendientes hasta que se implementen y prueben expresamente.
 
 ## 14. Documentación vigente
 
@@ -197,26 +196,24 @@ El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa sol
 - Referencia técnica de organización de código: §§2 y 11 de este documento y los contratos del código. Los documentos históricos de etapas anteriores no son procedimientos vigentes.
 
 
-## 10. Administración comercial M1 y retirada A4
+## 15. Administración comercial M1 y retirada A4
 
 M1 introdujo administración de menú multinegocio y M1.2 añadió Productos de la
 casa. A4 retiró ese flujo Global y sus políticas: esos contratos y resultados
 pertenecen a la historia de Git, no a la autorización vigente. Restaurante y
-Panadería conservan administración local de ofertas. Global puede leer PDFs de un
-negocio únicamente si el usuario tiene permiso de Menú en Global y el permiso
-requerido para el negocio dueño; la lectura no permite escribir sobre la oferta.
+Panadería conservan administración local de ofertas. La biblioteca y las rutas
+PDF `/admin/global/menus/*` requieren lectura de Inventario, Usuarios o Productos
+en Global. Cada PDF exige además lectura de Menú del negocio dueño. La lectura
+no permite escribir sobre la oferta.
 
 El estado vigente de propiedad, preservación y pruebas está en [Menú comercial
 local después de A4](modulos/catalogo-comercial.md) y en [Pruebas A4](desarrollo/pruebas.md#cierre-a4).
 
-## 15. M2: arquitectura unificada de artículos
+## 16. M2: arquitectura unificada de artículos
 
-Base aprobada disponible localmente: `baf089b` (`main` y `origin/main`), integración
-M1.2. Trabajo en `codex/m2-articulos-recetas-unificados`, worktree propio bajo
-`tmp/m2-articulos-recetas-unificados`. No se alteran otros worktrees. El checkout
-original conserva su modificación de AdminMenuController. La base tiene un import
-duplicado de ContextoNegocio que impide compilar ese controlador; se corrige antes
-de validar M2. No se hace push, merge ni DDL sobre la base configurada.
+M2 unifica la resolución de artículos y presentaciones. Las decisiones comerciales
+de publicación Global anteriores a A4 son históricas; el contrato local vigente
+se describe en §15.
 
 ### Auditoría y matriz de compatibilidad
 

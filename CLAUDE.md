@@ -13,14 +13,14 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
   Transferencias (M0.5-B) y el Asistente IA, con consultas preensambladas por
   ámbito: Panadería pregunta por su caja, almacenes y menú; Global, por el
   consolidado de almacenes, sin ventas ([configuración](docs/config.md#asistente-ia)).
-- **M1 / M1.2**: catálogo comercial, Menú administrativo de Panadería y productos y
-  recetas estándar de la casa publicados desde Global
+- **A4 / M2**: Menú y recetas locales, artículos unificados y presentaciones;
+  Productos de la casa y su publicación Global fueron retirados
   ([catálogo](docs/modulos/catalogo-comercial.md), [recetas](docs/modulos/recetas.md)).
 - **Finanzas**: Restaurante y Panadería (ventas en caja, referencias de
   panadería) y el consolidado de sólo lectura de Global
   ([finanzas](docs/modulos/finanzas.md)).
 - **Análisis de datos**: Restaurante, Panadería (métricas de caja, mapa de calor de
-  venta) y el comparativo de Global con los productos de la casa
+  venta) y comparativos de menús locales en Global
   ([analíticas](database/ANALITICAS.md)).
 - **Pendiente**: POS, tickets y pagos de Panadería; producción y catering
   ([backlog](docs/backlog.md)). Las

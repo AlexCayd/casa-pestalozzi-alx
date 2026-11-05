@@ -6,8 +6,8 @@ orden, disponibilidad, imágenes y categorías con el mismo recorrido de Restaur
 Finanzas, Análisis de datos y el Asistente IA son funcionales con métricas de
 panadería: sus ventas en caja contestan en cero hasta que exista la caja
 ([Finanzas](../modulos/finanzas.md), [analíticas](../../database/ANALITICAS.md)).
-Recetas administrativas completas, POS sin mesas, tickets y pagos siguen
-pendientes; no se activan desde fixtures.
+Recetas operativas versionadas y variantes se administran en el contexto local;
+el POS sin mesas, tickets y pagos siguen pendientes y no se activan desde fixtures.
 
 - [Catálogo comercial y Menú](../modulos/catalogo-comercial.md).
 
