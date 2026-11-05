@@ -24,8 +24,8 @@ Las instalaciones nuevas incorporan el DDL; no se migra la base activa.
 Cada acción requiere `inventario.editar`, contraseña, contexto propietario y
 versión vigente. Global consolidado permite lectura; no escritura extranjera.
 La petición ofrece solo identidad de la contraparte, no su saldo. La salida se
-vuelve a validar al enviar y nunca permite transferir saldo inexistente, aunque
-el almacén admita negativos para otros usos. No hay reserva entre autorización
+vuelve a validar al enviar y nunca permite transferir saldo inexistente; desde M3
+ningún almacén admite negativos. No hay reserva entre autorización
 y envío. Los almacenes deben ser distintos y las asociaciones explícitas.
 
 La recepción y el retorno expresan incrementos, no totales sobrescribibles.
@@ -46,3 +46,20 @@ genérica no puede compensar transferencias. No hay éxito antes del commit exte
 Se bloquea desactivar asociaciones o artículos con tránsito pendiente. Los
 almacenes pendientes tampoco se desactivan ni eliminan. Los movimientos, historial
 y comandos se conservan; las compensaciones nunca editan el ledger anterior.
+
+## Regularización de faltantes (M3)
+
+`transferencias.tipo` distingue `ordinaria` y `regularizacion`. Una regularización
+nace al conciliar un faltante de venta (arquitectura §16) y no admite el flujo
+ordinario (autorizar, enviar, recibir, incidencia, retornar ni cancelar manual):
+
+| Caso | Estado | Quién actúa | Efecto |
+|---|---|---|---|
+| Origen del mismo negocio | Recibida al crearse | Quien concilia | Salida del origen, entrada al almacén de consumo y consumo ligado al item, en una transacción |
+| Origen de otro propietario | Solicitada | Dueño del origen: `confirmar` | Envío, recepción y consumo en una transacción; exige saldo suficiente al confirmar |
+| Origen de otro propietario | Rechazada | Dueño del origen: `rechazar` con motivo | La parte vuelve a pendiente en el faltante |
+| Item vendido cancelado | Cancelada | Sistema, al cancelar el item | La parte en confirmación se anula |
+
+El destino sólo ve la identidad del origen; el origen sólo ve la del destino.
+El costo de la línea es el del origen y es el que guarda el consumo conciliado.
+

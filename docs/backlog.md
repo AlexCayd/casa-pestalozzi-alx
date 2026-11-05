@@ -12,6 +12,24 @@ Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 
 
+## M3: refactor de Almacenes (noviembre de 2026)
+
+Implementado en `refactor-almacenes` (arquitectura §16): tipo de venta
+preparado/reventa con sugerencia y confirmación en lote, contenido por pieza,
+faltantes de venta con conciliación de origen y regularizaciones, retiro de
+existencias negativas y selección compacta de almacenes. Queda pendiente:
+
+- Consumo de Panadería: su menú se clasifica igual, pero el consumo y los
+  faltantes se activarán cuando exista su POS.
+- Buzón del topbar: los avisos `inventario.faltante` se registran, pero el cajón
+  del topbar sólo pinta tarjetas de reservaciones; hoy el aviso visible está en
+  Almacenes.
+- Contador de faltantes en Finanzas (mitigación sugerida por el plan).
+- Nombre de la pieza: la lectura dice «piezas»; nombrarla («botellas») requiere
+  un campo propio.
+- Vinos ya registrados en `pza` con historial: se sustituyen manualmente por un
+  artículo en `ml` y se dejan como historia; no hay asistente de migración.
+
 El [contrato rector](arquitectura.md) distingue funciones operativas, contratos
 preparados y módulos pendientes. Este backlog no autoriza implementarlos como
 parte del cierre ni convierte una tabla existente en un módulo terminado.

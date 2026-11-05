@@ -45,11 +45,19 @@ no existen un motor para ingredientes y otro para subpreparaciones. Se rechazan
 ciclos por artículo, dimensiones incompatibles, versiones ajenas, rendimientos
 inválidos y cantidades que no puedan expresarse en la precisión física.
 
-Marcar «Se elabora antes de vender» distingue planificación y servicio: la venta
-requiere existencias previas del artículo almacenado incluso si el almacén
-permite negativos. Publicar la elaboración no registra producción. Una botella
-sellada puede producir conceptualmente 750 ml de vino abierto; la copa consume
-150 ml abiertos. La apertura física se reserva para M2.5.
+Marcar «Se elabora antes de vender» distingue planificación y servicio. Desde M3
+ni activar la presentación ni vender exige existencias terminadas: sin saldo, la
+venta genera un faltante pendiente de origen como cualquier artículo. Publicar la
+elaboración no registra producción. Un vino se guarda como un solo artículo en ml
+con contenido por pieza de 750: la botella de reventa descuenta 750 ml y la copa
+150 ml del mismo saldo (arquitectura §16).
+
+**Tipo de venta (M3).** Cada oferta es *preparado al momento* (receta o
+presentación) o *reventa* (un solo artículo almacenado por unidad vendida). En
+una reventa confirmada, la presentación o la receta legada aceptan un único
+componente almacenado de servicio y las variantes sólo pueden cambiar precio.
+«Ingrediente» es la capacidad `componente` del artículo («Se usa como
+ingrediente»); un artículo puede ser ingrediente y reventa a la vez.
 
 Las preparaciones antiguas se asocian manualmente al artículo correspondiente en
 el catálogo, con confirmación. Se exige la misma unidad para conservar sus

@@ -93,15 +93,19 @@ física ni un saldo editable global.
 - Global autorizado crea almacenes físicos con propietario Global, Restaurante
   o Panadería. Cambiar propietario después de operaciones no equivale a editar
   libremente una columna: requiere un flujo futuro explícito.
-- La configuración controla nombre, estado y negativos por almacén dentro del
-  alcance permitido. La baja física está limitada a almacenes sin existencias,
+- La configuración controla nombre y estado por almacén dentro del alcance
+  permitido. La política «Permitir existencias negativas» se retiró en M3: ningún
+  saldo es negativo (arquitectura §16). La baja física está limitada a almacenes sin existencias,
   operaciones o dependencias que impidan eliminarlo.
 - El maestro de artículos es compartido y solo se modifica desde Global autorizado.
   Los negocios asocian identidades existentes con mínimo y estado propios.
 - Entradas, ajustes y mermas requieren almacén y artículo explícitos. Los ajustes
   envían la versión observada para detectar cambios concurrentes.
 - Los formularios generan una clave idempotente y transmiten cantidades/costos
-  como cadenas decimales. El motor valida precisión, negativos y bloqueos.
+  como cadenas decimales. El motor valida precisión, saldo y bloqueos. Un artículo
+  con `contenido_pieza` (750 ml por botella) admite capturar entradas, mermas y
+  conteos en piezas + resto; el servidor convierte exacto a la unidad base y la
+  lectura muestra «8 piezas + 450 ml».
 - Saldos, operación y movimientos se confirman atómicamente. No presentar éxito
   mientras un resultado esté pendiente de una transacción exterior.
 
@@ -170,9 +174,9 @@ orígenes oficiales. El alta de artículos, costo, unidad y operaciones físicas
 mantiene sus permisos y facultades existentes. La unidad maestra no puede
 cambiar cuando existan composiciones históricas que dependan de ella.
 
-Los artículos de producción previa se consumen desde existencias disponibles:
-el POS no fabrica ni permite reemplazar ese requisito con saldo negativo.
-El resto conserva la política del almacén. El snapshot M2 no sustituye el ledger:
+Desde M3 una venta nunca se bloquea por saldo, tampoco con artículos «Se elabora
+antes de vender»: el almacén de consumo descuenta lo disponible, queda en 0 y el
+resto se registra como faltante pendiente de origen (sección «Faltantes»). El snapshot M2 no sustituye el ledger:
 la comanda y su inventario se confirman juntos; las compensaciones vuelven a las
 cantidades y costos de los movimientos originales. `null` expresa costo
 insuficientemente conocido y no se transforma silenciosamente en cero.
@@ -221,3 +225,33 @@ hay permiso, artículo activo y un almacén elegible. Guardar continúa usando
 `AdministracionAlmacenes::guardar` y el escritor existente; la asociación no crea
 saldo ni movimiento. El resultado permanece dentro del layout y el retorno
 autorizado conduce a la ficha exacta.
+
+## Faltantes por conciliar (M3)
+
+Contrato en [arquitectura §16](../arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario).
+
+- **Origen.** Una comanda con saldo menor al requerido descuenta lo disponible y
+  crea un faltante (`faltantes_inventario`, estado `pendiente`) ligado al item,
+  al almacén de consumo y a la operación. Un replay no duplica ni descuento ni
+  faltante. La migración `m4-faltantes.sql` convierte cada saldo negativo previo
+  en ajuste a 0 + faltante de origen `migracion`.
+- **Aviso.** Prioridad alta en el buzón (`inventario.faltante`, por almacén +
+  artículo + día) y aviso «N faltantes por conciliar» arriba de Almacenes. Una
+  entrada del artículo en cualquier almacén reabre el aviso.
+- **Bandeja** (`?vista=faltantes`, `inventario/editar` del dueño del almacén de
+  consumo): artículo, almacén, cantidad, ticket, fecha y orígenes posibles. El
+  saldo sólo se muestra en almacenes propios; los de otro propietario aparecen por
+  identidad. Se marca cuando ningún almacén propio cubre el faltante.
+- **Conciliar** (`accion=conciliar_faltante`): reparto entre uno o varios
+  almacenes con suma exacta, versión del faltante y clave idempotente. El mismo
+  almacén consume directo; otro almacén del negocio aplica una transferencia de
+  regularización creada, enviada y recibida; un almacén de otro propietario queda
+  en confirmación hasta que su dueño la confirma o la rechaza en Transferencias.
+  Ningún origen queda negativo: sin saldo suficiente, el reparto se rechaza
+  completo y el faltante sigue pendiente.
+- **Costo.** El consumo conciliado guarda el costo del origen; el ticket y
+  Finanzas conservan el costo congelado al enviar la comanda.
+- **Cancelación.** Cancelar el item anula lo pendiente y la parte en
+  confirmación (su transferencia se cancela); lo descontado o conciliado se
+  compensa al almacén de consumo como cualquier venta.
+

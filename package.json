@@ -37,7 +37,9 @@
     "test:articulos:m2": "php scripts/tests/run-resolucion-articulos-m2.php && node scripts/tests/run-articulos-m2-ui.cjs && node scripts/tests/run-articulos-capacidades-ux.cjs",
     "test:articulos:m2:db": "php scripts/tests/run-articulos-m2.php",
     "test:articulos:m2:http": "php scripts/tests/pruebas-http-m2.php",
-    "test:menu:a4:db": "php scripts/tests/run-menu-a4.php"
+    "test:menu:a4:db": "php scripts/tests/run-menu-a4.php",
+    "test:tipo-venta:db": "php scripts/tests/run-tipo-venta.php",
+    "test:faltantes:db": "php scripts/tests/run-faltantes.php"
   },
   "author": "",
   "license": "ISC",
