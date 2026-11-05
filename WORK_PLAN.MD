@@ -166,17 +166,19 @@ No trasladar chats ni volcados de código completos. Entregar **rutas + símbolo
 ## 8. Estado de ejecución — actualizar y condensar; nunca acumular logs
 
 - `BRANCH`: `codex/higiene-docs-datos-rendimiento`; base `origin/main` = `1ffe4f1ca14591b4458b05f2cbc0bdd5de9d5cdc`, fetch completado. Se reutiliza el checkout existente; otros worktrees intactos.
-- `ETAPA ACTIVA`: D2 (tras commit D1).
+- `ETAPA ACTIVA`: D3 (tras commit D2).
 - `D1`: APROBADA por validador independiente (Sol). README, CLAUDE, arquitectura, backlog, índice, pruebas y guías comerciales alineados con A4/M2/A6; Panadería sin POS.
   Retirado `docs/integracion-a6-main.md` (histórico recuperable en `1ffe4f1`); auditoría A4 conservada por dependencia de prueba. El plan inicial sin seguimiento se trasladó íntegro de `docs/WORK_PLAN.MD` a la raíz.
   Ejecutor y validador: `git diff --check`, `npm run test:js` y 234 enlaces locales PASS; corregidas dos inconsistencias de permisos PDF Global. Sin SQL. Commit de esta etapa: el que incorpora esta entrada.
-- `D2`: PENDIENTE.
+- `D2`: APROBADA por validador independiente (Sol). `docs/modelo-datos.md`: 83 tablas DDL cubiertas; 53 triggers, 165 FKs y 191 índices explícitos; A1 añade tabla y A3 reemplaza vista.
+  Historia comercial mantiene dependencias FK/triggers/imágenes; corregidos consumidores legacy de `rol_permisos` y riesgo alto. Ninguna tabla eliminable ni índice redundante demostrados.
+  Arquitectura alinea instalador; índice y expectativa documental actualizados sin quitar aserciones. Ejecutor/validador: diff, JS y 238 enlaces PASS; sin SQL ni consulta a BD. Commit: el que incorpora esta entrada.
 - `D3`: PENDIENTE.
 - `D4`: PENDIENTE.
-- `ULTIMA VALIDACION`: D1 APROBADO; referencias A6 verificadas contra Git; guardias PDF contrastadas con Permisos y MenuPdf.
-- `ULTIMO COMMIT DE ETAPA`: D1, commit que incorpora esta entrada (hash consultable con `git log -- WORK_PLAN.MD`).
+- `ULTIMA VALIDACION`: D2 APROBADO, consumidores/FK/triggers cotejados; D1 `ce030c9`.
+- `ULTIMO COMMIT DE ETAPA`: D2, commit que incorpora esta entrada.
 - `BLOQUEO ACTUAL`: ninguno.
-- `SIGUIENTE PASO`: auditoría D2 del DDL y consumidores, solo documentación; sin SQL sobre bases operativas.
+- `SIGUIENTE PASO`: preflight del entorno aislado y medición reproducible D3 antes de optimizar.
 
 Cada etapa pasa por `PENDIENTE → EN_CURSO → EN_VALIDACION → APROBADA` o `BLOQUEADA`. Al concluir, sustituir el estado anterior por **máximo cinco líneas por etapa**: archivos clave, comprobaciones ejecutadas y resultado, decisión, hash y pendientes. No registrar transcripciones de agentes, logs completos ni conversaciones. Si surge una decisión irreversible, dejar una única nota con motivo y referencia de Git.
 

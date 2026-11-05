@@ -38,6 +38,7 @@ const expectedDocs = [
   'desarrollo',
   'config.md',
   'correcciones_pendientes_arquitectura.md',
+  'modelo-datos.md',
   'modulos',
   'operacion.md',
   'panaderia',

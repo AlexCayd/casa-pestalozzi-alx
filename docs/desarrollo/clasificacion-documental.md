@@ -25,6 +25,7 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [docs/desarrollo/instalacion.md](instalacion.md) | Vigente | Instalación de desarrollo |
 | [docs/desarrollo/interfaz.md](interfaz.md) | Vigente | Tokens, componentes y contratos visuales compartidos |
 | [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
+| [docs/modelo-datos.md](../modelo-datos.md) | Referencia técnica | Inventario estático del esquema y dependencias |
 | [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
 | [docs/modulos/finanzas.md](../modulos/finanzas.md) | Referencia técnica | Finanzas por ámbito y consolidado de Global |
 | [docs/operacion.md](../operacion.md) | Vigente | Operación POS e impresión |
