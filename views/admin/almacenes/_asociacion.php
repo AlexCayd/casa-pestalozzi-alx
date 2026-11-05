@@ -1,8 +1,13 @@
 <?php
+use Services\Inventory\DecimalInventario;
 $asocId=(int)$asociacion['almacen_id']; $artId=(int)$i['articulo_id'];
 $prefijo='a-'.$asocId.'-'.$artId;
-$permiteNegativos=false;
-foreach($propios as $fisico) if((int)$fisico['almacen_id']===$asocId) $permiteNegativos=(bool)$fisico['permitir_negativos'];
+// Artículos con contenido por pieza (750 ml por botella) se capturan como se cuentan
+// en bodega: piezas completas más lo suelto. El servidor convierte a la unidad base.
+$contenidoPieza=isset($i['contenido_pieza'])&&$i['contenido_pieza']!==null&&$i['contenido_pieza']!==''&&DecimalInventario::leer((string)$i['contenido_pieza'])>0?(string)$i['contenido_pieza']:null;
+$contenidoTexto=$contenidoPieza!==null?rtrim(rtrim($contenidoPieza,'0'),'.').' '.$i['unidad']:'';
+$saldoPiezas=$asociacion['saldo_piezas']??null;
+$saldoLectura=$asociacion['saldo'].' '.$i['unidad'].($saldoPiezas?' ('.$saldoPiezas.')':'');
 ?>
 <details data-operation="configurar"><summary>Configurar asociación</summary>
 <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid">
@@ -13,12 +18,36 @@ foreach($propios as $fisico) if((int)$fisico['almacen_id']===$asocId) $permiteNe
 </form>
 </details>
 <?php if(!(int)$i['activo']): ?><p class="admin-field__hint">Artículo inactivo; Global debe reactivarlo para registrar operaciones físicas.</p><?php endif; ?>
-<?php if($asociacion['asociacion_activa'] && (int)$i['activo']): foreach(['entrada'=>'Registrar entrada','ajuste'=>'Registrar conteo físico','merma'=>'Registrar merma'] as $tipoOperacion=>$tituloOperacion): $opPrefijo=$prefijo.'-'.$tipoOperacion; ?>
+<?php if($asociacion['asociacion_activa'] && (int)$i['activo']): foreach(['entrada'=>'Registrar entrada','ajuste'=>'Registrar conteo físico','merma'=>'Registrar merma'] as $tipoOperacion=>$tituloOperacion): $opPrefijo=$prefijo.'-'.$tipoOperacion; $esConteo=$tipoOperacion==='ajuste'; ?>
 <details data-operation="<?php echo $tipoOperacion; ?>"><summary><?php echo admin_icon($tipoOperacion==='entrada'?'mas':($tipoOperacion==='merma'?'menos':'editar')); ?> <?php echo $tituloOperacion; ?></summary>
-    <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid" data-stock-operation="<?php echo $tipoOperacion; ?>" data-stock-saldo="<?php echo $esc($asociacion['saldo']); ?>" data-stock-unidad="<?php echo $esc($i['unidad']); ?>" data-confirm-delete data-confirm-eyebrow="Operación física" data-confirm-title="<?php echo $esc($tituloOperacion.' · '.$i['nombre']); ?>" data-confirm-description="<?php echo $esc($asociacion['nombre'].' · Saldo actual '.$asociacion['saldo'].' '.$i['unidad']); ?>" data-confirm-primary="Confirmar operación" data-confirm-consequence="Se registrará un movimiento trazable en este almacén. El servidor volverá a verificar permisos y saldo.">
+    <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid" data-stock-operation="<?php echo $tipoOperacion; ?>" data-stock-saldo="<?php echo $esc($asociacion['saldo']); ?>" data-stock-unidad="<?php echo $esc($i['unidad']); ?>"<?php if($contenidoPieza!==null): ?> data-stock-contenido="<?php echo $esc($contenidoPieza); ?>"<?php endif; ?> data-confirm-delete data-confirm-eyebrow="Operación física" data-confirm-title="<?php echo $esc($tituloOperacion.' · '.$i['nombre']); ?>" data-confirm-description="<?php echo $esc($asociacion['nombre'].' · Saldo actual '.$saldoLectura); ?>" data-confirm-primary="Confirmar operación" data-confirm-consequence="Se registrará un movimiento trazable en este almacén. El servidor volverá a verificar permisos y saldo.">
         <?php $campos($tipoOperacion,['almacen_id'=>$asocId,'articulo_id'=>$artId,'version'=>$asociacion['version'],'clave'=>'ui-'.bin2hex(random_bytes(16))]); ?>
-        <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-cantidad"><?php echo $tipoOperacion==='ajuste'?'Cantidad contada':'Cantidad'; ?> (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" step="0.001" <?php echo $tipoOperacion==='ajuste'?($permiteNegativos?'':'min="0"'):'min="0.001"'; ?> required inputmode="decimal" <?php echo $tipoOperacion==='ajuste'?'value="'.$esc($asociacion['saldo']).'"':''; ?>><p class="admin-field__hint"><?php echo $tipoOperacion==='ajuste'?'El conteo se rechaza si otra operación cambió el saldo desde que abriste esta página.':'Se registra una operación trazable; el saldo no se edita directamente.'; ?></p></div>
-        <?php if($tipoOperacion==='entrada'): ?><div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-costo">Costo unitario de esta entrada (opcional)</label><input id="<?php echo $opPrefijo; ?>-costo" name="costo_unitario" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="Costo maestro: <?php echo $esc($i['costo']); ?>"><p class="admin-field__hint">Queda guardado en el movimiento; no cambia el costo maestro.</p></div><?php endif; ?>
+        <?php if($contenidoPieza!==null):
+            // El conteo parte del saldo vigente expresado igual que se captura: piezas y resto.
+            $piezasIniciales='';$restoInicial='';
+            if($esConteo){$saldoMil=max(0,DecimalInventario::leer($asociacion['saldo'],3,true));$contenidoMil=DecimalInventario::leer($contenidoPieza);$piezasIniciales=(string)intdiv($saldoMil,$contenidoMil);$restoInicial=DecimalInventario::cantidad($saldoMil%$contenidoMil);}
+        ?>
+        <fieldset class="almacen-piezas admin-form-grid__full">
+            <legend class="admin-field__label"><?php echo $esConteo?'Cantidad contada':'Cantidad'; ?></legend>
+            <div class="almacen-piezas__campos">
+                <div class="admin-field"><label for="<?php echo $opPrefijo; ?>-piezas">Piezas de <?php echo $esc($contenidoTexto); ?></label><input id="<?php echo $opPrefijo; ?>-piezas" name="piezas" type="number" min="0" step="1" inputmode="numeric" value="<?php echo $esc($piezasIniciales); ?>"></div>
+                <div class="admin-field"><label for="<?php echo $opPrefijo; ?>-cantidad">Más suelto (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" min="0" step="0.001" inputmode="decimal" value="<?php echo $esc($restoInicial); ?>"></div>
+            </div>
+            <p class="admin-field__hint">Se registra en <?php echo $esc($i['unidad']); ?>: piezas por <?php echo $esc($contenidoTexto); ?> más lo suelto. Sin piezas, lo suelto es el total.<?php echo $esConteo?' El conteo se rechaza si otra operación cambió el saldo desde que abriste esta página.':''; ?></p>
+        </fieldset>
+        <?php else: ?>
+        <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-cantidad"><?php echo $esConteo?'Cantidad contada':'Cantidad'; ?> (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" step="0.001" <?php echo $esConteo?'min="0"':'min="0.001"'; ?> required inputmode="decimal" <?php echo $esConteo?'value="'.$esc($asociacion['saldo']).'"':''; ?>><p class="admin-field__hint"><?php echo $esConteo?'El conteo se rechaza si otra operación cambió el saldo desde que abriste esta página.':'Se registra una operación trazable; el saldo no se edita directamente.'; ?></p></div>
+        <?php endif; ?>
+        <?php if($tipoOperacion==='entrada'): ?><div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-costo">Costo de esta entrada (opcional)</label><input id="<?php echo $opPrefijo; ?>-costo" name="costo_unitario" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="Costo maestro: <?php echo $esc($i['costo'].' por '.$i['unidad']); ?>"><p class="admin-field__hint">Queda guardado en el movimiento; no cambia el costo maestro.</p></div>
+        <?php if($contenidoPieza!==null): ?>
+        <fieldset class="admin-pills almacen-costo-por">
+            <legend class="admin-pills__legend">El costo es</legend>
+            <div class="admin-pills__group">
+                <label class="admin-pill"><input type="radio" name="costo_por" value="unidad" checked><span class="admin-pill__body"><span class="admin-pill__title">Por <?php echo $esc($i['unidad']); ?></span></span></label>
+                <label class="admin-pill"><input type="radio" name="costo_por" value="pieza"><span class="admin-pill__body"><span class="admin-pill__title">Por pieza de <?php echo $esc($contenidoTexto); ?></span></span></label>
+            </div>
+        </fieldset>
+        <?php endif; endif; ?>
         <?php if($tipoOperacion==='merma'): ?><div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-motivo">Motivo de merma</label><select id="<?php echo $opPrefijo; ?>-motivo" name="motivo" required><?php foreach(\Services\Inventory\Inventario::MOTIVOS_MERMA as $motivo=>$nombreMotivo): ?><option value="<?php echo $esc($motivo); ?>"><?php echo $esc($nombreMotivo); ?></option><?php endforeach; ?></select></div><?php endif; ?>
         <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-nota">Nota o referencia del documento (opcional)</label><input id="<?php echo $opPrefijo; ?>-nota" name="nota" type="text" maxlength="255"></div>
         <p class="admin-field__hint admin-form-grid__full" data-stock-preview aria-live="polite">Escribe una cantidad para consultar el resultado estimado.</p>

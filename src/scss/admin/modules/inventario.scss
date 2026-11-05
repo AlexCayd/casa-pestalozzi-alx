@@ -576,7 +576,6 @@
   .admin-table td { vertical-align: top; }
   small { display: block; color: var(--admin-muted); font-size: 12px; line-height: 1.65; }
   .admin-field label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
-  button, a, input { &:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 3px; } }
 }
 .almacen-actions, .almacen-row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .almacen-actions { justify-content: flex-end; }
@@ -666,15 +665,20 @@
 .almacen-tone-5 { --warehouse-color: var(--admin-c-rosa); }
 .almacen-bar { display: flex; align-items: stretch; gap: 2px; min-height: 24px; margin: 2px 0 12px; border-radius: 3px; background: var(--admin-surface-soft); }
 .admin-body .almacen-segment { flex: var(--segment) 1 0; min-width: 0; border: 0; padding: 0; border-radius: 2px; background: var(--warehouse-color); cursor: pointer;
-  &:focus-visible { outline-offset: 3px; }
-  &.is-negative { background: repeating-linear-gradient(135deg, var(--warehouse-color), var(--warehouse-color) 4px, var(--admin-surface) 4px, var(--admin-surface) 7px); border-style: dashed; }
 }
 .almacen-zero { font-size: 10px; color: var(--admin-text); background: var(--admin-surface); padding-inline: 3px; }
 .almacen-balances { list-style: none; padding: 0; margin: 0; font-size: 12px; line-height: 1.65;
   li { display: flex; justify-content: space-between; gap: 12px; }
   li + li { margin-top: 4px; }
-  .admin-num { white-space: nowrap; }
+  .admin-num { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 }
+// Cifra en la unidad base y, debajo, su lectura en piezas, ambas al borde derecho.
+.almacen-balance-value { display: grid; justify-items: end; text-align: right;
+  .almacen-workspace & small { font-size: 11px; line-height: 1.4; }
+}
+// Bajo mínimo: la flecha del catálogo en tinta de estado; la palabra va para lectores.
+.almacen-balance-alert { display: inline-flex; color: var(--admin-warning-text); }
+.almacen-workspace .almacen-piezas-lectura { color: var(--admin-text); font-family: var(--admin-font-mono); font-size: 12px; }
 .almacen-unassociated { color: var(--admin-muted); font-size: 13px; }
 .admin-body .almacen-balance-label { border: 0; padding: 0; background: transparent; color: var(--admin-text); text-align: left; font: inherit; text-decoration: underline; text-decoration-color: var(--admin-border); text-underline-offset: 3px; cursor: pointer; }
 .almacen-row-actions { gap: 7px; .admin-btn { min-height: 36px; font-size: 12px; } }
@@ -767,3 +771,99 @@
 .almacen-contextual { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .almacen-contextual h3 { margin: 0 0 4px; }
 .almacen-contextual p { margin: 4px 0; }
+
+// alertas.php comparte su marcado con Menú, pero los estilos viven en menu.scss y
+// esta pantalla no lo carga: los avisos flash salían como texto suelto. Conciliar y
+// confirmar responden por aquí, así que se pintan con los roles de estado del panel.
+.almacen-workspace {
+  .admin-menu__flash,
+  .admin-menu__alert { margin-bottom: 16px; padding: 14px 16px; border: 1px solid; border-radius: var(--admin-radius-sm); font-size: 14px; line-height: 1.45; }
+  .admin-menu__flash--exito { border-color: var(--admin-success-border); background: var(--admin-success-bg); color: var(--admin-success-text); }
+  .admin-menu__flash--error,
+  .admin-menu__alert { border-color: var(--admin-danger-border); background: var(--admin-danger-bg); color: var(--admin-danger-text); }
+  .admin-menu__alert ul { margin: 8px 0 0 18px; }
+}
+
+/* Aviso de faltantes: lo primero de la pantalla cuando existe. Es un estado que
+   pide acción, así que lleva el ámbar de estado (fondo y borde, sin filete lateral)
+   y el texto en tinta; el botón queda secundario para no competir con la acción
+   principal de la cabecera. */
+.almacen-faltantes-aviso { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 22px; padding: 14px 18px; border: 1px solid var(--admin-warning-border); border-radius: var(--admin-radius-md); background: var(--admin-warning-bg); }
+.almacen-faltantes-aviso__icono { display: inline-flex; flex: none; color: var(--admin-warning-text); }
+.almacen-faltantes-aviso__texto { flex: 1 1 280px; min-width: 0; }
+.admin-body .almacen-faltantes-aviso__texto p { color: var(--admin-text); font-size: 13px; line-height: 1.5; }
+.admin-body .almacen-faltantes-aviso__texto .almacen-faltantes-aviso__titulo { margin-bottom: 2px; font-size: 15px; font-weight: 700; }
+
+/* Bandeja de faltantes, dentro del modal compartido. Cada faltante es un documento
+   como las transferencias: resumen en la línea del summary y, abierto, de dónde viene,
+   las cifras y el reparto. */
+.almacen-faltante > summary { justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; padding-block: 6px; }
+.almacen-faltante__head { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; font-size: 15px; }
+.almacen-faltante__resumen { color: var(--admin-muted); font-size: 13px; font-weight: 400;
+  strong { color: var(--admin-text); font-weight: 600; }
+}
+.almacen-faltante__body { display: grid; gap: 16px; padding: 6px 0 18px; }
+.admin-body .almacen-faltante__origen { color: var(--admin-text); font-size: 13px; }
+.almacen-faltante__cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 18px; margin: 0;
+  dt { color: var(--admin-muted); font-size: 12px; }
+  dd { margin: 2px 0 0; color: var(--admin-text); font-family: var(--admin-font-mono); font-size: 14px; }
+  .is-key dd { font-size: 16px; font-weight: 600; }
+  .almacen-workspace & small { font-family: var(--admin-font-sans); font-size: 12px; }
+}
+.admin-body .almacen-faltante__subtitulo { margin: 0; font-family: var(--admin-font-sans); font-size: 14px; letter-spacing: 0; }
+.almacen-faltante__asignaciones { margin: 0; padding: 0; list-style: none;
+  li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 8px 0; border-top: 1px solid var(--admin-border-soft); font-size: 13px; }
+  .admin-num { white-space: nowrap; }
+}
+.admin-body .almacen-faltante__motivo { grid-column: 1 / -1; color: var(--admin-text); font-size: 13px; }
+.almacen-faltante__nota { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--admin-warning-border); border-radius: var(--admin-radius-sm); background: var(--admin-warning-bg); color: var(--admin-text); font-size: 13px; line-height: 1.5;
+  svg { flex: none; margin-top: 2px; color: var(--admin-warning-text); }
+}
+.almacen-faltante__origenes { min-width: 0; margin: 0; padding: 0; border: 0;
+  legend { padding: 0; color: var(--admin-text); font-size: 14px; font-weight: 600; }
+  > .admin-field__hint { margin: 4px 0 0; }
+}
+.admin-body .almacen-faltante__grupo { margin: 16px 0 2px; }
+// Un renglón por almacén: quién es y cuánto tiene a la izquierda, cuánto se toma a la derecha.
+.almacen-origen { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; padding: 8px 0; border-top: 1px solid var(--admin-border-soft);
+  .almacen-workspace & label { margin: 0; font-weight: 400; cursor: pointer; }
+  &.is-empty .almacen-origen__nombre { color: var(--admin-muted); }
+}
+.almacen-origen__nombre { color: var(--admin-text); font-size: 14px; font-weight: 600; }
+.almacen-origen__campo { display: inline-flex; align-items: center; gap: 8px;
+  // La regla global de campos (0,6,1) impone ancho completo; aquí mide su cifra.
+  input { width: 9.5rem !important; font-family: var(--admin-font-mono) !important; text-align: right; }
+}
+// Sin saldo propio no hay campo que llenar: se dice con texto, no con un control apagado.
+.almacen-origen__vacio { color: var(--admin-muted); font-size: 12px; }
+.almacen-origen__unidad { min-width: 2.2em; color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 12px; }
+.admin-body .almacen-faltante__suma { min-height: 20px; margin: 4px 0 0; color: var(--admin-text); font-size: 13px; font-variant-numeric: tabular-nums;
+  &[data-state="pendiente"] { color: var(--admin-warning-text); font-weight: 600; }
+  &[data-state="exacto"] { color: var(--admin-success-text); font-weight: 600; }
+}
+.almacen-faltante__acciones { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+// Captura en piezas: «8 piezas» y «450 ml» lado a lado, como se cuentan en bodega.
+.almacen-piezas { min-width: 0; margin: 0; padding: 0; border: 0;
+  > legend { margin-bottom: 8px; padding: 0; font-size: 13px; font-weight: 600; }
+  > .admin-field__hint { margin-top: 8px; }
+}
+.almacen-piezas__campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.almacen-costo-por .admin-pill { min-width: 0; }
+
+// Ruta de una transferencia: la flecha es el SVG del catálogo, la palabra va para lectores.
+.almacen-transfer-route { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 6px;
+  .almacen-workspace & small { flex-basis: 100%; }
+}
+.almacen-transfer-route__sep { display: inline-flex; color: var(--admin-muted); }
+.admin-body .almacen-transfer-note { margin-block: .5rem .75rem; color: var(--admin-text); font-size: 13px; }
+
+@media (max-width: 600px) {
+  .almacen-faltantes-aviso .admin-btn { width: 100%; justify-content: center; }
+  .almacen-origen { grid-template-columns: minmax(0, 1fr); }
+  .almacen-origen__campo input { width: 100% !important; }
+  .almacen-origen__campo { display: flex; }
+  .almacen-faltante__asignaciones li { grid-template-columns: minmax(0, 1fr) auto; }
+  .almacen-faltante__acciones .admin-btn { width: 100%; justify-content: center; }
+  .almacen-piezas__campos { grid-template-columns: minmax(0, 1fr); }
+}

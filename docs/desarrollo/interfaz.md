@@ -120,7 +120,7 @@ compacta, filtros y paginación; la ficha conserva confirmación de impacto maes
 La biblioteca PDF reutiliza las mismas tarjetas y el servicio de documentos.
 Almacenes agrupa tarjetas en filas por propietario, conserva búsqueda visible,
 acciones físicas explícitas y modales compartidos. Las barras usan color para
-distribución, rayado para negativos y texto para alertas. Las etiquetas también
+distribución y texto para alertas (sin saldos negativos desde M3). Las etiquetas también
 abren el detalle con foco de teclado. Temas claro/oscuro, foco, Escape y móvil se
 revisan en navegador; los assets compilados se entregan junto a las fuentes.
 
@@ -275,12 +275,12 @@ complementa la validación del servidor; no la sustituye. Búsqueda, paginación
 historial conservan la selección. Configuración, catálogo e historial se muestran
 en modales; las URLs anteriores con `vista` siguen abriendo el modal adecuado.
 
-En Global, las barras usan magnitudes absolutas para la proporción y rayado para
-negativos. El saldo neto exacto procede del backend; nunca se obtiene sumando
+En Global, las barras usan el saldo de cada almacén para la proporción; desde M3
+no hay saldos negativos ni su trama. El saldo neto exacto procede del backend; nunca se obtiene sumando
 anchos o valores de coma flotante. Las etiquetas textuales y botones de detalle
 siguen disponibles con cero. Los detalles se abren por hover, foco y pulsación,
 admiten recorrerlos con el puntero y cierran con Escape. No depender del color
-para identificar saldo negativo o alerta. El resumen cuenta artículos e
+para identificar una alerta: «Bajo mínimo» lleva el SVG `baja` y texto para lectores. El resumen cuenta artículos e
 identidades, sin sumar unidades heterogéneas. El estado «Sin asociación en la
 selección» mantiene visible la identidad maestra con saldo y mínimo cero.
 
@@ -310,7 +310,21 @@ mínimo de tabla. Mantener unidades y cantidades legibles en ese formato.
 
 El [contrato de Almacenes](../modulos/almacenes.md) detalla selección autorizada,
 límites de escritura y comandos de verificación. Revisar también solo lectura,
-negativos, cero, teclado, temas y móvil sobre el harness desechable 3E.
+faltantes, piezas, cero, teclado, temas y móvil sobre el harness desechable 3E.
+
+Faltantes (M3, Fase 2): con pendientes, el aviso «N faltantes por conciliar» va
+justo después de las alertas y antes de la selección, en ámbar de estado y con
+botón secundario hacia `vista=faltantes`. La bandeja (`_faltantes.php`) usa el modal
+compartido y repite las alertas flash dentro, porque la respuesta de conciliar
+llega con el modal abierto. Cada origen es una fila; sólo los propios muestran
+saldo y el de otro negocio dice que su dueño confirma. Un origen propio sin saldo
+no emite campos: un `almacen_id` sin cantidad llegaría como fila. La suma del
+reparto se anuncia en `role="status"` con milésimas exactas (BigInt) y no bloquea
+el envío. Las regularizaciones se rotulan «Regularización de faltante» y sólo
+ofrecen confirmar (motivo editable «Confirmado») o rechazar (motivo obligatorio).
+Piezas (Fase 1): con `contenido_pieza`, entrada, merma y conteo capturan piezas y
+suelto; el conteo parte del saldo vigente así expresado y la entrada ofrece el
+costo por unidad (por omisión) o por pieza en `admin-pills`.
 
 ## Piso, reservaciones y POS
 

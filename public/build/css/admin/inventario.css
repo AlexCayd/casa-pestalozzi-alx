@@ -1019,10 +1019,6 @@
   font-size: 13px;
   font-weight: 600;
 }
-.almacen-workspace button:focus-visible, .almacen-workspace a:focus-visible, .almacen-workspace input:focus-visible {
-  outline: 2px solid var(--admin-text);
-  outline-offset: 3px;
-}
 
 .almacen-actions, .almacen-row-actions {
   display: flex;
@@ -1335,13 +1331,6 @@
   background: var(--warehouse-color);
   cursor: pointer;
 }
-.admin-body .almacen-segment:focus-visible {
-  outline-offset: 3px;
-}
-.admin-body .almacen-segment.is-negative {
-  background: repeating-linear-gradient(135deg, var(--warehouse-color), var(--warehouse-color) 4px, var(--admin-surface) 4px, var(--admin-surface) 7px);
-  border-style: dashed;
-}
 
 .almacen-zero {
   font-size: 10px;
@@ -1366,7 +1355,31 @@
   margin-top: 4px;
 }
 .almacen-balances .admin-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   white-space: nowrap;
+}
+
+.almacen-balance-value {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+.almacen-workspace .almacen-balance-value small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.almacen-balance-alert {
+  display: inline-flex;
+  color: var(--admin-warning-text);
+}
+
+.almacen-workspace .almacen-piezas-lectura {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
 }
 
 .almacen-unassociated {
@@ -1693,4 +1706,341 @@
 
 .almacen-contextual p {
   margin: 4px 0;
+}
+
+.almacen-workspace .admin-menu__flash,
+.almacen-workspace .admin-menu__alert {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid;
+  border-radius: var(--admin-radius-sm);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.almacen-workspace .admin-menu__flash--exito {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
+}
+.almacen-workspace .admin-menu__flash--error,
+.almacen-workspace .admin-menu__alert {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+}
+.almacen-workspace .admin-menu__alert ul {
+  margin: 8px 0 0 18px;
+}
+
+/* Aviso de faltantes: lo primero de la pantalla cuando existe. Es un estado que
+   pide acción, así que lleva el ámbar de estado (fondo y borde, sin filete lateral)
+   y el texto en tinta; el botón queda secundario para no competir con la acción
+   principal de la cabecera. */
+.almacen-faltantes-aviso {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0 0 22px;
+  padding: 14px 18px;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-warning-bg);
+}
+
+.almacen-faltantes-aviso__icono {
+  display: inline-flex;
+  flex: none;
+  color: var(--admin-warning-text);
+}
+
+.almacen-faltantes-aviso__texto {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.admin-body .almacen-faltantes-aviso__texto p {
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-body .almacen-faltantes-aviso__texto .almacen-faltantes-aviso__titulo {
+  margin-bottom: 2px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Bandeja de faltantes, dentro del modal compartido. Cada faltante es un documento
+   como las transferencias: resumen en la línea del summary y, abierto, de dónde viene,
+   las cifras y el reparto. */
+.almacen-faltante > summary {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding-block: 6px;
+}
+
+.almacen-faltante__head {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  font-size: 15px;
+}
+
+.almacen-faltante__resumen {
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.almacen-faltante__resumen strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.almacen-faltante__body {
+  display: grid;
+  gap: 16px;
+  padding: 6px 0 18px;
+}
+
+.admin-body .almacen-faltante__origen {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.almacen-faltante__cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+.almacen-faltante__cifras dt {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.almacen-faltante__cifras dd {
+  margin: 2px 0 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 14px;
+}
+.almacen-faltante__cifras .is-key dd {
+  font-size: 16px;
+  font-weight: 600;
+}
+.almacen-workspace .almacen-faltante__cifras small {
+  font-family: var(--admin-font-sans);
+  font-size: 12px;
+}
+
+.admin-body .almacen-faltante__subtitulo {
+  margin: 0;
+  font-family: var(--admin-font-sans);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.almacen-faltante__asignaciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.almacen-faltante__asignaciones li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--admin-border-soft);
+  font-size: 13px;
+}
+.almacen-faltante__asignaciones .admin-num {
+  white-space: nowrap;
+}
+
+.admin-body .almacen-faltante__motivo {
+  grid-column: 1/-1;
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+.almacen-faltante__nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-warning-bg);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.almacen-faltante__nota svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--admin-warning-text);
+}
+
+.almacen-faltante__origenes {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.almacen-faltante__origenes legend {
+  padding: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.almacen-faltante__origenes > .admin-field__hint {
+  margin: 4px 0 0;
+}
+
+.admin-body .almacen-faltante__grupo {
+  margin: 16px 0 2px;
+}
+
+.almacen-origen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.almacen-workspace .almacen-origen label {
+  margin: 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+.almacen-origen.is-empty .almacen-origen__nombre {
+  color: var(--admin-muted);
+}
+
+.almacen-origen__nombre {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.almacen-origen__campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.almacen-origen__campo input {
+  width: 9.5rem !important;
+  font-family: var(--admin-font-mono) !important;
+  text-align: right;
+}
+
+.almacen-origen__vacio {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.almacen-origen__unidad {
+  min-width: 2.2em;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+
+.admin-body .almacen-faltante__suma {
+  min-height: 20px;
+  margin: 4px 0 0;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .almacen-faltante__suma[data-state=pendiente] {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+.admin-body .almacen-faltante__suma[data-state=exacto] {
+  color: var(--admin-success-text);
+  font-weight: 600;
+}
+
+.almacen-faltante__acciones {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.almacen-piezas {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.almacen-piezas > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.almacen-piezas > .admin-field__hint {
+  margin-top: 8px;
+}
+
+.almacen-piezas__campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.almacen-costo-por .admin-pill {
+  min-width: 0;
+}
+
+.almacen-transfer-route {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.almacen-workspace .almacen-transfer-route small {
+  flex-basis: 100%;
+}
+
+.almacen-transfer-route__sep {
+  display: inline-flex;
+  color: var(--admin-muted);
+}
+
+.admin-body .almacen-transfer-note {
+  margin-block: 0.5rem 0.75rem;
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .almacen-faltantes-aviso .admin-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .almacen-origen {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .almacen-origen__campo input {
+    width: 100% !important;
+  }
+  .almacen-origen__campo {
+    display: flex;
+  }
+  .almacen-faltante__asignaciones li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .almacen-faltante__acciones .admin-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .almacen-piezas__campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

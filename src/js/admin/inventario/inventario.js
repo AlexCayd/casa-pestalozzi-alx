@@ -297,6 +297,19 @@
 
 // Almacenes comparte modales del panel; el servidor mantiene alcance y saldos.
 (function () {
+    // Cantidades DECIMAL(12,3) como enteros de milésimas: sumar en coma flotante
+    // daría 0.30000000000000004 donde el servidor exige la cifra exacta.
+    function mil(valor) {
+        if (!/^-?\d{1,9}(?:\.\d{1,3})?$/.test(valor)) return null;
+        const negativo = valor[0] === '-';
+        const partes = (negativo ? valor.slice(1) : valor).split('.');
+        const n = BigInt(partes[0]) * 1000n + BigInt((partes[1] || '').padEnd(3, '0'));
+        return negativo ? -n : n;
+    }
+    function decimal(n) {
+        const abs = n < 0n ? -n : n;
+        return (n < 0n ? '-' : '') + (abs / 1000n) + '.' + (abs % 1000n).toString().padStart(3, '0');
+    }
     function bootAlmacenes() {
         const workspace = document.querySelector('[data-almacenes-workspace]');
         if (!workspace) return;
@@ -360,30 +373,81 @@
         });
         workspace.querySelectorAll('form[data-stock-operation]').forEach(function (form) {
             const input = form.querySelector('[name="cantidad"]');
+            // Sólo existe si el artículo declara contenido por pieza (750 ml por botella).
+            const piezas = form.querySelector('[name="piezas"]');
             const output = form.querySelector('[data-stock-preview]');
             const originalDescription = form.dataset.confirmDescription || '';
-            function mil(valor) {
-                if (!/^-?\d{1,9}(?:\.\d{1,3})?$/.test(valor)) return null;
-                const negativo = valor[0] === '-';
-                const partes = (negativo ? valor.slice(1) : valor).split('.');
-                const n = BigInt(partes[0]) * 1000n + BigInt((partes[1] || '').padEnd(3, '0'));
-                return negativo ? -n : n;
+            const unidad = form.dataset.stockUnidad;
+            // Misma conversión que el servidor: piezas × contenido + suelto, exacta a
+            // milésimas. Sin piezas, lo suelto es el total.
+            function capturado() {
+                if (!piezas || piezas.value === '') {
+                    const total = mil(input.value);
+                    return total === null ? null : {total: total, texto: input.value + ' ' + unidad};
+                }
+                const p = mil(piezas.value), c = mil(form.dataset.stockContenido || '');
+                const suelto = input.value === '' ? 0n : mil(input.value);
+                if (p === null || c === null || suelto === null || p < 0n || suelto < 0n) return null;
+                const bruto = p * c;
+                if (bruto % 1000n !== 0n) return null;
+                const total = bruto / 1000n + suelto;
+                return {total: total, texto: piezas.value + (piezas.value === '1' ? ' pieza' : ' piezas') + ' + ' + decimal(suelto) + ' ' + unidad + ' (' + decimal(total) + ' ' + unidad + ')'};
             }
             function pintar() {
                 const saldo = mil(form.dataset.stockSaldo || '');
-                const cantidad = mil(input.value);
-                if (saldo === null || cantidad === null || (form.dataset.stockOperation !== 'ajuste' && cantidad <= 0n)) {
+                const cantidad = capturado();
+                const conteo = form.dataset.stockOperation === 'ajuste';
+                if (saldo === null || cantidad === null || (conteo ? cantidad.total < 0n : cantidad.total <= 0n)) {
                     output.textContent = 'Escribe una cantidad válida con hasta tres decimales.';
                     form.dataset.confirmDescription = originalDescription;
                     return;
                 }
-                const resultado = form.dataset.stockOperation === 'ajuste' ? cantidad : saldo + (form.dataset.stockOperation === 'merma' ? -cantidad : cantidad);
-                const abs = resultado < 0n ? -resultado : resultado;
-                const texto = (resultado < 0n ? '-' : '') + (abs / 1000n) + '.' + (abs % 1000n).toString().padStart(3, '0') + ' ' + form.dataset.stockUnidad;
-                output.textContent = 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
-                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + input.value + ' ' + form.dataset.stockUnidad + ' · Resultado estimado: ' + texto;
+                const resultado = conteo ? cantidad.total : saldo + (form.dataset.stockOperation === 'merma' ? -cantidad.total : cantidad.total);
+                const texto = decimal(resultado) + ' ' + unidad;
+                // Ningún almacén admite saldo negativo: se avisa antes de enviar, sin
+                // bloquear; el servidor es quien rechaza.
+                output.textContent = resultado < 0n
+                    ? 'Quedaría en ' + texto + '. El saldo no puede ser negativo: el servidor rechazará la operación.'
+                    : 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
+                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + cantidad.texto + ' · Resultado estimado: ' + texto;
             }
-            if (input && output) { input.addEventListener('input', pintar); pintar(); }
+            if (input && output) {
+                input.addEventListener('input', pintar);
+                if (piezas) piezas.addEventListener('input', pintar);
+                pintar();
+            }
+        });
+        // Reparto de un faltante: la suma se anuncia mientras se escribe. No bloquea el
+        // envío; el servidor exige la cifra exacta y responde con su propio mensaje.
+        workspace.querySelectorAll('form[data-faltante-form]').forEach(function (form) {
+            const restante = mil(form.dataset.faltanteRestante || '');
+            const unidad = form.dataset.faltanteUnidad || '';
+            const output = form.querySelector('[data-faltante-suma]');
+            const originalDescription = form.dataset.confirmDescription || '';
+            function pintar() {
+                let suma = 0n, invalido = false;
+                const partes = [];
+                form.querySelectorAll('[data-faltante-cantidad]').forEach(function (campo) {
+                    if (campo.disabled || campo.value === '') return;
+                    const q = mil(campo.value);
+                    if (q === null || q < 0n) { invalido = true; return; }
+                    if (q === 0n) return;
+                    suma += q;
+                    partes.push(campo.dataset.origenNombre + ' ' + decimal(q) + ' ' + unidad + (campo.dataset.origenPropio === '1' ? '' : ' (en confirmación)'));
+                });
+                form.dataset.confirmDescription = partes.length ? originalDescription + ' · ' + partes.join(' · ') : originalDescription;
+                if (!output || restante === null) return;
+                let texto;
+                if (invalido) texto = 'Revisa las cantidades: usa números positivos con hasta tres decimales.';
+                else if (suma === restante) texto = 'El reparto suma exactamente ' + decimal(restante) + ' ' + unidad + '.';
+                else if (suma === 0n) texto = 'Por repartir: ' + decimal(restante) + ' ' + unidad + '.';
+                else if (suma < restante) texto = 'Asignado ' + decimal(suma) + ' de ' + decimal(restante) + ' ' + unidad + '. Faltan ' + decimal(restante - suma) + ' ' + unidad + '.';
+                else texto = 'Asignado ' + decimal(suma) + ' de ' + decimal(restante) + ' ' + unidad + '. Sobran ' + decimal(suma - restante) + ' ' + unidad + '.';
+                output.textContent = texto;
+                output.dataset.state = invalido || (suma !== 0n && suma !== restante) ? 'pendiente' : (suma === restante ? 'exacto' : '');
+            }
+            form.addEventListener('input', pintar);
+            pintar();
         });
         workspace.querySelectorAll('[data-stock-tip]').forEach(function (button) {
             const tip = document.getElementById(button.getAttribute('popovertarget'));
@@ -461,7 +525,7 @@
         }
         const contextual = document.querySelector('[data-admin-modal][data-contextual-open="1"]');
         if (contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:contextual.id}}));
-        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', transferencias:'almacen-transferencias'}[workspace.dataset.initialView];
+        const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', transferencias:'almacen-transferencias', faltantes:'almacen-faltantes'}[workspace.dataset.initialView];
         if (initial && !contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
     }
     if (document.readyState !== 'complete') document.addEventListener('DOMContentLoaded', bootAlmacenes);
