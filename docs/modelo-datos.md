@@ -97,5 +97,13 @@ es interfaz de lectura compatible, no segunda autoridad de escritura.
    con inspección solo lectura de FKs/triggers y datos autorizados, antes de
    clasificar una candidata. No borrar tablas, índices ni adaptadores por intuición.
 
-Las pruebas de aceptación y límites están en [pruebas](desarrollo/pruebas.md).
-No se han medido rendimiento ni cardinalidad, ni comparado con la BD operativa.
+## Cierre D4
+
+**Decisión: mantener el esquema y sus adaptadores en esta intervención.** D2 no
+demostró tablas, índices, triggers ni código eliminables; la historia comercial,
+permisos, reservas, menú de 112 ofertas y ledger conservan dependencias o
+contratos. D3 justificó únicamente la consulta financiera agrupada, ya aplicada
+sin cambio de esquema. Cualquier simplificación física queda para una fase futura
+con dependencias, respaldo, reversión y regresiones aprobadas. El ensayo D3 es
+sintético y no valida POS/comanda completa ni la suite financiera; detalles y
+límites en [rendimiento](desarrollo/rendimiento.md) y [pruebas](desarrollo/pruebas.md).

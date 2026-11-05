@@ -166,22 +166,24 @@ No trasladar chats ni volcados de código completos. Entregar **rutas + símbolo
 ## 8. Estado de ejecución — actualizar y condensar; nunca acumular logs
 
 - `BRANCH`: `codex/higiene-docs-datos-rendimiento`; base `origin/main` = `1ffe4f1ca14591b4458b05f2cbc0bdd5de9d5cdc`, fetch completado. Se reutiliza el checkout existente; otros worktrees intactos.
-- `ETAPA ACTIVA`: D4 (tras commit D3).
+- `ETAPA ACTIVA`: ninguna; D1→D4 terminadas con aceptación acotada de D3 y límites de integración explícitos.
 - `D1`: APROBADA por validador independiente (Sol). README, CLAUDE, arquitectura, backlog, índice, pruebas y guías comerciales alineados con A4/M2/A6; Panadería sin POS.
   Retirado `docs/integracion-a6-main.md` (histórico recuperable en `1ffe4f1`); auditoría A4 conservada por dependencia de prueba. El plan inicial sin seguimiento se trasladó íntegro de `docs/WORK_PLAN.MD` a la raíz.
-  Ejecutor y validador: `git diff --check`, `npm run test:js` y 234 enlaces locales PASS; corregidas dos inconsistencias de permisos PDF Global. Sin SQL. Commit de esta etapa: el que incorpora esta entrada.
+  Ejecutor y validador: `git diff --check`, `npm run test:js` y 234 enlaces locales PASS; corregidas dos inconsistencias de permisos PDF Global. Sin SQL. Commit `ce030c9`.
 - `D2`: APROBADA por validador independiente (Sol). `docs/modelo-datos.md`: 83 tablas DDL cubiertas; 53 triggers, 165 FKs y 191 índices explícitos; A1 añade tabla y A3 reemplaza vista.
   Historia comercial mantiene dependencias FK/triggers/imágenes; corregidos consumidores legacy de `rol_permisos` y riesgo alto. Ninguna tabla eliminable ni índice redundante demostrados.
-  Arquitectura alinea instalador; índice y expectativa documental actualizados sin quitar aserciones. Ejecutor/validador: diff, JS y 238 enlaces PASS; sin SQL ni consulta a BD. Commit: el que incorpora esta entrada.
+  Arquitectura alinea instalador; índice y expectativa documental actualizados sin quitar aserciones. Ejecutor/validador: diff, JS y 238 enlaces PASS; sin SQL ni consulta a BD. Commit `2e7d763`.
 - `D3`: APROBADA por validador independiente (Sol), acotada a `FinanzasNegocio::agregados`. MariaDB 10.4.32 propio en datadir nuevo/loopback 33077; PHP 8.2.12, Node 24.12.0; 5 calentamientos + 30 muestras, sin base operativa.
   `FinanzasNegocio::agregados`: 3→2 consultas sin cambiar esquema/cachés; ocho igualdades base `2e7d763`/actual PASS. Medianas PHP 27.229→16.233 ms y 26.599→16.072 ms (~40%); p95 variable, no extrapolar a página completa.
   Catálogo, mapa/disponibilidad y búsqueda medidos; EXPLAIN JSON sin cambio de índice. Runner reproducible y guía `docs/desarrollo/rendimiento.md`; salida cruda privada `tmp/d3-rendimiento-91882c323e5c4e5eb8e4cb1d5bb33858/resultado-validacion.json` (26.187→15.862 ms p50).
-  Validador: PHP/JS, sintaxis/diff y 241 enlaces PASS. Comanda/transacción no medidas: SQL1064 FOR SHARE en MariaDB; suite financiera falla idéntica base/actual en gasto fijo (causa no informada), no PASS. Bases propias limpias/servidor detenido. Commit: el que incorpora esta entrada.
-- `D4`: PENDIENTE.
-- `ULTIMA VALIDACION`: D3 APROBADO acotado a agregados financieros; límites de integración anteriores conservados explícitos.
-- `ULTIMO COMMIT DE ETAPA`: D3, commit que incorpora esta entrada; D2 `2e7d763`; D1 `ce030c9`.
-- `BLOQUEO ACTUAL`: ninguno.
-- `SIGUIENTE PASO`: D4, simplificación solo con dependencia/beneficio demostrados y cierre de riesgos residuales.
+  Validador: PHP/JS, sintaxis/diff y 241 enlaces PASS. Comanda/transacción no medidas: SQL1064 FOR SHARE en MariaDB; suite financiera falla idéntica base/actual en gasto fijo (causa no informada), no PASS. Bases propias limpias/servidor detenido. Commit `d3e085d`.
+- `D4`: APROBADA por validador independiente (Sol). Cierre en modelo de datos, backlog, pruebas y Panadería: mantener esquema/adaptadores sin evidencia de retiro seguro; única simplificación demostrada ya en D3.
+  Corregidas referencias residuales a edición maestra Global/asociación comercial cruzada. Ejecutor económico Luna: diff y 243 enlaces PASS; verificador de menú 34 comprobaciones PASS; SQL/manifiesto/assets intactos contra `origin/main`.
+  Sin cambios frontend/dependencias: no procede npm ci/build; PHP/JS completos PASS D3. No nuevas instalaciones/restauración ni suites DB completas; límites D3 conservados, sin secreto local. Commit documental de cierre: el que incorpora esta entrada.
+- `ULTIMA VALIDACION`: D4 APROBADO; diff/enlaces y menú contra origin/main comprobados; D1–D4 con revisión independiente y ningún cambio destructivo sobre base operativa.
+- `ULTIMO COMMIT DE ETAPA`: D4, commit que incorpora esta entrada; D3 `d3e085d`; D2 `2e7d763`; D1 `ce030c9`.
+- `BLOQUEO ACTUAL`: ninguno para el alcance validado; pendientes integración de comanda en motor compatible y diagnóstico del fallo de gasto fijo (ver D3/backlog).
+- `SIGUIENTE PASO`: entregar resultados locales. Cualquier publicación/integración requiere autorización; no ampliar D4 para resolver incidencias previas sin una intervención específica.
 
 Cada etapa pasa por `PENDIENTE → EN_CURSO → EN_VALIDACION → APROBADA` o `BLOQUEADA`. Al concluir, sustituir el estado anterior por **máximo cinco líneas por etapa**: archivos clave, comprobaciones ejecutadas y resultado, decisión, hash y pendientes. No registrar transcripciones de agentes, logs completos ni conversaciones. Si surge una decisión irreversible, dejar una única nota con motivo y referencia de Git.
 

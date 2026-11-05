@@ -1,5 +1,12 @@
 # Pruebas y criterios de aceptación
 
+El [ensayo de rendimiento D3](rendimiento.md) documenta su reproducción, mediciones
+y límites. Para este cierre se ejecutaron `node scripts/tests/run-reservaciones-notification-docs.cjs`
+y `npm run test:menu-preservacion`; son comprobaciones documentales y de
+preservación de fixtures, no certifican POS/comanda completa, restauración,
+instalación ni la suite financiera. Esta última repitió el fallo de gasto fijo
+de Panadería en base y actual, sin causa identificada; no se declara aprobada.
+
 El [contrato rector](../arquitectura.md) fija la aceptación. Ejecutar las suites
 relacionadas con el cambio, registrar sus resultados y no presentar evidencia de
 una entrega anterior como resultado actual. Las revisiones A4, M2 y A6, sus

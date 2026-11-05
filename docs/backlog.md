@@ -42,14 +42,19 @@ Son deuda técnica identificada, no una solicitud de refactorización masiva en 
   prometer tiempos de cocina/entrega; no reconstruirla desde el estado final.
 - UI: revisar la diferencia de tipografía entre button.admin-btn y a.admin-btn
   causada por reglas globales. Requiere regresión visual de todos los módulos.
-- Analítica: medir consultas e índices por unidad con EXPLAIN antes de proponer
-  optimizaciones. Revisar agrupación por categoría/identidad cuando se renombre
-  el catálogo; no modificar snapshots históricos para unificar series.
+- Analítica: revisar agrupación por categoría/identidad cuando se renombre el
+  catálogo; no modificar snapshots históricos para unificar series. La línea
+  base D3 midió servicios aislados, sin validar página completa ni POS/comanda.
 
-M1 entrega [Catálogo comercial y Menú](modulos/catalogo-comercial.md): administración
-local de ofertas y categorías, asociación de identidades y edición maestra Global
-con facultad comercial independiente. La carta pública y ventas de Panadería
-siguen pendientes; no habilitar sus acciones desde Menú.
+Límites D3 que siguen abiertos: comanda no se midió porque MariaDB 10.4.32
+rechazó `FOR SHARE` (1064); debe repetirse en motor compatible y base aislada.
+La suite financiera falló en la misma aserción de gasto fijo de Panadería tanto
+en base como en actual; la causa no quedó identificada y no es un PASS.
+
+El [Catálogo comercial y Menú](modulos/catalogo-comercial.md) administra ofertas
+y categorías locales en cada negocio. No ofrece edición maestra Global: las
+ofertas pertenecen a cada negocio. La carta pública y ventas de Panadería siguen
+pendientes; no habilitar sus acciones desde Menú.
 
 ## Mejoras de funcionalidades existentes
 

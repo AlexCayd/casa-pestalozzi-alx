@@ -1,8 +1,9 @@
 # Panadería
 
 Usuarios y Almacenes son funcionales mediante componentes compartidos con los
-otros ámbitos. Menú administrativo M1 permite altas, asociación de identidades, ofertas, precios,
-orden, disponibilidad, imágenes y categorías con el mismo recorrido de Restaurante.
+otros ámbitos. El menú administrativo permite administrar ofertas locales:
+altas, precios, orden, disponibilidad, imágenes y categorías, con el mismo
+recorrido de Restaurante.
 Finanzas, Análisis de datos y el Asistente IA son funcionales con métricas de
 panadería: sus ventas en caja contestan en cero hasta que exista la caja
 ([Finanzas](../modulos/finanzas.md), [analíticas](../../database/ANALITICAS.md)).
