@@ -39,7 +39,7 @@
     "test:articulos:m2:http": "php scripts/tests/pruebas-http-m2.php",
     "test:menu:a4:db": "php scripts/tests/run-menu-a4.php",
     "test:tipo-venta:db": "php scripts/tests/run-tipo-venta.php",
-    "test:faltantes:db": "php scripts/tests/run-faltantes.php"
+    "test:faltantes:db": "php scripts/tests/run-faltantes.php && php scripts/tests/run-faltantes-vista-db.php"
   },
   "author": "",
   "license": "ISC",

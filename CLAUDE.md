@@ -22,6 +22,9 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
 - **Análisis de datos**: Restaurante, Panadería (métricas de caja, mapa de calor de
   venta) y el comparativo de Global con los productos de la casa
   ([analíticas](database/ANALITICAS.md)).
+- **M3 (refactor de Almacenes)**: tipo de venta preparado/reventa, contenido por
+  pieza, faltantes de venta con conciliación de origen y regularizaciones; ningún
+  saldo es negativo ([arquitectura §16](docs/arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario)).
 - **Pendiente**: POS, tickets y pagos de Panadería; producción y catering
   ([backlog](docs/backlog.md)). Las
   rutas públicas `/panaderia/*` son sólo un andamio de navegación.

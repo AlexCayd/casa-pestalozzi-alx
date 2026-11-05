@@ -1,5 +1,32 @@
 # Pruebas y criterios de aceptación
 
+## Cierre M3: refactor de Almacenes
+
+Rama `refactor-almacenes`, 4 de noviembre de 2026 (arquitectura §16). Las suites
+con base usaron bases temporales propias y las eliminaron; la base local
+configurada no se migró.
+
+| Comprobación | Resultado M3 |
+|---|---|
+| `npm run test:php` | PASS |
+| `npm run test:js` | 21 de 22 pasos PASS. Falla `run-reservaciones-notification-docs.cjs` también en la línea base: el commit «Plan» movió `API.md` a `docs/` |
+| Tipo de venta / `run-tipo-venta.php` | PASS: 49 comprobaciones (sugeridor, 112 en sugerido, reventa, variantes de precio, copa y botella en ml, piezas, lote, IDs ajenos) |
+| Faltantes / `run-faltantes.php` | PASS: 68 comprobaciones (faltante parcial, replay, reparto, Global confirma y rechaza, saldo total insuficiente y entrada posterior, producción previa, cancelación, versión, migración de negativos, costo congelado) |
+| Vista ↔ servicio / `run-faltantes-vista-db.php` | PASS: 18 comprobaciones; vista real con datos reales y envío de sus formularios |
+| UI de Menú / `run-menu-tipo-venta-ui.cjs` | PASS |
+| UI de Almacenes / `run-almacenes-ux.php` y `run-almacenes-m11-ui.cjs` | PASS: 56 comprobaciones de representación; piezas y reparto exacto |
+| Motor 3C / `run-almacenes-3c.php` y concurrencia | PASS: 158 y 17 comprobaciones |
+| Instalación 3E / `run-instalacion-3e.php` | PASS: 967 comprobaciones |
+| M2, A4, A3, Transferencias, selección, resolución M2 | PASS: 130, 2,270, 59, 114, 70 y 29 comprobaciones |
+
+Límites: `run-multinegocio-3a.php` y las suites 3D exigen `--paquete` externo y no
+se ejecutaron (sus aserciones de negativos se actualizaron al contrato nuevo). El
+conflicto de versión entre dos administradores se probó con versión vieja
+secuencial, no con dos procesos. No hubo recorrido HTTP con sesión ni lector de
+pantalla real; la interfaz se revisó en navegador con arneses y datos simulados.
+`run-menu-m11.php`, `run-variantes-consumo.php` y `run-ux2.php` fallan igual en la
+línea base.
+
 ## Cierre A4
 
 Rama `codex/eliminar-productos-casa`. Las suites de integración usaron bases
