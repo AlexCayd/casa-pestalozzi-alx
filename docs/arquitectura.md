@@ -1,59 +1,36 @@
 # Arquitectura de Casa Pestalozzi
 
-## Contrato de estandarización M1.2
+## Estado A4: menú independiente por negocio
 
-Base aprobada M1.1-E `a0562c344c0c66c7d197a03a5bd350006ff6742e`, rama
-`codex/m12-estandarizacion-productos-recetas`. La adhesión de un producto es
-explícita; sin configuración de la casa conserva íntegramente el contrato M1.
-Identidad, ámbito vendedor y facultad de administración son conceptos separados.
-Global requiere `menu/editar` y `comercial.identidad.editar` para estandarizar;
-publicar exige además edición de Menú de todos los negocios afectados. Las
-recetas operativas exigen los permisos locales de Recetas correspondientes.
+A4 retira Productos de la casa como funcionalidad operativa. Global no administra
+productos comerciales, ofertas, publicaciones, políticas, personalizaciones,
+recetas oficiales ni presentaciones oficiales. Restaurante y Panadería gestionan
+sus ofertas y datos comerciales desde su propio contexto, con autorización local.
+Global conserva `productos` para Artículos y preparaciones, además de Inventario,
+Usuarios, Transferencias y las funciones transversales habilitadas.
 
-La configuración guarda un borrador y una referencia a una publicación inmutable.
-La publicación contiene valores oficiales, seis reglas individuales (nombre,
-descripción, imagen, precio, receta, disponibilidad), destinos y versión. Una
-personalización por oferta existe o no existe: JSON permite distinguir valor
-vacío, null explícito y regreso al oficial mediante eliminación de la entrada.
-La presentación efectiva se resuelve mediante una vista por oferta, sin duplicar
-productos. Precio/disponibilidad se publican también en las columnas operativas
-existentes de la oferta, en la misma transacción y con historial de precios.
-Categoría/carta, área y orden siguen siendo locales. Una exclusividad obliga a un
-único destino; no concede edición local. Destinos incompletos solo se guardan como
-borrador. Desasociar retira la oferta, nunca borra su historia.
+`oferta_datos_comerciales` es la fuente de nombre, descripción e imagen de cada
+oferta; `productos_oferta` conserva su interfaz compatible de lectura desde esa
+fuente. Las ofertas mantienen precio, disponibilidad, categoría, área y orden.
+La asociación comercial cruzada no se ofrece como operación nueva. No se crean
+recetas automáticamente al registrar una oferta.
 
-La publicación bloquea primero identidad/configuración y después ofertas en orden,
-revalida permisos y revisión, y registra actor, fecha, cambios y clave de solicitud.
-El acuse solo sucede tras commit; repetir la misma solicitud no publica dos veces.
-Cambios de política preservan las personalizaciones autorizadas; las protegidas
-dejan de aplicarse y la vista previa explica el valor oficial que entrará en vigor.
-Las imágenes publicadas, históricas y personalizadas conservan referencias: una
-personalización nunca elimina el archivo oficial.
+Recetas, versiones de presentaciones, variantes, ajustes, referencias de artículos,
+almacenes y snapshots existentes permanecen intactos. Las recetas derivadas de un
+estándar son recetas locales versionadas y continúan utilizándose en ventas; una
+edición crea una nueva versión local. Las presentaciones heredadas usan su
+configuración local válida y no consultan `presentacion_estandares` durante una
+venta. Las tablas y triggers de publicación permanecen como historia, sin
+autoridad sobre las operaciones vigentes. A4 no elimina datos ni aplica cambios a
+la base operativa.
 
-Recetas de la casa: borrador de ingredientes compartidos, cantidades canónicas y
-rendimiento exactos; publicaciones inmutables. No referencian subrecetas privadas.
-Las subpreparaciones estándar se representan inicialmente como ingredientes
-desglosados, sin introducir otro motor de producción. Activar una versión produce
-una receta operativa nueva por oferta y registra su origen estándar. El consumo
-continúa usando `ticket_items.receta_id` y los componentes inmutables de esa versión.
-No modifica partidas/comandas anteriores. Se rechaza toda publicación conjunta
-si falta un origen físico local activo para algún ingrediente, si hay ajustes de
-variantes incompatibles o si un componente no se expresa exactamente a milésimas
-por porción. No se crean asociaciones, saldos ni movimientos para completar recetas.
-La receta adaptada y sin receta son estados explícitos; adaptar requiere permiso
-de Recetas local y autorización de la política vigente. En Panadería la venta de caja descuenta la pieza de vitrina, no la receta (§7).
-
-El esquema M1.2 es aditivo y vive en `ddl.sql`, el mismo para instalaciones nuevas
-y pruebas temporales (sin migración aparte). No modifica productos, precios,
-imágenes ni recetas preservados. Se amplían fachadas de escritura,
-lecturas del menú/PDF/POS y referencias de imagen; snapshots, stock, compensación,
-pagos y analítica histórica conservan sus contratos. No se introduce reescritura SQL.
-
-**Estado rector posterior a 3E · 25 de octubre de 2026**
+**Contexto histórico: cierre 3E, previo a A4 · 25 de octubre de 2026**
 
 M0 integra segundo factor administrativo por privilegios efectivos (superadmin
 y permisos directos de panel), JWT HS256 para integraciones entrantes y corte
-de caja por turnos de Restaurante. M1 incorpora la administración comercial compartida descrita en [Catálogo y Menú](modulos/catalogo-comercial.md).
+de caja por turnos de Restaurante. M1 añadió administración local de Menú en los
+negocios y M1.2 añadió temporalmente Productos de la casa; A4 retiró la parte
+comercial Global, como establece el estado rector al inicio de este documento.
 Los contratos detallados se desarrollan en [credenciales](usuarios/credenciales.md),
 [API](../API.md#9-jwt-de-integraciones) y [operación](operacion.md#corte-de-caja-por-turnos).
 Las rutas públicas `/panaderia`, `/panaderia/carta`, `/panaderia/pedidos`,
@@ -66,7 +43,13 @@ Este documento es la única fuente normativa para alcance, arquitectura, propied
 
 Casa Pestalozzi es una aplicación web PHP 8 MVC con MySQL. Una identidad compartida puede trabajar en tres ámbitos: Global, Restaurante y Panadería. Global es administrativo y no vende. Restaurante y Panadería son negocios distintos con oferta, almacenes, operaciones comerciales y finanzas propias.
 
-El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. M1 completa el catálogo administrativo y Menú de Panadería y la administración de identidades comerciales de Global. La caja de mostrador de Panadería (§7) vende, cobra, registra horneadas y anula cobros del día; recetas administrativas completas y producción de Panadería siguen pendientes, igual que los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
+El cierre 3E dejó funcionales Usuarios y Almacenes en los tres ámbitos y conservó
+la operación comercial de Restaurante. M1 completó Menú de Panadería y la
+administración de identidades comerciales de Global, retirada posteriormente por
+A4. La caja de mostrador de Panadería (§7) vende, cobra, registra horneadas y
+anula cobros del día; la producción de Panadería sigue pendiente, igual que los
+paneles consolidados de Global. La tabla, ruta, contrato preparado o elemento de
+menú de un módulo pendiente no se presenta como flujo liberado.
 
 ## 2. Arquitectura de aplicación
 
@@ -90,12 +73,12 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
 | Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
-| Menú y ofertas | Productos de la casa M1.2: estándares, políticas y publicación; Global no vende | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
-| Recetas y variantes | Recetario estándar versionado M1.2; sin producción Global | Recetas operativas y variantes existentes; aplicación de estándares | Adaptación de estándares dentro de Menú; módulo completo M2 pendiente |
+| Menú y ofertas | Sin módulo comercial; consulta PDF solo con permisos del dueño | Menú, ofertas y escritura comercial local | Menú, ofertas y escritura comercial local |
+| Recetas y variantes | Preparaciones de artículos compartidos; sin ofertas comerciales | Recetas operativas versionadas y variantes locales | Recetas operativas versionadas y variantes locales; POS pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Funcional: caja de mostrador sin mesas (`/panaderia/caja`), cobro en efectivo o tarjeta, horneadas, anulación del día y corte de consulta (§7) |
-| Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas y productos de la casa), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH) sobre los tickets de la caja |
-| Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes, transferencias y productos de la casa; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú, sobre los tickets de la caja |
+| Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas, tickets, indicadores y productos más vendidos por negocio), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH) sobre los tickets de la caja |
+| Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes y transferencias; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú, sobre los tickets de la caja |
 | Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
 | Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
 
@@ -164,7 +147,7 @@ Tickets y pagos pertenecen al negocio vendedor. Las finanzas registran egresos y
 
 Las vistas e informes locales filtran tanto la raíz como sus relaciones. Los consolidados futuros agregarán sin multiplicar filas y sin tratar una transferencia entre negocios como venta o gasto. Costos históricos conocidos permanecen congelados; los desconocidos se muestran como desconocidos, no se sustituyen con el costo actual de una receta. Consumo neto y merma se separan.
 
-Restaurante conserva las consultas analíticas existentes. Los datos versionados incluyen 365 tickets analíticos con 803 líneas, además de una semana RevPASH de 26 tickets en las 11 mesas reservables y 44 asientos, sin solapamientos; también incluyen ventas locales del Asistente en 90–91 fechas observadas. El asistente actual ofrece 12 intenciones estructuradas: ventas por total/producto/categoría, top, ticket promedio, sin venta, meseros, horas pico, cancelaciones, stock, consumo y bajo stock. No calcula rentabilidad/costo, mesas, coocurrencias o finanzas como consulta del asistente, y no usa un proveedor LLM. Panadería y Global tienen su propio catálogo con el mismo motor (`ConsultasRapidasAmbito`, ver [configuración](config.md#panaderia-y-global)): Panadería pregunta por sus ventas en caja, almacenes y menú; Global lee el consolidado de almacenes con la regla de lectura de Almacenes, más transferencias y productos de la casa, sin sumar ventas de los negocios. Global no tiene tickets ni dashboard financiero consolidado funcional.
+Restaurante conserva las consultas analíticas existentes. Los datos versionados incluyen 365 tickets analíticos con 803 líneas, además de una semana RevPASH de 26 tickets en las 11 mesas reservables y 44 asientos, sin solapamientos; también incluyen ventas locales del Asistente en 90–91 fechas observadas. El asistente actual ofrece 12 intenciones estructuradas: ventas por total/producto/categoría, top, ticket promedio, sin venta, meseros, horas pico, cancelaciones, stock, consumo y bajo stock. No calcula rentabilidad/costo, mesas, coocurrencias o finanzas como consulta del asistente, y no usa un proveedor LLM. Panadería y Global tienen su propio catálogo con el mismo motor (`ConsultasRapidasAmbito`, ver [configuración](config.md#panaderia-y-global)): Panadería pregunta por sus ventas en caja, almacenes y menú; Global lee el consolidado de almacenes con la regla de lectura de Almacenes y las transferencias, sin sumar ventas desde el Asistente. El comparativo de ventas y finanzas Global está disponible en sus módulos de sólo lectura.
 
 Finanzas comparte una sola fuente de cifras por negocio (`Services\Finance\FinanzasNegocio`) entre Restaurante, Panadería y el consolidado de Global, que suma sólo ventas y costos de los negocios, incluye el inventario de Global y saca los márgenes de los totales ([Finanzas](modulos/finanzas.md)).
 
@@ -232,38 +215,169 @@ El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa sol
 - Referencia técnica de organización de código: §§2 y 11 de este documento y los contratos del código. Los documentos históricos de etapas anteriores no son procedimientos vigentes.
 
 
-## 10. Administración comercial M1
+## 10. Administración comercial M1 y retirada A4
 
-M1.1 añade inicios autorizados Global/Panadería, catálogo paginado y una biblioteca
-privada de PDF por vendedor. `InicioAdministrativo` proyecta enlaces desde permisos
-reales; no habilita módulos pendientes. `MenuPdf` mantiene la plantilla pública de
-Restaurante y valida contexto, carta, estado y contenido antes de emitir un PDF
-administrativo. La autorización Global exige también lectura del negocio dueño.
-El alta rápida inventariable local exige edición local y edición Global con
-`catalogo.editar`; no crea asociación ni existencias. Detalles y resultados actuales
-en [Catálogo y Menú](modulos/catalogo-comercial.md#refinamiento-m11).
+M1 introdujo administración de menú multinegocio y M1.2 añadió Productos de la
+casa. A4 retiró ese flujo Global y sus políticas: esos contratos y resultados
+pertenecen a la historia de Git, no a la autorización vigente. Restaurante y
+Panadería conservan administración local de ofertas. Global puede leer PDFs de un
+negocio únicamente si el usuario tiene permiso de Menú en Global y el permiso
+requerido para el negocio dueño; la lectura no permite escribir sobre la oferta.
 
-M1.1-E completa el inicio Restaurante en `/admin` con el mismo componente y sus
-permisos reales; `/admin/analytics` conserva el dashboard. El selector vuelve al
-inicio y el sidebar lo ofrece primero. La selección compacta de Almacenes es una
-mejora progresiva del mismo GET: JavaScript agrupa cambios y el botón mantiene
-la alternativa nativa. No modifica la frontera de autorización ni el inventario.
-Contrato y validación en [guía de interfaz](desarrollo/interfaz.md#m11-e-inicio-restaurante-y-seleccion-compacta).
+El estado vigente de propiedad, preservación y pruebas está en [Menú comercial
+local después de A4](modulos/catalogo-comercial.md) y en [Pruebas A4](desarrollo/pruebas.md#cierre-a4).
 
-El [contrato de Catálogo y Menú](modulos/catalogo-comercial.md) registra la auditoría,
-propiedad, rutas, autorización y aceptación. `productos` conserva la identidad;
-`ofertas_producto` conserva condiciones locales y retiro lógico. No se fusionan
-identidades por nombre ni se copian ofertas entre negocios. Categoría/carta y área
-se validan por unidad; Global nunca crea ofertas.
+## 15. M2: arquitectura unificada de artículos
 
-`menu/ver` Global consulta identidades; su uso comercial se muestra exclusivamente
-en negocios con `menu/ver`. Escribir datos maestros exige `menu/editar` Global y
-`comercial.identidad.editar`, independiente de `catalogo.editar` inventariable.
-Una identidad compartida exige además confirmación explícita de impacto, bloqueo
-y huella vigente. El administrador local sin esa facultad modifica solo su oferta.
-La navegación, el CSRF y el destino de login son contextuales; la sesión no acepta
-IDs de unidad u oferta enviados para sustituir el recurso de la ruta.
+Base aprobada disponible localmente: `baf089b` (`main` y `origin/main`), integración
+M1.2. Trabajo en `codex/m2-articulos-recetas-unificados`, worktree propio bajo
+`tmp/m2-articulos-recetas-unificados`. No se alteran otros worktrees. El checkout
+original conserva su modificación de AdminMenuController. La base tiene un import
+duplicado de ContextoNegocio que impide compilar ese controlador; se corrige antes
+de validar M2. No se hace push, merge ni DDL sobre la base configurada.
 
-Las instalaciones incorporan la facultad desde `deploy.sql`; no concede
-facultades a usuarios ni requiere migrar datos del menú. M2 y M3 permanecen
-fuera de esta entrega.
+### Auditoría y matriz de compatibilidad
+
+| Estructura / consumidores | Autoridad actual | Evolución acordada |
+|---|---|---|
+| ingredientes; Ingrediente, Almacenes, ConsultasAlmacen, proveedores | Identidad operativa, unidad, estado y costo referencial | Reutilizar IDs y FK como catálogo maestro de artículos; el nombre físico es compatibilidad, no un segundo catálogo |
+| almacen_articulos; operaciones/movimientos_inventario; Transferencias | Único saldo por almacén/artículo, ledger y costo congelado | Sin reconstrucción, copias ni nuevas existencias al configurar recetas |
+| productos, ofertas_producto, productos_oferta; Ofertas | Identidad técnica histórica, oferta por negocio y lectura comercial compatible | Preservar IDs y referencias; el negocio escribe sus datos locales y no se crean asociaciones cruzadas nuevas |
+| oferta_datos_comerciales | Nombre, descripción e imagen independientes por oferta | Fuente de escritura comercial y de la vista compatible `productos_oferta` desde A3 |
+| producto_estandares, producto_publicaciones, oferta_personalizaciones | Historia de M1.2 | Preservar tablas y datos; sin dependencias operativas desde A4 |
+| recetas, receta_componentes; RecetasOferta | Versiones por oferta y FK de ticket_items | Mantener como referencias históricas y adaptador de entrada; el resolvedor de artículos es compartido |
+| subrecetas, subreceta_ingredientes; Subreceta | Preparaciones privadas, desglose de un nivel | Asociación explícita a identidad operativa; nueva elaboración mediante versiones de artículos, sin deducir identidad por nombre |
+| recetas_casa, receta_casa_versiones/componentes, receta_origen_casa | Estándares comerciales históricos | Preservar tablas, vínculos y triggers; las recetas operativas materializadas siguen siendo locales y versionables |
+| producto_variantes, variante_ajustes; Variantes, editor JS, POS | Grupos, selección, precio, DTO ingrediente/subreceta | Reutilizar opciones/IDs; adaptar componentes a artículos. Separar permisos de precio y composición; ajustes de servicio no reescriben producción |
+| oferta_consumos; AlmacenesConsumo, ConsumoOferta | Almacén explícito por oferta/artículo y negocio | Reutilizar los mismos orígenes físicos al resolver presentaciones; sin fallback |
+| Comercial, ticket_items, KDS, impresión, HistorialTickets | Snapshot comercial, receta, variantes y costo | Congelar resolución ejecutada; movimiento y snapshot en la transacción actual; compensar ledger original |
+| Finance/DiagnosticoFinanciero, Analytics, Inventario, PDF | Hechos históricos y proyección comercial | No recalcular históricos con recetas nuevas; presentación conserva identidad comercial y precio autorizado |
+| AdminMenu/AdminRecetas/AdminAlmacenes; views/admin y rutas public/index.php | Formularios y navegación vigentes | Mantener operaciones locales de menú y artículos; no crear catálogo o escritor comercial Global |
+| scripts/tests/run-{menu,recetas-casa,estandares,almacenes,restaurante}*, suites PHP/JS | Contratos de regresión | Preservar aserciones, añadir bases desechables y casos M2; separar fallos previos documentados |
+
+### Modelo y reglas de composición
+
+`ingredientes` sigue siendo la identidad operativa única. Las capacidades pertenecen
+a una configuración por unidad y se combinan (comprar, componer, elaborar,
+almacenar); no hay discriminador de tipo. Nombre/unidad pertenecen al maestro;
+capacidad y receta propia al negocio; precio/categoría al comercio; saldo al
+almacén. Compartir identidad no comparte receta privada, permisos ni existencias.
+
+Las recetas de artículo tienen resultado, propietario, versión, rendimiento/unidad,
+procedencia, actor y estado. Cada componente referencia un artículo y, cuando se
+desglosa, una versión concreta de su elaboración. Una versión publicada no se
+actualiza ni elimina; una modificación crea otra. Las referencias a versiones
+previas se conservan incluso al publicar una nueva. Publicar no produce stock.
+
+Las presentaciones dependen de una oferta. Su versión describe uno o varios
+artículos operativos y la modalidad explícita de cada uno: `almacenado` detiene el
+desglose, `desglosar` exige receta fijada. La etapa distingue elaboración y servicio.
+Botella sellada y vino abierto son artículos distintos relacionados por una receta
+de transformación prevista; vender una copa no abre una botella automáticamente.
+Rol de canela almacenado consume piezas, y croissant con crema consume pieza más
+complemento. M2.5 registrará producción, lotes y valorización; M3 integrará al POS
+Panadería las presentaciones (la caja de mostrador ya vende piezas de vitrina,
+§7). M2 no habilita ninguno de esos motores.
+
+```mermaid
+erDiagram
+    ingredientes ||--o{ articulo_configuraciones : capacidades_por_unidad
+    ingredientes ||--o{ articulo_recetas : resultado
+    articulo_recetas ||--|{ articulo_receta_componentes : version_inmutable
+    ingredientes ||--o{ articulo_receta_componentes : componente
+    productos ||--o{ ofertas_producto : identidad_comercial
+    ofertas_producto ||--o{ oferta_presentaciones : condiciones_de_venta
+    oferta_presentaciones ||--o{ presentacion_versiones : configuracion
+    presentacion_versiones ||--|{ presentacion_componentes : composicion
+    ingredientes ||--o{ presentacion_componentes : articulo
+    ingredientes ||--o{ almacen_articulos : saldo_fisico
+    ofertas_producto ||--o{ oferta_consumos : origen_explicito
+```
+
+### Resolución, variantes y costos
+
+El resolvedor prepara datos sin movimientos: negocio, oferta/presentación, versión,
+opciones y ajustes, cantidades/unidades, etapa, ruta de versiones y orígenes. Valida
+actividad, pertenencia local o Global, dimensiones, rendimiento positivo, ciclos
+por artículo (también indirectos), profundidad máxima y presupuesto de componentes.
+Usa decimales exactos y convierte únicamente g/kg y ml/l; piezas no se convierten
+a masa/volumen. Rechaza un resultado menor que la precisión física admitida.
+
+```mermaid
+flowchart LR
+    A[Oferta y presentación autorizadas] --> B[Versiones y opciones seleccionadas]
+    B --> C[Ajustes de servicio permitidos]
+    C --> D{Modalidad del componente}
+    D -->|almacenado| E[Artículo físico y origen propio]
+    D -->|desglosar| F[Versión fija y rendimiento]
+    F --> D
+    E --> G[Plan exacto y costo conocido o desconocido]
+    G --> H[Comanda: snapshot y motor Almacenes en una transacción]
+    H --> I[Cancelación: compensación de movimientos originales]
+```
+
+Una variante comercial sin ajustes no requiere autorización de receta. Un delta
+requiere política comercial; un cambio de composición requiere política de receta.
+No se permite quitar o sustituir ingredientes internos de un artículo almacenado.
+La sustitución de una preparación se aplica al componente visible antes del desglose.
+Los complementos se agregan en servicio. Las opciones siguen validándose en servidor.
+
+Costo referencial y costo físico se conservan separados: desconocido se representa
+con null, nunca cero implícito. Para producción futura el contrato será entradas
+consumidas con costos congelados / rendimiento real, más costos explícitos; M2
+solo resuelve esa previsión y no valoriza movimientos de transformación.
+
+### Migración y retiro de adaptadores
+
+1. Respaldo consistente externo y verificación de restauración antes del despliegue.
+2. DDL aditivo reproducible; no renombrar ni borrar tablas/FK históricas.
+3. Asociar identidades únicamente mediante IDs de origen y correspondencia única.
+   Una coincidencia de nombre nunca basta; asociaciones ambiguas quedan pendientes.
+4. Mantener los 112 productos, imágenes, precios/categorías/cartas, publicaciones,
+   tickets, snapshots, membresías y el ledger sin UPDATE de normalización histórica.
+5. Nuevos flujos escriben versiones de artículos/presentaciones. Los lectores
+   existentes entran mediante adaptadores al mismo contrato de resolución.
+6. Un adaptador legado solo puede retirarse cuando no quedan escritores ni ventas
+   nuevas dependientes, todas las referencias tienen correspondencia verificada y
+   las suites M1.2/POS/Almacenes pasan. Las tablas históricas no se eliminan.
+7. Validar instalación nueva y actualización repetida en bases temporales distintas;
+   comparar hashes/conteos y saldo contra ledger antes/después. DDL MySQL no es
+   transaccional: recuperación es restaurar respaldo en otro destino verificado,
+   nunca ejecutar un down que pierda versiones o movimientos.
+
+Este contrato se implementa mediante `Articulos`, `ResolucionArticulos` y
+`PresentacionesOferta`. El cierre, las pruebas y las limitaciones verificadas se
+registran en [Pruebas](desarrollo/pruebas.md#cierre-m2).
+
+### Persistencia final y transición M2
+
+El único maestro operativo continúa físicamente en `ingredientes`: sus claves son
+las de Almacenes y proveedores. `articulo_configuraciones` añade capacidades por
+unidad, incluida `produccion_previa`, sin poblarlas por deducción. La capacidad de
+elaborar no selecciona automáticamente una receta ni un modo de consumo.
+`articulo_recetas` y sus componentes contienen las versiones cerradas; la FK de
+cada componente apunta a una versión concreta local o Global. Global no puede
+referenciar una receta privada. Los triggers impiden mutar versiones publicadas.
+
+`oferta_presentaciones` conserva la unicidad comercial producto/negocio;
+`presentacion_versiones/componentes` permiten botella, copa o montajes mixtos.
+`presentacion_estandares` y su configuración permanecen como historia de
+publicaciones anteriores. Los flujos vigentes leen la versión local válida de la
+presentación y no consultan esa tabla para autorizar ventas. Precio y composición
+se editan con permisos locales; no existen publicación oficial ni políticas
+comerciales Global.
+
+`articulo_correspondencias` enlaza preparaciones antiguas mediante selección
+manual de IDs; congela su edición anterior. `receta_componentes_articulos` y
+`receta_casa_composiciones` fijan versiones nativas en contratos anteriores.
+Las preparaciones aún pendientes se adaptan en memoria al resolvedor único;
+no se generan saldos ni otro catálogo. El alta de nuevas preparaciones conduce al
+catálogo común. No se borran recetas antiguas referenciadas por tickets.
+
+`ticket_item_resoluciones` conserva composición ejecutada, variantes, etapas y
+huella semántica SHA256. `articulo_comandos` registra idempotencia por unidad.
+La comanda registra snapshot y movimientos en la misma transacción; el reintento
+lee ese hecho y la cancelación compensa el ledger original una sola vez. Las
+cantidades nativas se exigen exactas a milésimas; la frontera heredada conserva
+su redondeo half-up para no cambiar ventas existentes. Los costos son decimales o
+`null`; la valorización física sigue perteneciendo al motor de Almacenes.

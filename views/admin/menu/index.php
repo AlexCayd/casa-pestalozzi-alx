@@ -8,7 +8,7 @@
 
     require_once __DIR__ . '/../partials/_icons.php';
     /**
-     * Listado de platillos con pestañas de categoría.
+     * Listado de productos con pestañas de categoría.
      *
      * Sustituye al antiguo hub (que solo enlazaba a Platillos y Categorías) y a
      * views/admin/menu/items.php. Los datos salen de `productos`, la tabla
@@ -19,7 +19,7 @@
      *
      * Dos modos del mismo listado:
      * - todos: la tabla del catálogo, ordenable.
-     * - ?pendiente=receta: la lista de pendientes, una fila por platillo sin
+     * - ?pendiente=receta: la lista de pendientes, una fila por producto sin
      *   receta con su acción directa, y un acuse cuando ya no queda ninguno.
      */
     $platillos = isset($platillos) && is_iterable($platillos) ? $platillos : [];
@@ -117,6 +117,7 @@
         $consultaLista['page'] = $paginaActual;
     }
     $sufijoLista = empty($consultaLista) ? '' : '?' . http_build_query($consultaLista);
+    $volverListado = $menuBase . $sufijoLista;
 
     // Cómo se llama la sección acotada, para las cifras y la lista de
     // pendientes: «en Café», «en la carta de maridaje» o nada.
@@ -142,23 +143,23 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Menú</h2>
-            <p class="admin-page__subtitle"><?php echo $esc($menuSubtitulo ?? 'Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.'); ?></p>
+            <p class="admin-page__subtitle"><?php echo $esc($menuSubtitulo ?? 'Los productos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.'); ?></p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <?php if ($menuContexto==='panaderia') : ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/pdf">Ver PDF del menú</a><?php endif; ?>
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/categorias">Categorías</a>
             <?php if ($menuPuedeEditar) : ?>
-            <a class="admin-btn admin-btn--secondary" href="<?php echo $esc($menuBase); ?>/asociar">Asociar existente</a>
-            <a class="admin-btn admin-btn--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/create" title="Nuevo platillo">
+            <a class="admin-btn admin-btn--primary admin-create-button" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/create" title="Nuevo producto">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
                 </svg>
-                <span>Nuevo platillo</span>
+                <span>Nuevo producto</span>
             </a>
             <?php endif; ?>
         </div>
     </header>
 
+    <?php if(!empty($productoCreado)): ?><div class="admin-actions" role="status"><span><?= $esc($productoCreado['nombre']) ?> está listo para continuar.</span><a class="admin-btn admin-btn--primary" href="<?= $esc($menuBase.'/edit?'.http_build_query(['id'=>(int)$productoCreado['id'],'volver'=>$volverListado])) ?>">Continuar con este producto</a></div><?php endif; ?>
     <?php foreach (($alertas ?? []) as $tipo => $mensajes) : ?>
         <?php foreach ($mensajes as $mensaje) : ?>
             <div class="admin-menu__flash admin-menu__flash--<?php echo htmlspecialchars($tipo); ?>">
@@ -268,7 +269,7 @@
     </form>
     <?php endif; ?>
 
-    <?php if ($menuContexto === 'panaderia') : ?><p class="admin-field__hint"><?php echo number_format($resSinReceta); ?> oferta(s) sin receta. Recetas y producción administrativas pendientes de habilitar.</p><?php endif; ?>
+    <?php if ($menuContexto === 'panaderia') : ?><p class="admin-field__hint"><?php echo number_format($resSinReceta); ?> oferta(s) sin receta. Puedes configurar recetas, artículos y presentaciones. La producción física y el punto de venta todavía no están disponibles.</p><?php endif; ?>
     <?php /* Cabecera del listado: dos tarjetas-filtro y el buscador en UNA fila.
              Las tarjetas eran dos cajas anchas con un número cada una; ahora
              dicen cuánto falta —«30 de 107 con receta» y su barra— y, al
@@ -280,16 +281,16 @@
     <div class="admin-filtros-fila">
         <?php
             $notaPlatillos = $resTotal === 0
-                ? 'Sin platillos en esta sección'
+                ? 'Sin productos en esta sección'
                 : ($resOcultos === 0
                     ? 'Todos visibles en la carta'
                     : number_format($resTotal - $resOcultos) . ' visibles · ' . number_format($resOcultos) . ($resOcultos === 1 ? ' oculto' : ' ocultos'));
 
-            $feEtiqueta = 'Estado de los platillos';
+            $feEtiqueta = 'Estado de los productos';
             $feTarjetas = [
                 [
                     'tipo' => 'todos',
-                    'rotulo' => $nombreCategoria !== '' ? 'Platillos · ' . $nombreCategoria : 'Platillos',
+                    'rotulo' => $nombreCategoria !== '' ? 'Platillos · ' . $nombreCategoria : 'Productos',
                     'cifra' => number_format($resTotal),
                     'nota' => $notaPlatillos,
                     'accion' => 'Ver todos',
@@ -315,7 +316,7 @@
             class="admin-filters admin-filtro-buscar"
             method="GET"
             action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>"
-            aria-label="Buscar platillos"
+            aria-label="Buscar productos"
             data-reactive-filters
             data-reactive-target="#items-results"
             data-reactive-loading="#items-results-loading"
@@ -330,7 +331,7 @@
               JS se oculta por _forms.scss.
             */ ?>
             <div class="admin-filters__search">
-                <label for="items-q"><?php echo $enPendientes ? 'Buscar entre los pendientes' : 'Buscar platillo'; ?></label>
+                <label for="items-q"><?php echo $enPendientes ? 'Buscar entre los pendientes' : 'Buscar producto'; ?></label>
                 <p class="admin-filtro-buscar__nota" id="items-q-nota">Por nombre, <?php echo $alcanceAcotado ? $esc($alcanceTexto) : 'en todo el menú'; ?>.</p>
                 <input
                     aria-describedby="items-q-nota"
@@ -340,7 +341,7 @@
                     data-reactive-default=""
                     name="q"
                     value="<?php echo $esc($filtros['q'] ?? ''); ?>"
-                    placeholder="Escribe el nombre del platillo"
+                    placeholder="Escribe el nombre del producto"
                 >
                 <input type="hidden" name="categoria" data-reactive-control data-reactive-default=""
                        value="<?php echo $esc($filtros['categoria'] ?? ''); ?>">
@@ -364,7 +365,7 @@
 <?php endif; ?>
 <?php if ($enPendientes) : ?>
     <?php /* ── Lista de pendientes ────────────────────────────────────────
-             Una fila por platillo sin receta, con UNA acción: crearla. Sin la
+             Una fila por producto sin receta, con UNA acción: crearla. Sin la
              tabla de siete columnas: aquí no se compara nada, se trabaja de
              arriba abajo. Cada fila sale de la lista en cuanto su receta se
              guarda, y la tarjeta de arriba lo cuenta. */ ?>
@@ -372,26 +373,26 @@
         <div class="admin-panel-head admin-tareas-cabeza">
             <div>
                 <span class="admin-eyebrow">Pendientes<?php echo $alcanceAcotado ? ' · ' . $esc(preg_replace('/^en (la carta de )?/u', '', $alcanceTexto)) : ''; ?></span>
-                <h3 id="pendientes-titulo">Platillos sin receta</h3>
-                <p>Sin receta, vender un platillo no descuenta inventario y su costo sale en cero. Al guardar la receta, sale de esta lista.</p>
+                <h3 id="pendientes-titulo">Productos sin receta</h3>
+                <p>Sin receta, vender un producto no descuenta inventario y su costo sale en cero. Al guardar la receta, sale de esta lista.</p>
             </div>
             <a class="admin-btn admin-btn--secondary admin-btn--small admin-tareas-cabeza__volver" href="<?php echo $esc($buildPendienteUrl('')); ?>">
                 <?php echo admin_icon('flecha-izquierda', 16, 'admin-btn__icon'); ?>
-                Todos los platillos
+                Todos los productos
             </a>
         </div>
 
         <?php if (empty($platillos)) : ?>
             <?php if ((string) ($filtros['q'] ?? '') !== '' && $resSinReceta > 0) : ?>
                 <?php /* La búsqueda vació la lista, no el trabajo: nada que celebrar. */ ?>
-                <p class="admin-empty">Ningún platillo sin receta se llama así. Quedan <?php echo number_format($resSinReceta); ?> pendientes; borra la búsqueda para verlos.</p>
+                <p class="admin-empty">Ningún producto sin receta se llama así. Quedan <?php echo number_format($resSinReceta); ?> pendientes; borra la búsqueda para verlos.</p>
             <?php elseif ($resTotal === 0) : ?>
-                <p class="admin-empty">No hay platillos <?php echo $esc($alcanceTexto); ?> todavía.</p>
+                <p class="admin-empty">No hay productos <?php echo $esc($alcanceTexto); ?> todavía.</p>
             <?php elseif ($alcanceAcotado && (int) $resumen['sinRecetaMenu'] > 0) : ?>
                 <?php
                     $restoMenu = (int) $resumen['sinRecetaMenu'];
-                    $tcTitulo = 'Todos los platillos ' . preg_replace('/^en /u', 'de ', $alcanceTexto) . ' tienen receta';
-                    $tcTexto = 'Quedan ' . number_format($restoMenu) . ($restoMenu === 1 ? ' platillo' : ' platillos') . ' sin receta en el resto del menú.';
+                    $tcTitulo = 'Todos los productos ' . preg_replace('/^en /u', 'de ', $alcanceTexto) . ' tienen receta';
+                    $tcTexto = 'Quedan ' . number_format($restoMenu) . ($restoMenu === 1 ? ' producto' : ' productos') . ' sin receta en el resto del menú.';
                     $tcParcial = true;
                     $tcAcciones = [
                         ['href' => $menuBase . '?pendiente=receta', 'texto' => 'Ver los que faltan', 'primaria' => true],
@@ -401,8 +402,8 @@
                 ?>
             <?php else : ?>
                 <?php
-                    $tcTitulo = 'Todos los platillos tienen receta';
-                    $tcTexto = number_format($resTotal) . ' de ' . number_format($resTotal) . '. Cada venta descuenta su inventario y el costo de cada platillo es real.';
+                    $tcTitulo = 'Todos los productos tienen receta';
+                    $tcTexto = number_format($resTotal) . ' de ' . number_format($resTotal) . '. Cada venta descuenta su inventario y el costo de cada producto es real.';
                     $tcAcciones = [
                         ['href' => $buildPendienteUrl(''), 'texto' => 'Volver a la lista'],
                     ];
@@ -419,7 +420,7 @@
             </p>
             <?php
                 // A dónde volver tras guardar la receta: el editor redirige
-                // aquí (AdminRecetasController::volverSeguro) y el platillo ya
+                // aquí (AdminRecetasController::volverSeguro) y el producto ya
                 // no sale en la lista. Conserva carta y categoría.
                 $volverAqui = $buildPendienteUrl('receta');
             ?>
@@ -482,13 +483,13 @@
     <section class="admin-menu__panel admin-panel admin-card" id="items">
         <div class="admin-menu__panel-head">
             <div>
-                <h3>Platillos</h3>
+                <h3>Productos</h3>
                 <?php /* La leyenda de la miniatura: el gris es la única pista visual
                          de «sin foto propia», y sin la frase había que pasar el ratón
                          por encima para saber qué quería decir. */ ?>
                 <p>
                     <?php if ($totalMenu > 0) : ?>
-                        <span class="admin-num"><?php echo $desde; ?>–<?php echo $hasta; ?></span> de <span class="admin-num"><?php echo number_format($totalMenu); ?></span><?php echo (string) ($filtros['q'] ?? '') !== '' ? ' resultados' : ' platillos'; ?>.
+                        <span class="admin-num"><?php echo $desde; ?>–<?php echo $hasta; ?></span> de <span class="admin-num"><?php echo number_format($totalMenu); ?></span><?php echo (string) ($filtros['q'] ?? '') !== '' ? ' resultados' : ' productos'; ?>.
                     <?php endif; ?>
                     Miniatura en gris: sin foto propia, la carta usa la de su categoría.
                 </p>
@@ -497,7 +498,7 @@
 
         <?php if (empty($platillos)) : ?>
             <p class="admin-menu__empty admin-empty">
-                <?php echo $filtrosActivos ? 'No se encontraron resultados con los filtros aplicados.' : 'No hay platillos registrados.'; ?>
+                <?php echo $filtrosActivos ? 'No se encontraron resultados con los filtros aplicados.' : 'No hay productos registrados.'; ?>
             </p>
         <?php else : ?>
             <?php /* El orden es de CLIENTE y ordena la página visible, no el
@@ -515,7 +516,7 @@
                 <table class="admin-table admin-menu__table admin-menu__table--items" data-sortable>
                     <thead>
                         <tr>
-                            <th data-sort-type="text">Platillo</th>
+                            <th data-sort-type="text">Producto</th>
                             <th data-sort-type="number" class="admin-menu__col-precio">Precio</th>
                             <th data-sort-type="text">Categoría y área</th>
                             <th data-sort-disabled class="admin-menu__col-visible">Visible</th>
@@ -528,13 +529,10 @@
                                 $opcionesVariante = (int) (($variantesPorProducto ?? [])[(int) $platillo->id] ?? 0);
                                 // Las variantes se editan dentro de «Editar platillo»: la
                                 // etiqueta «N opciones» lleva directo a su panel. Mismas
-                                // reglas que AdminMenuController::variantesDelFormulario():
-                                // un producto de la casa sólo si Global deja precio y receta.
-                                $politicaFila = $politicasCasa[(int) $platillo->id] ?? null;
-                                $variantesEditables = $menuVariantes && $menuPuedeEditar
-                                    && ($politicaFila === null || (!empty($politicaFila['precio']) && !empty($politicaFila['receta'])));
+                                // reglas que AdminMenuController::variantesDelFormulario().
+                                $variantesEditables = $menuVariantes && $menuPuedeEditar;
                             ?>
-                            <tr data-row-href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>">
+                            <tr data-row-href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>&amp;volver=<?php echo rawurlencode($volverListado); ?>">
                                 <?php
                                     // Lo que la carta enseñará: la foto propia o, si no hay,
                                     // la de la categoría (Carta::publica entrega las dos).
@@ -594,7 +592,7 @@
                                     <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo $esc($catNombre); ?></span>
                                     <span class="admin-table__cell-sub admin-menu__area"><?php echo $esc($areasMap[(int) $platillo->area_id] ?? 'Sin área'); ?></span>
                                 </td>
-                                <td class="admin-menu__col-visible"><?php if(isset($politicasCasa[(int)$platillo->id])): ?><small class="admin-table__cell-sub"><?= !empty($politicasCasa[(int)$platillo->id]['activo'])?'Producto de la casa':'Definido por Global' ?></small><?php endif; ?>
+                                <td class="admin-menu__col-visible">
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos
                                             fallaba la validación al faltarle area_id. La query de la
                                             acción devuelve a esta misma página del mismo filtro. */ ?>
@@ -603,9 +601,9 @@
                                         <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                         <button
                                             type="submit"
-                                            <?php echo $menuPuedeEditar && (!isset($politicasCasa[(int)$platillo->id]) || !empty($politicasCasa[(int)$platillo->id]['activo'])) ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
-                                            title="<?php echo $platillo->activo ? 'Ocultar platillo' : 'Mostrar platillo'; ?>"
-                                            aria-label="<?php echo $platillo->activo ? 'Ocultar platillo ' : 'Mostrar platillo '; ?><?php echo $esc($platillo->nombre); ?>"
+                                            <?php echo $menuPuedeEditar ? '' : 'disabled'; ?> class="admin-status-switch <?php echo $platillo->activo ? 'is-on' : 'is-off'; ?>"
+                                            title="<?php echo $platillo->activo ? 'Ocultar producto' : 'Mostrar producto'; ?>"
+                                            aria-label="<?php echo $platillo->activo ? 'Ocultar producto ' : 'Mostrar producto '; ?><?php echo $esc($platillo->nombre); ?>"
                                         >
                                             <span class="admin-status-switch__track" aria-hidden="true">
                                                 <span class="admin-status-switch__thumb"></span>
@@ -623,16 +621,16 @@
                                         <?php if ($menuPuedeEditar) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
-                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>"
+                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>&amp;volver=<?php echo rawurlencode($volverListado); ?>"
                                             title="Editar"
-                                            aria-label="Editar platillo <?php echo $esc($platillo->nombre); ?>"
+                                            aria-label="Editar producto <?php echo $esc($platillo->nombre); ?>"
                                         >
                                             <?php echo admin_icon('editar', 18); ?>
                                         </a>
                                         <form method="POST" action="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/delete<?php echo $esc($sufijoLista); ?>"
                                               class="admin-menu__accion-destructiva"
                                               data-confirm-delete
-                                              data-confirm-eyebrow="Eliminar platillo"
+                                              data-confirm-eyebrow="Eliminar producto"
                                               data-confirm-title="¿Eliminar «<?php echo $esc($platillo->nombre); ?>»?"
                                               data-confirm-require="<?php echo $esc($platillo->nombre); ?>"
                                               data-confirm-description="Se desactivará únicamente la oferta de este negocio."
@@ -642,9 +640,8 @@
                                             <button
                                                 type="submit"
                                                 class="admin-icon-button admin-icon-button--danger"
-                                                <?= isset($politicasCasa[(int)$platillo->id])&&empty($politicasCasa[(int)$platillo->id]['activo'])?'disabled':'' ?>
                                                 title="Eliminar"
-                                                aria-label="Eliminar platillo <?php echo $esc($platillo->nombre); ?>"
+                                                aria-label="Eliminar producto <?php echo $esc($platillo->nombre); ?>"
                                             >
                                                 <?php echo admin_icon('basura', 18); ?>
                                             </button>
@@ -662,7 +659,7 @@
             $pagPagina = $paginaActual;
             $pagTotal = $totalPaginas;
             $pagUrl = $buildItemsUrl;
-            $pagEtiqueta = 'Paginación de platillos';
+            $pagEtiqueta = 'Paginación de productos';
             $pagReactiva = true;
             include __DIR__ . '/../partials/_pagination.php';
             ?>

@@ -33,6 +33,7 @@ function slug(text) {
 
 const expectedDocs = [
   'arquitectura.md',
+  'auditoria-retiro-productos-casa.md',
   'backlog.md',
   'desarrollo',
   'config.md',

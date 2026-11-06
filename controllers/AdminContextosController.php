@@ -36,8 +36,9 @@ final class AdminContextosController
             if (Auth::puede('analytics','ver',$contexto)) $entradas['analytics']=['title'=>'Análisis de datos','path'=>$base.'/analytics'];
             if (Auth::puede('finanzas','ver',$contexto)) $entradas['finanzas']=['title'=>'Finanzas','path'=>$base.'/finanzas'];
             if (Auth::puede('inventario','ver',$contexto)) $entradas['inventario']=['title'=>'Almacenes','path'=>$base.'/almacenes'];
-            if (Auth::puede('menu','ver',$contexto)) $entradas['menu']=['title'=>$contexto==='global'?'Productos de la casa':'Menú','path'=>$base.($contexto==='global'?'/productos':'/menu')];
-            if ($contexto==='global' && Auth::puede('menu','ver',$contexto)) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];
+            if ($contexto!=='global' && Auth::puede('menu','ver',$contexto)) $entradas['menu']=['title'=>'Menú','path'=>$base.'/menu'];
+            if (Auth::puede('productos','ver',$contexto)) $entradas['productos']=['title'=>'Artículos y preparaciones','path'=>$base.'/recetas/articulos'];
+            if ($contexto==='global' && (Auth::puede('inventario','ver',$contexto)||Auth::puede('users','ver',$contexto)||Auth::puede('productos','ver',$contexto))) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];
             if (Auth::puede('users','ver',$contexto)) $entradas['users']=['title'=>'Usuarios','path'=>$base.'/usuarios'];
             return $entradas;
         }
@@ -64,6 +65,10 @@ final class AdminContextosController
     public static function pagina(Router $router): void
     {
         if (Auth::multinegocio()) {
+            if(str_ends_with((string)($_SERVER['PATH_INFO']??''),'/recetas')){
+                $ctx=\Services\Security\ContextoNegocio::slug();\Services\Security\ContextoNegocio::exigir('productos','ver',$ctx);
+                header('Location: '.\Services\Inventory\Articulos::base($ctx),true,302);return;
+            }
             self::inicioSeguro();
             return;
         }
@@ -99,7 +104,11 @@ final class AdminContextosController
         header('Cache-Control: no-store, private');
         $ctx=\Services\Security\ContextoNegocio::slug();
         $perfil=\Services\Security\PermisosUsuario::cargar(\Services\Security\ContextoNegocio::actorId());
-        $documentos=$ctx==='global' && Auth::puede('menu','ver','global') ? \Services\Menu\MenuPdf::biblioteca() : [];
+        $documentos=[];
+        if ($ctx==='global') {
+            try { $documentos=\Services\Menu\MenuPdf::biblioteca(); }
+            catch (\Services\Inventory\InventarioError) { /* Sin módulos globales autorizados no hay biblioteca. */ }
+        }
         $inicio=\Services\Security\InicioAdministrativo::preparar($perfil,$ctx,\Services\Security\ContextoNegocio::nivelAuth(),$documentos);
         AdminController::render('contextos/inicio', array_merge($inicio, [
             'nombreInicio'=>Contextos::NOMBRES[$ctx],

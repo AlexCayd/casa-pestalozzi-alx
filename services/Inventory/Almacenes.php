@@ -77,6 +77,7 @@ final class Almacenes
             if(!$a) throw new InventarioError('RECURSO_NO_ENCONTRADO','No se encontró el artículo.');
             $unidad=array_key_exists('unidad',$datos)?self::medida($datos['unidad']):$a['unidad'];
             if($unidad!==$a['unidad'] && $this->uno('SELECT 1 FROM movimientos_inventario WHERE articulo_id=? LIMIT 1 FOR SHARE',[$id])) throw new InventarioError('UNIDAD_INMUTABLE','La unidad no puede cambiar después de registrar movimientos.');
+            if($unidad!==$a['unidad'] && ($this->uno('SELECT 1 FROM articulo_recetas WHERE articulo_id=? LIMIT 1',[$id]) || $this->uno('SELECT 1 FROM articulo_receta_componentes WHERE articulo_id=? LIMIT 1',[$id]) || $this->uno('SELECT 1 FROM presentacion_componentes WHERE articulo_id=? LIMIT 1',[$id]) || $this->uno('SELECT 1 FROM receta_componentes WHERE articulo_id=? LIMIT 1',[$id]) || $this->uno('SELECT 1 FROM subreceta_ingredientes WHERE articulo_id=? LIMIT 1',[$id])))throw new InventarioError('UNIDAD_INMUTABLE','La unidad está referenciada por composiciones históricas. Crea una conversión explícita.');
             $activo=array_key_exists('activo',$datos)?self::booleano($datos['activo']):(int)$a['activo'];
             if(!$activo && ($this->uno('SELECT 1 FROM almacen_articulos WHERE articulo_id=? AND saldo<>0 LIMIT 1 FOR SHARE',[$id]) || $this->uno("SELECT 1 FROM transferencia_lineas l JOIN transferencias t ON t.id=l.transferencia_id WHERE l.articulo_id=? AND t.estado IN('solicitada','autorizada','enviada','incidencia') LIMIT 1 FOR SHARE",[$id]))) throw new InventarioError('EXISTENCIAS_PENDIENTES','El artículo tiene existencias o transferencias pendientes.');
             $nombre=array_key_exists('nombre',$datos)?self::texto($datos['nombre'],120):$a['nombre'];
@@ -173,6 +174,10 @@ final class Almacenes
                 if($previa!==null) return $previa;
                 if($item['estado']!=='enviado') throw new InventarioError('ITEM_NO_CONSUMIBLE','Solo se consume inventario al enviar el item a preparación.');
                 $resuelto=ConsumoOferta::preparar($this->db,$item,$alcance['unidad_id']);
+                if(isset($resuelto['snapshot'])){
+                    $plan=$resuelto['snapshot'];
+                    $this->sql('INSERT INTO ticket_item_resoluciones(ticket_item_id,unidad_id,oferta_id,snapshot,huella) VALUES(?,?,?,?,?)',[$ticketItemId,$alcance['unidad_id'],$item['oferta_id'],json_encode($plan,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),Articulos::huella($plan)]);
+                }
                 if(!$resuelto['consume']) {
                     // También congelar la decisión explícita de no consumir:
                     // una variante editada después no convierte un replay en venta nueva.
@@ -292,7 +297,7 @@ final class Almacenes
                 $deltaSql=DecimalInventario::cantidad($delta);
                 if($nuevo<0 && !(int)$almacenes[$almacen]['permitir_negativos']) throw new InventarioError('SALDO_INSUFICIENTE','El almacén no permite existencias negativas.');
                 if($delta===0) continue;
-                $costo=$tipo==='cancelacion'?$l['costo_unitario']:($l['costo_unitario']??$maestro['costo']);
+                $costo=$tipo==='cancelacion'?$l['costo_unitario']:(array_key_exists('costo_unitario',$l)?$l['costo_unitario']:$maestro['costo']);
                 $this->sql('UPDATE almacen_articulos SET saldo=?,version=version+1 WHERE almacen_id=? AND articulo_id=?',[$nuevoSql,$almacen,$articulo]);
                 $this->sql('INSERT INTO movimientos_inventario(operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,ticket_item_id,movimiento_origen_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                     [$operacion,$alcance['unidad_id'],$almacen,$articulo,$tipo,$deltaSql,$d['motivo'],$d['nota'],$costo,$comercial?$ticketItemId:null,$l['movimiento_id']??null]);
@@ -330,9 +335,9 @@ final class Almacenes
                 $key=$n['almacen_id'].':'.$n['articulo_id'];
                 if($tipo==='ajuste') $n['version']=self::version($l['version']??null);
                 elseif(array_key_exists('version',$l)) throw new InventarioError('DATOS_INVALIDOS','La versión solo corresponde a un ajuste.');
-                if(isset($l['costo_unitario'])) {
+                if(array_key_exists('costo_unitario',$l)) {
                     if($tipo!=='entrada' && !($tipo==='venta' && $comercial)) throw new InventarioError('DATOS_INVALIDOS','El costo solo puede indicarse al registrar una entrada o venta interna.');
-                    $n['costo_unitario']=DecimalInventario::formato(DecimalInventario::leer($l['costo_unitario'],4),4);
+                    $n['costo_unitario']=$comercial && $l['costo_unitario']===null ? null : DecimalInventario::formato(DecimalInventario::leer($l['costo_unitario'],4),4);
                 }
             }
             if(isset($agregadas[$key])) {

@@ -54,6 +54,10 @@ $router = new Router();
 // Almacenes comparte controlador, motor, componentes y permisos por ámbito.
 foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
     $router->get($baseAlmacenes.'/almacenes',[AdminAlmacenesController::class,'index']);
+    foreach(['','/nuevo','/editar'] as $catalogoRuta){
+        $router->get($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
+        $router->post($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
+    }
     $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
 }
 
@@ -108,10 +112,10 @@ if (!\Classes\Auth::multinegocio()) {
 }
 $router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 'pagina']);
 // M1: un único controlador comercial para ambas unidades vendedoras.
-foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
+foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
     $router->get('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
-foreach (['create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
+foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
 $router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
@@ -122,23 +126,16 @@ $router->get('/admin/global/menus', [AdminMenuController::class,'biblioteca']);
 foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','maridaje'],'panaderia'=>['panaderia','comida']] as $segmento=>$documento) {
     $router->get('/admin/global/menus/'.$segmento,static function($router)use($documento):void { \Services\Menu\MenuPdf::streamAdministrativo($documento[0],$documento[1]); });
 }
-$router->get('/admin/global/productos', [AdminMenuController::class, 'globalIndex']);
-$router->get('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
-$router->post('/admin/global/productos/edit', [AdminMenuController::class, 'globalEdit']);
-$router->get('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
-$router->post('/admin/global/productos/create', [\Controllers\AdminProductosCasaController::class, 'formulario']);
-$router->get('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
-$router->post('/admin/global/productos/casa', [\Controllers\AdminProductosCasaController::class, 'formulario']);
-$router->get('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
-$router->get('/admin/global/productos/recetario', [\Controllers\AdminProductosCasaController::class, 'recetario']);
-$router->post('/admin/global/productos/receta', [\Controllers\AdminProductosCasaController::class, 'receta']);
-$router->get('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
-$router->post('/admin/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
-$router->get('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
-$router->post('/admin/panaderia/menu/casa-receta', [\Controllers\AdminProductosCasaController::class, 'recetaLocal']);
-$router->get('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
-$router->post('/admin/menu/asociar', [AdminMenuController::class, 'asociar']);
-$router->get('/admin/panaderia/recetas', [\Controllers\AdminContextosController::class, 'pagina']);
+$router->get('/admin/panaderia/recetas', [AdminRecetasController::class, 'index']);
+$router->get('/admin/panaderia/recetas/editar', [AdminRecetasController::class, 'receta']);
+$router->post('/admin/panaderia/recetas/editar', [AdminRecetasController::class, 'receta']);
+$router->post('/admin/panaderia/recetas/almacenes', [AdminRecetasController::class, 'almacenes']);
+$router->get('/admin/panaderia/recetas/subrecetas', [AdminRecetasController::class, 'subrecetas']);
+$router->get('/admin/panaderia/recetas/subrecetas/create', [AdminRecetasController::class, 'subrecetaCreate']);
+$router->post('/admin/panaderia/recetas/subrecetas/create', [AdminRecetasController::class, 'subrecetaCreate']);
+$router->get('/admin/panaderia/recetas/subrecetas/edit', [AdminRecetasController::class, 'subrecetaEdit']);
+$router->post('/admin/panaderia/recetas/subrecetas/edit', [AdminRecetasController::class, 'subrecetaEdit']);
+$router->post('/admin/panaderia/recetas/subrecetas/delete', [AdminRecetasController::class, 'subrecetaDelete']);
 $router->get('/admin/panaderia/inventario', static function ($router) { header('Location: /admin/panaderia/almacenes',true,302); });
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
@@ -497,5 +494,20 @@ $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 // DELETE, y responde 404 de verdad: el router contestaba 200 con una frase en
 // texto plano.
 $router->notFound([ErrorController::class, 'noEncontrado']);
+
+$router->get('/admin/panaderia/menu/variantes',[AdminMenuController::class,'variantes']);
+$router->post('/admin/panaderia/api/menu/variantes',[AdminMenuController::class,'guardarVariantes']);
+// M2: las mismas vistas de artículos y presentaciones se parametrizan por contexto.
+foreach (['restaurante','global','panaderia'] as $ambitoM2) {
+    $baseM2=$ambitoM2==='restaurante'?'/admin':'/admin/'.$ambitoM2;
+    $router->get($baseM2.'/recetas/articulos',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->post($baseM2.'/recetas/articulos',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->get($baseM2.'/recetas/articulos/editar',[\Controllers\AdminArticulosController::class,'despachar']);
+    $router->post($baseM2.'/recetas/articulos/editar',[\Controllers\AdminArticulosController::class,'despachar']);
+    if($ambitoM2!=='global'){
+        $router->get($baseM2.'/menu/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+        $router->post($baseM2.'/menu/presentaciones',[\Controllers\AdminArticulosController::class,'despachar']);
+    }
+}
 
 $router->comprobarRutas();

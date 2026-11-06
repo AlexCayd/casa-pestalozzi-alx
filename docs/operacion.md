@@ -122,3 +122,18 @@ base configurada por la aplicación.
 Para configuración y otras opciones administrativas consulta
 [Configuración](config.md). Las decisiones de mesas y reservaciones están en
 [Reservaciones](reservaciones/reservaciones.md).
+
+## Comandas y presentaciones M2
+
+Restaurante conserva el flujo de mesas, carrito, opciones, KDS, impresión, cobro y
+cancelación. Si el producto ofrece presentaciones, el mesero elige la presentación
+y sus variantes; el servidor valida oferta/negocio, precio, composición y opciones.
+La comanda congela el plan operativo y registra el consumo en la misma transacción.
+Los reintentos usan el snapshot y las claves existentes; cancelar compensa los
+movimientos originales aunque después se publique otra receta.
+
+Un producto almacenado consume su pieza; uno virtual desglosa la versión fijada;
+un montaje mixto consume la pieza más sus complementos. Ninguno produce stock.
+La falta de origen o de existencias de producción previa rechaza la comanda completa.
+Panadería dispone solo de configuración y previsión en esta entrega: no tiene
+ventas, pagos ni POS habilitados. El futuro M3 consumirá este mismo contrato.

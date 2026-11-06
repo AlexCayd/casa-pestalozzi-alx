@@ -25,7 +25,9 @@ $veJson = json_encode($editorVariantes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_
              cuenta; motion.js les cede la rueda frente a Lenis sólo cuando de
              verdad desbordan. En la página, el principal no desborda y lo
              ignora. */ ?>
-    <div class="admin-variantes__main" data-scrollable>
+    <?php /* fieldset y no div: sin permiso de edición (`$menuPuedeEditar`)
+             se deshabilita entero y conserva la lectura (origin/main). */ ?>
+    <fieldset class="admin-variantes__main m2-fieldset" data-scrollable <?php echo ($menuPuedeEditar ?? true) ? '' : 'disabled'; ?>>
         <?php /* Sin aria-live: el editor se repinta entero en cada cambio de
                  estructura, y una región viva aquí le leería al lector de
                  pantalla todos los grupos cada vez. Lo que hay que anunciar
@@ -37,7 +39,7 @@ $veJson = json_encode($editorVariantes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_
             <p class="admin-variantes__nuevo-texto">Empieza en blanco o desde una plantilla; después ajusta nombres, iconos, precios y receta.</p>
             <div class="admin-variantes__plantillas" data-variantes-plantillas></div>
         </section>
-    </div>
+    </fieldset>
 
     <aside class="admin-variantes__aside" aria-labelledby="variantes-preview-titulo<?php echo $veSufijo; ?>" data-scrollable>
         <div class="admin-variantes__preview admin-card">

@@ -59,5 +59,5 @@ $cuenta=$inicioContexto==='global'
     </section>
     <?php endforeach; ?>
 
-    <?php if ($inicioContexto==='panaderia') : ?><p class="admin-inicio__nota">POS, recetas administrativas y producción se habilitarán en una etapa posterior.</p><?php endif; ?>
+    <?php if ($inicioContexto==='panaderia') : ?><p class="admin-inicio__nota">Puedes configurar artículos, recetas, presentaciones y variantes, y vender en la caja. La producción física todavía no está disponible.</p><?php endif; ?>
 </section>

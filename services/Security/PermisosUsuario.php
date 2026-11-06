@@ -7,30 +7,28 @@ use Model\ActiveRecord;
 /** Asignaciones directas; los roles de membresía nunca participan en esta decisión. */
 final class PermisosUsuario
 {
+    public const FACULTADES_RETIRADAS = ['comercial.identidad.editar'];
+
     public static function catalogo(string $contexto): array
     {
         if (!isset(Contextos::NOMBRES[$contexto])) return [];
         $modulos = Permisos::MODULOS;
         unset($modulos['roles']);
-        $modulos['menu']['ruta'] = match ($contexto) {
-            'global' => '/admin/global/productos',
-            'panaderia' => '/admin/panaderia/menu',
-            default => '/admin/menu',
-        };
-        if ($contexto === 'global') {
-            $modulos['menu']['titulo'] = 'Productos de la casa';
-            $modulos['menu']['detalle'] = 'Identidades maestras y uso comercial autorizado; Global no vende.';
-        }
+        if ($contexto === 'global') unset($modulos['menu']);
+        if (isset($modulos['menu'])) $modulos['menu']['ruta'] = $contexto === 'panaderia' ? '/admin/panaderia/menu' : '/admin/menu';
+        $modulos['productos']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/recetas/articulos';
+        $modulos['productos']['titulo']='Artículos y preparaciones';
+        $modulos['productos']['detalle']='Configura artículos, capacidades y recetas de preparación.';
         $modulos['inventario']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/almacenes';
         $modulos['ia']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/ia';
         $modulos['analytics']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/analytics';
-        if ($contexto === 'global') $modulos['analytics']['detalle'] = 'Los dos negocios comparados y cómo se venden los productos de la casa en cada uno.';
+        if ($contexto === 'global') $modulos['analytics']['detalle'] = 'Ventas, tickets, indicadores y productos más vendidos por negocio.';
         if ($contexto === 'panaderia') $modulos['analytics']['detalle'] = 'Ventas en caja, lo más vendido, mapa de calor de venta y qué se lleva junto.';
         $modulos['finanzas']['ruta']=($contexto==='restaurante'?'/admin':'/admin/'.$contexto).'/finanzas';
         if ($contexto === 'global') $modulos['finanzas']['detalle'] = 'Estado de los dos negocios: hoy, el periodo lado a lado y el total de la organización. Sólo lectura.';
         if ($contexto === 'panaderia') $modulos['finanzas']['detalle'] = 'Ventas en caja, costo de insumos, merma, gastos fijos y estado de resultados.';
         if ($contexto !== 'restaurante') $modulos['ia']['detalle'] = $contexto==='global'
-            ? 'Preguntas sobre los almacenes de la organización, las transferencias y los productos de la casa.'
+            ? 'Preguntas sobre los almacenes de la organización y las transferencias.'
             : 'Preguntas sobre las ventas en caja, los almacenes y el menú.';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
         if ($contexto === 'panaderia') {
@@ -86,13 +84,13 @@ final class PermisosUsuario
         $stmt = $db->prepare('SELECT u.slug,f.facultad FROM usuario_unidad_facultades f JOIN unidades u ON u.id=f.unidad_id WHERE f.usuario_id=? AND EXISTS(SELECT 1 FROM usuario_unidades m WHERE m.usuario_id=f.usuario_id AND m.unidad_id=f.unidad_id AND m.activo=1)' . $lock);
         $stmt->execute([$id]);
         foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
-            if (isset($perfil['ambitos'][$f['slug']])) $perfil['ambitos'][$f['slug']]['facultades'][] = $f['facultad'];
+            if (isset($perfil['ambitos'][$f['slug']]) && !in_array($f['facultad'], self::FACULTADES_RETIRADAS, true)) $perfil['ambitos'][$f['slug']]['facultades'][] = $f['facultad'];
         }
         if ($perfil['super']) {
             $facultades = $db->query('SELECT clave,solo_global FROM facultades')->fetch_all(MYSQLI_ASSOC);
             foreach ($perfil['ambitos'] as $slug => &$ambito) {
                 foreach (self::catalogo($slug) as $mod => $def) $ambito['permisos'][$mod] = $def['operativo'] ? 'operar' : 'editar';
-                foreach ($facultades as $f) if (!$f['solo_global'] || $slug === 'global') $ambito['facultades'][] = $f['clave'];
+                foreach ($facultades as $f) if ((!$f['solo_global'] || $slug === 'global') && !in_array($f['clave'], self::FACULTADES_RETIRADAS, true)) $ambito['facultades'][] = $f['clave'];
                 $ambito['facultades'] = array_values(array_unique($ambito['facultades']));
             }
             unset($ambito);

@@ -1,6 +1,219 @@
 # Pruebas y criterios de aceptación
 
+## Cierre A4
+
+Rama `codex/eliminar-productos-casa`. Las suites de integración usaron bases
+temporales propias y las eliminaron al terminar. No se aplicaron migraciones ni
+fixtures a la base operativa.
+
+| Comprobación | Resultado A4 |
+|---|---|
+| `npm run test:php` | PASS; incluye 17 contratos del Inicio M1.1 actualizado para Global sin Menú y con Inventario/Transferencias |
+| `npm run test:js` | PASS; incluye validación de 229 enlaces documentales, perfiles, confirmación y UI A4 |
+| M1 / `run-menu-m1.php` | PASS: 2,219 comprobaciones A4 en DB temporal |
+| A3 / `run-a3-datos-comerciales.php` | PASS: 59 comprobaciones; incluye filas compartidas heredadas construidas solo como fixture |
+| M2 / `run-articulos-m2.php` | PASS: 130 comprobaciones en DB temporal con A3 y M2 |
+| HTTP M2 / `pruebas-http-m2.php` | PASS: 27 comprobaciones con instalación 3E propia, incluida la ruta Global retirada |
+| Estructura histórica M1.2 | PASS: 16 comprobaciones; tablas, fixtures y migración repetida conservados |
+| Contratos M2 puros/UI | PASS: resolución 29 comprobaciones; artículos, modalidades, foco y capacidades UX |
+| `run-menu-a4-ui.cjs` | PASS: rutas locales, formularios simples y retiro del módulo |
+| Sass de Menú | PASS compilado directamente desde el SCSS a `public/build/css/admin/menu.css`; advertencias de deprecación existentes |
+| `npm run build` | No ejecutable en este checkout: `gulp` no está instalado en `node_modules` ni disponible en PATH |
+
+El instalador 3E de pruebas prepara A1/A3 sobre su base nueva; en instalaciones
+existentes el marcador debe validarse antes de habilitar el runtime A4. El runner
+A4 verifica retiro de rutas y escritores, cierre de permisos Global,
+edición local e independencia entre negocios, menú público/admin, PDF, POS,
+recetas y presentaciones heredadas, variantes, consumo, cancelaciones y snapshots.
+El build completo quedó limitado por la ausencia local de Gulp; la hoja afectada
+sí fue regenerada con el compilador Sass instalado, que es la operación de
+`adminModuleCss` para ese archivo.
+
+## Cierre M2
+
+Esta evidencia describe la implementación anterior a A4 y no representa los flujos
+comerciales Global vigentes.
+
+Revisión local del 30 de octubre de 2026. Rama
+`codex/m2-articulos-recetas-unificados`; HEAD inicial `baf089b` (M1.2 integrado).
+Worktree propio `tmp/m2-articulos-recetas-unificados`. La carpeta principal
+conserva exactamente el cambio ajeno de `controllers/AdminMenuController.php`.
+No se hizo push, merge ni migración de la base activa.
+
+### Commits y alcance
+
+| Fase | Commit | Cambio |
+|---|---|---|
+| A | `22820c8` | Auditoría, contrato previo y corrección del import duplicado que impedía compilar AdminMenuController |
+| B | `1db4d39` | Persistencia aditiva, inmutabilidad y compatibilidad de claves históricas |
+| C | `c3fea5f` | Artículos, asociación explícita y resolución anidada exacta |
+| D | `3c00b81` | Comandas, snapshots, variantes, presentaciones y gobernanza M1.2 |
+| E | `8b20e06` | Formularios, rutas, navegación contextual y recursos compilados compartidos |
+| F | commit de cierre de esta rama | Recorrido HTTP reproducible, comandos de pruebas y documentación de aceptación |
+
+El hash final, log completo e inventario exacto se entregan en `m2-entrega.md`
+fuera del repositorio, sin introducir una autorreferencia de hash en el commit.
+Para reproducir el inventario: `git diff --name-status baf089b..HEAD`; para el
+estado: `git status --short`. El reporte registra la rama limpia al terminar.
+
+El modelo previo separaba ingredientes físicos, subrecetas de un nivel y recetas
+por oferta. El final reutiliza `ingredientes` como maestro operativo único,
+con capacidades por unidad y elaboraciones versionadas. Oferta comercial,
+presentación, artículo y movimiento conservan autoridades separadas. El detalle,
+diagrama de relaciones y flujo están en [Arquitectura](../arquitectura.md).
+El SQL canónico es `database/actualizaciones/m2-articulos.sql`, equivalente al
+bloque M2 de `database/ddl.sql`; la aplicación repetida no altera los hashes de
+productos, ofertas, publicaciones, tickets, saldos y movimientos anteriores.
+
+Los principales archivos son `services/Inventory/{Articulos,ResolucionArticulos,
+ConsumoOferta,Almacenes,AlmacenesConsumo}.php`,
+`services/Menu/{PresentacionesOferta,RecetasOferta,Variantes,Comercial,
+Carta,MenuPdf}.php`, `models/Subreceta.php`, controladores admin y seguridad,
+`public/index.php`, parciales/vistas de recetas y variantes, JS de editor y POS,
+SCSS y sus recursos generados. Las pruebas nuevas están en `scripts/tests/`.
+No se añadieron dependencias ni archivos de configuración con secretos.
+
+### Resultados ejecutados sobre M2
+
+| Comprobación | Resultado real |
+|---|---|
+| Resolvedor puro, cantidades/unidades, merma, ciclos y variantes anidadas | 29 PASS |
+| Integración SQL M2, migración repetida, permisos, carreras y venta real | 136 PASS |
+| HTTP M2 con login/2FA real del harness | 27 PASS |
+| Filas de artículo: modalidad/versión/unidad, índices, foco y doble envío | PASS |
+| Menú M1 / M1.1 | 52 / 75 PASS |
+| Estándares M1.2 / recetas de casa / estructura | 39 / 29 / 16 PASS |
+| HTTP M1.2 | 43 PASS |
+| Contextos puros / Autorización 3B / Almacenes 3C | 270 / 128 / 158 PASS |
+| Concurrencia de Almacenes | 17 PASS |
+| Transferencias M0.5-B | 114 PASS |
+| Variantes y origen de consumo anterior | 21 PASS |
+| Instalación reproducible desde SQL, dos bases independientes | 957 PASS |
+| Preservación del menú: puro / DB | 34 aserciones / 7 casos PASS |
+| PDF de reservaciones | PASS |
+| Suite PHP general / suite JS general | PASS |
+| Notificaciones: DDL y ejecución con `--migrations` | 16/16 PASS en cada ejecución; etapa histórica retirada se omite según runner vigente |
+| Workflows de notificaciones en memoria | 251 PASS |
+| Lint de archivos PHP afectados | 42 PASS |
+| Build de Gulp / `git diff --check` | PASS; deprecaciones existentes de Sass/Node |
+
+La suite histórica `run-restaurante-3d3.php` se intentó y no arrancó: requiere
+`--paquete` privado que no está disponible. No se reconstruyó una referencia
+artificial ni se contabiliza como PASS. Las suites 3A/3D dependientes de ese paquete
+no quedan certificadas por esta revisión. Los defectos históricos de fixtures de
+contextos/print-alerts/llevar consignados en M1.2 siguen siendo límites de aquellos
+runners, no fallos nuevos declarados resueltos por M2. Los consumidores de reportes
+se comprobaron mediante la instalación 3E versionada y los casos M2.
+
+Todos los tests SQL usan bases aleatorias marcadas, verifican propiedad antes de
+limpiar y excluyen la base configurada. El harness HTTP `127.0.0.1:8094` sirvió la
+rama propia con integraciones externas cerradas, cuentas y sesiones efímeras;
+al terminar verificó y eliminó su base, procesos y fixture privado. Los ensayos
+no crearon movimientos al configurar artículos, publicar recetas o prever consumo.
+
+### Casos funcionales y regresiones
+
+- Botella sellada y vino abierto relacionados por apertura prevista de 750 ml;
+  botella/copa bajo una identidad comercial, copa de 150 ml y vino culinario de
+  80 ml. No hay apertura ni entrada física automática.
+- Café con sustitución de leche de avena; combinación con tamaño y complemento
+  mantiene proporciones. Las ramas virtuales se expanden antes de ajustar el
+  ingrediente visible; un componente ya almacenado mantiene su frontera.
+- Plato con papas/ensalada y arrachera, preparaciones anidadas y sustitución de
+  preparación completa; masa madre y consumo directo frente a almacenado.
+- Croissant almacenado con crema de servicio: pieza más crema, sin harina duplicada.
+  Se rechaza una variante que pretenda modificar ingredientes de producción pasada.
+- Estándar Global anidado aplicado a Restaurante/Panadería; fallo en un destino
+  revierte toda la publicación. Nueva receta conserva versiones previamente usadas.
+- Presentación oficial con precio 90.25 frente a oferta base 80; políticas protegidas,
+  personalizaciones permitidas, confirmación, huella y reintento sin duplicados.
+- Carta/PDF/POS usan la misma proyección. Venta real de dos copas descuenta 300 ml
+  abiertos; tras publicar otra versión, cancelar devuelve los 300 ml originales una
+  sola vez, sin abrir ni reponer botellas.
+- Preparación anterior vinculada explícitamente, componentes y destinos de variantes
+  fijados, bloqueo de edición anterior; no se crea otro maestro por coincidencia.
+- Lectura sola, administrador local, Global sin facultad, superadministrador,
+  permisos parciales y revocación con sesión abierta; CSRF, IDs ajenos, revisión
+  obsoleta, carreras entre procesos y rollback sin cambios parciales.
+- HTTP recorre los tres contextos, guarda capacidades y receta, confirma publicación,
+  verifica idempotencia, rechaza habilitación incompleta, conserva saldos/movimientos
+  y los 112 productos originales. El navegador publicó la versión 2 manteniendo la 1.
+
+Se corrigieron el import duplicado previo, clasificación de la API Panadería,
+claves JSON reordenadas por MySQL en huellas, compatibilidad de hashes antiguos al
+omitir `presentacion_id`, cursor SQL del PDF, precio/selección de variantes,
+proporción de sustitución tras complementos y costos desconocidos. Las regresiones
+finales corrigieron una restricción añadida injustificada al permiso histórico de
+orígenes, el cierre de un fieldset que impedía iniciar JS y un enlace cruzado de
+Panadería. Se mantuvieron las aserciones existentes; no se rebajaron expectativas.
+
+### Evidencia visual y responsive
+
+Las capturas corresponden al HTML/CSS/JS real de la rama y datos desechables;
+no son maquetas. Directorio externo de evidencia:
+`C:/Users/leona/.codex/visualizations/2026/10/30/01a18b3c-0ac8-7601-9c6e-c8e1a20a2090`.
+
+| Archivo | Verificación |
+|---|---|
+| `m2-articulo-desktop-claro.jpg` | Ficha y capacidades, escritorio 1280×900 |
+| `m2-articulo-desktop-oscuro.jpg` | Ficha completa, componentes e historial publicado |
+| `m2-articulo-tableta-claro.jpg` | Tableta 768×1024 |
+| `m2-articulo-movil-claro.jpg` y `m2-articulo-movil-claro-completa.jpg` | Móvil 390×844 y formulario completo |
+| `m2-articulo-movil-oscuro.jpg` | Móvil oscuro con navegación cerrada |
+| `m2-presentacion-prevision-oscuro.jpg` | Pieza almacenada más leche de servicio y costo desconocido |
+| `m2-presentaciones-global-claro.jpg` | Publicación común y destinos locales |
+| `m2-variantes-panaderia-claro.jpg` | Tamaño Regular/Grande guardado por la API contextual real |
+| `m2-referencia-recetas-restaurante-claro.jpg` | Pantalla existente conservada para comparar diseño |
+| `m2-catalogo-restaurante-claro.jpg` | Maestro común, capacidades y vinculación explícita |
+
+La comparación usa la pantalla actual conservada de Restaurante y su diff contra
+M1.2; no se presenta como captura de una base anterior ejecutada. Se mantienen
+sidebar, topbar, tipografía, tokens, tarjetas, formularios y selector compartidos.
+Los nuevos formularios usan la misma jerarquía y separaciones. El editor de
+variantes conserva su disposición y vista de opciones; no se reemplazó la interfaz.
+
+Medidas DOM: escritorio ancho 1280/documento 1280; móvil 390/documento 390 o
+375 con scrollbar; tableta 768/documento 753. No se observó desbordamiento de la
+página. Las tablas tienen su región desplazable. Se verificaron foco de filas,
+Tab/Espacio, estados dependientes y deshabilitados, confirmación/publicación,
+guardado de variante y retorno al listado. La navegación móvil se capturó tras
+cerrar su transición; se restauró el viewport y cerró la pestaña temporal.
+
+### Reproducción y límites
+
+```sh
+npm run test:articulos:m2
+npm run test:articulos:m2:db -- --host <HOST> --base <BASE_CONFIGURADA> --entorno development
+php scripts/tests/servir-instalacion-3e.php --host <HOST> --base <BASE_CONFIGURADA> --entorno development --fixture-salida <RUTA_PRIVADA>
+npm run test:articulos:m2:http -- --fixture <RUTA_PRIVADA>
+npm run test:php
+npm run test:js
+npm run test:notifications
+npm run build
+```
+
+La base indicada identifica el origen que debe excluirse; los runners crean su
+propio destino. El harness se cierra con Enter para verificar y limpiar su propiedad.
+Requiere la configuración local de desarrollo y la contraseña de fixture acordada,
+sin copiarla a comandos versionados, documentación o capturas.
+
+Persisten adaptadores de recetas/ofertas/subrecetas con consumidores históricos.
+Su retiro exige asociaciones verificadas, ausencia de escritores anteriores y las
+regresiones completas; las tablas con hechos históricos no se eliminan. Las
+asociaciones ambiguas quedan manuales. No se certifican servicios SMTP/Meta/n8n,
+impresoras físicas, reinicios, restauración ni despliegue operativo. El SQL aditivo
+necesita respaldo y ensayo de recuperación antes de aplicarse a una base real.
+
+M2.5 reserva órdenes y movimientos físicos de producción, apertura, lotes,
+rendimiento real, merma y costo operativo completo. M3 reserva POS Panadería,
+comandas, pagos y sus finanzas. Tampoco se habilitan analíticas Global, asistente
+multinegocio o integraciones externas. El contrato M2 prepara sus entradas y
+snapshots; no declara terminados esos módulos.
+
 ## Cierre M1.2
+
+Esta sección conserva los resultados de la etapa anterior; sus flujos de
+publicación comercial fueron retirados por A4.
 
 Rama `codex/m12-estandarizacion-productos-recetas`, base aprobada M1.1-E
 `a0562c344c0c66c7d197a03a5bd350006ff6742e`. Fases A `3f5447d`, B `3eb1acc`,
@@ -48,17 +261,19 @@ almacenes ajenos.
 
 ```text
 php scripts/tests/run-estandares-estructura-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
-php scripts/tests/run-estandares-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
-php scripts/tests/run-recetas-casa-m12.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m12-ui
-php scripts/tests/pruebas-http-m12.php --fixture <ruta-privada-del-harness-3e>
+npm run test:menu:a4:db -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 ```
+
+Los runners de publicación oficial y receta Global fueron retirados. La
+verificación estructural conserva las entidades históricas; los nuevos contratos
+de menú y preservación se ejecutan en A4 y HTTP M2.
 
 La migración aditiva añade `producto_estandares`, `producto_publicaciones`,
 `oferta_personalizaciones`, `producto_cambios_locales`, `recetas_casa`,
 `receta_casa_versiones`, `receta_casa_componentes` y `receta_origen_casa`, además de
 `productos_oferta` y triggers de inmutabilidad. Contrato/matriz de permisos en
-[Catálogo](../modulos/catalogo-comercial.md#estado-vigente-m12) y
+[Catálogo](../modulos/catalogo-comercial.md#estado-vigente) y
 [Recetas](../modulos/recetas.md). El bloque SQL vive sólo en `database/ddl.sql`.
 
 Defectos corregidos durante aceptación: carrera de creación de identidad, ámbito
@@ -104,16 +319,14 @@ operaciones físicas. Resultados, evidencia y limitaciones en la
 ```text
 npm run test:menu:m11 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m11-ui
-php scripts/tests/pruebas-http-m11.php --fixture <ruta-privada-del-harness-3e>
 ```
 
 El runner M1.1 amplía M1 sin quitar sus 52 aserciones y conserva creación/limpieza
 de la base marcada. Comprueba PDF por dueño, vacío/inactivo, filtros, alta rápida
 con doble autorización y métricas físicas. La prueba JS ejecuta el archivo real
 de inventario y verifica milésimas con BigInt, negativos, precisión y confirmación.
-HTTP usa únicamente el harness 3E identificado. Resultados, fallos históricos
-reproducidos en el commit base y evidencia visual en
-[refinamiento M1.1](../modulos/catalogo-comercial.md#refinamiento-m11).
+Esta sección conserva evidencia histórica; el runner HTTP M1.1 se retiró en A4.
+Los permisos PDF vigentes se validan mediante `MenuPdf` en A4 y HTTP M2.
 
 El [contrato rector](../arquitectura.md) fija los criterios de entrega. Este documento
 identifica comandos y alcance; los números y resultados de cada ejecución deben
@@ -322,22 +535,18 @@ No modificar pruebas para permitir una limpieza incompatible con sus consumidore
 ```sh
 npm run test:menu:m1 -- --host 127.0.0.1 --base casa-pestalozzi --entorno development
 npm run test:menu:m1-ui
-php scripts/tests/pruebas-http-menu-m1.php --fixture <ruta-privada-del-harness-3e>
 ```
 
-El runner M1 crea y limpia una base aleatoria marcada desde los cuatro SQL
-versionados. Verifica nuevas identidades, oferta explícita, independencia,
-permisos/revocación, facultad separada de inventario, precios exactos, retiro con
-ventas, referencias de imágenes, fallos después de la primera escritura y carreras
-entre dos procesos. No selecciona ni migra la base activa identificada por argumentos.
+El nombre del comando M1 se conserva por compatibilidad, pero ahora ejecuta la
+suite A4 sobre su propia base temporal: edición local, aislamiento, permisos,
+lectores, venta y preservación histórica. La UI A4 verifica rutas locales,
+formularios simples y retiro del módulo; el recorrido HTTP M2 cubre rutas,
+CSRF, permisos, artículos y presentaciones en el harness 3E. No se habilita un
+escritor comercial Global.
 
-El cliente HTTP 3E incorpora perfiles `menu/ver` y `menu/editar`. La suite M1
-verifica CSRF contextual, IDs manipulados, categorías ajenas, asociación, edición
-maestra con confirmación y huella, fotos pendientes/confirmadas y retiro de sus
-archivos propios, además de PDFs públicos y superficies futuras bloqueadas.
-Sus datos viven únicamente durante el harness. El cliente común admite multipart
-para imágenes efímeras sin exponer credenciales. La prueba UI usa el componente
-real de confirmación en JSDOM, disponible en las dependencias bloqueadas.
-Completar con recorrido real de temas, teclado, categorías, filtros, modal,
-Global, Restaurante y Panadería en escritorio y móvil; las capturas quedan fuera
-de Git. Resultados de la revisión en [Catálogo y Menú](../modulos/catalogo-comercial.md).
+### Cierre UX-5 anterior a A4
+
+Las pruebas HTTP de publicación y personalización UX-5 se retiraron al eliminar
+Productos de la casa. Sus recorridos oficiales no son parte del conjunto vigente;
+la suite A4 las reemplaza con independencia local, rutas retiradas y preservación
+de recetas, presentaciones, variantes y snapshots.

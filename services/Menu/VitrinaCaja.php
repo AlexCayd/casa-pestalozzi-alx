@@ -55,9 +55,11 @@ final class VitrinaCaja
                     'categoria' => (string)$o['categoria'],
                     'precio' => (string)$o['precio'],
                     'activo' => (int)$o['activo'] === 1,
-                    // Global puede proteger precio o receta: entonces las
-                    // opciones no se editan aquí, pero sus piezas sí.
-                    'opcionesEditables' => ProductosCasa::permite((int)$o['producto_id'], 'precio') && ProductosCasa::permite((int)$o['producto_id'], 'receta'),
+                    // Siempre editables: la protección de Global sobre precio
+                    // o receta venía de los productos de la casa, que se
+                    // retiraron en origin/main. La clave se conserva porque
+                    // vitrina.js la lee.
+                    'opcionesEditables' => true,
                     'pieza' => $o['articulo_id'] !== null ? self::pieza($o) : null,
                     'grupos' => $grupos,
                 ];
@@ -108,7 +110,8 @@ final class VitrinaCaja
                     // nuevas aún no tienen id hasta que Variantes las guarda.
                     $porOpcion = [];
                     if ($grupos !== null) {
-                        $editables = ProductosCasa::permite((int)$oferta['producto_id'], 'precio') && ProductosCasa::permite((int)$oferta['producto_id'], 'receta');
+                        // Sin productos de la casa no hay opciones protegidas.
+                        $editables = true;
                         $limpios = [];
                         foreach (array_values($grupos) as $g) {
                             if (!is_array($g)) throw new InventarioError('DATOS_INVALIDOS', 'Un grupo de opciones no es válido.');

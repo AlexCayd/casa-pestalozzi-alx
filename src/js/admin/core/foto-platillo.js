@@ -1,10 +1,10 @@
 /**
- * Campo «Foto del platillo» del formulario de Menú (views/admin/menu/form.php),
+ * Campo «Foto del producto» del formulario de Menú (views/admin/menu/form.php),
  * y el de la imagen de la categoría (category-form.php, data-foto-modo=
  * "categoria"), que es la misma pieza sin foto prestada ni «Quitar».
  *
  * Enseña al instante lo que la carta va a mostrar: la foto nueva en cuanto se
- * elige (o se arrastra), la de la categoría cuando el platillo no tiene la
+ * elige (o se arrastra), la de la categoría cuando el producto no tiene la
  * suya —y la cambia al elegir otra categoría—, y el «Quitar foto» con su
  * «Deshacer». El servidor no depende de nada de esto: sin JS el input y la
  * casilla envían lo mismo y Services\Menu\FotoPlatillo resuelve.
@@ -130,12 +130,12 @@
                 estado = 'nueva';
                 src = urlNueva;
                 texto = (esCategoria ? 'Imagen nueva' : 'Foto nueva') + (nombreNuevo ? ' (' + nombreNuevo + ')' : '') +
-                    ', todavía sin guardar: se guarda junto con ' + (esCategoria ? 'la categoría.' : 'el platillo.');
+                    ', todavía sin guardar: se guarda junto con ' + (esCategoria ? 'la categoría.' : 'el producto.');
             } else if (propia && !quitando) {
                 estado = esPendiente ? 'pendiente' : 'propia';
                 src = propia;
                 if (esPendiente) {
-                    texto = 'Foto nueva, todavía sin guardar: se guarda junto con el platillo.';
+                    texto = 'Foto nueva, todavía sin guardar: se guarda junto con ' + (esCategoria ? 'la categoría.' : 'el producto.');
                 } else if (esCategoria) {
                     texto = textoDeCarta(true);
                 } else {
@@ -164,7 +164,7 @@
                 } else if (cat.foto) {
                     texto = 'Sin foto propia: ' + destino.toLowerCase() + ' muestra la de ' + cita(cat.nombre) + '.';
                 } else if (cat.nombre) {
-                    texto = 'Ni el platillo ni ' + cita(cat.nombre) + ' tienen foto' + fuera + '.';
+                    texto = 'Ni el producto ni ' + cita(cat.nombre) + ' tienen foto' + fuera + '.';
                 } else {
                     texto = 'Sin foto propia: la carta usará la de su categoría.';
                 }
@@ -173,7 +173,7 @@
             campo.setAttribute('data-estado', estado);
             campo.setAttribute('data-especial', cat.especial ? '1' : '0');
             if (titulo) {
-                var tituloTexto = cat.especial ? 'Foto para la landing' : 'Foto del platillo';
+                var tituloTexto = cat.especial ? 'Foto para la landing' : 'Foto del producto';
                 if (titulo.textContent !== tituloTexto) {
                     titulo.textContent = tituloTexto;
                 }

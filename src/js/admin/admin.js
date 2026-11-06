@@ -335,6 +335,7 @@
         let activeModal = null;
         let lastFocused = null;
         let closeTimer = null;
+        let closingModal = null;
 
         function focusableElements(modal) {
             const scope = modal.querySelector('[data-admin-modal-dialog]') || modal;
@@ -367,8 +368,11 @@
             modal.dispatchEvent(new CustomEvent('admin:modal-closed'));
 
             window.clearTimeout(closeTimer);
+            if (closingModal) closingModal.hidden = true;
+            closingModal = modal;
             closeTimer = window.setTimeout(function () {
                 modal.hidden = true;
+                closingModal = null;
             }, 220);
 
             if (restoreFocus !== false && lastFocused && document.contains(lastFocused)) {
@@ -382,16 +386,25 @@
             }
 
             if (activeModal && activeModal !== modal) {
+                // El disparador intermedio desaparecerá con el diálogo anterior.
+                trigger = lastFocused;
+                // `forzar`: el relevo por otro modal no pasa por el aviso de
+                // cambios sin guardar (ver closeModal).
                 closeModal(false, true);
             }
 
             window.clearTimeout(closeTimer);
+            if (closingModal) {
+                closingModal.hidden = true;
+                closingModal = null;
+            }
             lastFocused = trigger || document.activeElement;
             activeModal = modal;
             modal.hidden = false;
             bloquearScroll();
 
             window.requestAnimationFrame(function () {
+                if (activeModal !== modal) return;
                 modal.classList.add('is-open');
                 const preferred = modal.querySelector('[autofocus]');
                 const focusables = focusableElements(modal);

@@ -33,8 +33,8 @@ class AdminController
         // icono; lo que cambió es el módulo: los datos del platillo se editan
         // en Gestión de menú y aquí solo queda la composición de recetas.
         'productos' => [
-            'title' => 'Recetas',
-            'path' => '/admin/recetas'
+            'title' => 'Artículos y preparaciones',
+            'path' => '/admin/recetas/articulos'
         ],
         'inventario' => [
             'title' => 'Almacenes',

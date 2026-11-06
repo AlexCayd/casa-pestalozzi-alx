@@ -676,6 +676,7 @@ final class AccesosUsuario
         self::execute($stmt, 's', [$slug]);
         $values = [];
         foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+            if (in_array((string)$row['clave'], PermisosUsuario::FACULTADES_RETIRADAS, true)) continue;
             $values[(string) $row['clave']] = (string) $row['descripcion'];
         }
         $stmt->close();

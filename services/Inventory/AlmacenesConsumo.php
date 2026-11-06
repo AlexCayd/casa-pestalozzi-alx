@@ -18,15 +18,15 @@ final class AlmacenesConsumo
     // meten por sustitución; quitar solo resta artículos que ya están en la base.
     private const REQUERIDOS = "
         SELECT rc.articulo_id AS id FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id
-         WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 AND rc.articulo_id IS NOT NULL
+         WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 AND rc.articulo_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM receta_componentes_articulos ca WHERE ca.componente_id=rc.id)
         UNION SELECT si.articulo_id FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id
          JOIN subreceta_ingredientes si ON si.subreceta_id=rc.subreceta_id AND si.unidad_id=rc.unidad_id
-         WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1
+         WHERE r.oferta_id=? AND r.unidad_id=? AND r.activo=1 AND NOT EXISTS(SELECT 1 FROM receta_componentes_articulos ca WHERE ca.componente_id=rc.id)
         UNION SELECT IF(va.accion='agregar',va.articulo_id,va.articulo_nuevo_id) FROM variante_ajustes va
-         WHERE va.oferta_id=? AND va.unidad_id=? AND va.accion<>'quitar' AND IF(va.accion='agregar',va.articulo_id,va.articulo_nuevo_id) IS NOT NULL
+         WHERE va.oferta_id=? AND va.unidad_id=? AND va.accion<>'quitar' AND va.modalidad_destino='almacenado' AND IF(va.accion='agregar',va.articulo_id,va.articulo_nuevo_id) IS NOT NULL
         UNION SELECT si.articulo_id FROM variante_ajustes va JOIN subreceta_ingredientes si
          ON si.unidad_id=va.unidad_id AND si.subreceta_id=IF(va.accion='agregar',va.subreceta_id,va.subreceta_nueva_id)
-         WHERE va.oferta_id=? AND va.unidad_id=? AND va.accion<>'quitar'";
+         WHERE va.oferta_id=? AND va.unidad_id=? AND va.accion<>'quitar' AND va.modalidad_destino='almacenado'";
 
     /** Filas del formulario: artículo, almacén asignado vigente y almacenes donde puede salir. */
     public static function paraFormulario(string $ctx, int $ofertaId): array
@@ -78,6 +78,7 @@ final class AlmacenesConsumo
         $req = $db->prepare(self::REQUERIDOS);
         $req->execute(array_merge(...array_fill(0, 4, [$ofertaId, $unidadId])));
         $ids = array_map('intval', array_column($req->get_result()->fetch_all(MYSQLI_ASSOC), 'id'));
+        $ids=array_values(array_unique(array_merge($ids,\Services\Menu\PresentacionesOferta::requeridos($ofertaId,$unidadId))));
         if ($ids === []) return [];
         $in = implode(',', array_fill(0, count($ids), '?'));
         $lock = $bloquear ? ' FOR SHARE' : '';

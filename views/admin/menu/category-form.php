@@ -46,8 +46,8 @@
     // copia de las frases en el JS.
     $textosImagen = [
         CategoriasMenu::CARTA_COMIDA => [
-            'con' => 'En la carta de la landing, es la foto de los platillos de esta categoría que no tienen la suya.',
-            'sin' => 'Sin imagen: en la carta, los platillos de esta categoría sin foto propia no tendrán ninguna.',
+            'con' => 'En la carta de la landing, es la foto de los productos de esta categoría que no tienen la suya.',
+            'sin' => 'Sin imagen: en la carta, los productos de esta categoría sin foto propia no tendrán ninguna.',
         ],
         CategoriasMenu::CARTA_MARIDAJE => [
             'con' => 'La carta de maridaje no lleva imágenes: ésta no sale ni en la landing ni en el PDF.',

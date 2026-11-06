@@ -76,10 +76,10 @@ final class Permisos
             'ruta' => '/admin/menu',
         ],
         'productos' => [
-            'titulo' => 'Recetas',
-            'detalle' => 'Recetas y subrecetas de cada platillo.',
+            'titulo' => 'Artículos y preparaciones',
+            'detalle' => 'Artículos, capacidades, recetas y preparaciones versionadas.',
             'grupo' => self::GRUPO_PANEL,
-            'ruta' => '/admin/recetas',
+            'ruta' => '/admin/recetas/articulos',
         ],
         'inventario' => [
             'titulo' => 'Inventario',
@@ -196,6 +196,7 @@ final class Permisos
         '/admin/ia' => ['ia'],
         '/admin/menu' => ['menu'],
         '/admin/api/menu' => ['menu'],
+        '/admin/panaderia/api/menu' => ['menu'],
         '/admin/recetas' => ['productos'],
         '/admin/productos' => ['productos'],
         '/admin/inventario' => ['inventario'],
@@ -357,8 +358,10 @@ final class Permisos
     public static function clasificarDirecto(string $url): array
     {
         if (in_array($url,['/login','/admin/login','/logout'],true)) return ['tipo'=>'publica','modulos'=>[]];
-        if (self::casa($url, '/admin/global/menus')) return ['tipo'=>'modulos','modulos'=>['menu']];
-        if (self::casa($url, '/admin/global/productos')) return ['tipo'=>'modulos','modulos'=>['menu']];
+        // Global conserva la biblioteca PDF como lectura de los documentos
+        // autorizados de sus negocios; no concede el antiguo módulo comercial.
+        if (self::casa($url, '/admin/global/menus')) return ['tipo'=>'modulos','modulos'=>['inventario','users','productos']];
+        if (self::casa($url, '/admin/global/productos')) return ['tipo'=>'solo_sistema','modulos'=>[]];
         // Fuera de Restaurante, las consultas sólo las usa el Asistente: las
         // abre su módulo y nada más (Análisis y Tickets no existen ahí).
         if (preg_match('~^/admin/(?:global|panaderia)/(?:ia|api/consultas)(?:/|$)~',$url)) return ['tipo'=>'modulos','modulos'=>['ia']];

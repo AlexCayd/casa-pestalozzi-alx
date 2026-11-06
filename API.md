@@ -275,3 +275,23 @@ Los exports de reservaciones todavía requieren adaptar en la instancia sus
 HTTP Request entrantes a JWT y a las URLs de la sección 2. Hasta hacerlo PHP
 los rechaza con 401. Validar en TEST sin credenciales reales antes de desplegar;
 ver [operación n8n](n8n/README.md). No existe modo mixto de autenticación entrante.
+
+## Administración y consumo M2
+
+HTML GET/POST contextual con sesión, membresía, CSRF y permisos recargados:
+
+| Recurso | Identificador y contrato |
+|---|---|
+| `/admin[/global|/panaderia]/recetas/articulos` | Catálogo operativo compartido; asociación manual de preparación antigua por IDs |
+| `/admin[/global|/panaderia]/recetas/articulos/editar?id=…` | ID de artículo; configurar capacidades, prever y publicar versión inmutable con revisión/huella/confirmación/clave |
+| `/admin[/panaderia]/menu/presentaciones?id=…` | ID de oferta local; composición/precio versionados y orígenes propios |
+| `/admin/panaderia/menu/variantes?id=…` | Mismo editor y DTO de opciones contextual |
+| `POST /admin/panaderia/api/menu/variantes` | JSON; CSRF ligado a Panadería, política separada de precio y composición |
+
+Los corchetes representan alternativas de prefijo, no rutas literales. IDs
+inexistentes/ajenos se rechazan; no permiten seleccionar otra unidad del formulario.
+El POST de comanda Restaurante admite `presentacion_id` por línea; es obligatorio
+si la oferta tiene presentaciones configuradas. La respuesta conserva el contrato
+comercial existente. El precio se calcula en servidor. Snapshot operativo y ledger
+se confirman juntos; cancelar conserva la compensación histórica. Esta ampliación
+no habilita APIs de venta, cobro ni POS de Panadería.

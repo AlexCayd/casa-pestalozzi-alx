@@ -1,12 +1,23 @@
 # Instalación de desarrollo
 
-## `database/` sin migraciones
+## Requisito A3 para el runtime A4
 
-`database/` lleva sólo el esquema (`ddl.sql`), los datos estructurales
-(`deploy.sql`) y los fixtures de desarrollo (`development.sql`), además del menú
-preservado (`menu-restaurante.sql`) que carga el instalador. No hay migraciones
-aparte: un cambio de esquema se escribe en `ddl.sql` y una base instalada antes
-se reinstala con el procedimiento de abajo sobre una base nueva.
+El menú A4 requiere el marcador `a3-datos-comerciales-local-v1`; sin él, las
+operaciones comerciales fallan de forma cerrada. Las instalaciones nuevas de
+desarrollo/QA aplican A1 y A3 después de cargar su semilla versionada, preservando
+explícitamente los valores locales del fixture. Para una instalación existente,
+seguir el preflight y las migraciones A1/A3 aprobadas antes de desplegar este
+código. A4 no altera esas migraciones ni aplica cambios a una base operativa.
+
+## Actualización M1.2
+
+`database/` lleva el esquema (`ddl.sql`), los datos estructurales
+(`deploy.sql`), los fixtures de desarrollo (`development.sql`) y el menú
+preservado (`menu-restaurante.sql`) que carga el instalador. Desde A4 lleva
+además `actualizaciones/` con A1 y A3, que el instalador aplica después de los
+fixtures (`Services\Development\Instalacion`). Un cambio de esquema se escribe en
+`ddl.sql` y una base instalada antes se reinstala con el procedimiento de abajo
+sobre una base nueva.
 
 ## M1.2
 
@@ -15,10 +26,11 @@ inmutabilidad) está en `ddl.sql`; no transforma ni adhiere productos existentes
 La compatibilidad del DDL con otros motores debe verificarse antes del despliegue
 (usa `CREATE TRIGGER IF NOT EXISTS`).
 
-`development.sql` solo corresponde a instalaciones nuevas desechables. Sus seis
-adhesiones M1.2 son explícitas y sintéticas: Rol de canela, Croissant, Focaccia,
-Café americano, Concha de chocolate y Galleta de chocolate. Hay 138 productos,
-142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
+`development.sql` solo corresponde a instalaciones nuevas desechables. Conserva
+seis adhesiones M1.2 explícitas y sintéticas como datos históricos: Rol de canela,
+Croissant, Focaccia, Café americano, Concha de chocolate y Galleta de chocolate.
+Tras A4, las filas de estándares/publicaciones no habilitan un flujo Global. Hay
+138 productos, 142 ofertas, 11 recetas operativas y cuatro estándares publicados. Los 112
 productos originales siguen íntegros; permanecen 7 almacenes, 47 asociaciones
 físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
 rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes
@@ -113,7 +125,11 @@ si el destino existe y crea únicamente una base nueva. Ejecuta en este orden:
 4. `database/development.sql`: fixtures sintéticos y, solo cuando el instalador
    CLI activa el guard `@cp_dev_admin_demo_seed` en `development`/`test`, la
    cuenta `admin_demo` mediante hash y sus tres membresías.
-5. Bootstrap `Services\Development\BootstrapDesarrollo`: valida el hash frente
+5. `database/actualizaciones/a1-datos-comerciales-oferta.sql`: materializa los
+   valores comerciales locales de cada oferta.
+6. `database/actualizaciones/a3-datos-comerciales-local.sql`: valida esos valores
+   y activa la vista comercial local sin sustituir ediciones existentes.
+7. Bootstrap `Services\Development\BootstrapDesarrollo`: valida el hash frente
    al secreto local y marca la identidad como propiedad de esta instalación.
 
 `--sin-simulados` omite solo el cuarto archivo; conserva estructura, menú y
@@ -216,3 +232,41 @@ No copiar INSERTs de revisiones anteriores.
 
 Los resultados y conteos de una ejecución se registran fuera de la documentación
 operativa; verificar el DML de la revisión elegida con run-instalacion-3e.php.
+
+## Actualización aditiva M2
+
+Para una instalación existente en M1.2, aplicar
+`database/actualizaciones/m2-articulos.sql` antes de desplegar los consumidores M2.
+El bloque equivalente forma parte de `database/ddl.sql` para instalaciones nuevas.
+No ejecutar el instalador de desarrollo sobre la base operativa. El SQL es
+repetible, añade tablas/triggers/columnas con guardas y no pobla recetas, capacidades,
+productos ni saldos. No concede permisos ni deduce asociaciones por nombre.
+
+Antes del despliegue operativo, obtener respaldo consistente y comprobar su
+restauración en otro destino. Ensayar allí la actualización, conteos/hashes de
+productos, ofertas, publicaciones y tickets, igualdad de saldo/ledger e imágenes.
+MySQL confirma DDL fuera de una transacción: ante fallo no usar un down que borre
+versiones; recuperar desde el respaldo en destino verificado y revisar el punto
+de corte. Esta entrega ensayó instalación nueva y actualización repetida solo en
+bases aleatorias propias. No aplicó SQL ni certificó restauración de la base activa.
+
+Ejecutar `composer dump-autoload` y `npm run build` en el checkout de despliegue.
+No hay nuevas dependencias. Asociar las preparaciones antiguas manualmente desde
+Artículos antes de retirar sus adaptadores; mantener sus referencias históricas.
+Las capacidades de producción previa requieren existencias registradas por un
+proceso físico autorizado: publicar recetas no las genera. Ver
+[Arquitectura](../arquitectura.md).
+
+## Actualización comercial A1/A3
+
+En una instalación existente, no desplegar los nuevos consumidores antes de
+completar este corte. Con respaldo verificado, aplicar en este orden las
+migraciones que falten: `m12-estandares.sql` si la instalación aún usa M1.1,
+`m2-articulos.sql` si aún no tiene M2, `a1-datos-comerciales-oferta.sql` y por
+último `a3-datos-comerciales-local.sql`. A1 crea y llena los datos por oferta;
+A3 comprueba la integridad y discrepancias antes de activar la vista. Si A3
+detecta divergencias, detener el despliegue y reconciliar con el preflight, sin
+sobrescribir valores locales válidos. Verificar los marcadores A1/A3 y ejecutar
+los runners de actualización sobre una base temporal antes de desplegar código.
+La instalación nueva automatiza este orden después de cargar su semilla; no
+reaplicar DML de desarrollo a una instalación existente.

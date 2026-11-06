@@ -23,13 +23,18 @@ $assert = static function (bool $condition, string $message): void {
 
 $db = ActiveRecord::getDB();
 $assert(
-    $db->query('INSERT INTO configuracion_pos (id, impresion_activa) VALUES (1, 1)
+    $db->query('INSERT INTO configuracion_pos (unidad_id, id, impresion_activa) VALUES (2, 1, 1)
                 ON DUPLICATE KEY UPDATE impresion_activa = 1') !== false,
     'No se pudo activar impresión en la fixture aislada.'
 );
 $assert($db->query('UPDATE impresoras SET activo = 0') !== false, 'No se pudieron desactivar los destinos de hardware de la fixture.');
 
-$_SESSION['rol'] = 'waiter';
+notificationsTestAuthenticateStaff();
+$_SERVER['PATH_INFO'] = '/admin/restaurante';
+$db->query("INSERT INTO tickets (unidad_id, unidad_tipo, estado) VALUES (2, 'negocio', 'abierto')");
+$ticketId = (int)$db->insert_id;
+$areaIds = array_values(NOTIFICATIONS_TEST_AREA_IDS);
+$assert($ticketId > 0 && isset($areaIds[0]), 'No se pudo crear el ticket/área local de la fixture.');
 $resultadoComanda = TicketPrinter::imprimirComanda(
     [[
         'nombre' => 'Artículo de prueba',
@@ -37,18 +42,18 @@ $resultadoComanda = TicketPrinter::imprimirComanda(
         'comensal' => null,
         'nota' => '',
         'precio' => 10.00,
-        'area_id' => 3,
+        'area_id' => (int)$areaIds[0],
     ]],
-    ['mesa' => 'Prueba', 'mesa_nombre' => 'Mesa de prueba', 'cliente' => 'Fixture', 'mesero' => 'Test']
+    ['ticket_id' => $ticketId, 'mesa' => 'Prueba', 'mesa_nombre' => 'Mesa de prueba', 'cliente' => 'Fixture', 'mesero' => 'Test']
 );
 $fallosComanda = TicketPrinter::fallos();
-$assert(($resultadoComanda[3] ?? true) === false, 'La comanda de prueba no registró el destino ausente.');
+$assert(($resultadoComanda[(int)$areaIds[0]] ?? true) === false, 'La comanda de prueba no registró el destino ausente.');
 $assert(($fallosComanda[0]['motivo'] ?? '') === 'sin_impresora', 'TicketPrinter no clasificó la comanda sin impresora.');
 $alertasComanda = ImpresionAlertaService::registrar($fallosComanda, ['mesa_nombre' => 'Mesa de prueba']);
 $assert(count($alertasComanda) === 1, 'La falla de comanda no creó una alerta persistida.');
 
 $resultadoCuenta = TicketPrinter::imprimirCuenta(
-    ['id' => 900001, 'cliente' => 'Fixture', 'comensales' => 1, 'mesa' => 'Prueba'],
+    ['id' => $ticketId, 'cliente' => 'Fixture', 'comensales' => 1, 'mesa' => 'Prueba'],
     [['nombre' => 'Artículo de prueba', 'precio' => 10.00, 'cantidad' => 1]],
     'efectivo'
 );

@@ -1363,7 +1363,7 @@
  * tiene la suya (analytics-global.php). Todo lo de aquí abajo consume el
  * vocabulario de arriba (.admin-hero, .admin-chart-card, .admin-table) y
  * sólo añade lo que no existía: el estado sin registros, el comparativo
- * de negocios y la tabla de productos de la casa.
+ * de negocios.
  * ══════════════════════════════════════════════════════════════════ */
 
 // Panadería no tiene reservaciones: lo más vendido toma la fila entera en
@@ -1805,73 +1805,6 @@
       height: 100%;
       border-radius: inherit;
       background: var(--admin-muted);
-    }
-  }
-
-  // Productos de la casa: dos grupos de cuatro columnas, uno por negocio.
-  .admin-an-casa__tabla {
-    th,
-    td {
-      padding-top: 10px;
-      padding-bottom: 10px;
-    }
-
-    // La primera columna se queda fija al desplazar en horizontal (móvil):
-    // sin ella, a mitad de la tabla ya no se sabe de qué producto es la cifra.
-    .admin-an-casa__producto {
-      position: sticky;
-      left: 0;
-      z-index: 1;
-      min-width: 170px;
-      max-width: 240px;
-      background: var(--admin-surface);
-    }
-
-    thead .admin-an-casa__producto {
-      z-index: 2;
-      background: var(--admin-surface-soft);
-      vertical-align: bottom;
-    }
-
-    // Encabezado de fila: texto normal, no el rótulo en mayúsculas de th.
-    tbody th {
-      color: var(--admin-text);
-      font-size: 14px;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: none;
-      white-space: normal;
-    }
-
-    tbody tr:hover .admin-an-casa__producto {
-      background: var(--admin-surface-soft);
-    }
-
-    .admin-an-casa__grupo {
-      border-left: 1px solid var(--admin-border-soft);
-      text-align: left;
-
-      .admin-an-muestra {
-        margin-right: 8px;
-        vertical-align: 0;
-      }
-    }
-
-    // Filete al inicio de cada negocio: agrupa sus cuatro columnas.
-    .admin-an-casa__inicio {
-      border-left: 1px solid var(--admin-border-soft);
-    }
-
-    .admin-an-casa__estado {
-      color: var(--admin-faint);
-      font-size: 12px;
-      text-align: center;
-    }
-
-    // «No lo ofrece» no es una venta en cero: el hueco se pinta hundido para
-    // que se distinga de «Sin ventas» también de un vistazo, no sólo leyendo.
-    .admin-an-casa__ausente {
-      background: var(--admin-surface-soft);
     }
   }
 

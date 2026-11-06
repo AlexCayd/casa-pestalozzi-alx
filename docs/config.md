@@ -114,13 +114,13 @@ Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbi
 | | Almacenes | Existencia, lo que está por agotarse, consumo, entradas, mermas, transferencias en curso | sólo sus almacenes |
 | | Menú | Productos sin receta | ofertas activas sin receta activa |
 | Global | Almacenes de la organización | Existencia, lo que está por agotarse, consumo, entradas, mermas | **consolidado** de todos los almacenes, desglosado por negocio |
-| | Entre negocios | Transferencias en curso, productos de la casa | transferencias abiertas de la organización; estándares, dónde se ofrecen y su receta publicada |
+| | Entre negocios | Transferencias en curso | transferencias abiertas de la organización |
 
 - **Ventas en caja de Panadería**: sus preguntas leen los tickets que cierra
   la caja de mostrador ([caja](modulos/caja-panaderia.md)); las anulaciones
   quedan fuera porque el ticket anulado deja de estar `cerrado`. El cajero
   queda en `mesero_id`, así que «ventas por cajero» ya tiene de dónde leer.
-- **Global no vende**: no tiene preguntas de ventas ni suma las de los
+- **Global no vende desde el Asistente**: no tiene preguntas de ventas ni suma las de los
   negocios (consolidado financiero pendiente, arquitectura §3). Su lectura de
   almacenes es la misma que Almacenes concede con permiso de ver, y no abre la
   escritura de ningún almacén ajeno.

@@ -1810,3 +1810,5 @@
     }
   }
 }
+// Los campos de composición conservan sus controles, con estado protegido por facultad.
+.admin-variantes__main, .admin-vopcion__composicion { border: 0; padding: 0; margin: 0; min-width: 0; }
