@@ -45,3 +45,37 @@ assert.match(ff.dataset.confirmDescription,/Refrigeración 20\.000 g · Central 
 assert.match(reparto('1.0001',''),/Revisa las cantidades/,'Precisión excesiva');
 piezasDom.window.close();
 console.log('Almacenes M3: captura en piezas y suma exacta del reparto de faltantes OK.');
+
+// Menú «Más» de la fila (popover nativo). JSDOM no trae el API popover: se simula lo
+// mínimo (abrir, cerrar y el evento toggle) para comprobar lo que añade inventario.js.
+const menuDom = new JSDOM('<main data-almacenes-workspace><button class="almacen-more" popovertarget="m1" aria-controls="m1" aria-expanded="false">Más</button>'
+  + '<div id="m1" popover data-row-menu><button type="button" data-admin-modal-open="articulo-1" data-operation="configurar">Configurar asociación</button><a href="/m">Movimientos</a></div>'
+  + '<div id="articulo-1" data-admin-modal></div><button id="fuera">Fuera</button></main>', { runScripts:'outside-only', pretendToBeVisual:true });
+const mw = menuDom.window, md = mw.document, menu = md.getElementById('m1'), mas = md.querySelector('.almacen-more');
+let abierto = false;
+function alternar(estado) { abierto = estado; const e = new mw.Event('toggle'); e.newState = estado ? 'open' : 'closed'; menu.dispatchEvent(e); }
+menu.showPopover = () => alternar(true);
+menu.hidePopover = () => alternar(false);
+const matchesOriginal = mw.Element.prototype.matches;
+menu.matches = function (s) { return s === ':popover-open' ? abierto : matchesOriginal.call(this, s); };
+mw.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/inventario/inventario.js'),'utf8'));
+md.dispatchEvent(new mw.Event('DOMContentLoaded'));
+const tecla = (el, key) => el.dispatchEvent(new mw.KeyboardEvent('keydown', {key, bubbles:true, cancelable:true}));
+tecla(mas, 'ArrowDown');
+assert.equal(mas.getAttribute('aria-expanded'), 'true', 'aria-expanded sigue al popover abierto');
+assert.equal(md.activeElement.textContent, 'Configurar asociación', 'Flecha abajo abre y enfoca el primer elemento');
+tecla(md.activeElement, 'ArrowDown'); assert.equal(md.activeElement.textContent, 'Movimientos', 'Flechas recorren el menú');
+tecla(md.activeElement, 'Home'); assert.equal(md.activeElement.textContent, 'Configurar asociación', 'Inicio vuelve al primero');
+tecla(md.activeElement, 'Escape');
+assert.equal(abierto, false); assert.equal(md.activeElement, mas, 'Escape cierra y devuelve el foco a «Más»');
+assert.equal(mas.getAttribute('aria-expanded'), 'false');
+mas.focus(); alternar(true);
+md.querySelector('[data-operation="configurar"]').click();
+assert.equal(abierto, false, 'Abrir el modal desde el menú lo cierra: no queda encima del diálogo');
+const cuadros = []; mw.requestAnimationFrame = fn => { cuadros.push(fn); return cuadros.length; };
+md.getElementById('fuera').focus();
+md.getElementById('articulo-1').dispatchEvent(new mw.CustomEvent('admin:modal-closed'));
+cuadros.forEach(fn => fn());
+assert.equal(md.activeElement, mas, 'Al cerrar el modal el foco vuelve a «Más», no al elemento oculto');
+menuDom.window.close();
+console.log('Almacenes: menú «Más» con aria-expanded, flechas, Escape y foco de vuelta OK.');

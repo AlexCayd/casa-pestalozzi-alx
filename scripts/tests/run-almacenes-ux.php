@@ -37,6 +37,24 @@ $assert($x->query('//input[@name="almacen_ids[]" and @type="checkbox" and @check
 $assert($x->query('//input[@name="version" and @value="3"]')->length===3,'Se conserva la versión de la asociación en formularios físicos.');
 $assert($x->query('//form[.//input[@name="accion" and (@value="entrada" or @value="merma" or @value="ajuste")]]//input[@name="clave"]')->length===6,'Cada operación física conserva idempotencia.');
 foreach(['Entrada','Merma','Conteo físico'] as $label)$assert(str_contains($html,$label),'Acción explícita '.$label);
+// Jerarquía de acciones: la cabecera sólo cambia existencias (una principal), la fila
+// ofrece las operaciones físicas como grupo y lo demás va en «Más», un popover nativo.
+$cab='//header[contains(@class,"admin-page__header")]';
+$assert($x->query($cab.'//*[contains(@class,"admin-btn--primary")]')->length===1&&$x->query($cab.'//button[contains(@class,"admin-btn--primary") and @data-admin-modal-open="almacen-asociar" and contains(.,"Asociar artículo")]')->length===1,'Una sola acción principal en cabecera: Asociar artículo.');
+$assert($x->query($cab.'//button[@data-admin-modal-open="almacen-elegir-entrada"]')->length===1&&$x->query($cab.'//*[@data-admin-modal-open="almacen-config" or @data-admin-modal-open="almacen-transferencias"]')->length===0,'La cabecera no mezcla configuración ni consulta con las acciones.');
+$assert($x->query('//*[contains(@class,"almacen-tools")]//button[@data-admin-modal-open="almacen-movimientos"]|//*[contains(@class,"almacen-tools")]//button[@data-admin-modal-open="almacen-transferencias"]|//*[contains(@class,"almacen-tools")]//button[@data-admin-modal-open="almacen-config" and contains(.,"Crear o configurar almacenes")]')->length===3,'Movimientos, transferencias y almacenes siguen a un clic en la franja de herramientas.');
+$assert($dom($render(true,['puedeNuevoArticulo'=>true]))->query('//section[contains(@class,"almacen-list")]//a[contains(@href,"/catalogo/nuevo") and contains(.,"Nuevo artículo")]')->length===1&&!str_contains($html,'/catalogo/nuevo'),'Nuevo artículo vive junto al catálogo y sólo con su permiso.');
+$ops='//div[contains(@class,"almacen-ops") and @role="group" and @aria-label]';
+$assert($x->query($ops)->length===2&&$x->query($ops.'/button[@data-admin-modal-open and (@data-operation="entrada" or @data-operation="merma" or @data-operation="ajuste")]')->length===6,'Entrada, merma y conteo forman un grupo etiquetado por fila operable.');
+$mas='//button[contains(@class,"almacen-more") and @popovertarget and @aria-expanded="false"]';
+$assert($x->query($mas)->length===3,'Cada fila tiene un único «Más».');
+foreach($x->query($mas) as $b){if(!$b instanceof DOMElement)continue;$id=$b->getAttribute('popovertarget');$assert($b->getAttribute('aria-controls')===$id&&$x->query('//*[@id="'.$id.'" and @popover]')->length===1&&str_starts_with(trim($b->textContent),'Más'),'«Más» controla su popover y su nombre empieza por el texto visible.');}
+$assert($x->query('//*[@popover]//button[@data-operation="configurar" and @data-admin-modal-open and contains(.,"Configurar asociación")]')->length===2,'Configurar asociación sigue abriendo el modal del artículo, ahora desde «Más».');
+$assert($x->query('//*[@popover]//a[contains(@href,"vista=movimientos") and contains(.,"Movimientos")]')->length===3,'Movimientos del artículo desde «Más» en cada fila.');
+$assert($x->query('//a[contains(@href,"asociar=11") and contains(@href,"articulo_id=11") and contains(.,"Asociar a un almacén")]')->length===1&&$x->query('//a[contains(@href,"asociar=10") or contains(@href,"asociar=12")]')->length===0,'Sólo el artículo sin almacén propio ofrece asociarse desde su fila (ruta ?asociar existente).');
+$assert(!preg_match('/[\x{2190}-\x{21FF}\x{2600}-\x{27BF}\x{1F300}-\x{1FAFF}]/u',$html),'Sin glifos ni emojis como iconos.');
+$sinAlmacen=$dom($render(true,['opcionesAlmacen'=>[['almacen_id'=>1,'nombre'=>'Central','slug'=>'global','activo'=>0,'permitir_negativos'=>0]]]));
+$assert($sinAlmacen->query($cab.'//button[contains(@class,"admin-btn--primary") and @data-admin-modal-open="almacen-config" and contains(.,"Crear almacén")]')->length===1&&$sinAlmacen->query($cab.'//*[@data-admin-modal-open="almacen-asociar"]')->length===0,'Sin almacenes propios activos, crear uno es la acción principal.');
 // Piezas (Fase 1): lectura junto al saldo y captura en piezas sólo si hay contenido.
 $assert($x->query('//td[@data-label="Saldo seleccionado"]//small[contains(@class,"almacen-piezas-lectura") and .="8 piezas + 450 ml"]')->length===1,'El saldo total muestra su lectura en piezas.');
 $assert($x->query('//ul[contains(@class,"almacen-balances")]//small[.="8 piezas + 450 ml"]')->length===1,'El desglose por almacén muestra su lectura en piezas.');
@@ -54,6 +72,9 @@ $assert(str_contains($render(true,['faltantesPendientes'=>1]),'faltante por conc
 $assert($dom($render(false,['faltantesPendientes'=>2]))->query('//aside//a[.="Ver faltantes"]')->length===1,'Solo consulta ve los faltantes sin la acción de conciliar.');
 $read=$render(false);$assert(!str_contains($read,'data-operation="entrada"')&&!str_contains($read,'data-admin-modal-open="almacen-asociar"'),'Solo lectura no tiene operaciones ejecutables.');
 $assert(str_contains($read,'Movimientos')&&str_contains($read,'data-stock-tip'),'Consulta conserva historial y distribución.');
+$xr=$dom($read);
+$assert($xr->query('//*[contains(@class,"almacen-ops")]')->length===0&&$xr->query('//a[contains(@href,"asociar=")]')->length===0&&$xr->query('//header[contains(@class,"admin-page__header")]//*[contains(@class,"admin-btn--primary")]')->length===0,'Solo consulta: sin operaciones, sin asociar y sin acción principal.');
+$assert($xr->query('//*[@popover]//a[contains(@href,"vista=movimientos")]')->length===3&&$xr->query('//*[contains(@class,"almacen-tools")]//button[@data-admin-modal-open="almacen-config" and contains(.,"Ver almacenes")]')->length===1,'Solo consulta conserva historial por fila y la consulta de almacenes.');
 $assert(str_contains($html,'accion" value="transferencia_solicitar"')&&str_contains($html,'name="lineas[0][cantidad]"'),'Solicitud de transferencia explícita con cantidades por línea.');
 $assert(!str_contains($read,'accion" value="transferencia_'),'Solo lectura consulta transferencias sin formularios de escritura.');
 // Bandeja de faltantes (Fase 2).

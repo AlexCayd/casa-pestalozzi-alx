@@ -1177,17 +1177,39 @@
 .almacen-summary {
   display: flex;
   align-items: center;
-  gap: 14px 26px;
+  justify-content: space-between;
+  gap: 12px 26px;
   flex-wrap: wrap;
   margin: 0 0 26px;
   font-size: 13px;
   color: var(--admin-muted);
 }
-.almacen-summary strong {
+
+.admin-body .almacen-summary__cifras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 26px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .almacen-summary__cifras strong {
   color: var(--admin-text);
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   margin-right: 5px;
+}
+
+.almacen-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.almacen-tools__meta {
+  color: var(--admin-muted);
+  font-weight: 600;
 }
 
 .almacen-pending {
@@ -1233,25 +1255,23 @@
 .almacen-table {
   overflow-x: auto;
   overflow-y: visible;
+  container: almacen-tabla/inline-size;
 }
 .almacen-table .admin-table {
   width: 100%;
-  min-width: 860px;
+  min-width: 820px;
 }
 .almacen-table th:first-child {
-  width: 19%;
+  width: 16%;
 }
 .almacen-table th:nth-child(2) {
-  width: 18%;
-}
-.almacen-table th:nth-child(3) {
-  width: 33%;
+  width: 17%;
 }
 .almacen-table th:last-child {
-  width: 30%;
+  width: 1%;
 }
 .almacen-table td {
-  padding-block: 22px;
+  padding-block: 16px;
 }
 
 .almacen-quantity {
@@ -1400,29 +1420,202 @@
   cursor: pointer;
 }
 
+/* Acciones de la fila: dos niveles. Las operaciones físicas forman un solo grupo de
+   botones con borde de componente (3:1), así se leen como botones y como familia; «Más»
+   es texto con chevron, sin caja, para que no compita con ellas. Sin sombra ni salto
+   al apuntar: veinticinco filas de botones que se levantan son ruido. */
 .almacen-row-actions {
-  gap: 7px;
-}
-.almacen-row-actions .admin-btn {
-  min-height: 36px;
-  font-size: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
-.almacen-text-button {
+@container almacen-tabla (min-width: 960px) {
+  .almacen-row-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+}
+.almacen-ops {
   display: inline-flex;
+  max-width: 100%;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-btn-secondary-bg);
+}
+
+.admin-body .almacen-op {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
   border: 0;
   background: transparent;
   color: var(--admin-text);
-  padding: 6px 0;
-  min-height: 36px;
   font-size: 12px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .almacen-op + .admin-body .almacen-op {
+  border-left: 1px solid var(--admin-border);
+}
+.admin-body .almacen-op:first-child {
+  border-radius: var(--admin-radius-sm) 0 0 var(--admin-radius-sm);
+}
+.admin-body .almacen-op:last-child {
+  border-radius: 0 var(--admin-radius-sm) var(--admin-radius-sm) 0;
+}
+.admin-body .almacen-op:hover {
+  background: var(--admin-surface-soft);
+}
+.admin-body .almacen-op:focus-visible {
+  z-index: 1;
+}
+.admin-body .almacen-op svg {
+  flex: none;
 }
 
+.admin-body .almacen-more {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 6px 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--admin-t-fast) var(--admin-ease-out), background-color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .almacen-more svg {
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .almacen-more:hover, .admin-body .almacen-more[aria-expanded=true] {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+.admin-body .almacen-more[aria-expanded=true] svg {
+  transform: rotate(180deg);
+}
+
+/* Menú «Más» de la fila. Popover nativo en la capa superior. Sin JavaScript conserva
+   la posición por omisión del popover (centrado); inventario.js lo ancla bajo su
+   botón con .is-anclado. Entra con un desplazamiento corto y sale sin animación:
+   cerrar no debe hacer esperar a nadie. */
+.almacen-menu {
+  position: fixed;
+  inset: 0;
+  width: 260px;
+  height: fit-content;
+  max-width: calc(100vw - 24px);
+  margin: auto;
+  padding: 6px;
+  text-align: left;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-lg);
+  font: 13px/1.35 var(--admin-font-sans);
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
+}
+.almacen-menu.is-anclado {
+  inset: auto;
+  margin: 0;
+}
+@starting-style {
+  .almacen-menu:popover-open {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.admin-body .almacen-menu__titulo {
+  margin: 6px 10px 4px;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.almacen-menu__grupo {
+  display: grid;
+  gap: 2px;
+  padding: 4px 0;
+}
+.almacen-menu__grupo + .almacen-menu__grupo {
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.admin-body .almacen-menu__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.admin-body .almacen-menu__item svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--admin-muted);
+}
+.admin-body .almacen-menu__item > span {
+  min-width: 0;
+}
+.admin-body .almacen-menu__item small {
+  font-weight: 400;
+}
+.admin-body .almacen-menu__item:hover, .admin-body .almacen-menu__item:focus-visible {
+  background: var(--admin-surface-soft);
+}
+.admin-body .almacen-menu__item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--admin-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almacen-menu {
+    transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+  }
+  @starting-style {
+    .almacen-menu:popover-open {
+      transform: none;
+    }
+  }
+  .admin-body .almacen-op, .admin-body .almacen-more, .admin-body .almacen-more svg {
+    transition: none;
+  }
+}
+@media (pointer: coarse) {
+  .admin-body .almacen-op, .admin-body .almacen-more, .admin-body .almacen-menu__item, .almacen-workspace .admin-btn--small {
+    min-height: 44px;
+  }
+}
 .almacen-tooltip {
   position: fixed;
   margin: 0;
@@ -1556,9 +1749,30 @@
     max-width: none;
   }
   .almacen-row-actions {
-    margin-top: 10px;
+    align-items: stretch;
+    margin-top: 6px;
   }
-  .almacen-row-actions .admin-btn {
+  .almacen-ops {
+    display: flex;
+  }
+  .admin-body .almacen-more, .almacen-row-actions > .admin-btn {
+    align-self: flex-start;
+  }
+  .admin-body .almacen-op, .admin-body .almacen-more, .almacen-row-actions .admin-btn {
+    min-height: 44px;
+  }
+  .almacen-menu, .almacen-menu.is-anclado {
+    inset: auto 12px 12px;
+    width: auto;
+    max-width: none;
+    margin: 0;
+  }
+  @starting-style {
+    .almacen-menu:popover-open, .almacen-menu.is-anclado:popover-open {
+      transform: translateY(8px);
+    }
+  }
+  .admin-body .almacen-menu__item {
     min-height: 44px;
   }
   .almacen-modal {

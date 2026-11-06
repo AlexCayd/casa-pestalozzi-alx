@@ -275,6 +275,20 @@ complementa la validación del servidor; no la sustituye. Búsqueda, paginación
 historial conservan la selección. Configuración, catálogo e historial se muestran
 en modales; las URLs anteriores con `vista` siguen abriendo el modal adecuado.
 
+Las acciones siguen tres niveles de señalética. **Cabecera:** una sola acción
+principal, «Asociar artículo» (o «Crear almacén» si el negocio no tiene almacenes
+propios activos), con «Registrar entrada» como secundaria; en solo consulta no hay
+acciones. **Herramientas:** bajo la selección, botones secundarios pequeños
+«Movimientos», «Transferencias» (con el número de pendientes sólo si es mayor que
+cero) y «Crear o configurar almacenes»; «Nuevo artículo» vive junto a «Catálogo de
+artículos», en la cabecera de la lista. **Fila:** Entrada, Merma y Conteo físico
+forman un grupo de botones con nombre accesible por artículo; un artículo sin
+almacén propio ofrece «Asociar a un almacén» (flujo `?articulo_id=&asociar=`). Lo
+secundario de la fila (Configurar asociación, Asociar a otro almacén, Capacidades y
+elaboración, Movimientos) va en el menú «Más», un popover nativo anclado por
+`inventario.js`: flechas, Inicio y Fin lo recorren, Escape lo cierra y devuelve el
+foco, `aria-expanded` sigue el estado y en móvil se presenta como hoja inferior.
+
 En Global, las barras usan el saldo de cada almacén para la proporción; desde M3
 no hay saldos negativos ni su trama. El saldo neto exacto procede del backend; nunca se obtiene sumando
 anchos o valores de coma flotante. Las etiquetas textuales y botones de detalle

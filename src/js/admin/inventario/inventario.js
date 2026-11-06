@@ -476,6 +476,81 @@
             button.addEventListener('blur', hideLater);
             if (tip) { tip.addEventListener('pointerenter', keepOpen); tip.addEventListener('pointerleave', hideLater); }
         });
+        // Menú «Más» de cada fila. El popover nativo ya abre, cierra al pulsar fuera o con
+        // Escape y devuelve el foco; aquí sólo se ancla bajo su botón, se sincroniza
+        // aria-expanded y se recorre con flechas, como el selector de contexto. En móvil
+        // es hoja inferior por CSS y no se ancla.
+        const compacto = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
+        workspace.querySelectorAll('[data-row-menu]').forEach(function (menu) {
+            const trigger = workspace.querySelector('[popovertarget="' + menu.id + '"]');
+            if (!trigger || !menu.showPopover) return;
+            const items = function () { return Array.from(menu.querySelectorAll('a[href], button:not([disabled])')); };
+            let frame = 0;
+            function position() {
+                frame = 0;
+                if (compacto && compacto.matches) { menu.classList.remove('is-anclado'); menu.style.left = menu.style.top = ''; return; }
+                menu.classList.add('is-anclado');
+                const rect = trigger.getBoundingClientRect();
+                const ancho = menu.offsetWidth, alto = menu.offsetHeight;
+                // Alineado al borde derecho del botón (la columna de acciones es la última);
+                // si no cabe debajo, se abre hacia arriba.
+                menu.style.left = Math.max(12, Math.min(rect.right - ancho, window.innerWidth - ancho - 12)) + 'px';
+                const abajo = rect.bottom + 6, arriba = rect.top - alto - 6;
+                menu.style.top = (abajo + alto > window.innerHeight - 12 && arriba >= 12 ? arriba : Math.max(12, Math.min(abajo, window.innerHeight - alto - 12))) + 'px';
+            }
+            // Sólo escucha desplazamiento mientras está abierto y a lo sumo un cálculo por cuadro.
+            function seguir() { if (!frame) frame = window.requestAnimationFrame(position); }
+            menu.addEventListener('toggle', function (event) {
+                const abierto = event.newState === 'open';
+                trigger.setAttribute('aria-expanded', String(abierto));
+                if (abierto) {
+                    position();
+                    window.addEventListener('scroll', seguir, {capture: true, passive: true});
+                    window.addEventListener('resize', seguir, {passive: true});
+                } else {
+                    window.removeEventListener('scroll', seguir, {capture: true});
+                    window.removeEventListener('resize', seguir);
+                    if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
+                }
+            });
+            trigger.addEventListener('keydown', function (event) {
+                if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+                event.preventDefault();
+                if (!menu.matches(':popover-open')) menu.showPopover();
+                const lista = items();
+                if (lista.length) lista[event.key === 'ArrowUp' ? lista.length - 1 : 0].focus();
+            });
+            menu.addEventListener('keydown', function (event) {
+                const lista = items(), indice = lista.indexOf(document.activeElement);
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (lista.length) lista[(indice + (event.key === 'ArrowDown' ? 1 : lista.length - 1)) % lista.length].focus();
+                } else if (event.key === 'Home' || event.key === 'End') {
+                    event.preventDefault();
+                    if (lista.length) lista[event.key === 'Home' ? 0 : lista.length - 1].focus();
+                } else if (event.key === 'Escape') {
+                    event.stopPropagation(); menu.hidePopover(); trigger.focus();
+                }
+            });
+            // Salir con Tab no deja el menú flotando sobre otra fila. Se comprueba cuando el
+            // foco ya llegó a su destino, para no devolverlo al botón.
+            menu.addEventListener('focusout', function () {
+                window.setTimeout(function () {
+                    const activo = document.activeElement;
+                    if (menu.matches(':popover-open') && activo && activo !== document.body && activo !== trigger && !menu.contains(activo)) menu.hidePopover();
+                }, 0);
+            });
+            // «Configurar asociación» abre el modal compartido (admin.js ya escucha el clic).
+            // El menú se cierra para no quedar encima del diálogo, y al cerrarlo el foco
+            // vuelve a «Más»: el elemento que lo abrió ya no es visible.
+            menu.addEventListener('click', function (event) {
+                const abre = event.target.closest('[data-admin-modal-open]');
+                if (!abre) return;
+                menu.hidePopover();
+                const modal = document.getElementById(abre.dataset.adminModalOpen);
+                if (modal) modal.addEventListener('admin:modal-closed', function () { window.requestAnimationFrame(function () { trigger.focus(); }); }, {once: true});
+            });
+        });
         const request = workspace.querySelector('[data-transfer-request]');
         if (request) {
             const lines = request.querySelector('[data-transfer-lines]');
