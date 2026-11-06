@@ -1,4 +1,9 @@
-// ── Casa Pestalozzi — Entry point SCSS ───────────────────────
+// ── Casa Pestalozzi — hoja de la portada del RESTAURANTE → app.css ──
+//
+// Lo que comparte con la landing de la panadería vive en shared/marca/ (y en
+// layout/, salvo _rail, que es sólo de aquí). Lo de components/ es de esta
+// página. Ver «Las dos landings» en CLAUDE.md.
+//
 // Se incluye normalize de base pero NO _globales (pone font-size:62.5%)
 // ni _tipografia (conflictos con tokens CP). Las variables y mixins de
 // base sí se aprovechan donde corresponde.
@@ -16,23 +21,28 @@
 @use 'shared/header-casa-pestalozzi';
 @use 'layout/nav';
 @use 'layout/rail';
+// Ajustes de teléfono: primero los de marca, después los de la portada, en
+// el mismo sitio de la cascada que ocupaba el archivo único.
+@use 'shared/marca/responsive' as marca-responsive;
 @use 'layout/responsive';
 
 // Componentes
-@use 'components/cursor';
-@use 'components/buttons';
+@use 'shared/marca/cursor';
+@use 'shared/marca/buttons';
 @use 'components/announcement';
 // Vocabulario italiano compartido (insegna, arco, filete). Va antes de las
 // secciones: varias lo consumen.
-@use 'components/italia';
+@use 'shared/marca/italia';
 @use 'components/hero';
-@use 'components/ornamentos';
+@use 'shared/marca/ornamentos';
 @use 'components/nosotros';
 @use 'components/menu';
 @use 'components/catas';
 @use 'components/galeria';
 @use 'components/chef';
-@use 'components/panaderia';
+// El adelanto de la panadería en la portada. La landing de la panadería
+// tiene su propia hoja: panaderia/app-panaderia.scss → panaderia.css.
+@use 'components/adelanto-panaderia';
 @use 'components/catering';
 @use 'components/reserva';
 @use 'components/schedule-change-access';
@@ -41,10 +51,11 @@
 @use 'components/error-page';
 @use 'components/confirmation-modal';
 @use 'components/app-notice';
-@use 'components/ubicacion';
-@use 'components/footer';
+@use 'shared/marca/ubicacion';
+@use 'components/ubicacion-plano';
+@use 'shared/marca/footer';
 @use 'components/privacidad';
-@use 'components/lightbox';
+@use 'shared/marca/lightbox';
 @use 'components/tweaks';
 // El feedback es lo ÚNICO de piso que se queda en el bundle público, y es
 // deliberado: lo abre un comensal en la tablet al terminar de comer, así que

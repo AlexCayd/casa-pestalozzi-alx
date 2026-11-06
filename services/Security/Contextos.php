@@ -32,8 +32,21 @@ final class Contextos
         return [];
     }
 
+    /**
+     * Caja de mostrador: el piso de Panadería vive fuera de /admin porque entra
+     * con NIP, y bajo /panaderia porque el ámbito se lee de la ruta, nunca de
+     * un dato que mande el navegador. El resto de /panaderia es la landing.
+     */
+    public const CAJA_PANADERIA = '/panaderia/caja';
+    public const API_CAJA_PANADERIA = '/api/panaderia/caja';
+
     public static function deRuta(string $ruta): string
     {
+        foreach ([self::CAJA_PANADERIA, self::API_CAJA_PANADERIA] as $prefijo) {
+            if ($ruta === $prefijo || str_starts_with($ruta, $prefijo . '/')) {
+                return 'panaderia';
+            }
+        }
         foreach (['global', 'panaderia'] as $contexto) {
             $prefijo = '/admin/' . $contexto;
             if ($ruta === $prefijo || str_starts_with($ruta, $prefijo . '/')) {

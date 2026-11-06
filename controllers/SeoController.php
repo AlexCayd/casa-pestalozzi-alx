@@ -17,7 +17,8 @@ use Services\Configuration\SitioConfig;
 class SeoController
 {
     /**
-     * Lo único que se ofrece a los buscadores es la portada y las dos cartas.
+     * Lo único que se ofrece a los buscadores son las dos landings —la portada
+     * del restaurante y /panaderia— y las dos cartas.
      * Todo lo demás es operación (panel, POS, áreas), una API, o una página
      * con token de un solo comensal (gestionar o mover su reservación), que
      * además lleva `noindex` en su propia cabecera.
@@ -63,7 +64,7 @@ class SeoController
         header('Cache-Control: public, max-age=86400');
 
         $base = SitioConfig::url();
-        $urls = [$base . '/', $base . '/menu/pdf', $base . '/maridaje/pdf'];
+        $urls = [$base . '/', $base . '/panaderia', $base . '/menu/pdf', $base . '/maridaje/pdf'];
 
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";

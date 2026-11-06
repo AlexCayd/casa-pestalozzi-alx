@@ -23,13 +23,15 @@ $categoriasMap = is_array($categoriasMap ?? null) ? $categoriasMap : [];
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $precioBase = (float) ($platillo->precio ?? 0);
 $categoria = $categoriasMap[(int) ($platillo->categoria_id ?? 0)] ?? '';
-$datosJson = $editorVariantes !== null
-    ? json_encode($editorVariantes + ['nombre' => (string) $platillo->nombre, 'precio' => $precioBase], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP)
-    : 'null';
+if ($editorVariantes !== null) {
+    $editorVariantes += ['nombre' => (string) $platillo->nombre, 'precio' => $precioBase];
+}
+$variantesModo = 'pagina';
 ?>
 <section
     class="admin-variantes admin-page"
     data-variantes-editor
+    data-variantes-modo="pagina"
     data-variantes-url="<?= $menuContexto==='panaderia'?'/admin/panaderia/api/menu/variantes':'/admin/api/menu/variantes' ?>"
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
@@ -65,40 +67,7 @@ $datosJson = $editorVariantes !== null
     </noscript>
 
     <?php if ($editorVariantes !== null) : ?>
-        <script type="application/json" data-variantes-datos><?php echo $datosJson; ?></script>
-
-        <div class="admin-variantes__errores" data-variantes-errores role="alert" hidden></div>
-
-        <div class="admin-variantes__layout">
-            <fieldset class="admin-variantes__main m2-fieldset" <?= $menuPuedeEditar?'':'disabled' ?>>
-                <?php /* Sin aria-live: el editor se repinta entero en cada cambio de
-                         estructura, y una región viva aquí le leería al lector de
-                         pantalla todos los grupos cada vez. Lo que hay que anunciar
-                         —guardado, cambios pendientes— ya lo dice la barra. */ ?>
-                <div class="admin-variantes__grupos" data-variantes-grupos></div>
-
-                <section class="admin-variantes__nuevo" aria-labelledby="variantes-nuevo-titulo">
-                    <h2 id="variantes-nuevo-titulo" class="admin-variantes__nuevo-titulo">Agregar un grupo de opciones</h2>
-                    <p class="admin-variantes__nuevo-texto">Empieza en blanco o desde una plantilla; después ajusta nombres, precios y receta.</p>
-                    <div class="admin-variantes__plantillas" data-variantes-plantillas></div>
-                </section>
-            </fieldset>
-
-            <?php /* data-scrollable: la columna tiene tope y scroll propio mientras va
-                     pegada; motion.js sólo le cede la rueda frente a Lenis cuando
-                     de verdad desborda. */ ?>
-            <aside class="admin-variantes__aside" aria-labelledby="variantes-preview-titulo" data-scrollable>
-                <div class="admin-variantes__preview admin-card">
-                    <h2 id="variantes-preview-titulo" class="admin-variantes__preview-titulo">Así lo verá el mesero</h2>
-                    <p class="admin-variantes__preview-ayuda">Toca las opciones para probar una combinación.</p>
-                    <div class="admin-variantes__pos" data-variantes-pos></div>
-                </div>
-                <div class="admin-variantes__receta admin-card">
-                    <h2 class="admin-variantes__preview-titulo">Receta con esta combinación</h2>
-                    <div data-variantes-receta></div>
-                </div>
-            </aside>
-        </div>
+        <?php include __DIR__ . '/_variantes-editor.php'; ?>
 
         <div class="admin-variantes__barra" data-variantes-barra>
             <p class="admin-variantes__estado" data-variantes-estado aria-live="polite">Sin cambios</p>

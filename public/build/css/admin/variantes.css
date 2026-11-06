@@ -124,6 +124,9 @@
   margin-bottom: 6px;
   color: var(--admin-faint);
 }
+.admin-body .admin-variantes__vacio-icono svg {
+  stroke-width: 1.75;
+}
 .admin-body .admin-variantes__vacio-titulo {
   color: var(--admin-text);
   font-size: 17px;
@@ -312,7 +315,7 @@
 }
 .admin-body .admin-vgrupo__cabecera {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+  grid-template-columns: 44px 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
   gap: 10px;
   padding: 0 2px;
   color: var(--admin-faint);
@@ -373,7 +376,7 @@
 }
 .admin-body .admin-vopcion__fila {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
+  grid-template-columns: 44px 44px minmax(0, 1.2fr) 112px minmax(0, 1.5fr) 44px;
   align-items: center;
   gap: 10px;
   padding: 6px;
@@ -767,19 +770,28 @@
   gap: 6px;
 }
 .admin-body .admin-vpos__pill {
-  display: inline-flex;
+  display: grid;
+  flex: 1 1 calc(50% - 3px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 12px;
+  gap: 8px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 7px 10px 7px 7px;
   border: 1px solid var(--admin-border);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--admin-surface);
   color: var(--admin-text);
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
   cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.admin-body .admin-vpos__pill:hover {
+  border-color: var(--admin-line-strong);
 }
 .admin-body .admin-vpos__pill.is-on {
   border-color: var(--admin-accent);
@@ -789,6 +801,14 @@
 .admin-body .admin-vpos__pill:focus-visible {
   outline: none;
   box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vpos__pills--sin-iconos .admin-body .admin-vpos__pill {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-left: 12px;
+}
+.admin-body .admin-vpos__pill-nombre {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .admin-body .admin-vpos__delta {
   font-family: var(--admin-font-mono);
@@ -951,7 +971,10 @@
   }
   .admin-body .admin-vopcion__fila {
     grid-template-columns: 44px minmax(0, 1fr) 96px 44px;
-    grid-template-areas: "base nombre precio borrar" "receta receta receta receta";
+    grid-template-areas: "base nombre precio borrar" "icono receta receta receta";
+  }
+  .admin-body .admin-vopcion__icono {
+    grid-area: icono;
   }
   .admin-body .admin-vopcion__base {
     grid-area: base;
@@ -967,6 +990,509 @@
   }
   .admin-body .admin-vopcion__borrar {
     grid-area: borrar;
+  }
+}
+
+/* ── Iconos de opción, panel de «Editar platillo» y su resumen ─────
+ *
+ * El icono es el que verá el mesero en cada paso del POS. Automático (lo
+ * deduce el nombre) se dibuja con borde punteado; elegido a mano, con borde
+ * pleno. El selector se porta al <body> como el de componentes.
+ */
+.admin-body .admin-vopcion__icono {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-vopcion__icono svg {
+  stroke-width: 1.75;
+}
+.admin-body .admin-vopcion__icono.is-auto {
+  border-style: dashed;
+  border-color: var(--admin-border-strong);
+  color: var(--admin-muted);
+}
+.admin-body .admin-vopcion__icono:hover, .admin-body .admin-vopcion__icono[aria-expanded=true] {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+.admin-body .admin-vopcion__icono:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-vicono-inicial {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.admin-body .admin-viconos {
+  position: fixed;
+  z-index: 300;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: min(460px, 70vh);
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+}
+.admin-body .admin-viconos[hidden] {
+  display: none;
+}
+.admin-body .admin-viconos__titulo {
+  margin: 0;
+  padding: 12px 14px 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-viconos__buscar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  color: var(--admin-muted);
+}
+.admin-body .admin-viconos__buscar input {
+  min-height: 46px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.admin-body .admin-viconos__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  align-content: start;
+  gap: 4px;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.admin-body .admin-viconos__op {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 66px;
+  padding: 6px 4px;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  text-align: center;
+  cursor: pointer;
+}
+.admin-body .admin-viconos__op:hover, .admin-body .admin-viconos__op.is-active {
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-viconos__op.is-active {
+  box-shadow: inset 0 0 0 1px var(--admin-border-strong);
+}
+.admin-body .admin-viconos__op.is-actual {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+.admin-body .admin-viconos__op.is-actual.is-active {
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .admin-viconos__op--auto {
+  grid-column: 1/-1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-items: start;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 6px 12px;
+  text-align: left;
+}
+.admin-body .admin-viconos__dibujo {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.admin-body .admin-viconos__dibujo svg {
+  stroke-width: 1.75;
+}
+.admin-body .admin-viconos__nombre {
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.admin-body .admin-viconos__auto-texto {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+.admin-body .admin-viconos__auto-texto strong {
+  font-weight: 600;
+}
+.admin-body .admin-viconos__auto-texto span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-body .admin-viconos__op.is-actual .admin-viconos__nombre, .admin-body .admin-viconos__op.is-actual .admin-viconos__auto-texto span {
+  color: inherit;
+  opacity: 0.85;
+}
+.admin-body .admin-viconos__marca {
+  display: inline-grid;
+  place-items: center;
+}
+.admin-body .admin-viconos__marca svg {
+  stroke-width: 2;
+}
+.admin-body .admin-viconos__vacio {
+  grid-column: 1/-1;
+  margin: 0;
+  padding: 14px 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-vpos__icono {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+  transition: background-color 0.15s ease;
+}
+.admin-body .admin-vpos__icono svg {
+  stroke-width: 1.8;
+}
+.admin-body .admin-vpos__pill.is-on .admin-vpos__icono {
+  background: color-mix(in srgb, var(--admin-on-accent) 14%, transparent);
+}
+.admin-body .admin-vpos__paso {
+  margin-right: 2px;
+  color: var(--admin-faint);
+  letter-spacing: 0;
+}
+.admin-body {
+  /* Panel encima del formulario del platillo. Las dos columnas desplazan por
+     su cuenta, como en la página propia la columna derecha: lo que se
+     comprueba sigue a la vista mientras se edita. La barra de guardado es el
+     pie del diálogo, no flota. */
+}
+.admin-body .admin-modal__dialog--variantes {
+  display: flex;
+  flex-direction: column;
+  max-width: min(1240px, 100vw - 40px);
+  height: min(900px, 100vh - 40px);
+  padding: 22px 24px 0;
+  overflow: hidden;
+}
+.admin-body .admin-modal__dialog--variantes > .admin-modal__head {
+  flex: none;
+  margin-bottom: 14px;
+}
+.admin-body .admin-modal__dialog--variantes .admin-modal__text strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.admin-body .admin-variantes--modal {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  padding-bottom: 0;
+}
+.admin-body .admin-variantes--modal .admin-variantes__cuerpo {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+.admin-body .admin-variantes--modal .admin-variantes__layout {
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 0;
+}
+.admin-body .admin-variantes--modal .admin-variantes__main,
+.admin-body .admin-variantes--modal .admin-variantes__aside {
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border-strong) transparent;
+  padding: 3px 6px 24px 3px;
+  margin: -3px;
+}
+.admin-body .admin-variantes--modal .admin-variantes__aside {
+  position: static;
+  max-height: none;
+}
+.admin-body .admin-variantes--modal .admin-card,
+.admin-body .admin-variantes--modal .admin-card:hover {
+  box-shadow: inset 0 0 0 1px var(--admin-border), inset 0 1px 0 var(--admin-glass-edge);
+  transform: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.admin-body .admin-variantes--modal .admin-variantes__barra {
+  position: static;
+  flex: none;
+  margin: 0 -24px;
+  padding: 14px 24px;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (max-width: 1200px) {
+  .admin-body .admin-variantes--modal .admin-variantes__cuerpo {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border-strong) transparent;
+    padding: 3px 3px 24px;
+    margin: 0 -3px;
+  }
+  .admin-body .admin-variantes--modal .admin-variantes__errores {
+    margin-bottom: 14px;
+  }
+  .admin-body .admin-variantes--modal .admin-variantes__layout {
+    grid-template-rows: none;
+  }
+  .admin-body .admin-variantes--modal .admin-variantes__main,
+  .admin-body .admin-variantes--modal .admin-variantes__aside {
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+}
+@media (max-width: 768px) {
+  .admin-body .admin-modal--variantes {
+    padding: 0;
+  }
+  .admin-body .admin-modal__dialog--variantes {
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    padding: 16px 16px 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .admin-body .admin-variantes--modal .admin-variantes__barra {
+    margin: 0 -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+  .admin-body .admin-variantes__modal-ayuda {
+    display: none;
+  }
+}
+.admin-body {
+  /* Resumen dentro de «Editar platillo» (_variantes-resumen.php y
+     pintarResumen() en variantes.js: mismo marcado). */
+}
+.admin-body .admin-menu__variantes {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-body .admin-menu__variantes-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.admin-body {
+  /* Jerarquía en tres escalones: el título de la sección (como los demás
+     bloques del formulario), el nombre de cada grupo —la pregunta que se le
+     hace al mesero— y, debajo, las opciones como teselas. Antes los tres
+     iban en 15, 13 y 12 px con el mismo peso y se leían como una sola línea
+     de etiquetas. */
+}
+.admin-body .admin-menu__variantes-titulo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0 0 6px;
+  color: var(--admin-text);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.admin-body .admin-menu__variantes-titulo svg {
+  color: var(--admin-muted);
+  stroke-width: 1.75;
+}
+.admin-body .admin-menu__variantes-cuenta {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-menu__variantes-cuenta:not(:empty) {
+  padding: 3px 9px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vresumen__grupos,
+.admin-body .admin-vresumen__opciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-body .admin-vresumen__grupos {
+  display: grid;
+  gap: 10px;
+}
+.admin-body .admin-vresumen__grupo {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vresumen__nombre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.admin-body .admin-vresumen__paso {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vresumen__aviso {
+  color: var(--admin-warning-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.admin-body .admin-vresumen__regla {
+  color: var(--admin-muted);
+  font-size: 12.5px;
+  font-weight: 400;
+}
+.admin-body .admin-vresumen__opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
+  gap: 8px;
+}
+.admin-body .admin-vresumen__op {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  min-height: 52px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.admin-body .admin-vresumen__op.is-base {
+  border-color: var(--admin-border-strong);
+}
+.admin-body .admin-vresumen__op.is-off {
+  border-style: dashed;
+  background: transparent;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vresumen__op-nombre {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.admin-body .admin-vresumen__icono {
+  display: inline-grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-vresumen__icono svg {
+  stroke-width: 1.75;
+}
+.admin-body .admin-vresumen__base,
+.admin-body .admin-vresumen__delta,
+.admin-body .admin-vresumen__off {
+  grid-column: 2;
+  justify-self: start;
+}
+.admin-body .admin-vresumen__base {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-body .admin-vresumen__delta {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.admin-body .admin-vresumen__off {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+.admin-body .admin-vresumen__vacio {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-vopcion__icono {
+    transition: none;
   }
 }
 

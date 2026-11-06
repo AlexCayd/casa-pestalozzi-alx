@@ -27,10 +27,13 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [docs/desarrollo/rendimiento.md](rendimiento.md) | Referencia técnica | Método, línea base y límites de medición |
 | [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
 | [docs/modelo-datos.md](../modelo-datos.md) | Referencia técnica | Inventario estático del esquema y dependencias |
+| [docs/WORK_PLAN.MD](../WORK_PLAN.MD) | Control operativo temporal | Plan de intervención R0–R3; no es fuente normativa |
 | [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
+| [docs/modulos/caja-panaderia.md](../modulos/caja-panaderia.md) | Referencia técnica | Caja de mostrador de Panadería |
 | [docs/modulos/finanzas.md](../modulos/finanzas.md) | Referencia técnica | Finanzas por ámbito y consolidado de Global |
 | [docs/operacion.md](../operacion.md) | Vigente | Operación POS e impresión |
 | [docs/panaderia/README.md](../panaderia/README.md) | Vigente | Estado y referencias actuales de Panadería |
+| [docs/panaderia/landing.md](../panaderia/landing.md) | Referencia técnica | Landing y páginas públicas de Panadería |
 | [docs/privacidad/privacidad.md](../privacidad/privacidad.md) | Vigente | Privacidad |
 | [docs/reservaciones/notificaciones.md](../reservaciones/notificaciones.md) | Referencia técnica | Notificaciones de reservaciones |
 | [docs/reservaciones/reservaciones.md](../reservaciones/reservaciones.md) | Referencia técnica | Reservaciones |

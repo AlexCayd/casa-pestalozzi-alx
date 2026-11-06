@@ -1,7 +1,7 @@
 # Pruebas y criterios de aceptación
 
 El [ensayo de rendimiento D3](rendimiento.md) documenta su reproducción, mediciones
-y límites. Para este cierre se ejecutaron `node scripts/tests/run-reservaciones-notification-docs.cjs`
+y límites. En el cierre D3 se ejecutaron `node scripts/tests/run-reservaciones-notification-docs.cjs`
 y `npm run test:menu-preservacion`; son comprobaciones documentales y de
 preservación de fixtures, no certifican POS/comanda completa, restauración,
 instalación ni la suite financiera. Esta última repitió el fallo de gasto fijo
@@ -11,6 +11,27 @@ El [contrato rector](../arquitectura.md) fija la aceptación. Ejecutar las suite
 relacionadas con el cambio, registrar sus resultados y no presentar evidencia de
 una entrega anterior como resultado actual. Las revisiones A4, M2 y A6, sus
 resultados y capturas se recuperan en la historia de Git.
+
+## Resultados R2 de la integración
+
+Sin BD: `npm run test:php`, `npm run test:js` (13 perfiles,
+75 variantes y 25 avisos) y `npm run test:menu-preservacion` (34) **PASS**.
+La comprobación documental final verifica 263 enlaces locales, **PASS**.
+El lint PHP inicial cubrió 93 archivos y el final los cuatro PHP modificados
+posteriormente, ambos **PASS**. `npm run build` **PASS** en 5,69 s: JS/CSS iguales a
+main; se restauraron diez mapas cuya única diferencia era CRLF.
+
+En MySQL 9.7.1 privado, puerto 33078 y datadir nuevo: caja 75, A4 2474, M2 130,
+Análisis 33, consultas 491 y Finanzas 49 comprobaciones **PASS**; notificaciones
+16/16 en cada una de dos ejecuciones, cierre POS y reubicación también **PASS**.
+La variante `--migrations` omitió scripts históricos retirados; no certifica su
+reaplicación. Las fixtures de caja se alinearon con A1/A3 y zonas horarias y la
+de reubicación con el reloj de prueba. Se reforzaron token de propiedad y puerto
+DB, y se actualizaron perfiles y listas documentales sin rebajar aserciones.
+
+Las mediciones, el fallo financiero preexistente y el límite de `FOR SHARE` en
+MariaDB se detallan en [rendimiento](rendimiento.md#resultados-r2). Los servidores
+temporales cerraron, sin bases fixture restantes ni uso de la base operativa.
 
 ## Cierre A4
 
@@ -29,7 +50,8 @@ variantes, precisión, permisos y revocación, IDs ajenos, concurrencia, rollbac
 idempotencia y conservación de snapshots y movimientos. La cancelación compensa
 el consumo original una sola vez; vender no abre una botella ni produce stock.
 La revisión visual abarca escritorio, tableta y móvil, teclado y estados de error.
-M2 no habilita producción física ni POS de Panadería.
+M2 no habilita producción física ni la integración de presentaciones a la caja
+de Panadería; la caja de mostrador ya opera.
 
 ## Suites generales
 
@@ -118,6 +140,18 @@ runners históricos de regresión. Su configuración de origen debe coincidir; n
 cambiar sus validaciones para apuntar a una base real diferente. La prueba de
 instalación 3E usa la configuración y los nombres nuevos descritos en la guía,
 con su propia marca de propiedad.
+
+## Caja de Panadería
+
+```sh
+npm run test:caja-panaderia   # php scripts/tests/run-caja-panaderia-db.php
+```
+
+El runner utiliza una base desechable propia (`cp_multinegocio_test_*`) con el
+DDL y DML versionados y un secreto de NIP del proceso. Cubre permisos y rutas,
+venta atómica e idempotente, vitrina, horneadas, anulación con NIP, tickets y
+corte, revocación y preservación de Restaurante. Verificar aislamiento y destino
+antes de ejecutarlo; detalle en [caja](../modulos/caja-panaderia.md#pruebas).
 
 ## Preservación y regresión comercial
 

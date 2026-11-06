@@ -117,14 +117,76 @@
     }
   }
 
+  // Las categorías del formulario de platillo. Son tantas como el negocio
+  // quiera (dieciocho con las de la panadería), y con el `flex: 1 1 0` de
+  // .admin-tabs todas partían de ancho cero, se repartían una sola fila y se
+  // recortaban con puntos suspensivos («Des…», «Entr…») sin bajar nunca a la
+  // siguiente. Aquí cada pestaña mide su nombre y lo que no cabe envuelve:
+  // el mismo catálogo con la misma forma que el filtro del listado
+  // (.admin-menu__cats), relleno de 12 px incluido.
+  //
+  // Sin crecer, a propósito. Con `flex-grow` cada fila se estiraba para
+  // llenarse, y la ÚLTIMA se quedaba con todo el sobrante: a 992 y a 1280 px
+  // «Bollería» y «Dulces» medían 430 px cada una, y elegir una de ellas
+  // pintaba una losa de tinta de media tarjeta — el mismo estado leído como
+  // un botón principal según en qué fila cayera. La bandeja ya dice «esto es
+  // un bloque»; las pastillas sólo tienen que decir su nombre.
+  &__categorias {
+    row-gap: 6px;
+    // Centradas en la caja: con las pestañas a su ancho natural, alineadas a la
+    // izquierda dejaban un hueco distinto al final de cada fila y el grupo se
+    // veía descolgado dentro de su contorno.
+    justify-content: center;
+
+    .admin-tabs__tab {
+      flex: 0 1 auto;
+    }
+
+    .admin-tabs__tab span {
+      width: auto;
+      padding-inline: 12px;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    // Filas equilibradas. El flex-wrap llena la primera fila y deja el resto
+    // abajo (11 y 7). Con JS (core/filas-equilibradas.js) las pestañas se
+    // reparten entre las MISMAS filas —por número si caben (9 y 9), si no por
+    // largo (10 y 8)— dentro de un .admin-tabs__fila cada una, apiladas. No
+    // es una rejilla: con columnas alineadas cada una medía su pestaña más
+    // ancha y en tablet salían más filas. La fila no envuelve: un error de
+    // medida de una fracción de píxel la abriría en dos. La pastilla sigue
+    // midiendo su nombre. Sin JS, el flex de arriba.
+    &.is-equilibrada {
+      flex-direction: column;
+      flex-wrap: nowrap;
+    }
+
+    .admin-tabs__fila {
+      display: flex;
+      min-width: 0;
+      justify-content: center;
+      // El hueco entre pastillas es el del grupo: un solo número que tocar.
+      gap: inherit;
+    }
+  }
+
   // Con el dedo, las dos filas del filtro pasan de ~37 px a 44 px de alto. Van
   // juntas a propósito: si sólo creciera una, el nivel más alto parecería el
   // más importante, y la jerarquía la ponen el rótulo y el ancho, no el tamaño.
   // El «+» se iguala para no quedarse corto al final de su fila.
+  //
+  // Lo mismo en el formulario de platillo, y por la misma razón van los DOS
+  // grupos de pestañas (Categoría y Área de producción): dieciocho blancos
+  // a 39 px con 6 px entre filas son fáciles de errar con el dedo, y si sólo
+  // creciera uno el otro parecería un control distinto. Acotado a
+  // --modulo.--form, que es sólo Menú: --form a secas lo llevan también
+  // Usuarios, Impresoras y Roles, que no se han revisado con esta medida.
   @media (pointer: coarse) {
     &__cartas-tabs .admin-tabs__tab a span,
     &__cats .admin-tabs__tab a span,
-    &__cats .admin-tabs__tab--add label span {
+    &__cats .admin-tabs__tab--add label span,
+    &--modulo#{&}--form .admin-tabs__tab span {
       padding-block: 12px;
     }
   }
@@ -191,6 +253,13 @@
     align-self: end;
     min-height: 46px;
     margin: 0;
+  }
+
+  // Formulario de categoría: «Visible en el menú» comparte fila con el nombre
+  // y se alinea con el campo, no con el rótulo. En un teléfono baja a su
+  // propia fila con la rejilla, que .admin-form-grid ya pliega a 640 px.
+  &__visible {
+    align-self: end;
   }
 
   &__panel-head {
@@ -991,10 +1060,13 @@
 
 /* ── Variantes en el listado ──────────────────────────────────────
  *
- * El contador bajo el nombre y la acción de la fila. Vivían en variantes.scss,
- * que sólo carga el editor: en el listado no llegaban nunca, así que el icono
- * se pegaba a la cifra («⚌7 opciones») y la acción de un platillo con
- * variantes era idéntica a la de uno sin ellas.
+ * El contador junto al nombre. Vive aquí y no en variantes.scss, que sólo
+ * carga el editor: en el listado no llegaba nunca y el icono se pegaba a la
+ * cifra («⚌7 opciones»).
+ *
+ * La fila ya no lleva botón de variantes: se editan en «Editar platillo». El
+ * contador es el atajo —un enlace a edit?id=…#variantes, que abre el panel—
+ * cuando el usuario puede editarlas; si no, es sólo el dato.
  *
  * `.admin-table__cell-sub` es `display: block` en _tables.scss con la misma
  * especificidad; el contador va con la tabla como ancestro para no depender
@@ -1014,15 +1086,25 @@
   }
 }
 
-/* Con variantes, la acción lleva el contorno en tinta plena. No se rellena: en
- * la misma fila van el ámbar de editar y el rojo de borrar, y un cuadro negro
- * sería lo más ruidoso de la tabla para un dato que ya dice el rótulo bajo el
- * nombre. El contorno basta para distinguirlo al recorrer la columna. */
-.admin-body .admin-icon-button--variantes.is-set {
-  border-color: var(--admin-text);
-  background-color: var(--admin-surface);
-  color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px var(--admin-text);
+// Enlace: mismo dato, con la forma de algo que se toca. El padding con
+// margen negativo agranda el blanco hasta los 24 px de AA sin mover la línea
+// del nombre.
+.admin-table a.admin-menu__variantes-sub {
+  margin: -6px -10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:hover {
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--admin-focus-ring);
+  }
 }
 
 /* ── Foto del platillo (formulario) ───────────────────────────────
@@ -1265,6 +1347,149 @@
     .admin-foto__cuerpo,
     .admin-foto__vista,
     .admin-foto__img {
+      transition: none;
+    }
+  }
+}
+
+/* ── Imagen de la categoría: la misma pieza, en grande ─────────────
+ *
+ * En el formulario de categoría la imagen es lo único visual y es la que la
+ * carta enseña a tamaño de sección, así que la vista previa tiene columna
+ * propia (hasta 420 px) en vez de la miniatura de 192 px del platillo. El
+ * cuerpo pasa a rejilla y se apila por debajo de 620 px de CONTENEDOR: lo que
+ * manda es el ancho del campo, no el de la ventana.
+ *
+ * (0,3,0) para ganarle por especificidad, y no sólo por orden, a la pieza
+ * base de arriba. */
+.admin-body .admin-foto.admin-foto--grande {
+  container: foto-grande / inline-size;
+
+  // Mínimos en las DOS columnas: con `minmax(0, …)` la imagen se quedaba sus
+  // 420 px y el texto se comía el resto, que justo antes de apilarse eran
+  // ~140 px —la ayuda en siete renglones—. Así cede primero la imagen y se
+  // apila antes de que ninguna de las dos baje de su mínimo (280 + 260 + hueco
+  // y relleno ≈ 602 px, de ahí los 620 de la consulta de abajo).
+  .admin-foto__cuerpo {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) minmax(260px, 1fr);
+    align-items: center;
+    gap: 20px 28px;
+    padding: 16px;
+  }
+
+  .admin-foto__vista {
+    width: 100%;
+    // Apilada, la vista previa no pasa de la medida que tiene en dos
+    // columnas: a todo el ancho de un campo de 600 px salía de 450 px de alto
+    // y mandaba el botón y el estado debajo del pliegue.
+    max-width: 420px;
+    border-radius: var(--admin-radius-md);
+    transition:
+      border-color var(--admin-t-fast) var(--admin-ease-out),
+      background var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // Vacía, la vista es la zona de subida: dice qué hacer en sus propias
+  // palabras, y al apuntarla o al arrastrar encima responde como destino.
+  .admin-foto__vacia {
+    gap: 4px;
+    padding: 16px;
+    text-align: center;
+
+    svg {
+      margin-bottom: 6px;
+    }
+  }
+
+  .admin-foto__vacia-titulo {
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .admin-foto__vacia-pista {
+    color: var(--admin-muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  &[data-estado="vacia"] .admin-foto__cuerpo.is-arrastrando .admin-foto__vista {
+    border-color: var(--admin-accent);
+    background: var(--admin-surface-soft);
+  }
+
+  // Sobre una imagen, el velo dice qué hace el clic, o que se puede soltar.
+  // Las anclas y no los roles: es un velo sobre una FOTO, oscuro y con papel
+  // encima en los dos temas. Al 62 % el papel pasa de 4.5:1 aunque la foto
+  // sea blanca.
+  .admin-foto__invitacion {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: color-mix(in srgb, var(--admin-ink) 62%, transparent);
+    color: var(--admin-paper);
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+
+    svg {
+      stroke-width: 1.6;
+    }
+  }
+
+  .admin-foto__invitacion-soltar {
+    display: none;
+  }
+
+  &:not([data-estado="vacia"]) .admin-foto__cuerpo.is-arrastrando {
+    .admin-foto__invitacion {
+      opacity: 1;
+    }
+
+    .admin-foto__invitacion-clic {
+      display: none;
+    }
+
+    .admin-foto__invitacion-soltar {
+      display: inline;
+    }
+  }
+
+  // Al apuntar, sólo con puntero fino: en una tablet el primer toque ya abre
+  // el selector, y el velo se quedaría puesto al volver.
+  @media (hover: hover) and (pointer: fine) {
+    &:not([data-estado="vacia"]) .admin-foto__vista:hover .admin-foto__invitacion {
+      opacity: 1;
+    }
+
+    &[data-estado="vacia"] .admin-foto__vista:hover {
+      background: var(--admin-surface-soft);
+    }
+  }
+
+  // En una pantalla táctil no hay archivo que arrastrar desde fuera del
+  // navegador: «o arrástrala aquí» prometía un gesto que no existe.
+  @media (hover: none) {
+    [data-foto-arrastre] {
+      display: none;
+    }
+  }
+
+  @container foto-grande (max-width: 620px) {
+    .admin-foto__cuerpo {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @include mixins.reduced-motion {
+    .admin-foto__vista,
+    .admin-foto__invitacion {
       transition: none;
     }
   }

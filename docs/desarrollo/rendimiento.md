@@ -97,12 +97,12 @@ conocidos, nulos y cero, partidas canceladas y tickets abiertos; además comprob
 importes esperados para fronteras y periodos vacíos. No son pruebas de una base
 operativa ni de restauración.
 
-**Comanda no medida:** preparar la variante falla con error SQL 1064 en
+**Comanda no medida en D3/MariaDB:** preparar la variante falla con error SQL 1064 en
 `PermisosUsuario.php:49` al ejecutar `FOR SHARE` en MariaDB 10.4.32; no se
 cuentan resultados parciales como muestras y no hay duración de transacción.
 No se cambió el bloqueo ni se evaluó equivalencia de su comportamiento en MySQL
-8.0. La evaluación completa de comanda, consumo y cancelación queda pendiente
-sobre un motor compatible y una base aislada. Las simulaciones no certifican
+8.0. La evaluación de comanda, consumo y cancelación quedó pendiente en ese ensayo;
+la medición posterior en MySQL se describe en Resultados R2. Las simulaciones no certifican
 integraciones externas ni equipos físicos.
 
 ## Regresión financiera adicional
@@ -119,3 +119,20 @@ Para repetirla añadir `--finance-suite` al comando del runner. Al fallar la sui
 actual, el runner también ejecuta la base, guarda salidas en archivos privados
 del runtime y termina con código distinto de cero después de verificar y limpiar
 su base. La prueba de Análisis/Asistente completa no se ejecutó.
+
+## Resultados R2
+
+En un datadir nuevo de MariaDB 10.4.32 privado, puerto 33077, la comparación
+D3 mantuvo equivalencia en ocho casos y redujo de tres a dos SELECT. PHP p50
+base/actual fue 28,408/17,351 ms y p95 33,534/35,947 ms: no hubo mejora
+uniforme en todos los percentiles. La suite financiera completa volvió a fallar
+en «Panadería guarda su gasto fijo» en base y actual (**FAIL_PREEXISTENTE**);
+su causa sigue sin establecerse. La comanda no se midió en MariaDB por el error
+1064 en `FOR SHARE`.
+
+En un ensayo CLI separado sobre MySQL 9.7.1 privado, con cinco calentamientos y
+30 muestras, comanda midió 31,922/37,945 ms p50/p95 y dos cancelaciones
+25,566/39,791 ms. Se comprobaron 107 aserciones y saldos compensados. Estos
+tiempos no incluyen HTTP ni perfil SQL o duración aislada de transacción y no
+acreditan producción. El resultado de MySQL no resuelve el fallo de MariaDB ni
+es directamente comparable con su benchmark.

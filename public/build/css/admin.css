@@ -1578,7 +1578,9 @@ html.lenis body {
  */
 /*
  * Presentacion de la barra superior del panel administrativo.
- * Mantiene un encabezado simple, estable y sin breadcrumb visual.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual: a la
+ * izquierda el ámbito de trabajo (components/_contextos.scss) y a la derecha
+ * las acciones y el usuario.
  */
 .admin-topbar {
   position: sticky;
@@ -1800,17 +1802,6 @@ html.lenis body {
     transform: rotate(0);
   }
 }
-.admin-topbar__module {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--admin-text);
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .admin-topbar__user {
   display: inline-flex;
   align-items: center;
@@ -1845,9 +1836,6 @@ html.lenis body {
     gap: 10px;
     min-height: 54px;
     padding: 6px 16px;
-  }
-  .admin-topbar__module {
-    font-size: 14px;
   }
   .admin-topbar__user {
     justify-self: end;
@@ -4078,13 +4066,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-wrap: wrap;
   gap: 8px;
 }
+.admin-field__label + .admin-pills__group {
+  margin-top: 0;
+}
+.admin-pills--columnas .admin-pills__group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .admin-pills--columnas .admin-pills__group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 .admin-pill {
   position: relative;
   display: flex;
   min-width: 150px;
   flex: 1 1 auto;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 11px 13px;
   border: 1px solid var(--admin-border-soft);
@@ -4111,7 +4111,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 15px;
   height: 15px;
   flex: 0 0 15px;
-  margin-top: 2px;
   border: 1px solid var(--admin-border-strong);
   border-radius: 50%;
   content: "";
@@ -4184,7 +4183,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     width: 15px;
     height: 15px;
     flex: 0 0 15px;
-    margin-top: 2px;
     overflow: visible;
     clip-path: none;
     accent-color: var(--admin-accent);
@@ -5291,9 +5289,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *       src/js/components/llegada.js).
  *
  * Las otras dos transiciones —cambio de tema y cambio de módulo— viven en
- * _finishes.scss (4b y 4c). Las tres usan View Transitions y se distinguen por
- * TIPO ('tema', 'modulo', 'llegada'): ninguna regla de una debe poder tocar a
- * otra. Si se toca una, comprobar las otras dos.
+ * _finishes.scss (4b y 4c) y se distinguen por TIPO ('tema', 'modulo'). La
+ * llegada ya sólo usa una View Transition en su primer tiempo (la de documento
+ * cruzado, desde el login, sin tipo); la salida es WAAPI sobre el propio
+ * velo. Si se toca una de las tres, comprobar las otras dos.
  */
 /* ── 1 · Base de reveals (GSAP fija .is-in / limpia estilos) ───── */
 .admin-anim-ready [data-reveal] {
@@ -5330,37 +5329,134 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 /* ── 2 · La llegada ────────────────────────────────────────────
  *
- * Tres tiempos (detalle en llegada.js): el nombre toma el centro, se sostiene
- * y vuela a la marca de la pantalla mientras el velo se cierra sobre ella.
- * Dura ~1.4 s, se salta con cualquier tecla o toque y sólo existe en la
- * primera página tras el login.
+ * «Subir la cortina». Tres tiempos (detalle en llegada.js): el nombre toma
+ * el centro, se sostiene con el saludo y, mientras la cortina sube en ola
+ * desde la marca de la pantalla, vuela en arco hasta ella. Dura ~1.65 s, se
+ * salta con cualquier tecla o toque y sólo existe en la primera página tras
+ * el login.
  *
- * El velo es SIEMPRE tinta, también cuando el panel está en claro: es la tinta
- * del login, así que el cambio de documento no parpadea, y la llegada se lee
- * como una puerta que se abre a la sala iluminada. Por eso aquí se pide a las
- * ANCLAS (--admin-ink / --admin-paper), que no cambian con el tema, y no a los
- * roles (--admin-bg, --admin-muted), que en claro serían papel.
+ * La cortina es SIEMPRE tinta, también cuando el panel está en claro: es la
+ * tinta del login, así que el cambio de documento no parpadea, y la llegada
+ * se lee como abrir el local por la mañana. Por eso aquí se pide a las ANCLAS
+ * (--admin-ink / --admin-paper), que no cambian con el tema, y no a los roles
+ * (--admin-bg, --admin-muted), que en claro serían papel.
  *
- * Sin JS se retira solo: se sostiene 1.3 s y se funde. El JS anula esa salida
- * (.is-js) cuando toma el mando, y si llega tarde la deja correr.
+ * Todo lo que se mueve al salir es `transform` u `opacity`: los paños y el
+ * vuelo van por el compositor y no se traban mientras el panel arranca sus
+ * gráficas en el hilo principal. Es lo que no tenía la versión anterior (un
+ * `clip-path` en círculo y el ancho y alto de los grupos de una View
+ * Transition, las dos cosas en el hilo principal).
+ *
+ * Sin JS sube sola: se sostiene 1.3 s y los paños suben de izquierda a
+ * derecha. El JS anula esa salida (.is-js) cuando toma el mando, y si llega
+ * tarde la deja correr.
  */
 .cp-llegada {
+  display: contents;
+}
+
+.cp-llegada__cortina {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 6vh 6vw;
+  display: flex;
+  overflow: hidden;
   background: var(--admin-ink);
-  color: var(--admin-paper);
-  animation: cp-llegada-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+  animation: cp-llegada-cortina 800ms linear 1300ms forwards;
 }
 
+/*
+ * Un paño. El canto inferior lleva un filete de luz y debajo una sombra corta:
+ * al subir, el borde se lee como una pieza física que se separa del panel y no
+ * como un recorte. Los dos viven en el ::after, colgado por DEBAJO del paño,
+ * así que en reposo están fuera de la pantalla y la tinta es lisa.
+ *
+ * El -1px solapa a los vecinos: con anchos fraccionarios, dos paños que sólo
+ * se tocan dejan pasar una línea de panel claro entre ellos.
+ */
+.cp-llegada__pano {
+  --sombra: clamp(40px, 7vh, 84px);
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  margin-right: -1px;
+  background: var(--admin-ink);
+  animation: cp-llegada-pano-sube 640ms cubic-bezier(0.76, 0, 0.24, 1) calc(1300ms + var(--i, 0) * 40ms) both;
+}
+.cp-llegada__pano::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: var(--sombra);
+  border-top: 1px solid color-mix(in srgb, var(--admin-paper) 38%, var(--admin-ink));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--admin-ink) 16%, transparent), transparent);
+  pointer-events: none;
+}
+.cp-llegada__pano:nth-child(2) {
+  --i: 1;
+}
+.cp-llegada__pano:nth-child(3) {
+  --i: 2;
+}
+.cp-llegada__pano:nth-child(4) {
+  --i: 3;
+}
+.cp-llegada__pano:nth-child(5) {
+  --i: 4;
+}
+
+@media (max-width: 640px) {
+  .cp-llegada__pano:nth-child(n+4) {
+    display: none;
+  }
+}
+/* La luz: un halo de papel muy bajo detrás del nombre, que se enciende
+   mientras se lee el saludo. Anticipa la sala iluminada que hay detrás de la
+   cortina; sin él, la pausa era tinta quieta. No se mueve con los paños: se
+   apaga al empezar a subir.
+
+   Vive en el CENTRO, con z-index negativo para quedar bajo el nombre dentro
+   del grupo que se funde. En la cortina quedaba en el fondo del `difference`
+   y se restaba de la letra: el nombre se apagaba un 12 % en cuanto la
+   transición de documento lo soltaba (dentro de ella se pinta sin la mezcla
+   del ancestro) y el saludo caía de 7.3 a 4.9:1. */
+.cp-llegada__luz {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: min(120vmin, 1100px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--admin-paper) 9%, transparent), transparent);
+  pointer-events: none;
+  animation: cp-llegada-luz 1200ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both, cp-llegada-desvanece 360ms cubic-bezier(0.4, 0, 1, 1) 1300ms forwards;
+}
+
+/*
+ * El centro: nombre, filete y saludo, en una capa fija propia ENCIMA de la
+ * cortina y fundida con `difference`. Sobre tinta el papel sale papel; sobre
+ * el panel en claro sale tinta. Así el nombre vuela legible por encima de la
+ * cortina que sube y del panel que asoma, en los dos temas, sin un cambio de
+ * color que sincronizar: el color lo pone lo que tiene debajo. En el piso
+ * (oscuro forzado) sale papel de principio a fin.
+ */
 .cp-llegada__centro {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
   display: grid;
+  place-content: center;
   justify-items: center;
   gap: clamp(18px, 3.4vh, 30px);
-  animation: cp-llegada-centro-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+  padding: 6vh 6vw;
+  overflow: hidden;
+  color: var(--admin-paper);
+  mix-blend-mode: difference;
+  pointer-events: none;
+  animation: cp-llegada-centro-fuera 320ms cubic-bezier(0.4, 0, 1, 1) 1300ms forwards;
 }
 
 /*
@@ -5368,8 +5464,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *
  * Las cajas de las palabras se miden igual que en el destino: `fit-content`
  * (cada caja es su palabra, no la columna entera) y el mismo interlineado
- * 0.98 del sidebar. Así cada palabra tiene la MISMA proporción en el velo y en
- * la marca, y el navegador puede escalar la una en la otra sin deformarla.
+ * 0.98 del sidebar. llegada.js mide el TEXTO de cada palabra aquí y en el
+ * destino y escala uno en el otro, así que basta con que la proporción sea la
+ * misma.
  *
  * El cuerpo: PESTALOZZI mide 7.59 em en KudosKaps (medido sobre el .otf), así
  * que 8.4vw lo deja en dos tercios del ancho; la cota en vh es para pantallas
@@ -5391,13 +5488,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin-inline: auto;
 }
 
+/* El filete crece durante toda la pausa: es el reloj de la llegada, y cuando
+   termina de abrirse, sube la cortina. 220 + 640 = 860, la PAUSA de
+   llegada.js: si cambia una, cambia la otra (con 820 ms la cortina arrancaba
+   con el reloj todavía abriéndose). */
 .cp-llegada__filete {
   display: block;
-  width: 56px;
+  width: 72px;
   height: 1px;
-  background: color-mix(in srgb, var(--admin-paper) 36%, transparent);
+  background: color-mix(in srgb, var(--admin-paper) 40%, var(--admin-ink));
   transform-origin: center;
-  animation: cp-llegada-filete 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+  animation: cp-llegada-filete 640ms cubic-bezier(0.65, 0, 0.35, 1) 220ms both;
 }
 
 .cp-llegada .cp-llegada__saludo {
@@ -5412,7 +5513,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--admin-paper) 66%, var(--admin-ink));
-  animation: cp-llegada-saludo 440ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+
+.cp-llegada__saludo > * {
+  animation: cp-llegada-saludo 560ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+}
+.cp-llegada__saludo > *:nth-child(2) {
+  animation-delay: 380ms;
+}
+.cp-llegada__saludo > *:nth-child(3) {
+  animation-delay: 440ms;
 }
 
 .cp-llegada__punto {
@@ -5422,36 +5532,64 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: currentColor;
 }
 
-.cp-llegada.is-js,
+.cp-llegada.is-js .cp-llegada__cortina,
+.cp-llegada.is-js .cp-llegada__pano,
 .cp-llegada.is-js .cp-llegada__centro {
   animation: none;
 }
-
-/* Palabras de la barra del piso, envueltas sólo mientras dura el vuelo
-   (llegada.js): la marca de la barra es un nodo de texto, y un grupo de View
-   Transition necesita una caja por palabra. `inline-block` con el mismo
-   espacio entre ellas no mueve la línea. */
-.cp-llegada-palabra {
-  display: inline-block;
+.cp-llegada.is-js .cp-llegada__luz {
+  animation: cp-llegada-luz 1200ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
 }
 
-/* Lo mismo en el sidebar, sin tocar el marcado: las palabras apiladas son
-   bloques del ancho de PESTALOZZI, así que CASA medía el doble de lo que se ve
-   y su instantánea llegaba con hueco a la derecha. Sólo durante el vuelo; en
-   reposo alineadas a la izquierda se ven igual con o sin esto. */
-.cp-llegada-vuelo .admin-sidebar__brand-text .hcp-header__palabra {
-  width: fit-content;
+/* La salida que pone llegada.js. El fondo de la cortina se va (los paños ya
+   la cubren) y su contenedor deja de recibir el puntero: lo que ya se ve se
+   puede tocar, y un paño que aún tapa sigue parando el toque. */
+.cp-llegada.is-saliendo .cp-llegada__cortina {
+  background: transparent;
+  pointer-events: none;
+}
+.cp-llegada.is-saliendo .cp-llegada__pano {
+  pointer-events: auto;
+}
+.cp-llegada.is-saliendo .cp-llegada__luz {
+  animation: cp-llegada-desvanece 360ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.cp-llegada.is-saliendo .cp-llegada__filete,
+.cp-llegada.is-saliendo .cp-llegada__saludo {
+  animation: cp-llegada-desvanece 220ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
-@keyframes cp-llegada-fuera {
+@keyframes cp-llegada-cortina {
+  from {
+    background-color: transparent;
+  }
+  to {
+    background-color: transparent;
+    visibility: hidden;
+  }
+}
+@keyframes cp-llegada-pano-sube {
+  to {
+    transform: translateY(calc(-100% - var(--sombra) - 2px));
+  }
+}
+@keyframes cp-llegada-luz {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@keyframes cp-llegada-desvanece {
   to {
     opacity: 0;
-    visibility: hidden;
+    transform: translateY(-4px);
   }
 }
 @keyframes cp-llegada-centro-fuera {
   to {
+    opacity: 0;
     transform: translateY(-12px) scale(0.98);
+    visibility: hidden;
   }
 }
 @keyframes cp-llegada-filete {
@@ -5465,16 +5603,24 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     transform: translateY(6px);
   }
 }
+@keyframes cp-llegada-fuera {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
 /* Movimiento reducido: un fundido breve de la tinta al destino, que es la
-   señal de que se entró, y nada más. Sin pausa, sin vuelo y sin el nombre
+   señal de que se entró, y nada más. Sin pausa, sin cortina y sin el nombre
    viajando desde el login (el `@view-transition` ya está apagado ahí). */
 @media (prefers-reduced-motion: reduce) {
-  .cp-llegada {
+  .cp-llegada__cortina,
+  .cp-llegada__centro {
     animation: cp-llegada-fuera 240ms ease-out both;
   }
-  .cp-llegada__centro,
+  .cp-llegada__pano,
+  .cp-llegada__luz,
   .cp-llegada__filete,
-  .cp-llegada .cp-llegada__saludo {
+  .cp-llegada__saludo > * {
     animation: none;
   }
   .cp-llegada .cp-llegada__marca {
@@ -5482,107 +5628,32 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 /*
- * Las View Transitions de la llegada.
+ * El primer tiempo es la única View Transition de la llegada: la de documento
+ * cruzado, del login al velo. Sin tipo, porque lo decide el documento nuevo y
+ * el nombre sólo existe aquí.
  *
  * Los valores van LITERALES: los tokens de movimiento se declaran en
  * .admin-body y los pseudo-elementos de la transición cuelgan de <html>, así
  * que un `var(--admin-ease)` aquí sería inválido y caería a `ease`.
  */
 @supports (view-transition-name: none) {
-  /* Primer tiempo, documento cruzado: la marca del login hasta el centro. Sin
-     tipo, porque lo decide el documento nuevo y el nombre sólo existe aquí. */
+  /* El nombre, del login al centro: casi todo el recorrido al principio y una
+     llegada larga, para que se pose y no frene en seco. */
   ::view-transition-group(cp-marca) {
-    animation-duration: 460ms;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-duration: 560ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
-  /* Tercer tiempo: el vuelo. */
-  :root:active-view-transition-type(llegada) {
-    /* El velo (la instantánea vieja) va ENCIMA y se cierra; el destino espera
-       entero debajo. El cierre en círculo lo pone llegada.js con WAAPI, porque
-       su centro es la marca de destino; este fundido es el respaldo cuando no
-       hay marca (POS) o el script no llega a animar, y WAAPI lo sustituye
-       cuando sí. */
-  }
-  :root:active-view-transition-type(llegada)::view-transition-old(root) {
-    z-index: 2;
-    mix-blend-mode: normal;
-    animation: cp-vt-velo 820ms cubic-bezier(0.4, 0, 0.2, 1) both;
-  }
-  :root:active-view-transition-type(llegada)::view-transition-new(root) {
-    z-index: 1;
-    mix-blend-mode: normal;
-    animation: none;
-  }
-  :root:active-view-transition-type(llegada) {
-    /* Las palabras llegan al 80 % del cierre (656 de 820 ms) con una curva de
-       ida y vuelta: despegan, viajan y se posan, y el velo las acompaña con la
-       misma curva. PESTALOZZI sale un instante después que CASA: el bloque se
-       despliega en vez de moverse en una pieza. */
-  }
-  :root:active-view-transition-type(llegada)::view-transition-group(cp-marca), :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-pestalozzi) {
-    animation-duration: 656ms;
-    animation-timing-function: cubic-bezier(0.7, 0, 0.2, 1);
-  }
-  :root:active-view-transition-type(llegada)::view-transition-group(cp-marca-pestalozzi) {
-    animation-delay: 36ms;
-  }
-  :root:active-view-transition-type(llegada) {
-    /* La tinta cambia AL FINAL, con el fundido del velo: el nombre vuela en
-       papel sobre tinta y se posa en el color de la marca de destino. Antes de
-       eso la instantánea nueva va ampliada desde la marca pequeña y se vería
-       borrosa. */
-  }
-  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca), :root:active-view-transition-type(llegada)::view-transition-old(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-old(cp-marca-pestalozzi) {
-    mix-blend-mode: normal;
-    animation: cp-vt-tinta-sale 820ms linear both;
-  }
-  :root:active-view-transition-type(llegada)::view-transition-new(cp-marca), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca-casa), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca-pestalozzi) {
-    mix-blend-mode: normal;
-    animation: cp-vt-tinta-entra 820ms linear both;
-  }
-  :root:active-view-transition-type(llegada) {
-    /* El monograma del sidebar plegado es cuadrado y el nombre apaisado: que
-       las dos instantáneas quepan sin deformarse en la caja que se transforma. */
-  }
-  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca), :root:active-view-transition-type(llegada)::view-transition-new(cp-marca) {
-    height: 100%;
-    object-fit: contain;
-  }
-  :root:active-view-transition-type(llegada) {
-    /* Sin destino (POS, panel en móvil): el nombre se apaga en su sitio. */
-  }
-  :root:active-view-transition-type(llegada)::view-transition-old(cp-marca):only-child {
-    animation: cp-vt-marca-apaga 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  /* La tarjeta del acceso (la nombra el login en `pageswap`) no tiene pareja
+     aquí: se retira hacia abajo, como una puerta que se cierra detrás, en vez
+     de fundirse con el resto de la pantalla. */
+  ::view-transition-old(cp-acceso):only-child {
+    animation: cp-acceso-sale 300ms cubic-bezier(0.4, 0, 1, 1) both;
   }
 }
-@keyframes cp-vt-velo {
-  0%, 30% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes cp-vt-tinta-sale {
-  0%, 78% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes cp-vt-tinta-entra {
-  0%, 78% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-@keyframes cp-vt-marca-apaga {
+@keyframes cp-acceso-sale {
   to {
     opacity: 0;
-    transform: scale(0.94);
+    transform: translateY(14px) scale(0.985);
   }
 }
 /*
@@ -7740,65 +7811,132 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-weight: 700;
 }
 
+/*
+ * Ámbito de trabajo en el header (views/admin/partials/_contexto.php).
+ *
+ * Es el estado del panel y va donde empieza la lectura. Hace pareja con la
+ * píldora del usuario al otro extremo de la barra (_topbar.scss): a la
+ * izquierda «dónde estoy», a la derecha «quién soy», con la misma forma —
+ * píldora de 40 px, círculo relleno de 32 y nombre en 700— para que el header
+ * se lea como dos anclas y no como un título más.
+ */
 .admin-context-switch {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   align-items: center;
-  gap: 8px 16px;
-  margin: 8px 0 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--admin-border-soft);
-  color: var(--admin-text);
-  font-size: 13px;
-}
-.admin-context-switch label {
-  font-weight: 600;
-  font-size: 11px;
-  color: var(--admin-muted);
-}
-.admin-context-switch__controls {
-  display: flex;
-  gap: 8px;
   min-width: 0;
-  width: 100%;
-}
-.admin-context-switch select {
-  appearance: auto;
-  -webkit-appearance: auto;
-  min-height: 44px;
   max-width: 100%;
-  width: 100%;
-  padding: 8px 32px 8px 12px;
+  color: var(--admin-text);
+}
+
+.admin-body .admin-context-switch__trigger,
+.admin-context-switch__fijo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 0 12px 0 4px;
+  border-radius: 999px;
+  color: var(--admin-text);
+  font: 600 13px var(--admin-font-sans);
+  line-height: 1;
+}
+
+.admin-body .admin-context-switch__trigger {
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  color: var(--admin-text);
-  background: var(--admin-surface);
-  font: inherit;
+  background: var(--admin-bg);
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
 }
-.admin-context-switch select:disabled {
-  opacity: 1;
-  cursor: default;
-}
-.admin-context-switch select:focus-visible {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 3px;
+.admin-body .admin-context-switch__trigger:hover, .admin-body .admin-context-switch__trigger[aria-expanded=true] {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
 }
 
-.admin-context-name {
-  color: var(--admin-text);
-  font-size: 13px;
+.admin-context-switch__fijo {
+  padding-right: 4px;
 }
 
-.admin-sidebar-collapsed .admin-context-switch label {
+.admin-context-switch__icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+.admin-context-switch__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.9;
+}
+
+.admin-context-switch__texto {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.admin-context-switch__rotulo {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-context-switch__name {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-context-switch__chevron {
+  display: flex;
+  flex: none;
+  color: var(--admin-muted);
+  transition: rotate var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-context-switch__chevron svg {
+  stroke-width: 2;
+}
+
+.admin-context-switch__trigger[aria-expanded=true] .admin-context-switch__chevron {
+  rotate: 180deg;
+}
+
+.admin-context-switch__sinjs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+.admin-context-switch__sinjs label {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
 }
-.admin-sidebar-collapsed .admin-context-switch select {
-  padding-inline: 3px;
-  font-size: 11px;
+.admin-context-switch__sinjs select {
+  appearance: auto;
+  -webkit-appearance: auto;
+  min-height: 36px;
+  padding: 4px 28px 4px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
 }
 
 .admin-context-denied {
@@ -7983,13 +8121,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .admin-context-page .admin-context-page__inventory td:last-child {
     font-size: 12px;
   }
-  .admin-context-name {
-    display: block;
-    font-size: 11px;
-  }
-  .admin-context-name span {
-    display: none;
-  }
   .admin-context-page__business {
     flex-direction: column;
     align-items: flex-start;
@@ -7998,111 +8129,137 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     display: block;
     margin-left: 0;
   }
-  .admin-context-switch {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
-/* Selector de ámbito: disparador compartido y menú en la capa superior. */
-.admin-context-switch {
-  display: block;
-}
-
-.admin-body .admin-context-switch__trigger {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid var(--admin-sidebar-border);
-  border-radius: var(--admin-radius-md);
-  color: var(--admin-sidebar-link);
-  background: var(--admin-sidebar-hover-bg);
-  font: 600 13px var(--admin-font-sans);
-  cursor: pointer;
-}
-.admin-body .admin-context-switch__trigger:hover {
-  color: var(--admin-text);
-  background: var(--admin-surface-soft);
-}
-.admin-body .admin-context-switch__trigger:focus-visible {
-  outline: 2px solid var(--admin-text);
-  outline-offset: 3px;
-}
-
-.admin-context-switch__icon {
-  width: 20px;
-  display: flex;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.admin-context-switch__name {
-  flex: 1;
-  text-align: left;
-}
-
-.admin-context-switch__chevron {
-  display: flex;
-}
-
+/* Menú de ámbitos: en la capa superior (popover), bajo la píldora. */
 .admin-context-menu {
   position: fixed;
   inset: auto;
-  margin: 0;
   width: 260px;
   max-width: calc(100vw - 24px);
-  padding: 8px;
+  margin: 0;
+  padding: 6px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
   color: var(--admin-text);
   box-shadow: var(--admin-shadow-lg);
   font: 13px var(--admin-font-sans);
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), translate var(--admin-t-fast) var(--admin-ease-out), overlay var(--admin-t-fast) allow-discrete, display var(--admin-t-fast) allow-discrete;
+}
+.admin-context-menu:not(:popover-open) {
+  opacity: 0;
+  translate: 0 -4px;
 }
 .admin-context-menu p {
-  margin: 8px 12px;
+  margin: 8px 10px 6px;
   color: var(--admin-muted);
-  font-size: 11px;
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 .admin-context-menu a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
   min-height: 44px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-text);
+  font-weight: 600;
   text-decoration: none;
-  border-radius: 6px;
 }
-.admin-context-menu a span {
+.admin-context-menu a > span:not(.admin-context-menu__icon) {
   flex: 1;
 }
-.admin-context-menu a:hover, .admin-context-menu a:focus-visible, .admin-context-menu a[aria-current] {
+.admin-context-menu a:hover,
+.admin-context-menu a:focus-visible,
+.admin-context-menu a[aria-current] {
   background: var(--admin-surface-soft);
 }
 .admin-context-menu a:focus-visible {
   outline: 2px solid var(--admin-text);
   outline-offset: -2px;
+  box-shadow: none;
 }
 
-@media (min-width: 993px) {
-  .admin-sidebar-collapsed .admin-context-switch__trigger, .is-sidebar-collapsed .admin-context-switch__trigger {
-    padding: 12px;
-    justify-content: center;
-    width: 48px;
-    margin-inline: auto;
-    gap: 0;
+@starting-style {
+  .admin-context-menu:popover-open {
+    opacity: 0;
+    translate: 0 -4px;
   }
-  .admin-sidebar-collapsed .admin-context-switch__name, .admin-sidebar-collapsed .admin-context-switch__chevron, .is-sidebar-collapsed .admin-context-switch__name, .is-sidebar-collapsed .admin-context-switch__chevron {
+}
+.admin-context-menu__icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-text);
+}
+.admin-context-menu__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.9;
+}
+
+.admin-context-menu a[aria-current] .admin-context-menu__icon {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+@media (max-width: 576px) {
+  .admin-context-switch__rotulo {
     display: none;
   }
+  .admin-body .admin-context-switch__trigger,
+  .admin-context-switch__fijo {
+    gap: 8px;
+    height: 36px;
+    padding-right: 10px;
+  }
+  .admin-context-switch__icon {
+    flex-basis: 28px;
+    width: 28px;
+    height: 28px;
+  }
+  .admin-context-switch__name {
+    font-size: 13px;
+  }
 }
-.admin-home__section {
-  margin-block: 24px;
+.admin-topbar__heading {
+  container: ambito/inline-size;
 }
 
+@container ambito (max-width: 150px) {
+  .admin-context-switch__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .admin-body .admin-context-switch__trigger {
+    gap: 4px;
+    padding-right: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-context-switch__trigger,
+  .admin-context-switch__chevron,
+  .admin-context-menu {
+    transition: none;
+  }
+  .admin-context-menu:not(:popover-open) {
+    translate: none;
+  }
+}
 .admin-access-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
@@ -8154,6 +8311,260 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   .admin-body .admin-access:hover {
     transform: none;
+  }
+}
+/*
+ * Inicio de cada ámbito (views/admin/contextos/inicio.php).
+ *
+ * Tres niveles y nada más: el ámbito en grande (titular de página), el rótulo
+ * de cada grupo en mono con su cuenta y un filete, y las teselas. Las del
+ * primer grupo —lo que se hace a diario— son grandes, con el icono en relleno
+ * de tinta; el resto, compactas, con el icono en una caja tenue. Sin
+ * descripciones: el título y el icono bastan para reconocer un módulo que se
+ * usa todos los días, y la cuadrícula se lee de un vistazo.
+ */
+.admin-inicio {
+  display: grid;
+  gap: clamp(28px, 4vw, 44px);
+}
+
+.admin-inicio__cabeza {
+  display: grid;
+  gap: 6px;
+  padding-bottom: clamp(18px, 3vw, 28px);
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-body .admin-inicio__eyebrow {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-body .admin-inicio__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-titular);
+  font-size: clamp(44px, 6.4vw, 84px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.admin-body .admin-inicio__cuenta {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-inicio__grupo {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-body .admin-inicio__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.admin-body .admin-inicio__grupo-titulo::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--admin-border-soft);
+}
+
+.admin-inicio__grupo-cuenta {
+  color: var(--admin-faint);
+  letter-spacing: 0;
+}
+
+.admin-inicio__teselas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-inicio__teselas > li {
+  display: grid;
+  min-width: 0;
+}
+
+.admin-inicio__grupo--principal {
+  container: principal/inline-size;
+}
+
+.admin-inicio__teselas--grandes {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+}
+
+.admin-inicio__teselas--grandes:has(> li:only-child) {
+  grid-template-columns: minmax(0, 360px);
+}
+
+@container principal (max-width: 860px) {
+  .admin-inicio__teselas--grandes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .admin-inicio__teselas--grandes > li:last-child:nth-child(odd) {
+    grid-column: 1/-1;
+  }
+}
+.admin-body .admin-modulo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  text-decoration: none;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), translate var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-modulo:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+.admin-modulo__icono {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+.admin-modulo__icono svg {
+  stroke-width: 1.75;
+}
+
+.admin-modulo__titulo {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.admin-modulo__flecha {
+  display: flex;
+  flex: none;
+  color: var(--admin-muted);
+  opacity: 0;
+  translate: -4px 0;
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), translate var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-modulo__flecha svg {
+  stroke-width: 2;
+}
+
+.admin-body .admin-modulo--grande {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  gap: 28px;
+  min-height: 168px;
+  padding: 18px 20px 20px;
+  border-color: var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+}
+.admin-body .admin-modulo--grande .admin-modulo__icono {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+.admin-body .admin-modulo--grande .admin-modulo__titulo {
+  align-self: end;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+.admin-body .admin-modulo--grande .admin-modulo__flecha {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-body .admin-modulo:hover {
+    border-color: var(--admin-border-strong);
+    box-shadow: var(--admin-shadow-md);
+    translate: 0 -2px;
+  }
+  .admin-body .admin-modulo:hover .admin-modulo__flecha {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.admin-body .admin-modulo:focus-visible .admin-modulo__flecha {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.admin-body .admin-inicio__nota {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 576px) {
+  .admin-inicio__teselas--grandes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .admin-body .admin-modulo--grande {
+    gap: 18px;
+    min-height: 132px;
+    padding: 14px;
+  }
+  .admin-body .admin-modulo--grande .admin-modulo__icono {
+    width: 44px;
+    height: 44px;
+  }
+  .admin-body .admin-modulo--grande .admin-modulo__titulo {
+    font-size: 17px;
+  }
+  .admin-body .admin-modulo--grande .admin-modulo__flecha {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-modulo,
+  .admin-modulo__flecha {
+    transition: none;
+  }
+  .admin-body .admin-modulo:hover {
+    translate: none;
   }
 }
 /*

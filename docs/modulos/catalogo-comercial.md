@@ -43,6 +43,9 @@ comercial.
 Las rutas antiguas de Productos de la casa y publicaciones oficiales ya no están
 registradas y responden de forma segura. Las rutas locales de menú, recetas,
 presentaciones y variantes siguen usando el contexto y autorización del negocio.
+En Panadería, `/admin/panaderia/menu/vitrina` (`menu/ver`; escribir con
+`menu/editar`) define las opciones de cada pan y la pieza de vitrina que descuenta
+la [caja](caja-panaderia.md).
 
 ## Regresión A4
 

@@ -5,6 +5,9 @@ if (!is_string($notificationTestDb) || !preg_match('/^cp_notifications_test_[a-f
     throw new RuntimeException('Base aislada de notificaciones requerida.');
 }
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+$_ENV['APP_ENV'] = 'test';
+$_ENV['N8N_BASE_URL'] = 'http://n8n.invalid';
+$_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = '';
 Dotenv\Dotenv::createImmutable(dirname(__DIR__, 2) . '/includes')->safeLoad();
 $_ENV['DB_NAME'] = $notificationTestDb;
 $_ENV['APP_ENV'] = 'test';
@@ -16,7 +19,8 @@ $notificationFixtureDb = new mysqli(
     (string)($_ENV['DB_HOST'] ?? ''),
     (string)($_ENV['DB_USER'] ?? ''),
     (string)($_ENV['DB_PASS'] ?? ''),
-    $notificationTestDb
+    $notificationTestDb,
+    (int)($_ENV['DB_PORT'] ?? 3306)
 );
 $notificationUnitStmt = $notificationFixtureDb->prepare("SELECT id FROM unidades WHERE slug = 'restaurante' LIMIT 1");
 $notificationUnitStmt->execute();

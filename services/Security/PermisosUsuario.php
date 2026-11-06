@@ -31,9 +31,24 @@ final class PermisosUsuario
             ? 'Preguntas sobre los almacenes de la organización y las transferencias.'
             : 'Preguntas sobre las ventas en caja, los almacenes y el menú.';
         $modulos['reservations_map'] = ['titulo' => 'Mapa operativo de reservaciones', 'detalle' => 'Operación de reservas en el mapa, sin administración.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => '/admin/reservaciones/operacion'];
+        if ($contexto === 'panaderia') {
+            // El piso de Panadería es su caja de mostrador: vender y cobrar,
+            // registrar lo que sale del horno y anular un cobro. Sin mesas,
+            // producción ni mapa. Mismas claves que guarda la base (ddl.sql).
+            $modulos['pdv']['titulo'] = 'Caja';
+            $modulos['pdv']['detalle'] = 'Vender en mostrador, cobrar, imprimir el ticket y consultar el corte.';
+            $modulos['pdv']['ruta'] = Contextos::CAJA_PANADERIA;
+            $modulos['vitrina'] = ['titulo' => 'Horneadas', 'detalle' => 'Registrar en la caja las piezas que salen del horno.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => Contextos::CAJA_PANADERIA];
+            $modulos['anular'] = ['titulo' => 'Anular tickets', 'detalle' => 'Anular un cobro del día y devolver sus piezas a la vitrina; también autoriza con su NIP la anulación de otra persona.', 'grupo' => Permisos::GRUPO_PISO, 'ruta' => Contextos::CAJA_PANADERIA];
+        }
+        $pisoDelAmbito = match ($contexto) {
+            'restaurante' => ['pdv', 'area', 'reservations_map'],
+            'panaderia' => ['pdv', 'vitrina', 'anular'],
+            default => [],
+        };
         foreach ($modulos as $key => &$modulo) {
             $operativo = $modulo['grupo'] === Permisos::GRUPO_PISO;
-            if ($operativo && $contexto !== 'restaurante') { unset($modulos[$key]); continue; }
+            if ($operativo && !in_array($key, $pisoDelAmbito, true)) { unset($modulos[$key]); continue; }
             $modulo['operativo'] = $operativo;
             $modulo['niveles'] = $operativo ? ['operar'] : ['ver', 'editar'];
         }

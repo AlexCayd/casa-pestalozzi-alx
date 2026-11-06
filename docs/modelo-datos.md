@@ -2,16 +2,17 @@
 
 [Arquitectura](arquitectura.md) es la norma; este inventario describe el árbol
 versionado, no una base consultada ni autorización de cambios. Inspección de
-`database/ddl.sql`, `database/deploy.sql`, las cinco migraciones en
-`database/actualizaciones/` y consumidores PHP. No se ejecutó SQL. Las 83 tablas
+`database/ddl.sql`, `database/deploy.sql`, las tres migraciones en
+`database/actualizaciones/` y consumidores PHP. No se ejecutó SQL. Las 87 tablas
 del DDL aparecen una sola vez en la matriz; A1 añade una tabla adicional.
 
 ## Inventario y alcance
 
-En `database/ddl.sql`: **83 CREATE TABLE, una vista, 53 CREATE TRIGGER y 165
-cláusulas FOREIGN KEY**. Hay **191 declaraciones explícitas de índices**: 83
-PRIMARY KEY, 64 UNIQUE KEY nombradas, 6 UNIQUE de columna y 38 KEY/INDEX no
-únicos. Se cuentan declaraciones, no índices físicos: MySQL puede crear índices
+En `database/ddl.sql`: **87 CREATE TABLE, una vista, 53 CREATE TRIGGER y 176
+cláusulas FOREIGN KEY** (173 en CREATE TABLE y tres en ALTER TABLE, una
+condicional). Hay **199 declaraciones explícitas de índices** en CREATE TABLE:
+87 PRIMARY KEY, 65 UNIQUE KEY nombradas, 6 UNIQUE de columna y 41 KEY/INDEX
+no únicos. Se cuentan declaraciones, no índices físicos: MySQL puede crear índices
 implícitos para FKs o reutilizar índices; no se infiere el estado de una instancia.
 Las declaraciones en migraciones no se suman a las del DDL porque reproducen o
 modifican estructuras; no se ha verificado una instalación real.
@@ -20,19 +21,20 @@ El DDL deja `productos_oferta` con la proyección histórica M1.2. A1 crea
 `oferta_datos_comerciales` (PK `oferta_id` y FK a oferta) y A3 sustituye la
 vista por la proyección local. El instalador `Services\Development\Instalacion::ejecutar`
 carga DDL, deploy, menú, fixture opcional, A1 y A3 en ese orden; después hace
-bootstrap. Por declaraciones, el esquema nuevo posterior a A1 incluye 84 tablas
+bootstrap. Por declaraciones, el esquema nuevo posterior a A1 incluye 88 tablas
 de aplicación y la misma vista reemplazada; el instalador crea temporalmente
 `_cp_instalacion_owner` y la retira al completar. No es un conteo observado en BD.
 `deploy.sql` siembra estructura y marcadores `multinegocio-3a-v1`/`3b-v1`;
 `esquema_versiones` registra las versiones, no demuestra por sí sola integridad.
 
-Las migraciones son `m1-facultad-comercial.sql` (facultad histórica),
-`m12-estandares.sql` (publicaciones, recetas históricas y triggers),
-`m2-articulos.sql` (artículos, presentaciones y triggers),
+Las migraciones versionadas son `m2-articulos.sql` (artículos, presentaciones y
+triggers),
 `a1-datos-comerciales-oferta.sql` (datos locales) y
 `a3-datos-comerciales-local.sql` (validación y vista). Sus instrucciones y
-marcadores se consultan en los archivos; el orden de actualización y preflight en
-[instalación](desarrollo/instalacion.md#actualizacion-comercial-a1a3).
+marcadores se consultan en los archivos. Los bloques históricos M1/M1.2 están
+en el DDL, no en archivos de migración separados. El orden de actualización y
+preflight se describe en
+[instalación](desarrollo/instalacion.md#actualización-comercial-a1a3).
 
 ## Matriz de dependencias
 
@@ -51,10 +53,11 @@ consumidores. Global no vende; operaciones locales exigen contexto propietario.
 | Recetas y variantes anteriores: `subrecetas`, `subreceta_ingredientes`, `recetas`, `receta_componentes`, `producto_variantes`, `variante_ajustes`, `receta_componentes_articulos` | Núcleo / compatibilidad | Oferta o unidad local; `services/Menu/RecetasOferta.php::guardar`, `Variantes.php`, `services/Inventory/Articulos.php` leen/escriben y adaptan referencias; FKs a recetas y artículos, triggers `m2_sub_*`, `m2_si_*`, `m2_componente_adoptado_*`. Alto: versiones usadas en tickets. |
 | Artículos y presentaciones M2: `articulo_configuraciones`, `articulo_recetas`, `articulo_receta_componentes`, `oferta_presentaciones`, `presentacion_versiones`, `presentacion_componentes`, `articulo_correspondencias`, `articulo_comandos` | Núcleo / compatibilidad | Unidad o Global según configuración; `services/Inventory/Articulos.php`, `ResolucionArticulos.php`, `services/Menu/PresentacionesOferta.php::publicar` y `::paraVenta`. FKs de versiones, triggers `m2_ar_*`, `m2_arc_*`, `m2_pv_*`, `m2_pc_*`. Alto: versiones e idempotencia. |
 | Ventas y mesas: `mesas`, `tickets`, `pos_operaciones`, `ticket_items`, `ticket_pagos`, `ticket_mesas`, `ticket_item_resoluciones` | Núcleo / historia | Unidad vendedora; `services/Pos/Comercial.php::enviarComanda`, `::cancelarItem` y `services/Menu/PresentacionesOferta.php::congelar` registran venta, resolución y compensación; FKs de ticket/receta, `m2_snapshot_*`. Alto: snapshots, precios, pagos e idempotencia. |
+| Caja y vitrina: `vitrina_piezas`, `vitrina_piezas_variante`, `ticket_anulaciones` | Núcleo / historia | Vitrina local ligada a oferta, variante y asociación de almacén/artículo; `services/Menu/VitrinaCaja.php` y `services/Pos/CajaMostrador.php` gestionan piezas y ventas. Las anulaciones referencian ticket, solicitante y autorizador. Alto: consumo, compensación y trazabilidad. |
 | Finanzas y proveedores: `operaciones_financieras`, `gastos_fijos`, `proveedores`, `ingrediente_proveedores`, `historial_precios` | Núcleo / historia | Finanzas por negocio; proveedores y artículo según relaciones DDL; `services/Finance/FinanzasNegocio.php::agregados`, `::gastosFijos`, `models/HistorialPrecio.php`, `controllers/AdminInventarioController.php`; FKs y referencias históricas. Alto: no recalcular costos anteriores. |
 | Reservas y agenda: `reservaciones`, `verificaciones_contacto`, `reservacion_mesas`, `reservacion_reubicaciones`, `horarios_operacion`, `excepciones_operacion`, `horario_impactos`, `horario_impacto_reservaciones`, `reservacion_recordatorios`, `buzon_notificaciones` | Núcleo / historia | Reservas y agenda por unidad; `services/Reservations/ReservacionMantenimientoService.php`, `services/Scheduling/HorarioOperacionImpactoService.php`, `services/Notifications/ReservationReminderService.php::preparar` y `::reclamar`; FKs y `trg_reservaciones_no_auto_reemplazo_*`. Alto: evitar duplicación, pérdida de estados y datos personales. |
 | Comunicación y operación: `catas`, `feedback_tokens`, `feedback`, `impresoras`, `impresion_alertas` | Núcleo / historia | Contexto según cada tabla; `services/Menu/CataService.php`, `controllers/FeedbackController.php`, `services/Pos/ImpresionAlertaService.php`; FKs y claves de acceso/estado en DDL. Medio/alto: privacidad y trazabilidad operativa. |
-| Configuración y diagnóstico: `configuracion_anuncio`, `configuracion_pos`, `configuracion_paleta`, `configuracion_reservaciones`, `reportes_sistema` | Núcleo | Configuración por unidad donde corresponde; `services/Configuration/SitioConfig.php`, `models/ConfiguracionPaleta.php`, `services/Configuration/ReporteSistemaService.php`. FKs por unidad en DDL. Medio: conservar configuración y diagnóstico. |
+| Configuración y diagnóstico: `configuracion_anuncio`, `configuracion_pos`, `configuracion_paleta`, `configuracion_reservaciones`, `configuracion_avisos`, `reportes_sistema` | Núcleo | Configuración por unidad donde corresponde; `services/Configuration/SitioConfig.php`, `AvisosCarta.php`, `models/ConfiguracionPaleta.php`, `services/Configuration/ReporteSistemaService.php`. Avisos referencia unidad y editor; FKs por unidad en DDL. Medio: conservar configuración y diagnóstico. |
 | Instalación e importación: `importaciones_menu`, `esquema_versiones`, `instalacion_desarrollo` | Compatibilidad / trazabilidad | Registro técnico; `scripts/menu/ImportadorMenu.php`, `services/Development/Instalacion.php::ejecutar`, `database/deploy.sql` y migraciones. Marcadores controlan activación y procedencia. Medio/alto: no retirar por falta de uso en flujo de venta. |
 | Productos de casa retirados: `producto_publicaciones`, `producto_estandares`, `oferta_personalizaciones`, `recetas_casa`, `receta_casa_versiones`, `receta_casa_componentes`, `receta_origen_casa`, `producto_cambios_locales`, `receta_casa_composiciones`, `presentacion_estandares` | Historia / compatibilidad | Sin publicación comercial Global operativa A4; FKs y `trg_casa_*`, `m2_casa_composicion_*`, `m2_presentacion_estandar_*` protegen historia. `classes/ImagenUploader.php::eliminar` consulta estándares, publicaciones, personalizaciones y cambios antes de borrar imágenes. Alto: preservación; no proponer eliminación física. |
 

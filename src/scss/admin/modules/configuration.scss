@@ -2,6 +2,8 @@
 @use '../shared/abstracts/mixins' as mixins;
 @use '../../components/announcement';
 @use '../../layout/caras-de-marca' as marca;
+// Avisos de la carta (views/admin/configuration/avisos.php).
+@use 'config-avisos';
 
 // La vista previa del aviso habla con la cara del cuerpo de la landing.
 @include marca.tt-wellingtons("../../fonts");
@@ -2022,4 +2024,412 @@
   .admin-config-table td:last-child {
     grid-template-columns: 92px minmax(0, 1fr);
   }
+}
+
+/*
+ * Colores de las áreas (views/admin/configuration/areas.php).
+ *
+ * Una fila por estación: el nombre arriba; a la izquierda el color elegido, el
+ * enlace a su tablero y el tablero en miniatura; a la derecha los diez colores
+ * de la paleta funcional. Como en la paleta de la landing, el color sólo
+ * aparece en las muestras y en la vista previa: es el dato que se edita, no
+ * cromo del panel.
+ *
+ * El radio es real y va recortado como en .admin-pills: la marca de elegido la
+ * dibuja la muestra con :has(). La vista previa toma el color elegido también
+ * con :has() (abajo, una regla por color); configuration.js además lo escribe
+ * en --area-inicial para los motores sin :has().
+ */
+.admin-area-colors {
+  display: grid;
+  gap: 22px;
+
+  .admin-config-form-actions {
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+}
+
+// La lista es el contenedor de consulta, no cada fila: lo que decide si las
+// muestras van en una fila de diez, en dos de cinco o debajo de la vista
+// previa es el ancho que le deja la tarjeta, y ése cambia al plegar el sidebar
+// sin que cambie la ventana.
+.admin-area-colors__list {
+  container: areas / inline-size;
+  display: grid;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.admin-area-color {
+  --area-accent: var(--area-inicial);
+  // La tinta de la barra rellena: la manda la vista por cada color
+  // (AreasProduccion::tintaSobre) y abajo la cambia el radio elegido.
+  --area-ink: var(--area-tinta-inicial, var(--admin-ink));
+
+  min-width: 0;
+  margin: 0;
+  padding: 18px 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+
+  // `.admin-area-color .admin-area-color__name` y no la clase sola: un legend
+  // del panel arrastra estilos de formulario que suman (0,1,1).
+  & &__name {
+    float: left; // sin float el legend se sale del flujo del fieldset y no se le puede dar aire
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 0;
+    color: var(--admin-text);
+    font-family: var(--admin-font-sans);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  &__fila {
+    clear: both;
+    display: grid;
+    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+    gap: 16px 32px;
+    align-items: start;
+  }
+
+  &__lado {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+  }
+
+  &__actual {
+    color: var(--admin-muted);
+    font-size: 13px;
+  }
+
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--admin-border-strong);
+    text-underline-offset: 3px;
+
+    &:hover { text-decoration-color: currentColor; }
+
+    svg {
+      flex: none;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+  }
+
+  // El tablero en miniatura. El KDS va SIEMPRE en oscuro (operation.css lo
+  // fuerza), así que la vista previa también, en los dos temas del panel: un
+  // ámbar, un lima o un turquesa se leen muy distinto sobre papel que sobre la
+  // tablet, y lo que se decide aquí es cómo se verá allí. Los grises son los
+  // del tema oscuro escritos desde las dos anclas (el fondo es la tinta y la
+  // banda el gris-3), porque en esta caja no rige [data-admin-theme="dark"].
+  // Si cambian esos pasos en _globals.scss, cambian aquí.
+  &__preview {
+    --kds-fondo: var(--admin-ink);
+    --kds-banda: color-mix(in srgb, var(--admin-paper) 11%, var(--admin-ink));
+    --kds-tinta: var(--admin-paper);
+
+    display: grid;
+    gap: 3px;
+    padding: 5px;
+    border-radius: var(--admin-radius-sm);
+    background: var(--kds-fondo);
+    // En el tema oscuro el fondo del tablero casi es el de la tarjeta: el
+    // filete lo despega. En claro no se nota, y no estorba.
+    box-shadow: 0 0 0 1px var(--admin-border-soft);
+  }
+
+  // La barra del tablero, llena del color de la estación con su tinta: es lo
+  // único de la miniatura que cambia al elegir. Redondeada como la del piso
+  // (.operational-header), para que no se confunda con una banda.
+  &__barra {
+    display: flex;
+    min-height: 27px;
+    align-items: center;
+    margin-bottom: 2px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: var(--area-accent);
+    color: var(--area-ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    transition:
+      background-color var(--admin-t-fast) var(--admin-ease-out),
+      color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // Cada banda como en _area.scss: recta, neutra, con el lomo del color de su
+  // ESTADO a la izquierda y del mismo ancho en las tres. El semáforo no
+  // depende de la estación, así que aquí es fijo; está para que se vea si el
+  // color elegido coincide con alguno. La muestra nunca va vacía (3, 2, 1), así
+  // que no replica el lomo neutro de una banda sin comandas. Título en blanco
+  // en los tres, como en .area-banda.
+  &__band {
+    --kds-estado: var(--kds-banda);
+    --kds-cifra: var(--admin-ink);
+
+    display: flex;
+    min-height: 25px;
+    border-radius: 0;
+    background: var(--kds-banda);
+    color: var(--kds-tinta);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  &__band--enviados {
+    --kds-estado: var(--admin-c-rojo);
+    --kds-cifra: var(--admin-c-rojo);
+  }
+
+  &__band--prep {
+    --kds-estado: var(--admin-c-ambar);
+    --kds-cifra: color-mix(in srgb, var(--admin-c-ambar) 46%, var(--admin-ink));
+  }
+
+  &__band--listo {
+    --kds-estado: var(--admin-c-verde);
+    --kds-cifra: color-mix(in srgb, var(--admin-c-verde) 58%, var(--admin-ink));
+  }
+
+  &__lomo {
+    display: flex;
+    flex: 0 0 140px;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px 3px 9px;
+    background: var(--kds-estado);
+    color: var(--admin-paper);
+  }
+
+  // Mono para la cifra, como el contador del tablero, y la misma pieza
+  // (.area-banda__cuenta): pastilla blanca y cifra del estado legible en papel.
+  &__cuenta {
+    min-width: 22px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--admin-paper);
+    color: var(--kds-cifra);
+    font-family: var(--admin-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  // `.admin-area-color .admin-area-color__aviso`: es un <p>, y `.admin-body p`
+  // (0,1,1) le ganaba el color a la clase sola: el aviso salía en gris.
+  //
+  // Vacío no ocupa nada, pero sigue en el árbol de accesibilidad: con
+  // display:none la región viva no existiría cuando llega el aviso y algunos
+  // lectores no lo anunciarían.
+  & &__aviso {
+    margin: 12px 0 0;
+    color: var(--admin-danger-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+
+    &:empty { margin: 0; }
+  }
+}
+
+// En una fila con aviso, la caja de la muestra elegida toma el rojo de
+// peligro: señala CUÁL de las diez es la que choca. El aviso lo dice en
+// palabras; esto sólo lo ubica.
+.admin-area-color.has-error .admin-area-swatch:has(input[type="radio"]:checked) {
+  border-color: var(--admin-danger-text);
+}
+
+// Entre comillas: sueltos, «magenta» e «indigo» son nombres de color de CSS y
+// Sass podría reescribirlos como su valor hexadecimal al interpolar el
+// selector, y la regla dejaría de casar con el value del radio.
+@each $clave in "ambar", "naranja", "rojo", "rosa", "magenta", "indigo", "azul", "turquesa", "verde", "lima" {
+  .admin-area-color:has(input[value="#{$clave}"]:checked) {
+    --area-accent: var(--admin-c-#{$clave});
+  }
+}
+
+// La tinta de la barra sigue al radio elegido: cada uno trae la suya en
+// data-tinta, calculada en el servidor, para no copiar aquí la tabla.
+.admin-area-color:has(input[data-tinta="ink"]:checked) { --area-ink: var(--admin-ink); }
+.admin-area-color:has(input[data-tinta="paper"]:checked) { --area-ink: var(--admin-paper); }
+
+// Dos filas de cinco, o una de diez cuando cabe: siempre filas llenas.
+.admin-area-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+// Una fila de diez en cuanto cada muestra tiene sus 55 px: lo que pide
+// «Turquesa» en negrita (51, medido) más relleno y borde, sin partirse. A 900
+// de lista quedan 628 para las muestras —240 de columna y 32 de hueco fuera—,
+// y con nueve huecos de 6 tocan a 57 cada una.
+@container areas (min-width: 900px) {
+  .admin-area-swatches { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+}
+
+// Estrecho: la vista previa arriba, acotada para que el enlace no se vaya al
+// otro extremo de la pantalla, y las muestras debajo a todo lo ancho.
+@container areas (max-width: 600px) {
+  .admin-area-color__fila { grid-template-columns: minmax(0, 1fr); }
+  .admin-area-color__lado { max-width: 340px; }
+}
+
+.admin-area-swatch {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover { background: var(--admin-surface-soft); }
+
+  input[type="radio"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &__dot {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--swatch);
+    // Un filete de la tinta del panel para que el color no se funda con el
+    // fondo en ninguno de los dos temas (el ámbar y el lima sobre papel).
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--admin-text) 16%, transparent);
+    transition: box-shadow var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // `.admin-area-swatch .admin-area-swatch__name`: con la clase sola, la regla
+  // global de etiquetas del panel le ganaría el tamaño.
+  & &__name {
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+}
+
+// Elegido: aro en la tinta del sistema alrededor de la muestra, la caja
+// marcada y el nombre en tinta plena. La forma (el aro) lo dice, no el color.
+// El hueco entre muestra y aro es del color de la caja, para que se lea como
+// un solo aro y no como dos (uno blanco y otro negro).
+.admin-area-swatch:has(input[type="radio"]:checked) {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-soft);
+
+  .admin-area-swatch__dot {
+    box-shadow:
+      0 0 0 2px var(--admin-surface-soft),
+      0 0 0 4px var(--admin-accent);
+  }
+
+  .admin-area-swatch__name {
+    color: var(--admin-text);
+    font-weight: 700;
+  }
+}
+
+.admin-area-swatch:has(input[type="radio"]:focus-visible) {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+// Ya es de otra estación: la muestra se apaga y la cruza una raya. Se apaga
+// el RELLENO, no la muestra entera: con opacity la raya —que es lo que dice
+// «tomado» sin depender del color— se apagaba con ella y en oscuro casi no se
+// veía. Se puede elegir igual —para intercambiar dos colores hay que pasar por
+// ahí—, pero el guardado la rechaza mientras siga repetida.
+.admin-area-swatch.is-ocupado:not(:has(input[type="radio"]:checked)) {
+  .admin-area-swatch__dot {
+    background: color-mix(in srgb, var(--swatch) 30%, var(--admin-surface));
+
+    &::after {
+      position: absolute;
+      top: 50%;
+      left: -3px;
+      width: calc(100% + 6px);
+      height: 2px;
+      margin-top: -1px;
+      border-radius: 1px;
+      background: var(--admin-text);
+      transform: rotate(-45deg);
+      content: "";
+    }
+  }
+}
+
+/* Respaldo para los motores sin :has(), como en .admin-pills: el radio nativo
+   a la vista, porque sin él no habría forma de saber cuál está elegido. */
+@supports not selector(:has(*)) {
+  .admin-area-swatch input[type="radio"] {
+    position: static;
+    width: 16px;
+    height: 16px;
+    overflow: visible;
+    clip-path: none;
+    accent-color: var(--admin-accent);
+  }
+}
+
+.admin-area-colors__nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 72ch;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+
+  svg {
+    flex: none;
+    margin-top: 2px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-area-swatch,
+  .admin-area-swatch__dot,
+  .admin-area-color__barra { transition: none; }
 }

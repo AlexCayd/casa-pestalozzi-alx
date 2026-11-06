@@ -41,7 +41,8 @@ use Controllers\PosReservacionController;
 use Controllers\AreaController;
 use Controllers\AdminConsultasController;
 use Controllers\AdminRolesController;
-use Controllers\PanaderiaController;
+use Controllers\Panaderia\PanaderiaController;
+use Controllers\CajaPanaderiaController;
 
 $router = new Router();
 
@@ -65,6 +66,11 @@ $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
 $router->get('/reservaciones/gestionar', [ReservationManagementAccessController::class, 'show']);
 $router->get('/reservaciones/cambio-horario', [ScheduleChangeAccessController::class, 'show']);
+
+// ── Panadería ─────────────────────────────────────────────────
+// La landing de la panadería de San Borja 1026. Pública sin tocar Permisos: no
+// empieza por /admin ni por /api. Todo lo suyo vive en carpetas panaderia/.
+$router->get('/panaderia', [PanaderiaController::class, 'index']);
 
 // Reservaciones
 $router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
@@ -113,6 +119,9 @@ foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
 $router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
+// Caja de Panadería: opciones de cada pan y la pieza de vitrina que descuenta.
+$router->get('/admin/panaderia/menu/vitrina', [\Controllers\AdminVitrinaController::class, 'index']);
+$router->post('/admin/panaderia/menu/vitrina', [\Controllers\AdminVitrinaController::class, 'guardar']);
 $router->get('/admin/global/menus', [AdminMenuController::class,'biblioteca']);
 foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','maridaje'],'panaderia'=>['panaderia','comida']] as $segmento=>$documento) {
     $router->get('/admin/global/menus/'.$segmento,static function($router)use($documento):void { \Services\Menu\MenuPdf::streamAdministrativo($documento[0],$documento[1]); });
@@ -178,6 +187,15 @@ $router->post('/admin/configuracion/pos/barras', [AdminConfigurationController::
 $router->post('/admin/configuracion/pos/turnos', [AdminConfigurationController::class, 'guardarTurnos']);
 $router->get('/admin/configuracion/paleta', [AdminConfigurationController::class, 'palette']);
 $router->post('/admin/configuracion/paleta', [AdminConfigurationController::class, 'guardarPaleta']);
+$router->get('/admin/configuracion/areas', [AdminConfigurationController::class, 'areas']);
+$router->post('/admin/configuracion/areas', [AdminConfigurationController::class, 'guardarAreas']);
+// Avisos de la carta: se imprimen en los PDF de comida y maridaje del
+// Restaurante. Prefijo /admin/configuracion → módulo `configuration`.
+$router->get('/admin/configuracion/avisos', [AdminConfigurationController::class, 'avisos']);
+$router->post('/admin/configuracion/avisos', [AdminConfigurationController::class, 'guardarAviso']);
+$router->post('/admin/configuracion/avisos/estado', [AdminConfigurationController::class, 'cambiarEstadoAviso']);
+$router->post('/admin/configuracion/avisos/mover', [AdminConfigurationController::class, 'moverAviso']);
+$router->post('/admin/configuracion/avisos/eliminar', [AdminConfigurationController::class, 'eliminarAviso']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -205,6 +223,7 @@ $router->post('/admin/menu/categorias/edit',    [AdminMenuController::class, 'ca
 $router->post('/admin/menu/categorias/delete',  [AdminMenuController::class, 'categoryDelete']);
 $router->get('/admin/punto-de-venta', [AdminPuntoVentaController::class, 'index']);
 $router->get('/admin/area', [AdminAreaController::class, 'index']);
+// Redirigen al KDS de piso (/area/<slug>): el tablero del panel está comentado.
 $router->get('/admin/area/cafe', [AdminAreaController::class, 'cafe']);
 $router->get('/admin/area/jugos', [AdminAreaController::class, 'jugos']);
 $router->get('/admin/area/cocina', [AdminAreaController::class, 'cocina']);
@@ -406,6 +425,18 @@ $router->post('/api/entregar-item',       [PuntoVentaController::class, 'entrega
 $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancelarItem']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
+// Caja de mostrador de Panadería: piso con NIP, sin mesas ni comanda. El
+// ámbito lo fija la ruta (Contextos::deRuta) y cada API está en Permisos::APIS.
+$router->get('/panaderia/caja',                [CajaPanaderiaController::class, 'index']);
+$router->get('/api/panaderia/caja',            [CajaPanaderiaController::class, 'estado']);
+$router->get('/api/panaderia/caja/vitrina',    [CajaPanaderiaController::class, 'vitrina']);
+$router->post('/api/panaderia/caja/vender',    [CajaPanaderiaController::class, 'vender']);
+$router->post('/api/panaderia/caja/horneada',  [CajaPanaderiaController::class, 'horneada']);
+$router->get('/api/panaderia/caja/tickets',    [CajaPanaderiaController::class, 'tickets']);
+$router->post('/api/panaderia/caja/anular',    [CajaPanaderiaController::class, 'anular']);
+$router->post('/api/panaderia/caja/imprimir',  [CajaPanaderiaController::class, 'imprimir']);
+$router->get('/api/panaderia/caja/corte',      [CajaPanaderiaController::class, 'corte']);
+
 $router->get('/area',        [AreaController::class, 'index']);
 $router->get('/area/cafe',   [AreaController::class, 'cafe']);
 $router->get('/area/jugos',  [AreaController::class, 'jugos']);
@@ -439,13 +470,19 @@ $router->get('/menu',         [MenuController::class, 'index']);
 $router->get('/menu/pdf',     [MenuController::class, 'pdf']);
 $router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
 
-// Sitio de la Panadería. Públicas: no cuelgan de /admin ni de /api. Una
-// subruta nueva se anota también en PanaderiaController::SECCIONES.
-$router->get('/panaderia',          [PanaderiaController::class, 'index']);
-$router->get('/panaderia/carta',    [PanaderiaController::class, 'carta']);
-$router->get('/panaderia/pedidos',  [PanaderiaController::class, 'pedidos']);
-$router->get('/panaderia/nosotros', [PanaderiaController::class, 'nosotros']);
-$router->get('/panaderia/contacto', [PanaderiaController::class, 'contacto']);
+// Las subrutas que reservó el andamio del sitio de la Panadería. La landing
+// (arriba, «Panadería») es UNA página con secciones, así que cada una lleva a
+// la suya; 302 y no 301 porque alguna puede volver a ser página propia.
+foreach ([
+    '/panaderia/carta'    => '/panaderia#vitrina',
+    '/panaderia/pedidos'  => '/panaderia#encargos',
+    '/panaderia/nosotros' => '/panaderia#portada',
+    '/panaderia/contacto' => '/panaderia#visitanos',
+] as $subruta => $destino) {
+    $router->get($subruta, static function () use ($destino): void {
+        header('Location: ' . $destino, true, 302);
+    });
+}
 
 // Para los buscadores. Rutas y no archivos porque llevan la URL del sitio
 // (SitioConfig::url()); ver SeoController.

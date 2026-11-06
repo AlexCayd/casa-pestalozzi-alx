@@ -24,8 +24,10 @@ final class ContextoNegocio
             ));
         }
         if ($ctx === 'panaderia') {
+            // El piso de Panadería es su caja: vender (pdv), horneadas (vitrina)
+            // y anular un cobro (anular). Mismas claves que el catálogo.
             return array_values(array_intersect(
-                ['users', 'inventario', 'menu', 'productos', 'finanzas', 'analytics', 'ia'],
+                ['users', 'inventario', 'menu', 'productos', 'finanzas', 'analytics', 'ia', 'pdv', 'vitrina', 'anular'],
                 array_keys($catalogo)
             ));
         }

@@ -228,6 +228,7 @@ final class Permisos
         // Piso.
         '/punto-de-venta' => ['pdv'],
         '/area' => ['area'],
+        '/panaderia/caja' => ['pdv', 'vitrina'],
     ];
 
     /**
@@ -264,6 +265,16 @@ final class Permisos
         '/api/retroceder-item' => ['area'],
         // Lecturas que necesitan las dos pantallas de piso.
         '/api/ticket-items' => ['pdv', 'area'],
+        // Caja de mostrador de Panadería; el ámbito sale de la ruta. Anular
+        // pide además `anular` o el NIP de quien lo tenga: lo decide el servicio.
+        '/api/panaderia/caja' => ['pdv', 'vitrina'],
+        '/api/panaderia/caja/vitrina' => ['pdv', 'vitrina'],
+        '/api/panaderia/caja/vender' => ['pdv'],
+        '/api/panaderia/caja/horneada' => ['vitrina'],
+        '/api/panaderia/caja/tickets' => ['pdv'],
+        '/api/panaderia/caja/anular' => ['pdv'],
+        '/api/panaderia/caja/imprimir' => ['pdv'],
+        '/api/panaderia/caja/corte' => ['pdv'],
         // Escrituras de horario que viven fuera de /admin/.
         '/api/configuracion/horarios/semanales' => ['configuration'],
         '/api/configuracion/horarios/excepciones' => ['configuration'],

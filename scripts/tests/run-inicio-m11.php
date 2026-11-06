@@ -18,7 +18,11 @@ $pan=InicioAdministrativo::preparar($p,'panaderia','contrasena');
 $routes=array_column($pan['seccionesInicio'][0]['tarjetas'],'ruta');
 $a(in_array('/admin/panaderia/menu',$routes,true),'Menú propio');
 $a(in_array('/admin/panaderia/almacenes?vista=transferencias',$routes,true),'Transferencias usa recorrido existente');
-$a(count($routes)===3,'Sin enlaces a POS ni recetas pendientes');
+// Con Menú se ofrece la vitrina de la caja; la caja misma sólo con su permiso de piso.
+$a(in_array('/admin/panaderia/menu/vitrina',$routes,true),'Vitrina de la caja con permiso de Menú');
+$a(count($routes)===4 && !in_array('/panaderia/caja',$routes,true),'Sin caja sin permiso de piso ni recetas pendientes');
+$conCaja=$p;$conCaja['ambitos']['panaderia']['permisos']['pdv']='operar';
+$a(in_array('/panaderia/caja',array_column(InicioAdministrativo::preparar($conCaja,'panaderia','contrasena')['seccionesInicio'][0]['tarjetas'],'ruta'),true),'Caja con permiso de piso');
 $p['activo']=false;$empty=InicioAdministrativo::preparar($p,'panaderia','contrasena');
 $a($empty['seccionesInicio'][0]['tarjetas']===[],'Revocación de cuenta');
 $p['activo']=true;$nip=InicioAdministrativo::preparar($p,'panaderia','nip');

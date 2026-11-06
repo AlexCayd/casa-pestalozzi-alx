@@ -6,9 +6,11 @@ Productos de la casa y sus políticas dejaron de ser una funcionalidad operativa
 en A4; no se planea un módulo equivalente. Los datos históricos se preservan.
 M2 incorpora artículos unificados, elaboraciones anidadas e inmutables,
 presentaciones y variantes administrativas de Panadería, con un único resolvedor
-y snapshots históricos. Siguen pendientes POS de Panadería (M3), producción
-física por lotes (M2.5) y devoluciones comerciales. Los comparativos de Finanzas
-y Análisis Global ya están disponibles en solo lectura.
+y snapshots históricos. La caja de mostrador de Panadería ya opera (arquitectura
+§7). Siguen pendientes integrar presentaciones a la caja (M3), producción
+física por lotes (M2.5) y devoluciones comerciales posteriores a la anulación
+del día. Los comparativos de Finanzas y Análisis Global están disponibles en
+solo lectura.
 Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 
@@ -53,8 +55,9 @@ en base como en actual; la causa no quedó identificada y no es un PASS.
 
 El [Catálogo comercial y Menú](modulos/catalogo-comercial.md) administra ofertas
 y categorías locales en cada negocio. No ofrece edición maestra Global: las
-ofertas pertenecen a cada negocio. La carta pública y ventas de Panadería siguen
-pendientes; no habilitar sus acciones desde Menú.
+ofertas pertenecen a cada negocio. La landing pública muestra la vitrina del
+menú y la caja realiza ventas de mostrador; los pedidos y ventas en línea siguen
+pendientes.
 
 ## Mejoras de funcionalidades existentes
 
@@ -66,10 +69,11 @@ pendientes; no habilitar sus acciones desde Menú.
 
 ## Funcionalidades nuevas pendientes
 
-M1.1 entrega PDF privado Panadería y biblioteca Global autorizada. La publicación
-pública Panadería, POS y producción física siguen pendientes. M2 completa sus
-recetas administrativas; la revisión culinaria de datos de cada negocio sigue
-siendo una tarea operativa previa a su uso real.
+M1.1 entrega PDF privado Panadería y biblioteca Global autorizada. La landing
+pública muestra su vitrina y la caja vende en mostrador; producción física y la
+integración de presentaciones a caja siguen pendientes. M2 completa sus recetas
+administrativas; la revisión culinaria de datos de cada negocio sigue siendo una
+tarea operativa previa a su uso real.
 Validación histórica pendiente: adaptar `run-contextos-isolated.php` al esquema de
 permisos directos; revisar expectativa temporal de `run-pos-api-contrato-db.php`;
 actualizar fixtures de impresión POS (`unidad_id`) y llevar múltiple (actor 0).
@@ -79,15 +83,16 @@ Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 |---|---|---|
 | Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
 | Artículos | Retiro progresivo de adaptadores anteriores | Asociaciones explícitas verificadas, cero escritores anteriores y suites de regresión antes del retiro; conservar tablas históricas |
-| Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
-| Panadería | Tickets y pagos de caja | Snapshots, idempotencia y compensaciones; Finanzas y el Asistente ya leen sus tickets en cuanto existan |
+| Panadería | Pago mixto, transferencia/QR y propina en caja | La caja v1 cobra efectivo o tarjeta; ampliar `metodo_pago` y Finanzas antes de habilitarlos |
+| Panadería | Encargos y venta por peso | Encargos con fecha y anticipo; `ticket_items.cantidad` sólo admite piezas enteras |
+| Panadería | Turnos del corte y estación de impresión en su panel | Hoy se leen de `configuracion_pos`/`impresoras` de la unidad sin pantalla propia |
 | Global | Tickets consolidados | Contratos de propietario y agregación; no prometidos operativos |
 | Global | Ventas consolidadas en el Asistente | El Asistente de Global ya lee el consolidado de almacenes; sumar ventas de los negocios espera el contrato de lecturas consolidadas sin doble conteo |
-| Panadería | Ventas por cajero en el Asistente | Las preguntas de caja ya existen; quién cobró depende de cómo registre el POS de caja al responsable del ticket |
+| Panadería | Ventas por cajero en el Asistente | La caja guarda al cajero en `mesero_id`; falta la pregunta |
 | Inventario | Producción y transformación de ingredientes | Definir entradas/salidas, rendimiento, costo, merma y trazabilidad sin duplicar saldos |
 | Inventario | M2.5: ejecución física de apertura y transformación | M2 ya modela botella sellada, vino abierto, copa y variantes; registrar entradas/salidas, rendimiento real y costo sin apertura automática al vender |
 | Nuevos dominios | Catering | Requiere alcance, entidades, reglas y aceptación propios |
-| Comercial | Devoluciones adicionales | Definir cancelación/devolución de venta cobrada de Panadería; no ampliar la cancelación vigente por inferencia |
+| Comercial | Devoluciones adicionales | Definir devoluciones posteriores a la anulación del día de la caja; no ampliar la cancelación vigente por inferencia |
 | Usuarios | Plantillas futuras | Requieren decisión arquitectónica explícita; hoy solo permisos directos |
 | Analítica | Identidad voluntaria de clientes walk-in | Definir propósito, consentimiento y privacidad antes de medir recurrencia |
 | Impresión | Precuenta | Definir impresión antes del cobro sin cambiar estado del ticket |

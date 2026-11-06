@@ -35,6 +35,7 @@ $usuarioJson = json_encode([
   <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <?php /* El `?v=` es el mtime: una tablet con la hoja vieja en caché la renueva sola. */ ?>
+  <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
 

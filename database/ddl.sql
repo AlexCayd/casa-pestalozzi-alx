@@ -7,7 +7,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS ticket_anulaciones, vitrina_piezas_variante, vitrina_piezas, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_avisos, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -61,8 +61,8 @@ CREATE TABLE usuario_unidad_permisos (
  nivel ENUM('ver','editar','operar') NOT NULL,
  PRIMARY KEY(usuario_id,unidad_id,modulo),
  FOREIGN KEY(usuario_id,unidad_id) REFERENCES usuario_unidades(usuario_id,unidad_id) ON DELETE CASCADE,
- CHECK((modulo IN ('pdv','area','reservations_map') AND nivel='operar')
-    OR (modulo NOT IN ('pdv','area','reservations_map','roles') AND nivel IN ('ver','editar')))
+ CHECK((modulo IN ('pdv','area','reservations_map','vitrina','anular') AND nivel='operar')
+    OR (modulo NOT IN ('pdv','area','reservations_map','vitrina','anular','roles') AND nivel IN ('ver','editar')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 DELIMITER //
 CREATE TRIGGER trg_membresia_rol_insert BEFORE INSERT ON usuario_unidades FOR EACH ROW
@@ -86,12 +86,16 @@ END//
 CREATE TRIGGER trg_permiso_directo_insert BEFORE INSERT ON usuario_unidad_permisos FOR EACH ROW
 BEGIN
  IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
- IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
+ -- Piso por ámbito: Restaurante opera POS, Producción y mapa; Panadería, su caja
+ -- de mostrador (pdv), las horneadas (vitrina) y la anulación de tickets (anular).
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND ((slug='restaurante' AND NEW.modulo IN ('pdv','area','reservations_map')) OR (slug='panaderia' AND NEW.modulo IN ('pdv','vitrina','anular')))) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
 END//
 CREATE TRIGGER trg_permiso_directo_update BEFORE UPDATE ON usuario_unidad_permisos FOR EACH ROW
 BEGIN
  IF NEW.nivel IN ('ver','editar') AND EXISTS(SELECT 1 FROM usuarios WHERE id=NEW.usuario_id AND nip_hash IS NOT NULL) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Permiso administrativo requiere retirar PIN'; END IF;
- IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND slug='restaurante') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
+ -- Piso por ámbito: Restaurante opera POS, Producción y mapa; Panadería, su caja
+ -- de mostrador (pdv), las horneadas (vitrina) y la anulación de tickets (anular).
+ IF NEW.nivel='operar' AND NOT EXISTS(SELECT 1 FROM unidades WHERE id=NEW.unidad_id AND ((slug='restaurante' AND NEW.modulo IN ('pdv','area','reservations_map')) OR (slug='panaderia' AND NEW.modulo IN ('pdv','vitrina','anular')))) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Operación no habilitada en ese ámbito'; END IF;
 END//
 CREATE TRIGGER trg_facultad_global_insert BEFORE INSERT ON usuario_unidad_facultades FOR EACH ROW
 BEGIN DECLARE v_global TINYINT; DECLARE v_tipo VARCHAR(16); SELECT solo_global INTO v_global FROM facultades WHERE clave=NEW.facultad; SELECT tipo INTO v_tipo FROM unidades WHERE id=NEW.unidad_id;
@@ -212,7 +216,7 @@ CREATE TABLE receta_componentes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE producto_variantes (
  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, oferta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
- grupo VARCHAR(40) NOT NULL, nombre VARCHAR(60) NOT NULL, precio_delta DECIMAL(8,2) NOT NULL DEFAULT 0,
+ grupo VARCHAR(40) NOT NULL, nombre VARCHAR(60) NOT NULL, icono VARCHAR(32) NULL, precio_delta DECIMAL(8,2) NOT NULL DEFAULT 0,
  predeterminada TINYINT(1) NOT NULL DEFAULT 0, orden_grupo SMALLINT UNSIGNED NOT NULL DEFAULT 0, orden INT NOT NULL DEFAULT 0, activo TINYINT(1) NOT NULL DEFAULT 1,
  UNIQUE KEY uq_variante_grupo_nombre(oferta_id,grupo,nombre), UNIQUE KEY uq_variante_scope(id,oferta_id,unidad_id),
  FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT
@@ -287,6 +291,42 @@ CREATE TABLE ticket_mesas (
  FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
  FOREIGN KEY(mesa_id,unidad_id) REFERENCES mesas(id,unidad_id) ON DELETE RESTRICT,
  UNIQUE KEY uq_ticket_mesa(ticket_id,mesa_id), UNIQUE KEY uq_ticket_orden(ticket_id,orden), INDEX idx_ticket_mesas_mesa(unidad_id,mesa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Caja de mostrador de Panadería. La venta descuenta la pieza terminada de su
+-- vitrina, no la receta: el pan se hornea antes de venderse y la receta queda
+-- para Producción. Una oferta se vende de vitrina si tiene fila aquí; una opción
+-- de variante sólo cambia la pieza (concha de chocolate en lugar de vainilla).
+CREATE TABLE vitrina_piezas (
+ oferta_id INT UNSIGNED NOT NULL PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL,
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, cantidad DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+ updated_by INT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_vitrina_oferta_unidad(oferta_id,unidad_id),
+ FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(almacen_id,articulo_id,unidad_id) REFERENCES almacen_articulos(almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(cantidad>0), INDEX idx_vitrina_articulo(unidad_id,almacen_id,articulo_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE vitrina_piezas_variante (
+ variante_id INT UNSIGNED NOT NULL PRIMARY KEY, oferta_id INT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL, cantidad DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+ FOREIGN KEY(variante_id,oferta_id,unidad_id) REFERENCES producto_variantes(id,oferta_id,unidad_id) ON DELETE CASCADE,
+ FOREIGN KEY(oferta_id,unidad_id) REFERENCES vitrina_piezas(oferta_id,unidad_id) ON DELETE CASCADE,
+ FOREIGN KEY(almacen_id,articulo_id,unidad_id) REFERENCES almacen_articulos(almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
+ CHECK(cantidad>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Anulación de una venta cobrada de la caja de Panadería: el ticket pasa a
+-- 'cancelado', sus líneas también y las piezas vuelven a la vitrina por
+-- compensación. Esta fila conserva quién la pidió, quién la autorizó y por qué.
+CREATE TABLE ticket_anulaciones (
+ ticket_id INT NOT NULL PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL,
+ solicitante_id INT NOT NULL, autorizador_id INT NOT NULL,
+ motivo ENUM('cobro_equivocado','cliente_desistio','producto_danado','otro') NOT NULL, nota VARCHAR(160) NULL,
+ total DECIMAL(10,2) NOT NULL, metodo_pago ENUM('efectivo','tarjeta') NOT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(ticket_id,unidad_id) REFERENCES tickets(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(solicitante_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ FOREIGN KEY(autorizador_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK(total>=0), INDEX idx_anulaciones_fecha(unidad_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE movimientos_inventario (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, operacion_id BIGINT UNSIGNED NOT NULL, unidad_id TINYINT UNSIGNED NOT NULL,
@@ -544,6 +584,20 @@ CREATE TABLE configuracion_reservaciones (
  FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
  CHECK(max_comensales_publico BETWEEN 7 AND 16)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Avisos del restaurante en las cartas PDF (Configuración → Avisos de la carta).
+-- `contenido` es marcado ligero (## subtítulo, **negritas**), nunca HTML: lo
+-- traduce Services\Configuration\AvisosCarta al imprimir.
+CREATE TABLE configuracion_avisos (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL,
+ titulo VARCHAR(80) NOT NULL, contenido TEXT NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1,
+ en_comida TINYINT(1) NOT NULL DEFAULT 1, en_maridaje TINYINT(1) NOT NULL DEFAULT 0,
+ orden SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+ updated_by INT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY ix_avisos_unidad_orden(unidad_id,orden,id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT, FOREIGN KEY(updated_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(en_comida=1 OR en_maridaje=1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE reportes_sistema (
  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, usuario_id INT NULL, modulo VARCHAR(60) NULL,
  titulo VARCHAR(120) NOT NULL, descripcion TEXT NOT NULL, ruta_origen VARCHAR(255) NULL,
@@ -631,6 +685,7 @@ CREATE OR REPLACE VIEW productos_oferta AS
  LEFT JOIN oferta_personalizaciones pd ON pd.oferta_id=o.id AND pd.campo='descripcion'
  LEFT JOIN oferta_personalizaciones pi ON pi.oferta_id=o.id AND pi.campo='img';
 INSERT IGNORE INTO esquema_versiones(version) VALUES ('m12-estandares-v1');
+INSERT IGNORE INTO esquema_versiones(version) VALUES ('caja-panaderia-v1');
 
 -- Publicaciones inmutables, también frente a escrituras fuera de los servicios.
 CREATE TRIGGER IF NOT EXISTS trg_casa_producto_update BEFORE UPDATE ON producto_publicaciones FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Publicacion inmutable';

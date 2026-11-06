@@ -10,9 +10,10 @@
  *       src/js/components/llegada.js).
  *
  * Las otras dos transiciones —cambio de tema y cambio de módulo— viven en
- * _finishes.scss (4b y 4c). Las tres usan View Transitions y se distinguen por
- * TIPO ('tema', 'modulo', 'llegada'): ninguna regla de una debe poder tocar a
- * otra. Si se toca una, comprobar las otras dos.
+ * _finishes.scss (4b y 4c) y se distinguen por TIPO ('tema', 'modulo'). La
+ * llegada ya sólo usa una View Transition en su primer tiempo (la de documento
+ * cruzado, desde el login, sin tipo); la salida es WAAPI sobre el propio
+ * velo. Si se toca una de las tres, comprobar las otras dos.
  */
 
 /* ── 1 · Base de reveals (GSAP fija .is-in / limpia estilos) ───── */
@@ -51,42 +52,153 @@
 
 /* ── 2 · La llegada ────────────────────────────────────────────
  *
- * Tres tiempos (detalle en llegada.js): el nombre toma el centro, se sostiene
- * y vuela a la marca de la pantalla mientras el velo se cierra sobre ella.
- * Dura ~1.4 s, se salta con cualquier tecla o toque y sólo existe en la
- * primera página tras el login.
+ * «Subir la cortina». Tres tiempos (detalle en llegada.js): el nombre toma
+ * el centro, se sostiene con el saludo y, mientras la cortina sube en ola
+ * desde la marca de la pantalla, vuela en arco hasta ella. Dura ~1.65 s, se
+ * salta con cualquier tecla o toque y sólo existe en la primera página tras
+ * el login.
  *
- * El velo es SIEMPRE tinta, también cuando el panel está en claro: es la tinta
- * del login, así que el cambio de documento no parpadea, y la llegada se lee
- * como una puerta que se abre a la sala iluminada. Por eso aquí se pide a las
- * ANCLAS (--admin-ink / --admin-paper), que no cambian con el tema, y no a los
- * roles (--admin-bg, --admin-muted), que en claro serían papel.
+ * La cortina es SIEMPRE tinta, también cuando el panel está en claro: es la
+ * tinta del login, así que el cambio de documento no parpadea, y la llegada
+ * se lee como abrir el local por la mañana. Por eso aquí se pide a las ANCLAS
+ * (--admin-ink / --admin-paper), que no cambian con el tema, y no a los roles
+ * (--admin-bg, --admin-muted), que en claro serían papel.
  *
- * Sin JS se retira solo: se sostiene 1.3 s y se funde. El JS anula esa salida
- * (.is-js) cuando toma el mando, y si llega tarde la deja correr.
+ * Todo lo que se mueve al salir es `transform` u `opacity`: los paños y el
+ * vuelo van por el compositor y no se traban mientras el panel arranca sus
+ * gráficas en el hilo principal. Es lo que no tenía la versión anterior (un
+ * `clip-path` en círculo y el ancho y alto de los grupos de una View
+ * Transition, las dos cosas en el hilo principal).
+ *
+ * Sin JS sube sola: se sostiene 1.3 s y los paños suben de izquierda a
+ * derecha. El JS anula esa salida (.is-js) cuando toma el mando, y si llega
+ * tarde la deja correr.
  */
+
+// Sin caja propia, y es lo que hace funcionar el color del nombre: sus dos
+// capas son fijas y cada una es su propio contexto de apilamiento contra la
+// página. Si la capa fija fuera .cp-llegada, el `difference` del centro se
+// fundiría sólo con la cortina —su hermana dentro del mismo grupo aislado— y
+// nunca con el panel que asoma al subir.
 .cp-llegada {
-  position: fixed;
-  inset: 0;
-  // Por encima de todo: grano y viñeta (1), cajón del sidebar (40), selects
-  // portados (130) y modales (200). Vive segundo y medio, antes de que nada
-  // de eso pueda estar abierto.
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 6vh 6vw;
-  background: var(--admin-ink);
-  color: var(--admin-paper);
-  // El retardo es la pausa del modo sin JS. llegada.js lo LEE de esta
-  // animación (getTiming().delay), así que cambiarlo aquí basta.
-  animation: cp-llegada-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+  display: contents;
 }
 
+// Por encima de todo: grano y viñeta (1), cajón del sidebar (40), selects
+// portados (130) y modales (200). Vive menos de dos segundos, antes de que
+// nada de eso pueda estar abierto.
+.cp-llegada__cortina {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  overflow: hidden;
+  // Detrás de los paños, para la primera pintura y por si un canto de medio
+  // píxel dejara ver la página. Se retira cuando empiezan a subir.
+  background: var(--admin-ink);
+  // Sólo `forwards`: con `both` el primer fotograma (sin fondo) se aplicaría
+  // durante la pausa. El retardo es la pausa del modo sin JS; llegada.js lee
+  // el del centro, que es el mismo. Dura lo que tarda en subir el último
+  // paño (4 × 40 + 640): hasta entonces sigue parando el puntero.
+  animation: cp-llegada-cortina 800ms linear 1300ms forwards;
+}
+
+/*
+ * Un paño. El canto inferior lleva un filete de luz y debajo una sombra corta:
+ * al subir, el borde se lee como una pieza física que se separa del panel y no
+ * como un recorte. Los dos viven en el ::after, colgado por DEBAJO del paño,
+ * así que en reposo están fuera de la pantalla y la tinta es lisa.
+ *
+ * El -1px solapa a los vecinos: con anchos fraccionarios, dos paños que sólo
+ * se tocan dejan pasar una línea de panel claro entre ellos.
+ */
+.cp-llegada__pano {
+  --sombra: clamp(40px, 7vh, 84px);
+
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  margin-right: -1px;
+  background: var(--admin-ink);
+  // Los mismos 640 ms y 40 ms de escalón que pone llegada.js.
+  animation: cp-llegada-pano-sube 640ms cubic-bezier(0.76, 0, 0.24, 1) calc(1300ms + var(--i, 0) * 40ms) both;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    height: var(--sombra);
+    // La sombra, baja: en claro, al 30 % ensuciaba de gris el panel que se
+    // está destapando. Con un 16 % se lee el relieve y no la mancha.
+    border-top: 1px solid color-mix(in srgb, var(--admin-paper) 38%, var(--admin-ink));
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--admin-ink) 16%, transparent), transparent);
+    pointer-events: none;
+  }
+
+  &:nth-child(2) { --i: 1; }
+  &:nth-child(3) { --i: 2; }
+  &:nth-child(4) { --i: 3; }
+  &:nth-child(5) { --i: 4; }
+}
+
+// En un teléfono cinco paños son cinco tiras de 70 px: se leen como rayas.
+@media (max-width: 640px) {
+  .cp-llegada__pano:nth-child(n + 4) {
+    display: none;
+  }
+}
+
+/* La luz: un halo de papel muy bajo detrás del nombre, que se enciende
+   mientras se lee el saludo. Anticipa la sala iluminada que hay detrás de la
+   cortina; sin él, la pausa era tinta quieta. No se mueve con los paños: se
+   apaga al empezar a subir.
+
+   Vive en el CENTRO, con z-index negativo para quedar bajo el nombre dentro
+   del grupo que se funde. En la cortina quedaba en el fondo del `difference`
+   y se restaba de la letra: el nombre se apagaba un 12 % en cuanto la
+   transición de documento lo soltaba (dentro de ella se pinta sin la mezcla
+   del ancestro) y el saludo caía de 7.3 a 4.9:1. */
+.cp-llegada__luz {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: min(120vmin, 1100px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--admin-paper) 9%, transparent), transparent);
+  pointer-events: none;
+  animation:
+    cp-llegada-luz 1200ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both,
+    cp-llegada-desvanece 360ms cubic-bezier(0.4, 0, 1, 1) 1300ms forwards;
+}
+
+/*
+ * El centro: nombre, filete y saludo, en una capa fija propia ENCIMA de la
+ * cortina y fundida con `difference`. Sobre tinta el papel sale papel; sobre
+ * el panel en claro sale tinta. Así el nombre vuela legible por encima de la
+ * cortina que sube y del panel que asoma, en los dos temas, sin un cambio de
+ * color que sincronizar: el color lo pone lo que tiene debajo. En el piso
+ * (oscuro forzado) sale papel de principio a fin.
+ */
 .cp-llegada__centro {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
   display: grid;
+  place-content: center;
   justify-items: center;
   gap: clamp(18px, 3.4vh, 30px);
-  animation: cp-llegada-centro-fuera 380ms cubic-bezier(0.4, 0, 1, 1) 1300ms both;
+  padding: 6vh 6vw;
+  // La luz mide hasta 1100 px y en una pantalla apaisada baja se sale por
+  // arriba y por abajo; el vuelo nunca sale de la pantalla.
+  overflow: hidden;
+  color: var(--admin-paper);
+  mix-blend-mode: difference;
+  pointer-events: none;
+  animation: cp-llegada-centro-fuera 320ms cubic-bezier(0.4, 0, 1, 1) 1300ms forwards;
 }
 
 /*
@@ -94,8 +206,9 @@
  *
  * Las cajas de las palabras se miden igual que en el destino: `fit-content`
  * (cada caja es su palabra, no la columna entera) y el mismo interlineado
- * 0.98 del sidebar. Así cada palabra tiene la MISMA proporción en el velo y en
- * la marca, y el navegador puede escalar la una en la otra sin deformarla.
+ * 0.98 del sidebar. llegada.js mide el TEXTO de cada palabra aquí y en el
+ * destino y escala uno en el otro, así que basta con que la proporción sea la
+ * misma.
  *
  * El cuerpo: PESTALOZZI mide 7.59 em en KudosKaps (medido sobre el .otf), así
  * que 8.4vw lo deja en dos tercios del ancho; la cota en vh es para pantallas
@@ -107,8 +220,7 @@
   align-items: center;
   color: var(--admin-paper);
   // Primer tiempo: con el mismo nombre que la marca del login, la transición
-  // de documento cruzado la trae hasta aquí. El JS lo cambia por los de las
-  // palabras antes del vuelo.
+  // de documento cruzado la trae hasta aquí.
   view-transition-name: cp-marca;
 
   .hcp-header__nombre {
@@ -125,13 +237,17 @@
   }
 }
 
+/* El filete crece durante toda la pausa: es el reloj de la llegada, y cuando
+   termina de abrirse, sube la cortina. 220 + 640 = 860, la PAUSA de
+   llegada.js: si cambia una, cambia la otra (con 820 ms la cortina arrancaba
+   con el reloj todavía abriéndose). */
 .cp-llegada__filete {
   display: block;
-  width: 56px;
+  width: 72px;
   height: 1px;
-  background: color-mix(in srgb, var(--admin-paper) 36%, transparent);
+  background: color-mix(in srgb, var(--admin-paper) 40%, var(--admin-ink));
   transform-origin: center;
-  animation: cp-llegada-filete 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+  animation: cp-llegada-filete 640ms cubic-bezier(0.65, 0, 0.35, 1) 220ms both;
 }
 
 // `.cp-llegada` delante: es un <p>, y `.admin-body p` (0,1,1) le impondría el
@@ -147,10 +263,19 @@
   line-height: 1.2;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  // Papel al 66 % sobre la tinta: 7.9:1. El rol --admin-muted no sirve aquí,
-  // que en el tema claro está calibrado contra papel.
+  // Papel al 66 % sobre la tinta; tras el `difference` del centro y con la
+  // luz encendida detrás, ≈6.4:1. El rol --admin-muted no sirve aquí, que en
+  // el tema claro está calibrado contra papel.
   color: color-mix(in srgb, var(--admin-paper) 66%, var(--admin-ink));
-  animation: cp-llegada-saludo 440ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+
+// El saludo entra por piezas —quién, el punto, adónde— y no de un bloque: se
+// lee como dos datos, que es lo que es.
+.cp-llegada__saludo > * {
+  animation: cp-llegada-saludo 560ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+
+  &:nth-child(2) { animation-delay: 380ms; }
+  &:nth-child(3) { animation-delay: 440ms; }
 }
 
 // Punto separador dibujado y no un «·» de la fuente: en mono el carácter cae
@@ -162,38 +287,80 @@
   background: currentColor;
 }
 
-// El JS toma el mando: sin salida CSS, el velo espera al vuelo.
-.cp-llegada.is-js,
-.cp-llegada.is-js .cp-llegada__centro {
-  animation: none;
+// El JS toma el mando: sin salida CSS, la cortina espera a llegada.js (que
+// mueve los paños con WAAPI). La luz conserva su entrada.
+.cp-llegada.is-js {
+  .cp-llegada__cortina,
+  .cp-llegada__pano,
+  .cp-llegada__centro {
+    animation: none;
+  }
+
+  .cp-llegada__luz {
+    animation: cp-llegada-luz 1200ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+  }
 }
 
-/* Palabras de la barra del piso, envueltas sólo mientras dura el vuelo
-   (llegada.js): la marca de la barra es un nodo de texto, y un grupo de View
-   Transition necesita una caja por palabra. `inline-block` con el mismo
-   espacio entre ellas no mueve la línea. */
-.cp-llegada-palabra {
-  display: inline-block;
+/* La salida que pone llegada.js. El fondo de la cortina se va (los paños ya
+   la cubren) y su contenedor deja de recibir el puntero: lo que ya se ve se
+   puede tocar, y un paño que aún tapa sigue parando el toque. */
+.cp-llegada.is-saliendo {
+  .cp-llegada__cortina {
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .cp-llegada__pano {
+    pointer-events: auto;
+  }
+
+  .cp-llegada__luz {
+    animation: cp-llegada-desvanece 360ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  .cp-llegada__filete,
+  .cp-llegada__saludo {
+    animation: cp-llegada-desvanece 220ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
 }
 
-/* Lo mismo en el sidebar, sin tocar el marcado: las palabras apiladas son
-   bloques del ancho de PESTALOZZI, así que CASA medía el doble de lo que se ve
-   y su instantánea llegaba con hueco a la derecha. Sólo durante el vuelo; en
-   reposo alineadas a la izquierda se ven igual con o sin esto. */
-.cp-llegada-vuelo .admin-sidebar__brand-text .hcp-header__palabra {
-  width: fit-content;
+@keyframes cp-llegada-cortina {
+  from {
+    background-color: transparent;
+  }
+
+  to {
+    background-color: transparent;
+    visibility: hidden;
+  }
 }
 
-@keyframes cp-llegada-fuera {
+@keyframes cp-llegada-pano-sube {
+  to {
+    // La sombra sale también: si no, quedaría una franja gris arriba.
+    transform: translateY(calc(-100% - var(--sombra) - 2px));
+  }
+}
+
+@keyframes cp-llegada-luz {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@keyframes cp-llegada-desvanece {
   to {
     opacity: 0;
-    visibility: hidden;
+    transform: translateY(-4px);
   }
 }
 
 @keyframes cp-llegada-centro-fuera {
   to {
+    opacity: 0;
     transform: translateY(-12px) scale(0.98);
+    visibility: hidden;
   }
 }
 
@@ -210,17 +377,26 @@
   }
 }
 
+@keyframes cp-llegada-fuera {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 /* Movimiento reducido: un fundido breve de la tinta al destino, que es la
-   señal de que se entró, y nada más. Sin pausa, sin vuelo y sin el nombre
+   señal de que se entró, y nada más. Sin pausa, sin cortina y sin el nombre
    viajando desde el login (el `@view-transition` ya está apagado ahí). */
 @media (prefers-reduced-motion: reduce) {
-  .cp-llegada {
+  .cp-llegada__cortina,
+  .cp-llegada__centro {
     animation: cp-llegada-fuera 240ms ease-out both;
   }
 
-  .cp-llegada__centro,
+  .cp-llegada__pano,
+  .cp-llegada__luz,
   .cp-llegada__filete,
-  .cp-llegada .cp-llegada__saludo {
+  .cp-llegada__saludo > * {
     animation: none;
   }
 
@@ -230,123 +406,33 @@
 }
 
 /*
- * Las View Transitions de la llegada.
+ * El primer tiempo es la única View Transition de la llegada: la de documento
+ * cruzado, del login al velo. Sin tipo, porque lo decide el documento nuevo y
+ * el nombre sólo existe aquí.
  *
  * Los valores van LITERALES: los tokens de movimiento se declaran en
  * .admin-body y los pseudo-elementos de la transición cuelgan de <html>, así
  * que un `var(--admin-ease)` aquí sería inválido y caería a `ease`.
  */
 @supports (view-transition-name: none) {
-  /* Primer tiempo, documento cruzado: la marca del login hasta el centro. Sin
-     tipo, porque lo decide el documento nuevo y el nombre sólo existe aquí. */
+  /* El nombre, del login al centro: casi todo el recorrido al principio y una
+     llegada larga, para que se pose y no frene en seco. */
   ::view-transition-group(cp-marca) {
-    animation-duration: 460ms;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-duration: 560ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Tercer tiempo: el vuelo. */
-  :root:active-view-transition-type(llegada) {
-    /* El velo (la instantánea vieja) va ENCIMA y se cierra; el destino espera
-       entero debajo. El cierre en círculo lo pone llegada.js con WAAPI, porque
-       su centro es la marca de destino; este fundido es el respaldo cuando no
-       hay marca (POS) o el script no llega a animar, y WAAPI lo sustituye
-       cuando sí. */
-    &::view-transition-old(root) {
-      z-index: 2;
-      mix-blend-mode: normal;
-      animation: cp-vt-velo 820ms cubic-bezier(0.4, 0, 0.2, 1) both;
-    }
-
-    &::view-transition-new(root) {
-      z-index: 1;
-      mix-blend-mode: normal;
-      animation: none;
-    }
-
-    /* Las palabras llegan al 80 % del cierre (656 de 820 ms) con una curva de
-       ida y vuelta: despegan, viajan y se posan, y el velo las acompaña con la
-       misma curva. PESTALOZZI sale un instante después que CASA: el bloque se
-       despliega en vez de moverse en una pieza. */
-    &::view-transition-group(cp-marca),
-    &::view-transition-group(cp-marca-casa),
-    &::view-transition-group(cp-marca-pestalozzi) {
-      animation-duration: 656ms;
-      animation-timing-function: cubic-bezier(0.7, 0, 0.2, 1);
-    }
-
-    &::view-transition-group(cp-marca-pestalozzi) {
-      animation-delay: 36ms;
-    }
-
-    /* La tinta cambia AL FINAL, con el fundido del velo: el nombre vuela en
-       papel sobre tinta y se posa en el color de la marca de destino. Antes de
-       eso la instantánea nueva va ampliada desde la marca pequeña y se vería
-       borrosa. */
-    &::view-transition-old(cp-marca),
-    &::view-transition-old(cp-marca-casa),
-    &::view-transition-old(cp-marca-pestalozzi) {
-      mix-blend-mode: normal;
-      animation: cp-vt-tinta-sale 820ms linear both;
-    }
-
-    &::view-transition-new(cp-marca),
-    &::view-transition-new(cp-marca-casa),
-    &::view-transition-new(cp-marca-pestalozzi) {
-      mix-blend-mode: normal;
-      animation: cp-vt-tinta-entra 820ms linear both;
-    }
-
-    /* El monograma del sidebar plegado es cuadrado y el nombre apaisado: que
-       las dos instantáneas quepan sin deformarse en la caja que se transforma. */
-    &::view-transition-old(cp-marca),
-    &::view-transition-new(cp-marca) {
-      height: 100%;
-      object-fit: contain;
-    }
-
-    /* Sin destino (POS, panel en móvil): el nombre se apaga en su sitio. */
-    &::view-transition-old(cp-marca):only-child {
-      animation: cp-vt-marca-apaga 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
-    }
+  /* La tarjeta del acceso (la nombra el login en `pageswap`) no tiene pareja
+     aquí: se retira hacia abajo, como una puerta que se cierra detrás, en vez
+     de fundirse con el resto de la pantalla. */
+  ::view-transition-old(cp-acceso):only-child {
+    animation: cp-acceso-sale 300ms cubic-bezier(0.4, 0, 1, 1) both;
   }
 }
 
-@keyframes cp-vt-velo {
-  0%,
-  30% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes cp-vt-tinta-sale {
-  0%,
-  78% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes cp-vt-tinta-entra {
-  0%,
-  78% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes cp-vt-marca-apaga {
+@keyframes cp-acceso-sale {
   to {
     opacity: 0;
-    transform: scale(0.94);
+    transform: translateY(14px) scale(0.985);
   }
 }

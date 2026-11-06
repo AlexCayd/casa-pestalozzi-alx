@@ -627,8 +627,31 @@
   overflow: visible;
   text-overflow: clip;
 }
+.admin-menu__categorias {
+  row-gap: 6px;
+  justify-content: center;
+}
+.admin-menu__categorias .admin-tabs__tab {
+  flex: 0 1 auto;
+}
+.admin-menu__categorias .admin-tabs__tab span {
+  width: auto;
+  padding-inline: 12px;
+  overflow: visible;
+  text-overflow: clip;
+}
+.admin-menu__categorias.is-equilibrada {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+.admin-menu__categorias .admin-tabs__fila {
+  display: flex;
+  min-width: 0;
+  justify-content: center;
+  gap: inherit;
+}
 @media (pointer: coarse) {
-  .admin-menu__cartas-tabs .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab--add label span {
+  .admin-menu__cartas-tabs .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab a span, .admin-menu__cats .admin-tabs__tab--add label span, .admin-menu--modulo.admin-menu--form .admin-tabs__tab span {
     padding-block: 12px;
   }
 }
@@ -686,6 +709,9 @@
   align-self: end;
   min-height: 46px;
   margin: 0;
+}
+.admin-menu__visible {
+  align-self: end;
 }
 .admin-menu__panel-head {
   display: flex;
@@ -1342,10 +1368,13 @@
 }
 /* ── Variantes en el listado ──────────────────────────────────────
  *
- * El contador bajo el nombre y la acción de la fila. Vivían en variantes.scss,
- * que sólo carga el editor: en el listado no llegaban nunca, así que el icono
- * se pegaba a la cifra («⚌7 opciones») y la acción de un platillo con
- * variantes era idéntica a la de uno sin ellas.
+ * El contador junto al nombre. Vive aquí y no en variantes.scss, que sólo
+ * carga el editor: en el listado no llegaba nunca y el icono se pegaba a la
+ * cifra («⚌7 opciones»).
+ *
+ * La fila ya no lleva botón de variantes: se editan en «Editar platillo». El
+ * contador es el atajo —un enlace a edit?id=…#variantes, que abre el panel—
+ * cuando el usuario puede editarlas; si no, es sólo el dato.
  *
  * `.admin-table__cell-sub` es `display: block` en _tables.scss con la misma
  * especificidad; el contador va con la tabla como ancestro para no depender
@@ -1364,15 +1393,20 @@
   stroke-width: 2;
 }
 
-/* Con variantes, la acción lleva el contorno en tinta plena. No se rellena: en
- * la misma fila van el ámbar de editar y el rojo de borrar, y un cuadro negro
- * sería lo más ruidoso de la tabla para un dato que ya dice el rótulo bajo el
- * nombre. El contorno basta para distinguirlo al recorrer la columna. */
-.admin-body .admin-icon-button--variantes.is-set {
-  border-color: var(--admin-text);
-  background-color: var(--admin-surface);
+.admin-table a.admin-menu__variantes-sub {
+  margin: -6px -10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.admin-table a.admin-menu__variantes-sub:hover {
+  background: var(--admin-surface-soft);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px var(--admin-text);
+}
+.admin-table a.admin-menu__variantes-sub:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
 }
 
 /* ── Foto del platillo (formulario) ───────────────────────────────
@@ -1569,6 +1603,109 @@ html:not([data-admin-theme]) .admin-body .admin-foto [data-foto-elegir], html:no
   .admin-body .admin-foto .admin-foto__cuerpo,
   .admin-body .admin-foto .admin-foto__vista,
   .admin-body .admin-foto .admin-foto__img {
+    transition: none;
+  }
+}
+
+/* ── Imagen de la categoría: la misma pieza, en grande ─────────────
+ *
+ * En el formulario de categoría la imagen es lo único visual y es la que la
+ * carta enseña a tamaño de sección, así que la vista previa tiene columna
+ * propia (hasta 420 px) en vez de la miniatura de 192 px del platillo. El
+ * cuerpo pasa a rejilla y se apila por debajo de 620 px de CONTENEDOR: lo que
+ * manda es el ancho del campo, no el de la ventana.
+ *
+ * (0,3,0) para ganarle por especificidad, y no sólo por orden, a la pieza
+ * base de arriba. */
+.admin-body .admin-foto.admin-foto--grande {
+  container: foto-grande/inline-size;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(260px, 1fr);
+  align-items: center;
+  gap: 20px 28px;
+  padding: 16px;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__vista {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--admin-radius-md);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__vacia {
+  gap: 4px;
+  padding: 16px;
+  text-align: center;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__vacia svg {
+  margin-bottom: 6px;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__vacia-titulo {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__vacia-pista {
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.admin-body .admin-foto.admin-foto--grande[data-estado=vacia] .admin-foto__cuerpo.is-arrastrando .admin-foto__vista {
+  border-color: var(--admin-accent);
+  background: var(--admin-surface-soft);
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__invitacion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--admin-ink) 62%, transparent);
+  color: var(--admin-paper);
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__invitacion svg {
+  stroke-width: 1.6;
+}
+.admin-body .admin-foto.admin-foto--grande .admin-foto__invitacion-soltar {
+  display: none;
+}
+.admin-body .admin-foto.admin-foto--grande:not([data-estado=vacia]) .admin-foto__cuerpo.is-arrastrando .admin-foto__invitacion {
+  opacity: 1;
+}
+.admin-body .admin-foto.admin-foto--grande:not([data-estado=vacia]) .admin-foto__cuerpo.is-arrastrando .admin-foto__invitacion-clic {
+  display: none;
+}
+.admin-body .admin-foto.admin-foto--grande:not([data-estado=vacia]) .admin-foto__cuerpo.is-arrastrando .admin-foto__invitacion-soltar {
+  display: inline;
+}
+@media (hover: hover) and (pointer: fine) {
+  .admin-body .admin-foto.admin-foto--grande:not([data-estado=vacia]) .admin-foto__vista:hover .admin-foto__invitacion {
+    opacity: 1;
+  }
+  .admin-body .admin-foto.admin-foto--grande[data-estado=vacia] .admin-foto__vista:hover {
+    background: var(--admin-surface-soft);
+  }
+}
+@media (hover: none) {
+  .admin-body .admin-foto.admin-foto--grande [data-foto-arrastre] {
+    display: none;
+  }
+}
+@container foto-grande (max-width: 620px) {
+  .admin-body .admin-foto.admin-foto--grande .admin-foto__cuerpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-foto.admin-foto--grande .admin-foto__vista,
+  .admin-body .admin-foto.admin-foto--grande .admin-foto__invitacion {
     transition: none;
   }
 }

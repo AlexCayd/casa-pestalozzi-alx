@@ -1,0 +1,39 @@
+// ── Panadería · piezas comunes de las bandas ──────────────────
+//
+// La cabecera de cada banda (rótulo, titular, bajada) y el papel de envoltura.
+// Todo el color sale de los roles del tono de cada sección: ningún hex.
+
+.pan-cabeza {
+  max-width: 46rem;
+  margin-bottom: clamp(2.4rem, 5vh, 3.6rem);
+
+  .body { max-width: 52ch; }
+}
+
+// El mismo cuerpo que el titular de «Cómo llegar» de la portada, para que las
+// dos casas se lean con la misma escala.
+.pan-titulo {
+  margin: 1.2rem 0 1.2rem;
+  font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+  line-height: 1.05;
+  color: var(--txt-strong);
+}
+
+// ── Papel de envoltura ────────────────────────────────────────
+//
+// El pan se entrega en papel impreso con la marca. De fondo de la vitrina va
+// su eco: óvalos del medallón y rombos, en tresbolillo. La forma es una máscara
+// (sólo cuenta su opacidad, de ahí el `black`, que no es un color de la casa) y
+// el color lo pone el rol del tono, así que sigue a la paleta editable.
+.pan-papel {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--txt) 7%, transparent);
+  $tesela: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='168'%3E%3Cg fill='none' stroke='black' stroke-width='1.2'%3E%3Cellipse cx='42' cy='42' rx='11' ry='14'/%3E%3Cellipse cx='126' cy='126' rx='11' ry='14'/%3E%3C/g%3E%3Cg fill='black'%3E%3Cpath d='M126 36l6 6-6 6-6-6z'/%3E%3Cpath d='M42 120l6 6-6 6-6-6z'/%3E%3C/g%3E%3C/svg%3E";
+  -webkit-mask-image: url($tesela);
+  mask-image: url($tesela);
+  -webkit-mask-size: 168px 168px;
+  mask-size: 168px 168px;
+}

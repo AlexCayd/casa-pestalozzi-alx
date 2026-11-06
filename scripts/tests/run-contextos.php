@@ -21,9 +21,12 @@ $assert(Contextos::permitidos('waiter', null) === ['restaurante'], 'Personal leg
 $assert(Contextos::permitidos('cook', 'invalida') === [], 'Asignación inválida no hereda Restaurante');
 $raiz = dirname(__DIR__, 2);
 $sidebar = file_get_contents($raiz . '/views/admin/partials/_sidebar.php');
+$topbar = file_get_contents($raiz . '/views/admin/partials/_topbar.php');
 $layout = file_get_contents($raiz . '/views/admin/layout.php');
 $selector = file_get_contents($raiz . '/views/admin/partials/_contexto.php');
-$assert(str_contains($sidebar, "include __DIR__ . '/_contexto.php'") && !str_contains($layout, "partials/_contexto.php"), 'Selector único en sidebar');
+// El ámbito es el estado del panel: una sola vez, en el header.
+$assert(str_contains($topbar, "include __DIR__ . '/_contexto.php'") && !str_contains($sidebar, "include __DIR__ . '/_contexto.php'") && !str_contains($layout, "partials/_contexto.php"), 'Selector único en el header');
+$assert(str_contains($selector, 'admin-context-switch__fijo') && str_contains($selector, 'count($contextosDisponibles)>1'), 'Con un solo ámbito no se ofrece selector');
 $assert(str_contains($selector, 'data-context-trigger') && str_contains($selector, 'popover') && str_contains($selector, '$contextosDisponibles'), 'Selector accesible en capa superior con contextos autorizados');
 $assert(str_contains($selector,'<noscript>') && str_contains($selector,'data-context-select'), 'Conserva navegación con formulario sin JavaScript');
 
@@ -50,7 +53,7 @@ foreach (['production', '', 'staging', 'development', 'test'] as $entorno) {
     $_ENV['APP_ENV'] = $entorno;
     $assert(Contextos::demoHabilitada() === in_array($entorno, ['development', 'test'], true), 'Activación explícita: ' . $entorno);
 }
-$fixture = require dirname(__DIR__, 2) . '/database/fixtures/panaderia.php';
+$fixture = require __DIR__ . '/fixtures/panaderia.php';
 foreach ($fixture['productos'] as $id => $producto) {
     $assert(is_string($id) && $producto['precio'] > 0 && is_bool($producto['disponible']), 'Producto estructurado: ' . $id);
 }

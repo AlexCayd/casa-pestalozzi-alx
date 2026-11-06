@@ -11,15 +11,15 @@ $n=0;$clients=[];$a=static function(bool $v,string $m)use(&$n){if(!$v)throw new 
 $valid=static fn($r)=>$r['status']===200&&!preg_match('/Fatal error|Warning:|Uncaught /',$r['body']);
 try {
     $admin=new ClienteInstalacion3E();$clients[]=$admin;$admin->login(['username'=>'admin_demo','password'=>$_ENV['DEV_SUPERADMIN_PASSWORD']??getenv('DEV_SUPERADMIN_PASSWORD')]);
-    $home=$admin->request('GET','/admin');$a($valid($home)&&str_contains($home['body'],'Inicio · Restaurante'),'Home real en /admin');
+    $home=$admin->request('GET','/admin');$a($valid($home)&&str_contains($home['body'],'id="inicio-titulo">Restaurante</h1>'),'Home real en /admin');
     $x=ClienteInstalacion3E::dom($home['body']);
-    $a($x->query('//a[contains(@class,"admin-access")]')->length===15,'Quince tarjetas autorizadas');
+    $a($x->query('//a[contains(concat(" ",@class," ")," admin-modulo ")]')->length===15,'Quince tarjetas autorizadas');
     $a($x->query('//nav[contains(@class,"admin-sidebar__nav")]/a[1][@href="/admin" and @aria-current="page"]')->length===1,'Inicio primero y activo en sidebar');
     $r=$admin->request('GET','/admin/contexto?contexto=restaurante');$a($r['status']===302&&$r['location']==='/admin','Selector apunta al Home');
     $r=$admin->request('GET','/admin/analytics');$a($valid($r)&&str_contains($r['body'],'window.AdminAnalyticsMock')&&str_contains($r['body'],'data-admin-analytics'),'Dashboard conservado en ruta propia');
     $reader=new ClienteInstalacion3E();$clients[]=$reader;$reader->login($f['cuentas']['lectura_restaurante']);
     $r=$reader->request('GET','/admin');$a($valid($r)&&$r['location']==='','Home sin Analíticas no redirige');
-    $x=ClienteInstalacion3E::dom($r['body']);$a($x->query('//a[contains(@class,"admin-access") and @href="/admin/analytics"]')->length===0,'No enlaza Analíticas sin permiso');
+    $x=ClienteInstalacion3E::dom($r['body']);$a($x->query('//a[contains(concat(" ",@class," ")," admin-modulo ") and @href="/admin/analytics"]')->length===0,'No enlaza Analíticas sin permiso');
     $a($reader->request('GET','/admin/analytics')['status']===403,'Analíticas sigue protegida');
     $r=$reader->request('GET','/admin/contexto?contexto=restaurante');$a($r['location']==='/admin'&&$valid($reader->request('GET',$r['location'])),'Cambio de contexto sin bucles');
     $floor=new ClienteInstalacion3E();$clients[]=$floor;$floor->login($f['cuentas']['piso_nip'],true);

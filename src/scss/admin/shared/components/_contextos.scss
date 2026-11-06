@@ -1,38 +1,142 @@
+/*
+ * Ámbito de trabajo en el header (views/admin/partials/_contexto.php).
+ *
+ * Es el estado del panel y va donde empieza la lectura. Hace pareja con la
+ * píldora del usuario al otro extremo de la barra (_topbar.scss): a la
+ * izquierda «dónde estoy», a la derecha «quién soy», con la misma forma —
+ * píldora de 40 px, círculo relleno de 32 y nombre en 700— para que el header
+ * se lea como dos anclas y no como un título más.
+ */
 .admin-context-switch {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   align-items: center;
-  gap: 8px 16px;
-  margin: 8px 0 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--admin-border-soft);
+  min-width: 0;
+  max-width: 100%;
   color: var(--admin-text);
-  font-size: 13px;
+}
 
-  label { font-weight: 600; font-size: 11px; color: var(--admin-muted); }
-  &__controls { display: flex; gap: 8px; min-width: 0; width: 100%; }
-  select {
-    appearance: auto;
-    -webkit-appearance: auto;
-    min-height: 44px;
-    max-width: 100%;
-    width: 100%;
-    padding: 8px 32px 8px 12px;
-    border: 1px solid var(--admin-border);
-    border-radius: 8px;
-    color: var(--admin-text);
-    background: var(--admin-surface);
-    font: inherit;
-    &:disabled { opacity: 1; cursor: default; }
-    &:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 3px; }
+.admin-body .admin-context-switch__trigger,
+.admin-context-switch__fijo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 0 12px 0 4px;
+  border-radius: 999px;
+  color: var(--admin-text);
+  font: 600 13px var(--admin-font-sans);
+  line-height: 1;
+}
+
+.admin-body .admin-context-switch__trigger {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  cursor: pointer;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover,
+  &[aria-expanded="true"] {
+    border-color: var(--admin-border-strong);
+    background: var(--admin-surface-soft);
   }
 }
 
-.admin-context-name { color: var(--admin-text); font-size: 13px; }
-.admin-sidebar-collapsed .admin-context-switch {
-  label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  select { padding-inline: 3px; font-size: 11px; }
+// Un solo ámbito: nada que elegir, así que no se viste de botón.
+.admin-context-switch__fijo {
+  padding-right: 4px;
 }
+
+.admin-context-switch__icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1.9;
+  }
+}
+
+.admin-context-switch__texto {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.admin-context-switch__rotulo {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  // 10 px, el mismo rótulo que la cabecera del menú: 9.5 era un cuerpo suelto.
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-context-switch__name {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-context-switch__chevron {
+  display: flex;
+  flex: none;
+  color: var(--admin-muted);
+  transition: rotate var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    stroke-width: 2;
+  }
+}
+
+.admin-context-switch__trigger[aria-expanded="true"] .admin-context-switch__chevron {
+  rotate: 180deg;
+}
+
+// Sin JavaScript: el formulario nativo, compacto, en la misma barra.
+.admin-context-switch__sinjs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+
+  label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  select {
+    appearance: auto;
+    -webkit-appearance: auto;
+    min-height: 36px;
+    padding: 4px 28px 4px 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    background: var(--admin-surface);
+    color: var(--admin-text);
+    font: inherit;
+  }
+}
+
 .admin-context-denied {
   max-width: 64ch;
   margin: 12vh auto;
@@ -107,34 +211,171 @@
     tbody th { width: 42%; }
     td:last-child { font-size: 12px; }
   }
-  .admin-context-name { display: block; font-size: 11px; span { display: none; } }
   .admin-context-page__business { flex-direction: column; align-items: flex-start; }
   .admin-context-page__recipe summary span { display: block; margin-left: 0; }
-  .admin-context-switch { align-items: flex-start; flex-direction: column; }
 }
 
-/* Selector de ámbito: disparador compartido y menú en la capa superior. */
-.admin-context-switch { display: block; }
-.admin-body .admin-context-switch__trigger { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--admin-sidebar-border); border-radius: var(--admin-radius-md); color: var(--admin-sidebar-link); background: var(--admin-sidebar-hover-bg); font: 600 13px var(--admin-font-sans); cursor: pointer;
-  &:hover { color: var(--admin-text); background: var(--admin-surface-soft); }
-  &:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 3px; }
+/* Menú de ámbitos: en la capa superior (popover), bajo la píldora. */
+.admin-context-menu {
+  position: fixed;
+  inset: auto;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-lg);
+  font: 13px var(--admin-font-sans);
+  // Entra cayendo 4 px desde la píldora; con movimiento reducido, sólo aparece.
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--admin-t-fast) var(--admin-ease-out),
+    translate var(--admin-t-fast) var(--admin-ease-out),
+    overlay var(--admin-t-fast) allow-discrete,
+    display var(--admin-t-fast) allow-discrete;
+
+  &:not(:popover-open) {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+
+  p {
+    margin: 8px 10px 6px;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 6px 10px 6px 6px;
+    border-radius: var(--admin-radius-sm);
+    color: var(--admin-text);
+    font-weight: 600;
+    text-decoration: none;
+
+    > span:not(.admin-context-menu__icon) {
+      flex: 1;
+    }
+  }
+
+  a:hover,
+  a:focus-visible,
+  a[aria-current] {
+    background: var(--admin-surface-soft);
+  }
+
+  // Dentro del menú el anillo va hacia dentro y es el único: el de la casa
+  // (_finishes.scss, box-shadow por fuera) se sumaba y dibujaba dos aros.
+  a:focus-visible {
+    outline: 2px solid var(--admin-text);
+    outline-offset: -2px;
+    box-shadow: none;
+  }
 }
-.admin-context-switch__icon { width: 20px; display: flex; justify-content: center; flex-shrink: 0; }
-.admin-context-switch__name { flex: 1; text-align: left; }
-.admin-context-switch__chevron { display: flex; }
-.admin-context-menu { position: fixed; inset: auto; margin: 0; width: 260px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface); color: var(--admin-text); box-shadow: var(--admin-shadow-lg); font: 13px var(--admin-font-sans);
-  p { margin: 8px 12px; color: var(--admin-muted); font-size: 11px; }
-  a { display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 44px; color: var(--admin-text); text-decoration: none; border-radius: 6px; span { flex: 1; } }
-  a:hover, a:focus-visible, a[aria-current] { background: var(--admin-surface-soft); }
-  a:focus-visible { outline: 2px solid var(--admin-text); outline-offset: -2px; }
+
+@starting-style {
+  .admin-context-menu:popover-open {
+    opacity: 0;
+    translate: 0 -4px;
+  }
 }
-@media(min-width: 993px) {
-  .admin-sidebar-collapsed .admin-context-switch__trigger, .is-sidebar-collapsed .admin-context-switch__trigger { padding: 12px; justify-content: center; width: 48px; margin-inline: auto; gap: 0; }
-  .admin-sidebar-collapsed .admin-context-switch__name, .admin-sidebar-collapsed .admin-context-switch__chevron, .is-sidebar-collapsed .admin-context-switch__name, .is-sidebar-collapsed .admin-context-switch__chevron { display: none; }
+
+.admin-context-menu__icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-text);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1.9;
+  }
+}
+
+// El ámbito vigente: mismo círculo relleno que la píldora del header.
+.admin-context-menu a[aria-current] .admin-context-menu__icon {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+}
+
+@media (max-width: 576px) {
+  // En el teléfono el nombre basta: el rótulo cede su línea.
+  .admin-context-switch__rotulo {
+    display: none;
+  }
+
+  .admin-body .admin-context-switch__trigger,
+  .admin-context-switch__fijo {
+    gap: 8px;
+    height: 36px;
+    padding-right: 10px;
+  }
+
+  .admin-context-switch__icon {
+    flex-basis: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .admin-context-switch__name {
+    font-size: 13px;
+  }
+}
+
+// La celda del header mide lo que dejan libre las acciones. Cuando ya no cabe
+// el nombre (teléfonos con las cinco acciones), la píldora se queda en icono y
+// chevron en vez de aplastar el nombre a cero: el nombre sigue en la etiqueta
+// accesible y en el menú. Se recorta, no se quita: la etiqueta fija (un solo
+// ámbito) no tiene aria-label y con display:none se quedaba sin nombre.
+.admin-topbar__heading {
+  container: ambito / inline-size;
+}
+
+@container ambito (max-width: 150px) {
+  .admin-context-switch__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-body .admin-context-switch__trigger {
+    gap: 4px;
+    padding-right: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-context-switch__trigger,
+  .admin-context-switch__chevron,
+  .admin-context-menu {
+    transition: none;
+  }
+
+  .admin-context-menu:not(:popover-open) {
+    translate: none;
+  }
 }
 
 
-.admin-home__section { margin-block: 24px; }
 .admin-access-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
 .admin-body .admin-access {
   display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px;
@@ -146,3 +387,299 @@
   &__action { grid-column: 2; display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { .admin-body .admin-access { transition: none; &:hover { transform: none; } } }
+
+
+/*
+ * Inicio de cada ámbito (views/admin/contextos/inicio.php).
+ *
+ * Tres niveles y nada más: el ámbito en grande (titular de página), el rótulo
+ * de cada grupo en mono con su cuenta y un filete, y las teselas. Las del
+ * primer grupo —lo que se hace a diario— son grandes, con el icono en relleno
+ * de tinta; el resto, compactas, con el icono en una caja tenue. Sin
+ * descripciones: el título y el icono bastan para reconocer un módulo que se
+ * usa todos los días, y la cuadrícula se lee de un vistazo.
+ */
+.admin-inicio {
+  display: grid;
+  gap: clamp(28px, 4vw, 44px);
+}
+
+.admin-inicio__cabeza {
+  display: grid;
+  gap: 6px;
+  padding-bottom: clamp(18px, 3vw, 28px);
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-body .admin-inicio__eyebrow {
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-body .admin-inicio__titulo {
+  margin: 0;
+  color: var(--admin-text);
+  font-family: var(--admin-font-titular);
+  font-size: clamp(44px, 6.4vw, 84px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.admin-body .admin-inicio__cuenta {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-inicio__grupo {
+  display: grid;
+  gap: 14px;
+}
+
+// Rótulo, cuenta y un filete que corre hasta el borde: separa sin pesar.
+.admin-body .admin-inicio__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--admin-border-soft);
+  }
+}
+
+.admin-inicio__grupo-cuenta {
+  color: var(--admin-faint);
+  letter-spacing: 0;
+}
+
+.admin-inicio__teselas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: grid;
+    min-width: 0;
+  }
+}
+
+// El primer grupo es una banda que llena el ancho (auto-fit): con auto-fill a
+// 240 px, a 1280 y 1366 cabían tres y la cuarta de Operación quedaba huérfana
+// en una segunda fila. Por debajo de lo que piden cuatro, van de dos en dos y
+// la impar del final ocupa la fila (container query: el sidebar cambia el
+// ancho sin que cambie el viewport).
+.admin-inicio__grupo--principal {
+  container: principal / inline-size;
+}
+
+.admin-inicio__teselas--grandes {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+}
+
+// Una sola no se estira a 1100 px de banda.
+.admin-inicio__teselas--grandes:has(> li:only-child) {
+  grid-template-columns: minmax(0, 360px);
+}
+
+@container principal (max-width: 860px) {
+  .admin-inicio__teselas--grandes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-inicio__teselas--grandes > li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+// Tesela compacta: icono, título y la flecha que asoma al apuntar.
+.admin-body .admin-modulo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  text-decoration: none;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out),
+    translate var(--admin-t-fast) var(--admin-ease-out),
+    box-shadow var(--admin-t-fast) var(--admin-ease-out);
+
+  // Coincide píxel a píxel con el anillo de la casa (2 px de fondo + 2 de
+  // acento): a 3 px se le montaba encima y salía un aro de 3. El outline se
+  // queda porque el box-shadow del hover pisa el anillo de la casa.
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 2px;
+  }
+}
+
+.admin-modulo__icono {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+
+  svg {
+    stroke-width: 1.75;
+  }
+}
+
+.admin-modulo__titulo {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.admin-modulo__flecha {
+  display: flex;
+  flex: none;
+  color: var(--admin-muted);
+  opacity: 0;
+  translate: -4px 0;
+  transition:
+    opacity var(--admin-t-fast) var(--admin-ease-out),
+    translate var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    stroke-width: 2;
+  }
+}
+
+// Tesela grande: el icono arriba, en relleno de tinta; el título abajo, a 22.
+.admin-body .admin-modulo--grande {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  gap: 28px;
+  min-height: 168px;
+  padding: 18px 20px 20px;
+  border-color: var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+
+  .admin-modulo__icono {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+  }
+
+  .admin-modulo__titulo {
+    align-self: end;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+
+  .admin-modulo__flecha {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--admin-border);
+    border-radius: 50%;
+    color: var(--admin-text);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-body .admin-modulo:hover {
+    border-color: var(--admin-border-strong);
+    box-shadow: var(--admin-shadow-md);
+    translate: 0 -2px;
+  }
+
+  .admin-body .admin-modulo:hover .admin-modulo__flecha {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+// Con teclado la flecha también aparece: es la misma invitación que el hover.
+.admin-body .admin-modulo:focus-visible .admin-modulo__flecha {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.admin-body .admin-inicio__nota {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 576px) {
+  // En el teléfono las grandes van de dos en dos (respaldo de la container
+  // query) y bajan de alto: el primer grupo sigue mandando sin empujar el
+  // resto fuera de la pantalla.
+  .admin-inicio__teselas--grandes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-body .admin-modulo--grande {
+    gap: 18px;
+    min-height: 132px;
+    padding: 14px;
+
+    .admin-modulo__icono {
+      width: 44px;
+      height: 44px;
+    }
+
+    .admin-modulo__titulo {
+      font-size: 17px;
+    }
+
+    .admin-modulo__flecha {
+      display: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-modulo,
+  .admin-modulo__flecha {
+    transition: none;
+  }
+
+  .admin-body .admin-modulo:hover {
+    translate: none;
+  }
+}

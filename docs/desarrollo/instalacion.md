@@ -11,14 +11,20 @@ código. A4 no altera esas migraciones ni aplica cambios a una base operativa.
 
 ## Actualización M1.2
 
-Para instalaciones existentes, la ampliación aditiva está en
-`database/actualizaciones/m12-estandares.sql`; el mismo bloque está incorporado al
-DDL de instalación nueva. Crea ocho tablas, la vista `productos_oferta` y triggers
-de inmutabilidad. La migración se comprobó dos veces consecutivas con MariaDB de
-XAMPP; no transforma ni adhiere productos existentes. Preparar respaldo y ensayar
-en una copia antes de aplicarla en una instalación operativa. Esta entrega no
-migró la base activa. La compatibilidad del DDL con otros motores debe verificarse
-antes del despliegue (usa `CREATE TRIGGER IF NOT EXISTS`).
+`database/` lleva el esquema (`ddl.sql`), los datos estructurales
+(`deploy.sql`), los fixtures de desarrollo (`development.sql`) y el menú
+preservado (`menu-restaurante.sql`) que carga el instalador. Desde A4 lleva
+además `actualizaciones/` con A1 y A3, que el instalador aplica después de los
+fixtures (`Services\Development\Instalacion`). Un cambio de esquema se escribe en
+`ddl.sql` y una base instalada antes se reinstala con el procedimiento de abajo
+sobre una base nueva.
+
+## M1.2
+
+El bloque M1.2 (ocho tablas, la vista `productos_oferta` y triggers de
+inmutabilidad) está en `ddl.sql`; no transforma ni adhiere productos existentes.
+La compatibilidad del DDL con otros motores debe verificarse antes del despliegue
+(usa `CREATE TRIGGER IF NOT EXISTS`).
 
 `development.sql` solo corresponde a instalaciones nuevas desechables. Conserva
 seis adhesiones M1.2 explícitas y sintéticas como datos históricos: Rol de canela,
@@ -30,6 +36,18 @@ físicas y 51 movimientos. Las recetas son composiciones mínimas para validar
 rendimiento/consumo, no fichas culinarias completas para producción. Las imágenes
 de Focaccia son fotografías de contexto de Panadería reutilizadas para probar
 personalización. No se crean credenciales activas adicionales mediante SQL.
+
+## Avisos de la carta e iconos de variantes
+
+La tabla `configuracion_avisos` y la columna `producto_variantes.icono` están
+sólo en `database/ddl.sql`; no hay migración aparte. Una base instalada antes de
+este cambio no las tiene: se reinstala con el procedimiento de abajo sobre una
+base nueva. Sin la tabla, las cartas PDF salen igual y sin avisos; sin la
+columna, el POS y el editor de variantes no cargan. `development.sql` siembra
+dos avisos de Restaurante, los dos al final de la carta (todos los avisos van
+ahí): «De temporada», sólo en comida, y después «Servicio», en comida y
+maridaje. Una base instalada con la columna `configuracion_avisos.posicion`
+sigue funcionando: el código ya no la lee y los avisos salen al final.
 
 
 Esta guía es el procedimiento único para reconstruir la aplicación desde los
@@ -243,9 +261,10 @@ proceso físico autorizado: publicar recetas no las genera. Ver
 
 En una instalación existente, no desplegar los nuevos consumidores antes de
 completar este corte. Con respaldo verificado, aplicar en este orden las
-migraciones que falten: `m12-estandares.sql` si la instalación aún usa M1.1,
-`m2-articulos.sql` si aún no tiene M2, `a1-datos-comerciales-oferta.sql` y por
-último `a3-datos-comerciales-local.sql`. A1 crea y llena los datos por oferta;
+migraciones versionadas que falten: `m2-articulos.sql` si aún no tiene M2,
+`a1-datos-comerciales-oferta.sql` y por último `a3-datos-comerciales-local.sql`.
+El archivo separado `m12-estandares.sql` ya no está versionado; una instalación
+que no tenga M1.2 requiere evaluar su ruta de actualización antes de continuar. A1 crea y llena los datos por oferta;
 A3 comprueba la integridad y discrepancias antes de activar la vista. Si A3
 detecta divergencias, detener el despliegue y reconciliar con el preflight, sin
 sobrescribir valores locales válidos. Verificar los marcadores A1/A3 y ejecutar

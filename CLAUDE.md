@@ -22,9 +22,16 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
 - **Análisis de datos**: Restaurante, Panadería (métricas de caja, mapa de calor de
   venta) y comparativos de menús locales en Global
   ([analíticas](database/ANALITICAS.md)).
-- **Pendiente**: POS, tickets y pagos de Panadería; producción y catering
-  ([backlog](docs/backlog.md)). Las
-  rutas públicas `/panaderia/*` son sólo un andamio de navegación.
+- **Landing de la Panadería** (`/panaderia`): pública, con su vitrina leída del
+  menú de la Panadería y encargos por WhatsApp; comparte con la portada la capa
+  de **marca** y ninguna lee la configuración de la otra
+  ([landing](docs/panaderia/landing.md)). `/panaderia/carta`, `/pedidos`,
+  `/nosotros` y `/contacto` redirigen a su sección.
+- **Caja de Panadería** (`/panaderia/caja`): mostrador sin mesas; venta y cobro
+  atómicos, la venta descuenta la pieza de vitrina (no la receta), horneadas,
+  anulación del día con NIP de encargado y corte; «Vitrina de la caja» en el
+  Menú de Panadería define opciones y piezas ([caja](docs/modulos/caja-panaderia.md)).
+- **Pendiente**: producción, encargos y catering ([backlog](docs/backlog.md)).
 
 Una tabla, ruta, fixture o pantalla no acredita un flujo terminado.
 
@@ -64,7 +71,7 @@ usuario y lista permitida para identificadores SQL dinámicos.
   ([API](API.md#9-jwt-de-integraciones)).
 - Preservar CSRF, límites de intentos, reautenticación y protección del último
   superadministrador activo. Detalle en arquitectura
-  [§4](docs/arquitectura.md#4-autenticacion-autorizacion-y-usuarios).
+  [§4](docs/arquitectura.md#4-autenticación-autorización-y-usuarios).
 
 ## Datos
 
@@ -77,9 +84,9 @@ usuario y lista permitida para identificadores SQL dinámicos.
   transacción ([motor de Almacenes](docs/arquitectura.md#5-almacenes-e-inventario)).
 - **Instalación**: sólo `php scripts/desarrollo/instalar.php` sobre una base **nueva**
   (rechaza una existente). Carga `ddl.sql` → `deploy.sql` → `menu-restaurante.sql`
-  (112 productos originales, intocables) → `development.sql` y hace el bootstrap de
-  `admin_demo`. Para bases existentes hay migraciones aditivas en
-  `database/actualizaciones/`. Ver [instalación](docs/desarrollo/instalacion.md).
+  (112 productos originales, intocables) → `development.sql` (si se incluyen
+  simulados) → migraciones A1 y A3 → bootstrap de `admin_demo`. El instalador
+  rechaza bases existentes; ver [instalación](docs/desarrollo/instalacion.md).
 - Nunca versionar `.env`, secretos en claro, dumps, sesiones ni resultados de pruebas.
 
 ## Build y pruebas
@@ -101,8 +108,12 @@ Editar `src/`, nunca `public/build/`:
 | `src/scss/admin/shared/app-admin.scss` | `gulp adminCss` → panel |
 | `src/scss/admin/modules/*.scss` | `gulp adminModuleCss` → todos los módulos |
 | `src/scss/operation/app-operation.scss` | `gulp operationAppCss` → piso y login |
+| `src/scss/panaderia/app-panaderia.scss` | `gulp panaderiaCss` → landing de la Panadería |
+| `paths.panaderiaJs` (lista explícita) | `gulp panaderiaJs` → landing de la Panadería |
 | `src/js/modules/punto-de-venta.js` y dependencias | `gulp adminMapJs` → `map.js` (POS) |
 | `src/js/admin/users-directos.js` | `gulp adminUsersDirectosJs` → Usuarios |
+| `src/scss/caja/app-caja.scss` | `gulp cajaCss` → caja de Panadería (después de operation.css) |
+| `paths.cajaJs` (lista explícita) | `gulp cajaJs` → caja de Panadería |
 
 Los bundles son concatenaciones en scope global: el orden de `gulpfile.js` resuelve
 dependencias. `admin.js` carga antes que los bundles de módulo; el POS usa `map.js`,

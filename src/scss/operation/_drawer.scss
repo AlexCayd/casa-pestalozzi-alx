@@ -73,6 +73,38 @@
   padding: 0;
 }
 
+/*
+ * POS en sólido: el ☰ y el aspa del cajón. Arriba queda la geometría
+ * compartida; aquí, sólo la piel, y sólo en .mapa-page, que es donde viven los
+ * tokens --pos-solido-*.
+ *
+ * Gris-5 con el icono en papel (9.7:1), gris-6 al pasar (6.9:1). El canto sube
+ * de --admin-border a --admin-border-strong: el relleno gris contra la barra o
+ * el vidrio del cajón se queda en 1.7:1, y el canto es lo que da el 3:1 de un
+ * control (4.8:1). El hover deja de cambiar el canto a dorado: con relleno, el
+ * paso de gris ya es la señal.
+ */
+.mapa-page .operational-drawer-toggle,
+.mapa-page .operational-icon-button {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+
+  &:hover {
+    border-color: var(--admin-line-strong);
+    background: var(--pos-solido-neutro-hover);
+  }
+}
+
+// Cajón abierto = el ☰ elegido: papel con tinta, como una pestaña activa. El
+// cajón se abre debajo de la barra y el botón sigue a la vista; así se lee
+// también que tocarlo otra vez lo cierra.
+.mapa-page .operational-drawer-toggle[aria-expanded="true"] {
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
+}
+
 .operational-drawer {
   position: fixed;
   inset:

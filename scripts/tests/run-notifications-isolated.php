@@ -5,8 +5,9 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 Dotenv\Dotenv::createImmutable(dirname(__DIR__, 2) . '/includes')->safeLoad();
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $root = dirname(__DIR__, 2);
-$db = new mysqli($_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS']);
+$db = new mysqli($_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS'], '', (int)($_ENV['DB_PORT'] ?? 3306));
 $name = 'cp_notifications_test_' . bin2hex(random_bytes(6));
+$token = bin2hex(random_bytes(32));
 $created = false;
 $failed = false;
 
@@ -30,6 +31,8 @@ try {
     $created = true;
     $db->select_db($name);
     if ($db->query('SELECT DATABASE()')->fetch_row()[0] !== $name) throw new RuntimeException('Base aislada no seleccionada.');
+    $db->query('CREATE TABLE _cp_notifications_owner(token CHAR(64) PRIMARY KEY)');
+    $db->execute_query('INSERT INTO _cp_notifications_owner VALUES (?)', [$token]);
     $migrationTest = ($argv[1] ?? '') === '--migrations';
     if ($migrationTest) {
         $historicalMigrations = [
@@ -140,9 +143,23 @@ try {
     $failed = true;
     fwrite(STDERR, 'Runner aislado: ' . $e->getMessage() . "\n");
 } finally {
-    if ($created && preg_match('/^cp_notifications_test_[a-f0-9]{12}$/D', $name)) {
-        $db->query("DROP DATABASE `{$name}`");
-        echo "Base temporal de fixtures eliminada; base de la aplicación intacta.\n";
+    if ($created) {
+        try {
+            if (!preg_match('/^cp_notifications_test_[a-f0-9]{12}$/D', $name)
+                || strcasecmp($name, (string)($_ENV['DB_NAME'] ?? '')) === 0) {
+                throw new RuntimeException('Destino temporal inválido; se conserva la base.');
+            }
+            $owner = $db->query("SELECT token FROM `{$name}`._cp_notifications_owner")->fetch_row()[0] ?? null;
+            if (!is_string($owner) || !hash_equals($token, $owner)) {
+                throw new RuntimeException('Propiedad temporal no verificada; se conserva la base.');
+            }
+            $db->query("DROP DATABASE `{$name}`");
+            echo "Base temporal de fixtures eliminada; base de la aplicación intacta.\n";
+        } catch (Throwable $e) {
+            $failed = true;
+            fwrite(STDERR, 'Limpieza rechazada: ' . $e->getMessage() . "\n");
+        }
     }
+    $db->close();
 }
 exit($failed ? 1 : 0);

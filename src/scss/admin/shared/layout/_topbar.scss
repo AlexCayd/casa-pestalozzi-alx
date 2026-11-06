@@ -1,6 +1,8 @@
 /*
  * Presentacion de la barra superior del panel administrativo.
- * Mantiene un encabezado simple, estable y sin breadcrumb visual.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual: a la
+ * izquierda el ámbito de trabajo (components/_contextos.scss) y a la derecha
+ * las acciones y el usuario.
  */
 @use "../abstracts/variables" as vars;
 @use "../abstracts/mixins" as mixins;
@@ -245,17 +247,6 @@
   100% { transform: rotate(0); }
 }
 
-.admin-topbar__module {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--admin-text);
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .admin-topbar__user {
   display: inline-flex;
   align-items: center;
@@ -291,10 +282,6 @@
     gap: 10px;
     min-height: 54px;
     padding: 6px 16px;
-  }
-
-  .admin-topbar__module {
-    font-size: 14px;
   }
 
   .admin-topbar__user {

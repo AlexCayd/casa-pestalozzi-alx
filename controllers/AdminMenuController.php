@@ -531,7 +531,13 @@ class AdminMenuController
         array $alertas,
         ?FotoPlatillo $foto = null
     ): void {
+        $variantes = self::variantesDelFormulario($platillo);
+        $conEditor = ($variantes['estado'] ?? '') === 'ok' && !empty($variantes['puedeEditar']);
         self::render('menu/form', [
+            'variantesFormulario' => $variantes,
+            'adminCsrfToken' => $conEditor ? AdminCsrfService::token() : '',
+            'styles' => $variantes !== null ? [self::MENU_CSS, '/build/css/admin/variantes.css'] : [self::MENU_CSS],
+            'scripts' => $conEditor ? ['/build/js/admin/variantes.js'] : [],
             'title' => $titulo,
             'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
@@ -542,6 +548,35 @@ class AdminMenuController
             'accion' => $accion,
             'foto' => $foto ? $foto->vista() : FotoPlatillo::vistaInicial($platillo->img),
         ]);
+    }
+
+    /**
+     * Variantes del formulario del platillo, o null cuando el negocio no las
+     * administra. Mismas reglas que el icono del listado y que
+     * Variantes::guardar(); el servidor vuelve a validar todo al guardar, esto
+     * sólo decide qué se enseña. (Hubo un estado «protegido» para los
+     * productos de la casa; se retiraron en origin/main.)
+     *
+     * @return array{estado: string, editor?: array, puedeEditar?: bool}|null
+     */
+    private static function variantesDelFormulario(Producto $platillo): ?array
+    {
+        $vista = AdministracionMenu::vista();
+        if (empty($vista['menuVariantes'])) {
+            return null;
+        }
+        if (empty($platillo->id)) {
+            return ['estado' => 'nuevo'];
+        }
+        try {
+            $editor = Variantes::datosEditor((int) $platillo->id)
+                + ['nombre' => (string) $platillo->nombre, 'precio' => (float) ($platillo->precio ?? 0)];
+        } catch (\Throwable $e) {
+            error_log('AdminMenuController::variantesDelFormulario - ' . $e->getMessage());
+            return ['estado' => 'error'];
+        }
+
+        return ['estado' => 'ok', 'editor' => $editor, 'puedeEditar' => !empty($vista['menuPuedeEditar'])];
     }
 
     /** Áreas de producción, para las pestañas del formulario. */

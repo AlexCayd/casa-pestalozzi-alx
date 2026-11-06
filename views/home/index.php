@@ -183,7 +183,7 @@ $siteSchema = [
          (hero.js) la quita cuando el hero termina de pasar bajo la marca. */ ?>
 <body class="reveal-ready marca-en-hero" data-hero="cinema" data-page="home">
 
-  <?php include_once __DIR__ . '/_cursor.php'; ?>
+  <?php include_once __DIR__ . '/../components/marca/cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
 
   <?php /*
@@ -216,7 +216,9 @@ $siteSchema = [
     <?php include_once __DIR__ . '/_menu.php'; ?>
     <?php include_once __DIR__ . '/_firma.php'; ?>
     <?php include_once __DIR__ . '/_chef.php'; ?>
-    <?php include_once __DIR__ . '/_panaderia.php'; ?>
+    <?php /* Adelanto de la panadería: es del restaurante. La panadería tiene su
+             propia landing en /panaderia (views/panaderia/). */ ?>
+    <?php include_once __DIR__ . '/_adelanto-panaderia.php'; ?>
 
     <?php
       $insegnaTono = 'verde';

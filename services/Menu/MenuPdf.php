@@ -35,12 +35,16 @@ class MenuPdf
             'bajada'   => 'Una mesa italiana con alma mexicana',
             'archivo'  => 'menu-casa-pestalozzi.pdf',
             'vacio'    => 'No hay platillos registrados en el menú.',
+            // La despedida al pie de la última sección, en la voz italiana
+            // de los rótulos de la landing.
+            'cierre'   => 'Buon appetito',
         ],
         CategoriasMenu::CARTA_MARIDAJE => [
             'rotulo'   => 'MARIDAJE',
             'bajada'   => 'Destilados, coctelería de autor y cervezas de la casa',
             'archivo'  => 'maridaje-casa-pestalozzi.pdf',
             'vacio'    => 'No hay bebidas registradas en la carta de maridaje.',
+            'cierre'   => 'Salute',
         ],
     ];
 
@@ -80,7 +84,7 @@ class MenuPdf
             ];
         }
 
-        self::emitir($pieza,$categorias,$nombreArchivo);
+        self::emitir($pieza,$categorias,$nombreArchivo,\Services\Configuration\AvisosCarta::paraPdf($carta));
     }
 
     /** Documento privado: el propietario es una constante de ruta, nunca un parámetro GET. */
@@ -92,6 +96,9 @@ class MenuPdf
         $pieza=$contexto==='panaderia'?[
             'rotulo'=>'MENÚ DE PANADERÍA','bajada'=>'Panes y dulces de la casa',
             'archivo'=>'menu-panaderia-casa-pestalozzi.pdf','vacio'=>'No hay ofertas disponibles para imprimir.',
+            // Faltaba: emitir() la lee y la plantilla caía a su respaldo con
+            // un aviso de índice indefinido.
+            'cierre'=>'Buon appetito',
         ]:self::PIEZAS[$carta];
         $db=\Model\ActiveRecord::getDB();
         $s=$db->prepare('SELECT slug FROM cartas WHERE unidad_id=? AND slug=? AND activo=1');$s->execute([$unidad,$carta]);
@@ -113,7 +120,10 @@ class MenuPdf
             if (isset($_GET['carta']) && (!is_string($_GET['carta']) || $_GET['carta']!==$carta)) throw new \Services\Inventory\InventarioError('CARTA_INVALIDA','La carta no corresponde al documento solicitado.');
             $datos=self::datosAdministrativos($contexto,$carta);
             header('Cache-Control: private, no-store');
-            self::emitir($datos['pieza'],$datos['categorias']);
+            // Los avisos son del Restaurante (Configuración → Avisos de la
+            // carta): la Panadería imprime su carta sin ellos.
+            $avisos=$datos['contexto']==='restaurante'?\Services\Configuration\AvisosCarta::paraPdf($datos['carta']):[];
+            self::emitir($datos['pieza'],$datos['categorias'],null,$avisos);
         } catch (\Services\Inventory\InventarioError $e) {
             http_response_code(in_array($e->codigo,['CARTA_INVALIDA','CARTA_VACIA','AMBITO_NO_VENDEDOR'],true)?404:403);
             echo htmlspecialchars($e->getMessage(),ENT_QUOTES,'UTF-8');
@@ -141,7 +151,23 @@ class MenuPdf
         ];
     }
 
-    private static function emitir(array $pieza,array $categorias,?string $nombreArchivo=null): void
+    private static function emitir(array $pieza,array $categorias,?string $nombreArchivo=null,array $avisos=[]): void
+    {
+        $dompdf = self::documento($pieza,$categorias,$avisos);
+
+        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
+        $dompdf->stream($nombreArchivo ?: $pieza['archivo'], ['Attachment' => false]);
+        exit;
+    }
+
+    /**
+     * La carta ya compuesta, sin enviarla: emitir() la transmite y las pruebas
+     * la escriben a un archivo para revisarla.
+     *
+     * `$avisos` es lo que da AvisosCarta::paraPdf(): la lista en orden, cada
+     * aviso con su título y su HTML ya escapado. Todos van al final.
+     */
+    public static function documento(array $pieza,array $categorias,array $avisos=[]): \Dompdf\Dompdf
     {
         // La clase vive en services/Menu; la raíz del proyecto está dos niveles arriba.
         $projectRoot = realpath(dirname(__DIR__, 2));
@@ -160,7 +186,9 @@ class MenuPdf
         $pdfRotulo = $pieza['rotulo'];
         $pdfBajada = $pieza['bajada'];
         $pdfVacio = $pieza['vacio'];
+        $pdfCierre = $pieza['cierre'] ?? 'Buon appetito';
         $pdfTitulo = pathinfo($pieza['archivo'], PATHINFO_FILENAME);
+        $pdfAvisos = array_values($avisos);
 
         ob_start();
         $generado = date('d/m/Y H:i');
@@ -177,9 +205,51 @@ class MenuPdf
         $dompdf->loadHtml($html, 'UTF-8');
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
+        self::folios($dompdf);
 
-        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
-        $dompdf->stream($nombreArchivo ?: $pieza['archivo'], ['Attachment' => false]);
-        exit;
+        return $dompdf;
+    }
+
+    /**
+     * El folio de cada hoja («2 / 6»), centrado entre el pie y el marco.
+     *
+     * No puede ir en la plantilla: el HTML no sabe cuántas hojas saldrán.
+     * page_text() lo escribe en todas al final, con los marcadores que Dompdf
+     * sustituye por hoja. Si la fuente no se resolviera, la carta sale sin
+     * folio: no es motivo para no imprimirla.
+     */
+    private static function folios(\Dompdf\Dompdf $dompdf): void
+    {
+        $metricas = $dompdf->getFontMetrics();
+        $fuente = $metricas->getFont('Montserrat', 'normal');
+        if ($fuente === null) {
+            return;
+        }
+
+        $canvas = $dompdf->getCanvas();
+        $tamano = 6.5;
+        $espaciado = 1.2;
+        // El ancho se mide sobre una muestra de la misma forma: con hasta dos
+        // cifras por lado, el folio no se desplaza más de medio carácter.
+        $ancho = $metricas->getTextWidth('0 / 0', $fuente, $tamano, 0.0, $espaciado);
+        $x = ($canvas->get_width() - $ancho) / 2;
+        // 29pt sobre el canto: por debajo del teléfono del pie y por encima
+        // del doble filete del marco (a 13.5pt).
+        $y = $canvas->get_height() - 29;
+
+        $canvas->page_text($x, $y, '{PAGE_NUM} / {PAGE_COUNT}', $fuente, $tamano, self::rgb(
+            \Services\Configuration\PaletaLanding::paraPdf()['txt_faint']
+        ), 0.0, $espaciado);
+    }
+
+    /** @return array{0: float, 1: float, 2: float} el color en 0..1, como lo pide el lienzo */
+    private static function rgb(string $hex): array
+    {
+        $hex = ltrim($hex, '#');
+        return [
+            hexdec(substr($hex, 0, 2)) / 255,
+            hexdec(substr($hex, 2, 2)) / 255,
+            hexdec(substr($hex, 4, 2)) / 255,
+        ];
     }
 }

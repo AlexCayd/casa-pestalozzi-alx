@@ -4,7 +4,7 @@ Aplicación PHP MVC/MySQL con ámbitos Global, Restaurante y Panadería.
 
 Usuarios, Almacenes y Transferencias son compartidos; Restaurante conserva su operación.
 El acceso administrativo exige segundo factor según privilegios efectivos.
-El sitio público `/panaderia` y sus subpáginas son solo un andamio de navegación.
+La landing pública `/panaderia` muestra su vitrina y ofrece contacto para encargos.
 El [contrato rector](docs/arquitectura.md) describe la arquitectura y distingue los
 módulos funcionales de los contratos preparados para desarrollo posterior.
 
@@ -17,9 +17,10 @@ módulos funcionales de los contratos preparados para desarrollo posterior.
 
 Usuarios y Almacenes comparten implementación en los tres ámbitos. Restaurante
 conserva su operación pública, menú, reservaciones, POS, KDS, cobro e informes.
-Panadería administra su menú y recetas; su POS, tickets y pagos, además de
-producción y catering, continúan en el [backlog](docs/backlog.md). Finanzas y
-Análisis incluyen vistas locales y comparativos Global de solo lectura.
+Panadería administra su menú y recetas; su caja de mostrador vende y cobra,
+registra horneadas y permite la anulación del día. La producción, catering y
+la integración de presentaciones a caja continúan en el [backlog](docs/backlog.md).
+Finanzas y Análisis incluyen vistas locales y comparativos Global de solo lectura.
 
 El menú original se reconstruye desde `database/menu-restaurante.sql` y sus
 archivos versionados; no requiere un respaldo o paquete privado. La cuenta

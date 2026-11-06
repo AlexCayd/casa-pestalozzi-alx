@@ -35,6 +35,9 @@ $restaurantUnitId = NOTIFICATIONS_TEST_RESTAURANT_UNIT_ID;
 // reservas +40 min y +3 h quedan el mismo día y dentro del horario habitual,
 // aun cuando la suite se ejecute de noche.
 $ahora = ReservacionConfig::ahora()->setTime(15, 0);
+$relojExistia = array_key_exists('RESERVATION_TEST_NOW', $_ENV);
+$relojAnterior = $_ENV['RESERVATION_TEST_NOW'] ?? null;
+$_ENV['RESERVATION_TEST_NOW'] = $ahora->format('Y-m-d H:i:s');
 $creadas = [];
 $tickets = [];
 
@@ -106,6 +109,11 @@ try {
 
     echo "Reservaciones: reubicación por ticket abierto OK\n";
 } finally {
+    if ($relojExistia) {
+        $_ENV['RESERVATION_TEST_NOW'] = $relojAnterior;
+    } else {
+        unset($_ENV['RESERVATION_TEST_NOW']);
+    }
     foreach ($tickets as $id) {
         $db->query('DELETE FROM ticket_mesas WHERE ticket_id = ' . (int)$id);
         $db->query('DELETE FROM ticket_items WHERE ticket_id = ' . (int)$id);

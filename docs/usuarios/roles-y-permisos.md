@@ -14,6 +14,12 @@ Panadería, ni al contrario. Los documentos PDF de otro negocio se leen solo con
 los permisos de Menú requeridos en Global y en el negocio dueño. Véase el
 [contrato A4](../modulos/catalogo-comercial.md).
 
+Panadería tiene tres módulos de piso, todos en `operar` y con NIP: `pdv` (la
+caja de mostrador), `vitrina` (horneadas) y `anular` (anular cobros del día y
+autorizar con su NIP la anulación de otra persona). El CHECK y los triggers de
+`usuario_unidad_permisos` impiden `area` y `reservations_map` en Panadería y
+`vitrina`/`anular` en Restaurante. Ver [caja](../modulos/caja-panaderia.md).
+
 
 El nombre del archivo se conserva para no romper referencias históricas. La
 fuente efectiva desde 3B es la asignación directa, no el rol. El

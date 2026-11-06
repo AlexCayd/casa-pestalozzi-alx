@@ -9,6 +9,13 @@
 // overflow:hidden se aplastaba a 2 px (min-height:auto = 0 en contenedores con
 // scroll). El cuerpo va en flex column, hijos flex 0 0 auto y NINGÚN hijo con
 // overflow:hidden.
+//
+// Color de los controles: el lenguaje sólido del POS (`--pos-solido-*`,
+// _punto-de-venta.scss). Decisión del producto: cerrar, «Cambiar»/«Agregar»,
+// las horas del alta y las opciones de motivo y contacto llevan relleno opaco
+// —neutro en reposo, papel elegido— con su texto en la tinta del relleno. El
+// vidrio del panel, los avisos, la nota hundida y los campos no son controles
+// y se quedan como estaban.
 
 .pos-ficha {
   --pos-glass-panel: color-mix(in srgb, var(--admin-surface) 78%, transparent);
@@ -92,14 +99,14 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   place-items: center;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 50%;
-  background: transparent;
-  color: var(--admin-muted);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
 
   svg { width: 18px; height: 18px; stroke-width: 2; }
-  &:hover { background: var(--admin-surface-soft); color: var(--admin-text); }
+  &:hover { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
 }
 
@@ -186,14 +193,16 @@
 // Botón en línea: 32 px visibles, 44 tocables por el ::after.
 // Con el ancestro: `.admin-body button` (0,1,1) le pondría `font: inherit` y
 // heredaría la mono del rótulo en el que vive.
+// Pastilla neutra sólida: la forma de pastilla (radio pleno) sigue siendo lo
+// que la separa de la señal de estado, que va con radio de pin.
 .pos-ficha .pos-ficha__inline {
   position: relative;
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-family: var(--admin-font-sans);
   font-size: 13px;
@@ -204,9 +213,12 @@
   cursor: pointer;
 
   &::after { position: absolute; inset: -6px -4px; content: ""; }
-  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:hover:not(:disabled) { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
-  &:disabled { border-color: var(--admin-border); color: var(--admin-muted); cursor: default; }
+  // Apagado: el mismo neutro a media opacidad, que se sigue leyendo como
+  // botón pero sin vida. El contorno vacío de antes no cabe en el lenguaje
+  // sólido.
+  &:disabled { opacity: .5; cursor: default; }
 }
 
 // ── Estado, avisos y secciones ───────────────────────────────────────
@@ -224,7 +236,9 @@
     font-size: 13px;
   }
 
-  .pos-senal--reservada { color: var(--map-table-reservation-text); }
+  // La regla de arriba (0,2,0) le gana a la tinta de cada variante (0,1,0):
+  // aquí se repite la de su relleno (ver .pos-senal en _cajon.scss).
+  .pos-senal--reservada { color: var(--pos-solido-info-tinta); }
   .pos-senal--vencida { color: var(--map-table-reservation-overdue-text); }
   .pos-senal--reservada,
   .pos-senal--vencida { padding: 0 10px; }
@@ -404,11 +418,45 @@
 
 // La pill del panel mide 42 px: está pensada para un formulario de escritorio.
 // En la tablet del piso, motivos y tipo de contacto se tocan con el dedo.
+//
+// Y en el piso habla el lenguaje sólido (decisión del producto): neutro sin
+// elegir, papel elegida, el aro del radio y el texto en la tinta del relleno.
+// La pill del panel es gris claro con contorno tenue y, elegida, un tinte al
+// 8 %; se reescribe sólo aquí —en el formulario del panel sigue igual—. Con
+// el ámbito delante gana a `.admin-pill:has(input:checked)` (0,3,1 → 0,4,1).
 :is(.pos-motivos, .pos-alta) .admin-pill {
+  --pill-fondo: var(--pos-solido-neutro);
+  --pill-tinta: var(--pos-solido-neutro-tinta);
+
   min-height: 44px;
   align-items: center;
+  border-color: var(--pill-fondo);
+  background: var(--pill-fondo);
+  color: var(--pill-tinta);
 
-  &::before { margin-top: 0; }
+  &::before { margin-top: 0; border-color: currentColor; }
+
+  .admin-pill__title,
+  .admin-pill__hint { color: inherit; }
+
+  &:hover { --pill-fondo: var(--pos-solido-neutro-hover); }
+
+  // Elegida: papel, y el punto macizo dentro del aro se conserva —la elección
+  // se lee por forma además de por el relleno—. Borde y fondo se repiten aquí
+  // porque la regla del panel para la elegida (0,3,1) le gana a la de arriba
+  // (0,2,0) y dejaría su tinte.
+  &:has(input[type="radio"]:checked) {
+    --pill-fondo: var(--pos-solido-activo);
+    --pill-tinta: var(--pos-solido-activo-tinta);
+
+    border-color: var(--pill-fondo);
+    background: var(--pill-fondo);
+
+    &::before {
+      border-color: currentColor;
+      box-shadow: inset 0 0 0 4px currentColor;
+    }
+  }
 }
 
 .pos-motivos__otro {
@@ -598,24 +646,26 @@
 }
 
 // Con el ancestro: `.admin-body button` (0,1,1) le pondría `font: inherit`.
+// Neutro sólido; la elegida, papel.
 .pos-alta .pos-alta__hora {
   min-height: 44px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 10px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-family: var(--admin-font-mono);
   font-size: 15px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   cursor: pointer;
 
-  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:hover:not(:disabled) { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
 
+  // Sin cupo: el tachado sigue siendo la señal (no sólo el tono), sobre el
+  // mismo neutro a media opacidad.
   &:disabled {
-    border-color: var(--admin-border-soft);
-    color: var(--admin-muted);
+    opacity: .5;
     text-decoration: line-through;
     cursor: not-allowed;
   }
@@ -624,9 +674,9 @@
   // apagaba la hora recién elegida.
   &.is-elegida,
   &.is-elegida:hover:not(:disabled) {
-    border-color: var(--admin-accent);
-    background: var(--admin-accent);
-    color: var(--admin-on-accent);
+    border-color: var(--pos-solido-activo);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 }
 
