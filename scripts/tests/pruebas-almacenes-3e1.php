@@ -130,7 +130,7 @@ function probarAlmacenes3E1(mysqli $db, int &$count): void
     $paginados=$servicios['restaurante']->consultar('restaurante',['q'=>'zzzz-qa-'.$sufijo,'pagina'=>'5'],'almacenes');
     $assert($paginados['almacenes']['total']===101&&count($paginados['almacenes']['almacenes'])===1&&$paginados['almacenes']['pagina']===5,'La lista de almacenes pagina todos los resultados sin truncarlos.');
     $html=$render($paginados,true,'restaurante','almacenes');
-    $assert(str_contains($html,'almacen_id='.$ultimo)&&str_contains($html,'Ver artículos de este almacén'),'El último almacén tiene enlace a sus asociaciones desde la lista paginada.');
+    $assert(str_contains($html,'almacen_id='.$ultimo)&&str_contains($html,'Ver artículos'),'El último almacén tiene enlace a sus asociaciones desde la lista paginada.');
 }
 
 if(PHP_SAPI==='cli' && realpath((string)($_SERVER['SCRIPT_FILENAME']??''))===__FILE__) {

@@ -1825,14 +1825,15 @@
    valores de .admin-btn--secondary) y el chevron gira: a la vista queda un solo
    primario, «Registrar solicitud», al pie del formulario. El selector sube a (0,4,1)
    porque `.almacen-modal summary` y `.admin-body .admin-btn--primary` pisarían la
-   caja del botón. */
-.almacen-modal .almacen-transfer-request {
+   caja del botón. «Nuevo almacén» (modal Almacenes físicos) es el mismo patrón: una
+   sola regla para que los dos disparadores no se separen con el tiempo. */
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta) {
   margin-bottom: 20px;
   padding-block: 0 20px;
   border-top: 0;
   border-bottom: 1px solid var(--admin-gris-3);
 }
-.almacen-modal .almacen-transfer-request > summary.admin-btn {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta) > summary.admin-btn {
   display: inline-flex;
   gap: 7px;
   min-height: 44px;
@@ -1840,28 +1841,28 @@
   font-size: 13px;
   list-style: none;
 }
-.almacen-modal .almacen-transfer-request > summary.admin-btn::-webkit-details-marker {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta) > summary.admin-btn::-webkit-details-marker {
   display: none;
 }
-.almacen-modal .almacen-transfer-request[open] > summary.admin-btn {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > summary.admin-btn {
   border-color: color-mix(in srgb, var(--admin-gold-deep) 36%, transparent);
   background-color: var(--admin-btn-secondary-bg);
   color: var(--admin-text);
 }
-.almacen-modal .almacen-transfer-request[open] > summary.admin-btn::before, .almacen-modal .almacen-transfer-request[open] > summary.admin-btn::after {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > summary.admin-btn::before, .almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > summary.admin-btn::after {
   display: none;
 }
-.almacen-modal .almacen-transfer-request[open] > summary.admin-btn:hover {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > summary.admin-btn:hover {
   background-color: var(--admin-surface-strong);
 }
-.almacen-modal .almacen-transfer-request[open] > form {
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > form {
   animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
 }
 
-.almacen-transfer-request__chevron {
+.almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron {
   transition: transform var(--admin-t-fast) var(--admin-ease-out);
 }
-[open] > summary > .almacen-transfer-request__chevron {
+[open] > summary > .almacen-transfer-request__chevron, [open] > summary > .almacen-config-alta__chevron, [open] > summary > .almacen-config__chevron {
   transform: rotate(180deg);
 }
 
@@ -1877,10 +1878,10 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .almacen-transfer-request__chevron {
+  .almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron {
     transition: none;
   }
-  .almacen-modal .almacen-transfer-request[open] > form {
+  .almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > form {
     animation-name: almacen-transfer-funde;
   }
 }
@@ -1888,6 +1889,265 @@
   margin: 0 0 20px;
 }
 
+.almacen-modal .almacen-config-alta__form {
+  margin-block: 16px 0;
+}
+
+.almacen-modal .almacen-config-alta:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.almacen-config-alta .admin-pill {
+  flex: 1 1 0;
+}
+
+@media (max-width: 600px) {
+  .almacen-config-alta .admin-pill {
+    flex-basis: 100%;
+  }
+}
+/* Almacenes físicos (modal `almacen-config`). La tabla se agrupa por propietario: el
+   negocio actual primero, con «Propio», y los demás con «Otro negocio» y una sola nota
+   de consulta por grupo en lugar de una por fila. El rótulo del dueño pesa como título
+   de sección (aquí la propiedad es el contenido, no un filtro como en la selección) y
+   las columnas son las mismas en todos los grupos para que el estado se lea en vertical. */
+.almacen-config {
+  margin-top: 4px;
+}
+
+.almacen-config__tabla {
+  min-width: 0;
+  table-layout: fixed;
+}
+.almacen-config__tabla thead th:nth-child(1) {
+  width: 36%;
+}
+.almacen-config__tabla thead th:nth-child(2) {
+  width: 18%;
+}
+.almacen-config__tabla th:last-child, .almacen-config__tabla td:last-child {
+  text-align: left;
+}
+.almacen-config__tabla .almacen-config__dueno > th {
+  padding: 26px 16px 10px;
+  border-bottom: 1px solid var(--admin-border-strong);
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+  white-space: normal;
+}
+.almacen-config__tabla .almacen-config__grupo:first-of-type .almacen-config__dueno > th {
+  padding-top: 18px;
+}
+.almacen-config__tabla .almacen-config__fila td {
+  padding-block: 14px;
+  vertical-align: top;
+}
+.almacen-config__tabla .almacen-config__fila:last-child td {
+  border-bottom: 0;
+}
+
+.almacen-config__dueno-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.almacen-config__dueno-nombre {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.admin-badge.almacen-config__relacion--propio {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface-strong);
+  color: var(--admin-text);
+}
+
+.almacen-config__cuenta {
+  margin-left: auto;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.almacen-config__nota {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.almacen-config__nombre strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.almacen-config__fila.is-inactive .almacen-config__nombre strong {
+  color: var(--admin-muted);
+}
+
+.admin-status.almacen-config__inactivo {
+  border-style: dashed;
+  border-color: var(--admin-border-strong);
+}
+
+.almacen-config__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@supports selector(::details-content) {
+  .almacen-config__acciones {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: 0;
+    justify-items: start;
+  }
+  .almacen-config__detalle {
+    display: contents;
+  }
+  .almacen-config__detalle::details-content {
+    grid-column: 1/-1;
+    justify-self: stretch;
+  }
+}
+.almacen-modal .almacen-config__detalle {
+  border-top: 0;
+  padding-block: 0;
+}
+
+.almacen-modal .almacen-config__detalle > summary.admin-btn {
+  display: inline-flex;
+  gap: 7px;
+  min-height: 34px;
+  padding-block: 0;
+  font-size: 12px;
+  font-weight: 800;
+  list-style: none;
+}
+.almacen-modal .almacen-config__detalle > summary.admin-btn::-webkit-details-marker {
+  display: none;
+}
+
+.almacen-modal .almacen-config__detalle[open] > summary.admin-btn {
+  border-color: var(--admin-border-strong);
+  background-color: var(--admin-surface-strong);
+}
+
+.almacen-config__panel {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.almacen-modal .almacen-config__detalle[open] .almacen-config__panel {
+  animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almacen-modal .almacen-config__detalle[open] .almacen-config__panel {
+    animation-name: almacen-transfer-funde;
+  }
+}
+.almacen-modal .almacen-config__panel .admin-form-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-block: 0;
+}
+
+.almacen-config__panel .admin-form-grid__actions {
+  margin-top: 2px;
+}
+
+.almacen-workspace .admin-field label.almacen-config__activo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.almacen-workspace .admin-field label.almacen-config__activo input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--admin-text);
+}
+
+.almacen-config__baja {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-body .almacen-config__baja p {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  .almacen-config__acciones .admin-btn, .almacen-modal .almacen-config__detalle > summary.admin-btn, .almacen-config__baja .admin-btn {
+    min-height: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .almacen-config__tabla {
+    table-layout: auto;
+  }
+  .almacen-config__tabla thead {
+    display: none;
+  }
+  .almacen-config__tabla tbody, .almacen-config__tabla tr, .almacen-config__tabla th, .almacen-config__tabla td {
+    display: block;
+    width: 100%;
+  }
+  .almacen-config__tabla .almacen-config__dueno > th {
+    padding: 22px 0 8px;
+  }
+  .almacen-config__tabla .almacen-config__grupo:first-of-type .almacen-config__dueno > th {
+    padding-top: 6px;
+  }
+  .almacen-config__tabla .almacen-config__fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    padding-block: 14px;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+  .almacen-config__tabla .almacen-config__fila:last-child {
+    border-bottom: 0;
+  }
+  .almacen-config__tabla .almacen-config__fila td {
+    width: auto;
+    padding: 0;
+    border: 0;
+  }
+  .almacen-config__tabla .almacen-config__acciones-celda {
+    grid-column: 1/-1;
+    margin-top: 12px;
+  }
+}
 .almacen-transfer-pages {
   margin-top: 20px;
 }

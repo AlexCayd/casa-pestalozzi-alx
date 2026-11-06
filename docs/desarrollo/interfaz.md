@@ -318,6 +318,27 @@ para identificar una alerta: «Bajo mínimo» lleva el SVG `baja` y texto para l
 identidades, sin sumar unidades heterogéneas. El estado «Sin asociación en la
 selección» mantiene visible la identidad maestra con saldo y mínimo cero.
 
+El modal `almacen-config` («Almacenes físicos», `views/admin/almacenes/_almacenes.php`)
+no repite su título: abre con una frase de recuento («7 almacenes en 3 negocios», o «Se
+muestran N de M» si la selección acota la lista) y, sin permiso de edición, una sola
+nota de solo consulta. Con `$puedeCrearAlmacen`, «Nuevo almacén» es el primario del
+modal con el mismo patrón que «Solicitar transferencia» (una regla compartida en
+`inventario.scss`); llega desplegado si el negocio no tiene almacenes propios activos,
+con foco en el propietario. El propietario se elige en `admin-pills` sin valor previo,
+porque no cambia después; el formulario envía los mismos campos que el select anterior.
+Sin facultad no hay alta ni aviso. La tabla se agrupa por propietario en `tbody` con un
+encabezado `scope="rowgroup"`: el negocio actual primero con «Propio» (insignia rellena)
+y los demás con «Otro negocio» (contorno) y una nota «Solo consulta: los opera y
+configura X» por grupo, nunca por fila. El estado es `admin-status` con punto y palabra;
+inactivo, neutro y con borde discontinuo. «Ver artículos» es secundario pequeño en
+todas las filas; «Configurar» (sólo propio y con edición) es un `summary` secundario
+pequeño con chevron que abre el panel bajo ambos botones (con `::details-content` el
+`details` cede su caja a la rejilla y el botón no se mueve). Dentro, «Guardar
+configuración» es el primario y «Eliminar almacén vacío», tras un filete, rojo pleno
+pequeño con `data-confirm-*` propios: ConfirmationModal pide escribir el nombre. A
+600 px o menos cada almacén es una tarjeta: nombre y estado en un renglón, acciones
+debajo, y las tres opciones de propietario una por renglón.
+
 Transferencias amplía esta misma interfaz en Restaurante, Panadería y Global:
 `almacen-transferencias` usa el modal administrativo compartido y
 `views/admin/almacenes/_transferencias.php`. Solicitud multilínea, documentos,
