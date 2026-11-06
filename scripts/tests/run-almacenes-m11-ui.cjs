@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
 const fs = require('node:fs');
 const path = require('node:path');
 const dom = new JSDOM('<main data-almacenes-workspace><form data-stock-operation="entrada" data-stock-saldo="0.100" data-stock-unidad="g" data-confirm-description="Cocina"><input name="cantidad"><p data-stock-preview></p></form></main>', { runScripts:'outside-only',pretendToBeVisual:true });
@@ -79,3 +79,29 @@ cuadros.forEach(fn => fn());
 assert.equal(md.activeElement, mas, 'Al cerrar el modal el foco vuelve a «Más», no al elemento oculto');
 menuDom.window.close();
 console.log('Almacenes: menú «Más» con aria-expanded, flechas, Escape y foco de vuelta OK.');
+
+// Cancelar el diálogo abierto por ?asociar= limpia la URL (sin dejarla personalizada).
+function cancelarAsociacion(href) {
+  // JSDOM no navega: location.reload() se reporta como «navigation» en la consola virtual.
+  const recargas = [];
+  const consola = new VirtualConsole();
+  consola.on('jsdomError', e => { if (String(e.message).includes('navigation')) recargas.push(e.message); else throw e; });
+  const d = new JSDOM('<main data-almacenes-workspace><div id="almacen-asociar" data-admin-modal data-contextual-open="1"></div></main>', { url: href, runScripts:'outside-only', pretendToBeVisual:true, virtualConsole: consola });
+  d.window.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/inventario/inventario.js'),'utf8'));
+  d.window.document.dispatchEvent(new d.window.Event('DOMContentLoaded'));
+  d.window.document.getElementById('almacen-asociar').dispatchEvent(new d.window.CustomEvent('admin:modal-closed'));
+  const r = { href: d.window.location.href, recargas: recargas.length };
+  d.window.close();
+  return r;
+}
+let c = cancelarAsociacion('http://localhost/admin/global/almacenes?articulo_id=1026&vista=existencias&asociar=1026');
+assert.equal(c.href, 'http://localhost/admin/global/almacenes', 'Cancelar desde la fila vuelve a la vista por defecto');
+assert.equal(c.recargas, 1, 'Recarga para quitar el filtro del artículo');
+c = cancelarAsociacion('http://localhost/admin/almacenes?seleccion=1&almacen_ids%5B%5D=1005&q=lim&articulo_id=7&asociar=7');
+assert.equal(c.href, 'http://localhost/admin/almacenes?seleccion=1&almacen_ids%5B%5D=1005&q=lim', 'Conserva la selección y la búsqueda');
+assert.equal(c.recargas, 1);
+c = cancelarAsociacion('http://localhost/admin/almacenes?articulo_id=7&asociar=7&volver=%2Fadmin%2Frecetas%2Farticulos%2Feditar%3Fid%3D7');
+assert.equal(c.href, 'http://localhost/admin/almacenes?articulo_id=7&volver=%2Fadmin%2Frecetas%2Farticulos%2Feditar%3Fid%3D7', 'Desde otro módulo sólo quita asociar y conserva el regreso');
+assert.equal(c.recargas, 0, 'Sin recarga cuando se conserva el artículo');
+console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia o vuelve a la vista por defecto OK.');
+

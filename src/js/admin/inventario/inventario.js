@@ -599,6 +599,27 @@
             });
         }
         const contextual = document.querySelector('[data-admin-modal][data-contextual-open="1"]');
+        if (contextual && contextual.id === 'almacen-asociar') {
+            // ?asociar= sólo sirve para abrir el diálogo. Cancelarlo no debe dejar la URL
+            // personalizada: recargar la reabriría y articulo_id seguiría filtrando la tabla.
+            // Enviar el formulario navega por POST y no emite admin:modal-closed.
+            // Ojo: el evento tampoco distingue un cierre por apilamiento (abrir otro
+            // modal encima); si «Asociar» llega a tener un disparador de otro modal,
+            // abrirlo recargaría la página. Hoy el diálogo no contiene ninguno.
+            contextual.addEventListener('admin:modal-closed', function () {
+                const url = new URL(window.location.href);
+                if (!url.searchParams.has('asociar')) return;
+                url.searchParams.delete('asociar');
+                // Desde otro módulo (volver=) se conserva el artículo y el regreso.
+                const recargar = !url.searchParams.has('volver');
+                if (recargar) {
+                    url.searchParams.delete('articulo_id');
+                    if (url.searchParams.get('vista') === 'existencias') url.searchParams.delete('vista');
+                }
+                window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+                if (recargar) window.location.reload();
+            }, {once: true});
+        }
         if (contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:contextual.id}}));
         const initial = {movimientos:'almacen-movimientos', almacenes:'almacen-config', transferencias:'almacen-transferencias', faltantes:'almacen-faltantes'}[workspace.dataset.initialView];
         if (initial && !contextual) document.dispatchEvent(new CustomEvent('admin:open-modal', {detail:{id:initial}}));
