@@ -12,7 +12,13 @@ alterar las reglas oficiales. Los permisos se recargan bajo bloqueo antes del
 commit. El superadministrador conserva su excepción organizacional.
 
 La adaptación de recetas de casa dentro de Menú usa el permiso ya existente de
-Recetas (`productos`), sin habilitar el módulo completo de Panadería ni su POS.
+Recetas (`productos`), sin habilitar el módulo completo de Panadería.
+
+Panadería tiene tres módulos de piso, todos en `operar` y con NIP: `pdv` (la
+caja de mostrador), `vitrina` (horneadas) y `anular` (anular cobros del día y
+autorizar con su NIP la anulación de otra persona). El CHECK y los triggers de
+`usuario_unidad_permisos` impiden `area` y `reservations_map` en Panadería y
+`vitrina`/`anular` en Restaurante. Ver [caja](../modulos/caja-panaderia.md).
 
 
 El nombre del archivo se conserva para no romper referencias históricas. La

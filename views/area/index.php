@@ -19,13 +19,26 @@ $usuarioNombre = trim((string) ($_SESSION['nombre'] ?? ''));
 // ofrece a quien entra al panel.
 $usuarioRol = \Classes\Auth::nombreRol() ?: 'Usuario';
 $esAdmin = \Classes\Auth::tienePanel();
+/*
+ * El color de la estación (areas_produccion.color) es dato de negocio, no un
+ * token, y es la IDENTIDAD del tablero: llena la barra superior y tiñe el fondo
+ * (ver src/scss/area/_area.scss). Los estados no lo usan; van en rojo, amarillo
+ * y verde. --area-ink es la tinta sobre la barra llena
+ * (AreasProduccion::tintaSobre), siempre una de las dos anclas del panel.
+ *
+ * Va en el <body> y no en el <main>: el fondo con el tinte de la estación lo
+ * pinta .area-shell, que está por encima del main y no vería la variable.
+ */
+$areaEstilo = '--area-accent: ' . $area['color']
+  . '; --area-ink: var(--admin-' . (($area['tinta'] ?? 'ink') === 'paper' ? 'paper' : 'ink') . ')';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-admin-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b0b0c" />
+  <?php /* La barra del navegador de la tablet sigue a la de la pantalla. */ ?>
+  <meta name="theme-color" content="<?= $h($area['color']) ?>" />
   <title><?= $h($area['nombre']) ?> · Casa Pestalozzi</title>
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
   <link rel="apple-touch-icon" href="/build/images/logo.svg" />
@@ -35,7 +48,9 @@ $esAdmin = \Classes\Auth::tienePanel();
   <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
-<body class="admin-body area-page operational-page" data-page="area" data-operation-module="area">
+<?php /* .area-tablero separa el tablero del selector de estación, que
+          comparte .area-page, .area-shell y el header operativo. */ ?>
+<body class="admin-body area-page area-tablero operational-page" data-page="area" data-operation-module="area" style="<?= $h($areaEstilo) ?>">
 
 <?php
 // El indicador de actualización va como acción del header: el partial estándar
@@ -95,15 +110,8 @@ $operationalUsuarioRol = $usuarioRol;
 $operationalShellClass = 'area-shell';
 $operationalMainClass = 'area-main operational-layout';
 $operationalMainId = 'area-main';
-// El color de la estación (areas_produccion.color) es dato de negocio, no un
-// token, y es EL color del tablero: llena el lomo de cada banda según su
-// estado —velo, medio, lleno—, con un solo hue. --area-ink es la tinta sobre el
-// lomo lleno (AreasProduccion::tintaSobre), siempre una de las dos anclas del
-// panel.
 $operationalMainAttributes = [
   'aria-label' => 'Tablero de producción',
-  'style' => '--area-accent: ' . $area['color']
-    . '; --area-ink: var(--admin-' . (($area['tinta'] ?? 'ink') === 'paper' ? 'paper' : 'ink') . ')',
 ];
 
 ob_start();

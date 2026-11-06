@@ -207,6 +207,21 @@ cambiar sus validaciones para apuntar a una base real diferente. La prueba de
 instalación 3E usa la configuración y los nombres nuevos descritos en la guía,
 con su propia marca de propiedad.
 
+## Caja de Panadería
+
+```sh
+npm run test:caja-panaderia   # php scripts/tests/run-caja-panaderia-db.php
+```
+
+Base desechable propia (`cp_multinegocio_test_*`) con el DDL y DML versionados
+y un secreto de NIP del proceso. Cubre triggers y clasificación de rutas,
+permisos por persona (cajera, encargada, hornero, mesero de Restaurante),
+venta atómica sin escritura parcial, idempotencia y conflicto de clave, vitrina
+en negativo con aviso, media pieza y media docena, horneada acotada e
+idempotente, anulación con NIP, tickets de hoy, corte contra el criterio de
+Finanzas, revocación y Restaurante intacto. Detalle en
+[caja](../modulos/caja-panaderia.md#pruebas).
+
 ## Preservación y regresión comercial
 
 ```sh

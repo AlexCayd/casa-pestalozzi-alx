@@ -132,6 +132,36 @@ final class Almacenes
     public function registrarAjuste(string $ctx,array $doc): array { return $this->operar($ctx,'ajuste',$doc); }
     public function revertirMovimientos(string $ctx,array $doc): array { return $this->operar($ctx,'cancelacion',$doc); }
 
+    /**
+     * Horneada desde la caja de Panadería: entrada de piezas terminadas con el
+     * permiso de piso `vitrina`, no con el de Inventario. Solo admite piezas
+     * que alguna oferta del negocio vende de vitrina; no descuenta insumos
+     * (eso será Producción) y su costo es el del artículo en el catálogo.
+     */
+    public function registrarHorneada(string $ctx,array $lineas,string $clave,?string $nota=null): array
+    {
+        return \Services\Security\ContextoNegocio::en($ctx, function () use ($ctx,$lineas,$clave,$nota): array {
+            return TransaccionInventario::ejecutar($this->db, function () use ($ctx,$lineas,$clave,$nota): array {
+                $alcance=$this->alcance->autorizarPiso($ctx,'vitrina',true);
+                if(!is_array($lineas) || !array_is_list($lineas) || $lineas===[] || count($lineas)>60) throw new InventarioError('LINEAS_INVALIDAS','Registra de 1 a 60 piezas por horneada.');
+                $doc=['origen'=>'caja_vitrina','clave'=>self::texto($clave,120),'referencia'=>'horneada-'.self::texto($clave,110),'motivo'=>'horneada',
+                    'nota'=>$nota!==null && trim($nota)!=='' ? self::texto($nota,255,false) : 'Horneada registrada en caja','lineas'=>[]];
+                foreach($lineas as $l) {
+                    if(!is_array($l)) throw new InventarioError('LINEAS_INVALIDAS','La línea no es válida.');
+                    self::claves($l,['almacen_id','articulo_id','cantidad']);
+                    $almacen=self::id($l['almacen_id']??null); $articulo=self::id($l['articulo_id']??null);
+                    $pieza=$this->uno('SELECT 1 FROM vitrina_piezas WHERE unidad_id=? AND almacen_id=? AND articulo_id=? UNION SELECT 1 FROM vitrina_piezas_variante WHERE unidad_id=? AND almacen_id=? AND articulo_id=? LIMIT 1',
+                        [$alcance['unidad_id'],$almacen,$articulo,$alcance['unidad_id'],$almacen,$articulo]);
+                    if(!$pieza) throw new InventarioError('PIEZA_NO_VITRINA','Solo se registran horneadas de piezas que se venden en la vitrina.');
+                    $doc['lineas'][]=['almacen_id'=>$almacen,'articulo_id'=>$articulo,'cantidad'=>$l['cantidad']??null];
+                }
+                $r=$this->operar($ctx,'entrada',$doc,false,null,null,null,$alcance);
+                if(($r['ok']??null)===false) throw new InventarioError((string)($r['codigo']??'HORNEADA_FALLIDA'),(string)($r['mensaje']??'No se pudo registrar la horneada.'));
+                return $r;
+            });
+        });
+    }
+
     /** Consume la receta/version guardada en el item; solo Restaurante POS. */
     public function consumirVenta(string $ctx, int $ticketItemId): array
     {
@@ -186,10 +216,15 @@ final class Almacenes
     public function consultarAlmacenes(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->almacenes($ctx,$filtros); }
     public function consultarMovimientos(string $ctx,array $filtros=[]): array { return (new ConsultasAlmacen($this->db,$this->alcance))->movimientos($ctx,$filtros); }
 
-    private function operar(string $ctx,string $tipo,array $doc,bool $comercial=false,?int $ticketItemId=null,?array $alcanceComercial=null,?string $costoVenta=null): array
+    private function operar(string $ctx,string $tipo,array $doc,bool $comercial=false,?int $ticketItemId=null,?array $alcanceComercial=null,?string $costoVenta=null,?array $alcancePiso=null): array
     {
-        return $this->escribir(function () use($ctx,$tipo,$doc,$comercial,$ticketItemId,$alcanceComercial,$costoVenta) {
-            if($comercial) {
+        return $this->escribir(function () use($ctx,$tipo,$doc,$comercial,$ticketItemId,$alcanceComercial,$costoVenta,$alcancePiso) {
+            if($alcancePiso!==null) {
+                // Entrada de piso (horneada): el coordinador ya acotó las piezas.
+                if($comercial || $tipo!=='entrada') throw new InventarioError('OPERACION_INVALIDA','La operación de piso no es válida.');
+                $alcance=$this->alcance->autorizarPiso($ctx,'vitrina',true);
+                if($alcance['unidad_id']!==$alcancePiso['unidad_id']) throw new InventarioError('AMBITO_DENEGADO','Cambió el ámbito autorizado durante la operación.');
+            } elseif($comercial) {
                 if(!in_array($tipo,['venta','cancelacion'],true) || $ticketItemId===null || $alcanceComercial===null) throw new InventarioError('OPERACION_INVALIDA','La operación comercial no es válida.');
                 $alcance=$this->alcance->autorizarVenta($ctx,true);
                 if($alcance['unidad_id']!==$alcanceComercial['unidad_id']) throw new InventarioError('AMBITO_DENEGADO','Cambió el ámbito autorizado durante la operación.');
@@ -228,7 +263,7 @@ final class Almacenes
             $almacenes=[];
             foreach($lineas as $l) $almacenes[(int)$l['almacen_id']]=true;
             ksort($almacenes,SORT_NUMERIC);
-            foreach($almacenes as $id=>$_) $almacenes[$id]=$comercial?$this->almacenVenta($id,$alcance['unidad_id']):$this->alcance->almacen($ctx,$id,'editar',true);
+            foreach($almacenes as $id=>$_) $almacenes[$id]=($comercial||$alcancePiso!==null)?$this->almacenVenta($id,$alcance['unidad_id']):$this->alcance->almacen($ctx,$id,'editar',true);
             usort($lineas,static fn($a,$b)=>[(int)$a['almacen_id'],(int)$a['articulo_id'],(int)($a['movimiento_id']??0)] <=> [(int)$b['almacen_id'],(int)$b['articulo_id'],(int)($b['movimiento_id']??0)]);
             $movimientos=[];
             foreach($lineas as $l) {

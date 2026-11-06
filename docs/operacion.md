@@ -104,6 +104,14 @@ cinco productos por unidades usa ese mismo universo. El histórico del panel
 repite parte de las consultas: al cambiar su definición revisar también
 FinanzasNegocio::cortes, sin crear un contrato paralelo.
 
+## Caja de Panadería
+
+La Panadería no usa mesas, comanda ni tablero: su caja de mostrador cobra en el
+momento y el comprobante se imprime sólo si se pide, en la estación `cuenta`
+activa de su unidad. Un fallo de impresión no toca la venta. Su corte es el
+mismo `CorteCaja::resumen` filtrado por la unidad, más piezas vendidas y
+anulaciones del día. Contrato en [caja](modulos/caja-panaderia.md).
+
 ## Verificación
 
 La cobertura automatizada de fallos de impresión está en

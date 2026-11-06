@@ -40,9 +40,9 @@ function initArea() {
   if (initArea._done) return;
   initArea._done = true;
 
-  // AREA_COLOR se retiró: no lo leía ninguna otra línea, y con el color de la
-  // estación fuera del tablero (ver src/scss/area/_area.scss) ya no hay razón
-  // para que vuelva.
+  // AREA_COLOR se retiró: no lo leía ninguna otra línea. El color de la
+  // estación lo pinta el CSS desde --area-accent (views/area/index.php y
+  // src/scss/area/_area.scss); el JS no lo necesita.
   var AREA_ID     = window.CP_AREA.id;
   var pollTimer   = null;
 

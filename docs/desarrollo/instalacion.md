@@ -32,8 +32,10 @@ sólo en `database/ddl.sql`; no hay migración aparte. Una base instalada antes 
 este cambio no las tiene: se reinstala con el procedimiento de abajo sobre una
 base nueva. Sin la tabla, las cartas PDF salen igual y sin avisos; sin la
 columna, el POS y el editor de variantes no cargan. `development.sql` siembra
-dos avisos de Restaurante: «De temporada» al inicio de la carta de comida y
-«Servicio» al final de comida y maridaje.
+dos avisos de Restaurante, los dos al final de la carta (todos los avisos van
+ahí): «De temporada», sólo en comida, y después «Servicio», en comida y
+maridaje. Una base instalada con la columna `configuracion_avisos.posicion`
+sigue funcionando: el código ya no la lee y los avisos salen al final.
 
 
 Esta guía es el procedimiento único para reconstruir la aplicación desde los

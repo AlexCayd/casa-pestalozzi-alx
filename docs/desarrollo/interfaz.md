@@ -158,7 +158,8 @@ serie o disparador de acción. Botones tinted usan relleno sólido y tinta calcu
 por contraste; acción principal conserva jerarquía, icono y posición final.
 Paleta funcional compartida: ámbar, naranja, rojo, azul, lima, índigo, rosa,
 magenta, turquesa y verde. Platillos: preparación ámbar, listo verde, entregado
-azul, cancelado gris. El KDS tiene su excepción visual descrita abajo.
+azul, cancelado gris. El KDS tiene su excepción visual descrita abajo (enviado
+en rojo).
 PaletaLanding emite los cuatro colores editables después de app.css en cada
 página de marca. Mantener su espejo y comprobaciones de contraste sincronizados.
 
@@ -321,20 +322,31 @@ ocasionales en menú de usuario.
 
 KDS: tres bandas apiladas (Enviados, En preparación, Listos) sin scroll propio;
 comandas en mampostería que recuerdan su columna (`empaquetar()` en
-`modules/area.js`); sólo desplaza el tablero. Color de estación sólo en el
-lomo de cada banda (columna de ancho fijo a toda su altura; franja superior en
-vertical), que dice el estado por cantidad de color: velo al 22 % en Enviados,
-50 % en En preparación y lleno en Listos (tinta de `AreasProduccion::tintaSobre`,
-rótulo de 19 px bold para que cuente como texto grande). El contador contrasta
-con su lomo: sólido del color, invertido sobre el lleno. Una banda vacía deja
-el lomo neutro (el color mide trabajo) y el contador en contorno. Bandas rectas, sin radio ni
-filete. Todo lo demás neutro, incluidos avances. Hora ámbar
-a 5 minutos, roja a 10; entregados atenuados al 62%; notas hundidas sin ámbar.
+`modules/area.js`); sólo desplaza el tablero. Dos colores con dos trabajos:
+la **estación** es el marco —barra superior llena de su color con la tinta de
+`AreasProduccion::tintaSobre` (reloj, salir y foco en esa tinta; «Sin conexión»
+sobre pastilla del fondo), fondo teñido desde arriba y `theme-color`—; el
+**estado** es el lomo de cada banda (columna de ancho fijo a toda su altura;
+en vertical, pestaña de 248 px arriba a la izquierda, para que no se lea
+como continuación de la barra), lleno de rojo en Enviados, ámbar en En
+preparación y verde en Listos (`AreasProduccion::DE_ESTADO`); título del
+estado en blanco en los tres: excepción explícita del producto (1.8:1 sobre
+ámbar y 2.9:1 sobre verde, bajo el 3:1 de texto grande; el estado lo dicen
+también posición y color). No es precedente para otros textos. Rótulo de 19 px bold. El contador va en
+pastilla blanca en los tres, con la cifra del color del estado legible sobre
+papel (rojo tal cual; ámbar y verde mezclados con tinta, `--banda-cifra`).
+Una banda vacía deja el lomo neutro (el color mide
+trabajo) y el contador en contorno del color del estado. Bandas rectas, sin
+radio ni filete. Estilos de barra acotados a `.area-tablero` (el selector de
+estación comparte `.area-page`). Comandas y avances neutros. Hora ámbar a 5
+minutos, roja a 10; entregados atenuados al 62%; notas hundidas sin ámbar.
 Mono cifras, sans palabras, pesos 400/600/700. Rejilla de comandas
-surface-soft sin borde; comanda surface-strong. No llevar color de estación a la tarjeta donde compita
-con urgencia. El color de cada estación del Restaurante se elige en
-Configuración → Colores de las áreas (`AreasProduccion`: sólo los diez de la
-paleta funcional, sin repetir; el espejo PHP lo vigila `run-areas-produccion.php`).
+surface-soft sin borde; comanda surface-strong. No llevar color de estación a
+la tarjeta donde compita con urgencia. El color de cada estación del
+Restaurante se elige en Configuración → Colores de las áreas (`AreasProduccion`:
+sólo los diez de la paleta funcional, sin repetir; el espejo PHP lo vigila
+`run-areas-produccion.php`); rojo, ámbar y verde se pueden elegir, pero la
+pantalla avisa de que coinciden con un estado.
 
 Cajón: módulos flex base cero; fecha española separada de data-iso. Sincronizar
 tablas de nombres en pos-workspace.php y shell.js. Calendario abierto en flujo
@@ -343,13 +355,20 @@ franja, estado con forma y palabra. Solo ausencia elegible es urgencia. Búsqued
 conserva periodo/estado; sincronizar nombres entre presenter y pos-reserva-vista.js.
 
 Opciones de platillo por pasos: un grupo por paso, fila de pasos con lo elegido
-(actual relleno, visto con palomita, obligatorio pendiente discontinuo con
-«Elige una») y salto a cualquiera; al agregar abre en el primer obligatorio que
+(en sólido: actual en papel con el número invertido, visto con palomita,
+obligatorio pendiente en ámbar con «Elige una») y salto a cualquiera; al agregar abre en el primer obligatorio que
 falte, al editar en el 1. Tocar una opción avanza a los 180 ms (se descarta un
-segundo toque inmediato); flechas eligen sin avanzar, Enter avanza y agrega en
-el último, Retroceso vuelve. Sin nada pendiente, «Agregar» en contorno desde el
-primer paso. Teselas con icono op-* (AdminIcons) o la inicial en el mismo hueco;
-la hoja mide su paso más alto y no cambia de alto; movimiento reducido funde.
+segundo toque inmediato); flechas eligen sin avanzar, 1–9 eligen y avanzan como
+un toque (el número se ve en la tesela sólo con puntero fino), Enter avanza y
+agrega en el último, Retroceso vuelve. Sin nada pendiente, «Agregar» es la única
+principal desde el primer paso y «Siguiente» va en neutro sólido. Hoja de 880 px;
+teselas a todo el ancho (`columnasOpciones`: hasta 4 en una fila, luego 3 o 4 y
+la última fila estirada; 2 en móvil), verticales: icono op-* de 56 px con el
+ajuste al otro extremo, «Como en la carta» y el nombre al pie. Si ninguna opción
+del paso tiene icono, teselas de sólo texto; si algunas sí, la inicial en el
+mismo hueco. La hoja mide su paso más alto y no cambia de alto; movimiento
+reducido funde. En Menú, las variantes se editan desde «Editar platillo» (el
+listado ya no tiene botón; «N opciones» abre `edit?id=…#variantes`).
 Modal POS: título solo nombre; número adicional si no está incluido como palabra.
 Cancelar mesa se oculta desde primera fila enviada, incluso cancelada. Cerrar se
 deshabilita sin filas o con pendientes; backend revalida. Barras/Llevar: tablero,
@@ -359,6 +378,21 @@ panel 78%, columnas 64%; prima legibilidad. _voz.scss: mono rótulo/columna, san
 control, Expose titular/total. Danger sólido, release naranja, pending disabled
 con borde discontinuo; una definición por variante.
 
+**POS en sólido** (decisión del producto, nov 2026): todo control del POS
+—botones, pestañas, chips, contadores, etiquetas de estado y pines del mapa—
+lleva relleno opaco, sin tintes `color-mix(... transparent)` ni botones de
+sólo contorno. Se pinta con los tokens `--pos-solido-*` de `.mapa-page`
+(`_punto-de-venta.scss`, bloque «Lenguaje sólido del POS»): neutro gris-5 con
+papel, activo papel con tinta, ok verde al 75 % con tinta y papel encima (texto
+blanco en los pines, como rojo, azul y gris; NO es el verde puro del lomo
+«Listos» del KDS, y unificarlos exige recalcular sus tintas), peligro rojo, info azul al 78 % con
+tinta y papel encima, aviso ámbar y naranja, cada uno con su `-tinta` (≥ 4.5:1).
+En el corte de caja, efectivo va en ámbar y tarjeta en azul, puros de la paleta
+(series de gráfica sin texto encima); ahí el ámbar es «efectivo», no el estado
+«en preparación» del KDS. El hover oscurece. Siguen translúcidos los realces de fila, velos, sombras,
+barras de desplazamiento y gráficas. En `operation/*` se acota a `.mapa-page`
+para no tocar KDS, selector ni login.
+
 Topbar: notificación roja por tarjetas pendientes, papel/punto azul si seguimiento;
 reportar ámbar, salir neutro/rojo al hover. Contar tarjetas con
 ReservacionBuzonBandejaService, no filas crudas. Campana se mueve al subir contador;
@@ -367,6 +401,14 @@ Tickets usa totalFiltrado; abiertos ignora periodo, cerrados expresa venta.
 Impresoras usa área y tinta por contraste, columna Imprime y prueba JSON en fila.
 Corte de caja es consulta, no arqueo persistido: [operación](../operacion.md).
 Asistente estructurado: [configuración](../config.md#asistente-ia).
+
+Caja de Panadería: mismo shell, header y tema oscuro del piso; hoja propia
+`caja.css` cargada después de `operation.css` y todo bajo `.caja-page` para
+ganar a `.admin-body button/h2/input` (los campos repiten la cadena `:not()` de
+`_forms.scss`). Sin colores nuevos: la caja se distingue por la tecla partida
+en gajos, el filete de vitrina y la tecla que crece ocupando su fila. Íconos
+del catálogo PHP vía `<template data-caja-icono>`. Detalle de comportamiento en
+[caja](../modulos/caja-panaderia.md#pantalla).
 
 ## Landing, feedback y medios
 

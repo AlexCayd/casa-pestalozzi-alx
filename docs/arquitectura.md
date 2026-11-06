@@ -41,7 +41,7 @@ si falta un origen físico local activo para algún ingrediente, si hay ajustes 
 variantes incompatibles o si un componente no se expresa exactamente a milésimas
 por porción. No se crean asociaciones, saldos ni movimientos para completar recetas.
 La receta adaptada y sin receta son estados explícitos; adaptar requiere permiso
-de Recetas local y autorización de la política vigente. Panadería no habilita POS.
+de Recetas local y autorización de la política vigente. En Panadería la venta de caja descuenta la pieza de vitrina, no la receta (§7).
 
 El esquema M1.2 es aditivo y vive en `ddl.sql`, el mismo para instalaciones nuevas
 y pruebas temporales (sin migración aparte). No modifica productos, precios,
@@ -66,7 +66,7 @@ Este documento es la única fuente normativa para alcance, arquitectura, propied
 
 Casa Pestalozzi es una aplicación web PHP 8 MVC con MySQL. Una identidad compartida puede trabajar en tres ámbitos: Global, Restaurante y Panadería. Global es administrativo y no vende. Restaurante y Panadería son negocios distintos con oferta, almacenes, operaciones comerciales y finanzas propias.
 
-El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. M1 completa el catálogo administrativo y Menú de Panadería y la administración de identidades comerciales de Global. POS, recetas administrativas completas, tickets, pagos y finanzas de Panadería siguen pendientes; también los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
+El cierre 3E deja funcionales Usuarios y Almacenes en los tres ámbitos y conserva la operación comercial existente de Restaurante. M1 completa el catálogo administrativo y Menú de Panadería y la administración de identidades comerciales de Global. La caja de mostrador de Panadería (§7) vende, cobra, registra horneadas y anula cobros del día; recetas administrativas completas y producción de Panadería siguen pendientes, igual que los paneles comerciales consolidados de Global. La tabla, ruta, contrato preparado o elemento de menú de un módulo pendiente no se presenta como flujo liberado.
 
 ## 2. Arquitectura de aplicación
 
@@ -93,9 +93,9 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Menú y ofertas | Productos de la casa M1.2: estándares, políticas y publicación; Global no vende | Funcional; menú original preservado | Menú administrativo M1 funcional con vistas y servicios compartidos |
 | Recetas y variantes | Recetario estándar versionado M1.2; sin producción Global | Recetas operativas y variantes existentes; aplicación de estándares | Adaptación de estándares dentro de Menú; módulo completo M2 pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
-| POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
-| Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas y productos de la casa), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH); las ventas contestan en cero hasta que exista la caja |
-| Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes, transferencias y productos de la casa; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú; las de ventas contestan en cero hasta que exista la caja |
+| POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Funcional: caja de mostrador sin mesas (`/panaderia/caja`), cobro en efectivo o tarjeta, horneadas, anulación del día y corte de consulta (§7) |
+| Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas y productos de la casa), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH) sobre los tickets de la caja |
+| Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes, transferencias y productos de la casa; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú, sobre los tickets de la caja |
 | Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
 | Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
 
@@ -123,7 +123,7 @@ La guía técnica está en [Usuarios](usuarios/usuarios.md), [permisos directos]
 
 `Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, ajustes, conteos, mermas, consumos y compensaciones deben ser trazables. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
 
-Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y configuran negativos si tienen permiso. Transferencias incorpora solicitud, autorización, envío, recepción parcial, incidencias y retornos con contexto propietario; véase su [contrato](modulos/transferencias.md). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
+Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y configuran negativos si tienen permiso. Transferencias incorpora solicitud, autorización, envío, recepción parcial, incidencias y retornos con contexto propietario; véase su [contrato](modulos/transferencias.md). La caja de Panadería registra horneadas como entradas de piso acotadas a sus piezas de vitrina (§7). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
 
 ## 6. Catálogo, productos, cartas, ofertas y menú preservado
 
@@ -143,7 +143,20 @@ Todo ticket pertenece a una unidad vendedora. Global nunca es vendedor. Restaura
 
 La comanda usa una clave idempotente y el consumo se realiza al enviarla, no al abrir una mesa, preparar un carrito ni reintentar el cobro. El consumo y el documento de ticket se confirman en una transacción; errores parciales no dejan escritura huérfana. Una cancelación compensa los movimientos originales una sola vez, con almacén/costo congelados, sin recalcular la receta vigente. Una receta inventariable sin origen completo falla sin mutación parcial. Una venta sin consumo permitido queda explícita en su snapshot y no inventa costo conocido.
 
-El POS futuro de Panadería sin mesas es una extensión preparada, no está habilitado por el esquema ni por fixtures. La [guía de operación](operacion.md) detalla impresión e idempotencia; la [guía de reservaciones](reservaciones/reservaciones.md) describe el mapa y sus estados.
+La [guía de operación](operacion.md) detalla impresión e idempotencia; la [guía de reservaciones](reservaciones/reservaciones.md) describe el mapa y sus estados.
+
+### Caja de mostrador de Panadería
+
+Decisión (noviembre 2026, a petición expresa del propietario): Panadería vende en mostrador, sin mesas, comanda ni KDS. El cliente trae su pan, se cobra y se va. Guía técnica: [Caja de Panadería](modulos/caja-panaderia.md).
+
+- **Superficie y ámbito.** `/panaderia/caja` y `/api/panaderia/caja/*` viven fuera de `/admin` porque se entra con NIP; `Contextos::deRuta` fija `panaderia` por la ruta, nunca por un dato del navegador. El resto de `/panaderia` es la landing pública y no cambia de ámbito.
+- **Permisos de piso.** Panadería admite `operar` en `pdv` (vender, cobrar, imprimir, corte), `vitrina` (horneadas) y `anular` (anular cobros del día y autorizar con NIP la anulación de otra persona). El CHECK de `usuario_unidad_permisos` y sus triggers lo limitan por ámbito: Restaurante sigue con `pdv`, `area` y `reservations_map`; Panadería no admite Producción ni mapa. Cada API está en `Permisos::APIS`; una ruta de caja desconocida se deniega.
+- **Venta.** `Services\Pos\CajaMostrador::vender` crea ticket, líneas, consumo y cobro en una sola transacción idempotente (`pos_operaciones` tipo `venta_caja`, clave del cliente y huella de la solicitud): no existe un ticket de caja abierto a medias. El servidor resuelve oferta, opciones (`Variantes::resolver`), precio y pieza; el cliente sólo manda ofertas, cantidades y opciones. El ticket queda `cerrado` con `hora_cierre`, cajero en `mesero_id`, `propina` 0 y líneas `entregado`: es lo que ya leen Finanzas, Análisis y el Asistente. Efectivo exige lo recibido ≥ total y el cambio se guarda en el resultado de la operación para reimprimir; tarjeta sólo se registra (terminal externa). Sin pago mixto, transferencia ni propina en esta entrega.
+- **Vitrina.** En Panadería el pan se hornea antes de venderse: la venta descuenta la **pieza terminada** (`vitrina_piezas`, y `vitrina_piezas_variante` cuando una opción cambia la pieza), no la receta, que queda para Producción. `ConsumoOferta::preparar` resuelve primero la pieza; una oferta sin pieza conserva el camino de receta u origen (venta sin consumo explícita si no lo tiene). Las opciones que cambian pieza pertenecen a un solo grupo. El almacén de vitrina decide los negativos: con negativos permitidos la venta procede y avisa (`VITRINA_NEGATIVA`), sin ellos se rechaza completa. La pieza se configura en «Vitrina de la caja» con `menu/editar` de Panadería y sólo admite artículos asociados a un almacén activo del negocio; no crea artículos, asociaciones ni existencias.
+- **Horneada.** `Almacenes::registrarHorneada` registra una entrada (`origen` `caja_vitrina`, motivo `horneada`) con el permiso de piso `vitrina`, sin abrir el módulo Inventario, acotada a las piezas de vitrina del negocio. No descuenta insumos: eso será Producción. Idempotente por clave.
+- **Anulación.** Sólo cobros de hoy y vigentes. Con `anular` propio o el NIP de quien lo tenga (límite de intentos igual al acceso por NIP), el ticket pasa a `cancelado` (deja de contar en ventas y corte), sus líneas a `cancelado` y sus movimientos se compensan una sola vez con almacén y costo congelados. `ticket_anulaciones` guarda solicitante, autorizador, motivo, nota, total y método. Es la única excepción al ticket abierto en `ConsumoOferta::ticketItem`, y exige la fila de anulación en la misma transacción. No es una devolución parcial ni toca días anteriores.
+- **Corte.** Consulta, no arqueo: `CorteCaja::resumen` con la unidad de Panadería y sus turnos de `configuracion_pos`, más piezas vendidas y anulaciones de la ventana.
+- **Impresión.** El comprobante se imprime bajo demanda en la estación `cuenta` activa de la unidad si `impresion_activa` está encendido; un fallo de papel no toca la venta.
 
 ## 8. Pagos, finanzas y analítica
 
@@ -209,7 +222,7 @@ Antes de trabajar, leer este documento y `CLAUDE.md`, identificar ámbito/propie
 
 Toda función nueva se integra con identidad, autorización, propiedad y visuales existentes. No crear autenticación, stock, oferta, tickets o UI paralelos. Cambios arquitectónicos requieren decisión justificada aquí y actualización de referencias técnicas. Separar correcciones de defectos, mejoras de lo existente y funcionalidades nuevas en el [backlog](backlog.md). Un defecto crítico no se difiere como UX.
 
-El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, POS comercial de Panadería, paneles financieros Global y devoluciones comerciales posteriores siguen fuera de 3E hasta que se implementen y prueben expresamente.
+El [contrato de transferencias M0.5-B](modulos/transferencias.md) implementa solicitud, autorización, envío, recepción total/parcial, diferencias, rechazo y retorno: tránsito no es saldo disponible del destino ni ingreso/gasto. Una pérdida sin retorno ni recepción permanece como incidencia trazable; no se inventa una compensación. Producción, catering, paneles financieros Global y devoluciones comerciales posteriores (más allá de la anulación del día de la caja de Panadería, §7) siguen fuera de 3E hasta que se implementen y prueben expresamente.
 
 ## 14. Documentación vigente
 

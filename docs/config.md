@@ -116,9 +116,10 @@ Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbi
 | Global | Almacenes de la organización | Existencia, lo que está por agotarse, consumo, entradas, mermas | **consolidado** de todos los almacenes, desglosado por negocio |
 | | Entre negocios | Transferencias en curso, productos de la casa | transferencias abiertas de la organización; estándares, dónde se ofrecen y su receta publicada |
 
-- **La caja de Panadería todavía no registra tickets**: sus preguntas de
-  ventas ya consultan lo correcto y contestan en cero hasta que exista el POS
-  de caja. No enlazan a Análisis, que Panadería no tiene.
+- **Ventas en caja de Panadería**: sus preguntas leen los tickets que cierra
+  la caja de mostrador ([caja](modulos/caja-panaderia.md)); las anulaciones
+  quedan fuera porque el ticket anulado deja de estar `cerrado`. El cajero
+  queda en `mesero_id`, así que «ventas por cajero» ya tiene de dónde leer.
 - **Global no vende**: no tiene preguntas de ventas ni suma las de los
   negocios (consolidado financiero pendiente, arquitectura §3). Su lectura de
   almacenes es la misma que Almacenes concede con permiso de ver, y no abre la
@@ -189,9 +190,11 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
 - `/admin/configuracion/avisos`: los **avisos del restaurante en las cartas
   PDF** (tabla `configuracion_avisos`, varias filas por unidad; hasta 12). Cada
   aviso lleva título (80 caracteres), contenido (1 500), en qué carta se
-  imprime (Menú, Maridaje o las dos), lugar (al inicio, después de la portada;
-  o al final, antes de la despedida), orden dentro de su lugar y si está
-  activo. El contenido se guarda como marcado ligero, nunca HTML: `## ` al
+  imprime (Menú, Maridaje o las dos), orden y si está activo. Todos se
+  imprimen al final de la carta, entre la última sección y la despedida;
+  ninguno va entre la portada y la primera sección, y no hay lugar que
+  elegir. Van en dos columnas, como los platillos, en el orden de la lista
+  (izquierda, derecha); si sobra uno, va solo y centrado a lo ancho. El contenido se guarda como marcado ligero, nunca HTML: `## ` al
   inicio de un renglón es subtítulo, `**texto**` va en negritas y un renglón en
   blanco abre párrafo; todo lo demás se escapa
   (`Services\Configuration\AvisosCarta::html()`, la única traducción, que usan
@@ -204,13 +207,16 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   guardar; sin JS funciona como formulario. La tabla está en `database/ddl.sql`.
 
 - **Variantes por platillo**: opciones de precio y receta de la oferta local;
-  administración en Menú, en su página (`/admin/menu/variantes`) o desde
-  «Editar platillo», que las resume y abre el mismo editor en un panel. Cada
+  administración en Menú desde «Editar platillo», que las resume y abre el
+  editor en un panel (el listado ya no tiene botón propio: «N opciones» junto
+  al nombre abre `edit?id=…#variantes`; la página `/admin/menu/variantes`
+  sigue existiendo). Cada
   opción lleva un icono (`producto_variantes.icono`): uno de la familia `op-*`
   (`Variantes::ICONOS`) o NULL, automático, que se deduce del nombre de la
   opción y de su grupo (`Variantes::ICONO_REGLAS`, las mismas reglas en el
-  editor y en el servidor); sin regla que case, el POS pinta la inicial. En el
-  POS cada grupo es un paso. Identidad de oferta, componentes y snapshots se rigen
+  editor y en el servidor); sin regla que case, el POS pinta la inicial, y si
+  ninguna opción del grupo tiene icono, teselas de sólo texto. En el POS cada
+  grupo es un paso. Identidad de oferta, componentes y snapshots se rigen
   por [Arquitectura](arquitectura.md#6-catalogo-productos-cartas-ofertas-y-menu-preservado).
 - **Foto por platillo**: ImagenUploader valida y publica la imagen; sin foto propia
   la carta utiliza la de categoría. No retirar imágenes preservadas del menú.

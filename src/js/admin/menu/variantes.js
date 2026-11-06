@@ -893,15 +893,21 @@
             visibles++;
             var obligatorio = grupoObligatorio(g);
             var elegida = sel.elegidas.filter(function (o) { return activas.indexOf(o) !== -1; })[0];
+            // Igual que el POS: un grupo en el que ninguna opción tiene icono
+            // va en teselas de sólo texto, sin una columna de iniciales.
+            var conIconos = activas.some(function (o) {
+                var clave = iconoEfectivo(o, g.nombre);
+                return !!(clave && icono(clave, 16));
+            });
             html += '<div class="admin-vpos__grupo" role="radiogroup" aria-label="Paso ' + visibles + ' de ' + pasos + ': ' + esc(g.nombre) + '">' +
                 '<p class="admin-vpos__grupo-nombre"><span class="admin-vpos__paso admin-num">' + visibles + '/' + pasos + '</span>' + esc(g.nombre || 'Sin nombre') +
-                (obligatorio && !elegida ? ' <span class="admin-vpos__falta">Elige</span>' : '') + '</p><div class="admin-vpos__pills">';
+                (obligatorio && !elegida ? ' <span class="admin-vpos__falta">Elige</span>' : '') + '</p><div class="admin-vpos__pills' + (conIconos ? '' : ' admin-vpos__pills--sin-iconos') + '">';
             activas.forEach(function (o, i) {
                 var on = elegida === o;
                 var foco = on || (!elegida && i === 0);
                 html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '" class="admin-vpos__pill' + (on ? ' is-on' : '') + '" data-probar="' + o.key + '" data-grupo-key="' + g.key + '">' +
-                    '<span class="admin-vpos__icono" aria-hidden="true">' + marcaIcono(iconoEfectivo(o, g.nombre), o.nombre, 16) + '</span>' +
-                    '<span>' + esc(o.nombre || '—') + '</span>' +
+                    (conIconos ? '<span class="admin-vpos__icono" aria-hidden="true">' + marcaIcono(iconoEfectivo(o, g.nombre), o.nombre, 18) + '</span>' : '') +
+                    '<span class="admin-vpos__pill-nombre">' + esc(o.nombre || '—') + '</span>' +
                     (Number(o.precio_delta) ? '<span class="admin-vpos__delta admin-num">' + (o.precio_delta > 0 ? '+' : '−') + '$' + Math.abs(o.precio_delta) + '</span>' : '') +
                     '</button>';
             });
@@ -1441,6 +1447,7 @@
                 html += '<li class="admin-vresumen__op' + (o.predeterminada ? ' is-base' : '') + (o.activo === false ? ' is-off' : '') + '">' +
                     '<span class="admin-vresumen__icono" aria-hidden="true">' + marcaIcono(iconoEfectivo(o, gr.nombre), o.nombre, 16) + '</span>' +
                     '<span class="admin-vresumen__op-nombre">' + esc(o.nombre) + '</span>' +
+                    (o.predeterminada ? '<span class="admin-vresumen__base">Base</span>' : '') +
                     (d ? '<span class="admin-vresumen__delta admin-num">' + deltaCorto(d) + '</span>' : '') +
                     (o.activo === false ? '<span class="admin-vresumen__off">Apagada</span>' : '') +
                     '</li>';
@@ -1499,4 +1506,24 @@
     // Un platillo sin variantes abre con la primera plantilla a la vista; uno
     // con variantes, con su primer grupo listo para editar.
     pintarTodo();
+
+    // «N opciones» en el listado de Menú lleva a edit?id=…#variantes: el
+    // panel abre solo. Después de initAdminModals (admin.js, que escucha
+    // DOMContentLoaded antes que este bundle). El hash se quita para que
+    // recargar la página no vuelva a abrirlo encima del formulario.
+    if (modal && window.location.hash === '#variantes') {
+        var abrirDesdeEnlace = function () {
+            document.dispatchEvent(new CustomEvent('admin:open-modal', {
+                detail: { id: modal.id, trigger: document.querySelector('[data-variantes-abrir]') }
+            }));
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+            }
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', abrirDesdeEnlace);
+        } else {
+            window.setTimeout(abrirDesdeEnlace, 0);
+        }
+    }
 })();

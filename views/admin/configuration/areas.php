@@ -5,7 +5,7 @@
  * Una fila por estación de producción con los diez colores de la paleta
  * funcional como radios. El radio es real (recortado, como en .admin-pills):
  * conserva el envío, las flechas dentro del grupo y el estado tras un POST
- * fallido sin una línea de JS. La vista previa de cada fila (los lomos del
+ * fallido sin una línea de JS. La vista previa de cada fila (la barra del
  * tablero) la pinta el CSS con :has(); configuration.js sólo marca, mientras se
  * elige, los colores que ya tiene otra estación.
  *
@@ -29,13 +29,23 @@ foreach ($elegidos as $slug => $clave) {
     }
 }
 $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolower($paleta[$c]['nombre'] ?? $c), $deEspera);
+// Los colores del semáforo de las bandas (Enviados, En preparación, Listos).
+$nombresDeEstado = array_map(
+    static fn (string $c): string => 'el ' . mb_strtolower($paleta[$c]['nombre'] ?? $c),
+    \Services\Configuration\AreasProduccion::DE_ESTADO
+);
+// «el rojo, el ámbar y el verde»
+$enumerar = static function (array $nombres): string {
+    $ultimo = array_pop($nombres);
+    return $nombres === [] ? (string) $ultimo : implode(', ', $nombres) . ' y ' . $ultimo;
+};
 ?>
 <section class="admin-configuration admin-menu admin-page" data-configuration-page="areas">
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Configuración</span>
             <h1 class="admin-page__title">Colores de las áreas</h1>
-            <p class="admin-page__subtitle">Cada estación de producción tiene un color: marca los estados de su tablero y la identifica en el selector de estación, en Impresoras y en el POS. Se elige entre los colores del sistema, y dos estaciones no pueden repetirlo.</p>
+            <p class="admin-page__subtitle">Cada estación de producción tiene un color: llena la barra de su tablero y la identifica en el selector de estación, en Impresoras y en el POS. Se elige entre los colores del sistema, y dos estaciones no pueden repetirlo.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/configuracion">
@@ -91,12 +101,14 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
                             </a>
                         </div>
 
-                        <?php /* El tablero en miniatura: las tres bandas, porque
-                                 el color marca el estado de cada una, y en
-                                 oscuro, porque el KDS siempre lo es. Lo único
-                                 que el color pinta ahí es el lomo de cada
-                                 banda: velo, medio y lleno. */ ?>
+                        <?php /* El tablero en miniatura, en oscuro porque el KDS
+                                 siempre lo es. El color de la estación llena la
+                                 barra; las tres bandas van debajo con su
+                                 semáforo fijo (rojo, amarillo, verde), para ver
+                                 de un vistazo si el color elegido choca con
+                                 alguno. */ ?>
                         <div class="admin-area-color__preview" aria-hidden="true">
+                            <span class="admin-area-color__barra"><?php echo $h($area['nombre']); ?></span>
                             <span class="admin-area-color__band admin-area-color__band--enviados"><span class="admin-area-color__lomo">Enviados <span class="admin-area-color__cuenta">3</span></span></span>
                             <span class="admin-area-color__band admin-area-color__band--prep"><span class="admin-area-color__lomo">En preparación <span class="admin-area-color__cuenta">2</span></span></span>
                             <span class="admin-area-color__band admin-area-color__band--listo"><span class="admin-area-color__lomo">Listos <span class="admin-area-color__cuenta">1</span></span></span>
@@ -135,10 +147,19 @@ $nombresDeEspera = array_map(static fn (string $c): string => 'el ' . mb_strtolo
                 <?php endforeach; ?>
             </div>
 
-            <?php if ($nombresDeEspera !== []) : ?>
+            <?php if ($nombresDeEstado !== [] || $nombresDeEspera !== []) : ?>
                 <p class="admin-area-colors__nota">
                     <?php echo admin_icon('info', 16); ?>
-                    <span>En el tablero, <?php echo $h(implode(' y ', $nombresDeEspera)); ?> también marcan una comanda atrasada: tiñen su hora a los 5 y a los 10 minutos. Se pueden elegir, porque el color de la estación sólo pinta el lomo de cada banda, fuera de las comandas.</span>
+                    <span>
+                        En el tablero,
+                        <?php if ($nombresDeEstado !== []) : ?>
+                            <?php echo $h($enumerar($nombresDeEstado)); ?> son también los estados de las bandas (Enviados, En preparación y Listos)<?php echo $nombresDeEspera !== [] ? ', y' : '.'; ?>
+                        <?php endif; ?>
+                        <?php if ($nombresDeEspera !== []) : ?>
+                            <?php echo $h($enumerar($nombresDeEspera)); ?> marcan una comanda atrasada: tiñen su hora a los 5 y a los 10 minutos.
+                        <?php endif; ?>
+                        Se pueden elegir, porque el color de la estación sólo llena la barra de arriba, pero en el tablero de esa estación el mismo color dirá dos cosas.
+                    </span>
                 </p>
             <?php endif; ?>
 

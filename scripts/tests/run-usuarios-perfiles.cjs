@@ -97,7 +97,9 @@ async function montar(caso) {
     assert.equal(f.activo('panaderia'), true);
     assert.equal(f.nivel('panaderia', 'menu'), 'editar');
     assert.equal(f.nivel('restaurante', 'pdv'), '', 'Cambiar de perfil limpia el ámbito anterior.');
-    assert.equal(f.doc.getElementById('scope-panaderia-pdv'), null, 'Panadería no tiene POS.');
+    // Panadería tiene caja de mostrador (arquitectura §7); Producción y mapa siguen siendo de Restaurante.
+    assert.notEqual(f.doc.getElementById('scope-panaderia-pdv'), null, 'Panadería ofrece su caja.');
+    assert.equal(f.doc.getElementById('scope-panaderia-area'), null, 'Panadería no tiene Producción.');
     casos++;
 
     f.elegir('acceso_total');

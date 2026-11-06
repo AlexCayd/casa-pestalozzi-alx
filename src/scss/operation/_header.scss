@@ -704,6 +704,61 @@
   }
 }
 
+// ── POS en sólido: los controles de la barra ─────────────────────────
+// Sólo .mapa-page: esta barra es también la del tablero de área, el selector
+// de estación y la caja de Panadería, y ninguno ha pedido el cambio (los
+// tokens --pos-solido-* ni siquiera existen fuera del POS).
+//
+// Gris-5 con papel (9.7:1) en reposo y gris-6 al pasar (6.9:1). El canto sube
+// a --admin-border-strong: el relleno gris contra la barra se queda en 1.7:1
+// y el canto es lo que da el 3:1 de un control (4.8:1).
+.mapa-page .operational-header__user--menu {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+
+  &:hover {
+    border-color: var(--admin-line-strong);
+    background: var(--pos-solido-neutro-hover);
+  }
+
+  // Abierto es «elegido»: papel con tinta, como una pestaña activa. El
+  // círculo se invierte para no fundirse con el papel del botón.
+  &[aria-expanded="true"] {
+    border-color: var(--pos-solido-activo);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
+
+    .operational-header__user-avatar {
+      background: var(--pos-solido-activo-tinta);
+      color: var(--pos-solido-activo);
+    }
+  }
+}
+
+// El chevron sigue al botón. En --admin-muted pasaba sobre gris-5 (4.1:1)
+// pero se caía al 2.9 sobre el gris-6 del hover y desaparecía sobre el papel.
+.mapa-page .operational-header .operational-header__user--menu .operational-header__user-chevron {
+  color: inherit;
+}
+
+// Salir: neutro en reposo y rojo pleno al tocarlo, la regla de salir de la
+// casa. El rojo tenue al 9 % era un tinte, y rojo pleno toda la jornada en la
+// esquina de la barra competiría con el rojo de «ocupada» del plano. Con
+// :active para la tablet, que no tiene hover. Papel sobre rojo: 4.58:1.
+.mapa-page .operational-header__logout {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+
+  &:hover,
+  &:active {
+    border-color: var(--pos-solido-peligro);
+    background: var(--pos-solido-peligro);
+    color: var(--pos-solido-peligro-tinta);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .operational-header__user-chevron,
   .operational-user-menu__panel--herramientas {

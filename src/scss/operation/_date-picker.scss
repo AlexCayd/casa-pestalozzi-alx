@@ -103,6 +103,43 @@
   }
 }
 
+/*
+ * POS en sólido: el calendario del cajón.
+ *
+ * Variables donde el mixin las expone; con selector donde no: `.cpc-nav` trae
+ * `background: transparent` escrito a fuego en el componente compartido (lo
+ * usa también el panel), y el POS no lo puede cambiar desde una variable.
+ *
+ * - ‹ › de mes: gris-5 con el chevron en papel (9.7:1), gris-6 al pasar
+ *   (6.9:1), con el canto --admin-border-strong (gris-5 contra el calendario
+ *   da 1.7:1; el canto, 4.8).
+ * - Día elegido: papel con tinta (19:1), el «elegido» del POS. Antes era un
+ *   dorado al 20 % sobre la superficie que en la tablet apenas se separaba
+ *   del día de hoy.
+ * - Al pasar por un día, el mismo gris-6 que los botones: el día es una tecla.
+ * - Los días sin elegir siguen sin relleno a propósito: treinta teclas grises
+ *   harían del mes un muro, y lo que hay que encontrar es el elegido.
+ * - La hora elegida (el desplegable de horas no se usa hoy en el POS) va igual
+ *   que el día, para que el bloque no deje un tinte suelto.
+ */
+.operational-page.mapa-page {
+  --reservation-picker-nav-border: 1px solid var(--admin-border-strong);
+  --reservation-picker-nav-hover-border: var(--admin-line-strong);
+  --reservation-picker-hover-bg: var(--pos-solido-neutro-hover);
+  --reservation-picker-hover-color: var(--pos-solido-neutro-tinta);
+  --reservation-picker-accent-soft: var(--pos-solido-neutro-tinta);
+  --reservation-picker-selected-border: var(--pos-solido-activo);
+  --reservation-picker-selected-bg: var(--pos-solido-activo);
+  --reservation-picker-selected-color: var(--pos-solido-activo-tinta);
+  --reservation-picker-hour-selected-bg: var(--pos-solido-activo);
+  --reservation-picker-hour-selected-color: var(--pos-solido-activo-tinta);
+}
+
+.mapa-page .cpc-nav {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+
 .operational-page .operational-context-date {
   box-sizing: border-box;
   width: var(--operational-date-control-width);

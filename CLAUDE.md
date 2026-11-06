@@ -27,8 +27,11 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
   de **marca** y ninguna lee la configuración de la otra
   ([landing](docs/panaderia/landing.md)). `/panaderia/carta`, `/pedidos`,
   `/nosotros` y `/contacto` redirigen a su sección.
-- **Pendiente**: POS, tickets y pagos de Panadería; producción y catering
-  ([backlog](docs/backlog.md)).
+- **Caja de Panadería** (`/panaderia/caja`): mostrador sin mesas; venta y cobro
+  atómicos, la venta descuenta la pieza de vitrina (no la receta), horneadas,
+  anulación del día con NIP de encargado y corte; «Vitrina de la caja» en el
+  Menú de Panadería define opciones y piezas ([caja](docs/modulos/caja-panaderia.md)).
+- **Pendiente**: producción, encargos y catering ([backlog](docs/backlog.md)).
 
 Una tabla, ruta, fixture o pantalla no acredita un flujo terminado.
 
@@ -110,6 +113,8 @@ Editar `src/`, nunca `public/build/`:
 | `paths.panaderiaJs` (lista explícita) | `gulp panaderiaJs` → landing de la Panadería |
 | `src/js/modules/punto-de-venta.js` y dependencias | `gulp adminMapJs` → `map.js` (POS) |
 | `src/js/admin/users-directos.js` | `gulp adminUsersDirectosJs` → Usuarios |
+| `src/scss/caja/app-caja.scss` | `gulp cajaCss` → caja de Panadería (después de operation.css) |
+| `paths.cajaJs` (lista explícita) | `gulp cajaJs` → caja de Panadería |
 
 Los bundles son concatenaciones en scope global: el orden de `gulpfile.js` resuelve
 dependencias. `admin.js` carga antes que los bundles de módulo; el POS usa `map.js`,

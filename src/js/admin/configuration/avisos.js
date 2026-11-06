@@ -275,7 +275,6 @@
         }
 
         // ── Vista previa ──
-        var posiciones = { inicio: 'al inicio', final: 'al final' };
         function pintarPrevia() {
             var t = titulo.value.trim();
             previaTitulo.textContent = t || 'Título del aviso';
@@ -287,9 +286,10 @@
 
             var marcadas = cartas ? Array.prototype.filter.call(cartas.querySelectorAll('input[type="checkbox"]'), function (c) { return c.checked; })
                 .map(function (c) { return c.closest('label').querySelector('.admin-pill__title').textContent.trim(); }) : [];
-            var lugar = form.querySelector('input[name="posicion"]:checked');
             var pausado = activo && !activo.checked;
-            previaDonde.innerHTML = escapar((marcadas.length ? marcadas.join(' · ') : 'Ninguna carta') + ' · ' + (posiciones[lugar ? lugar.value : 'inicio'] || 'al inicio'))
+            // Todos los avisos van al final de la carta: no hay lugar que leer.
+            // Misma frase que pinta avisos.php («Al final del Menú y del Maridaje»).
+            previaDonde.innerHTML = escapar(marcadas.length ? 'Al final ' + marcadas.map(function (n) { return 'del ' + n; }).join(' y ') : 'En ninguna carta')
                 + (pausado ? ' · <strong>pausado</strong>' : '');
             hoja.classList.toggle('is-pausado', pausado);
         }

@@ -18,11 +18,21 @@ final class PerfilesSugeridos
     public const TODO = '*';
 
     public const PERFILES = [
-        // Panadería aún no tiene módulos de piso: el mesero solo existe en Restaurante.
         'mesero' => [
             'titulo' => 'Mesero',
             'detalle' => 'Solo punto de venta de Restaurante. Entra con NIP.',
             'ambitos' => ['restaurante' => ['permisos' => ['pdv' => 'operar']]],
+        ],
+        // El piso de Panadería es su caja de mostrador (sin mesas ni cocina).
+        'cajero_panaderia' => [
+            'titulo' => 'Cajero de Panadería',
+            'detalle' => 'Caja de mostrador y horneadas. Entra con NIP; para anular pide el NIP de un encargado.',
+            'ambitos' => ['panaderia' => ['permisos' => ['pdv' => 'operar', 'vitrina' => 'operar']]],
+        ],
+        'encargado_caja_panaderia' => [
+            'titulo' => 'Encargado de caja de Panadería',
+            'detalle' => 'Caja, horneadas y anulación de cobros del día. Entra con NIP.',
+            'ambitos' => ['panaderia' => ['permisos' => ['pdv' => 'operar', 'vitrina' => 'operar', 'anular' => 'operar']]],
         ],
         'admin_restaurante' => [
             'titulo' => 'Administrador de Restaurante',
@@ -31,7 +41,7 @@ final class PerfilesSugeridos
         ],
         'admin_panaderia' => [
             'titulo' => 'Administrador de Panadería',
-            'detalle' => 'Todo Panadería: panel, configuración, usuarios y transferencias.',
+            'detalle' => 'Todo Panadería: panel, caja, usuarios y transferencias.',
             'ambitos' => ['panaderia' => self::TODO],
         ],
         // No asigna es_superadmin: la cuenta protegida queda fuera del CRUD ordinario.

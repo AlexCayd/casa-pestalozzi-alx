@@ -5588,6 +5588,40 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     grid-area: 2/1/3/-1;
   }
 }
+.mapa-page .operational-header__user--menu {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+.mapa-page .operational-header__user--menu:hover {
+  border-color: var(--admin-line-strong);
+  background: var(--pos-solido-neutro-hover);
+}
+.mapa-page .operational-header__user--menu[aria-expanded=true] {
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
+}
+.mapa-page .operational-header__user--menu[aria-expanded=true] .operational-header__user-avatar {
+  background: var(--pos-solido-activo-tinta);
+  color: var(--pos-solido-activo);
+}
+
+.mapa-page .operational-header .operational-header__user--menu .operational-header__user-chevron {
+  color: inherit;
+}
+
+.mapa-page .operational-header__logout {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+.mapa-page .operational-header__logout:hover, .mapa-page .operational-header__logout:active {
+  border-color: var(--pos-solido-peligro);
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .operational-header__user-chevron,
   .operational-user-menu__panel--herramientas {
@@ -6186,6 +6220,43 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: var(--admin-focus-ring);
 }
 
+/*
+ * POS en sólido: el calendario del cajón.
+ *
+ * Variables donde el mixin las expone; con selector donde no: `.cpc-nav` trae
+ * `background: transparent` escrito a fuego en el componente compartido (lo
+ * usa también el panel), y el POS no lo puede cambiar desde una variable.
+ *
+ * - ‹ › de mes: gris-5 con el chevron en papel (9.7:1), gris-6 al pasar
+ *   (6.9:1), con el canto --admin-border-strong (gris-5 contra el calendario
+ *   da 1.7:1; el canto, 4.8).
+ * - Día elegido: papel con tinta (19:1), el «elegido» del POS. Antes era un
+ *   dorado al 20 % sobre la superficie que en la tablet apenas se separaba
+ *   del día de hoy.
+ * - Al pasar por un día, el mismo gris-6 que los botones: el día es una tecla.
+ * - Los días sin elegir siguen sin relleno a propósito: treinta teclas grises
+ *   harían del mes un muro, y lo que hay que encontrar es el elegido.
+ * - La hora elegida (el desplegable de horas no se usa hoy en el POS) va igual
+ *   que el día, para que el bloque no deje un tinte suelto.
+ */
+.operational-page.mapa-page {
+  --reservation-picker-nav-border: 1px solid var(--admin-border-strong);
+  --reservation-picker-nav-hover-border: var(--admin-line-strong);
+  --reservation-picker-hover-bg: var(--pos-solido-neutro-hover);
+  --reservation-picker-hover-color: var(--pos-solido-neutro-tinta);
+  --reservation-picker-accent-soft: var(--pos-solido-neutro-tinta);
+  --reservation-picker-selected-border: var(--pos-solido-activo);
+  --reservation-picker-selected-bg: var(--pos-solido-activo);
+  --reservation-picker-selected-color: var(--pos-solido-activo-tinta);
+  --reservation-picker-hour-selected-bg: var(--pos-solido-activo);
+  --reservation-picker-hour-selected-color: var(--pos-solido-activo-tinta);
+}
+
+.mapa-page .cpc-nav {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+
 .operational-page .operational-context-date {
   box-sizing: border-box;
   width: var(--operational-date-control-width);
@@ -6290,6 +6361,35 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .operational-page .operational-drawer-toggle--icon {
   width: 44px;
   padding: 0;
+}
+
+/*
+ * POS en sólido: el ☰ y el aspa del cajón. Arriba queda la geometría
+ * compartida; aquí, sólo la piel, y sólo en .mapa-page, que es donde viven los
+ * tokens --pos-solido-*.
+ *
+ * Gris-5 con el icono en papel (9.7:1), gris-6 al pasar (6.9:1). El canto sube
+ * de --admin-border a --admin-border-strong: el relleno gris contra la barra o
+ * el vidrio del cajón se queda en 1.7:1, y el canto es lo que da el 3:1 de un
+ * control (4.8:1). El hover deja de cambiar el canto a dorado: con relleno, el
+ * paso de gris ya es la señal.
+ */
+.mapa-page .operational-drawer-toggle,
+.mapa-page .operational-icon-button {
+  border-color: var(--admin-border-strong);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+.mapa-page .operational-drawer-toggle:hover,
+.mapa-page .operational-icon-button:hover {
+  border-color: var(--admin-line-strong);
+  background: var(--pos-solido-neutro-hover);
+}
+
+.mapa-page .operational-drawer-toggle[aria-expanded=true] {
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .operational-drawer {
@@ -6528,34 +6628,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
   /*
-   * Estados semánticos del mapa de mesas. Cada trío (fondo / texto / borde)
-   * se deriva de la paleta funcional mezclada con la superficie activa, igual
-   * que los badges del panel. Antes había dos bloques —uno por tema— con
-   * dieciocho literales entre ambos; con color-mix sobre --admin-surface un
-   * solo bloque sirve para claro y oscuro.
+   * Estados semánticos del mapa: tríos fondo / texto / borde TEÑIDOS,
+   * derivados de la paleta funcional mezclada con la superficie activa.
    *
-   * Los porcentajes NO son los de un badge, y por eso se subieron. Un badge
-   * vive sobre la superficie de una tarjeta; un pin de mesa vive sobre el
-   * suelo del salón, que en el POS es casi negro. Ahí un borde al 42% de un
-   * color sobre transparente se queda muy por debajo del 3:1 que la casa pide
-   * para elementos no textuales, y a un metro de distancia —que es como se
-   * mira una tablet de piso— las mesas literalmente no tenían contorno.
+   * Los PINES del POS ya no los usan: se repintan en sólido sobre el propio
+   * pin (bloque «POS en sólido», justo debajo). Estos valores se quedan
+   * porque los leen piezas que no son controles —el aviso de reservación del
+   * modal de mesa, la nota de la reserva, el chip de advertencia— cuyo texto
+   * secundario no aguantaría un relleno pleno (gris apagado sobre el azul
+   * sólido: 2.1:1), y la lista estructurada, que pinta su punto con -border.
    *
-   * Los BORDES se mezclan con --admin-text y no con `transparent`, y esa es la
-   * parte que no es obvia: subir el porcentaje sobre transparente no arregla
-   * el rojo. --admin-c-rojo es un color oscuro (luminancia 0.15), así que sobre un
-   * suelo oscuro se queda en 2.4:1 por mucho que se sature — medido. Mezclado
-   * con la tinta del tema, en cambio, el mismo token se aclara en oscuro y se
-   * oscurece en claro, y los tres estados pasan de 3:1 en los dos temas
-   * (rojo 3.68 / 6.17, verde 5.93 / 4.15, azul 5.38 / 4.64).
-   *
-   * El TEXTO baja al 50%, que parece poco pero es lo que hay que hacer: la
-   * etiqueta va sobre el relleno de su propio color, así que cuanto más
-   * saturada, menos se separa del fondo sobre el que está. Al 88% el nombre de
-   * la mesa se quedaba en 2.99:1 sobre el verde y en 3.26 sobre el rojo. Al
-   * 50% los seis casos pasan de 4.5:1 (el peor, 4.67) y la etiqueta conserva
-   * el tinte: el estado ya lo dicen el relleno y el borde, el trabajo del
-   * texto es leerse.
+   * Cómo están medidos, para esos consumidores: los BORDES se mezclan con
+   * --admin-text y no con `transparent` —el rojo es oscuro (luminancia 0.15) y
+   * sobre transparente no pasa de 2.4:1 por mucho que se sature; mezclado con
+   * la tinta pasan de 3:1 (rojo 3.68, verde 5.93, azul 5.38 en oscuro)—, y el
+   * TEXTO va al 50 % porque se lee sobre el tinte de su propio color: así los
+   * seis casos pasan de 4.5:1 (el peor, 4.67).
    */
   --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 24%, var(--admin-surface));
   --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 50%, var(--admin-text));
@@ -6578,14 +6666,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --map-table-reservation-overdue-text: var(--admin-paper);
   --map-table-reservation-overdue-border: color-mix(in srgb, var(--admin-c-azul) 76%, var(--admin-paper));
   /* La mesa inutilizable se dice con color y contorno, NO bajando el alfa: un
-     chip ya oscuro al 94% sobre un suelo oscuro simplemente desaparece. */
+     chip ya oscuro al 94% sobre un suelo oscuro simplemente desaparece. El
+     contorno (--admin-border-strong) lo conserva también en sólido. */
   --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 18%, var(--admin-surface));
   --map-table-unavailable-text: var(--admin-muted);
   --map-table-unavailable-border: var(--admin-border-strong);
   /* Fichas del POS (Caja, Llevar): botones de acción, no mesas. Neutras a
      propósito —ni verde ni gris de «no disponible»— porque no tienen estado
-     que decir; se despegan del suelo por superficie y contorno. Se derivan
-     de --admin-* en un solo sentido (nada de mapeo inverso: ver CLAUDE.md). */
+     que decir. El relleno lo pone «POS en sólido»; el canto se queda aquí.
+     Se derivan de --admin-* en un solo sentido (nada de mapeo inverso: ver
+     CLAUDE.md). */
   --map-ficha-bg: var(--admin-surface-strong);
   --map-ficha-text: var(--admin-text);
   --map-ficha-border: var(--admin-border-strong);
@@ -6599,8 +6689,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
      blanco no queda más dirección que bajar; el tinte dorado que llevaba
      mezclaba blanco con blanco y no se veía. */
   --map-action-primary-hover-bg: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-surface));
-  /* El neutro es el de la casa (.pos-btn-redondo): sin relleno y con el
-     canto de --admin-border-strong, que es el 3:1 de un control. */
+  /* Valores base del neutro. En el POS lleva relleno (ver «POS en sólido»);
+     el canto de --admin-border-strong, que es el 3:1 de un control, se queda
+     en los dos. */
   --map-action-utility-bg: transparent;
   --map-action-utility-text: var(--admin-text);
   --map-action-utility-border: var(--admin-border-strong);
@@ -6612,6 +6703,71 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --map-reservation-warning-border: var(--map-table-reservation-border);
   --map-reservation-block-bg: var(--map-table-reservation-bg);
   --map-reservation-block-border: var(--map-table-reservation-border);
+}
+
+/* ── POS en sólido: pines, leyenda y acciones del mapa ──────────
+ *
+ * Decisión del producto (nov 2026): en el POS todo lo que se pulsa lleva
+ * relleno opaco, y el producto lo confirmó expresamente para las mesas. El
+ * plano sale más saturado a cambio de que el estado se lea a un brazo de
+ * distancia y con reflejos, que es como se mira la tablet de piso.
+ *
+ * Los tokens de estado se redefinen SOBRE EL PIN (y el ítem de la leyenda),
+ * no sobre .mapa-page: una custom property declarada en el elemento gana a la
+ * que hereda del <body>, así que el aviso del modal, la nota de la reserva y
+ * los chips que comparten estos nombres siguen viendo los derivados teñidos.
+ * Los -border declarados aquí tampoco llegan a --map-reservation-*, que ya
+ * se resolvieron en el <body>.
+ *
+ * Tinta sobre cada relleno (WCAG, tema oscuro del piso):
+ *   libre          verde al 75 % con papel       4.7:1  (texto blanco, decisión del producto)
+ *   ocupada        rojo con papel                4.58:1  (el peor; pasa)
+ *   reservada      azul al 78 % con papel        5.0:1
+ *   no utilizable  gris-5 con papel al 72 %      5.9:1
+ *   Caja, Llevar   gris-5 con papel              9.7:1
+ *
+ * Bordes: en los de color el borde ES el relleno —un canto más claro del
+ * mismo tono era el contorno del tinte de antes— y el relleno ya se despega
+ * del suelo por sí solo (verde 5.0:1, rojo 3.2, azul ≈ 3.0). El gris no:
+ * gris-5 sobre el suelo casi negro se queda en 1.5:1, así que «no utilizable»
+ * y las fichas conservan el canto --admin-border-strong (4.3:1 contra el
+ * suelo), el contorno de control de la casa.
+ *
+ * «No utilizable» lleva el papel rebajado y no pleno: así no se confunde con
+ * Caja y Llevar, que son el mismo gris pero sí se pulsan.
+ *
+ * La reserva vencida no tiene pin propio —la dice su línea, «Se libera»—, y
+ * sus --map-table-reservation-overdue-* (el azul hondo de los chips) no se
+ * tocan: siguen siendo más oscuros que el azul de la reservada.
+ */
+.mapa-page :is(.mesa-pin, .mapa-leyenda-item) {
+  --map-table-available-bg: var(--pos-solido-ok);
+  --map-table-available-text: var(--pos-solido-ok-tinta);
+  --map-table-available-border: var(--pos-solido-ok);
+  --map-table-occupied-bg: var(--pos-solido-peligro);
+  --map-table-occupied-text: var(--pos-solido-peligro-tinta);
+  --map-table-occupied-border: var(--pos-solido-peligro);
+  --map-table-reservation-bg: var(--pos-solido-info);
+  --map-table-reservation-text: var(--pos-solido-info-tinta);
+  --map-table-reservation-border: var(--pos-solido-info);
+  --map-table-unavailable-bg: var(--pos-solido-neutro);
+  --map-table-unavailable-text: color-mix(in srgb, var(--pos-solido-neutro-tinta) 72%, var(--pos-solido-neutro));
+  --map-ficha-bg: var(--pos-solido-neutro);
+  --map-ficha-text: var(--pos-solido-neutro-tinta);
+}
+
+.mapa-page .mapa-leyenda-item {
+  --map-table-selected-bg: var(--pos-solido-activo);
+  --map-table-selected-text: var(--pos-solido-activo);
+}
+
+.operational-page.mapa-page {
+  --map-action-utility-bg: var(--pos-solido-neutro);
+  --map-action-utility-text: var(--pos-solido-neutro-tinta);
+  --map-action-utility-hover-bg: var(--pos-solido-neutro-hover);
+  --map-action-cancel-bg: var(--pos-solido-peligro);
+  --map-action-cancel-text: var(--pos-solido-peligro-tinta);
+  --map-action-cancel-border: var(--pos-solido-peligro);
 }
 
 .mesas-map {
@@ -7146,8 +7302,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: center;
   text-overflow: ellipsis;
   /* Sin sombra de rescate: era lo que sostenía la etiqueta cuando su color no
-     contrastaba con el relleno. Ahora contrasta (4.67:1 en el peor caso), y en
-     tema claro una sombra oscura bajo un texto oscuro sólo emborrona. */
+     contrastaba con el relleno. Ahora contrasta (4.58:1 en el peor caso, papel
+     sobre el rojo sólido), y una sombra bajo un texto oscuro sólo emborrona. */
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre {
@@ -7171,6 +7327,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
+  border-color: var(--map-table-occupied-text);
   border-style: double;
   border-width: 3px;
 }
@@ -7451,8 +7608,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--map-action-cancel-text);
 }
 .mapa-page .operational-map-action--cancel:hover:not(:disabled) {
-  border-color: var(--map-action-cancel-border);
-  background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
+  border-color: color-mix(in srgb, var(--map-action-cancel-bg) 84%, var(--admin-ink));
+  background: color-mix(in srgb, var(--map-action-cancel-bg) 84%, var(--admin-ink));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7707,6 +7864,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: var(--admin-focus-ring);
 }
 
+.mapa-page .map-help-button {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+.mapa-page .map-help-button:hover {
+  border-color: var(--admin-line-strong);
+  background: var(--pos-solido-neutro-hover);
+  color: var(--pos-solido-neutro-tinta);
+}
+
 .map-help-button svg,
 .map-help-dialog__close svg {
   width: 20px;
@@ -7815,6 +7982,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .map-help-dialog__close:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
+}
+
+.mapa-page .map-help-dialog__close {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+}
+.mapa-page .map-help-dialog__close:hover {
+  background: var(--pos-solido-neutro-hover);
 }
 
 .map-help-dialog__body {
@@ -8044,16 +8219,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     --operational-context-height: 212px;
   }
 }
-.mapa-reserva-count {
+.mapa-page .mapa-reserva-count {
   display: inline-grid;
   min-width: 28px;
   height: 26px;
   padding: 0 8px;
   place-items: center;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--admin-gold-soft);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: var(--operational-text-xs);
   font-weight: var(--operational-weight-semibold);
 }
@@ -8090,39 +8265,39 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   scrollbar-width: thin;
 }
 
-.operational-drawer .reservations-table__status {
+.mapa-page .operational-drawer .reservations-table__status {
   display: inline-flex;
   align-items: center;
   min-height: 23px;
   padding: 4px 8px;
-  border: 1px solid var(--admin-neutral-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: var(--admin-neutral-bg);
-  color: var(--admin-neutral-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: var(--operational-text-xs);
   font-weight: var(--operational-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.operational-drawer .reservations-table__status--confirmada,
-.operational-drawer .reservations-table__status--completada {
-  border-color: var(--admin-success-border);
-  background: var(--admin-success-bg);
-  color: var(--admin-success-text);
+.mapa-page .operational-drawer .reservations-table__status--confirmada,
+.mapa-page .operational-drawer .reservations-table__status--completada {
+  border-color: var(--pos-solido-ok);
+  background: var(--pos-solido-ok);
+  color: var(--pos-solido-ok-tinta);
 }
 
-.operational-drawer .reservations-table__status--cancelada,
-.operational-drawer .reservations-table__status--no_show {
-  border-color: var(--admin-danger-border);
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
+.mapa-page .operational-drawer .reservations-table__status--cancelada,
+.mapa-page .operational-drawer .reservations-table__status--no_show {
+  border-color: var(--pos-solido-peligro);
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
 }
 
-.operational-drawer .reservations-table__status--pendiente_verificacion {
-  border-color: var(--admin-warning-border);
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
+.mapa-page .operational-drawer .reservations-table__status--pendiente_verificacion {
+  border-color: var(--pos-solido-aviso);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
 }
 
 .mapa-page {
@@ -8189,15 +8364,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   gap: 6px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--admin-t-fast) var(--admin-ease-out);
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
 }
 .mapa-page .pos-btn-redondo--icono {
   width: 44px;
@@ -8210,15 +8385,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-width: 1.9;
 }
 .mapa-page .pos-btn-redondo:hover:not(:disabled) {
-  background: var(--admin-surface-soft);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .mapa-page .pos-btn-redondo:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
 .mapa-page .pos-btn-redondo:disabled {
-  border-color: var(--admin-border);
-  color: var(--admin-faint);
+  opacity: 0.5;
   cursor: default;
 }
 .mapa-page .pos-btn-redondo.is-llamando {
@@ -8582,26 +8757,31 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 10px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
+.mapa-page .pos-cajon-fecha__dia:hover {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
+}
 .mapa-page .pos-cajon-fecha__dia:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
 .mapa-page .pos-cajon-fecha__dia[aria-expanded=true] {
-  border-color: var(--admin-border-strong);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 
 .pos-cajon-fecha__rel {
-  color: var(--admin-muted);
+  color: inherit;
 }
 
 .mapa-page .pos-drawer-date[hidden] {
@@ -8620,10 +8800,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 12px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-weight: 600;
   text-align: left;
@@ -8640,9 +8820,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 0 0 16px;
   stroke-width: 1.9;
 }
+.mapa-page .pos-cajon__ahora:hover {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
+}
 .mapa-page .pos-cajon__ahora[aria-current=true] {
-  border-color: var(--admin-border-strong);
-  background: var(--admin-surface-soft);
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mapa-page .pos-cajon__ahora:focus-visible {
   outline: 0;
@@ -8741,9 +8926,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -8754,15 +8940,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 0 0 16px;
   stroke-width: 1.9;
 }
-.pos-horario__boton:is(button):hover .pos-horario__ver {
-  background: var(--admin-surface-soft);
+.pos-horario__boton:is(button):not([aria-current=true]):hover .pos-horario__ver {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
-.pos-horario__boton[aria-current=true] .pos-horario__ver, .pos-horario__boton:not(button) .pos-horario__ver {
+.pos-horario__boton[aria-current=true] .pos-horario__ver {
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
+}
+.pos-horario__boton:not(button) .pos-horario__ver {
   padding: 0;
   border-color: transparent;
   background: transparent;
-}
-.pos-horario__boton:not(button) .pos-horario__ver {
   color: var(--admin-muted);
 }
 
@@ -8987,9 +9177,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .pos-senal--reservada {
-  border-color: var(--map-table-reservation-border);
-  background: var(--map-table-reservation-bg);
-  color: var(--map-table-reservation-text);
+  border-color: var(--pos-solido-info);
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
 }
 
 .pos-senal--vencida {
@@ -9089,10 +9279,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   grid-column: 2;
   grid-row: 1/span 2;
   place-items: center;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 50%;
-  background: transparent;
-  color: var(--admin-muted);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
 }
 .pos-ficha__cerrar svg {
@@ -9101,8 +9291,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-width: 2;
 }
 .pos-ficha__cerrar:hover {
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .pos-ficha__cerrar:focus-visible {
   outline: 0;
@@ -9186,10 +9376,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   position: relative;
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-family: var(--admin-font-sans);
   font-size: 13px;
@@ -9205,15 +9395,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   content: "";
 }
 .pos-ficha .pos-ficha__inline:hover:not(:disabled) {
-  background: var(--admin-surface-soft);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .pos-ficha .pos-ficha__inline:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
 .pos-ficha .pos-ficha__inline:disabled {
-  border-color: var(--admin-border);
-  color: var(--admin-muted);
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -9228,7 +9418,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 13px;
 }
 .pos-ficha__estado .pos-senal--reservada {
-  color: var(--map-table-reservation-text);
+  color: var(--pos-solido-info-tinta);
 }
 .pos-ficha__estado .pos-senal--vencida {
   color: var(--map-table-reservation-overdue-text);
@@ -9407,11 +9597,34 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 :is(.pos-motivos, .pos-alta) .admin-pill {
+  --pill-fondo: var(--pos-solido-neutro);
+  --pill-tinta: var(--pos-solido-neutro-tinta);
   min-height: 44px;
   align-items: center;
+  border-color: var(--pill-fondo);
+  background: var(--pill-fondo);
+  color: var(--pill-tinta);
 }
 :is(.pos-motivos, .pos-alta) .admin-pill::before {
   margin-top: 0;
+  border-color: currentColor;
+}
+:is(.pos-motivos, .pos-alta) .admin-pill .admin-pill__title,
+:is(.pos-motivos, .pos-alta) .admin-pill .admin-pill__hint {
+  color: inherit;
+}
+:is(.pos-motivos, .pos-alta) .admin-pill:hover {
+  --pill-fondo: var(--pos-solido-neutro-hover);
+}
+:is(.pos-motivos, .pos-alta) .admin-pill:has(input[type=radio]:checked) {
+  --pill-fondo: var(--pos-solido-activo);
+  --pill-tinta: var(--pos-solido-activo-tinta);
+  border-color: var(--pill-fondo);
+  background: var(--pill-fondo);
+}
+:is(.pos-motivos, .pos-alta) .admin-pill:has(input[type=radio]:checked)::before {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 4px currentColor;
 }
 
 .pos-motivos__otro {
@@ -9609,10 +9822,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .pos-alta .pos-alta__hora {
   min-height: 44px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 10px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-family: var(--admin-font-mono);
   font-size: 15px;
   font-variant-numeric: tabular-nums;
@@ -9620,22 +9833,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
 }
 .pos-alta .pos-alta__hora:hover:not(:disabled) {
-  background: var(--admin-surface-soft);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .pos-alta .pos-alta__hora:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
 .pos-alta .pos-alta__hora:disabled {
-  border-color: var(--admin-border-soft);
-  color: var(--admin-muted);
+  opacity: 0.5;
   text-decoration: line-through;
   cursor: not-allowed;
 }
 .pos-alta .pos-alta__hora.is-elegida, .pos-alta .pos-alta__hora.is-elegida:hover:not(:disabled) {
-  border-color: var(--admin-accent);
-  background: var(--admin-accent);
-  color: var(--admin-on-accent);
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .pos-alta__previa {
@@ -9734,6 +9947,47 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mapa-page :where(button:disabled, [aria-disabled=true]) {
   cursor: not-allowed;
+}
+
+/* ── Lenguaje sólido del POS ──────────────────────────────────
+ *
+ * Decisión del producto: en el POS todo lo que se pulsa o dice un estado
+ * (botones, pestañas, chips, contadores, etiquetas, pines del mapa) lleva
+ * relleno SÓLIDO. Nada de tintes translúcidos (color-mix con `transparent`) ni
+ * de botones que son sólo un contorno: en una tablet de piso, a un brazo y con
+ * reflejos, un tinte al 10 % no se lee como botón.
+ *
+ * Cada relleno trae su tinta, medida por contraste WCAG (texto ≥ 4.5:1):
+ *
+ *   neutro   gris-5 con papel (≈ 9.7:1)       secundario, utilidad, cerrar
+ *   activo   papel con tinta                   elegido: pestaña, chip, filtro
+ *   ok       verde al 75 % con papel (≈ 4.7:1) libre, listo, confirmado
+ *   peligro  rojo con papel (4.58:1)           ocupada, cancelar, destructivo
+ *   info     azul al 78 % con tinta, + papel (≈ 5:1; puro daría 3.4)
+ *   aviso    ámbar con tinta (10.7:1)
+ *   naranja  naranja con tinta (6.6:1)         liberar
+ *
+ * El hover OSCURECE (mezcla con la tinta): aclarar bajaría el contraste del
+ * texto en papel. Siguen translúcidos a propósito lo que no es un control: el
+ * realce de una fila al pasar, velos, sombras, barras de desplazamiento y
+ * gráficas.
+ */
+.mapa-page {
+  --pos-solido-neutro: var(--admin-gris-5);
+  --pos-solido-neutro-hover: var(--admin-gris-6);
+  --pos-solido-neutro-tinta: var(--admin-text);
+  --pos-solido-activo: var(--admin-accent);
+  --pos-solido-activo-tinta: var(--admin-on-accent);
+  --pos-solido-ok: color-mix(in srgb, var(--admin-c-verde) 75%, var(--admin-ink));
+  --pos-solido-ok-tinta: var(--admin-paper);
+  --pos-solido-peligro: var(--admin-c-rojo);
+  --pos-solido-peligro-tinta: var(--admin-on-danger);
+  --pos-solido-info: color-mix(in srgb, var(--admin-c-azul) 78%, var(--admin-ink));
+  --pos-solido-info-tinta: var(--admin-paper);
+  --pos-solido-aviso: var(--admin-c-ambar);
+  --pos-solido-aviso-tinta: var(--admin-ink);
+  --pos-solido-naranja: var(--admin-c-naranja);
+  --pos-solido-naranja-tinta: var(--admin-ink);
 }
 
 .pdv-shell {
@@ -9852,10 +10106,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .pdv-cal__nav-btn {
-  background: none;
-  border: 1px solid var(--line-soft);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 5px;
-  color: var(--txt-mute);
+  color: var(--pos-solido-neutro-tinta);
   font-size: 1rem;
   width: 26px;
   height: 26px;
@@ -9863,11 +10117,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 .pdv-cal__nav-btn:hover {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--pos-solido-neutro-hover);
 }
 
 .pdv-cal__weekdays {
@@ -9897,27 +10150,27 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   border-radius: 5px;
   border: none;
-  background: none;
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
   font-family: var(--admin-font-sans);
 }
 .pdv-cal__day:hover:not(.pdv-cal__day--empty) {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
 .pdv-cal__day--empty {
+  background: transparent;
   pointer-events: none;
 }
 .pdv-cal__day--today {
-  color: var(--accent-text);
   font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--pos-solido-neutro-tinta);
 }
 .pdv-cal__day--selected {
-  background: var(--gold) !important;
-  color: var(--on-accent) !important;
+  background: var(--pos-solido-activo) !important;
+  color: var(--pos-solido-activo-tinta) !important;
   font-weight: 700;
 }
 
@@ -9932,17 +10185,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--txt-faint);
-  border: 1px solid var(--line-soft);
+  color: var(--pos-solido-neutro-tinta);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 0.25rem 0.75rem;
-  background: transparent;
+  background: var(--pos-solido-neutro);
   cursor: pointer;
-  transition: color 0.3s, border-color 0.3s;
+  transition: color 0.3s, background 0.3s;
 }
 .mapa-logout:hover {
-  color: var(--feedback-danger);
-  border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
+  color: var(--pos-solido-peligro-tinta);
+  background: var(--pos-solido-peligro);
 }
 .mapa-logout span {
   max-width: 14ch;
@@ -9986,9 +10239,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .pdv-reserva-count {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 0.1rem 0.55rem;
   min-width: 24px;
@@ -10222,22 +10475,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--txt-mute);
-  background: var(--surface-2);
-  border: 1px solid var(--line-soft);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0.35rem 0.85rem;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  transition: color 0.2s, background 0.2s;
 }
 .pdv-ahora-btn:hover {
-  color: var(--txt);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--pos-solido-neutro-hover);
 }
 .pdv-ahora-btn--active {
-  color: var(--feedback-ok);
-  border-color: color-mix(in srgb, var(--feedback-ok) 30%, transparent);
-  background: color-mix(in srgb, var(--feedback-ok) 7%, transparent);
+  color: var(--pos-solido-ok-tinta);
+  background: var(--pos-solido-ok);
+}
+.pdv-ahora-btn--active:hover {
+  background: color-mix(in srgb, var(--pos-solido-ok) 84%, var(--admin-ink));
 }
 
 .pdv-ahora-dot {
@@ -10433,24 +10686,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
    * escritorio del `1.5rem` a secas. Coinciden, así que es un solo valor y no
    * hacen falta dos medias queries para colocarla.
    *
-   * Son DOS huecos y no uno, a propósito:
-   *
-   * - `--mmodal-corner-gap` es el interno del grupo (chip de estado + cancelar
-   *   mesa), que sí son una unidad: el chip anuncia el ticket y el botón actúa
-   *   sobre él.
-   * - `--mmodal-corner-sep` es lo que separa ese grupo de la ×, que NO es del
-   *   grupo: cierra el modal. Con los dos huecos iguales, un círculo rojo
-   *   destructivo y un círculo neutro de descarte quedaban a 6px, del mismo
-   *   tamaño y de la misma receta — la pareja más confundible del modal, en la
-   *   esquina que más se pulsa y en una tablet. Separado, se leen como «un
-   *   grupo» + «salir». Además deja fuera de la × el área pulsable de 44px de
-   *   cancelar, que con 6px de hueco invadía un par de píxeles de su costado
-   *   izquierdo y se los robaba (gana por orden de pintado: es un positioned
-   *   posterior en el árbol).
+   * `--mmodal-corner-sep` es lo que separa de la × lo que vaya a su lado (el
+   * chip de una reserva o de la mesa múltiple): la × no es del grupo, cierra
+   * el modal. Hubo además un hueco interno para «chip + cancelar mesa», que se
+   * fue con esa pareja (el chip «Ticket abierto» también se quitó).
    */
   --mmodal-corner-size: 28px;
   --mmodal-corner-icon: 14px;
-  --mmodal-corner-gap: .4rem;
   --mmodal-corner-sep: .85rem;
   --mmodal-corner-inset: 1.5rem;
   position: absolute;
@@ -10501,6 +10743,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 @media (min-width: 640px) {
   .mesa-modal__panel:has(.mmodal-reserva-preview) {
     width: min(620px, 100vw - 24px);
+  }
+  /*
+   * El corte de caja, más ancho que el modal base de 400 px: a esa medida el
+   * título se cortaba («Corte de …»), la fecha también y los platillos más
+   * pedidos perdían el final del nombre. 680 deja respirar las cuatro
+   * tarjetas y la lista sin cambiar su reparto.
+   */
+  .mesa-modal__panel:has(.mmodal-caja) {
+    width: min(680px, 100vw - 32px);
   }
   /*
    * El cobro apilaba método, propina, totales, recibido y cambio en una sola
@@ -10618,11 +10869,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 1 1 auto;
   min-height: 44px;
   padding: 0 0.6rem;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
-  color: inherit;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 .admin-body .mmodal-excedente__btn {
   font-family: var(--admin-font-sans);
@@ -10631,9 +10883,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0;
   text-transform: none;
 }
+.mmodal-excedente__btn:hover {
+  background: var(--pos-solido-neutro-hover);
+}
 .mmodal-excedente__btn.is-on {
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mmodal-excedente__monto {
   display: flex;
@@ -10733,7 +10988,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * misma horizontal en los dos breakpoints con un solo par de valores.
  */
 .mesa-modal__close {
-  --mmodal-corner-tono: var(--txt-mute);
+  --mmodal-corner-fondo: var(--pos-solido-neutro);
+  --mmodal-corner-tinta: var(--pos-solido-neutro-tinta);
   position: absolute;
   top: var(--mmodal-corner-inset);
   right: var(--mmodal-corner-inset);
@@ -10774,9 +11030,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   content: "";
 }
 .mesa-modal__close:hover {
-  background: color-mix(in srgb, var(--mmodal-corner-tono) 24%, transparent);
-  border-color: color-mix(in srgb, var(--mmodal-corner-tono) 68%, transparent);
-  color: var(--txt);
+  --mmodal-corner-fondo: var(--pos-solido-neutro-hover);
 }
 
 /*
@@ -10794,8 +11048,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *   caja, así que el hueco se reserva aquí en el relleno y no con un margen
  *   distinto en cada grupo de la derecha (había dos, `calc(28px + .4rem)` en
  *   el de estado y `1.9rem` en el del cobro, que no eran la misma medida).
- *   Va con `--mmodal-corner-sep` y no con el hueco interno del grupo: ver el
- *   bloque de tokens de .mesa-modal__panel.
+ *   Va con `--mmodal-corner-sep`: ver el bloque de tokens de .mesa-modal__panel.
  * - El título encoge. Iba a `flex-shrink: 0`, así que un nombre largo de
  *   reservación empujaba el chip y la acción fuera de la caja.
  */
@@ -10967,13 +11220,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-faint);
 }
 
-.mmodal-header-estado {
-  display: flex;
-  align-items: center;
-  gap: var(--mmodal-corner-gap);
-  flex-shrink: 0;
-}
-
 /*
  * LA ESQUINA DEL MODAL ES UNA SOLA RECETA.
  *
@@ -10984,11 +11230,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  *
  * Hoy quedan dos —el chip informa, la × cierra el modal— porque «cancelar mesa»
  * se fundió con «cerrar ticket» en el único botón de salida de la pestaña
- * Ticket (ver actualizarCierreEstado en punto-de-venta.js). El placeholder
- * sobrevive a ese recorte: describe la CAJA de la esquina —tamaño, radio y la
- * fórmula del tinte— y el único que cambia es el hue, que es lo que de verdad
- * distingue a sus consumidores. --mmodal-corner-tono es lo que cada uno
- * declara.
+ * Ticket (ver actualizarCierreEstado en punto-de-venta.js). Y el chip sólo sale
+ * en una reserva o en la mesa múltiple: con ticket abierto la esquina es sólo
+ * la ×, por decisión del producto. El placeholder
+ * sobrevive a ese recorte: describe la CAJA de la esquina —tamaño y radio— y
+ * lo único que cambia entre consumidores es el relleno y su tinta.
+ *
+ * Ya no es una fórmula de tinte: por decisión del producto todo control del
+ * POS lleva relleno SÓLIDO (bloque «Lenguaje sólido del POS»), así que cada
+ * consumidor declara --mmodal-corner-fondo y --mmodal-corner-tinta con un par
+ * de tokens --pos-solido-*. El filete se queda transparente: con relleno pleno
+ * sobra, pero conserva su píxel para que la caja no cambie de tamaño.
  */
 /* ⚠️ Este bloque se emite AQUÍ, y .mesa-modal__close está doscientas líneas más
  * arriba: el `@extend` no copia declaraciones al consumidor, añade su selector
@@ -11005,10 +11257,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: var(--mmodal-corner-size);
   height: var(--mmodal-corner-size);
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
-  color: var(--mmodal-corner-tono);
+  background: var(--mmodal-corner-fondo);
+  color: var(--mmodal-corner-tinta);
 }
 
 /* `inline-flex` con altura fija, no `inline-block` con padding.
@@ -11034,44 +11286,38 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 0 0.7rem;
   border-radius: 999px;
   margin: 0;
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-chip__texto {
   display: block;
   transform: translateY(0.5px);
 }
 .mmodal-chip--bloqueada, .mmodal-chip--ocupada {
-  background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
-  color: var(--feedback-danger);
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 30%, transparent);
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
 }
 .mmodal-chip--proxima {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent-text);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-chip--warning {
-  /* Los dos porcentajes tienen que sumar 100: en color-mix, si suman menos,
-     el resultado se multiplica por la suma. Con 72+8 el chip salía al 80% de
-     alfa —transparente— sin que nadie lo hubiera pedido. */
-  background: color-mix(in srgb, var(--map-table-available-bg) 92%, var(--gold) 8%);
-  color: var(--gold-soft);
-  border: 1px dashed var(--map-table-reservation-border);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
+  border: 1px dashed var(--pos-solido-aviso-tinta);
 }
 .mmodal-chip--service_window, .mmodal-chip--tolerance {
-  background: var(--map-table-reservation-bg);
-  color: var(--map-table-reservation-text);
-  border: 1px solid var(--map-table-reservation-border);
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
 }
 .mmodal-chip--overdue {
   background: var(--map-table-reservation-overdue-bg);
   color: var(--map-table-reservation-overdue-text);
-  border: 1px solid var(--map-table-reservation-overdue-border);
 }
 .mmodal-chip--ticket {
-  --mmodal-corner-tono: var(--feedback-ok);
-  border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
-  background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
-  color: var(--mmodal-corner-tono);
+  background: var(--pos-solido-ok);
+  color: var(--pos-solido-ok-tinta);
 }
 
 .mmodal-info {
@@ -11425,9 +11671,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-shrink: 0;
   padding: 0.38rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid var(--gold-soft);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent-text);
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
 }
 .admin-body .mmodal-nombre-save {
@@ -11442,7 +11688,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1;
 }
 .mmodal-nombre-save:hover {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--pos-solido-neutro-hover);
 }
 
 .mmodal-llevar-count {
@@ -11453,17 +11699,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1.2;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 0.18rem 0.6rem;
   white-space: nowrap;
 }
 .mmodal-llevar-count--lleno {
-  color: var(--admin-danger-text);
-  background: var(--admin-danger-bg);
-  border-color: var(--admin-danger-border);
+  color: var(--pos-solido-peligro-tinta);
+  background: var(--pos-solido-peligro);
 }
 
 .mmodal-llevar-list {
@@ -11596,10 +11841,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 0.4rem;
   min-height: 44px;
   padding: 0 0.8rem;
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
@@ -11614,20 +11859,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-llevar-switch__todos:hover,
 .mmodal-llevar-chip:hover {
-  border-color: var(--line-strong);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
 
 .mmodal-llevar-switch__todos {
-  color: var(--txt);
-  border-color: var(--line);
+  color: var(--pos-solido-neutro-tinta);
 }
 
 .mmodal-llevar-switch__total {
   min-width: 1.4rem;
   padding: 0.05rem 0.35rem;
   border-radius: 999px;
-  background: var(--line-soft);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.7rem;
@@ -11647,24 +11891,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-llevar-chip.is-active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   cursor: default;
 }
 
 .mmodal-llevar-chip--nuevo {
   border-style: dashed;
-  color: var(--txt);
+  border-color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 55%, var(--pos-solido-neutro));
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-llevar-chip--nuevo:disabled, .mmodal-llevar-chip--nuevo[aria-disabled=true] {
-  color: var(--txt-faint);
-  border-color: var(--line-soft);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .mmodal-llevar-chip--nuevo:disabled:hover, .mmodal-llevar-chip--nuevo[aria-disabled=true]:hover {
-  color: var(--txt-faint);
-  border-color: var(--line-soft);
+  background: var(--pos-solido-neutro);
 }
 
 .mmodal-stepper-wrap {
@@ -11699,19 +11941,18 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
-  color: var(--txt-mute);
-  background: none;
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
   border: none;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
 .mmodal-step:hover {
-  background: var(--surface);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-step:active {
-  background: var(--line);
+  background: color-mix(in srgb, var(--pos-solido-neutro-hover) 84%, var(--admin-ink));
 }
 
 .mmodal-step-val {
@@ -11744,12 +11985,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * "Cerrar ticket" —que es la acción irreversible de la pantalla— pasaba por un
  * botón apagado más.
  *
- * Ahora cada variante lleva su propio color a un nivel visible: relleno sólido
- * en el primario, tinte al 24 % con borde SÓLIDO del color en el destructivo
- * (el borde es lo que lo hace inequívocamente rojo sin darle el peso de la
- * acción principal) y contornos con contraste real en los neutros. El hover del
- * destructivo escala a relleno macizo: si se va a cerrar la cuenta, que el
- * último gesto lo diga.
+ * Ahora TODAS las variantes son sólidas, por decisión del producto (bloque
+ * «Lenguaje sólido del POS»): el primario en el acento, el destructivo en rojo
+ * pleno, liberar en naranja y los secundarios —ghost, secondary, outline— en el
+ * neutro gris con su tinta. Ninguno es ya un tinte ni un contorno: en la tablet
+ * del piso, a un brazo y con reflejos, sólo un relleno se lee como botón. La
+ * jerarquía la dice el color del relleno, no su opacidad.
  */
 .mmodal-btn {
   display: inline-flex;
@@ -11803,10 +12044,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   /*
    * Deshabilitado: UNA sola declaración, y va aquí.
    *
-   * No basta con bajar la opacidad —sobre el cristal el botón se volvía un
-   * fantasma sin forma—. Se apaga a un neutro macizo con contorno propio: sigue
-   * leyéndose como botón y no se parece a ninguna variante viva, que es la
-   * condición para que el destructivo no pase por apagado.
+   * Apagado al neutro sólido del POS a media opacidad, CON contorno propio: el
+   * relleno lo sigue haciendo leerse como botón, la opacidad lo apaga y el
+   * filete —que ninguna variante viva lleva— es lo que impide confundirlo con
+   * un secundario en reposo. Cualquier variante (también el destructivo y el
+   * primario) se apaga al mismo gris: «Cerrar ticket» nace bloqueado, y vivo y
+   * apagado no se parecen en nada. El filete es la tinta mezclada con el
+   * relleno, opaco, porque también lo pinta el discontinuo de --pending.
    *
    * El archivo tenía otras dos reglas de deshabilitado más abajo, una de ellas
    * con `opacity: .42`, que ganaban por orden y devolvían el botón al fantasma
@@ -11815,13 +12059,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
    */
 }
 .mmodal-btn:disabled, .mmodal-btn[aria-disabled=true] {
-  background: color-mix(in srgb, var(--txt) 9%, transparent);
-  border-color: var(--line);
-  color: var(--txt-faint);
+  background: var(--pos-solido-neutro);
+  border-color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 45%, var(--pos-solido-neutro));
+  color: var(--pos-solido-neutro-tinta);
   box-shadow: none;
   cursor: not-allowed;
   pointer-events: none;
-  opacity: 1;
+  opacity: 0.5;
   transform: none;
 }
 .mmodal-btn--primary {
@@ -11873,37 +12117,31 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transform: translateY(-1px);
 }
 .mmodal-btn--ghost {
-  background: color-mix(in srgb, var(--txt) 6%, transparent);
-  color: var(--txt);
-  border-color: var(--line);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-btn--ghost:hover:not(:disabled) {
-  color: var(--txt);
-  border-color: var(--line-strong);
-  background: color-mix(in srgb, var(--txt) 12%, transparent);
+  background: var(--pos-solido-neutro-hover);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-btn--secondary {
   justify-content: space-between;
-  background: color-mix(in srgb, var(--txt) 6%, transparent);
-  color: var(--txt);
-  border-color: var(--line);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-btn--secondary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--txt) 12%, transparent);
-  border-color: var(--gold-soft);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-btn--outline {
-  background: transparent;
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   text-align: center;
   text-decoration: none;
 }
 .mmodal-btn--outline:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro-hover);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-btn {
   /*
@@ -11926,13 +12164,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
    */
 }
 .mmodal-btn--release {
-  background: color-mix(in srgb, var(--c-naranja) 20%, transparent);
-  color: color-mix(in srgb, var(--c-naranja) 70%, var(--txt));
-  border-color: var(--c-naranja);
+  background: var(--pos-solido-naranja);
+  color: var(--pos-solido-naranja-tinta);
+  border-color: transparent;
 }
 .mmodal-btn--release:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--c-naranja) 32%, transparent);
-  color: var(--txt);
+  background: color-mix(in srgb, var(--pos-solido-naranja) 84%, var(--admin-ink));
+  color: var(--pos-solido-naranja-tinta);
 }
 .mmodal-btn {
   /*
@@ -12048,9 +12286,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: center;
   line-height: 1.2;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface-2);
-  color: var(--txt-mute);
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   -webkit-tap-highlight-color: transparent;
@@ -12063,13 +12301,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-cat-block:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
-.mmodal-cat-block--active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-color: var(--gold);
-  color: var(--accent-text);
+.mmodal-cat-block--active, .mmodal-cat-block--active:hover {
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-dishes {
@@ -12304,9 +12540,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 32px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--txt-mute);
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   line-height: 1;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
@@ -12320,8 +12556,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 50%;
 }
 .mmodal-cart-controls button:hover {
-  color: var(--txt);
-  border-color: var(--line-strong);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-cart-controls button:active {
   transform: scale(0.92);
@@ -12385,12 +12620,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 1;
   min-height: 44px;
   padding: 0.55rem 0;
-  background: none;
+  background: var(--pos-solido-neutro);
   border: none;
-  color: var(--txt-faint);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.18s, border-color 0.18s;
+  transition: color 0.18s, background 0.18s;
   position: relative;
 }
 .admin-body .mmodal-tab {
@@ -12400,22 +12635,29 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0;
   text-transform: none;
 }
-.mmodal-tab--active {
-  color: var(--accent-text);
-  border-bottom-color: var(--gold);
+.mmodal-tab:hover {
+  background: var(--pos-solido-neutro-hover);
+}
+.mmodal-tab--active, .mmodal-tab--active:hover {
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-tab-badge {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
   display: inline-block;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent-text);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   border-radius: 999px;
   font-size: 0.7rem;
   padding: 0.05rem 0.4rem;
   margin-left: 0.28rem;
   vertical-align: middle;
+}
+.mmodal-tab--active .mmodal-tab-badge {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 
 .mmodal-tab-panel {
@@ -12438,9 +12680,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   height: 48px;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface-2);
-  color: var(--txt-mute);
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background 0.14s, color 0.14s, border-color 0.14s;
   -webkit-tap-highlight-color: transparent;
@@ -12453,13 +12695,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-comensal-block:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
-.mmodal-comensal-block--active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent-text);
-  border-color: var(--gold);
+.mmodal-comensal-block--active, .mmodal-comensal-block--active:hover {
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-area-badge {
@@ -12485,9 +12725,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1.2;
   text-transform: uppercase;
   display: inline-block;
-  color: var(--txt-mute);
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 4px;
   padding: 0.12rem 0.36rem;
   flex-shrink: 0;
@@ -12557,12 +12797,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * «Entregar»— y en la columna de 210 px de una tablet a 1024 el nombre se
  * partía en tres renglones y «Entregar» se salía por la derecha, recortado
  * contra el canto de la columna. Ahora las acciones bajan a su propio piso,
- * alineadas a la derecha, y el nombre tiene el ancho que le queda a la cifra.
+ * a todo lo ancho de la línea, y el nombre tiene el ancho que le queda a la
+ * cifra.
  */
 .mmodal-confirm-item {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) auto auto;
-  grid-template-areas: "punto nombre cantidad precio" ".     acciones acciones acciones";
+  grid-template-areas: "punto    nombre   cantidad precio" "acciones acciones acciones acciones";
   align-items: baseline;
   gap: 0.3rem 0.5rem;
   padding: 0.5rem 0;
@@ -12611,8 +12852,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   grid-area: acciones;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.5rem;
+}
+.mmodal-confirm-item-acciones > .mmodal-entregar-btn {
+  margin-inline-start: auto;
 }
 
 .mmodal-status-dot {
@@ -12680,13 +12923,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-shrink: 0;
 }
 
+/*
+ * Botón «✓ Entregar» en resumen. 32 px de alto (medía 18): es la acción que el
+ * mesero repite con cada plato que sale.
+ *
+ * Relleno SÓLIDO, por decisión del producto: estuvo en tinte para no competir
+ * con «Cerrar ticket», pero en tinte no se leía como botón. El azul es el del
+ * estado «entregado» y sale del token --pos-solido-info (azul al 78 % con la
+ * tinta): puro, el papel encima da 3.4:1 y el texto es de 12 px; así, 5:1.
+ */
 .mmodal-entregar-btn {
+  position: relative;
   min-height: 32px;
-  padding: 0 0.65rem;
+  padding: 0 0.75rem;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--feedback-info) 55%, transparent);
-  background: color-mix(in srgb, var(--feedback-info) 14%, transparent);
-  color: var(--feedback-info);
+  border: 1px solid transparent;
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.14s, transform 0.1s;
@@ -12699,11 +12952,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0;
   text-transform: none;
 }
+.mmodal-entregar-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0 -6px -6px;
+}
 .mmodal-entregar-btn:hover {
-  background: color-mix(in srgb, var(--feedback-info) 24%, transparent);
+  background: color-mix(in srgb, var(--pos-solido-info) 84%, var(--admin-ink));
 }
 .mmodal-entregar-btn:active {
   transform: scale(0.96);
+}
+.mmodal-entregar-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .mmodal-col-empty {
@@ -12865,13 +13127,33 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     margin-bottom: 0;
     padding: 0.45rem 0.4rem;
     border-bottom: none;
-    border: 1px solid var(--line-soft);
+    border: 1px solid transparent;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--surface) 45%, transparent);
+    background: var(--pos-solido-neutro);
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row .mmodal-dish-price {
+    color: var(--pos-solido-neutro-tinta);
+    opacity: 0.78;
+  }
+}
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row:hover {
+    background: var(--pos-solido-neutro-hover);
+  }
+}
+@media (min-width: 768px) {
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row:active {
+    background: var(--pos-solido-neutro-hover);
   }
   .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row.is-active {
     border-color: var(--gold);
     background: var(--gold);
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row.is-active .mmodal-dish-price {
+    color: var(--on-accent);
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row.is-active:hover {
+    background: var(--gold-soft);
   }
   .mmodal-panels[data-vista-menu=lista] .mmodal-dishes {
     display: block;
@@ -12956,17 +13238,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 0 0.6rem;
   border: 0;
   border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   white-space: nowrap;
   cursor: pointer;
 }
 .mmodal-prefs .mmodal-prefs__opt:hover {
-  color: var(--text);
+  background: var(--pos-solido-neutro-hover);
 }
-.mmodal-prefs .mmodal-prefs__opt.is-active {
-  background: var(--admin-gold);
-  color: var(--on-accent);
+.mmodal-prefs .mmodal-prefs__opt.is-active, .mmodal-prefs .mmodal-prefs__opt.is-active:hover {
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mmodal-prefs__orden {
   display: grid;
@@ -12988,15 +13270,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-prefs__orden-btns button {
   width: 24px;
   height: 24px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   cursor: pointer;
 }
 .mmodal-prefs__orden-btns button:hover:not(:disabled) {
-  color: var(--text);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-prefs__orden-btns button:disabled {
   opacity: 0.35;
@@ -13034,14 +13316,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .mmodal-cart-nota-btn {
   min-height: 32px;
-  color: var(--txt-mute);
-  background: none;
-  border: 1px solid var(--line);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0 0.55rem;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.14s, border-color 0.14s;
+  transition: color 0.14s, background 0.14s;
 }
 .admin-body .mmodal-cart-nota-btn {
   font-family: var(--admin-font-sans);
@@ -13051,12 +13333,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-cart-nota-btn:hover {
-  color: var(--txt);
-  border-color: var(--line-strong);
+  background: var(--pos-solido-neutro-hover);
 }
-.mmodal-cart-nota-btn--active {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+.mmodal-cart-nota-btn--active, .mmodal-cart-nota-btn--active:hover {
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-cart-nota-wrap {
@@ -13106,23 +13387,32 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-cancel-btn {
-  width: 28px;
-  height: 28px;
+  position: relative;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
-  color: var(--feedback-danger);
+  border: 1px solid transparent;
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background 0.14s;
+  transition: background 0.14s, transform 0.1s;
 }
 .mmodal-cancel-btn:hover {
-  background: color-mix(in srgb, var(--feedback-danger) 22%, transparent);
+  background: color-mix(in srgb, var(--pos-solido-peligro) 82%, var(--admin-ink));
+}
+.mmodal-cancel-btn:active {
+  transform: scale(0.96);
+}
+.mmodal-cancel-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px -6px -6px 0;
 }
 
 .mmodal-cancel-confirm-overlay {
@@ -13188,10 +13478,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: grid;
   place-items: center;
   margin: 0 auto 0.1rem;
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 46%, transparent);
+  border: 1px solid transparent;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
-  color: var(--feedback-danger);
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
   font-size: 1.05rem;
   font-weight: 800;
 }
@@ -13333,9 +13623,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 4px;
   padding: 0.15rem 0.5rem;
   flex-shrink: 0;
@@ -13361,16 +13651,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: uppercase;
   border-radius: 4px;
   padding: 0.15rem 0.5rem;
-  border: 1px solid currentColor;
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-etapa--entradas {
-  color: var(--feedback-info);
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
 }
 .mmodal-etapa--desarrollo {
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 }
 .mmodal-etapa--cierre {
-  color: var(--feedback-warn);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
 }
 
 .mmodal-sug-more {
@@ -13420,9 +13715,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   height: 52px;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface);
-  color: var(--txt-mute);
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background 0.14s, color 0.14s, border-color 0.14s;
   -webkit-tap-highlight-color: transparent;
@@ -13435,13 +13730,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-sug-chip:hover:not(.mmodal-sug-chip--on) {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--txt);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-sug-chip--on {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent-text);
-  border-color: var(--gold);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-sug-footer {
@@ -13457,9 +13750,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 44px;
   padding: 0.75rem 1rem;
-  color: var(--txt-mute);
-  background: var(--surface);
-  border: 1.5px solid var(--line);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1.5px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   text-align: center;
@@ -13473,9 +13766,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-sug-swap:hover {
-  color: var(--txt);
-  border-color: var(--line-soft);
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  background: var(--pos-solido-neutro-hover);
 }
 
 /*
@@ -13549,10 +13840,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 0 0 auto;
   height: 42px;
   padding: 0 14px 0 12px;
-  border: 1px solid var(--admin-c-ambar);
+  border: 1px solid var(--pos-solido-aviso);
   border-radius: 999px;
-  background: var(--admin-c-ambar);
-  color: var(--admin-ink);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
   cursor: pointer;
   transition: background 150ms ease, box-shadow 150ms ease;
 }
@@ -13569,7 +13860,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-linejoin: round;
 }
 .mapa-page .pos-header__print-alerts:hover, .mapa-page .pos-header__print-alerts[aria-expanded=true] {
-  background: color-mix(in srgb, var(--admin-c-ambar) 86%, var(--admin-ink));
+  background: color-mix(in srgb, var(--pos-solido-aviso) 84%, var(--admin-ink));
 }
 .mapa-page .pos-header__print-alerts:focus-visible {
   outline: 2px solid var(--admin-text);
@@ -13641,8 +13932,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
 }
 
 .pos-print-alert__body {
@@ -13781,12 +14072,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   line-height: 1;
   cursor: pointer;
+  transition: background 0.15s;
 }
 .pos-prefs__close svg {
   width: 16px;
@@ -13797,8 +14089,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-linecap: round;
 }
 .pos-prefs__close:hover {
-  color: var(--text);
-  border-color: var(--admin-gold);
+  background: var(--pos-solido-neutro-hover);
 }
 .pos-prefs__body {
   flex: 1 1 auto;
@@ -13992,8 +14283,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 /* Selector de turno del corte (Configuración → POS). Reparten el ancho por
    igual —base cero, como los destinos del cajón— para que el largo del nombre
-   no haga pesar más un turno que otro. El elegido va en el relleno sólido del
-   acento: es el único estado de la fila y tiene que leerse desde un brazo. */
+   no haga pesar más un turno que otro. Lenguaje sólido del POS: los turnos van
+   en el neutro y el elegido en el relleno «activo», que es el único estado de
+   la fila y tiene que leerse desde un brazo. */
 .mmodal-caja-turnos {
   display: flex;
   flex-wrap: wrap;
@@ -14015,24 +14307,26 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   gap: 0.15rem;
   padding: 0.45rem 0.8rem;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--txt);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   touch-action: manipulation;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+.mmodal-caja-turnos .mmodal-caja-turno .mmodal-caja-turno__horas {
+  color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 78%, var(--pos-solido-neutro));
+}
 .mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=true] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=true] .mmodal-caja-turno__horas {
-  color: color-mix(in srgb, var(--on-accent) 72%, transparent);
+  color: color-mix(in srgb, var(--pos-solido-activo-tinta) 72%, var(--pos-solido-activo));
 }
 @media (hover: hover) {
   .mmodal-caja-turnos .mmodal-caja-turno[aria-pressed=false]:hover {
-    border-color: var(--line-strong);
+    background: var(--pos-solido-neutro-hover);
   }
 }
 
@@ -14141,12 +14435,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 999px;
   overflow: hidden;
   background: var(--surface-2);
+  /*
+   * Efectivo en ámbar y tarjeta en azul, puros de la paleta funcional: son las
+   * dos series de una gráfica, no rellenos con texto, así que no se oscurecen.
+   * Antes eran un oliva casi negro (--feedback-ok-bg, < 2:1 contra el panel) y
+   * el papel del acento: el efectivo no se veía y la tarjeta parecía una barra
+   * vacía. Ámbar y azul se separan entre sí y del fondo (≈ 10:1 y ≈ 4.9:1) y
+   * siguen distinguiéndose con daltonismo rojo-verde. El punto de la leyenda
+   * repite cada color (ver .mmodal-caja-method__dot).
+   */
 }
 .mmodal-caja-bar__ef {
-  background: var(--feedback-ok-bg);
+  background: var(--admin-c-ambar);
 }
 .mmodal-caja-bar__tar {
-  background: var(--gold);
+  background: var(--admin-c-azul);
 }
 
 .mmodal-caja-methods {
@@ -14176,10 +14479,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-shrink: 0;
 }
 .mmodal-caja-method__dot--ef {
-  background: var(--feedback-ok-bg);
+  background: var(--admin-c-ambar);
 }
 .mmodal-caja-method__dot--tar {
-  background: var(--gold);
+  background: var(--admin-c-azul);
 }
 
 .mmodal-caja-list {
@@ -14256,20 +14559,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 20px;
   margin-top: 0.05rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-family: var(--admin-font-mono);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 .mmodal-caja-rank {
-  /* El primer puesto es el único que se marca: si los cinco llevaran énfasis,
-     ninguno lo tendría. */
+  /* El primer puesto es el único que se marca —en el relleno «activo»—: si los
+     cinco llevaran énfasis, ninguno lo tendría. */
 }
 .mmodal-caja-rank:first-child .mmodal-caja-rank__pos {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mmodal-caja-rank__body {
   display: flex;
@@ -14333,6 +14636,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-opts {
+  --opts-pad-x: 1.75rem;
+  --opts-gap: .75rem;
+  --opts-cols-max: 4;
   position: absolute;
   inset: 0;
   z-index: 40;
@@ -14358,13 +14664,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 560px;
-  max-height: min(680px, 100vh - 2.5rem);
+  max-width: 880px;
+  max-height: min(820px, 100vh - 2.5rem);
+  max-height: min(820px, 100dvh - 2.5rem);
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--surface);
-  box-shadow: 0 24px 64px color-mix(in srgb, var(--sombra) 45%, transparent);
+  box-shadow: 0 32px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
   opacity: 0;
   transform: translateY(12px) scale(0.98);
   transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -14379,16 +14686,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.1rem 1.1rem 0.7rem 1.25rem;
+  padding: 1.4rem 1.4rem 0.9rem var(--opts-pad-x);
 }
 .mmodal-opts .mmodal-opts__eyebrow {
   font-family: var(--admin-font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
   line-height: 1.2;
   text-transform: uppercase;
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.45rem;
   color: var(--txt-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -14396,10 +14703,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin: 0;
   color: var(--txt);
   font-family: var(--admin-font-sans);
-  font-size: 1.2rem;
+  font-size: 2rem;
   font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
 }
 .mmodal-opts .mmodal-opts__cerrar {
   display: inline-flex;
@@ -14408,11 +14715,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   width: 48px;
   height: 48px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 50%;
-  background: transparent;
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
+  transition: color 0.14s, border-color 0.14s, background 0.14s;
 }
 .mmodal-opts .mmodal-opts__cerrar svg {
   width: 18px;
@@ -14423,7 +14731,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-linecap: round;
 }
 .mmodal-opts .mmodal-opts__cerrar:hover {
-  color: var(--txt);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-opts .mmodal-opts__cerrar:focus-visible {
   outline: 2px solid var(--focus, var(--txt));
@@ -14432,32 +14741,47 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__pasos {
   position: relative;
   flex: 0 0 auto;
-  padding: 0.3rem 1.25rem 0.8rem;
+  padding: 0.3rem var(--opts-pad-x) 1rem;
   border-bottom: 1px solid var(--line-soft);
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scroll-padding-inline: 1.25rem;
+  scroll-padding-inline: var(--opts-pad-x);
   scrollbar-width: none;
 }
 .mmodal-opts__pasos-lista {
   display: flex;
-  gap: 0.4rem;
+  align-items: center;
   width: max-content;
   min-width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+.mmodal-opts__pasos-lista > li {
+  display: flex;
+  align-items: center;
+}
+.mmodal-opts__pasos-lista > li + li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.5px;
+  margin: 0 0.35rem;
+  border-radius: 1px;
+  background: var(--line);
+}
 .mmodal-opts .mmodal-opts__paso {
+  --paso-fondo: var(--pos-solido-neutro);
+  --paso-tinta: var(--pos-solido-neutro-tinta);
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  min-height: 48px;
-  padding: 0.3rem 0.85rem 0.3rem 0.35rem;
-  border: 1.5px solid var(--line);
+  gap: 0.6rem;
+  min-height: 52px;
+  padding: 0.35rem 1rem 0.35rem 0.4rem;
+  border: 1.5px solid var(--paso-fondo);
   border-radius: 999px;
-  background: transparent;
-  color: var(--txt-mute);
+  background: var(--paso-fondo);
+  color: var(--paso-tinta);
   font-family: var(--admin-font-sans);
   text-align: left;
   cursor: pointer;
@@ -14465,33 +14789,34 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   -webkit-tap-highlight-color: transparent;
 }
 .mmodal-opts .mmodal-opts__paso:hover {
-  border-color: var(--line-strong);
-  color: var(--txt);
+  --paso-fondo: var(--pos-solido-neutro-hover);
 }
 .mmodal-opts .mmodal-opts__paso:focus-visible {
   outline: 2px solid var(--focus, var(--txt));
   outline-offset: 2px;
 }
 .mmodal-opts .mmodal-opts__paso.is-actual {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--txt);
+  --paso-fondo: var(--pos-solido-activo);
+  --paso-tinta: var(--pos-solido-activo-tinta);
 }
 .mmodal-opts .mmodal-opts__paso.is-falta {
-  border-style: dashed;
-  border-color: var(--feedback-warn);
+  --paso-fondo: var(--pos-solido-aviso);
+  --paso-tinta: var(--pos-solido-aviso-tinta);
+}
+.mmodal-opts .mmodal-opts__paso.is-falta:hover {
+  --paso-fondo: color-mix(in srgb, var(--pos-solido-aviso) 84%, var(--admin-ink));
 }
 .mmodal-opts__paso-marca {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
   display: inline-grid;
-  flex: 0 0 28px;
+  flex: 0 0 30px;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: 1.5px solid currentColor;
   border-radius: 50%;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   line-height: 1;
 }
@@ -14499,14 +14824,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-width: 2.4;
 }
 .mmodal-opts__paso.is-actual .mmodal-opts__paso-marca {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  border-color: var(--pos-solido-activo-tinta);
+  background: var(--pos-solido-activo-tinta);
+  color: var(--pos-solido-activo);
 }
 .mmodal-opts__paso.is-hecho .mmodal-opts__paso-marca {
   border-color: transparent;
-  background: color-mix(in srgb, var(--txt) 12%, transparent);
-  color: var(--txt);
+  background: color-mix(in srgb, var(--paso-tinta) 16%, var(--paso-fondo));
+  color: inherit;
 }
 .mmodal-opts__paso-texto {
   display: grid;
@@ -14520,21 +14845,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0.12em;
   line-height: 1.2;
   text-transform: uppercase;
-  color: var(--txt-faint);
-}
-.mmodal-opts__paso.is-actual .mmodal-opts__paso-grupo {
-  color: var(--txt-mute);
+  color: inherit;
 }
 .mmodal-opts__paso-valor {
-  max-width: 13ch;
+  max-width: 14ch;
   overflow: hidden;
   font-size: var(--operational-text-sm);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.mmodal-opts__paso.is-falta .mmodal-opts__paso-valor {
-  color: var(--feedback-warn);
 }
 .mmodal-opts {
   /*
@@ -14558,7 +14877,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-opts__cuerpo {
   min-height: 0;
-  padding: 1rem 1.25rem 1.1rem;
+  padding: 1.4rem var(--opts-pad-x) 1.6rem;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -14566,7 +14885,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__moldes {
   display: grid;
   min-height: 0;
-  padding: 1rem 1.25rem 1.1rem;
+  padding: 1.4rem var(--opts-pad-x) 1.6rem;
   overflow: hidden;
   visibility: hidden;
   pointer-events: none;
@@ -14584,7 +14903,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__grupo {
   display: grid;
   align-content: start;
-  gap: 0.75rem;
+  gap: 1.1rem;
 }
 .mmodal-opts__grupo.is-saliendo {
   position: absolute;
@@ -14595,20 +14914,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   margin: 0;
   color: var(--txt);
   font-family: var(--admin-font-sans);
-  font-size: var(--operational-text-subtitle);
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.25;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
 }
 .mmodal-opts__req {
-  padding: 0.12rem 0.5rem;
+  padding: 0.18rem 0.6rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--txt) 8%, transparent);
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-family: var(--admin-font-sans);
   font-size: var(--operational-text-xs);
   font-weight: 600;
@@ -14616,84 +14935,107 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-opts__grupo.is-falta .mmodal-opts__req {
-  background: var(--feedback-warn-bg);
-  color: var(--feedback-warn);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
+}
+.mmodal-opts {
+  /*
+   * Las teselas llenan el ancho. `--opts-cols` lo pone el JS según cuántas
+   * opciones trae el paso (columnasOpciones); aquí sólo se tope por pantalla
+   * (`--opts-cols-max`). Flex y no rejilla: la base de cada tesela es una
+   * columna exacta y `flex-grow` estira las de la última fila, así que 5
+   * opciones son 3 + 2 y no 3 + 2 + un hueco. El medio píxel absorbe el
+   * redondeo, que si no manda la última tesela de cada fila a la siguiente.
+   */
 }
 .mmodal-opts__pills {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.75rem), 1fr));
-  gap: 0.5rem;
+  --opts-cols-ef: min(var(--opts-cols, 3), var(--opts-cols-max));
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--opts-gap);
 }
 .mmodal-opts .mmodal-opts__pill {
+  --pill-fondo: var(--pos-solido-neutro);
+  --pill-tinta: var(--pos-solido-neutro-tinta);
+  --pill-realce: color-mix(in srgb, var(--pill-tinta) 12%, var(--pill-fondo));
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "icono nombre" "icono delta";
-  align-content: center;
-  align-items: center;
-  column-gap: 0.7rem;
-  row-gap: 0.1rem;
-  min-height: 64px;
-  padding: 0.65rem 0.8rem 0.65rem 0.65rem;
-  border: 1.5px solid var(--line);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--txt);
+  display: flex;
+  flex: 1 1 calc((100% - (var(--opts-cols-ef) - 1) * var(--opts-gap)) / var(--opts-cols-ef) - 0.5px);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 132px;
+  padding: 1rem 1rem 1rem 1.05rem;
+  border: 1.5px solid var(--pill-fondo);
+  border-radius: 16px;
+  background: var(--pill-fondo);
+  color: var(--pill-tinta);
   font-family: var(--admin-font-sans);
-  font-size: var(--operational-text-base);
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
   line-height: 1.2;
   text-align: left;
   cursor: pointer;
-  transition: background 0.14s, border-color 0.14s, color 0.14s, transform 0.1s;
+  transition: background 0.14s, border-color 0.14s, color 0.14s, box-shadow 0.18s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
 .mmodal-opts .mmodal-opts__pill:hover {
-  border-color: var(--line-strong);
+  --pill-fondo: var(--pos-solido-neutro-hover);
 }
 .mmodal-opts .mmodal-opts__pill:active {
   transform: scale(0.98);
 }
 .mmodal-opts .mmodal-opts__pill:focus-visible {
   outline: 2px solid var(--focus, var(--txt));
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 .mmodal-opts .mmodal-opts__pill.is-on {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  --pill-fondo: var(--pos-solido-activo);
+  --pill-tinta: var(--pos-solido-activo-tinta);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--sombra) 38%, transparent);
+}
+.mmodal-opts__pills--sin-iconos .mmodal-opts__pill {
+  justify-content: center;
+  min-height: 96px;
+  padding-right: 2.5rem;
+}
+.mmodal-opts__pill-cabeza {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: auto;
+  padding-bottom: 0.6rem;
 }
 .mmodal-opts__pill-icono {
   position: relative;
   display: inline-grid;
-  grid-area: icono;
+  flex: 0 0 auto;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--txt) 7%, transparent);
-  color: var(--txt);
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--pill-realce);
+  color: inherit;
   transition: background 0.14s, color 0.14s;
 }
 .mmodal-opts__pill-icono > svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.7;
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.6;
 }
 .mmodal-opts__pill-icono--inicial {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  color: inherit;
+  font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0;
 }
-.mmodal-opts__pill.is-on .mmodal-opts__pill-icono {
-  background: color-mix(in srgb, var(--on-accent) 14%, transparent);
-  color: var(--on-accent);
-}
 .mmodal-opts__pill-nombre {
-  grid-area: nombre;
-  min-width: 0;
+  max-width: 100%;
   hyphens: auto;
   -webkit-hyphens: auto;
   overflow-wrap: break-word;
@@ -14701,10 +15043,49 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__pill-delta {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
-  grid-area: delta;
-  font-size: 0.75rem;
+  flex: 0 0 auto;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--pill-realce);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.mmodal-opts__pill-nota {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
   font-weight: 500;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: inherit;
+}
+.mmodal-opts .mmodal-opts__pill-tecla {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 0.3rem;
+  place-items: center;
+  border: 1px solid var(--pill-realce);
+  border-radius: 6px;
+  background: var(--pill-realce);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .mmodal-opts .mmodal-opts__pill-tecla {
+    display: inline-grid;
+  }
+  .mmodal-opts__pill-nombre {
+    max-width: calc(100% - 1.75rem);
+  }
 }
 .mmodal-opts__pill-marca {
   position: absolute;
@@ -14712,18 +15093,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   right: -6px;
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: var(--on-accent);
-  box-shadow: 0 0 0 2px var(--accent);
-  color: var(--accent);
+  background: var(--pos-solido-activo-tinta);
+  box-shadow: 0 0 0 2px var(--pos-solido-activo);
+  color: var(--pos-solido-activo);
   opacity: 0;
   transform: scale(0.6);
   transition: opacity 0.14s, transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .mmodal-opts__pill-marca svg {
   stroke-width: 2.6;
+}
+.mmodal-opts__pills--sin-iconos .mmodal-opts__pill-marca {
+  top: 0.75rem;
+  right: 0.75rem;
 }
 .mmodal-opts__pill.is-on .mmodal-opts__pill-marca {
   opacity: 1;
@@ -14732,15 +15117,33 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts__pie {
   display: grid;
   flex: 0 0 auto;
-  gap: 0.6rem;
-  padding: 0.9rem 1.25rem 1.1rem;
+  gap: 0.75rem;
+  padding: 1rem var(--opts-pad-x) 1.4rem;
   border-top: 1px solid var(--line-soft);
 }
 .mmodal-opts .mmodal-opts__resumen {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
   margin: 0;
+  color: var(--txt);
+  font-size: var(--operational-text-sm);
+  font-weight: 600;
+}
+.mmodal-opts__resumen-rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+  color: var(--txt-faint);
+}
+.mmodal-opts__resumen-texto {
+  min-width: 0;
   overflow: hidden;
-  color: var(--txt-mute);
-  font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -14751,10 +15154,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-opts__acciones .mmodal-btn {
   width: 100%;
-  min-height: 48px;
+  min-height: 56px;
 }
 .mmodal-opts__acciones--tres {
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.5fr);
 }
 .mmodal-opts {
   /*
@@ -14772,7 +15175,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-opts .mmodal-opts__confirmar {
   justify-content: space-between;
   gap: 0.75rem;
-  padding-inline: 1.1rem;
+  padding-inline: 1.25rem;
 }
 .mmodal-opts__verbo {
   min-width: 0;
@@ -14784,21 +15187,56 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 600;
 }
 
+@media (max-width: 900px) {
+  .mmodal-opts {
+    --opts-pad-x: 1.25rem;
+  }
+}
 @media (max-width: 639px) {
   .mmodal-opts {
+    --opts-pad-x: 1rem;
+    --opts-gap: .5rem;
+    --opts-cols-max: 2;
     align-items: flex-end;
     padding: 0;
   }
   .mmodal-opts__card {
     max-width: none;
-    max-height: 88vh;
+    max-height: 90vh;
+    max-height: 90dvh;
     border-radius: 20px 20px 0 0;
     transform: translateY(24px);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mmodal-opts .mmodal-opts__titulo {
+    font-size: 1.625rem;
+  }
+  .mmodal-opts .mmodal-opts__grupo-nombre {
+    font-size: 1.2rem;
+  }
+  .mmodal-opts .mmodal-opts__pill {
+    min-height: 100px;
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+  .mmodal-opts__pills--sin-iconos .mmodal-opts__pill {
+    min-height: 76px;
+  }
+  .mmodal-opts__pill-cabeza {
+    padding-bottom: 0.45rem;
+  }
+  .mmodal-opts__pill-icono {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+  .mmodal-opts__pill-icono > svg {
+    width: 26px;
+    height: 26px;
   }
 }
 @media (max-width: 520px) {
@@ -14811,8 +15249,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mmodal-opts__bd,
-  .mmodal-opts__card,
+  .mmodal-opts__bd {
+    transition: opacity 0.16s ease;
+  }
+  .mmodal-opts__card {
+    transform: none;
+    transition: opacity 0.16s ease;
+  }
+  .mmodal-opts__pill,
   .mmodal-opts__pill-marca,
   .mmodal-opts__pill-icono {
     transition: none;
@@ -14849,10 +15293,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   justify-content: center;
   gap: 0.6rem;
   padding: 1.25rem 1rem;
-  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
+  border: 2px solid var(--pos-solido-neutro);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  color: color-mix(in srgb, var(--txt) 75%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 .mmodal-pago-btn__icon {
@@ -14867,9 +15311,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-weight: 700;
 }
 .mmodal-pago-btn:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent-text);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
   transform: translateY(-2px);
   box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
 }
@@ -14881,9 +15324,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-family: var(--admin-font-mono);
   font-variant-numeric: tabular-nums;
   display: inline-block;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro);
+  border: 1px solid var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   border-radius: 50px;
   padding: 0.1rem 0.65rem;
   font-size: 0.78rem;
@@ -14891,10 +15334,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0.06em;
 }
 
-.mmodal-pago-btn--active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent-text);
+.mmodal-pago-btn--active, .mmodal-pago-btn--active:hover {
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-cierre-tipo {
@@ -14920,17 +15363,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   gap: 0.4rem;
   padding: 1.4rem 1rem;
-  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
+  border: 2px solid var(--pos-solido-neutro);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  color: color-mix(in srgb, var(--txt) 80%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   text-align: center;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 .mmodal-tipo-card__icon {
   display: flex;
   line-height: 1;
-  color: var(--accent-text);
+  color: inherit;
 }
 .mmodal-tipo-card__title {
   font-family: var(--admin-font-sans);
@@ -14939,13 +15382,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-tipo-card__desc {
   font-size: 0.8rem;
-  color: color-mix(in srgb, var(--txt) 62%, transparent);
+  color: inherit;
   line-height: 1.35;
 }
 .mmodal-tipo-card:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent-text);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
   transform: translateY(-2px);
   box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
 }
@@ -14976,10 +15418,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-split-mode {
   min-height: 44px;
   padding: 0.5rem 0.35rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 3%, transparent);
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   line-height: 1.2;
   cursor: pointer;
 }
@@ -14993,14 +15435,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-split-mode {
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.mmodal-split-mode:hover {
-  color: color-mix(in srgb, var(--txt) 90%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+.mmodal-split-mode:hover:not(.mmodal-split-mode--active) {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-split-mode--active {
-  color: var(--accent-text);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-split-table {
@@ -15048,18 +15490,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   justify-content: center;
   padding: 0.3rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--txt) 3%, transparent);
+  background: var(--pos-solido-neutro);
   line-height: 1;
   cursor: pointer;
-  color: color-mix(in srgb, var(--txt) 45%, transparent);
+  color: var(--pos-solido-neutro-tinta);
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
+.mmodal-split-metodo:hover:not(.mmodal-split-metodo--active) {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
+}
 .mmodal-split-metodo--active {
-  color: var(--accent-text);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 
 .mmodal-split-monto {
@@ -15095,10 +15541,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-height: 44px;
   padding: 0.45rem 0.7rem;
   flex: 1 1 auto;
-  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  color: color-mix(in srgb, var(--txt) 75%, transparent);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
@@ -15110,13 +15556,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
   font-variant-numeric: tabular-nums;
 }
-.mmodal-propina__btn:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+.mmodal-propina__btn:hover:not(.is-on) {
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 .mmodal-propina__btn.is-on {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-text);
+  border-color: var(--pos-solido-activo);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
 }
 .mmodal-propina {
   /*
@@ -15147,10 +15594,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   margin-top: 0.5rem;
   padding: 0.5rem;
-  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 9px;
-  background: none;
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
 }
 .admin-body .mmodal-propina__quedese {
@@ -15161,7 +15608,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-propina__quedese:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 
 /* ── Campo de dinero: UNA definición para los tres ───────────────
@@ -15328,12 +15776,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-shrink: 0;
   min-height: 36px;
   padding: 0 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 8px;
-  background: none;
-  color: var(--accent-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 .admin-body .mmodal-monto-exacto {
   font-family: var(--admin-font-sans);
@@ -15343,7 +15791,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-transform: none;
 }
 .mmodal-monto-exacto:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--pos-solido-neutro-hover);
+  background: var(--pos-solido-neutro-hover);
 }
 
 .mmodal-split-input {
@@ -15428,12 +15877,108 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: pointer;
 }
 
+/*
+ * La viñeta y el grano del panel, apagados de verdad.
+ *
+ * _globals.scss ya los apaga en el piso (`.area-page::before { content: none }`),
+ * pero esa regla va ANTES de la que los enciende (`.admin-body::before`) y con
+ * la misma especificidad (0,1,1): gana la posterior y la viñeta seguía encima
+ * del tablero. Con el semáforo lleno se notaba: oscurecía las esquinas de
+ * abajo y el ámbar del lomo de En preparación tiraba a oliva, que es justo lo
+ * que el lomo lleno quiere evitar. (0,2,1) gana sin depender del orden.
+ * El arreglo de raíz va en _globals.scss y alcanza también al POS y al login.
+ */
+.admin-body.area-page::before,
+.admin-body.area-page::after {
+  content: none;
+}
+
 .area-page .area-shell {
   position: relative;
   display: block;
   height: 100dvh;
   background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem), var(--admin-bg);
   color: var(--admin-text);
+}
+
+/* ── La estación: barra y fondo ────────────────────────────────
+ *
+ * La barra superior va LLENA del color de la estación, con su tinta
+ * (--area-ink, AreasProduccion::tintaSobre: la de las dos anclas que más
+ * contrasta). Es lo primero que se ve al entrar y lo único que no cambia en
+ * todo el turno, así que es donde vive la identidad: Cocina es una barra roja,
+ * la barra de café una turquesa. El resto del cromo de la barra —reloj, salir,
+ * foco— se escribe sobre esa tinta para que funcione con los diez colores.
+ *
+ * El fondo recoge el mismo color desde arriba, como luz de la barra: tiñe los
+ * huecos entre bandas sin entrar en ellas, que son del estado.
+ *
+ * Sólo en el tablero (.area-tablero): el selector de estación comparte
+ * .area-page y el header, y ahí no hay una estación todavía.
+ */
+.area-tablero .area-shell {
+  background: radial-gradient(120% 70% at 50% -12%, color-mix(in srgb, var(--area-accent) 22%, transparent), transparent 70%), linear-gradient(color-mix(in srgb, var(--area-accent) 6%, var(--admin-bg)), var(--admin-bg));
+}
+
+.area-tablero .operational-header {
+  border-color: transparent;
+  background: var(--area-accent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-paper) 24%, transparent), 0 6px 16px -10px color-mix(in srgb, var(--area-accent) 80%, transparent);
+  color: var(--area-ink);
+}
+
+.area-tablero .operational-header .operational-header__module {
+  color: var(--area-ink);
+}
+
+.area-tablero .operational-header .operational-update {
+  color: var(--area-ink);
+}
+
+/*
+ * El reloj, siempre entero y siempre texto GRANDE para WCAG.
+ *
+ * - Entero: el pliegue de ≤1080 px de _header.scss le pone `max-width: 112px`
+ *   con puntos suspensivos —medido para la píldora del POS—, y a este cuerpo
+ *   «09:31 p. m.» no cabe: en una tablet de 1024 o en vertical salía
+ *   «09:31 p. …». En esta barra no compite con nada; si falta sitio, se
+ *   recorta antes el nombre de la estación, que también dice su color.
+ * - 24 px de mínimo (18 pt): la tinta la decide la estación, y con el rosa la
+ *   mejor de las dos anclas da 4.38:1 — no llega al 4.5 del texto normal a
+ *   22 px, y como texto grande pide 3:1. Con 24 px pasan los diez colores.
+ */
+.area-tablero .operational-header .operational-update__text {
+  max-width: none;
+  font-size: clamp(24px, 2.1vw, 28px);
+}
+
+/*
+ * «Sin conexión» es el único texto de la barra que no puede perderse, y su rojo
+ * de aviso sobre la barra roja de Cocina —o el ámbar de «cargando» sobre la de
+ * Jugos— desaparecería. Va sobre una pastilla del fondo del tablero: el aviso
+ * conserva su color y su contraste de siempre, sea cual sea la estación.
+ */
+.area-tablero .operational-header .operational-update__text:is([data-status=error], [data-status=warning], [data-status=loading]) {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--admin-bg);
+}
+
+.area-tablero .operational-header .operational-header__logout {
+  border-color: color-mix(in srgb, var(--area-ink) 32%, transparent);
+  background: color-mix(in srgb, var(--area-ink) 12%, transparent);
+  color: var(--area-ink);
+}
+.area-tablero .operational-header .operational-header__logout:hover {
+  border-color: color-mix(in srgb, var(--area-ink) 55%, transparent);
+  background: color-mix(in srgb, var(--area-ink) 22%, transparent);
+  color: var(--area-ink);
+}
+
+.area-tablero .operational-header :is(a, button):focus-visible {
+  outline: 3px solid var(--area-ink);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .area-page .area-main {
@@ -15499,9 +16044,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * por banda eran 132 px de alto, y el alto es lo que decide cuántos platillos
  * se ven sin desplazar.
  *
- * El lomo es además lo que lleva el color de la estación: un bloque a toda la
- * altura de la banda, relleno del color según el estado (ver --banda-lomo). La
- * rejilla de comandas sigue neutra.
+ * El lomo es además lo que lleva el color del ESTADO: un bloque a toda la
+ * altura de la banda, relleno de rojo, amarillo o verde (ver --banda-estado).
+ * La rejilla de comandas sigue neutra.
  *
  * Esquinas RECTAS. Con el radio de la banda, el color del lomo —y antes el
  * filete de arriba— seguía la curva de las esquinas y se doblaba por los
@@ -15528,58 +16073,67 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   grid-template-columns: var(--banda-lomo-ancho) minmax(0, 1fr);
   align-items: start;
   /*
-   * El color de la estación (dato de negocio, llega por --area-accent desde la
-   * vista) y la tinta que contrasta con él (--area-ink, calculada en el
-   * servidor), con respaldo por si un área se queda sin color en base.
+   * El color de cada estado y la tinta que va encima. El semáforo, con los
+   * tokens de la paleta funcional (ningún hex aquí):
    *
-   * Por estado, CUÁNTO color lleva el lomo: un solo hue que se llena conforme
-   * avanza el platillo.
+   *   Enviados        rojo      — llegó y nadie lo ha tocado
+   *   En preparación  amarillo  — está en el fuego
+   *   Listos          verde     — terminado, a recoger
    *
-   *   Enviados        velo   (22 %)  — llegó y nadie lo ha tocado
-   *   En preparación  medio  (50 %)  — está en el fuego
-   *   Listos          lleno  (100 %) — terminado, a recoger
+   * El lomo va LLENO: un amarillo mezclado con el gris del tablero se vuelve
+   * oliva y deja de leerse como amarillo, y el semáforo sólo funciona si los
+   * tres colores son los de verdad.
    *
-   * No hay un hue por estado (estuvo neutro/ámbar/verde y el ámbar acababa
-   * diciendo dos cosas) y se lee por intensidad, no por matiz: el rótulo sigue
-   * diciéndolo en palabras. Lleno es el que más se ve porque es el que pide que
-   * alguien venga a recogerlo.
+   * El título del estado va en BLANCO en los tres lomos, por decisión del
+   * dueño del producto: una sola tinta para los tres títulos, como la pastilla
+   * del contador. Estuvo por contraste (papel sobre el rojo, tinta sobre el
+   * ámbar y el verde) y los tres títulos no se leían como la misma pieza.
+   * Consecuencia asumida: sobre el ámbar el blanco da 1.8:1 y sobre el verde
+   * 2.9:1, por debajo del 3:1 de texto grande; el título es redundante con el
+   * color y la posición de la banda, pero de lejos el de En preparación cuesta.
    *
-   * Sobre el velo y el medio el texto va en papel (--admin-text): ≥ 4.6:1 con
-   * los diez de la paleta. Sobre el lleno, en --area-ink.
+   * --banda-cifra es el número del contador sobre su pastilla blanca: el
+   * color del estado hecho legible sobre papel (ver .area-banda__cuenta).
+   *
+   * El respaldo neutro es para una banda que algún día no tenga modificador.
    */
   --banda-lomo-ancho: 168px;
-  --banda-acento: var(--area-accent, var(--admin-border-strong));
-  --banda-tinta: var(--area-ink, var(--admin-ink));
-  --banda-lomo: color-mix(in srgb, var(--banda-acento) 22%, var(--admin-surface-soft));
-  --banda-lomo-tinta: var(--admin-text);
+  --banda-estado: var(--admin-border-strong);
+  --banda-cifra: var(--admin-ink);
+  --banda-lomo: var(--banda-estado);
+  --banda-lomo-tinta: var(--admin-paper);
   border: 0;
   border-radius: 0;
   background: var(--admin-surface-soft);
   font-family: var(--operational-font-ui);
 }
 
+.area-banda--enviados {
+  --banda-estado: var(--admin-c-rojo);
+  --banda-cifra: var(--admin-c-rojo);
+}
+
 .area-banda--prep {
-  --banda-lomo: color-mix(in srgb, var(--banda-acento) 50%, var(--admin-surface-soft));
+  --banda-estado: var(--admin-c-ambar);
+  --banda-cifra: color-mix(in srgb, var(--admin-c-ambar) 46%, var(--admin-ink));
 }
 
 .area-banda--listo {
-  --banda-lomo: var(--banda-acento);
-  --banda-lomo-tinta: var(--banda-tinta);
+  --banda-estado: var(--admin-c-verde);
+  --banda-cifra: color-mix(in srgb, var(--admin-c-verde) 58%, var(--admin-ink));
 }
 
 /*
  * Vacía, sólo lo que mide, y con el lomo NEUTRO sea cual sea su estado: un lomo
- * lleno en Listos sin nada que recoger sería lo más llamativo del tablero y
+ * verde en Listos sin nada que recoger sería lo más llamativo del tablero y
  * desde lejos diría «hay algo listo» justo cuando no hay nada. El color mide
- * trabajo; sin trabajo no hay color, y de qué estación es lo sigue diciendo el
- * contorno del contador.
+ * trabajo; sin trabajo no hay relleno, y qué estado es lo sigue diciendo el
+ * contorno del contador, en su color.
  *
- * Neutro y no un velo más bajo. Estuvo al 12 %, y contra el 22 % de Enviados
- * el salto de luz era 1.07–1.10:1 en rojo, rosa, magenta e índigo: la comanda
- * que caía en un Enviados vacío casi no cambiaba el lomo. De neutro a teñido es
- * un salto de categoría (aparece el hue), y es justo el aviso de que llegó algo.
+ * De neutro a lleno es un salto de categoría (aparece el color), y es justo el
+ * aviso de que llegó algo.
  *
- * (0,3,0): le gana a .area-banda--listo sin !important.
+ * (0,3,0): le gana a los modificadores de estado sin !important.
  */
 .area-banda:has(> .area-banda__riel > .area-empty) {
   --banda-lomo: var(--admin-surface-soft);
@@ -15641,11 +16195,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * Pesos: 700 para cifras y nombres fuertes, 600 para el platillo, 400 para lo
  * secundario. Tres, y ninguno más.
  *
- * 19 px y 700: texto GRANDE para WCAG (≥ 18.66 px en negrita). Sobre el lomo
- * lleno de rosa ninguna de las dos tintas llega a 4.5:1 (4.36 la mejor), y como
- * texto grande basta 3:1. De paso es el rótulo de una estación que se lee desde
- * el pase. Puede partir en dos renglones («En / preparación»), nunca con puntos
- * suspensivos.
+ * 19 px y 700: texto GRANDE para WCAG (≥ 18.66 px en negrita). En blanco sobre
+ * los tres lomos (ver .area-banda: sobre el ámbar no llega a 3:1, decisión
+ * asumida). Es el rótulo de un estado que se lee desde el pase. Puede partir en dos renglones
+ * («En / preparación»), nunca con puntos suspensivos.
  */
 .area-banda__rotulo {
   min-width: 0;
@@ -15663,13 +16216,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * de la cocina: 20 px en una píldora de 34, radio 10 para igualar el de
  * .area-card__btn (un solo radio de control en el tablero).
  *
- * Contrasta con SU lomo: sólido del color de la estación sobre el velo y el
- * medio; invertido —tinta de fondo, cifra del color— sobre el lleno, donde un
- * sólido del mismo color desaparecería. La cifra va siempre en una de las dos
- * tintas o en el color de la estación: ≥ 4.1:1 en los diez de la paleta (cifra
- * de 20 px bold, texto grande).
+ * Sobre el lomo lleno, pastilla BLANCA en los tres estados: la misma pieza en
+ * todo el tablero, que destaca igual sobre el rojo, el amarillo y el verde.
+ * Estuvo invertida (blanca en el rojo, negra en el amarillo y el verde) y las
+ * tres pastillas parecían tres cosas distintas.
  *
- * Vacía, hueco: sólo el contorno, el único color de una banda sin trabajo.
+ * La cifra lleva el color de su estado, pero legible sobre papel: el rojo tal
+ * cual (4.58:1); el ámbar y el verde puros no se leen en blanco (1.8 y 2.9:1),
+ * así que van oscurecidos con la tinta (≈6.3 y 6.7:1). Ver --banda-cifra.
+ *
+ * Vacía, hueco: sólo el contorno en el color del estado, el único color de una
+ * banda sin trabajo.
  */
 .area-banda__cuenta {
   display: grid;
@@ -15679,21 +16236,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   place-items: center;
   border: 0;
   border-radius: 10px;
-  background: var(--banda-acento);
-  color: var(--banda-tinta);
+  background: var(--admin-paper);
+  color: var(--banda-cifra);
   font-family: var(--admin-font-mono);
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
   line-height: 1;
 }
-.area-banda--listo .area-banda__cuenta {
-  background: var(--banda-tinta);
-  color: var(--banda-acento);
-}
 .area-banda:has(> .area-banda__riel > .area-empty) .area-banda__cuenta {
   background: transparent;
-  box-shadow: inset 0 0 0 2px var(--banda-acento);
+  box-shadow: inset 0 0 0 2px var(--banda-estado);
   color: var(--admin-text);
 }
 
@@ -16178,15 +16731,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
    * de la columna 1— y encima nunca coincidían de columna. Verde y ámbar
    * aparecían juntos en una banda cuyo contador era de un tercer color.
    *
-   * Ahora el estado vive SÓLO en el contador de la banda, y el botón
+   * Ahora el estado vive SÓLO en el lomo de la banda, y el botón
    * es el relleno primario del sistema —casi blanco sobre casi negro— idéntico
    * en las tres columnas. Es el mismo verbo en los dos sitios («avanza esto»),
    * así que tiene que ser el mismo botón; a dónde avanza ya lo dicen la palabra
-   * de dentro y la banda en la que estás.
+   * de dentro y la banda en la que estás. Tampoco va del color de la estación:
+   * un «Listo» rojo en Cocina se leería como destructivo.
    *
    * Consecuencia asumida: el KDS deja de pintar sus botones con los tokens
-   * --admin-estado-* del POS. A cambio, el tablero pasa de cinco significados
-   * de color a dos: ESTADO (contador de la banda) y ANTIGÜEDAD (la hora).
+   * --admin-estado-* del POS. A cambio, cada color del tablero dice una sola
+   * cosa en un solo sitio: ESTACIÓN (la barra), ESTADO (el lomo) y ANTIGÜEDAD
+   * (la hora).
    */
 }
 .area-card__btn--prep, .area-card__btn--listo {
@@ -16217,8 +16772,27 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
   }
+  /*
+   * Aquí el lomo es una PESTAÑA encima de las comandas: pegada al canto
+   * superior izquierdo de su banda, del mismo ancho en las tres, con el rótulo
+   * y el contador dentro. Sin pegar: no tiene columna propia y pasaría por
+   * encima de las comandas al desplazar.
+   *
+   * No una franja a todo lo ancho. Justo debajo de la barra de la estación
+   * —que también va a todo lo ancho— una franja llena se leía como la segunda
+   * mitad de la barra: en Cocina, dos franjas rojas a 8 px y «Enviados» como
+   * subtítulo de «Cocina». Como pestaña, la superficie neutra de la banda la
+   * rodea por la derecha y por debajo y la ata a SU banda: la barra es un
+   * marco y el lomo, una etiqueta. Mismo color, otra forma, y el semáforo no
+   * pierde relleno ni cuerpo de rótulo.
+   *
+   * 248 px: «En preparación» a 19 px con un contador de dos cifras en una
+   * línea. Más estrecha se parte («En / preparación»), que está permitido.
+   */
   .area-banda__lomo,
   .area-banda:has(> .area-banda__riel > .area-empty) .area-banda__lomo {
+    justify-self: start;
+    width: min(100%, 248px);
     padding: 10px 14px 10px 16px;
   }
   .area-banda__marca,

@@ -15,6 +15,7 @@ final class ContextoNegocio
     /** Disponibilidad técnica; los permisos se comprueban por separado. */
     public static function modulosHabilitados(string $ctx): array
     {
+        if ($ctx === 'panaderia') return ['users','inventario','menu','ia','finanzas','analytics','pdv','vitrina','anular'];
         if ($ctx !== 'restaurante') return ['users','inventario','menu','ia','finanzas','analytics'];
         return array_values(array_diff(array_keys(PermisosUsuario::catalogo($ctx)), ['roles']));
     }

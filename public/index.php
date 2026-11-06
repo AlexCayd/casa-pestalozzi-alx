@@ -42,6 +42,7 @@ use Controllers\AreaController;
 use Controllers\AdminConsultasController;
 use Controllers\AdminRolesController;
 use Controllers\Panaderia\PanaderiaController;
+use Controllers\CajaPanaderiaController;
 
 $router = new Router();
 
@@ -114,6 +115,9 @@ foreach (['create'=>'/create', 'edit'=>'/edit', 'asociar'=>'/asociar', 'toggle'=
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
 $router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
+// Caja de Panadería: opciones de cada pan y la pieza de vitrina que descuenta.
+$router->get('/admin/panaderia/menu/vitrina', [\Controllers\AdminVitrinaController::class, 'index']);
+$router->post('/admin/panaderia/menu/vitrina', [\Controllers\AdminVitrinaController::class, 'guardar']);
 $router->get('/admin/global/menus', [AdminMenuController::class,'biblioteca']);
 foreach (['restaurante'=>['restaurante','comida'],'maridaje'=>['restaurante','maridaje'],'panaderia'=>['panaderia','comida']] as $segmento=>$documento) {
     $router->get('/admin/global/menus/'.$segmento,static function($router)use($documento):void { \Services\Menu\MenuPdf::streamAdministrativo($documento[0],$documento[1]); });
@@ -423,6 +427,18 @@ $router->post('/api/entregar-item',       [PuntoVentaController::class, 'entrega
 // Estaba incrustada por error entre las rutas de /admin/menu/items.
 $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancelarItem']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
+
+// Caja de mostrador de Panadería: piso con NIP, sin mesas ni comanda. El
+// ámbito lo fija la ruta (Contextos::deRuta) y cada API está en Permisos::APIS.
+$router->get('/panaderia/caja',                [CajaPanaderiaController::class, 'index']);
+$router->get('/api/panaderia/caja',            [CajaPanaderiaController::class, 'estado']);
+$router->get('/api/panaderia/caja/vitrina',    [CajaPanaderiaController::class, 'vitrina']);
+$router->post('/api/panaderia/caja/vender',    [CajaPanaderiaController::class, 'vender']);
+$router->post('/api/panaderia/caja/horneada',  [CajaPanaderiaController::class, 'horneada']);
+$router->get('/api/panaderia/caja/tickets',    [CajaPanaderiaController::class, 'tickets']);
+$router->post('/api/panaderia/caja/anular',    [CajaPanaderiaController::class, 'anular']);
+$router->post('/api/panaderia/caja/imprimir',  [CajaPanaderiaController::class, 'imprimir']);
+$router->get('/api/panaderia/caja/corte',      [CajaPanaderiaController::class, 'corte']);
 
 $router->get('/area',        [AreaController::class, 'index']);
 $router->get('/area/cafe',   [AreaController::class, 'cafe']);

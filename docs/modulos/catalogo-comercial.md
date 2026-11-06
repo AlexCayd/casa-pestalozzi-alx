@@ -211,7 +211,8 @@ Retirar significa desactivar la oferta, nunca borrar identidad ni historial.
 | Superficie | Lectura | Escritura |
 |---|---|---|
 | `/admin/menu` y destinos históricos | `menu/ver` Restaurante | `menu/editar` Restaurante; operaciones actuales |
-| `/admin/panaderia/menu` y `create`, `edit`, `toggle`, `delete`, `categorias/*`, `asociar` | `menu/ver` Panadería | `menu/editar` Panadería; sin POS, PDF público, variantes ni editor de recetas |
+| `/admin/panaderia/menu` y `create`, `edit`, `toggle`, `delete`, `categorias/*`, `asociar` | `menu/ver` Panadería | `menu/editar` Panadería; sin PDF público ni editor de recetas |
+| `/admin/panaderia/menu/vitrina` | `menu/ver` Panadería | `menu/editar` Panadería: opciones de cada pan y pieza de vitrina que descuenta en la [caja](caja-panaderia.md) |
 | `/admin/global/productos` y `edit` | `menu/ver` Global; uso comercial solo en negocios con `menu/ver` | `menu/editar` Global + `comercial.identidad.editar`; solo atributos maestros |
 | `/admin/global/catalogo` | Contrato vigente Almacenes | Sin cambios |
 

@@ -11,10 +11,10 @@ use Services\Security\ContextoNegocio;
  *
  * Un aviso es una nota de la casa —alergias, formas de pago, lo que depende
  * del mercado— con título y contenido, que se imprime en la carta de comida,
- * en la de maridaje o en las dos, al inicio (después de la portada) o al
- * final (antes de la despedida). Dos lugares y no uno porque son dos clases
- * de aviso: lo que hay que saber ANTES de leer la carta («la cocina cierra a
- * las 22:00») y la letra de cierre («la propina es voluntaria»).
+ * en la de maridaje o en las dos. Siempre al final: después de la última
+ * sección y antes de la despedida. Decisión de la casa: la carta abre con
+ * sus platillos y nada se interpone entre la portada y la primera sección.
+ * Por eso no hay lugar que elegir, sólo el orden entre avisos.
  *
  * El contenido se guarda como marcado ligero, nunca como HTML:
  *   · un renglón que empieza con `## ` es un subtítulo;
@@ -44,32 +44,24 @@ final class AvisosCarta
         'maridaje' => ['columna' => 'en_maridaje', 'titulo' => 'Maridaje', 'ayuda' => 'Bebidas y coctelería'],
     ];
 
-    public const POSICIONES = [
-        'inicio' => ['titulo' => 'Al inicio', 'ayuda' => 'Después de la portada, antes de la primera sección'],
-        'final' => ['titulo' => 'Al final', 'ayuda' => 'Después de la última sección, antes de la despedida'],
-    ];
-
     /** Arranques del editor. Texto de ejemplo: se ajusta antes de guardar. */
     public const PLANTILLAS = [
         'alergias' => [
             'nombre' => 'Alergias',
             'titulo' => 'Alergias e intolerancias',
             'contenido' => "Si tienes alguna alergia o intolerancia, **avísanos antes de ordenar**: te decimos qué lleva cada platillo y, cuando se puede, lo preparamos aparte.",
-            'posicion' => 'final',
             'cartas' => ['comida'],
         ],
         'pagos' => [
             'nombre' => 'Formas de pago',
             'titulo' => 'Servicio',
             'contenido' => "## Formas de pago\nEfectivo, tarjeta y transferencia.\n\nLa propina es **voluntaria** y no está incluida en la cuenta.",
-            'posicion' => 'final',
             'cartas' => ['comida', 'maridaje'],
         ],
         'temporada' => [
             'nombre' => 'Temporada',
             'titulo' => 'De temporada',
             'contenido' => "Algunos platillos dependen de la cosecha y del mercado del día. **Pregúntale a tu mesero** qué hay hoy.",
-            'posicion' => 'inicio',
             'cartas' => ['comida'],
         ],
     ];
@@ -169,7 +161,7 @@ final class AvisosCarta
      * Normaliza y valida lo que llega del formulario.
      *
      * @return array{errores: array<string, string>, aviso: array}
-     *   `errores` por campo (titulo, contenido, cartas, posicion), para
+     *   `errores` por campo (titulo, contenido, cartas), para
      *   pintarlos junto a su control; `aviso` es lo que se guarda.
      */
     public static function validar(array $entrada): array
@@ -209,12 +201,6 @@ final class AvisosCarta
             $errores['cartas'] = 'Elige al menos una carta: Menú, Maridaje o las dos.';
         }
 
-        $posicion = is_scalar($entrada['posicion'] ?? null) ? (string) $entrada['posicion'] : '';
-        if (!isset(self::POSICIONES[$posicion])) {
-            $errores['posicion'] = 'Elige si el aviso va al inicio o al final de la carta.';
-            $posicion = 'inicio';
-        }
-
         $activo = isset($entrada['activo']) && is_scalar($entrada['activo']) && (string) $entrada['activo'] === '1';
 
         return [
@@ -223,7 +209,6 @@ final class AvisosCarta
                 'titulo' => mb_substr($titulo, 0, self::MAX_TITULO),
                 'contenido' => $contenido,
                 'cartas' => $cartas,
-                'posicion' => $posicion,
                 'activo' => $activo,
             ],
         ];
@@ -237,7 +222,6 @@ final class AvisosCarta
             'titulo' => '',
             'contenido' => '',
             'cartas' => ['comida' => true, 'maridaje' => false],
-            'posicion' => 'inicio',
             'activo' => true,
         ];
         if (!isset(self::PLANTILLAS[$plantilla])) {
@@ -247,7 +231,6 @@ final class AvisosCarta
         return array_merge($base, [
             'titulo' => $p['titulo'],
             'contenido' => $p['contenido'],
-            'posicion' => $p['posicion'],
             'cartas' => array_combine(array_keys(self::CARTAS), array_map(static fn (string $c): bool => in_array($c, $p['cartas'], true), array_keys(self::CARTAS))),
         ]);
     }
@@ -255,9 +238,9 @@ final class AvisosCarta
     // ── Lectura ────────────────────────────────────────────────
 
     /**
-     * Todos los avisos de Restaurante para el panel, en el orden de la carta
-     * (los del inicio primero). Lanza si la tabla no existe: el panel lo
-     * explica en vez de enseñar una lista vacía engañosa.
+     * Todos los avisos de Restaurante para el panel, en el orden en que salen
+     * en la carta. Lanza si la tabla no existe: el panel lo explica en vez de
+     * enseñar una lista vacía engañosa.
      *
      * @return list<array>
      */
@@ -265,10 +248,10 @@ final class AvisosCarta
     {
         ContextoNegocio::exigir('configuration', 'ver', 'restaurante');
         $stmt = self::db()->prepare(
-            "SELECT id, titulo, contenido, activo, en_comida, en_maridaje, posicion, orden
+            'SELECT id, titulo, contenido, activo, en_comida, en_maridaje, orden
                FROM configuracion_avisos
               WHERE unidad_id = ?
-              ORDER BY FIELD(posicion, 'inicio', 'final'), orden, id"
+              ORDER BY orden, id'
         );
         $unidad = ContextoNegocio::unidad('restaurante');
         $stmt->bind_param('i', $unidad);
@@ -280,26 +263,28 @@ final class AvisosCarta
     }
 
     /**
-     * Los avisos activos de una carta, ya en HTML con las clases del PDF:
-     * ['inicio' => [['titulo', 'html']], 'final' => [...]].
+     * Los avisos activos de una carta, en orden y ya en HTML con las clases
+     * del PDF: [['titulo' => string, 'html' => string], ...]. Todos van al
+     * final de la carta.
      *
      * Sin permiso a propósito: la carta pública (/menu/pdf) los imprime. Nunca
      * lanza; cualquier fallo es una carta sin avisos.
+     *
+     * @return list<array{titulo: string, html: string}>
      */
     public static function paraPdf(string $carta): array
     {
-        $vacio = ['inicio' => [], 'final' => []];
         if (!isset(self::CARTAS[$carta])) {
-            return $vacio;
+            return [];
         }
         try {
             $db = ActiveRecord::getDB();
             if (!$db instanceof \mysqli) {
-                return $vacio;
+                return [];
             }
             $columna = self::CARTAS[$carta]['columna'];
             $stmt = $db->prepare(
-                "SELECT a.titulo, a.contenido, a.posicion
+                "SELECT a.titulo, a.contenido
                    FROM configuracion_avisos a
                    JOIN unidades u ON u.id = a.unidad_id AND u.slug = 'restaurante'
                   WHERE a.activo = 1 AND a.{$columna} = 1
@@ -311,17 +296,16 @@ final class AvisosCarta
             $stmt->close();
         } catch (\Throwable $e) {
             error_log('AvisosCarta::paraPdf - ' . $e->getMessage());
-            return $vacio;
+            return [];
         }
 
-        $salida = $vacio;
+        $salida = [];
         foreach ($filas as $fila) {
             $html = self::html((string) $fila['contenido'], ['h2' => 'aviso__h2', 'p' => 'aviso__p', 'b' => 'aviso__b']);
             if ($html === '') {
                 continue;
             }
-            $posicion = isset($salida[$fila['posicion']]) ? (string) $fila['posicion'] : 'inicio';
-            $salida[$posicion][] = ['titulo' => (string) $fila['titulo'], 'html' => $html];
+            $salida[] = ['titulo' => (string) $fila['titulo'], 'html' => $html];
         }
         return $salida;
     }
@@ -339,7 +323,6 @@ final class AvisosCarta
             $comida = !empty($aviso['cartas']['comida']) ? 1 : 0;
             $maridaje = !empty($aviso['cartas']['maridaje']) ? 1 : 0;
             $activo = !empty($aviso['activo']) ? 1 : 0;
-            $posicion = (string) $aviso['posicion'];
             $titulo = (string) $aviso['titulo'];
             $contenido = (string) $aviso['contenido'];
 
@@ -348,21 +331,20 @@ final class AvisosCarta
                 if ($total >= self::MAX_AVISOS) {
                     throw new InventarioError('AVISOS_LIMITE', 'La carta admite hasta ' . self::MAX_AVISOS . ' avisos. Elimina o reutiliza uno de los que ya tienes.');
                 }
-                $orden = self::siguienteOrden($db, $unidad, $posicion);
-                $stmt = $db->prepare('INSERT INTO configuracion_avisos (unidad_id, titulo, contenido, activo, en_comida, en_maridaje, posicion, orden, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                $stmt->bind_param('issiiisii', $unidad, $titulo, $contenido, $activo, $comida, $maridaje, $posicion, $orden, $actor);
+                // Uno nuevo entra al último, justo antes de la despedida.
+                $orden = self::siguienteOrden($db, $unidad);
+                $stmt = $db->prepare('INSERT INTO configuracion_avisos (unidad_id, titulo, contenido, activo, en_comida, en_maridaje, orden, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+                $stmt->bind_param('issiiiii', $unidad, $titulo, $contenido, $activo, $comida, $maridaje, $orden, $actor);
                 $stmt->execute();
                 $nuevo = (int) $db->insert_id;
                 $stmt->close();
                 return ['id' => $nuevo];
             }
 
-            $actual = self::bloquear($db, $unidad, $id);
-            // Al cambiar de lugar entra al final de su grupo nuevo, no a la
-            // altura que tenía en el otro.
-            $orden = $actual['posicion'] === $posicion ? (int) $actual['orden'] : self::siguienteOrden($db, $unidad, $posicion);
-            $stmt = $db->prepare('UPDATE configuracion_avisos SET titulo = ?, contenido = ?, activo = ?, en_comida = ?, en_maridaje = ?, posicion = ?, orden = ?, updated_by = ? WHERE id = ? AND unidad_id = ?');
-            $stmt->bind_param('ssiiisiiii', $titulo, $contenido, $activo, $comida, $maridaje, $posicion, $orden, $actor, $id, $unidad);
+            // Editar no lo mueve: conserva su lugar en la lista.
+            self::bloquear($db, $unidad, $id);
+            $stmt = $db->prepare('UPDATE configuracion_avisos SET titulo = ?, contenido = ?, activo = ?, en_comida = ?, en_maridaje = ?, updated_by = ? WHERE id = ? AND unidad_id = ?');
+            $stmt->bind_param('ssiiiiii', $titulo, $contenido, $activo, $comida, $maridaje, $actor, $id, $unidad);
             $stmt->execute();
             $stmt->close();
             return ['id' => $id];
@@ -382,17 +364,16 @@ final class AvisosCarta
         });
     }
 
-    /** Sube o baja un aviso dentro de su lugar (inicio o final) y renumera el grupo. */
+    /** Sube o baja un aviso en la lista y la renumera completa. */
     public static function mover(int $id, string $direccion): array
     {
         return self::escribir(static function (\mysqli $db, int $unidad, ?int $actor) use ($id, $direccion): array {
             if (!in_array($direccion, ['subir', 'bajar'], true)) {
                 throw new InventarioError('DIRECCION_INVALIDA', 'Movimiento no válido.');
             }
-            $actual = self::bloquear($db, $unidad, $id);
-            $stmt = $db->prepare('SELECT id FROM configuracion_avisos WHERE unidad_id = ? AND posicion = ? ORDER BY orden, id FOR UPDATE');
-            $posicion = (string) $actual['posicion'];
-            $stmt->bind_param('is', $unidad, $posicion);
+            self::bloquear($db, $unidad, $id);
+            $stmt = $db->prepare('SELECT id FROM configuracion_avisos WHERE unidad_id = ? ORDER BY orden, id FOR UPDATE');
+            $stmt->bind_param('i', $unidad);
             $stmt->execute();
             $ids = array_map('intval', array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'id'));
             $stmt->close();
@@ -446,7 +427,7 @@ final class AvisosCarta
 
     private static function bloquear(\mysqli $db, int $unidad, int $id): array
     {
-        $stmt = $db->prepare('SELECT id, posicion, orden FROM configuracion_avisos WHERE id = ? AND unidad_id = ? FOR UPDATE');
+        $stmt = $db->prepare('SELECT id, orden FROM configuracion_avisos WHERE id = ? AND unidad_id = ? FOR UPDATE');
         $stmt->bind_param('ii', $id, $unidad);
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc();
@@ -457,9 +438,9 @@ final class AvisosCarta
         return $fila;
     }
 
-    private static function siguienteOrden(\mysqli $db, int $unidad, string $posicion): int
+    private static function siguienteOrden(\mysqli $db, int $unidad): int
     {
-        return (int) self::uno($db, 'SELECT COALESCE(MAX(orden) + 1, 0) FROM configuracion_avisos WHERE unidad_id = ? AND posicion = ?', 'is', [$unidad, $posicion]);
+        return (int) self::uno($db, 'SELECT COALESCE(MAX(orden) + 1, 0) FROM configuracion_avisos WHERE unidad_id = ?', 'i', [$unidad]);
     }
 
     private static function uno(\mysqli $db, string $sql, string $tipos, array $valores): mixed
@@ -480,7 +461,6 @@ final class AvisosCarta
             'contenido' => (string) $fila['contenido'],
             'activo' => (int) $fila['activo'] === 1,
             'cartas' => ['comida' => (int) $fila['en_comida'] === 1, 'maridaje' => (int) $fila['en_maridaje'] === 1],
-            'posicion' => isset(self::POSICIONES[$fila['posicion']]) ? (string) $fila['posicion'] : 'inicio',
             'orden' => (int) $fila['orden'],
         ];
     }

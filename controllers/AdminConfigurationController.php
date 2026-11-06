@@ -718,7 +718,7 @@ class AdminConfigurationController
     // ── Avisos de la carta ──────────────────────────────────────
     //
     // Lista y editor en la misma pantalla, como un CRM: a la izquierda los
-    // avisos en el orden en que salen en la carta, a la derecha el editor
+    // avisos en el orden en que salen al final de la carta, a la derecha el editor
     // (nuevo por omisión, ?editar=ID para uno existente). Todo es un POST
     // clásico con redirección, así que funciona sin JS; avisos.js añade la
     // barra de formato, la vista previa en vivo y la guarda de cambios.
@@ -755,7 +755,6 @@ class AdminConfigurationController
             'titulo' => $_POST['titulo'] ?? '',
             'contenido' => $_POST['contenido'] ?? '',
             'cartas' => isset($_POST['cartas']) && is_array($_POST['cartas']) ? $_POST['cartas'] : [],
-            'posicion' => $_POST['posicion'] ?? '',
             'activo' => $_POST['activo'] ?? '0',
         ]);
         $formulario = ['id' => $id] + $validacion['aviso'];
@@ -798,7 +797,7 @@ class AdminConfigurationController
         self::volverAvisos($resultado['ok'] ? ($activo ? 'aviso_activado' : 'aviso_pausado') : self::codigoAviso($resultado), $volver, $id);
     }
 
-    /** POST /admin/configuracion/avisos/mover — sube o baja dentro de su lugar. */
+    /** POST /admin/configuracion/avisos/mover — sube o baja en la lista. */
     public static function moverAviso(Router $router): void
     {
         [$id, $volver] = self::entradaAccionAviso();
@@ -908,7 +907,6 @@ class AdminConfigurationController
             'avisosDisponibles' => $disponible,
             'avisoConCambios' => $conCambios,
             'cartasAviso' => AvisosCarta::CARTAS,
-            'posicionesAviso' => AvisosCarta::POSICIONES,
             'plantillasAviso' => AvisosCarta::PLANTILLAS,
             'limitesAviso' => [
                 'avisos' => AvisosCarta::MAX_AVISOS,

@@ -48,6 +48,19 @@ $assert($clavesHoja === array_keys(AreasProduccion::PALETA), 'El @each de config
 foreach (AreasProduccion::DE_ESPERA as $clave) {
     $assert(isset(AreasProduccion::PALETA[$clave]), "El color de espera {$clave} es de la paleta.");
 }
+// El semáforo de las bandas del KDS: el aviso de Configuración lo lee de
+// DE_ESTADO y el tablero lo pinta con los tokens; si uno cambia sin el otro,
+// la pantalla avisaría de los colores equivocados.
+$assert(AreasProduccion::DE_ESTADO === ['rojo', 'ambar', 'verde'], 'DE_ESTADO es el semáforo Enviados/En preparación/Listos.');
+$kds = $leer('src/scss/area/_area.scss');
+foreach (['enviados', 'prep', 'listo'] as $i => $banda) {
+    $clave = AreasProduccion::DE_ESTADO[$i];
+    $assert(isset(AreasProduccion::PALETA[$clave]), "El color de estado {$clave} es de la paleta.");
+    $assert(
+        preg_match('/\.area-banda--' . $banda . '\s*\{[^}]*--banda-estado:\s*var\(--admin-c-' . $clave . '\)/', $kds) === 1,
+        "La banda {$banda} del KDS se pinta con --admin-c-{$clave}."
+    );
+}
 
 // 2 · Normalizar y reconocer.
 $assert(AreasProduccion::normalizar('#E51022') === '#e51022', 'normalizar() pasa a minúsculas.');

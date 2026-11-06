@@ -3,8 +3,9 @@
 /**
  * Las cuatro estaciones de producción (`areas_produccion`) y su color.
  *
- * El color de una estación llena el lomo de cada banda de su tablero KDS
- * según el estado (velo, medio, lleno), pinta su tarjeta en el
+ * El color de una estación llena la barra superior de su tablero KDS y tiñe
+ * su fondo (los estados de las bandas van en rojo, amarillo y verde, aparte),
+ * pinta su tarjeta en el
  * selector de estación y en Producción del panel, tiñe su fila en Impresoras y
  * el encabezado de su grupo al confirmar una comanda en el POS. Se elige en
  * Configuración → Colores de las áreas, y SÓLO entre los diez de la paleta
@@ -51,11 +52,19 @@ class AreasProduccion
     /**
      * Los dos colores con que el KDS marca la hora de una comanda atrasada (a
      * los 5 y a los 10 minutos). Se pueden elegir —el color de la estación sólo
-     * va en el lomo de cada banda, fuera de la comanda y lejos de la hora—, pero la
-     * pantalla lo avisa: si algún día el color de estación vuelve a pintar algo
-     * dentro de la comanda, chocarían.
+     * va en la barra superior del tablero, fuera de la comanda y lejos de la
+     * hora—, pero la pantalla lo avisa: si algún día el color de estación vuelve
+     * a pintar algo dentro de la comanda, chocarían.
      */
     public const DE_ESPERA = ['ambar', 'rojo'];
+
+    /**
+     * Los colores de los estados en el lomo de las bandas del KDS: Enviados,
+     * En preparación y Listos, en ese orden (src/scss/area/_area.scss). Se
+     * pueden elegir para una estación —la estación sólo llena la barra—, pero
+     * esa estación compartirá color con una banda, y la pantalla lo avisa.
+     */
+    public const DE_ESTADO = ['rojo', 'ambar', 'verde'];
 
     /** Respaldo si la base no responde: los valores de deploy.sql. */
     private const RESPALDO = [
@@ -247,7 +256,7 @@ class AreasProduccion
      * (#fbfbfa) en _globals.scss, ya convertidos a luminancia.
      *
      * La pide todo lo que va RELLENO del color de una estación: la fila de su
-     * área en Impresoras y el lomo de Listos del KDS.
+     * área en Impresoras y la barra superior del KDS.
      */
     public static function tintaSobre(string $hex): string
     {

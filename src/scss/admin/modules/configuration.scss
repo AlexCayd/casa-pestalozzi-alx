@@ -2062,7 +2062,7 @@
 
 .admin-area-color {
   --area-accent: var(--area-inicial);
-  // La tinta del contador relleno (Listos): la manda la vista por cada color
+  // La tinta de la barra rellena: la manda la vista por cada color
   // (AreasProduccion::tintaSobre) y abajo la cambia el radio elegido.
   --area-ink: var(--area-tinta-inicial, var(--admin-ink));
 
@@ -2156,14 +2156,35 @@
     box-shadow: 0 0 0 1px var(--admin-border-soft);
   }
 
-  // Cada banda como en _area.scss: recta, neutra, con el lomo de color a la
-  // izquierda y del mismo ancho en las tres. Lo que cambia por estado es cuánto
-  // color lleva el lomo: velo (22 %), medio (50 %) y lleno. La muestra nunca va
-  // vacía (3, 2, 1), así que no replica el lomo neutro de una banda sin
-  // comandas.
+  // La barra del tablero, llena del color de la estación con su tinta: es lo
+  // único de la miniatura que cambia al elegir. Redondeada como la del piso
+  // (.operational-header), para que no se confunda con una banda.
+  &__barra {
+    display: flex;
+    min-height: 27px;
+    align-items: center;
+    margin-bottom: 2px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: var(--area-accent);
+    color: var(--area-ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    transition:
+      background-color var(--admin-t-fast) var(--admin-ease-out),
+      color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // Cada banda como en _area.scss: recta, neutra, con el lomo del color de su
+  // ESTADO a la izquierda y del mismo ancho en las tres. El semáforo no
+  // depende de la estación, así que aquí es fijo; está para que se vea si el
+  // color elegido coincide con alguno. La muestra nunca va vacía (3, 2, 1), así
+  // que no replica el lomo neutro de una banda sin comandas. Título en blanco
+  // en los tres, como en .area-banda.
   &__band {
-    --kds-lomo: color-mix(in srgb, var(--area-accent) 22%, var(--kds-banda));
-    --kds-lomo-tinta: var(--kds-tinta);
+    --kds-estado: var(--kds-banda);
+    --kds-cifra: var(--admin-ink);
 
     display: flex;
     min-height: 25px;
@@ -2175,13 +2196,19 @@
     line-height: 1.2;
   }
 
+  &__band--enviados {
+    --kds-estado: var(--admin-c-rojo);
+    --kds-cifra: var(--admin-c-rojo);
+  }
+
   &__band--prep {
-    --kds-lomo: color-mix(in srgb, var(--area-accent) 50%, var(--kds-banda));
+    --kds-estado: var(--admin-c-ambar);
+    --kds-cifra: color-mix(in srgb, var(--admin-c-ambar) 46%, var(--admin-ink));
   }
 
   &__band--listo {
-    --kds-lomo: var(--area-accent);
-    --kds-lomo-tinta: var(--area-ink);
+    --kds-estado: var(--admin-c-verde);
+    --kds-cifra: color-mix(in srgb, var(--admin-c-verde) 58%, var(--admin-ink));
   }
 
   &__lomo {
@@ -2190,34 +2217,22 @@
     align-items: center;
     gap: 8px;
     padding: 3px 6px 3px 9px;
-    background: var(--kds-lomo);
-    color: var(--kds-lomo-tinta);
-    transition:
-      background-color var(--admin-t-fast) var(--admin-ease-out),
-      color var(--admin-t-fast) var(--admin-ease-out);
+    background: var(--kds-estado);
+    color: var(--admin-paper);
   }
 
-  // Mono para la cifra, como el contador del tablero, y el mismo contraste
-  // (.area-banda__cuenta): sólido del color sobre el velo y el medio,
-  // invertido sobre el lomo lleno.
+  // Mono para la cifra, como el contador del tablero, y la misma pieza
+  // (.area-banda__cuenta): pastilla blanca y cifra del estado legible en papel.
   &__cuenta {
     min-width: 22px;
     padding: 1px 6px;
     border-radius: 5px;
-    background: var(--area-accent);
-    color: var(--area-ink);
+    background: var(--admin-paper);
+    color: var(--kds-cifra);
     font-family: var(--admin-font-mono);
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     text-align: center;
-    transition:
-      background-color var(--admin-t-fast) var(--admin-ease-out),
-      color var(--admin-t-fast) var(--admin-ease-out);
-  }
-
-  &__band--listo &__cuenta {
-    background: var(--area-ink);
-    color: var(--area-accent);
   }
 
   // `.admin-area-color .admin-area-color__aviso`: es un <p>, y `.admin-body p`
@@ -2253,8 +2268,8 @@
   }
 }
 
-// La tinta del contador relleno sigue al radio elegido: cada uno trae la suya
-// en data-tinta, calculada en el servidor, para no copiar aquí la tabla.
+// La tinta de la barra sigue al radio elegido: cada uno trae la suya en
+// data-tinta, calculada en el servidor, para no copiar aquí la tabla.
 .admin-area-color:has(input[data-tinta="ink"]:checked) { --area-ink: var(--admin-ink); }
 .admin-area-color:has(input[data-tinta="paper"]:checked) { --area-ink: var(--admin-paper); }
 
@@ -2416,6 +2431,5 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-area-swatch,
   .admin-area-swatch__dot,
-  .admin-area-color__lomo,
-  .admin-area-color__cuenta { transition: none; }
+  .admin-area-color__barra { transition: none; }
 }

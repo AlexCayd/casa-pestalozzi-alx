@@ -49,8 +49,8 @@ class AreaController {
                 exit;
             }
         }
-        // La tinta que contrasta con el color de la estación: la pide el
-        // contador de Listos, que va relleno de ese color.
+        // La tinta que contrasta con el color de la estación: la pide la barra
+        // superior del tablero, que va rellena de ese color.
         $area['tinta'] = AreasProduccion::tintaSobre((string) $area['color']);
         include __DIR__ . '/../views/area/index.php';
     }

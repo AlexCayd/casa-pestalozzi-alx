@@ -2,10 +2,11 @@
 /**
  * Configuración → Avisos de la carta.
  *
- * Lista y editor en la misma pantalla. A la izquierda, los avisos agrupados
- * por el lugar donde se imprimen (al inicio, al final) y en su orden: la lista
- * es un mapa del PDF, no un índice alfabético. A la derecha, el editor: nuevo
- * por omisión, o el aviso de ?editar=ID.
+ * Lista y editor en la misma pantalla. A la izquierda, los avisos en el orden
+ * en que salen al final de la carta: la lista es un mapa del PDF, no un índice
+ * alfabético. No hay lugar que elegir; todos van al final, antes de la
+ * despedida. A la derecha, el editor: nuevo por omisión, o el aviso de
+ * ?editar=ID.
  *
  * Todo funciona sin JS: el contenido se escribe con sus marcas (## y **), cada
  * acción de la lista es un formulario POST y la vista previa la pinta el
@@ -24,7 +25,6 @@ $avisos = is_array($avisos ?? null) ? $avisos : [];
 $formulario = is_array($formulario ?? null) ? $formulario : AvisosCarta::nuevo();
 $errores = is_array($erroresAviso ?? null) ? $erroresAviso : [];
 $cartas = is_array($cartasAviso ?? null) ? $cartasAviso : AvisosCarta::CARTAS;
-$posiciones = is_array($posicionesAviso ?? null) ? $posicionesAviso : AvisosCarta::POSICIONES;
 $plantillas = is_array($plantillasAviso ?? null) ? $plantillasAviso : AvisosCarta::PLANTILLAS;
 $limites = is_array($limitesAviso ?? null) ? $limitesAviso : ['avisos' => AvisosCarta::MAX_AVISOS, 'titulo' => AvisosCarta::MAX_TITULO, 'contenido' => AvisosCarta::MAX_CONTENIDO];
 $puede = !empty($puedeEditarAvisos);
@@ -37,11 +37,6 @@ $lleno = count($avisos) >= (int) $limites['avisos'];
 // Un aviso nuevo con el tope alcanzado no se puede crear: el editor se apaga
 // y lo dice, en vez de dejar escribir para rechazar al guardar.
 $editorActivo = $puede && $disponible && ($editando || !$lleno);
-
-$porLugar = array_fill_keys(array_keys($posiciones), []);
-foreach ($avisos as $aviso) {
-    $porLugar[$aviso['posicion']][] = $aviso;
-}
 
 $cartasTexto = static function (array $marcadas) use ($cartas): string {
     $nombres = [];
@@ -87,7 +82,7 @@ $urlEditar = static fn (int $id): string => '/admin/configuracion/avisos?editar=
             <div class="admin-config-panel__head">
                 <div>
                     <h2 id="avisos-lista-titulo">En las cartas</h2>
-                    <p>En el orden en que se imprimen. <span class="admin-avisos__cuenta"><?php echo count($avisos); ?> de <?php echo (int) $limites['avisos']; ?></span></p>
+                    <p>Al final de cada carta, antes de la despedida, en este orden. <span class="admin-avisos__cuenta"><?php echo count($avisos); ?> de <?php echo (int) $limites['avisos']; ?></span></p>
                 </div>
                 <?php if ($puede && $disponible && $editando && !$lleno) : ?>
                     <a class="admin-btn admin-btn--secondary admin-btn--small" href="/admin/configuracion/avisos#editor">
@@ -104,85 +99,76 @@ $urlEditar = static fn (int $id): string => '/admin/configuracion/avisos?editar=
                     <p><?php echo $puede ? 'Escribe el primero en el editor, o empieza con uno de los ejemplos.' : 'Cuando el equipo agregue uno, aparecerá aquí.'; ?></p>
                 </div>
             <?php else : ?>
-                <?php foreach ($porLugar as $lugar => $lista) : ?>
-                    <div class="admin-avisos__grupo">
-                        <h3 class="admin-avisos__lugar">
-                            <?php echo $h($posiciones[$lugar]['titulo']); ?>
-                            <span><?php echo $h($posiciones[$lugar]['ayuda']); ?></span>
-                        </h3>
-                        <?php if ($lista === []) : ?>
-                            <p class="admin-avisos__lugar-vacio">Ninguno en este lugar.</p>
-                        <?php else : ?>
-                            <ol class="admin-avisos__items">
-                                <?php foreach ($lista as $n => $aviso) : ?>
-                                    <?php
-                                    $actual = $aviso['id'] === $idActual;
-                                    $clases = 'admin-aviso-item' . ($actual ? ' is-actual' : '') . (!$aviso['activo'] ? ' is-pausado' : '');
-                                    ?>
-                                    <li class="<?php echo $clases; ?>" id="aviso-<?php echo (int) $aviso['id']; ?>">
-                                        <a class="admin-aviso-item__abrir" href="<?php echo $h($urlEditar($aviso['id'])); ?>"<?php echo $actual ? ' aria-current="true"' : ''; ?>>
-                                            <span class="admin-aviso-item__titulo"><?php echo $h($aviso['titulo']); ?></span>
-                                            <span class="admin-aviso-item__extracto"><?php echo $h(AvisosCarta::extracto($aviso['contenido'])); ?></span>
-                                        </a>
-                                        <div class="admin-aviso-item__meta">
-                                            <span class="admin-badge admin-badge--outline"><?php echo $h($cartasTexto($aviso['cartas'])); ?></span>
-                                            <?php if (!$aviso['activo']) : ?>
-                                                <span class="admin-badge admin-badge--neutral">Pausado</span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <?php if ($puede && $disponible) : ?>
-                                            <div class="admin-aviso-item__acciones">
-                                                <form method="POST" action="/admin/configuracion/avisos/estado" class="admin-aviso-item__form">
-                                                    <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
-                                                    <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
-                                                    <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
-                                                    <input type="hidden" name="activo" value="<?php echo $aviso['activo'] ? '0' : '1'; ?>">
-                                                    <?php /* Un botón de envío con forma de interruptor: sin JS
-                                                             también cambia el estado, y el lector anuncia
-                                                             «Se imprime, interruptor, activado». */ ?>
-                                                    <button type="submit" class="admin-aviso-switch" role="switch" aria-checked="<?php echo $aviso['activo'] ? 'true' : 'false'; ?>"
-                                                            aria-label="Se imprime «<?php echo $h($aviso['titulo']); ?>»">
-                                                        <span class="admin-aviso-switch__track" aria-hidden="true"><span class="admin-aviso-switch__thumb"></span></span>
-                                                        <span class="admin-aviso-switch__texto" aria-hidden="true"><?php echo $aviso['activo'] ? 'Se imprime' : 'Pausado'; ?></span>
-                                                    </button>
-                                                </form>
-                                                <span class="admin-aviso-item__orden">
-                                                    <?php foreach (['subir' => ['sube', 'Subir'], 'bajar' => ['baja', 'Bajar']] as $direccion => [$icono, $verbo]) : ?>
-                                                        <?php $tope = $direccion === 'subir' ? $n === 0 : $n === count($lista) - 1; ?>
-                                                        <form method="POST" action="/admin/configuracion/avisos/mover" class="admin-aviso-item__form">
-                                                            <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
-                                                            <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
-                                                            <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
-                                                            <input type="hidden" name="direccion" value="<?php echo $direccion; ?>">
-                                                            <button type="submit" class="admin-icon-button admin-aviso-item__mover" <?php echo $tope ? 'disabled' : ''; ?>
-                                                                    aria-label="<?php echo $h($verbo . ' «' . $aviso['titulo'] . '»'); ?>" title="<?php echo $h($verbo); ?>">
-                                                                <?php echo admin_icon($icono, 17); ?>
-                                                            </button>
-                                                        </form>
-                                                    <?php endforeach; ?>
-                                                </span>
-                                                <form method="POST" action="/admin/configuracion/avisos/eliminar" class="admin-aviso-item__form"
-                                                      data-confirm-delete
-                                                      data-confirm-eyebrow="Avisos de la carta"
-                                                      data-confirm-title="¿Eliminar «<?php echo $h($aviso['titulo']); ?>»?"
-                                                      data-confirm-description="Dejará de imprimirse en <?php echo $h(mb_strtolower($cartasTexto($aviso['cartas']))); ?>."
-                                                      data-confirm-consequence="El texto no se puede recuperar. Si sólo quieres quitarlo un tiempo, páusalo."
-                                                      data-confirm-primary="Eliminar aviso">
-                                                    <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
-                                                    <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
-                                                    <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
-                                                    <button type="submit" class="admin-icon-button admin-icon-button--danger" aria-label="<?php echo $h('Eliminar «' . $aviso['titulo'] . '»'); ?>" title="Eliminar">
-                                                        <?php echo admin_icon('basura', 17); ?>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        <?php endif; ?>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ol>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
+                <?php /* role="list": con list-style none, Safari y VoiceOver dejan de
+                         anunciarla como lista, y aquí la posición («2 de 3») es lo
+                         que decide dónde se imprime. */ ?>
+                <ol class="admin-avisos__items" role="list">
+                    <?php foreach ($avisos as $n => $aviso) : ?>
+                        <?php
+                        $actual = $aviso['id'] === $idActual;
+                        $clases = 'admin-aviso-item' . ($actual ? ' is-actual' : '') . (!$aviso['activo'] ? ' is-pausado' : '');
+                        ?>
+                        <li class="<?php echo $clases; ?>" id="aviso-<?php echo (int) $aviso['id']; ?>">
+                            <a class="admin-aviso-item__abrir" href="<?php echo $h($urlEditar($aviso['id'])); ?>"<?php echo $actual ? ' aria-current="true"' : ''; ?>>
+                                <span class="admin-aviso-item__titulo"><?php echo $h($aviso['titulo']); ?></span>
+                                <span class="admin-aviso-item__extracto"><?php echo $h(AvisosCarta::extracto($aviso['contenido'])); ?></span>
+                            </a>
+                            <div class="admin-aviso-item__meta">
+                                <span class="admin-badge admin-badge--outline"><?php echo $h($cartasTexto($aviso['cartas'])); ?></span>
+                                <?php if (!$aviso['activo']) : ?>
+                                    <span class="admin-badge admin-badge--neutral">Pausado</span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($puede && $disponible) : ?>
+                                <div class="admin-aviso-item__acciones">
+                                    <form method="POST" action="/admin/configuracion/avisos/estado" class="admin-aviso-item__form">
+                                        <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
+                                        <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
+                                        <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
+                                        <input type="hidden" name="activo" value="<?php echo $aviso['activo'] ? '0' : '1'; ?>">
+                                        <?php /* Un botón de envío con forma de interruptor: sin JS
+                                                 también cambia el estado, y el lector anuncia
+                                                 «Se imprime, interruptor, activado». */ ?>
+                                        <button type="submit" class="admin-aviso-switch" role="switch" aria-checked="<?php echo $aviso['activo'] ? 'true' : 'false'; ?>"
+                                                aria-label="Se imprime «<?php echo $h($aviso['titulo']); ?>»">
+                                            <span class="admin-aviso-switch__track" aria-hidden="true"><span class="admin-aviso-switch__thumb"></span></span>
+                                            <span class="admin-aviso-switch__texto" aria-hidden="true"><?php echo $aviso['activo'] ? 'Se imprime' : 'Pausado'; ?></span>
+                                        </button>
+                                    </form>
+                                    <span class="admin-aviso-item__orden">
+                                        <?php foreach (['subir' => ['sube', 'Subir'], 'bajar' => ['baja', 'Bajar']] as $direccion => [$icono, $verbo]) : ?>
+                                            <?php $tope = $direccion === 'subir' ? $n === 0 : $n === count($avisos) - 1; ?>
+                                            <form method="POST" action="/admin/configuracion/avisos/mover" class="admin-aviso-item__form">
+                                                <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
+                                                <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
+                                                <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
+                                                <input type="hidden" name="direccion" value="<?php echo $direccion; ?>">
+                                                <button type="submit" class="admin-icon-button admin-aviso-item__mover" <?php echo $tope ? 'disabled' : ''; ?>
+                                                        aria-label="<?php echo $h($verbo . ' «' . $aviso['titulo'] . '»'); ?>" title="<?php echo $h($verbo); ?>">
+                                                    <?php echo admin_icon($icono, 17); ?>
+                                                </button>
+                                            </form>
+                                        <?php endforeach; ?>
+                                    </span>
+                                    <form method="POST" action="/admin/configuracion/avisos/eliminar" class="admin-aviso-item__form"
+                                          data-confirm-delete
+                                          data-confirm-eyebrow="Avisos de la carta"
+                                          data-confirm-title="¿Eliminar «<?php echo $h($aviso['titulo']); ?>»?"
+                                          data-confirm-description="Dejará de imprimirse en <?php echo $h(mb_strtolower($cartasTexto($aviso['cartas']))); ?>."
+                                          data-confirm-consequence="El texto no se puede recuperar. Si sólo quieres quitarlo un tiempo, páusalo."
+                                          data-confirm-primary="Eliminar aviso">
+                                        <input type="hidden" name="admin_csrf" value="<?php echo $h($csrf); ?>">
+                                        <input type="hidden" name="aviso_id" value="<?php echo (int) $aviso['id']; ?>">
+                                        <input type="hidden" name="editar" value="<?php echo $idActual ?: ''; ?>">
+                                        <button type="submit" class="admin-icon-button admin-icon-button--danger" aria-label="<?php echo $h('Eliminar «' . $aviso['titulo'] . '»'); ?>" title="Eliminar">
+                                            <?php echo admin_icon('basura', 17); ?>
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ol>
             <?php endif; ?>
 
             <p class="admin-avisos__ver">
@@ -311,8 +297,15 @@ $urlEditar = static fn (int $id): string => '/admin/configuracion/avisos?editar=
                             </div>
                             <p class="admin-aviso-preview__donde" data-aviso-preview-donde>
                                 <?php
-                                $donde = $cartasTexto($formulario['cartas'] ?? []);
-                                echo $h(($donde !== '' ? $donde : 'Ninguna carta') . ' · ' . mb_strtolower($posiciones[$formulario['posicion'] ?? 'inicio']['titulo'] ?? 'Al inicio'))
+                                // Una frase y no una ficha: «Menú · Maridaje · al final» se
+                                // leía como una tercera carta. avisos.js repite esta redacción.
+                                $enCartas = [];
+                                foreach ($cartas as $clave => $carta) {
+                                    if (!empty($formulario['cartas'][$clave])) {
+                                        $enCartas[] = 'del ' . $carta['titulo'];
+                                    }
+                                }
+                                echo $h($enCartas !== [] ? 'Al final ' . implode(' y ', $enCartas) : 'En ninguna carta')
                                     . (empty($formulario['activo']) ? ' · <strong>pausado</strong>' : '');
                                 ?>
                             </p>
@@ -332,22 +325,6 @@ $urlEditar = static fn (int $id): string => '/admin/configuracion/avisos?editar=
                                 <?php endforeach; ?>
                             </div>
                             <span class="admin-field__error" id="aviso-cartas-error" aria-live="polite"><?php echo $h($error('cartas')); ?></span>
-                        </fieldset>
-
-                        <fieldset class="admin-field admin-pills admin-pills--columnas admin-aviso-form__grupo<?php echo $error('posicion') !== '' ? ' has-error' : ''; ?>">
-                            <legend class="admin-field__label">Lugar en la carta</legend>
-                            <div class="admin-pills__group">
-                                <?php foreach ($posiciones as $clave => $posicion) : ?>
-                                    <label class="admin-pill">
-                                        <input type="radio" name="posicion" value="<?php echo $h($clave); ?>" required <?php echo ($formulario['posicion'] ?? 'inicio') === $clave ? 'checked' : ''; ?>>
-                                        <span class="admin-pill__body">
-                                            <span class="admin-pill__title"><?php echo $h($posicion['titulo']); ?></span>
-                                            <span class="admin-pill__hint"><?php echo $h($posicion['ayuda']); ?></span>
-                                        </span>
-                                    </label>
-                                <?php endforeach; ?>
-                            </div>
-                            <span class="admin-field__error" aria-live="polite"><?php echo $h($error('posicion')); ?></span>
                         </fieldset>
 
                         <label class="admin-switch admin-aviso-form__activo">

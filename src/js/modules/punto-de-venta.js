@@ -3597,18 +3597,13 @@ function initMapa() {
     }
     h += '</div>';
     if (ticket) {
-      // Sólo el chip: la esquina del encabezado es INFORMACIÓN, no acción.
+      // Con ticket, la esquina va vacía (sólo la × del modal). Hubo un chip
+      // «Ticket abierto» y se quitó por decisión del producto: lo dicen ya el
+      // pin rojo del mapa, la hora de apertura y la pestaña Estado del ticket.
       //
-      // Aquí vivía la pastilla de "Cancelar mesa", que aparecía mientras la
-      // comanda estaba vacía y se retiraba en cuanto había consumo. Eran dos
-      // salidas para la misma mesa en dos sitios distintos del modal —una
-      // pastilla en la esquina y un botón al fondo de la pestaña Ticket— y
-      // cuál de las dos estaba viva dependía de un conteo que el mesero no ve.
-      // Ahora la salida es una sola y está donde se la busca: el botón de la
-      // pestaña Ticket (ver actualizarCierreEstado).
-      h += '<div class="mmodal-header-estado">';
-      h += '<span class="mmodal-chip mmodal-chip--ticket"><span class="mmodal-chip__texto">Ticket abierto</span></span>';
-      h += '</div>';
+      // Antes aún vivió aquí la pastilla de "Cancelar mesa"; la salida es una
+      // sola y está donde se la busca: el botón de la pestaña Ticket (ver
+      // actualizarCierreEstado).
     } else if (reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '"><span class="mmodal-chip__texto">' + reservaChipLabel + '</span></span>';
     } else if (multi) {
@@ -4269,30 +4264,71 @@ function initMapa() {
   }
 
   /*
+   * Columnas de un paso según cuántas opciones trae. Hasta cuatro, todas en
+   * una fila; con más, de tres o de cuatro, lo que deje la última fila más
+   * llena (5 → 3+2, 7 → 4+3, 9 → 3×3). La última fila se estira (flex, ver
+   * _variantes.scss): el paso llena SIEMPRE el ancho de la hoja. Antes era una
+   * rejilla `auto-fill` y dos opciones ocupaban dos tercios, con un hueco a
+   * la derecha que parecía una opción que faltaba.
+   */
+  function columnasOpciones(n) {
+    if (n <= 4) return Math.max(n, 1);
+    if (n % 4 === 0 || n % 4 === 3) return 4;
+    if (n % 3 === 0 || n <= 6) return 3;
+    return 4;
+  }
+
+  // ¿Alguna opción del grupo tiene icono que pintar? Si ninguna lo tiene, el
+  // paso va en teselas de sólo texto: una columna de iniciales («T», «A»)
+  // no es referencia de nada y le quita sitio al nombre.
+  function conIconosOpciones(gr) {
+    return gr.o.some(function(o) {
+      return !!(o.i && window.AdminIcons && window.AdminIcons.get(o.i, 24));
+    });
+  }
+
+  /*
    * Un paso: el grupo como pregunta y sus opciones como teselas. Patrón de
    * radiogroup con tabindex móvil (un tope de tabulador, flechas dentro). La
    * etiqueta del grupo lleva oculto «Paso 2 de 3:», que es lo que oye el
    * lector de pantalla cuando el foco entra en el paso.
+   *
+   * La tesela, de arriba abajo: el icono (la referencia que se reconoce sin
+   * leer) con el ajuste de precio al otro extremo, «Como en la carta» en la
+   * que viene por omisión, y el nombre al pie. Con ratón y teclado, cada una
+   * enseña su número: 1–9 la elige (teclaOpciones). Todo lo que va dentro
+   * es decorativo o repite el nombre: la etiqueta accesible es el texto.
    */
   function pasoOpcionesHtml(h, gi) {
     var gr = h.dish.g[gi];
     var elegido = h.seleccion[gi];
     var falta = gr.req && !elegido;
     var total = h.dish.g.length;
+    var iconos = conIconosOpciones(gr);
     var html = '<section class="mmodal-opts__grupo' + (falta ? ' is-falta' : '') + '" data-opts-paso="' + gi + '">' +
       '<p class="mmodal-opts__grupo-nombre" id="mmodal-opts-g' + gi + '">' +
       (total > 1 ? '<span class="operational-visually-hidden">Paso ' + (gi + 1) + ' de ' + total + ': </span>' : '') +
       '<span class="mmodal-opts__grupo-texto">' + escHtml(gr.n) + '</span>' +
       (gr.req ? '<span class="mmodal-opts__req">' + (falta ? 'Elige una' : 'Obligatorio') + '</span>' : '') + '</p>' +
-      '<div class="mmodal-opts__pills" role="radiogroup" aria-labelledby="mmodal-opts-g' + gi + '">';
-    gr.o.forEach(function(o) {
+      '<div class="mmodal-opts__pills' + (iconos ? '' : ' mmodal-opts__pills--sin-iconos') + '"' +
+      ' style="--opts-cols:' + columnasOpciones(gr.o.length) + '" role="radiogroup" aria-labelledby="mmodal-opts-g' + gi + '">';
+    gr.o.forEach(function(o, oi) {
       var on = o.id === elegido;
       var foco = on || (!elegido && o === gr.o[0]);
+      var marca = '<span class="mmodal-opts__pill-marca">' + svgIcon('check', 12) + '</span>';
+      var delta = Number(o.d) ? '<span class="mmodal-opts__pill-delta">' + (o.d > 0 ? '+' : '−') + dineroCorto(Math.abs(o.d)) + '</span>' : '';
+      var nombre = '<span class="mmodal-opts__pill-nombre">' + escHtml(o.n) + '</span>';
+      var nota = o.def ? '<span class="mmodal-opts__pill-nota">Como en la carta</span>' : '';
       html += '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="' + (foco ? '0' : '-1') + '"' +
         ' class="mmodal-opts__pill' + (on ? ' is-on' : '') + '" data-opt-g="' + gi + '" data-opt-id="' + o.id + '">' +
-        iconoOpcionHtml(o, '<span class="mmodal-opts__pill-marca">' + svgIcon('check', 12) + '</span>') +
-        '<span class="mmodal-opts__pill-nombre">' + escHtml(o.n) + '</span>' +
-        (Number(o.d) ? '<span class="mmodal-opts__pill-delta">' + (o.d > 0 ? '+' : '−') + dineroCorto(Math.abs(o.d)) + '</span>' : '') +
+        // La nota va ENCIMA del nombre: así todos los nombres de la fila
+        // quedan en la misma línea, al pie de la tesela, lleve nota o no.
+        (iconos
+          ? '<span class="mmodal-opts__pill-cabeza">' + iconoOpcionHtml(o, marca) + delta + '</span>' + nota + nombre
+          // Sin icono, la palomita va a la esquina de la tesela y el ajuste
+          // baja junto al nombre.
+          : marca + nota + nombre + delta) +
+        (oi < 9 ? '<kbd class="mmodal-opts__pill-tecla" aria-hidden="true">' + (oi + 1) + '</kbd>' : '') +
         '</button>';
     });
     return html + '</div></section>';
@@ -4328,8 +4364,14 @@ function initMapa() {
    * El pie: el resumen y las acciones del paso. A la izquierda «Atrás» (o
    * «Cancelar» en el primero). A la derecha, en el último paso, agregar; en
    * los anteriores, «Siguiente» —apagado si el paso es obligatorio y aún no
-   * se elige— y, si no falta nada, también agregar en contorno, para no
-   * obligar a recorrer pasos que ya están bien como vienen.
+   * se elige— y, si no falta nada, también agregar, para no obligar a
+   * recorrer pasos que ya están bien como vienen.
+   *
+   * Una sola principal. Con los tres botones, agregar iba en contorno y
+   * «Siguiente» relleno: dos blancos fuertes compitiendo, y el relleno en la
+   * acción que NO es la habitual (el foco ya abría en agregar: lo normal es
+   * aceptar lo que viene). Ahora agregar es la principal, al final, donde
+   * vive en todo el POS, y «Siguiente» queda en contorno a su izquierda.
    */
   function pieOpcionesHtml(h, r) {
     var ultimo = h.paso === h.dish.g.length - 1;
@@ -4340,17 +4382,16 @@ function initMapa() {
     var tres = false;
     if (ultimo) {
       derecha = botonConfirmarOpciones(h, r, 'primary');
-    } else {
-      var siguiente = '<button type="button" class="mmodal-btn mmodal-btn--primary mmodal-opts__siguiente" data-opts-siguiente' +
+    } else if (r.faltan.length) {
+      derecha = '<button type="button" class="mmodal-btn mmodal-btn--primary mmodal-opts__siguiente" data-opts-siguiente' +
         (opcionElegida(h, h.paso) ? '' : ' disabled') + '>' + btnLabel('right', 'Siguiente', true) + '</button>';
-      if (r.faltan.length) {
-        derecha = siguiente;
-      } else {
-        derecha = botonConfirmarOpciones(h, r, 'outline') + siguiente;
-        tres = true;
-      }
+    } else {
+      derecha = '<button type="button" class="mmodal-btn mmodal-btn--outline mmodal-opts__siguiente" data-opts-siguiente>' +
+        btnLabel('right', 'Siguiente', true) + '</button>' + botonConfirmarOpciones(h, r, 'primary');
+      tres = true;
     }
-    return '<p class="mmodal-opts__resumen">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</p>' +
+    return '<p class="mmodal-opts__resumen"><span class="mmodal-opts__resumen-rotulo">Lleva</span> ' +
+      '<span class="mmodal-opts__resumen-texto">' + (r.label ? escHtml(r.label) : 'Como en la carta') + '</span></p>' +
       '<div class="mmodal-opts__acciones' + (tres ? ' mmodal-opts__acciones--tres' : '') + '">' + atras + derecha + '</div>';
   }
 
@@ -7668,6 +7709,9 @@ function initMapa() {
   //   · Enter sobre una opción: la elige y pasa al siguiente paso; en el
   //     último, agrega si ya no falta nada (si falta, lleva a ese paso).
   //   · Retroceso: vuelve al paso anterior.
+  //   · 1–9: elige la opción con ese número en el paso visible (el número
+  //     que enseña cada tesela con ratón) y, como un toque, pasa al
+  //     siguiente paso. En el último no agrega solo: eso sigue siendo Enter.
   //   · En la fila de pasos: flechas, Inicio y Fin mueven el foco; Enter o
   //     Espacio (el clic nativo del botón) llevan a ese paso.
   function teclaOpciones(e) {
@@ -7698,6 +7742,17 @@ function initMapa() {
         : (i + (e.key === 'ArrowRight' ? 1 : -1) + chips.length) % chips.length;
       chips.forEach(function(c, k) { c.tabIndex = k === j ? 0 : -1; });
       chips[j].focus();
+      return;
+    }
+    if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey &&
+        !(t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))) {
+      var visible = h.card.querySelector('[data-opts-vista] .mmodal-opts__grupo:not(.is-saliendo)');
+      var porNumero = visible ? visible.querySelectorAll('[data-opt-id]')[Number(e.key) - 1] : null;
+      if (porNumero) {
+        e.preventDefault();
+        elegirOpcion(Number(porNumero.getAttribute('data-opt-g')), Number(porNumero.getAttribute('data-opt-id')), true);
+        porNumero.focus({ preventScroll: true });
+      }
       return;
     }
     if (e.key === 'Enter' && pill) {

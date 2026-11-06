@@ -32,7 +32,9 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 
 // 1 · Lista permitida = catálogo PHP = catálogo JS, con los mismos trazos.
 $php = admin_icon_paths();
-$js = (string) file_get_contents($root . '/src/js/admin/core/icons.js');
+// Sin \r: con autocrlf el checkout de Windows deja CRLF, y el `$` de /m se
+// para antes del \n, no del \r; la prueba no encontraba ningún icono.
+$js = str_replace("\r\n", "\n", (string) file_get_contents($root . '/src/js/admin/core/icons.js'));
 preg_match_all("/^\\s*'(op-[a-z-]+)': '(.*)',?\$/m", $js, $m, PREG_SET_ORDER);
 $trazosJs = [];
 foreach ($m as $fila) {
@@ -68,8 +70,9 @@ $esperado = [
     ['Leche', 'Entera', 'op-leche'],
     ['Leche', 'Normal', 'op-leche'],
     ['Leche', 'Deslactosada', 'op-leche'],
-    ['Leche', 'Almendra', 'op-planta'],
-    ['Leche', 'Avena', 'op-planta'],
+    ['Leche', 'Almendra', 'op-almendra'],
+    ['Leche', 'Avena', 'op-avena'],
+    ['Leche', 'Soya', 'op-planta'],
     ['Leche', 'Sin leche', 'op-sin'],
     ['Leche', 'Extra', 'op-extra'],
     ['Tamaño', 'Regular', 'op-tamano-mediano'],
@@ -87,11 +90,23 @@ $esperado = [
     // «Medio» fuera de un término es una media orden, no un término medio.
     ['Porción', 'Medio', 'op-mitad'],
     ['Proteína', 'Arrachera', 'op-carne'],
+    // Los fixtures: tres huevos distintos, el camarón y la presentación.
+    ['Huevos', 'Estrellados', 'op-huevo-estrellado'],
+    ['Huevos', 'Revueltos', 'op-huevo-revuelto'],
+    ['Huevos', 'Pochados', 'op-huevo-pochado'],
+    ['Huevos', 'Fritos', 'op-huevo-estrellado'],
+    ['Proteína extra', 'Camarón', 'op-camaron'],
+    ['Proteína extra', 'Pollo', 'op-pollo'],
+    ['Proteína extra', 'Sin proteína', 'op-sin'],
+    ['Presentación', 'Individual', 'op-individual'],
+    ['Presentación', 'Para compartir', 'op-compartir'],
+    // «Frito» fuera de un grupo de huevos no es un huevo estrellado.
+    ['Guarnición', 'Plátano frito', 'op-fruta'],
 ];
 foreach ($esperado as [$grupo, $opcion, $icono]) {
     $assert(Variantes::iconoSugerido($grupo, $opcion) === $icono, "«{$grupo} · {$opcion}» deduce {$icono}.");
 }
-$assert(Variantes::iconoSugerido('Presentación', 'Para compartir') === null, 'Sin regla que case no se inventa un icono (el POS pinta la inicial).');
+$assert(Variantes::iconoSugerido('Estilo', 'Norteño') === null, 'Sin regla que case no se inventa un icono (el POS pinta la inicial).');
 foreach (Variantes::PLANTILLAS as $grupo => $opciones) {
     foreach ($opciones as $op) {
         $assert(Variantes::iconoSugerido($grupo, $op['nombre']) !== null, "La plantilla «{$grupo} · {$op['nombre']}» tiene icono automático.");
@@ -100,8 +115,8 @@ foreach (Variantes::PLANTILLAS as $grupo => $opciones) {
 
 // 4 · Elegido gana a deducido; uno desconocido cae al deducido.
 $assert(Variantes::iconoEfectivo('op-copa', 'Leche', 'Avena') === 'op-copa', 'El icono elegido gana al automático.');
-$assert(Variantes::iconoEfectivo(null, 'Leche', 'Avena') === 'op-planta', 'NULL es automático.');
-$assert(Variantes::iconoEfectivo('op-no-existe', 'Leche', 'Avena') === 'op-planta', 'Un icono fuera del catálogo no llega al POS.');
+$assert(Variantes::iconoEfectivo(null, 'Leche', 'Avena') === 'op-avena', 'NULL es automático.');
+$assert(Variantes::iconoEfectivo('op-no-existe', 'Leche', 'Avena') === 'op-avena', 'Un icono fuera del catálogo no llega al POS.');
 
 // 5 · Contratos de datos: DDL, editor y POS.
 $ddl = (string) file_get_contents($root . '/database/ddl.sql');

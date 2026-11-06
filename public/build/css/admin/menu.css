@@ -1365,10 +1365,13 @@
 }
 /* ── Variantes en el listado ──────────────────────────────────────
  *
- * El contador bajo el nombre y la acción de la fila. Vivían en variantes.scss,
- * que sólo carga el editor: en el listado no llegaban nunca, así que el icono
- * se pegaba a la cifra («⚌7 opciones») y la acción de un platillo con
- * variantes era idéntica a la de uno sin ellas.
+ * El contador junto al nombre. Vive aquí y no en variantes.scss, que sólo
+ * carga el editor: en el listado no llegaba nunca y el icono se pegaba a la
+ * cifra («⚌7 opciones»).
+ *
+ * La fila ya no lleva botón de variantes: se editan en «Editar platillo». El
+ * contador es el atajo —un enlace a edit?id=…#variantes, que abre el panel—
+ * cuando el usuario puede editarlas; si no, es sólo el dato.
  *
  * `.admin-table__cell-sub` es `display: block` en _tables.scss con la misma
  * especificidad; el contador va con la tabla como ancestro para no depender
@@ -1387,15 +1390,20 @@
   stroke-width: 2;
 }
 
-/* Con variantes, la acción lleva el contorno en tinta plena. No se rellena: en
- * la misma fila van el ámbar de editar y el rojo de borrar, y un cuadro negro
- * sería lo más ruidoso de la tabla para un dato que ya dice el rótulo bajo el
- * nombre. El contorno basta para distinguirlo al recorrer la columna. */
-.admin-body .admin-icon-button--variantes.is-set {
-  border-color: var(--admin-text);
-  background-color: var(--admin-surface);
+.admin-table a.admin-menu__variantes-sub {
+  margin: -6px -10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.admin-table a.admin-menu__variantes-sub:hover {
+  background: var(--admin-surface-soft);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px var(--admin-text);
+}
+.admin-table a.admin-menu__variantes-sub:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
 }
 
 /* ── Foto del platillo (formulario) ───────────────────────────────

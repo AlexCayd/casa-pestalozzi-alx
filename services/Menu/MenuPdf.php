@@ -163,8 +163,8 @@ class MenuPdf
      * La carta ya compuesta, sin enviarla: emitir() la transmite y las pruebas
      * la escriben a un archivo para revisarla.
      *
-     * `$avisos` es lo que da AvisosCarta::paraPdf(): ['inicio' => [...],
-     * 'final' => [...]], cada aviso con su título y su HTML ya escapado.
+     * `$avisos` es lo que da AvisosCarta::paraPdf(): la lista en orden, cada
+     * aviso con su título y su HTML ya escapado. Todos van al final.
      */
     public static function documento(array $pieza,array $categorias,array $avisos=[]): \Dompdf\Dompdf
     {
@@ -187,10 +187,7 @@ class MenuPdf
         $pdfVacio = $pieza['vacio'];
         $pdfCierre = $pieza['cierre'] ?? 'Buon appetito';
         $pdfTitulo = pathinfo($pieza['archivo'], PATHINFO_FILENAME);
-        $pdfAvisos = [
-            'inicio' => array_values($avisos['inicio'] ?? []),
-            'final' => array_values($avisos['final'] ?? []),
-        ];
+        $pdfAvisos = array_values($avisos);
 
         ob_start();
         $generado = date('d/m/Y H:i');

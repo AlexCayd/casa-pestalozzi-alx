@@ -329,9 +329,9 @@ INSERT INTO historial_precios(id,unidad_id,oferta_id,articulo_id,precio_anterior
 -- al final en comida y maridaje, para ver las dos posiciones, las dos cartas
 -- y el marcado ligero (## subtítulo, **negritas**). CHAR(10) es el salto de
 -- renglón: así no depende de cómo se escapen las cadenas al cargar el archivo.
-INSERT INTO configuracion_avisos(id,unidad_id,titulo,contenido,activo,en_comida,en_maridaje,posicion,orden,updated_by) VALUES
- (1001,2,'De temporada',CONCAT('Algunos platillos dependen de la cosecha y del mercado del día. ','**Pregúntale a tu mesero** qué hay hoy.'),1,1,0,'inicio',0,NULL),
- (1002,2,'Servicio',CONCAT('## Formas de pago',CHAR(10 USING utf8mb4),'Efectivo y tarjeta.',CHAR(10 USING utf8mb4),CHAR(10 USING utf8mb4),'La propina es **voluntaria** y no está incluida en la cuenta.'),1,1,1,'final',0,NULL);
+INSERT INTO configuracion_avisos(id,unidad_id,titulo,contenido,activo,en_comida,en_maridaje,orden,updated_by) VALUES
+ (1001,2,'De temporada',CONCAT('Algunos platillos dependen de la cosecha y del mercado del día. ','**Pregúntale a tu mesero** qué hay hoy.'),1,1,0,0,NULL),
+ (1002,2,'Servicio',CONCAT('## Formas de pago',CHAR(10 USING utf8mb4),'Efectivo y tarjeta.',CHAR(10 USING utf8mb4),CHAR(10 USING utf8mb4),'La propina es **voluntaria** y no está incluida en la cuenta.'),1,1,1,1,NULL);
 -- =====================================================================
 -- BLOQUE DE COBERTURA MULTIPERIODO — arquitectura 3E
 --
@@ -772,4 +772,92 @@ INSERT INTO oferta_personalizaciones(oferta_id,campo,valor,usuario_id) VALUES (1
 INSERT INTO historial_precios(unidad_id,oferta_id,precio_anterior,precio_nuevo,motivo,usuario_id) SELECT unidad_id,id,NULL,precio,'alta',1001 FROM ofertas_producto WHERE id BETWEEN 1401 AND 1405;
 INSERT INTO oferta_personalizaciones(oferta_id,campo,valor,usuario_id) VALUES (1402,'precio','"40.00"',1001),(1405,'precio','"34.00"',1001);
 INSERT INTO esquema_versiones(version) VALUES ('datos-estandares-m12-v1');
+COMMIT;
+
+-- Caja de mostrador de Panadería: piezas de vitrina, variantes de mostrador y
+-- personal de piso. Datos sintéticos; las piezas son artículos del catálogo
+-- maestro en el almacén «Producto Terminado», que admite negativos porque la
+-- caja vende y avisa cuando el conteo no cuadra. Los saldos salen de una
+-- entrada de apertura con su bitácora, nunca de un saldo escrito a mano.
+START TRANSACTION;
+UPDATE almacenes SET permitir_negativos=1 WHERE id=1007 AND unidad_id=3;
+INSERT INTO ingredientes(id,nombre,unidad,costo,activo) VALUES
+ (1301,'Rol de canela · pieza','pza','11.4000',1),
+ (1302,'Concha de vainilla · pieza','pza','6.2000',1),
+ (1303,'Concha con nata · pieza','pza','9.8000',1),
+ (1304,'Concha de chocolate · pieza','pza','6.9000',1),
+ (1305,'Croissant · pieza','pza','13.5000',1),
+ (1306,'Pan de masa madre · pieza','pza','24.0000',1),
+ (1307,'Baguette · pieza','pza','12.8000',1),
+ (1308,'Focaccia · pieza','pza','18.5000',1),
+ (1309,'Hogaza integral · pieza','pza','27.0000',1),
+ (1310,'Galleta de chocolate · pieza','pza','8.1000',1),
+ (1311,'Brownie · pieza','pza','12.0000',1),
+ (1312,'Brownie con nuez · pieza','pza','14.6000',1),
+ (1313,'Panqué de limón · rebanada','pza','9.4000',1),
+ (1314,'Cuernito · pieza','pza','7.5000',1),
+ (1315,'Cuernito de jamón y queso · pieza','pza','16.0000',1),
+ (1316,'Cuernito de avellana · pieza','pza','12.2000',1),
+ (1317,'Hogaza de la casa · pieza','pza','15.0000',1);
+INSERT INTO productos(id,nombre,descripcion,img) VALUES
+ (1213,'Cuernito','Masa de mantequilla enrollada a mano; sencillo o relleno.',NULL);
+INSERT INTO ofertas_producto(id,producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES
+ (1213,1213,3,1201,'22.00',10,1,1);
+INSERT INTO historial_precios(unidad_id,oferta_id,precio_anterior,precio_nuevo,motivo,usuario_id) VALUES (3,1213,NULL,'22.00','alta',1001);
+INSERT INTO producto_variantes(id,oferta_id,unidad_id,grupo,nombre,precio_delta,predeterminada,orden_grupo,orden,activo) VALUES
+ (1301,1202,3,'Relleno','Sin relleno',0.00,1,0,0,1),
+ (1302,1202,3,'Relleno','Nata',10.00,0,0,1,1),
+ (1303,1210,3,'Nuez','Sin nuez',0.00,1,0,0,1),
+ (1304,1210,3,'Nuez','Con nuez',8.00,0,0,1,1),
+ (1305,1205,3,'Tamaño','Entera',0.00,1,0,0,1),
+ (1306,1205,3,'Tamaño','Media',-40.00,0,0,1,1),
+ (1307,1213,3,'Relleno','Sencillo',0.00,1,0,0,1),
+ (1308,1213,3,'Relleno','Jamón y queso',22.00,0,0,1,1),
+ (1309,1213,3,'Relleno','Avellana',14.00,0,0,2,1),
+ (1310,1213,3,'Al momento','Así',0.00,1,1,0,1),
+ (1311,1213,3,'Al momento','Calientito',0.00,0,1,1,1),
+ (1312,1209,3,'Presentación','Pieza',0.00,1,0,0,1),
+ (1313,1209,3,'Presentación','Media docena',138.00,0,0,1,1);
+INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo,activo,version) VALUES
+ (1007,1301,3,'12.000','4.000',1,1),(1007,1302,3,'24.000','6.000',1,1),(1007,1303,3,'3.000','4.000',1,1),
+ (1007,1304,3,'20.000','6.000',1,1),(1007,1305,3,'2.000','4.000',1,1),(1007,1306,3,'6.000','2.000',1,1),
+ (1007,1307,3,'10.000','3.000',1,1),(1007,1308,3,'4.000','2.000',1,1),(1007,1309,3,'5.000','2.000',1,1),
+ (1007,1310,3,'30.000','8.000',1,1),(1007,1311,3,'9.000','3.000',1,1),(1007,1312,3,'6.000','3.000',1,1),
+ (1007,1313,3,'8.000','3.000',1,1),(1007,1314,3,'10.000','4.000',1,1),(1007,1315,3,'6.000','3.000',1,1),
+ (1007,1316,3,'0.000','3.000',1,0),(1007,1317,3,'4.000','2.000',1,1);
+INSERT INTO operaciones_inventario(unidad_id,tipo,actor_tipo,usuario_id,origen,clave_idempotencia,hash_solicitud,referencia,resultado,fecha)
+VALUES (3,'entrada','automatizado',NULL,'fixture_desarrollo','dev-caja-apertura-vitrina',SHA2('dev-caja-apertura-vitrina',256),'apertura vitrina',JSON_OBJECT('fixture',true),NOW());
+SET @dev_op_vitrina = LAST_INSERT_ID();
+INSERT INTO movimientos_inventario(operacion_id,unidad_id,almacen_id,articulo_id,tipo,delta,motivo,nota,costo_unitario,fecha)
+SELECT @dev_op_vitrina,3,aa.almacen_id,aa.articulo_id,'entrada',aa.saldo,'horneada','Horneada de apertura simulada.',i.costo,NOW()
+  FROM almacen_articulos aa JOIN ingredientes i ON i.id=aa.articulo_id
+ WHERE aa.almacen_id=1007 AND aa.articulo_id BETWEEN 1301 AND 1317 AND aa.saldo>0;
+INSERT INTO vitrina_piezas(oferta_id,unidad_id,almacen_id,articulo_id,cantidad,updated_by) VALUES
+ (1003,3,1007,1317,'1.000',1001),(1201,3,1007,1301,'1.000',1001),(1202,3,1007,1302,'1.000',1001),
+ (1203,3,1007,1304,'1.000',1001),(1204,3,1007,1305,'1.000',1001),(1205,3,1007,1306,'1.000',1001),
+ (1206,3,1007,1307,'1.000',1001),(1207,3,1007,1308,'1.000',1001),(1208,3,1007,1309,'1.000',1001),
+ (1209,3,1007,1310,'1.000',1001),(1210,3,1007,1311,'1.000',1001),(1211,3,1007,1313,'1.000',1001),
+ (1213,3,1007,1314,'1.000',1001);
+INSERT INTO vitrina_piezas_variante(variante_id,oferta_id,unidad_id,almacen_id,articulo_id,cantidad) VALUES
+ (1302,1202,3,1007,1303,'1.000'),
+ (1304,1210,3,1007,1312,'1.000'),
+ (1306,1205,3,1007,1306,'0.500'),
+ (1308,1213,3,1007,1315,'1.000'),
+ (1309,1213,3,1007,1316,'1.000'),
+ (1313,1209,3,1007,1310,'6.000');
+-- Personal de piso: sin NIP en el DML (el NIP depende del secreto local);
+-- se asigna desde Usuarios. La cajera vende y registra horneadas; la
+-- encargada además anula y autoriza anulaciones con su NIP.
+INSERT INTO usuarios(username,nombre,password_hash,activo,es_superadmin) VALUES
+ ('cajera_panaderia','Cajera de mostrador','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.',1,0),
+ ('encargada_panaderia','Encargada de Panadería','$2y$10$I5QgTcI8B19Fzp5NR.LkJuTQa.JX27E8vc0dVOWHf5008qAxRJFR.',1,0);
+INSERT INTO usuario_unidades(usuario_id,unidad_id,rol_id,activo)
+SELECT id,3,NULL,1 FROM usuarios WHERE username IN ('cajera_panaderia','encargada_panaderia');
+INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel)
+SELECT u.id,3,m.modulo,'operar' FROM usuarios u
+  JOIN (SELECT 'pdv' modulo UNION ALL SELECT 'vitrina') m
+ WHERE u.username IN ('cajera_panaderia','encargada_panaderia');
+INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel)
+SELECT id,3,'anular','operar' FROM usuarios WHERE username='encargada_panaderia';
+INSERT INTO esquema_versiones(version) VALUES ('datos-caja-panaderia-v1');
 COMMIT;

@@ -24,6 +24,20 @@ const paths = {
   // landing entera para llegar a su propio SCSS— y estrenan salida con el
   // sistema administrativo dentro.
   operationAppScss: "src/scss/operation/app-operation.scss",
+  // ── Caja de mostrador de Panadería → caja.css y caja.js ─────────
+  // Piso, no landing: la página carga operation.css (tokens, shell y header) y
+  // DESPUÉS caja.css con sus piezas. El JS lleva lo que el POS recibe por
+  // bundle.min.js —avisos, llegada— sin cargar la landing entera.
+  cajaScss: "src/scss/caja/app-caja.scss",
+  cajaJs: [
+    "src/js/admin/core/icons.js",
+    "src/js/components/confirmation-modal.js",
+    "src/js/components/toast.js",
+    "src/js/components/llegada.js",
+    "src/js/operation/shell.js",
+    "src/js/caja/caja-util.js",
+    "src/js/caja/caja.js",
+  ],
   // ── Panadería → panaderia.css y panaderia.min.js ───────────────
   // La landing /panaderia. Su hoja trae la base de marca (shared/marca/) y sus
   // bandas, nunca components/ (eso es de la portada del restaurante).
@@ -51,6 +65,7 @@ const paths = {
     "!src/js/panaderia/**/*.js",
     "!src/js/admin/**/*.js",
     "!src/js/operation/**/*.js",
+    "!src/js/caja/**/*.js",
     "!src/js/modules/punto-de-venta.js",
     // El catálogo de iconos vuelve a entrar, y DESPUÉS de las negaciones
     // (gulp evalúa los globs en orden). La landing no tenía catálogo, así que
@@ -161,6 +176,8 @@ const paths = {
   adminIaJs: ["src/js/admin/ia/ia.js"],
   // Editor de variantes de platillo (Menú → Variantes).
   adminVariantesJs: ["src/js/admin/menu/variantes.js"],
+  // Vitrina de la caja (Panadería · Menú): opciones y pieza de cada pan.
+  adminVitrinaJs: ["src/js/admin/vitrina/vitrina.js"],
   // Tickets: la franja de filtros cambia la lista sin recargar. Sin él la
   // franja es un formulario GET y funciona igual.
   adminTicketsJs: ["src/js/admin/tickets/tickets.js"],
@@ -405,6 +422,22 @@ function operationAppCss() {
     .pipe(dest("public/build/css"));
 }
 
+function cajaCss() {
+  return src(paths.cajaScss)
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(rename("caja.css"))
+    .pipe(dest("public/build/css"));
+}
+
+function cajaJavascript() {
+  return src(paths.cajaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("caja.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js"));
+}
+
 function adminReservationFormJavascript() {
   limpiarSalidaFormularioReservacion();
   return src(paths.adminReservationFormJs)
@@ -428,6 +461,15 @@ function adminIaJavascript() {
   return src(paths.adminIaJs)
     .pipe(sourcemaps.init())
     .pipe(concat("ia.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminVitrinaJavascript() {
+  return src(paths.adminVitrinaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("vitrina.js"))
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
@@ -557,6 +599,8 @@ function devWatch(done) {
   // El árbol de operación sólo alimenta el bundle del piso (operation.css):
   // la pantalla de Operación de reservaciones, que tenía hoja propia, se retiró.
   watch("src/scss/operation/**/*.scss", operationAppCss);
+  watch(["src/scss/caja/**/*.scss", "src/scss/punto-de-venta/_voz.scss"], cajaCss);
+  watch(paths.cajaJs, cajaJavascript);
   watch(
     [
       "src/scss/punto-de-venta/**/*.scss",
@@ -610,6 +654,7 @@ function devWatch(done) {
   );
   watch("src/js/admin/ia/**/*.js", adminIaJavascript);
   watch("src/js/admin/menu/**/*.js", adminVariantesJavascript);
+  watch(paths.adminVitrinaJs, adminVitrinaJavascript);
   watch("src/js/admin/tickets/**/*.js", adminTicketsJavascript);
   watch("src/js/admin/impresoras/**/*.js", adminImpresorasJavascript);
   watch(paths.chartJs, copyChartJs);
@@ -629,6 +674,8 @@ exports.panaderiaJs = panaderiaJavascript;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
 exports.operationAppCss = operationAppCss;
+exports.cajaCss = cajaCss;
+exports.cajaJs = cajaJavascript;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
@@ -647,6 +694,7 @@ exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.adminIaJs = adminIaJavascript;
 exports.adminVariantesJs = adminVariantesJavascript;
+exports.adminVitrinaJs = adminVitrinaJavascript;
 exports.adminTicketsJs = adminTicketsJavascript;
 exports.adminImpresorasJs = adminImpresorasJavascript;
 exports.copyChartJs = copyChartJs;
@@ -664,12 +712,14 @@ exports.dev = parallel(
   adminCss,
   adminModuleCss,
   operationAppCss,
+  cajaCss,
   imagenes,
   versionWebp,
   versionAvif,
   javascript,
   panaderiaJavascript,
   adminJavascript,
+  cajaJavascript,
   // Estaba sólo en `build`: un `gulp dev` limpio nunca generaba map.js, así que
   // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
   // que alguien tocaba punto-de-venta.js y saltaba el watch.
@@ -689,6 +739,7 @@ exports.dev = parallel(
   adminConfigurationJavascript,
   adminIaJavascript,
   adminVariantesJavascript,
+  adminVitrinaJavascript,
   adminTicketsJavascript,
   adminImpresorasJavascript,
   copyChartJs,
@@ -708,12 +759,14 @@ exports.build = series(
   adminCss,
   adminModuleCss,
   operationAppCss,
+  cajaCss,
   imagenes,
   versionWebp,
   versionAvif,
   javascript,
   panaderiaJavascript,
   adminJavascript,
+  cajaJavascript,
   adminMapJavascript,
   adminAreaJavascript,
   adminAnalyticsJavascript,
@@ -730,6 +783,7 @@ exports.build = series(
   adminConfigurationJavascript,
   adminIaJavascript,
   adminVariantesJavascript,
+  adminVitrinaJavascript,
   adminTicketsJavascript,
   adminImpresorasJavascript,
   // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas

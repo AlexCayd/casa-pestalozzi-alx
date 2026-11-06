@@ -2,8 +2,8 @@
 //
 // views/admin/configuration/avisos.php · src/js/admin/configuration/avisos.js
 //
-// Lista y editor lado a lado. La lista es un mapa del PDF: agrupada por el
-// lugar donde se imprime cada aviso y en su orden. El editor es un campo de
+// Lista y editor lado a lado. La lista es un mapa del PDF: los avisos en el
+// orden en que salen al final de cada carta. El editor es un campo de
 // texto con su barra de formato pegada arriba —una sola caja, como el
 // compositor de un CRM— y la vista previa con la jerarquía del bloque impreso
 // (rótulo, título, filete corto con rombo, cuerpo): a la derecha cuando cabe,
@@ -76,41 +76,6 @@
   place-items: center;
 
   svg { stroke-width: 1.7; }
-}
-
-.admin-avisos__grupo + .admin-avisos__grupo {
-  margin-top: 20px;
-}
-
-.admin-body .admin-avisos__lugar {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin: 0 0 9px;
-  color: var(--admin-text);
-  font-family: var(--admin-font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-
-  span {
-    color: var(--admin-muted);
-    font-family: var(--admin-font-sans);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-}
-
-.admin-body .admin-avisos__lugar-vacio {
-  padding: 10px 12px;
-  border: 1px dashed var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  color: var(--admin-muted);
-  font-size: 12.5px;
 }
 
 .admin-avisos__items {
@@ -383,10 +348,12 @@
   border: 0;
 }
 
-// Una sola rejilla con los cinco controles y la vista previa en el orden del
-// marcado (título, contenido, vista previa, cartas, lugar, interruptor).
+// Una sola rejilla con los cuatro controles y la vista previa en el orden del
+// marcado (título, contenido, vista previa, cartas, interruptor).
 // Apilada, la vista previa cae bajo el texto que se escribe; a dos columnas
-// sube a la derecha, a lo alto de los cinco controles, y se queda a la vista.
+// sube a la derecha, a lo alto de los cuatro controles, y se queda a la vista.
+// El span debe ser igual al número de controles: uno de más deja una fila
+// vacía con su hueco bajo el interruptor.
 // Antes vivía después de todo el formulario: en un portátil con el sidebar
 // abierto el panel no llega a 760 px y quedaba al fondo, lejos del texto.
 .admin-aviso-form__rejilla {
@@ -407,7 +374,7 @@
       position: sticky;
       top: 92px;
       grid-column: 2;
-      grid-row: 1 / span 5;
+      grid-row: 1 / span 4;
     }
   }
 }
@@ -741,9 +708,11 @@
 }
 
 // Una medida como la de la carta: apilada, la vista previa ocupa todo el
-// panel y sin tope el texto centrado corría renglones de 90 caracteres.
+// panel y sin tope el texto centrado corría renglones de 90 caracteres. En
+// el PDF cada aviso mide media columna (~49 caracteres), así que la vista
+// previa parte más o menos donde partirá la carta.
 .admin-aviso-preview__cuerpo {
-  max-width: 60ch;
+  max-width: 42ch;
   margin-inline: auto;
   overflow-wrap: anywhere;
   color: var(--admin-muted);

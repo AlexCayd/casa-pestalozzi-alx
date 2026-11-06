@@ -52,7 +52,8 @@ function extraer(nombre) {
 
 const funciones = [
   'dineroCorto', 'resumenOpciones', 'opcionElegida', 'primerPasoFaltante',
-  'botonConfirmarOpciones', 'iconoOpcionHtml', 'pasoOpcionesHtml',
+  'botonConfirmarOpciones', 'iconoOpcionHtml', 'columnasOpciones',
+  'conIconosOpciones', 'pasoOpcionesHtml',
   'pasosOpcionesHtml', 'pieOpcionesHtml', 'eyebrowOpciones',
 ].map(extraer).join('\n');
 
@@ -112,6 +113,15 @@ assert(/aria-checked="true" tabindex="0"[^>]*data-opt-id="1"/.test(paso), 'la pr
 assert(/aria-checked="false" tabindex="-1"[^>]*data-opt-id="2"/.test(paso), 'las demás quedan fuera del tabulador (tabindex móvil)');
 assert(paso.includes('+$8'), 'el ajuste de precio de la opción se ve en la tesela');
 assert(paso.includes('mmodal-opts__pill-marca'), 'la elección también se marca con forma (palomita)');
+assert(paso.includes('style="--opts-cols:3"'), 'tres opciones, tres columnas: el paso llena el ancho');
+assert(!paso.includes('pills--sin-iconos'), 'con iconos, las teselas llevan su caja de icono');
+assert((paso.match(/mmodal-opts__pill-nota">Como en la carta</g) || []).length === 1, 'sólo la predeterminada dice «Como en la carta»');
+assert(paso.includes('mmodal-opts__pill-tecla" aria-hidden="true">1<') && paso.includes('aria-hidden="true">3</kbd>'), 'cada tesela enseña su atajo 1–9, oculto al lector de pantalla');
+
+// Columnas según cuántas opciones: una fila hasta cuatro; luego la que deje
+// la última fila más llena.
+const columnas = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => f('columnasOpciones', n));
+assert(JSON.stringify(columnas) === JSON.stringify([1, 2, 3, 4, 3, 3, 4, 4, 3, 4, 4, 4]), `columnas por número de opciones (${columnas.join(',')})`);
 
 let pasos = f('pasosOpcionesHtml', h);
 assert((pasos.match(/<li>/g) || []).length === 3, 'la fila tiene un paso por grupo');
@@ -139,8 +149,22 @@ assert(/is-hecho" data-opts-ir="0"/.test(pasos) && pasos.includes('data-svg="che
 assert(pie.includes('Avena · Grande'), 'el resumen junta lo que cambia');
 paso = f('pasoOpcionesHtml', h, 2);
 assert(paso.includes('mmodal-opts__grupo is-falta'), 'el paso obligatorio sin elegir se marca');
-assert(paso.includes('mmodal-opts__pill-icono--inicial" aria-hidden="true">T<'), 'sin icono va la inicial en el mismo hueco');
-assert(paso.includes('mmodal-opts__pill-icono--inicial" aria-hidden="true">A<'), 'un icono que el catálogo no conoce también cae a la inicial');
+// «Tibio» no tiene icono y el de «Ardiente» no existe: ninguna opción del
+// paso tiene uno, así que van en teselas de texto, sin columna de iniciales.
+assert(paso.includes('mmodal-opts__pills--sin-iconos') && !paso.includes('mmodal-opts__pill-icono'), 'un paso sin ningún icono va en teselas de texto');
+assert(paso.includes('mmodal-opts__pill-marca'), 'y la elección se sigue marcando con forma');
+
+// Con otras opciones que sí tienen icono, la que no lo tiene lleva su
+// inicial en el mismo hueco, para que la fila no cojee.
+const mixto = { n: 'Chilaquiles', p: 180, g: [{ n: 'Huevos', req: false, o: [
+  { id: 20, n: 'Estrellados', d: 0, def: true, i: 'op-huevo-estrellado' },
+  { id: 21, n: 'Divorciados', d: 0, def: false, i: null },
+] }] };
+const hMixto = hoja(mixto, { 0: 20 });
+paso = f('pasoOpcionesHtml', hMixto, 0);
+assert(paso.includes('data-icono="op-huevo-estrellado"'), 'la opción con icono lo pinta');
+assert(paso.includes('mmodal-opts__pill-icono--inicial" aria-hidden="true">D<'), 'la que no tiene lleva la inicial en el mismo hueco');
+h = hoja(cappuccino, { 0: 2, 1: 5, 2: null }, { paso: 2, visitados: { 0: true, 1: true, 2: true } });
 
 // ── Lo que falta está en OTRO paso ───────────────────────────
 const dosObligatorios = {
@@ -163,9 +187,11 @@ assert(/data-opts-siguiente disabled/.test(pie), '«Siguiente» se apaga si el p
 h = hoja(cappuccino, { 0: 1, 1: 4, 2: 6 });
 r = f('resumenOpciones');
 pie = f('pieOpcionesHtml', h, r);
-assert(pie.includes('mmodal-opts__acciones--tres'), 'Atrás · Agregar · Siguiente');
-assert(/mmodal-btn--outline mmodal-opts__confirmar" data-opts-confirmar>/.test(pie), 'agregar va en contorno junto a «Siguiente»');
-assert(pie.indexOf('data-opts-confirmar') < pie.indexOf('data-opts-siguiente'), '«Siguiente» queda al final, donde vive la principal');
+assert(pie.includes('mmodal-opts__acciones--tres'), 'Atrás · Siguiente · Agregar');
+assert(/mmodal-btn--outline mmodal-opts__siguiente" data-opts-siguiente>/.test(pie), '«Siguiente» va en contorno: el camino corto es la principal');
+assert(/mmodal-btn--primary mmodal-opts__confirmar" data-opts-confirmar>/.test(pie), 'agregar es la principal');
+assert((pie.match(/mmodal-btn--primary/g) || []).length === 1, 'una sola principal en el pie');
+assert(pie.indexOf('data-opts-siguiente') < pie.indexOf('data-opts-confirmar'), 'agregar queda al final, donde vive la principal');
 assert(pie.includes('>Agregar</span> <span class="mmodal-opts__precio">$55<'), 'agregar con el precio base: las predeterminadas no suman');
 
 // ── Editar una línea con dos unidades ────────────────────────
@@ -192,6 +218,8 @@ assert(tecla.includes("e.key === 'Backspace'") && tecla.includes('irAPasoOpcione
 assert(/e\.key === 'Enter' && pill[\s\S]*irAPasoOpciones\(gi \+ 1\)[\s\S]*confirmarOpciones\(\)/.test(tecla), 'Enter avanza y, en el último paso, agrega');
 assert(tecla.includes("elegirOpcion(Number(siguiente.getAttribute('data-opt-g'))") && tecla.includes(', false);'), 'las flechas eligen sin avanzar');
 assert(tecla.includes(".filter(function(b) { return !b.closest('.is-saliendo'); })"), 'la trampa de Tab ignora el paso que sale');
+assert(tecla.includes('/^[1-9]$/.test(e.key)') && tecla.includes("querySelectorAll('[data-opt-id]')[Number(e.key) - 1]"), '1–9 eligen la opción con ese número en el paso visible');
+assert(/\[Number\(e\.key\) - 1\][\s\S]{0,260}elegirOpcion\([^;]*, true\)/.test(tecla), 'y avanzan como un toque');
 assert(source.includes('e.detail > 0);'), 'sólo el clic o toque avanza solo (Espacio llega como clic con detail 0)');
 assert(/function sinMovimientoOpciones\(\)[\s\S]{0,200}prefers-reduced-motion: reduce/.test(source), 'el cambio de paso respeta movimiento reducido');
 const ir = extraer('irAPasoOpciones');

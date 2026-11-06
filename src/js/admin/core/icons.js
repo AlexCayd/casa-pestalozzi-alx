@@ -108,6 +108,20 @@
         'op-botella': '<path d="M10 2.5h4"/><path d="M10.5 2.5v4L8.5 10v10a1.5 1.5 0 0 0 1.5 1.5h4a1.5 1.5 0 0 0 1.5-1.5V10l-2-3.5v-4"/><path d="M8.5 13.5h7"/>',
         'op-estrella': '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>',
         'op-bolsa': '<path d="M5 8h14l-1 12H6Z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/>',
+        // Los que separan opciones que antes compartían trazo: tres huevos
+        // (estrellado con su yema, revuelto en la sartén, pochado en el agua),
+        // almendra y avena (las dos eran `op-planta`), camarón (era el pez) y
+        // la presentación individual o para compartir.
+        'op-huevo-estrellado': '<path d="M8.6 4.6c2-1.4 4.6-.9 6.3.4 1.4 1 3.4 1 4.6 2.6 1.4 1.8.6 4 .9 5.8.4 2.3-.6 4.6-2.8 5.6-1.8.8-3.6.4-5.3 1-2 .7-4.4.4-5.8-1.2-1.3-1.5-1-3.3-1.9-4.9C3.6 12.3 3 10.2 4.2 8.4 5.3 6.7 7 5.7 8.6 4.6Z"/><circle cx="11.5" cy="11.8" r="3" fill="currentColor"/>',
+        // Las motas sin trazo: con él engordaban, se tocaban y a 26 px la
+        // sartén parecía llevar una mancha.
+        'op-huevo-revuelto': '<circle cx="10" cy="13" r="7"/><path d="M17 13h4.5"/><g fill="currentColor" stroke="none"><circle cx="7.8" cy="11.2" r="1.4"/><circle cx="11.9" cy="10.6" r="1.1"/><circle cx="10.4" cy="14.6" r="1.6"/><circle cx="7.1" cy="15.1" r="1.1"/><circle cx="13.8" cy="14.3" r="1.1"/></g>',
+        'op-huevo-pochado': '<path d="M12 3c-2.9 0-5 3.7-5 7.2a5 5 0 0 0 10 0C17 6.7 14.9 3 12 3Z"/><path d="M3 19.5c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
+        'op-almendra': '<g transform="rotate(30 12 12)"><path d="M12 3c3.6 2.8 5.5 6.9 5.5 10.5a5.5 5.5 0 0 1-11 0C6.5 9.9 8.4 5.8 12 3Z"/><path d="M12 7c-1.4 2.2-1.8 5-1 8"/></g>',
+        'op-avena': '<path d="M12 21V8.5"/><path d="M12 8.5c-1.1-1-1.3-3 0-5 1.3 2 1.1 4 0 5Z"/><path d="M12 13c-2.5 0-4.2-1.4-4.7-3.6 2.5 0 4.2 1.4 4.7 3.6Z"/><path d="M12 13c2.5 0 4.2-1.4 4.7-3.6-2.5 0-4.2 1.4-4.7 3.6Z"/><path d="M12 17.5c-2.5 0-4.2-1.4-4.7-3.6 2.5 0 4.2 1.4 4.7 3.6Z"/><path d="M12 17.5c2.5 0 4.2-1.4 4.7-3.6-2.5 0-4.2 1.4-4.7 3.6Z"/>',
+        'op-camaron': '<path d="M4 9.5c0-2.5 2-4.5 4.5-4.5H14a6 6 0 0 1 0 12h-1.5"/><path d="M4 9.5c0 1.7 1.3 3 3 3h7a1.8 1.8 0 0 1 0 3.5"/><path d="M12.5 17l-2.5 3.5"/><path d="M12.5 17l1 3.8"/><path d="M8.5 5v7.5"/><path d="M12 5v7.5"/><path d="M15.5 5.3v7"/><path d="M4 9.5 2 7.5"/>',
+        'op-individual': '<circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+        'op-compartir': '<circle cx="8" cy="8.5" r="3"/><circle cx="16" cy="8.5" r="3"/><path d="M2.5 19.5a5.5 5.5 0 0 1 11 0"/><path d="M10.5 19.5a5.5 5.5 0 0 1 11 0"/>',
         mas: '<path d="M12 5v14"/><path d="M5 12h14"/>',
         buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
         editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',

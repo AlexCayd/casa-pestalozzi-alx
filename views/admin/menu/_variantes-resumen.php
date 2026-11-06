@@ -27,7 +27,10 @@ foreach ($vrGrupos as $vrG) {
     $vrOpciones += count($vrG['opciones'] ?? []);
 }
 ?>
-<section class="admin-menu__variantes admin-form-grid__full" aria-labelledby="platillo-variantes-titulo">
+<?php /* id="variantes": destino de «N opciones» en el listado
+         (edit?id=…#variantes). Con permiso, variantes.js abre el panel; sin
+         él, el navegador al menos baja hasta aquí. */ ?>
+<section class="admin-menu__variantes admin-form-grid__full" id="variantes" aria-labelledby="platillo-variantes-titulo">
     <div class="admin-menu__variantes-cabeza">
         <div>
             <h3 class="admin-menu__variantes-titulo" id="platillo-variantes-titulo">
@@ -89,6 +92,7 @@ foreach ($vrGrupos as $vrG) {
                                     <li class="admin-vresumen__op<?php echo !empty($vrO['predeterminada']) ? ' is-base' : ''; ?><?php echo empty($vrO['activo']) ? ' is-off' : ''; ?>">
                                         <span class="admin-vresumen__icono" aria-hidden="true"><?php echo $vrSvg !== '' ? $vrSvg : '<span class="admin-vicono-inicial">' . $vrH(mb_strtoupper(mb_substr(trim((string) $vrO['nombre']), 0, 1))) . '</span>'; ?></span>
                                         <span class="admin-vresumen__op-nombre"><?php echo $vrH($vrO['nombre']); ?></span>
+                                        <?php if (!empty($vrO['predeterminada'])) : ?><span class="admin-vresumen__base">Base</span><?php endif; ?>
                                         <?php /* Mismo formato que la pastilla del POS (dineroCorto): $8 o $8.50, nunca $8.5. */
                                               $vrAbs = round(abs($vrDelta), 2); ?>
                                         <?php if ($vrAbs != 0.0) : ?><span class="admin-vresumen__delta admin-num"><?php echo $vrDelta > 0 ? '+' : '−'; ?>$<?php echo number_format($vrAbs, fmod($vrAbs, 1.0) == 0.0 ? 0 : 2, '.', ''); ?></span><?php endif; ?>

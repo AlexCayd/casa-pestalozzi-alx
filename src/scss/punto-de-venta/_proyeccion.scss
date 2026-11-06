@@ -76,10 +76,14 @@
   }
 }
 
-// ── Botón redondo neutro (contexto y fila de fecha del cajón) ──
+// ── Botón redondo neutro (contexto, fila de fecha del cajón, personas) ──
 // Con el ancestro: `.admin-body button` (0,1,1) le pone `font: inherit`, que
 // reescribe el peso, y a una clase suelta (0,1,0) le gana. «Hoy» y «Ahora»
 // salían en 400, más flojos que el texto de alrededor.
+//
+// Neutro sólido (lenguaje sólido del POS, decisión del producto): era un
+// contorno al 46 % sobre transparente. El borde se queda en 1 px del color
+// del relleno, para que el botón mida lo mismo.
 .mapa-page .pos-btn-redondo {
   display: inline-flex;
   min-width: 44px;
@@ -89,16 +93,15 @@
   justify-content: center;
   gap: 6px;
   padding: 0 12px;
-  // --admin-border-strong: 3.3:1 contra el fondo, el mínimo de un control.
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--admin-t-fast) var(--admin-ease-out);
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
 
   &--icono { width: 44px; padding: 0; }
 
@@ -109,12 +112,13 @@
     stroke-width: 1.9;
   }
 
-  &:hover:not(:disabled) { background: var(--admin-surface-soft); }
+  &:hover:not(:disabled) { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
 
+  // Sin hora anterior o siguiente, o en el tope de personas: el mismo neutro
+  // a media opacidad. Era un contorno tenue con el icono en gris.
   &:disabled {
-    border-color: var(--admin-border);
-    color: var(--admin-faint);
+    opacity: .5;
     cursor: default;
   }
 
@@ -162,7 +166,10 @@
 }
 
 // Ahora: pastilla tranquila. Proyección: la misma caja INVERTIDA, la única
-// superficie maciza neutra de la pantalla — por eso no se confunde con nada.
+// superficie en papel de la barra — por eso no se confunde con nada. Las dos
+// son lectura, no controles: la tranquila se queda en la superficie suave
+// (opaca) y no en el neutro de los botones, que la haría pasar por uno junto
+// a ‹ › y «Ahora».
 .pos-contexto__reloj,
 .pos-contexto__vista {
   display: inline-flex;

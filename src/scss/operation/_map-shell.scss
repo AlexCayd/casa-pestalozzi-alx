@@ -6,34 +6,22 @@
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
 
   /*
-   * Estados semánticos del mapa de mesas. Cada trío (fondo / texto / borde)
-   * se deriva de la paleta funcional mezclada con la superficie activa, igual
-   * que los badges del panel. Antes había dos bloques —uno por tema— con
-   * dieciocho literales entre ambos; con color-mix sobre --admin-surface un
-   * solo bloque sirve para claro y oscuro.
+   * Estados semánticos del mapa: tríos fondo / texto / borde TEÑIDOS,
+   * derivados de la paleta funcional mezclada con la superficie activa.
    *
-   * Los porcentajes NO son los de un badge, y por eso se subieron. Un badge
-   * vive sobre la superficie de una tarjeta; un pin de mesa vive sobre el
-   * suelo del salón, que en el POS es casi negro. Ahí un borde al 42% de un
-   * color sobre transparente se queda muy por debajo del 3:1 que la casa pide
-   * para elementos no textuales, y a un metro de distancia —que es como se
-   * mira una tablet de piso— las mesas literalmente no tenían contorno.
+   * Los PINES del POS ya no los usan: se repintan en sólido sobre el propio
+   * pin (bloque «POS en sólido», justo debajo). Estos valores se quedan
+   * porque los leen piezas que no son controles —el aviso de reservación del
+   * modal de mesa, la nota de la reserva, el chip de advertencia— cuyo texto
+   * secundario no aguantaría un relleno pleno (gris apagado sobre el azul
+   * sólido: 2.1:1), y la lista estructurada, que pinta su punto con -border.
    *
-   * Los BORDES se mezclan con --admin-text y no con `transparent`, y esa es la
-   * parte que no es obvia: subir el porcentaje sobre transparente no arregla
-   * el rojo. --admin-c-rojo es un color oscuro (luminancia 0.15), así que sobre un
-   * suelo oscuro se queda en 2.4:1 por mucho que se sature — medido. Mezclado
-   * con la tinta del tema, en cambio, el mismo token se aclara en oscuro y se
-   * oscurece en claro, y los tres estados pasan de 3:1 en los dos temas
-   * (rojo 3.68 / 6.17, verde 5.93 / 4.15, azul 5.38 / 4.64).
-   *
-   * El TEXTO baja al 50%, que parece poco pero es lo que hay que hacer: la
-   * etiqueta va sobre el relleno de su propio color, así que cuanto más
-   * saturada, menos se separa del fondo sobre el que está. Al 88% el nombre de
-   * la mesa se quedaba en 2.99:1 sobre el verde y en 3.26 sobre el rojo. Al
-   * 50% los seis casos pasan de 4.5:1 (el peor, 4.67) y la etiqueta conserva
-   * el tinte: el estado ya lo dicen el relleno y el borde, el trabajo del
-   * texto es leerse.
+   * Cómo están medidos, para esos consumidores: los BORDES se mezclan con
+   * --admin-text y no con `transparent` —el rojo es oscuro (luminancia 0.15) y
+   * sobre transparente no pasa de 2.4:1 por mucho que se sature; mezclado con
+   * la tinta pasan de 3:1 (rojo 3.68, verde 5.93, azul 5.38 en oscuro)—, y el
+   * TEXTO va al 50 % porque se lee sobre el tinte de su propio color: así los
+   * seis casos pasan de 4.5:1 (el peor, 4.67).
    */
   --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 24%, var(--admin-surface));
   --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 50%, var(--admin-text));
@@ -56,14 +44,16 @@
   --map-table-reservation-overdue-text: var(--admin-paper);
   --map-table-reservation-overdue-border: color-mix(in srgb, var(--admin-c-azul) 76%, var(--admin-paper));
   /* La mesa inutilizable se dice con color y contorno, NO bajando el alfa: un
-     chip ya oscuro al 94% sobre un suelo oscuro simplemente desaparece. */
+     chip ya oscuro al 94% sobre un suelo oscuro simplemente desaparece. El
+     contorno (--admin-border-strong) lo conserva también en sólido. */
   --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 18%, var(--admin-surface));
   --map-table-unavailable-text: var(--admin-muted);
   --map-table-unavailable-border: var(--admin-border-strong);
   /* Fichas del POS (Caja, Llevar): botones de acción, no mesas. Neutras a
      propósito —ni verde ni gris de «no disponible»— porque no tienen estado
-     que decir; se despegan del suelo por superficie y contorno. Se derivan
-     de --admin-* en un solo sentido (nada de mapeo inverso: ver CLAUDE.md). */
+     que decir. El relleno lo pone «POS en sólido»; el canto se queda aquí.
+     Se derivan de --admin-* en un solo sentido (nada de mapeo inverso: ver
+     CLAUDE.md). */
   --map-ficha-bg: var(--admin-surface-strong);
   --map-ficha-text: var(--admin-text);
   --map-ficha-border: var(--admin-border-strong);
@@ -77,8 +67,9 @@
      blanco no queda más dirección que bajar; el tinte dorado que llevaba
      mezclaba blanco con blanco y no se veía. */
   --map-action-primary-hover-bg: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-surface));
-  /* El neutro es el de la casa (.pos-btn-redondo): sin relleno y con el
-     canto de --admin-border-strong, que es el 3:1 de un control. */
+  /* Valores base del neutro. En el POS lleva relleno (ver «POS en sólido»);
+     el canto de --admin-border-strong, que es el 3:1 de un control, se queda
+     en los dos. */
   --map-action-utility-bg: transparent;
   --map-action-utility-text: var(--admin-text);
   --map-action-utility-border: var(--admin-border-strong);
@@ -90,6 +81,78 @@
   --map-reservation-warning-border: var(--map-table-reservation-border);
   --map-reservation-block-bg: var(--map-table-reservation-bg);
   --map-reservation-block-border: var(--map-table-reservation-border);
+}
+
+/* ── POS en sólido: pines, leyenda y acciones del mapa ──────────
+ *
+ * Decisión del producto (nov 2026): en el POS todo lo que se pulsa lleva
+ * relleno opaco, y el producto lo confirmó expresamente para las mesas. El
+ * plano sale más saturado a cambio de que el estado se lea a un brazo de
+ * distancia y con reflejos, que es como se mira la tablet de piso.
+ *
+ * Los tokens de estado se redefinen SOBRE EL PIN (y el ítem de la leyenda),
+ * no sobre .mapa-page: una custom property declarada en el elemento gana a la
+ * que hereda del <body>, así que el aviso del modal, la nota de la reserva y
+ * los chips que comparten estos nombres siguen viendo los derivados teñidos.
+ * Los -border declarados aquí tampoco llegan a --map-reservation-*, que ya
+ * se resolvieron en el <body>.
+ *
+ * Tinta sobre cada relleno (WCAG, tema oscuro del piso):
+ *   libre          verde al 75 % con papel       4.7:1  (texto blanco, decisión del producto)
+ *   ocupada        rojo con papel                4.58:1  (el peor; pasa)
+ *   reservada      azul al 78 % con papel        5.0:1
+ *   no utilizable  gris-5 con papel al 72 %      5.9:1
+ *   Caja, Llevar   gris-5 con papel              9.7:1
+ *
+ * Bordes: en los de color el borde ES el relleno —un canto más claro del
+ * mismo tono era el contorno del tinte de antes— y el relleno ya se despega
+ * del suelo por sí solo (verde 5.0:1, rojo 3.2, azul ≈ 3.0). El gris no:
+ * gris-5 sobre el suelo casi negro se queda en 1.5:1, así que «no utilizable»
+ * y las fichas conservan el canto --admin-border-strong (4.3:1 contra el
+ * suelo), el contorno de control de la casa.
+ *
+ * «No utilizable» lleva el papel rebajado y no pleno: así no se confunde con
+ * Caja y Llevar, que son el mismo gris pero sí se pulsan.
+ *
+ * La reserva vencida no tiene pin propio —la dice su línea, «Se libera»—, y
+ * sus --map-table-reservation-overdue-* (el azul hondo de los chips) no se
+ * tocan: siguen siendo más oscuros que el azul de la reservada.
+ */
+.mapa-page :is(.mesa-pin, .mapa-leyenda-item) {
+  --map-table-available-bg: var(--pos-solido-ok);
+  --map-table-available-text: var(--pos-solido-ok-tinta);
+  --map-table-available-border: var(--pos-solido-ok);
+  --map-table-occupied-bg: var(--pos-solido-peligro);
+  --map-table-occupied-text: var(--pos-solido-peligro-tinta);
+  --map-table-occupied-border: var(--pos-solido-peligro);
+  --map-table-reservation-bg: var(--pos-solido-info);
+  --map-table-reservation-text: var(--pos-solido-info-tinta);
+  --map-table-reservation-border: var(--pos-solido-info);
+  --map-table-unavailable-bg: var(--pos-solido-neutro);
+  --map-table-unavailable-text: color-mix(in srgb, var(--pos-solido-neutro-tinta) 72%, var(--pos-solido-neutro));
+  --map-ficha-bg: var(--pos-solido-neutro);
+  --map-ficha-text: var(--pos-solido-neutro-tinta);
+}
+
+// La muestra de «seleccionada» de la leyenda es papel lleno: la tinta del aro
+// que marca la selección en el plano. Sólo en la leyenda: en el pin,
+// --map-table-selected-bg alimenta el halo de --highlight, que es una sombra.
+.mapa-page .mapa-leyenda-item {
+  --map-table-selected-bg: var(--pos-solido-activo);
+  --map-table-selected-text: var(--pos-solido-activo);
+}
+
+// Acciones de la barra de selección. El neutro deja de ser un contorno y
+// el de cancelar deja el rojo al 18 % sobre transparente; el primario ya era
+// papel lleno con tinta. Sin pisar el canto del neutro: gris-5 contra la
+// barra se queda en 1.7:1 y --admin-border-strong lo sube a 4.8.
+.operational-page.mapa-page {
+  --map-action-utility-bg: var(--pos-solido-neutro);
+  --map-action-utility-text: var(--pos-solido-neutro-tinta);
+  --map-action-utility-hover-bg: var(--pos-solido-neutro-hover);
+  --map-action-cancel-bg: var(--pos-solido-peligro);
+  --map-action-cancel-text: var(--pos-solido-peligro-tinta);
+  --map-action-cancel-border: var(--pos-solido-peligro);
 }
 
 .mesas-map {
@@ -652,8 +715,8 @@
   text-align: center;
   text-overflow: ellipsis;
   /* Sin sombra de rescate: era lo que sostenía la etiqueta cuando su color no
-     contrastaba con el relleno. Ahora contrasta (4.67:1 en el peor caso), y en
-     tema claro una sombra oscura bajo un texto oscuro sólo emborrona. */
+     contrastaba con el relleno. Ahora contrasta (4.58:1 en el peor caso, papel
+     sobre el rojo sólido), y una sombra bajo un texto oscuro sólo emborrona. */
 }
 
 :is(.mesas-map, .map-help-dialog__sample) .mesa-pin--libre {
@@ -683,7 +746,11 @@
     0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent);
 }
 
+// El doble filete se dibuja en la tinta del rojo: con el pin sólido el borde
+// es del color del relleno, y un doble rojo sobre rojo no se ve (papel sobre
+// el rojo: 4.58:1).
 .mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
+  border-color: var(--map-table-occupied-text);
   border-style: double;
   border-width: 3px;
 }
@@ -726,7 +793,7 @@
 // del pin —la dicen el color y la forma— y vive en el aria-label y en
 // «Cómo leer el mapa», en el menú del avatar. La línea
 // hereda el color de texto del estado, que ya está calculado a 4.5:1 contra
-// su relleno (ver los --map-table-* de arriba).
+// su relleno sólido (ver «POS en sólido», arriba).
 .mesas-map .mesa-pin--con-estado {
   align-content: center;
   row-gap: 3px;
@@ -1065,9 +1132,12 @@
   background: var(--map-action-cancel-bg);
   color: var(--map-action-cancel-text);
 
+  // El hover oscurece hacia la tinta: el relleno ya es el rojo pleno, y
+  // mezclarlo con --admin-danger (lo que hacía con el tinte) no cambiaba nada.
+  // Papel sobre el rojo oscurecido: 6.0:1.
   &:hover:not(:disabled) {
-    border-color: var(--map-action-cancel-border);
-    background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
+    border-color: color-mix(in srgb, var(--map-action-cancel-bg) 84%, var(--admin-ink));
+    background: color-mix(in srgb, var(--map-action-cancel-bg) 84%, var(--admin-ink));
   }
 }
 
@@ -1371,6 +1441,21 @@
   box-shadow: var(--admin-focus-ring);
 }
 
+// POS en sólido. Hoy el POS la abre desde el menú del avatar y no emite este
+// botón, pero si vuelve a la cabecera o al plano no puede ser un círculo al
+// 88 % sobre transparente. Neutro como las demás utilidades; el azul del hover
+// era un tinte y sobra: la ayuda no es un estado.
+.mapa-page .map-help-button {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+
+  &:hover {
+    border-color: var(--admin-line-strong);
+    background: var(--pos-solido-neutro-hover);
+    color: var(--pos-solido-neutro-tinta);
+  }
+}
+
 .map-help-button svg,
 .map-help-dialog__close svg {
   width: 20px;
@@ -1479,6 +1564,15 @@
 .map-help-dialog__close:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
+}
+
+// POS en sólido: cerrar es una utilidad, gris-5 con el aspa en papel (9.7:1).
+// El canto --admin-border-strong se queda: gris-5 contra el diálogo da 1.7:1.
+.mapa-page .map-help-dialog__close {
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
+
+  &:hover { background: var(--pos-solido-neutro-hover); }
 }
 
 .map-help-dialog__body {

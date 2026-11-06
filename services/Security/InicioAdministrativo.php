@@ -42,11 +42,15 @@ final class InicioAdministrativo
             'finanzas'=>['Finanzas',$ctx==='global'?'Cómo van los dos negocios hoy y en el periodo, y el total de la organización.':'Ventas en caja, costos, merma y gastos fijos de Panadería.','finanzas',$base.'/finanzas'],
             'inventario'=>['Almacenes','Consulta existencias y registra operaciones físicas.','inventario',$base.'/almacenes'],
             'menu'=>[$ctx==='global'?'Productos de la casa':'Menú',$ctx==='global'?'Administra identidades compartidas y consulta su uso.':'Organiza productos, precios y disponibilidad propios.','menu',$ctx==='global'?$base.'/productos':$base.'/menu'],
+            // La caja es piso: se abre desde aquí como Punto de venta en Restaurante.
+            'pdv'=>['Caja','Vende en mostrador, cobra y registra horneadas.','pdv',Contextos::CAJA_PANADERIA],
+            'vitrina'=>['Vitrina de la caja','Opciones de cada pan y la pieza que descuenta al venderse.','variantes',$base.'/menu/vitrina'],
             'transferencias'=>['Transferencias','Consulta envíos, recepciones e incidencias.','transferencias',$base.'/almacenes?vista=transferencias'],
             'users'=>['Usuarios','Consulta el equipo y sus accesos autorizados.','users',$base.'/usuarios'],
         ];
         foreach ($defs as $mod=>$d) {
-            if (!$puede($ctx,$mod==='transferencias'?'inventario':$mod)) continue;
+            if (in_array($mod,['pdv','vitrina'],true) && $ctx!=='panaderia') continue;
+            if (!$puede($ctx,match($mod){'transferencias'=>'inventario','vitrina'=>'menu',default=>$mod})) continue;
             if ($mod==='users' && !in_array('usuarios.gestionar',$perfil['ambitos'][$ctx]['facultades']??[],true)) continue;
             // Global no se agrupa: su administración es un solo bloque.
             $administracion[]=['titulo'=>$d[0],'descripcion'=>$d[1],'icono'=>$d[2],'ruta'=>$d[3],'accion'=>'Abrir']

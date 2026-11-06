@@ -50,7 +50,7 @@ $assert(mb_strlen($largo) <= 30 && str_ends_with($largo, '…'), 'El extracto la
 
 // 3 · Validación por campo.
 $vacio = AvisosCarta::validar([]);
-foreach (['titulo', 'contenido', 'cartas', 'posicion'] as $campo) {
+foreach (['titulo', 'contenido', 'cartas'] as $campo) {
     $assert(isset($vacio['errores'][$campo]), "Un aviso vacío marca el campo {$campo}.");
 }
 
@@ -58,18 +58,17 @@ $bueno = AvisosCarta::validar([
     'titulo' => "  Alergias   e\tintolerancias ",
     'contenido' => "Línea uno   \r\nLínea dos\r\n\r\n\r\n\r\nOtro párrafo\t con tab",
     'cartas' => ['comida', 'maridaje', 'panaderia'],
-    'posicion' => 'final',
     'activo' => '1',
 ]);
 $igual($bueno['errores'], [], 'Un aviso completo no tiene errores.');
 $igual($bueno['aviso']['titulo'], 'Alergias e intolerancias', 'El título colapsa espacios y tabuladores.');
 $igual($bueno['aviso']['contenido'], "Línea uno\nLínea dos\n\nOtro párrafo  con tab", 'El contenido normaliza saltos, espacios finales y renglones en blanco.');
 $igual($bueno['aviso']['cartas'], ['comida' => true, 'maridaje' => true], 'Sólo las cartas conocidas; una ajena (panaderia) se ignora.');
-$igual($bueno['aviso']['posicion'], 'final', 'La posición válida se conserva.');
+$assert(!array_key_exists('posicion', $bueno['aviso']), 'El aviso no lleva lugar: todos van al final de la carta.');
 $assert($bueno['aviso']['activo'] === true, 'activo=1 enciende el aviso.');
 $assert(AvisosCarta::validar(['activo' => '0'] + $bueno['aviso'])['aviso']['activo'] === false, 'Sin activo=1 queda pausado.');
 
-$con = static fn (array $cambio): array => AvisosCarta::validar($cambio + ['titulo' => 'T', 'contenido' => 'C', 'cartas' => ['comida'], 'posicion' => 'inicio']);
+$con = static fn (array $cambio): array => AvisosCarta::validar($cambio + ['titulo' => 'T', 'contenido' => 'C', 'cartas' => ['comida']]);
 $assert(isset($con(['titulo' => str_repeat('a', AvisosCarta::MAX_TITULO + 1)])['errores']['titulo']), 'Un título de más de 80 caracteres se rechaza.');
 $assert(!isset($con(['titulo' => str_repeat('á', AvisosCarta::MAX_TITULO)])['errores']['titulo']), 'El límite del título cuenta caracteres, no bytes.');
 $assert(isset($con(['contenido' => str_repeat('a', AvisosCarta::MAX_CONTENIDO + 1)])['errores']['contenido']), 'Un contenido de más de 1500 caracteres se rechaza.');
@@ -79,22 +78,23 @@ $assert(!isset($con(['contenido' => 'Precios < $100 y > $50'])['errores']['conte
 $assert(isset($con(['contenido' => "##\n\n   "])['errores']['contenido']), 'Un contenido sin texto (sólo marcas) se rechaza.');
 $assert(isset($con(['cartas' => ['panaderia']])['errores']['cartas']), 'Una carta ajena no cuenta como carta elegida.');
 $assert(isset($con(['cartas' => 'comida'])['errores']['cartas']) === false, 'Una carta suelta (no lista) también se acepta.');
-$assert(isset($con(['posicion' => 'medio'])['errores']['posicion']), 'Una posición desconocida se rechaza.');
+$manual = $con(['posicion' => 'inicio']);
+$assert($manual['errores'] === [] && !array_key_exists('posicion', $manual['aviso']), 'Una posición enviada a mano se ignora: no hay inicio.');
 $assert(isset($con(['titulo' => ['x']])['errores']['titulo']), 'Un título que no es texto cuenta como vacío.');
 
 // 4 · Plantillas del editor.
 $pagos = AvisosCarta::nuevo('pagos');
 $igual($pagos['cartas'], ['comida' => true, 'maridaje' => true], 'La plantilla de pagos se imprime en las dos cartas.');
-$igual($pagos['posicion'], 'final', 'La plantilla de pagos va al final.');
 $igual(AvisosCarta::nuevo('inexistente')['titulo'], '', 'Una plantilla desconocida da un aviso en blanco.');
 foreach (AvisosCarta::PLANTILLAS as $clave => $plantilla) {
-    $v = AvisosCarta::validar(['titulo' => $plantilla['titulo'], 'contenido' => $plantilla['contenido'], 'cartas' => $plantilla['cartas'], 'posicion' => $plantilla['posicion'], 'activo' => '1']);
+    $assert(!array_key_exists('posicion', $plantilla), "La plantilla {$clave} no elige lugar.");
+    $v = AvisosCarta::validar(['titulo' => $plantilla['titulo'], 'contenido' => $plantilla['contenido'], 'cartas' => $plantilla['cartas'], 'activo' => '1']);
     $igual($v['errores'], [], "La plantilla {$clave} es un aviso válido.");
 }
 
 // 5 · Lectura tolerante del PDF: sin base no hay avisos, ni error.
-$igual(AvisosCarta::paraPdf('comida'), ['inicio' => [], 'final' => []], 'Sin base de datos, la carta sale sin avisos.');
-$igual(AvisosCarta::paraPdf('panaderia'), ['inicio' => [], 'final' => []], 'Una carta que no es de Restaurante no tiene avisos.');
+$igual(AvisosCarta::paraPdf('comida'), [], 'Sin base de datos, la carta sale sin avisos.');
+$igual(AvisosCarta::paraPdf('panaderia'), [], 'Una carta que no es de Restaurante no tiene avisos.');
 
 // 6 · La plantilla del PDF.
 $clasesPdf = ['h2' => 'aviso__h2', 'p' => 'aviso__p', 'b' => 'aviso__b'];
@@ -113,29 +113,45 @@ $categorias = [
     ['nombre' => 'Postres', 'platillos' => [$plato('Tres')]],
 ];
 $avisos = [
-    'inicio' => [$avisoPdf('<b>Temporada</b>', "Pregunta **hoy**\n<img src=x onerror=alert(1)>")],
-    'final' => [$avisoPdf('Pagos', "## Formas de pago\nEfectivo")],
+    $avisoPdf('<b>Temporada</b>', "Pregunta **hoy**\n<img src=x onerror=alert(1)>"),
+    $avisoPdf('Pagos', "## Formas de pago\nEfectivo"),
 ];
 $html = $pintar($categorias, $avisos);
 $assert(str_contains($html, '&lt;b&gt;Temporada&lt;/b&gt;') && !str_contains($html, '<b>Temporada</b>'), 'El título del aviso se escapa en el PDF.');
 $assert(str_contains($html, '&lt;img src=x onerror=alert(1)&gt;') && !str_contains($html, '<img src=x'), 'El contenido guardado nunca llega como HTML al PDF.');
 $assert(str_contains($html, '<strong class="aviso__b">hoy</strong>'), 'Las negritas llegan con la clase del PDF.');
 $assert(str_contains($html, '<h2 class="aviso__h2">Formas de pago</h2>'), 'El subtítulo llega con la clase del PDF.');
-$posInicio = strpos($html, '<tr class="aviso-row aviso-row--inicio');
 $posPrimeraSeccion = strpos($html, '<tr class="cat-row');
-$posFinal = strpos($html, '<tr class="aviso-row aviso-row--final');
-$posCierre = strpos($html, '<tr class="cierre-row">');
 $posUltimoPlato = strpos($html, '>Tres<');
-$assert($posInicio !== false && $posPrimeraSeccion !== false && $posInicio < $posPrimeraSeccion, 'Los avisos del inicio van antes de la primera sección.');
-$assert($posFinal !== false && $posCierre !== false && $posUltimoPlato < $posFinal && $posFinal < $posCierre, 'Los del final van después del último platillo y antes de la despedida.');
-$assert(!str_contains($html, 'cat-row first'), 'Con avisos al inicio, la primera sección pierde su arranque pegado a la portada.');
+$posCierre = strpos($html, '<tr class="cierre-row">');
+$posTemporada = strpos($html, '&lt;b&gt;Temporada&lt;/b&gt;');
+$posPagos = strpos($html, '<p class="aviso__titulo">Pagos</p>');
+$posPrimerAviso = strpos($html, '<tr class="aviso-row');
+$assert($posPrimeraSeccion !== false && $posPrimerAviso !== false && $posPrimerAviso > $posUltimoPlato, 'Ningún aviso va antes de la primera sección: todos van después del último platillo.');
+$assert($posTemporada !== false && $posPagos !== false && $posUltimoPlato < $posTemporada && $posTemporada < $posPagos && $posPagos < $posCierre, 'Los avisos van al final, en su orden y antes de la despedida.');
+$assert(str_contains($html, 'cat-row first'), 'La primera sección conserva su arranque pegado a la portada.');
+$assert(!str_contains($html, 'aviso-row--'), 'No quedan variantes de lugar en las filas de aviso.');
 $assert(!str_contains($html, 'col-der celda-cierre'), 'Con avisos al final, la despedida no se mete en la celda vacía (quedaría antes de ellos).');
-$assert(str_contains($html, 'aviso-row aviso-row--inicio first'), 'El primer aviso del inicio despega de la banda.');
+
+// Dos columnas: dos avisos comparten fila, una celda por columna; uno que
+// sobra va solo y a lo ancho. La última fila se ata a la despedida.
+$filasAviso = static fn (string $h): int => substr_count($h, '<tr class="aviso-row');
+$assert($filasAviso($html) === 1 && substr_count($html, '<td class="aviso-celda">') === 1 && substr_count($html, '<td class="aviso-celda aviso-celda--der">') === 1 && !str_contains($html, '<td class="aviso-solo"'), 'Dos avisos van en una sola fila, uno por columna.');
+$assert(str_contains($html, '<tr class="aviso-row ultimo">'), 'La única fila de avisos es la última y se ata a la despedida.');
+
+$tres = $pintar($categorias, [$avisoPdf('A1', 'uno'), $avisoPdf('A2', 'dos'), $avisoPdf('A3', 'tres')]);
+$posPar = strpos($tres, '<tr class="aviso-row">');
+$posSolo = strpos($tres, '<tr class="aviso-row ultimo"><td class="aviso-solo" colspan="2">');
+$assert($filasAviso($tres) === 2 && $posPar !== false && $posSolo !== false && $posPar < $posSolo, 'Con tres avisos: un par y el tercero solo a lo ancho, que cierra antes de la despedida.');
+$assert(strpos($tres, '>A1<') < strpos($tres, '>A2<') && strpos($tres, '>A2<') < $posSolo && strpos($tres, '>A3<') > $posSolo, 'Los avisos se leen en orden: izquierda, derecha y después el que sobra.');
+
+$uno = $pintar($categorias, [$avisoPdf('Solo', 'uno')]);
+$assert($filasAviso($uno) === 1 && str_contains($uno, '<tr class="aviso-row ultimo"><td class="aviso-solo" colspan="2">') && !str_contains($uno, '<td class="aviso-celda'), 'Un aviso único va a lo ancho, como antes de las dos columnas.');
 
 $sinAvisos = $pintar($categorias, []);
 $assert(!str_contains($sinAvisos, '<tr class="aviso-row') && str_contains($sinAvisos, 'cat-row first') && str_contains($sinAvisos, 'col-der celda-cierre'), 'Sin avisos, la carta queda exactamente como antes.');
 $vacia = $pintar([], $avisos);
-$assert(str_contains($vacia, 'class="empty"') && substr_count($vacia, 'class="aviso-row') === 2, 'Con la carta vacía, los avisos se imprimen bajo el mensaje.');
+$assert(str_contains($vacia, 'class="empty"') && substr_count($vacia, '<div class="aviso">') === 2 && str_contains($vacia, 'aviso-celda--der'), 'Con la carta vacía, los avisos se imprimen bajo el mensaje, también en dos columnas.');
 
 // 7 · DDL, rutas, permiso y consumidores. Sin migración aparte: database/
 //     sólo lleva ddl.sql, deploy.sql y development.sql.
@@ -143,6 +159,7 @@ $ddl = (string) file_get_contents($root . '/database/ddl.sql');
 $assert(preg_match('/^DROP TABLE IF EXISTS[^;]*\bconfiguracion_avisos\b/m', $ddl) === 1, 'ddl.sql borra configuracion_avisos antes de crearla.');
 $assert(preg_match('/CREATE TABLE configuracion_avisos \((.*?)\) ENGINE/s', $ddl, $enDdl) === 1, 'ddl.sql crea configuracion_avisos.');
 $assert(!is_file($root . '/database/actualizaciones/avisos-carta.sql'), 'La tabla vive sólo en ddl.sql, sin migración aparte.');
+$assert(!str_contains($enDdl[1], 'posicion'), 'configuracion_avisos no guarda lugar: todos los avisos van al final.');
 
 $rutas = (string) file_get_contents($root . '/public/index.php');
 foreach ([
@@ -168,6 +185,7 @@ $assert(substr_count($servicio, "ContextoNegocio::exigir('configuration', 'edita
     && str_contains($servicio, 'ContextoNegocio::transaccion('), 'Toda escritura relee configuration/editar de Restaurante dentro de la transacción.');
 
 $vista = (string) file_get_contents($root . '/views/admin/configuration/avisos.php');
+$assert(!str_contains($vista, 'name="posicion"') && !str_contains((string) file_get_contents($root . '/src/js/admin/configuration/avisos.js'), 'posicion'), 'El editor ya no ofrece elegir lugar.');
 require_once $root . '/views/admin/partials/_icons.php';
 preg_match_all("/admin_icon\\('([a-z-]+)'/", $vista, $iconos);
 foreach (array_unique($iconos[1]) as $icono) {

@@ -13,8 +13,9 @@
  *   - $pdfTitulo:  <title> del documento
  *
  *   - $pdfCierre:  la despedida al pie de la ultima seccion
- *   - $pdfAvisos:  ['inicio' => [...], 'final' => [...]], los avisos del
- *                  restaurante (Configuracion -> Avisos de la carta); cada uno
+ *   - $pdfAvisos:  lista de avisos del restaurante (Configuracion -> Avisos
+ *                  de la carta), en orden; todos van al final, entre la ultima
+ *                  seccion y la despedida. Cada uno es
  *                  ['titulo' => string, 'html' => string]. El html ya viene
  *                  escapado de Services\Configuration\AvisosCarta::html():
  *                  aqui se imprime tal cual y el titulo se escapa.
@@ -60,9 +61,7 @@ $pdfBajada = $pdfBajada ?? 'Una mesa italiana con alma mexicana';
 $pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
 $pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
 $pdfCierre = $pdfCierre ?? 'Buon appetito';
-$pdfAvisos = $pdfAvisos ?? ['inicio' => [], 'final' => []];
-$avisosInicio = $pdfAvisos['inicio'] ?? [];
-$avisosFinal = $pdfAvisos['final'] ?? [];
+$avisos = array_values(is_array($pdfAvisos ?? null) ? $pdfAvisos : []);
 
 /**
  * La paleta llega resuelta de Services\Configuration\PaletaLanding::paraPdf().
@@ -245,18 +244,26 @@ $romboMarco = 'data:image/svg+xml;base64,' . base64_encode(
     '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 9 9">'
     . '<path fill="' . $paleta['oro'] . '" d="M4.5 0 L9 4.5 L4.5 9 L0 4.5 Z"/></svg>'
 );
-// Una fila por aviso. El titulo se escapa aqui; el cuerpo llega ya escapado
-// y traducido de AvisosCarta::html(). `$ultimo` marca el ultimo de su lugar:
-// el del inicio deja aire a la primera seccion y el del final no se separa
-// de la despedida (ver .aviso-row.ultimo).
-$avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $ultimo = false) use ($rombo): string {
-    return '<tr class="aviso-row aviso-row--' . $lugar . ($primero ? ' first' : '') . ($ultimo ? ' ultimo' : '') . '"><td colspan="2">'
-        . '<div class="aviso">'
+// Un aviso: rotulo, titulo, filete y cuerpo. El titulo se escapa aqui; el
+// cuerpo llega ya escapado y traducido de AvisosCarta::html().
+$avisoBloque = static function (array $aviso) use ($rombo): string {
+    return '<div class="aviso">'
         . '<p class="aviso__rotulo">AVISO</p>'
         . '<p class="aviso__titulo">' . htmlspecialchars((string) ($aviso['titulo'] ?? ''), ENT_QUOTES, 'UTF-8') . '</p>'
         . '<table class="cat-filete aviso__filete"><tr><td class="linea"></td><td class="rombo"><img src="' . $rombo . '" alt=""></td><td class="linea"></td></tr></table>'
         . '<div class="aviso__cuerpo">' . (string) ($aviso['html'] ?? '') . '</div>'
-        . '</div></td></tr>';
+        . '</div>';
+};
+// Los avisos van de dos en dos, como los platillos: una fila con una celda
+// por columna. Si sobra uno, va solo y centrado a lo ancho, como cuando la
+// carta tiene un unico aviso. `$ultimo` marca la ultima fila, que no se
+// separa de la despedida (ver .aviso-row.ultimo).
+$avisoFila = static function (array $par, bool $ultimo = false) use ($avisoBloque): string {
+    $par = array_values($par);
+    $celdas = count($par) === 2
+        ? '<td class="aviso-celda">' . $avisoBloque($par[0]) . '</td><td class="aviso-celda aviso-celda--der">' . $avisoBloque($par[1]) . '</td>'
+        : '<td class="aviso-solo" colspan="2">' . $avisoBloque($par[0]) . '</td>';
+    return '<tr class="aviso-row' . ($ultimo ? ' ultimo' : '') . '">' . $celdas . '</tr>';
 };
 ?>
 <!DOCTYPE html>
@@ -758,38 +765,42 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
            filete del pie y hacia doble raya. Ahora a un aviso lo separa el
            aire, como a una seccion de otra.
 
-           Medida: 60% de la columna (unos 400px, ~72 caracteres de Montserrat
-           a 10px). Al 78% salian renglones de 100 caracteres, demasiado para
-           un texto centrado.
+           Dos columnas, como los platillos: dos avisos por fila, cada uno
+           centrado en su mitad y alineados arriba para que rotulo y titulo
+           queden a la misma altura. En media columna el aviso ocupa el 86%
+           (unos 281px, ~49 caracteres de Montserrat a 10px) y entre los dos
+           queda un medianil de ~74px. Si sobra uno, va solo en el eje pero con
+           la MISMA medida: 41% de la tabla (~279px). Al 60% de antes (~409px,
+           ~71 caracteres) se veia como otro objeto, mas ancho que sus vecinos
+           y que el sello de la despedida; con la misma medida el cierre baja
+           en embudo: par, aviso solo, sello. Sin el filete vertical de los
+           platillos: se uniria con el de la ultima seccion y los avisos ya no
+           se leerian como cierre.
 
-           Una fila por aviso con page-break-inside: un aviso no se parte entre
-           dos hojas. Los del inicio van entre la portada y la primera seccion;
-           los del final, entre la ultima fila y la despedida, que sigue siendo
-           lo ultimo de la carta.
+           Una fila por par con page-break-inside: un aviso no se parte entre
+           dos hojas. Todos van al final, entre la ultima fila y la despedida,
+           que sigue siendo lo ultimo de la carta. Nada va entre la portada y
+           la primera seccion: la carta abre con sus platillos.
 
            Fuentes: la serif (Playfair) solo tiene Regular, asi que titulo y
            subtitulo van en normal (pedirle bold hacia que Dompdf cayera a
            Times); las negritas son Montserrat, que si trae Bold. */
         .aviso-row { page-break-inside: avoid; }
-        /* El ultimo del final no se queda sin la despedida: es la misma regla
-           que mantiene la ultima fila de platillos con el cierre. */
-        .aviso-row--final.ultimo { page-break-after: avoid; }
+        /* El ultimo no se queda sin la despedida: es la misma regla que
+           mantiene la ultima fila de platillos con el cierre. */
+        .aviso-row.ultimo { page-break-after: avoid; }
         .menu-table tbody .aviso-row > td {
             border: none;
-            padding: 30px 14px 0;
+            padding: 34px 14px 0;
+            vertical-align: top;
         }
-        /* El primero, a 22px del doble filete de la banda: el mismo aire que
-           deja la primera seccion cuando no hay avisos. */
-        .menu-table tbody .aviso-row.first > td { padding-top: 22px; }
-        /* El ultimo del inicio deja a la primera seccion el aire que una
-           seccion deja a otra; sin el, «DESAYUNOS» se pegaba al aviso. */
-        .menu-table tbody .aviso-row--inicio.ultimo > td { padding-bottom: 14px; }
-        .menu-table tbody .aviso-row--final > td { padding-top: 34px; }
+        .aviso-row > td.aviso-celda { width: 50%; }
         .aviso {
-            width: 60%;
             margin: 0 auto;
             text-align: center;
         }
+        .aviso-celda .aviso { width: 86%; }
+        .aviso-solo .aviso { width: 41%; }
         .aviso__rotulo {
             font-family: "Montserrat", sans-serif;
             font-weight: bold;
@@ -833,7 +844,7 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
         /* Carta vacia: los avisos van bajo el mensaje, sin la tabla de dos
            columnas que los acomoda cuando hay platillos. */
         .avisos-sueltos { width: 100%; border-collapse: collapse; }
-        .avisos-sueltos .aviso-row > td { padding: 30px 14px 0; border: none; }
+        .avisos-sueltos .aviso-row > td { padding: 30px 14px 0; border: none; vertical-align: top; }
     </style>
 </head>
 <body>
@@ -873,10 +884,10 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
     <div class="page">
         <?php if (empty($categorias)) : ?>
             <p class="empty"><?php echo htmlspecialchars($pdfVacio); ?></p>
-            <?php if ($avisosInicio !== [] || $avisosFinal !== []) : ?>
+            <?php if ($avisos !== []) : ?>
                 <table class="avisos-sueltos"><tbody>
-                    <?php foreach (array_merge($avisosInicio, $avisosFinal) as $aviso) : ?>
-                        <?php echo $avisoFila($aviso, 'inicio', false); ?>
+                    <?php foreach (array_chunk($avisos, 2) as $par) : ?>
+                        <?php echo $avisoFila($par); ?>
                     <?php endforeach; ?>
                 </tbody></table>
             <?php endif; ?>
@@ -893,12 +904,9 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
                 <!-- Espaciador repetido: margen superior en cada hoja -->
                 <thead><tr class="v-space"><td colspan="2"></td></tr></thead>
                 <tbody>
-                    <?php foreach ($avisosInicio as $a => $aviso) : ?>
-                        <?php echo $avisoFila($aviso, 'inicio', $a === 0, $a === count($avisosInicio) - 1); ?>
-                    <?php endforeach; ?>
                     <?php foreach ($categorias as $i => $categoria) : ?>
                         <!-- Nombre de la categoria (2 columnas) -->
-                        <tr class="cat-row<?php echo $i === 0 && $avisosInicio === [] ? ' first' : ''; ?>">
+                        <tr class="cat-row<?php echo $i === 0 ? ' first' : ''; ?>">
                             <td class="cat-name" colspan="2">
                                 <span class="cat-name__texto"><?php echo htmlspecialchars($categoria['nombre'] ?? ''); ?></span>
                                 <table class="cat-filete"><tr><td class="linea"></td><td class="rombo"><img src="<?php echo $rombo; ?>" alt=""></td><td class="linea"></td></tr></table>
@@ -912,7 +920,7 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
                             // ocupa la celda vacia de al lado y no suma altura: un
                             // renglon propio bastaba para mandar a una hoja nueva
                             // el ultimo platillo de una carta justa.
-                            $cierreEnCelda = $esUltima && count($fila) === 1 && $avisosFinal === [];
+                            $cierreEnCelda = $esUltima && count($fila) === 1 && $avisos === [];
                             ?>
                             <tr class="menu-row<?php echo $esUltima && !$cierreEnCelda ? ' menu-row--ultima' : ''; ?>">
                                 <?php foreach ($fila as $columna => $platillo) : ?>
@@ -948,8 +956,9 @@ $avisoFila = static function (array $aviso, string $lugar, bool $primero, bool $
                                 <?php endif; ?>
                             </tr>
                             <?php if ($esUltima && !$cierreEnCelda) : ?>
-                                <?php foreach ($avisosFinal as $af => $aviso) : ?>
-                                    <?php echo $avisoFila($aviso, 'final', false, $af === count($avisosFinal) - 1); ?>
+                                <?php $paresAviso = array_chunk($avisos, 2); ?>
+                                <?php foreach ($paresAviso as $p => $par) : ?>
+                                    <?php echo $avisoFila($par, $p === count($paresAviso) - 1); ?>
                                 <?php endforeach; ?>
                                 <tr class="cierre-row"><td colspan="2"><?php echo $cierreHtml; ?></td></tr>
                             <?php endif; ?>
