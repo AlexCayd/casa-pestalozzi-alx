@@ -108,7 +108,7 @@ function probarAlmacenes3E1(mysqli $db, int &$count): void
     $inactiveData['existencias']['articulos']=array_slice($readerData['existencias']['articulos'],0,1);
     $inactiveData['existencias']['articulos'][0]['activo']=0;
     $inactiveHtml=$render($inactiveData,true,'restaurante','existencias');
-    $assert(str_contains($inactiveHtml,'Artículo inactivo; Global debe reactivarlo'),'Un artículo maestro inactivo explica por qué no admite operaciones físicas.');
+    $assert(str_contains($inactiveHtml,'Global debe reactivarlo para registrar operaciones físicas'),'Un artículo maestro inactivo explica por qué no admite operaciones físicas.');
     $assert(!str_contains($inactiveHtml,'name="accion" value="entrada"')&&!str_contains($inactiveHtml,'name="accion" value="ajuste"')&&!str_contains($inactiveHtml,'name="accion" value="merma"'),'La interfaz no invita operaciones físicas que el motor rechaza por artículo inactivo.');
     $html=$render($globalDatos,true,'global','almacenes');
     $propiosGlobal=array_values(array_filter($globalDatos['almacenes']['almacenes'],static fn($a)=>$a['slug']==='global'));
