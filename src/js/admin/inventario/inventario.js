@@ -355,20 +355,50 @@
             window.addEventListener('pageshow', function () { submitting = false; });
             window.addEventListener('pagehide', function () { window.clearTimeout(timer); });
         }
-        workspace.querySelectorAll('[data-warehouse-picker]').forEach(function (picker) {
-            const modal = picker.closest('[data-admin-modal]');
-            let operation = 'entrada';
+        // Diálogos de operación de un artículo (articulo-{id}-{operación}): cada uno trae
+        // un formulario por almacén. Con varios almacenes, el selector muestra sólo el
+        // del elegido; con uno, su panel ya está visible.
+        workspace.querySelectorAll('[data-admin-modal]').forEach(function (modal) {
+            const panels = modal.querySelectorAll('[data-warehouse-panel]');
+            if (!panels.length) return;
+            const picker = modal.querySelector('[data-warehouse-picker]');
+            const empty = modal.querySelector('[data-warehouse-empty]');
             function update() {
-                modal.querySelectorAll('[data-warehouse-panel]').forEach(function (panel) {
-                    panel.hidden = panel.dataset.warehousePanel !== picker.value;
-                    panel.querySelectorAll('details[data-operation]').forEach(function (details) {
-                        details.open = details.dataset.operation === operation;
-                    });
-                });
+                panels.forEach(function (panel) { panel.hidden = panel.dataset.warehousePanel !== picker.value; });
+                if (empty) empty.hidden = picker.value !== '';
             }
-            picker.addEventListener('change', update);
-            modal.addEventListener('admin:modal-opened', function (event) {
-                operation = (event.detail.trigger && event.detail.trigger.dataset.operation) || 'entrada'; update();
+            if (picker) picker.addEventListener('change', update);
+            // admin.js enfoca el primer elemento (cerrar). Aquí la persona viene a
+            // capturar: el foco va al selector si falta elegir almacén o, si no, al primer
+            // campo del formulario. Un select realzado por AdminSelect se enfoca por su
+            // combobox: el nativo queda oculto para el lector.
+            function focusable(field) {
+                const wrapper = field.tagName === 'SELECT' ? field.closest('.admin-select') : null;
+                return (wrapper && wrapper.querySelector('[role="combobox"]')) || field;
+            }
+            // admin.js atrapa Tab con los enfocables del diálogo, pero sólo descarta los que
+            // llevan `hidden` ellos mismos: los campos de un panel oculto contaban como el
+            // último y Tab salía del diálogo (Mayús+Tab desde el primero no iba a ningún
+            // sitio). En los bordes se recorre aquí sólo lo visible y no se le pasa el evento.
+            if (picker) modal.addEventListener('keydown', function (event) {
+                if (event.key !== 'Tab') return;
+                const scope = modal.querySelector('[data-admin-modal-dialog]') || modal;
+                const visibles = Array.from(scope.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                    .filter(function (el) { return !el.closest('[hidden]') && el.getAttribute('aria-hidden') !== 'true'; });
+                if (!visibles.length) return;
+                const borde = event.shiftKey ? visibles[0] : visibles[visibles.length - 1];
+                if (document.activeElement !== borde) return;
+                event.preventDefault(); event.stopPropagation();
+                visibles[event.shiftKey ? visibles.length - 1 : 0].focus();
+            });
+            modal.addEventListener('admin:modal-opened', function () {
+                if (picker) update();
+                let target = picker && picker.value === '' ? picker : null;
+                if (!target) {
+                    const panel = Array.from(panels).find(function (p) { return !p.hidden; });
+                    target = panel && panel.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled])');
+                }
+                if (target) focusable(target).focus();
             });
         });
         workspace.querySelectorAll('form[data-stock-operation]').forEach(function (form) {
@@ -540,7 +570,7 @@
                     if (menu.matches(':popover-open') && activo && activo !== document.body && activo !== trigger && !menu.contains(activo)) menu.hidePopover();
                 }, 0);
             });
-            // «Configurar asociación» abre el modal compartido (admin.js ya escucha el clic).
+            // «Configurar asociación» abre su diálogo (admin.js ya escucha el clic).
             // El menú se cierra para no quedar encima del diálogo, y al cerrarlo el foco
             // vuelve a «Más»: el elemento que lo abrió ya no es visible.
             menu.addEventListener('click', function (event) {

@@ -289,6 +289,22 @@ elaboración, Movimientos) va en el menú «Más», un popover nativo anclado po
 `inventario.js`: flechas, Inicio y Fin lo recorren, Escape lo cierra y devuelve el
 foco, `aria-expanded` sigue el estado y en móvil se presenta como hoja inferior.
 
+Cada operación de un artículo tiene su propio diálogo, `articulo-{id}-{operación}`
+(`entrada`, `merma`, `ajuste` para el conteo físico y `configurar`), titulado
+«Registrar entrada · Canela» y con sólo sus campos, Cancelar y su acción principal
+(`views/admin/almacenes/_operacion.php` pinta el diálogo; `_asociacion.php`, un
+formulario). Los botones de la fila, «Más» y el selector «Registrar entrada» de la
+cabecera abren directamente el diálogo correcto. Si el artículo está en varios
+almacenes propios, el diálogo trae su selector «Almacén físico» sin valor previo y un
+panel oculto por almacén con su saldo y su formulario; con uno solo, el panel está
+visible. Los formularios son los mismos que antes vivían apilados en un modal por
+artículo (mismos campos, versión y clave idempotente), así que el DOM no crece salvo
+por los marcos de diálogo. La configuración existe en todo almacén propio activo;
+entrada, merma y conteo sólo donde la asociación y el artículo están activos, y una
+fila sin asociaciones activas dice «Asociación inactiva» en lugar de abrir un diálogo
+vacío. Al abrir, el foco va al selector si falta elegir almacén o al primer campo; Tab
+recorre sólo lo visible (los paneles ocultos no cuentan como último elemento).
+
 En Global, las barras usan el saldo de cada almacén para la proporción; desde M3
 no hay saldos negativos ni su trama. El saldo neto exacto procede del backend; nunca se obtiene sumando
 anchos o valores de coma flotante. Las etiquetas textuales y botones de detalle

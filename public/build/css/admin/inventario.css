@@ -1688,6 +1688,27 @@
   max-width: 100%;
 }
 
+.almacen-modal--operacion .admin-modal__dialog {
+  max-width: 680px;
+}
+.almacen-modal--operacion .almacen-modal__intro {
+  margin-bottom: 16px;
+}
+.almacen-modal--operacion .almacen-modal__picker {
+  margin-bottom: 20px;
+}
+.almacen-modal--operacion .almacen-modal__balance {
+  margin: 0;
+  padding-block: 12px;
+  border-top: 1px solid var(--admin-border);
+}
+.almacen-modal--operacion .admin-form-grid {
+  margin-block: 12px 0;
+}
+.almacen-modal--operacion .admin-modal__actions {
+  margin-top: 0;
+}
+
 @media (max-width: 760px) {
   .almacen-workspace .admin-page__header, .almacen-section-head {
     flex-direction: column;

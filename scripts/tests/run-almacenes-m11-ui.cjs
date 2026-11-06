@@ -49,8 +49,8 @@ console.log('Almacenes M3: captura en piezas y suma exacta del reparto de faltan
 // Menú «Más» de la fila (popover nativo). JSDOM no trae el API popover: se simula lo
 // mínimo (abrir, cerrar y el evento toggle) para comprobar lo que añade inventario.js.
 const menuDom = new JSDOM('<main data-almacenes-workspace><button class="almacen-more" popovertarget="m1" aria-controls="m1" aria-expanded="false">Más</button>'
-  + '<div id="m1" popover data-row-menu><button type="button" data-admin-modal-open="articulo-1" data-operation="configurar">Configurar asociación</button><a href="/m">Movimientos</a></div>'
-  + '<div id="articulo-1" data-admin-modal></div><button id="fuera">Fuera</button></main>', { runScripts:'outside-only', pretendToBeVisual:true });
+  + '<div id="m1" popover data-row-menu><button type="button" data-admin-modal-open="articulo-1-configurar">Configurar asociación</button><a href="/m">Movimientos</a></div>'
+  + '<div id="articulo-1-configurar" data-admin-modal></div><button id="fuera">Fuera</button></main>', { runScripts:'outside-only', pretendToBeVisual:true });
 const mw = menuDom.window, md = mw.document, menu = md.getElementById('m1'), mas = md.querySelector('.almacen-more');
 let abierto = false;
 function alternar(estado) { abierto = estado; const e = new mw.Event('toggle'); e.newState = estado ? 'open' : 'closed'; menu.dispatchEvent(e); }
@@ -70,11 +70,11 @@ tecla(md.activeElement, 'Escape');
 assert.equal(abierto, false); assert.equal(md.activeElement, mas, 'Escape cierra y devuelve el foco a «Más»');
 assert.equal(mas.getAttribute('aria-expanded'), 'false');
 mas.focus(); alternar(true);
-md.querySelector('[data-operation="configurar"]').click();
+md.querySelector('[data-admin-modal-open="articulo-1-configurar"]').click();
 assert.equal(abierto, false, 'Abrir el modal desde el menú lo cierra: no queda encima del diálogo');
 const cuadros = []; mw.requestAnimationFrame = fn => { cuadros.push(fn); return cuadros.length; };
 md.getElementById('fuera').focus();
-md.getElementById('articulo-1').dispatchEvent(new mw.CustomEvent('admin:modal-closed'));
+md.getElementById('articulo-1-configurar').dispatchEvent(new mw.CustomEvent('admin:modal-closed'));
 cuadros.forEach(fn => fn());
 assert.equal(md.activeElement, mas, 'Al cerrar el modal el foco vuelve a «Más», no al elemento oculto');
 menuDom.window.close();
@@ -105,3 +105,39 @@ assert.equal(c.href, 'http://localhost/admin/almacenes?articulo_id=7&volver=%2Fa
 assert.equal(c.recargas, 0, 'Sin recarga cuando se conserva el artículo');
 console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia o vuelve a la vista por defecto OK.');
 
+
+// Un diálogo por operación: con varios almacenes, el selector muestra sólo el panel del
+// elegido y el foco inicial va al selector; con uno, al primer campo del formulario.
+{
+  const d = new JSDOM('<main data-almacenes-workspace>'
+    + '<div id="articulo-1-merma" data-admin-modal><button data-admin-modal-close aria-label="Cerrar ventana">x</button>'
+    + '<select id="articulo-1-merma-almacen" data-warehouse-picker><option value="">Elige</option><option value="1">Central</option><option value="4">Bodega</option></select><p data-warehouse-empty>Elige uno</p>'
+    + '<div data-warehouse-panel="1" hidden><form><input type="hidden" name="accion" value="merma"><input id="c1" name="cantidad"></form></div>'
+    + '<div data-warehouse-panel="4" hidden><form><input type="hidden" name="accion" value="merma"><input id="c4" name="cantidad"></form></div></div>'
+    + '<div id="articulo-2-ajuste" data-admin-modal><button data-admin-modal-close>x</button><div data-warehouse-panel="1"><form><input type="hidden" name="version" value="3"><input id="p2" name="piezas"><input name="cantidad"></form></div></div>'
+    + '</main>', { runScripts:'outside-only', pretendToBeVisual:true });
+  const w = d.window, doc = w.document;
+  w.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/inventario/inventario.js'),'utf8'));
+  doc.dispatchEvent(new w.Event('DOMContentLoaded'));
+  const varios = doc.getElementById('articulo-1-merma'), picker = varios.querySelector('[data-warehouse-picker]');
+  const paneles = () => Array.from(varios.querySelectorAll('[data-warehouse-panel]')).map(p => p.hidden);
+  varios.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
+  assert.equal(doc.activeElement, picker, 'Sin almacén elegido, el foco va al selector');
+  assert.deepEqual(paneles(), [true, true], 'Ningún formulario visible hasta elegir almacén');
+  assert.equal(varios.querySelector('[data-warehouse-empty]').hidden, false, 'La ayuda explica que falta elegir almacén');
+  picker.value = '4'; picker.dispatchEvent(new w.Event('change'));
+  assert.deepEqual(paneles(), [true, false], 'Elegir un almacén muestra sólo su formulario');
+  assert.equal(varios.querySelector('[data-warehouse-empty]').hidden, true, 'La ayuda se retira al elegir');
+  varios.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
+  assert.equal(doc.activeElement.id, 'c4', 'Reabierto con almacén elegido, el foco va a su primer campo');
+  const tab = (shift) => doc.activeElement.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Tab', shiftKey:shift, bubbles:true, cancelable:true}));
+  tab(false);
+  assert.equal(doc.activeElement.getAttribute('aria-label'), 'Cerrar ventana', 'Tab desde el último campo visible vuelve al principio: los paneles ocultos no cuentan');
+  tab(true);
+  assert.equal(doc.activeElement.id, 'c4', 'Mayús+Tab desde el primero va al último visible, no a uno oculto');
+  const uno = doc.getElementById('articulo-2-ajuste');
+  uno.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
+  assert.equal(doc.activeElement.id, 'p2', 'Con un solo almacén el foco va al primer campo visible, no a un oculto');
+  d.window.close();
+  console.log('Almacenes: diálogo por operación, selector de almacén y foco inicial OK.');
+}

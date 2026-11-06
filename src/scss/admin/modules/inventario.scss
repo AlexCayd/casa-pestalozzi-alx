@@ -771,6 +771,19 @@
   .admin-card { box-shadow: none; border: 0; }
   input, select { max-width: 100%; }
 }
+// Diálogo de una sola operación de un artículo (entrada, merma, conteo o asociación):
+// un formulario corto, así que usa el ancho de diálogo amplio del panel y no los
+// 880 px de las consultas. El saldo del almacén elegido es el dato que se lee antes
+// de capturar: va justo encima del formulario, sin el aire de una sección aparte.
+.almacen-modal--operacion {
+  .admin-modal__dialog { max-width: 680px; }
+  .almacen-modal__intro { margin-bottom: 16px; }
+  .almacen-modal__picker { margin-bottom: 20px; }
+  .almacen-modal__balance { margin: 0; padding-block: 12px; border-top: 1px solid var(--admin-border); }
+  .admin-form-grid { margin-block: 12px 0; }
+  // La rejilla ya separa la fila de acciones con su hueco.
+  .admin-modal__actions { margin-top: 0; }
+}
 @media(max-width: 760px) {
   .almacen-workspace .admin-page__header, .almacen-section-head { flex-direction: column; align-items: stretch; }
   .almacen-actions { justify-content: flex-start; }
