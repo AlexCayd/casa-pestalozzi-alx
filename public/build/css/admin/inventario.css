@@ -1688,6 +1688,10 @@
   max-width: 100%;
 }
 
+.admin-body .almacen-modal__intro {
+  margin: 0 0 20px;
+}
+
 .almacen-modal--operacion .admin-modal__dialog {
   max-width: 680px;
 }
@@ -1811,13 +1815,83 @@
   grid-column: 1/-1;
 }
 
-.almacen-transfer-request,
 .almacen-transfer-document {
   padding-block: 1rem;
   border-bottom: 1px solid var(--admin-gris-3);
 }
 
-.almacen-transfer-request > summary,
+/* «Solicitar transferencia»: la acción principal del modal es un summary con forma de
+   botón primario, por encima del historial. Abierto, pasa a pesar como secundario (los
+   valores de .admin-btn--secondary) y el chevron gira: a la vista queda un solo
+   primario, «Registrar solicitud», al pie del formulario. El selector sube a (0,4,1)
+   porque `.almacen-modal summary` y `.admin-body .admin-btn--primary` pisarían la
+   caja del botón. */
+.almacen-modal .almacen-transfer-request {
+  margin-bottom: 20px;
+  padding-block: 0 20px;
+  border-top: 0;
+  border-bottom: 1px solid var(--admin-gris-3);
+}
+.almacen-modal .almacen-transfer-request > summary.admin-btn {
+  display: inline-flex;
+  gap: 7px;
+  min-height: 44px;
+  padding-block: 0;
+  font-size: 13px;
+  list-style: none;
+}
+.almacen-modal .almacen-transfer-request > summary.admin-btn::-webkit-details-marker {
+  display: none;
+}
+.almacen-modal .almacen-transfer-request[open] > summary.admin-btn {
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 36%, transparent);
+  background-color: var(--admin-btn-secondary-bg);
+  color: var(--admin-text);
+}
+.almacen-modal .almacen-transfer-request[open] > summary.admin-btn::before, .almacen-modal .almacen-transfer-request[open] > summary.admin-btn::after {
+  display: none;
+}
+.almacen-modal .almacen-transfer-request[open] > summary.admin-btn:hover {
+  background-color: var(--admin-surface-strong);
+}
+.almacen-modal .almacen-transfer-request[open] > form {
+  animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
+}
+
+.almacen-transfer-request__chevron {
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+[open] > summary > .almacen-transfer-request__chevron {
+  transform: rotate(180deg);
+}
+
+@keyframes almacen-transfer-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes almacen-transfer-funde {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .almacen-transfer-request__chevron {
+    transition: none;
+  }
+  .almacen-modal .almacen-transfer-request[open] > form {
+    animation-name: almacen-transfer-funde;
+  }
+}
+.almacen-modal .almacen-transfer-request-hint {
+  margin: 0 0 20px;
+}
+
+.almacen-transfer-pages {
+  margin-top: 20px;
+}
+
 .almacen-transfer-document > summary,
 .almacen-transfer-action > summary,
 .almacen-transfer-history > summary {

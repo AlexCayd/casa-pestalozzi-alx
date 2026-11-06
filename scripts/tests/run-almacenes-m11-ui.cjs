@@ -117,6 +117,11 @@ console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia
     + '<div id="articulo-2-ajuste" data-admin-modal><button data-admin-modal-close>x</button><div data-warehouse-panel="1"><form><input type="hidden" name="version" value="3"><input id="p2" name="piezas"><input name="cantidad"></form></div></div>'
     + '</main>', { runScripts:'outside-only', pretendToBeVisual:true });
   const w = d.window, doc = w.document;
+  // La trampa de Tab vive en el gestor compartido: se carga admin.js antes del módulo,
+  // como en el panel, para que los bordes del ciclo sean los suyos.
+  w.requestAnimationFrame = fn => fn();
+  w.matchMedia = () => ({matches:false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}});
+  w.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/admin.js'),'utf8'));
   w.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/inventario/inventario.js'),'utf8'));
   doc.dispatchEvent(new w.Event('DOMContentLoaded'));
   const varios = doc.getElementById('articulo-1-merma'), picker = varios.querySelector('[data-warehouse-picker]');
@@ -128,13 +133,22 @@ console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia
   picker.value = '4'; picker.dispatchEvent(new w.Event('change'));
   assert.deepEqual(paneles(), [true, false], 'Elegir un almacén muestra sólo su formulario');
   assert.equal(varios.querySelector('[data-warehouse-empty]').hidden, true, 'La ayuda se retira al elegir');
-  varios.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
+  // Reabierto por el gestor (admin:open-modal), que es quien atrapa Tab.
+  doc.dispatchEvent(new w.CustomEvent('admin:open-modal', {detail:{id:'articulo-1-merma'}}));
   assert.equal(doc.activeElement.id, 'c4', 'Reabierto con almacén elegido, el foco va a su primer campo');
   const tab = (shift) => doc.activeElement.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Tab', shiftKey:shift, bubbles:true, cancelable:true}));
   tab(false);
   assert.equal(doc.activeElement.getAttribute('aria-label'), 'Cerrar ventana', 'Tab desde el último campo visible vuelve al principio: los paneles ocultos no cuentan');
   tab(true);
   assert.equal(doc.activeElement.id, 'c4', 'Mayús+Tab desde el primero va al último visible, no a uno oculto');
+  // Con el primer almacén elegido, el último del DOM es un campo oculto (c4): es el caso
+  // que dejaba escapar el foco.
+  picker.value = '1'; picker.dispatchEvent(new w.Event('change'));
+  doc.getElementById('c1').focus();
+  tab(false);
+  assert.equal(doc.activeElement.getAttribute('aria-label'), 'Cerrar ventana', 'Tab desde el campo del primer almacén no se escapa al panel oculto');
+  tab(true);
+  assert.equal(doc.activeElement.id, 'c1', 'Mayús+Tab desde el primero vuelve al campo visible, no al oculto del final');
   const uno = doc.getElementById('articulo-2-ajuste');
   uno.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
   assert.equal(doc.activeElement.id, 'p2', 'Con un solo almacén el foco va al primer campo visible, no a un oculto');

@@ -376,21 +376,8 @@
                 const wrapper = field.tagName === 'SELECT' ? field.closest('.admin-select') : null;
                 return (wrapper && wrapper.querySelector('[role="combobox"]')) || field;
             }
-            // admin.js atrapa Tab con los enfocables del diálogo, pero sólo descarta los que
-            // llevan `hidden` ellos mismos: los campos de un panel oculto contaban como el
-            // último y Tab salía del diálogo (Mayús+Tab desde el primero no iba a ningún
-            // sitio). En los bordes se recorre aquí sólo lo visible y no se le pasa el evento.
-            if (picker) modal.addEventListener('keydown', function (event) {
-                if (event.key !== 'Tab') return;
-                const scope = modal.querySelector('[data-admin-modal-dialog]') || modal;
-                const visibles = Array.from(scope.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
-                    .filter(function (el) { return !el.closest('[hidden]') && el.getAttribute('aria-hidden') !== 'true'; });
-                if (!visibles.length) return;
-                const borde = event.shiftKey ? visibles[0] : visibles[visibles.length - 1];
-                if (document.activeElement !== borde) return;
-                event.preventDefault(); event.stopPropagation();
-                visibles[event.shiftKey ? visibles.length - 1 : 0].focus();
-            });
+            // La trampa de Tab es del gestor compartido (admin.js), que ya descarta los
+            // paneles ocultos: aquí sólo se decide el foco inicial.
             modal.addEventListener('admin:modal-opened', function () {
                 if (picker) update();
                 let target = picker && picker.value === '' ? picker : null;

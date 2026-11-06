@@ -244,6 +244,10 @@ admin-pagination, admin-field, admin-switch, admin-tabs y admin-pills.
   ConfirmationModal.get().open devuelve promesa de acción; customContent muestra
   dependencias y requireText exige leer el elemento (data-confirm-require en form).
   Diálogo especializado captura en document antes del genérico, preservando respaldo.
+  La trampa de Tab de `admin.js` (`data-admin-modal`) cuenta sólo lo visible: descarta
+  lo que tenga un ancestro `hidden`, `aria-hidden="true"` o `inert` y el contenido de
+  un `details` cerrado en cualquier nivel (su `summary` sí cuenta). Los módulos no
+  reimplementan la trampa; sólo deciden el foco inicial en `admin:modal-opened`.
 - AppNotice.show comunica errores con texto de respaldo. Ocultado diferido del
   modal se invalida al reabrir; duración desde --confirmation-out. No crear una
   instancia nueva por llamada.
@@ -303,7 +307,7 @@ por los marcos de diálogo. La configuración existe en todo almacén propio act
 entrada, merma y conteo sólo donde la asociación y el artículo están activos, y una
 fila sin asociaciones activas dice «Asociación inactiva» en lugar de abrir un diálogo
 vacío. Al abrir, el foco va al selector si falta elegir almacén o al primer campo; Tab
-recorre sólo lo visible (los paneles ocultos no cuentan como último elemento).
+recorre sólo lo visible porque la trampa compartida ignora los paneles ocultos.
 
 En Global, las barras usan el saldo de cada almacén para la proporción; desde M3
 no hay saldos negativos ni su trama. El saldo neto exacto procede del backend; nunca se obtiene sumando
@@ -318,7 +322,15 @@ Transferencias amplía esta misma interfaz en Restaurante, Panadería y Global:
 `almacen-transferencias` usa el modal administrativo compartido y
 `views/admin/almacenes/_transferencias.php`. Solicitud multilínea, documentos,
 acciones e historial usan `details`/`summary`; los documentos pendientes aparecen
-abiertos. Estado, origen/destino y propietario se expresan con texto. Las acciones
+abiertos. Orden del modal: introducción, alertas de la última operación, la acción y
+después «Solicitudes e historial». «Solicitar transferencia» es la acción principal:
+su `summary` lleva `admin-btn admin-btn--primary` con `mas` y un `chevron-abajo` que
+gira al abrir; abierto pesa como secundario para que el único primario a la vista sea
+«Registrar solicitud», y el formulario entra con un desplazamiento corto (sólo
+opacidad con movimiento reducido). Sin almacén propio activo, un aviso explica por qué
+no hay acción; en solo consulta no hay ni acción ni aviso. El contador de documentos
+sólo aparece con documentos (singular con uno), el vacío remite a la acción cuando
+existe y la paginación (secundaria pequeña) sólo con más de una página. Estado, origen/destino y propietario se expresan con texto. Las acciones
 disponibles llegan del servidor según ámbito y estado; recepción, diferencia y
 retorno conservan explicaciones distintas sobre su efecto en existencias.
 

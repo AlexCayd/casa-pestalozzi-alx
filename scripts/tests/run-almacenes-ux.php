@@ -137,4 +137,25 @@ $assert($xt->query('//form[.//input[@name="accion" and @value="transferencia_con
 $assert($xt->query('//form[.//input[@name="accion" and @value="transferencia_rechazar"]]//textarea[@name="motivo" and @required and .=""]')->length===1,'Rechazar pide el motivo.');
 $assert($xt->query('//form[.//input[@name="accion" and (@value="transferencia_autorizar" or @value="transferencia_enviar")]]')->length===0,'Una regularización no ofrece el flujo ordinario.');
 $assert($xt->query('//*[contains(@class,"almacen-transfer-route__sep")]/span[contains(@class,"admin-visually-hidden")]')->length===2,'La ruta usa el SVG del catálogo con texto para lectores, no una flecha Unicode.');
+// «Solicitar transferencia»: acción principal del modal, con forma de botón y por encima del historial.
+$toggle='//details[contains(@class,"almacen-transfer-request")]/summary[contains(@class,"admin-btn") and contains(@class,"admin-btn--primary")]';
+$assert($xt->query($toggle.'[normalize-space(.)="Solicitar transferencia"]')->length===1&&$xt->query($toggle.'/svg[@aria-hidden="true"]')->length===2,'La solicitud es un summary nativo con forma de botón primario e iconos SVG del catálogo.');
+$assert($xt->query('//*[@id="almacen-transferencias"]//*[contains(@class,"admin-btn--primary") and not(ancestor::details[contains(@class,"almacen-transfer-request")]) and not(ancestor::details[contains(@class,"almacen-transfer-action")])]')->length===0,'Fuera de los formularios plegados, el botón de solicitud es el único primario del modal.');
+$conAlerta=$render(true,['vista'=>'transferencias','transferencias'=>$transferencias,'transferenciasTotal'=>1,'alertas'=>['exito'=>['Solicitud registrada.']]]);
+$pAlerta=strpos($conAlerta,'Solicitud registrada.');$pAccion=strpos($conAlerta,'almacen-transfer-request');$pHistorial=strpos($conAlerta,'Solicitudes e historial');
+$assert($pAlerta!==false&&$pAlerta<$pAccion&&$pAccion<$pHistorial,'Resultado, acción y después el historial.');
+$solicitud='//form[.//input[@name="accion" and @value="transferencia_solicitar"]]';$nombres=[];
+foreach($xt->query($solicitud.'//*[@name]') as $n)$nombres[]=$n->getAttribute('name');sort($nombres);
+$assert($nombres===['accion','admin_csrf','clave','destino_id','lineas[0][articulo_id]','lineas[0][cantidad]','motivo','origen_id','volver_contextual','volver_filtros','volver_vista'],'La solicitud envía exactamente los mismos campos: '.implode(',',$nombres));
+$assert($xt->query($solicitud.'//input[@name="volver_vista" and @value="transferencias"]')->length===1,'La solicitud vuelve al modal de transferencias.');
+$assert(str_contains($conAlerta,'>1</span> documento · pendientes primero'),'Un documento en singular.');
+$assert($xt->query('//nav[@aria-label="Paginación de transferencias"]')->length===0,'Con una sola página no hay paginación.');
+$vacio=$render(true,['transferencias'=>[],'transferenciasTotal'=>0]);$xv=$dom($vacio);
+$assert($xv->query('//*[contains(@class,"almacen-transfer-head")]/span')->length===0&&str_contains($vacio,'Las solicitudes que registres con «Solicitar transferencia» aparecerán aquí'),'Vacío sin contador y remitiendo a la acción.');
+$assert(str_contains($render(false,['transferencias'=>[],'transferenciasTotal'=>0]),'<p class="admin-empty">Todavía no hay transferencias en este ámbito.</p>'),'Vacío de solo consulta sin acción que no puede ejecutar.');
+$xp=$dom($render(true,['transferencias'=>$transferencias,'transferenciasTotal'=>240,'transferenciasPagina'=>2]));
+$assert($xp->query('//nav[@aria-label="Paginación de transferencias"]/a[contains(@class,"admin-btn--secondary") and contains(@class,"admin-btn--small")]')->length===2&&$xp->query('//nav[@aria-label="Paginación de transferencias"]/a[@rel="prev"]')->length===1,'Paginación secundaria pequeña, sólo con varias páginas.');
+$inactivos=array_map(static fn(array $a):array=>['activo'=>0]+$a,[['almacen_id'=>1,'nombre'=>'Central','slug'=>'global','permitir_negativos'=>0]]);
+$sinActivos=$render(true,['opcionesAlmacen'=>$inactivos,'transferencias'=>[],'transferenciasTotal'=>0]);
+$assert(!str_contains($sinActivos,'transferencia_solicitar')&&str_contains($sinActivos,'Para solicitar una transferencia, Global necesita al menos un almacén propio activo.'),'Sin almacén propio activo se explica por qué no hay acción.');
 echo "Almacenes representación: {$count} comprobaciones OK.\n";

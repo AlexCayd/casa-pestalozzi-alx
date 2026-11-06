@@ -9,8 +9,15 @@ $accionesRegularizacion=['confirmar'=>['Confirmar regularización','Una venta sa
 $accionesTransferencia=['autorizar'=>['Autorizar salida','Comprueba las existencias del origen. La autorización todavía no descuenta ni reserva stock.'],'enviar'=>['Confirmar envío','Descuenta del origen todas las cantidades solicitadas. El destino no tendrá stock disponible hasta registrar la recepción.'],'recibir'=>['Registrar recepción','Indica únicamente lo recibido ahora. Deja vacíos los artículos que no llegaron. El resto seguirá en tránsito con incidencia.'],'incidencia'=>['Registrar diferencia','Describe lo ocurrido, incluso si no llegó ningún artículo. No modifica existencias; habilita el retorno físico al origen.'],'retornar'=>['Registrar retorno','Indica únicamente lo que volvió físicamente al origen. No registra una entrada en el destino.'],'rechazar'=>['Rechazar solicitud','Cierra la solicitud sin modificar existencias.'],'cancelar'=>['Cancelar solicitud','Cierra la solicitud sin modificar existencias.']];
 ?>
 <p class="almacen-modal__intro">Solicitar, enviar y recibir son pasos distintos. El tránsito no es existencia disponible. Esta consulta documental incluye ambos almacenes y conserva su propietario.</p>
+<?php // El resultado de la última operación (solicitud o acción sobre un documento) se lee
+// antes que nada: el modal se reabre con el foco arriba, y abajo quedaría fuera de vista.
+if($vista==='transferencias')include __DIR__.'/../partials/alertas.php'; ?>
 <?php if($puedeEditar&&$activos): ?>
-<details class="almacen-transfer-request"><summary>Solicitar transferencia</summary>
+<?php // Acción principal del modal, por encima del historial y con forma de botón primario.
+// Sigue siendo details/summary: el navegador anuncia expandido/contraído, funciona sin
+// JavaScript y no saca a la persona del historial (un diálogo propio cerraría éste).
+// Abierta, el botón cede el peso a «Registrar solicitud» (inventario.scss). ?>
+<details class="almacen-transfer-request"><summary class="admin-btn admin-btn--primary almacen-transfer-request__toggle"><?php echo admin_icon('mas',16); ?><span>Solicitar transferencia</span><?php echo admin_icon('chevron-abajo',16,'almacen-transfer-request__chevron'); ?></summary>
  <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid" data-transfer-request>
   <?php $campos('transferencia_solicitar',['volver_vista'=>'transferencias','clave'=>bin2hex(random_bytes(16))]); ?>
   <?php foreach(['origen_id'=>'Almacén origen','destino_id'=>'Almacén destino'] as $campo=>$label): ?>
@@ -29,10 +36,14 @@ $accionesTransferencia=['autorizar'=>['Autorizar salida','Comprueba las existenc
   <button type="submit" class="admin-btn admin-btn--primary">Registrar solicitud</button>
  </form>
 </details>
+<?php elseif($puedeEditar): ?>
+<p class="admin-field__hint almacen-transfer-request-hint">Para solicitar una transferencia, <?php echo $esc($nombreContexto); ?> necesita al menos un almacén propio activo.</p>
 <?php endif; ?>
-<div class="almacen-section-head"><h4>Solicitudes e historial</h4><span><?php echo (int)($transferenciasTotal??0); ?> documentos · pendientes primero</span></div>
-<?php if(!$transferencias): ?><p class="admin-empty">Todavía no hay transferencias en este ámbito. Las solicitudes nuevas aparecerán aquí sin modificar las existencias.</p><?php endif; ?>
-<?php if($vista==='transferencias')include __DIR__.'/../partials/alertas.php'; ?>
+<?php $docsTotal=(int)($transferenciasTotal??0); ?>
+<div class="almacen-section-head almacen-transfer-head"><h4>Solicitudes e historial</h4><?php if($docsTotal>0): ?><span><span class="admin-num"><?php echo $docsTotal; ?></span> <?php echo $docsTotal===1?'documento':'documentos'; ?> · pendientes primero</span><?php endif; ?></div>
+<?php // Sin documentos, el vacío explica qué aparecerá aquí; si se puede pedir, remite al
+// botón de arriba en vez de repetir la acción. Una página fuera de rango no es «vacío».
+if(!$transferencias): ?><p class="admin-empty"><?php echo $docsTotal>0?'No hay documentos en esta página.':($puedeEditar&&$activos?'Todavía no hay transferencias en este ámbito. Las solicitudes que registres con «Solicitar transferencia» aparecerán aquí; solicitar no mueve existencias.':'Todavía no hay transferencias en este ámbito.'); ?></p><?php endif; ?>
 <?php foreach($transferencias as $t): $tid=(int)$t['id']; $esRegularizacion=($t['tipo']??'ordinaria')==='regularizacion'; ?>
 <details class="almacen-transfer-document" <?php echo in_array($t['estado'],['solicitada','autorizada','enviada','incidencia'],true)?'open':''; ?>>
  <summary><strong><?php echo $esRegularizacion?'Regularización de faltante':'Transferencia'; ?> #<?php echo $tid; ?></strong><span class="admin-badge"><?php echo $esc($estadosTransferencia[$t['estado']]??$t['estado']); ?></span><span class="almacen-transfer-route"><?php echo $esc($t['origen_nombre']); ?><span class="almacen-transfer-route__sep"><?php echo admin_icon('flecha-derecha',14); ?><span class="admin-visually-hidden"> hacia </span></span><?php echo $esc($t['destino_nombre']); ?></span></summary>
@@ -59,5 +70,9 @@ $accionesTransferencia=['autorizar'=>['Autorizar salida','Comprueba las existenc
  <details class="almacen-transfer-history"><summary>Historial de la transferencia #<?php echo $tid; ?></summary><ol><?php foreach($t['historial'] as $h): ?><li><strong><?php echo $esc($estadosTransferencia[$h['estado_nuevo']]??$h['estado_nuevo']); ?></strong> · <?php echo $esc($h['fecha'].' · '.($h['actor_nombre']??'Actor histórico')); ?><p><?php echo $esc($h['motivo']); ?></p></li><?php endforeach; ?></ol></details>
 </details>
 <?php endforeach; ?>
-<?php $tp=(int)($transferenciasPagina??1);$tmax=max(1,(int)ceil(($transferenciasTotal??0)/100)); ?>
-<nav class="admin-pagination" aria-label="Paginación de transferencias"><span>Página <?php echo $tp; ?> de <?php echo $tmax; ?></span><?php if($tp>1): ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($url('transferencias',['transferencia_pagina'=>$tp-1])); ?>">Anterior</a><?php endif;if($tp<$tmax): ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($url('transferencias',['transferencia_pagina'=>$tp+1])); ?>">Siguiente</a><?php endif; ?></nav>
+<?php // Con una sola página, «Página 1 de 1» era ruido al pie del historial. La paginación
+// es navegación del historial: botones secundarios pequeños, nunca al nivel de la acción.
+$tp=(int)($transferenciasPagina??1);$tmax=max(1,(int)ceil($docsTotal/100));
+if($tmax>1): ?>
+<nav class="admin-pagination almacen-transfer-pages" aria-label="Paginación de transferencias"><span>Página <?php echo $tp; ?> de <?php echo $tmax; ?></span><?php if($tp>1): ?><a class="admin-btn admin-btn--secondary admin-btn--small" rel="prev" href="<?php echo $esc($url('transferencias',['transferencia_pagina'=>$tp-1])); ?>">Anterior</a><?php endif;if($tp<$tmax): ?><a class="admin-btn admin-btn--secondary admin-btn--small" rel="next" href="<?php echo $esc($url('transferencias',['transferencia_pagina'=>$tp+1])); ?>">Siguiente</a><?php endif; ?></nav>
+<?php endif; ?>

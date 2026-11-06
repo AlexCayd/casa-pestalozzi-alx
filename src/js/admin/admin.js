@@ -340,9 +340,21 @@
         function focusableElements(modal) {
             const scope = modal.querySelector('[data-admin-modal-dialog]') || modal;
             return Array.from(scope.querySelectorAll(
-                'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
             )).filter(function (element) {
-                return !element.hidden && element.getAttribute('aria-hidden') !== 'true';
+                // Un ancestro oculto o inerte también saca al elemento del orden de Tab;
+                // contarlo dejaba escapar el foco del diálogo con paneles ocultos.
+                if (element.closest('[hidden], [aria-hidden="true"], [inert]')) return false;
+                // De un <details> cerrado sólo se ve su propio <summary>, y en cada nivel:
+                // el summary de un details anidado en otro cerrado tampoco se ve (el
+                // historial plegado dentro de una transferencia cerrada).
+                let plegado = element.parentElement && element.parentElement.closest('details:not([open])');
+                while (plegado) {
+                    const resumen = plegado.querySelector(':scope > summary');
+                    if (!resumen || !resumen.contains(element)) return false;
+                    plegado = plegado.parentElement && plegado.parentElement.closest('details:not([open])');
+                }
+                return true;
             });
         }
 
