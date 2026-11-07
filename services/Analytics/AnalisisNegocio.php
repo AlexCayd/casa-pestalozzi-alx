@@ -98,6 +98,50 @@ final class AnalisisNegocio
         return array_map(static fn (array $r): array => ['nombre' => (string) $r['nombre'], 'piezas' => (int) $r['u'], 'ventas' => (float) $r['v']], $filas);
     }
 
+    /** Informe documental del negocio a partir de los agregados del tablero. */
+    public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
+    {
+        $actual = self::totales($db, $unidad, $rango['start'], $rango['end']);
+        $previo = self::totales($db, $unidad, $rango['prevStart'], $rango['prevEnd']);
+        $porDia = self::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
+        $productos = self::masVendidos($db, $unidad, $rango['start'], $rango['end'], 7);
+        $serie = [];
+        foreach ($porDia as $fecha => $venta) $serie[] = [$fecha, $venta];
+        $top = [];
+        foreach ($productos as $producto) $top[] = [$producto['nombre'], $producto['piezas'], $producto['ventas']];
+        $resumen = $actual['tickets'] === 0
+            ? 'No hubo tickets cerrados en el periodo.'
+            : 'El informe reúne la venta y las piezas de los tickets cerrados del periodo.';
+        $resumen .= ' La tendencia incluye los días sin ventas y la comparación usa un periodo anterior de igual duración.';
+        return [
+            'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
+                'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Ventas', 'valor' => $actual['ventas'], 'formato' => 'moneda',
+                    'comparacion' => RangoPeriodo::delta($actual['ventas'], $previo['ventas'])],
+                ['etiqueta' => 'Tickets cerrados', 'valor' => $actual['tickets'], 'formato' => 'entero'],
+                ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ventas'] / $actual['tickets'] : null, 'formato' => 'moneda'],
+                ['etiqueta' => 'Piezas vendidas', 'valor' => $actual['piezas'], 'formato' => 'entero'],
+                ['etiqueta' => 'Comensales en tickets cerrados', 'valor' => $actual['comensales'], 'formato' => 'entero'],
+            ],
+            'secciones' => [
+                ['titulo' => 'Ventas por día', 'tipo' => 'serie', 'columnas' => ['Fecha', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie],
+                ['titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
+                ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
+                    'columnas' => [$rango['prevStart'] . ' a ' . $rango['prevEnd'], $rango['start'] . ' a ' . $rango['end']],
+                    'formatos' => ['moneda', 'moneda'], 'filas' => [[$previo['ventas'], $actual['ventas']]]],
+            ],
+            'notas' => [
+                'Ventas y piezas excluyen partidas canceladas y se atribuyen a tickets cerrados por fecha de cierre o apertura si falta el cierre; las propinas quedan fuera de ventas.',
+                'Los comensales son los asociados a tickets cerrados; no representan reservas atendidas.',
+                'Los productos se agrupan por el nombre guardado en la partida. No se incluye ocupación ni RevPASH.',
+                'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
+            ],
+        ];
+    }
+
     /**
      * El tablero completo del negocio, con la forma que la vista de Análisis
      * consume como window.AdminAnalyticsMock: {metrics, tickets, payments,
@@ -268,9 +312,10 @@ final class AnalisisNegocio
     private static function filas(\mysqli $db, string $sql, array $args): array
     {
         $s = $db->prepare($sql);
-        $s->execute($args);
-
-        return $s->get_result()->fetch_all(MYSQLI_ASSOC);
+        if ($s === false || !$s->execute($args)) throw new \RuntimeException('No se pudo consultar Análisis.');
+        $resultado = $s->get_result();
+        if ($resultado === false) throw new \RuntimeException('No se pudo leer Análisis.');
+        return $resultado->fetch_all(MYSQLI_ASSOC);
     }
 
     private static function fila(\mysqli $db, string $sql, array $args): ?array

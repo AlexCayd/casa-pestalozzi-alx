@@ -74,9 +74,22 @@ final class AdminAlmacenesController
         }
         $perfil=ContextoNegocio::exigir('inventario','ver',$ctx);
         $facultades=$perfil['ambitos'][$ctx]['facultades']??[];
+        $informeHref=null;$informeAviso=null;$informePeriodoTexto=null;
+        if($ctx==='restaurante') {
+            try {
+                $entradaPeriodo=[];
+                foreach (['desde','hasta'] as $campo) if (array_key_exists($campo,$_GET) && $_GET[$campo]!=='') $entradaPeriodo[$campo]=$_GET[$campo];
+                $periodoInforme=\Services\Shared\RangoPeriodo::resolverInforme($entradaPeriodo);
+                $informeHref='/admin/almacenes/informe.pdf?'.http_build_query(['desde'=>$periodoInforme['start'],'hasta'=>$periodoInforme['end']], '', '&', PHP_QUERY_RFC3986);
+                $informePeriodoTexto=$periodoInforme['start'].' a '.$periodoInforme['end'];
+            } catch (\InvalidArgumentException $e) {
+                $informeAviso='Aplique ambas fechas de un periodo válido de hasta 366 días para generar el informe.';
+            }
+        }
         AdminController::render('almacenes/index',array_merge($datos,[
             'activeModule'=>'inventario','title'=>'Almacenes','topbarTitle'=>'Almacenes','topbarSection'=>'Almacenes',
             'contextoAlmacenes'=>$ctx,'nombreContexto'=>Contextos::NOMBRES[$ctx], 'base'=>$base,'vista'=>$vista,'filtros'=>$filtros,'alertas'=>$alertas,
+            'informeHref'=>$informeHref,'informeAviso'=>$informeAviso,'informePeriodoTexto'=>$informePeriodoTexto,
             'volverContextual'=>\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx),
             'articuloContextual'=>$articuloContextual,'almacenesDisponiblesAsociacion'=>$almacenesDisponiblesAsociacion,'almacenesAsociadosActuales'=>$almacenesAsociadosActuales,'abrirAsociacion'=>$abrirAsociacion,'mensajeAsociacion'=>$mensajeAsociacion,
             'puedeEditar'=>Auth::puede('inventario','editar',$ctx),
@@ -85,6 +98,41 @@ final class AdminAlmacenesController
             'puedeCatalogo'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('catalogo.editar',$facultades,true),
             'csrf'=>self::csrfContexto($ctx), 'styles'=>['/build/css/admin/inventario.css'], 'scripts'=>['/build/js/admin/inventario.js'],
         ]));
+    }
+
+    public static function informe(Router $router): void
+    {
+        try {
+            if (!Auth::check() || ContextoNegocio::nivelAuth() !== 'contrasena') {
+                http_response_code(403); echo 'No tienes permiso para generar este informe.'; return;
+            }
+            ContextoNegocio::exigir('inventario','ver','restaurante');
+            foreach (['unidad_id','negocio','slug','almacen_id','almacen_ids','seleccion','articulo_id'] as $parametro) {
+                if (array_key_exists($parametro,$_GET)) throw new \InvalidArgumentException('Parámetro no admitido.');
+            }
+            $rango=\Services\Shared\RangoPeriodo::resolverInforme($_GET);
+            $db=ContextoNegocio::db();
+            $actorId=ContextoNegocio::actorId();
+            $nivelAuth=ContextoNegocio::nivelAuth();
+            $ahora=date('Y-m-d H:i:s');
+            $documento=\Services\Shared\LecturaConsistente::ejecutar($db, static function ($db) use ($actorId,$nivelAuth,$rango,$ahora): array {
+                $alcance=new \Services\Inventory\AlcanceInventario($db,$actorId,$nivelAuth);
+                return (new \Services\Inventory\ConsultasAlmacen($db,$alcance))->informe('restaurante',$rango,$ahora);
+            });
+            $archivo='informe-inventario-restaurante-'.$rango['start'].'_'.$rango['end'].'.pdf';
+            Auth::liberarSesion();
+            \Services\Shared\GeneradorPdf::emitir($documento,$archivo);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400); echo 'Seleccione un periodo válido de hasta 366 días.';
+        } catch (InventarioError $e) {
+            if (in_array($e->codigo,['NO_AUTORIZADO','NIVEL_AUTH_REQUERIDO','AMBITO_DENEGADO','PERMISO_DENEGADO'],true)) {
+                http_response_code(403); echo 'No tienes permiso para generar este informe.';
+            } else {
+                http_response_code(500); error_log('No se pudo generar el informe de inventario.'); echo 'No se pudo generar el informe de inventario.';
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500); error_log('No se pudo generar el informe de inventario.'); echo 'No se pudo generar el informe de inventario.';
+        }
     }
 
     public static function guardar(Router $router): void

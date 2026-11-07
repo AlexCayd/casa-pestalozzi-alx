@@ -79,6 +79,21 @@ class AdminReservacionController
             $filas[] = ReservacionListadoPresenter::fila($reservacion, $hoy, $urlListado);
         }
 
+        $informeHref = null;
+        $informeAviso = null;
+        if (\Services\Security\ContextoNegocio::nuevo() && \Services\Security\ContextoNegocio::slug() === 'restaurante') {
+            try {
+                $periodoInforme = \Services\Shared\RangoPeriodo::resolverInforme([
+                    'desde' => $filtros['fecha_inicio'], 'hasta' => $filtros['fecha_fin'],
+                ], $hoy);
+                $informeHref = '/admin/reservaciones/informe.pdf?' . http_build_query([
+                    'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
+                ], '', '&', PHP_QUERY_RFC3986);
+            } catch (\InvalidArgumentException $e) {
+                $informeAviso = 'Seleccione un periodo válido de hasta 366 días para generar el informe.';
+            }
+        }
+
         $data = [
             'title' => 'Agenda de reservaciones',
             'topbarSection' => 'Reservaciones',
@@ -89,6 +104,8 @@ class AdminReservacionController
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
             'periodoPorDefecto' => self::periodoEsPorDefecto($filtros),
             'rango' => self::rangoDelPeriodo($filtros, $hoy),
+            'informeHref' => $informeHref,
+            'informeAviso' => $informeAviso,
             'urlListado' => $urlListado,
             'urlConEstado' => static fn(string $estado): string => self::urlListado(array_merge($filtros, ['estado' => $estado])),
             'hoy' => $hoy,
@@ -108,6 +125,46 @@ class AdminReservacionController
         }
 
         self::render('reservations/index', $data);
+    }
+
+    /** Documento agregado independiente de la lectura operativa de Agenda. */
+    public static function informe(Router $router): void
+    {
+        try {
+            if (!\Classes\Auth::check() || \Services\Security\ContextoNegocio::nivelAuth() !== 'contrasena') {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+                return;
+            }
+            \Services\Security\ContextoNegocio::exigir('reservations', 'ver', 'restaurante');
+            foreach (['unidad_id', 'negocio', 'slug', 'fecha_inicio', 'fecha_fin'] as $parametro) {
+                if (array_key_exists($parametro, $_GET)) throw new \InvalidArgumentException('Parámetro no admitido.');
+            }
+            $ahora = ReservacionConfig::ahora();
+            $rango = \Services\Shared\RangoPeriodo::resolverInforme($_GET, $ahora->format('Y-m-d'));
+            $unidad = \Services\Security\ContextoNegocio::vendedora('restaurante');
+            $db = \Services\Security\ContextoNegocio::db();
+            $documento = \Services\Shared\LecturaConsistente::ejecutar($db, static fn ($db) => \Services\Reservations\InformeReservaciones::documento($db, $unidad, $rango, $ahora));
+            $archivo = 'informe-reservaciones-restaurante-' . $rango['start'] . '_' . $rango['end'] . '.pdf';
+            \Classes\Auth::liberarSesion();
+            \Services\Shared\GeneradorPdf::emitir($documento, $archivo);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo 'Seleccione un periodo válido de hasta 366 días.';
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['NO_AUTORIZADO', 'NIVEL_AUTH_REQUERIDO', 'AMBITO_DENEGADO', 'PERMISO_DENEGADO'], true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+            } else {
+                http_response_code(500);
+                error_log('No se pudo generar el informe de reservaciones.');
+                echo 'No se pudo generar el informe de reservaciones.';
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            error_log('No se pudo generar el informe de reservaciones.');
+            echo 'No se pudo generar el informe de reservaciones.';
+        }
     }
 
     public static function create(Router $router): void

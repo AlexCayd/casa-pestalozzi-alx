@@ -129,6 +129,18 @@ class AdminController
         // asociación.
         $analytics['nivel1'] = Analiticas::nivel1($rango['start'], $rango['end']);
         $base = $ctx === 'restaurante' ? '/admin' : '/admin/' . $ctx;
+        $informeHref = null;
+        $informeAviso = null;
+        if ($ctx === 'restaurante' && \Services\Security\ContextoNegocio::nuevo()) {
+            try {
+                $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
+                $informeHref = '/admin/analytics/informe.pdf?' . http_build_query([
+                    'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
+                ], '', '&', PHP_QUERY_RFC3986);
+            } catch (\InvalidArgumentException $e) {
+                $informeAviso = 'Seleccione un periodo válido de hasta 366 días para generar el informe.';
+            }
+        }
 
         self::render('analytics', [
             'activeModule' => 'analytics',
@@ -142,6 +154,8 @@ class AdminController
             'anApiVentaPorHora' => $base . '/api/analytics/venta-por-hora',
             'analytics' => $analytics,
             'rango' => $rango,
+            'informeHref' => $informeHref,
+            'informeAviso' => $informeAviso,
             'styles' => [
                 '/build/css/admin/analytics.css'
             ],
@@ -150,6 +164,46 @@ class AdminController
                 '/build/js/admin/analytics.js'
             ]
         ]);
+    }
+
+    /** Informe de análisis del Restaurante; el contexto se autoriza en servidor. */
+    public static function analyticsInforme(Router $router): void
+    {
+        try {
+            if (!Auth::check() || \Services\Security\ContextoNegocio::nivelAuth() !== 'contrasena') {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+                return;
+            }
+            \Services\Security\ContextoNegocio::exigir('analytics', 'ver', 'restaurante');
+            foreach (['unidad_id', 'negocio', 'slug'] as $parametro) {
+                if (array_key_exists($parametro, $_GET)) throw new \InvalidArgumentException('Parámetro no admitido.');
+            }
+            $rango = RangoPeriodo::resolverInforme($_GET);
+            $unidad = \Services\Security\ContextoNegocio::vendedora('restaurante');
+            $ahora = date('Y-m-d H:i:s');
+            $db = \Services\Security\ContextoNegocio::db();
+            $documento = \Services\Shared\LecturaConsistente::ejecutar($db, static fn ($db) => \Services\Analytics\AnalisisNegocio::informe($db, $unidad, $rango, $ahora));
+            $archivo = 'informe-analytics-restaurante-' . $rango['start'] . '_' . $rango['end'] . '.pdf';
+            Auth::liberarSesion();
+            \Services\Shared\GeneradorPdf::emitir($documento, $archivo);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo 'Seleccione un periodo válido de hasta 366 días.';
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['NO_AUTORIZADO', 'NIVEL_AUTH_REQUERIDO', 'AMBITO_DENEGADO', 'PERMISO_DENEGADO'], true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+            } else {
+                http_response_code(500);
+                error_log('No se pudo generar el informe de análisis.');
+                echo 'No se pudo generar el informe de análisis.';
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            error_log('No se pudo generar el informe de análisis.');
+            echo 'No se pudo generar el informe de análisis.';
+        }
     }
 
     /**
@@ -783,6 +837,19 @@ class AdminController
             error_log('AdminController::tickets - ' . $e->getMessage());
         }
 
+        $informeHref = null;
+        $informeAviso = null;
+        if (\Services\Security\ContextoNegocio::nuevo()) {
+            try {
+                $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
+                $informeHref = '/admin/tickets/informe.pdf?' . http_build_query([
+                    'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
+                ], '', '&', PHP_QUERY_RFC3986);
+            } catch (\InvalidArgumentException $e) {
+                $informeAviso = 'Seleccione un periodo válido de hasta 366 días para generar el informe.';
+            }
+        }
+
         $datos = [
             'rango' => $rango,
             'estado' => $estado,
@@ -792,6 +859,8 @@ class AdminController
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
             'porPagina' => \Services\Pos\HistorialTickets::POR_PAGINA,
+            'informeHref' => $informeHref,
+            'informeAviso' => $informeAviso,
         ];
 
         if (self::isPartialRequest()) {
@@ -807,6 +876,46 @@ class AdminController
             'styles' => ['/build/css/admin/tickets.css'],
             'scripts' => ['/build/js/admin/tickets.js'],
         ]);
+    }
+
+    /** Informe de tickets del Restaurante; el contexto se autoriza en servidor. */
+    public static function ticketsInforme(Router $router): void
+    {
+        try {
+            if (!Auth::check() || \Services\Security\ContextoNegocio::nivelAuth() !== 'contrasena') {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+                return;
+            }
+            \Services\Security\ContextoNegocio::exigir('tickets', 'ver', 'restaurante');
+            foreach (['unidad_id', 'negocio', 'slug'] as $parametro) {
+                if (array_key_exists($parametro, $_GET)) throw new \InvalidArgumentException('Parámetro no admitido.');
+            }
+            $rango = RangoPeriodo::resolverInforme($_GET);
+            $unidad = \Services\Security\ContextoNegocio::vendedora('restaurante');
+            $ahora = date('Y-m-d H:i:s');
+            $db = \Services\Security\ContextoNegocio::db();
+            $documento = \Services\Shared\LecturaConsistente::ejecutar($db, static fn ($db) => \Services\Pos\HistorialTickets::informe($db, $unidad, $rango, $ahora));
+            $archivo = 'informe-tickets-restaurante-' . $rango['start'] . '_' . $rango['end'] . '.pdf';
+            Auth::liberarSesion();
+            \Services\Shared\GeneradorPdf::emitir($documento, $archivo);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo 'Seleccione un periodo válido de hasta 366 días.';
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['NO_AUTORIZADO', 'NIVEL_AUTH_REQUERIDO', 'AMBITO_DENEGADO', 'PERMISO_DENEGADO'], true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+            } else {
+                http_response_code(500);
+                error_log('No se pudo generar el informe de tickets.');
+                echo 'No se pudo generar el informe de tickets.';
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            error_log('No se pudo generar el informe de tickets.');
+            echo 'No se pudo generar el informe de tickets.';
+        }
     }
 
     public static function printers(Router $router): void

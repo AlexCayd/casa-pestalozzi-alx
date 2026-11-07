@@ -321,6 +321,10 @@ final class Permisos
             return ['tipo' => 'publica', 'modulos' => []];
         }
 
+        if ($url === '/admin/almacenes/informe.pdf') {
+            return ['tipo' => 'modulos', 'modulos' => ['inventario']];
+        }
+
         if (isset(self::APIS[$url])) {
             return ['tipo' => 'modulos', 'modulos' => self::APIS[$url]];
         }

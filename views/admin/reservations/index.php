@@ -155,8 +155,13 @@ if ($estadoActivo !== '' && !array_key_exists($estadoActivo, $opcionesEstado)) {
             $rangePreserveQuery = true;
             include __DIR__ . '/../partials/_range-picker.php';
             ?>
+            <?php include __DIR__ . '/../partials/_generar-informe.php'; ?>
         </div>
     </header>
+
+    <?php if (!empty($informeHref) || !empty($informeAviso)) : ?>
+        <p>El informe usa el periodo visible y todas las reservaciones de negocio, sin aplicar la búsqueda ni el filtro de estado. Al abrirlo sin fechas usa los últimos 30 días; la Agenda muestra por defecto los próximos 30.</p>
+    <?php endif; ?>
 
     <?php foreach ($alertasNormalizadas as $tipo => $mensajes) : ?>
         <?php

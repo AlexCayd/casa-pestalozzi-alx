@@ -268,3 +268,41 @@ Las pruebas HTTP de publicación y personalización UX-5 se retiraron al elimina
 Productos de la casa. Sus recorridos oficiales no son parte del conjunto vigente;
 la suite A4 las reemplaza con independencia local, rutas retiradas y preservación
 de recetas, presentaciones, variantes y snapshots.
+
+
+## Informes PDF: validación local
+
+`npm run test:informes` comprueba la fundación sin base de datos. `npm run test:informes:db` ejecuta la aceptación aislada en un servidor MySQL compatible **de prueba**, configurado explícitamente mediante `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER` y `TEST_DB_PASS` (esta última puede estar vacía). No obtiene la conexión desde `.env` ni utiliza `DB_NAME` existente. La cuenta de prueba necesita privilegios para crear y eliminar bases temporales y para instalar el esquema, además de conexiones concurrentes. Se requieren PHP con mysqli, curl y DOM, Composer instalado y un puerto TCP local disponible.
+
+El ejecutor crea una base de nombre aleatorio mediante `Instalacion`, comprueba su marca de propiedad antes de eliminarla y guarda los artefactos en un directorio temporal por ejecución. El servidor HTTP y su router de sesiones de prueba se inician solo para esta suite en loopback, fuera de `public/`. Un fallo o una prueba omitida detiene la suite con código distinto de cero. Si no se verifica la propiedad durante la limpieza, se conserva el directorio temporal para recuperación manual. La validación siguiente corresponde a una ejecución local aislada, no certifica el entorno de producción.
+
+
+La aceptación independiente del 7 de noviembre de 2026 usó MySQL 9.7.1 y PHP 8.2.12 en un servidor de prueba, con bases temporales verificadas y eliminadas por propietario. **PASS** indica evidencia local; **FAIL_NUEVO** indica defecto introducido y **BLOQUEADO_ENTORNO** una condición del entorno. No se infiere compatibilidad con MariaDB ni comportamiento de producción.
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| 1. PDF válidos integrados | PASS | Cinco rutas integradas; acción única, etiqueta PDF, foco por teclado y rango aplicado; diez capturas a 1440×1000 y 390×844. |
+| 2. Indicadores | PASS | Cotejo con autoridades de dominio y paridad FIN/ANA/TIC con diferencia ≤ 0.01, incluidos casos sin actividad. |
+| 3. Rangos, filtros, permisos, aislamiento y fallos | PASS | 105 casos HTTP: fechas inválidas, límite de 366 días, filtros, NIP, ámbitos, revocación, manipulación y fuente ausente sin PDF parcial; el servidor de desarrollo también prueba rutas PDF, estáticos y rechazo de `.htaccess`. |
+| 4. Solo lectura | PASS | Hash de 12 tablas estable y 13 comprobaciones de dos conexiones, incluida lectura consistente y rechazo de escritura y transacción externa. |
+| 5. A4, uniformidad y paginación | PASS | Plantilla compartida y PDF multipágina revisados; encabezado de Inventario y nota final de Tickets corregidos y revalidados. |
+| 6. Funcional, seguridad, rendimiento y regresión | PASS | Aceptación de cinco dominios, suites PHP y JS completas, regresiones aisladas y carga representativa descritas abajo. |
+| 7. Arquitectura preparada sin activación futura | PASS | Generador compartido neutral y cinco rutas de Restaurante; Panadería y Global sin rutas ni botones de informe habilitados. |
+
+| Informe | Estado | Evidencia funcional |
+|---|---|---|
+| Finanzas | PASS | Ventas, costos, propinas, cancelaciones y paridad del agregado. |
+| Análisis | PASS | Totales, serie, productos más vendidos y paridad financiera. |
+| Reservaciones | PASS | Estados, exclusiones técnicas, fecha programada y periodos provisionales. |
+| Inventario | PASS | Foto actual frente a movimientos, múltiples almacenes, alertas y lectura sin cambios. |
+| Tickets | PASS | Cerrados, cancelados, ventas y promedio; abiertos y propinas excluidos. |
+
+Comandos reproducibles del repositorio: `npm run test:informes`, `npm run test:informes:db`, `npm run test:php` y `npm run test:js`. La ejecución independiente de aceptación pasó los cinco casos de dominio, los 13 de consistencia y los 105 HTTP; las bases temporales se limpiaron tras verificar su propiedad. La regresión final de PHP incluyó `php scripts/tests/run-roles-permisos.php` (106 comprobaciones); JS verificó 266 enlaces documentales. Las regresiones aisladas de dominio reportaron A4 2494, M2 130, Almacenes 158, Analytics 33, consultas 491 y Finanzas 49 comprobaciones. Se usaron sus scripts existentes y un servidor privado de prueba; el HTTP de M2 **no se ejecutó** en esta validación.
+
+La primera ejecución de Analytics quedó **BLOQUEADA_ENTORNO** por una credencial efímera incompatible con el seed histórico; se repitió con una credencial legítima verificada, sin cambiar `.env` ni variables `DB_*`, y pasó. El **FAIL_NUEVO** de clasificación heredada de `/admin/almacenes/informe.pdf` se corrigió con una excepción exacta y se revalidó en permisos y HTTP. En el arnés portátil se corrigieron la exigencia de marcadores positivos y la limpieza de recursos HTTP ante fallos de arranque antes de su aceptación.
+
+En el ensayo representativo de 366 días se cargaron 1000 tickets, 2000 partidas, 1000 reservas, 1000 movimientos, tres almacenes y 30 relaciones. Las ventas FIN/ANA/TIC fueron 17,470, sin diferencia, y el hash de 12 tablas permaneció igual. La preparación tardó 5.06–22.42 ms y el render 198.41–957.47 ms; el pico de memoria informado durante la ejecución fue 24–50 MB. Páginas: FIN 2, ANA 16, RES 16, INV 2 y TIC 15. Son mediciones de esta muestra local, no garantías de capacidad o latencia.
+
+El detector visual Impeccable emitió dos advertencias `overused-font` sobre Montserrat en la plantilla y salió con código 1. Son observaciones estéticas sobre una fuente frecuente, no errores de carga o diseño: se conservó la identidad institucional compartida con MenuPdf; el renderizador carga las fuentes locales de `public/build/fonts` bajo su `chroot`. Los PDF y capturas se revisaron independientemente.
+
+Panadería y Global siguen sin informes PDF habilitados. La suite no certifica MariaDB, credenciales o servicios externos en vivo, ni reinicio y restauración del despliegue.

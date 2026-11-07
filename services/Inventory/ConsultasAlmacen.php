@@ -103,6 +103,73 @@ final class ConsultasAlmacen
         });
     }
 
+    /** Informe agregado sin paginación, con foto actual y movimientos del periodo. */
+    public function informe(string $ctx, array $rango, string $generadoEn): array
+    {
+        $ambito = $this->alcance->autorizar($ctx, 'ver', null, false);
+        $unidad = $ambito['unidad_id'];
+        $fin = (new \DateTimeImmutable($rango['end']))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+        $desde = $rango['start'] . ' 00:00:00';
+        $foto = $this->sql('SELECT COUNT(*) relaciones, COUNT(DISTINCT aa.articulo_id) articulos,
+                COALESCE(SUM(aa.saldo < aa.minimo),0) alertas
+            FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id
+            JOIN ingredientes i ON i.id=aa.articulo_id
+            WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1 AND i.activo=1', [$unidad])->get_result()->fetch_assoc();
+        $almacenes = $this->sql('SELECT a.nombre, COUNT(aa.articulo_id) relaciones,
+                COALESCE(SUM(aa.saldo < aa.minimo),0) alertas
+            FROM almacenes a LEFT JOIN almacen_articulos aa ON aa.almacen_id=a.id AND aa.unidad_id=a.unidad_id AND aa.activo=1
+                AND EXISTS (SELECT 1 FROM ingredientes i WHERE i.id=aa.articulo_id AND i.activo=1)
+            WHERE a.unidad_id=? AND a.activo=1 GROUP BY a.id,a.nombre ORDER BY a.nombre,a.id', [$unidad])->get_result()->fetch_all(MYSQLI_ASSOC);
+        $alertas = $this->sql('SELECT a.nombre almacen,i.nombre articulo,i.unidad,aa.saldo,aa.minimo
+            FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id
+            JOIN ingredientes i ON i.id=aa.articulo_id
+            WHERE aa.unidad_id=? AND aa.activo=1 AND a.activo=1 AND i.activo=1 AND aa.saldo<aa.minimo
+            ORDER BY a.nombre,a.id,i.nombre,i.id LIMIT 10', [$unidad])->get_result()->fetch_all(MYSQLI_ASSOC);
+        $tipos = $this->sql('SELECT m.tipo, COUNT(*) total,
+                COALESCE(SUM(CASE WHEN m.tipo=\'merma\' AND m.costo_unitario IS NOT NULL THEN ABS(m.delta)*m.costo_unitario ELSE 0 END),0) merma_conocida,
+                COALESCE(SUM(CASE WHEN m.tipo=\'merma\' AND m.costo_unitario IS NULL THEN 1 ELSE 0 END),0) merma_sin_costo
+            FROM movimientos_inventario m JOIN almacenes a ON a.id=m.almacen_id AND a.unidad_id=m.unidad_id
+            WHERE m.unidad_id=? AND m.fecha>=? AND m.fecha<? GROUP BY m.tipo ORDER BY m.tipo', [$unidad, $desde, $fin])->get_result()->fetch_all(MYSQLI_ASSOC);
+        $totalMovimientos = 0; $merma = 0.0; $sinCosto = 0; $filasTipos = [];
+        foreach ($tipos as $tipo) {
+            $n = (int)$tipo['total']; $totalMovimientos += $n;
+            $merma += (float)$tipo['merma_conocida']; $sinCosto += (int)$tipo['merma_sin_costo'];
+            $filasTipos[] = [$tipo['tipo'], $n];
+        }
+        $filasAlmacenes = [];
+        foreach ($almacenes as $almacen) $filasAlmacenes[] = [$almacen['nombre'], (int)$almacen['relaciones'], (int)$almacen['alertas']];
+        $filasAlertas = [];
+        foreach ($alertas as $alerta) $filasAlertas[] = [$alerta['almacen'], $alerta['articulo'], $alerta['unidad'], (float)$alerta['saldo'], (float)$alerta['minimo']];
+        $resumen = 'La fotografía incluye las asociaciones activas de artículos y almacenes activos al generar el informe.';
+        $resumen .= ' Los movimientos corresponden al periodo indicado e incluyen el historial de almacenes inactivos.';
+        if ($sinCosto > 0) $resumen .= ' Hay movimientos de merma sin costo conocido que no se incluyen en su importe.';
+        return [
+            'titulo' => 'Informe de inventario y movimientos', 'contexto' => ucfirst($ctx),
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Almacenes activos', 'valor' => count($almacenes), 'formato' => 'entero'],
+                ['etiqueta' => 'Relaciones físicas activas', 'valor' => (int)$foto['relaciones'], 'formato' => 'entero'],
+                ['etiqueta' => 'Artículos distintos activos', 'valor' => (int)$foto['articulos'], 'formato' => 'entero'],
+                ['etiqueta' => 'Relaciones bajo mínimo', 'valor' => (int)$foto['alertas'], 'formato' => 'entero'],
+                ['etiqueta' => 'Movimientos del periodo', 'valor' => $totalMovimientos, 'formato' => 'entero'],
+                ['etiqueta' => 'Merma con costo conocido', 'valor' => $merma, 'formato' => 'moneda'],
+            ],
+            'secciones' => [
+                ['titulo' => 'Movimientos por tipo en el periodo', 'tipo' => 'tabla', 'columnas' => ['Tipo', 'Movimientos'], 'formatos' => ['texto', 'entero'], 'filas' => $filasTipos],
+                ['titulo' => 'Almacenes activos al generar', 'tipo' => 'tabla', 'columnas' => ['Almacén', 'Relaciones activas', 'Bajo mínimo'], 'formatos' => ['texto', 'entero', 'entero'], 'filas' => $filasAlmacenes, 'vacio' => 'No hay almacenes activos al generar.'],
+                ['titulo' => 'Hasta 10 alertas actuales', 'tipo' => 'tabla', 'columnas' => ['Almacén', 'Artículo', 'Unidad', 'Saldo', 'Mínimo'], 'formatos' => ['texto', 'texto', 'texto', 'cantidad', 'cantidad'], 'filas' => $filasAlertas, 'vacio' => 'Sin alertas actuales al generar.'],
+            ],
+            'notas' => [
+                'El informe cubre todos los almacenes del negocio; no aplica selección de almacenes, búsqueda ni filtros de artículo o tipo de la pantalla.',
+                'Existencias, mínimos y alertas son una fotografía al generar; no representan saldos históricos al final del periodo.',
+                'Las relaciones bajo mínimo se cuentan por almacén y artículo. Un artículo en varios almacenes es un solo artículo distinto y varias relaciones.',
+                'Los movimientos se cuentan por fecha registrada, incluidos los de almacenes actualmente inactivos. No se suman saldos de unidades incompatibles.',
+                'La merma usa el costo congelado de movimientos que lo tienen; quedan fuera ' . $sinCosto . ' movimientos de merma sin costo conocido.',
+            ],
+        ];
+    }
+
     private function filtros(string $ctx,array $filtros,array $permitidos): array
     {
         if(array_diff(array_keys($filtros),$permitidos)) throw new InventarioError('FILTRO_INVALIDO','Hay filtros no admitidos.');
@@ -152,7 +219,7 @@ final class ConsultasAlmacen
     {
         return TransaccionInventario::ejecutar($this->db,$consulta,'REPEATABLE READ');
     }
-    private function sql(string $sql,array $args=[]): \mysqli_stmt { $s=$this->db->prepare($sql); $s->execute($args); return $s; }
+    private function sql(string $sql,array $args=[]): \mysqli_stmt { $s=$this->db->prepare($sql); if($s===false || !$s->execute($args)) throw new \RuntimeException('No se pudo consultar Inventario.'); return $s; }
     private function buscar(string $q): string { return '%'.str_replace(['!','%','_'],['!!','!%','!_'],$q).'%'; }
     private function entero(mixed $v,int $min,int $max): int
     {

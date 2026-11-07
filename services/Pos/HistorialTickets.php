@@ -46,6 +46,52 @@ final class HistorialTickets
 
     private const FECHA = 'COALESCE(t.hora_cierre, t.hora_apertura)';
 
+    /** Prepara el informe agregado sin consultar el listado ni tickets abiertos. */
+    public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
+    {
+        $actual = \Services\Finance\FinanzasNegocio::agregados($db, $unidad, $rango['start'], $rango['end']);
+        $porDia = \Services\Analytics\AnalisisNegocio::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
+        $inicio = $rango['start'] . ' 00:00:00';
+        $fin = (new \DateTimeImmutable($rango['end']))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+        $stmt = $db->prepare("SELECT COUNT(*) AS n FROM tickets t WHERE t.unidad_id = ? AND t.estado = 'cancelado' AND COALESCE(t.hora_cierre, t.hora_apertura) >= ? AND COALESCE(t.hora_cierre, t.hora_apertura) < ?");
+        if (!$stmt) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+        try {
+            if (!$stmt->bind_param('iss', $unidad, $inicio, $fin) || !$stmt->execute()) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+            $resultado = $stmt->get_result();
+            if (!$resultado || !($fila = $resultado->fetch_assoc())) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+            $cancelados = (int) $fila['n'];
+        } finally {
+            $stmt->close();
+        }
+        $serie = [];
+        foreach ($porDia as $fecha => $venta) $serie[] = [$fecha, $venta];
+        $resumen = $actual['tickets'] === 0 && $cancelados === 0
+            ? 'No hubo tickets cerrados ni cancelados en el periodo.'
+            : 'En el periodo hubo ' . $actual['tickets'] . ' tickets cerrados y ' . $cancelados . ' cancelados.';
+        $resumen .= ' Las ventas excluyen partidas canceladas y propinas. Los tickets abiertos quedan fuera del informe.';
+        return [
+            'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn,
+            'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Tickets cerrados', 'valor' => $actual['tickets'], 'formato' => 'entero'],
+                ['etiqueta' => 'Tickets cancelados', 'valor' => $cancelados, 'formato' => 'entero'],
+                ['etiqueta' => 'Ventas', 'valor' => $actual['ingresos'], 'formato' => 'moneda'],
+                ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ingresos'] / $actual['tickets'] : null, 'formato' => 'moneda'],
+            ],
+            'secciones' => [
+                ['titulo' => 'Tickets por estado', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Tickets'], 'formatos' => ['texto', 'entero'], 'filas' => [['Cerrados', $actual['tickets']], ['Cancelados', $cancelados]]],
+                ['titulo' => 'Ventas por día', 'tipo' => 'serie', 'columnas' => ['Fecha', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie],
+            ],
+            'notas' => [
+                'Las ventas corresponden a partidas no canceladas de tickets cerrados; las propinas quedan fuera.',
+                'Los tickets se atribuyen a la fecha de cierre o a la apertura si falta el cierre. Los abiertos quedan fuera del informe.',
+                'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
+            ],
+        ];
+    }
+
     /** Normaliza el filtro de la URL: cualquier otro valor es «todos». */
     public static function estado($valor): string
     {
