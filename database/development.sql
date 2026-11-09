@@ -1,6 +1,10 @@
 -- =====================================================================
 -- development.sql — datos de DESARROLLO y QA.
 --
+-- Los contactos sintéticos están declarados como metadata @contact-fixture;
+-- no ejecutes este SQL con mysql directamente. Tras crear ddl.sql y deploy.sql
+-- en una base limpia, cargarlo con: php scripts/seed-development.php --database=NOMBRE
+--
 -- Opcional: no cargar nunca en producción. El orden de instalación es
 --
 --     1. database/ddl.sql          estructura (DROP + CREATE completo)
@@ -16,11 +20,9 @@
 -- 'fx-analytics-res-%', y el fixture de RevPASH sobre los 300-499 y
 -- 'fx-revpash-res-%'. Sus DELETE de arranque respetan ese reparto.
 --
--- SE CARGA UNA VEZ, sobre una base recién creada. Los bloques 2 y 3 sí son
--- reidempotentes por su cuenta —borran su rango antes de sembrarlo—, pero el
--- bloque 1 no lo fue nunca: usa ids explícitos sin ON DUPLICATE KEY y una
--- segunda pasada choca contra tickets.PRIMARY. Para rehacer el entorno, volver
--- a crear la base desde ddl.sql.
+-- El seeder carga el archivo completo una vez en una base vacía, después de DDL
+-- y deploy. No ejecutar ni repetir bloques por separado. Para rehacer el entorno,
+-- reconstruir la base vacía y volver a ejecutar scripts/seed-development.php.
 --
 -- Dos cosas se arreglaron al fundirlos, y las dos estaban rotas antes:
 --
@@ -47,6 +49,142 @@
 -- (Cabecera original de dml_pruebas.sql; el orden real lo fija la de arriba.)
 -- No usar este archivo como semilla de producción.
 --
+-- Contact fixtures sintéticos, consumidos por scripts/seed-development.php.
+-- @contact-fixture 2ee8e011febddbed email "limite.una@example.test"
+-- @contact-fixture 99d0fb0d1f96541f email "limite.cuatro@example.test"
+-- @contact-fixture 675ebeb2b40f5500 email "limite.cinco@example.test"
+-- @contact-fixture 7fc42ce2015cd981 telefono "+525544442026"
+-- @contact-fixture dfcf10303b77e678 email "historial@example.test"
+-- @contact-fixture dc36bfe0c2ef4d26 email "hold.vigente@example.test"
+-- @contact-fixture 16fb0159eb348238 email "hold.vencida@example.test"
+-- @contact-fixture 8eab836c6fa07bd7 email "modificar@example.test"
+-- @contact-fixture 11d8e9722391d711 email "cancelar@example.test"
+-- @contact-fixture f4fee2361c4e3598 email "sin.capacidad@example.test"
+-- @contact-fixture 1050b0a5ce5b5a53 email "bloqueo@example.test"
+-- @contact-fixture 5513f25083b1af68 email "una.mesa@example.test"
+-- @contact-fixture 78c5839db1ce10c1 email "dos.mesas@example.test"
+-- @contact-fixture f0bed385ef785e4c email "tres.mesas@example.test"
+-- @contact-fixture 5901aae32bc75c04 email "cuatro.mesas@example.test"
+-- @contact-fixture 440186c3896fcffb email "consecutiva@example.test"
+-- @contact-fixture cdf2c5e2e4591b80 email "pos.confirmada@example.test"
+-- @contact-fixture b6cd03190eda4ed9 email "pos.convertida@example.test"
+-- @contact-fixture c4ea5b34eeb99f40 email "pos.encurso@example.test"
+-- @contact-fixture ad5e4180fc1cb0d4 email "pos.completa@example.test"
+-- @contact-fixture 68306834428fd7e6 email "pos.tolerancia@example.test"
+-- @contact-fixture a1753fc4784da914 email "pos.noshow@example.test"
+-- @contact-fixture ae115365f78d5ca1 email "pos.futura@example.test"
+-- @contact-fixture 6b76d63d5c1c3a07 email "horario@example.test"
+-- @contact-fixture 8f8ad9af3bf27335 email "adriana.000@example.test"
+-- @contact-fixture 92cc45f920128a99 email "bruno.001@example.test"
+-- @contact-fixture b6012fd578940117 email "carla.002@example.test"
+-- @contact-fixture fa0b5d4017bde2ff email "diego.003@example.test"
+-- @contact-fixture 93961c1fc9bd40bf email "elena.004@example.test"
+-- @contact-fixture 026a954e174439b8 email "fabian.005@example.test"
+-- @contact-fixture d459edd65bdfae9f email "gabriela.006@example.test"
+-- @contact-fixture 5e7f2ee528e57c79 email "hector.007@example.test"
+-- @contact-fixture 1155a30401f854f3 email "irene.008@example.test"
+-- @contact-fixture dc6b61df02caebd4 email "joaquin.009@example.test"
+-- @contact-fixture cec6be7544bd90b0 email "karla.010@example.test"
+-- @contact-fixture 25880bc80acbde05 email "leonardo.011@example.test"
+-- @contact-fixture 4aab6677fc587d11 email "mariana.012@example.test"
+-- @contact-fixture 63387b2788a691fd email "nestor.013@example.test"
+-- @contact-fixture 48f8d21d2d42470d email "olivia.014@example.test"
+-- @contact-fixture bf2779c84df83ba8 email "patricio.015@example.test"
+-- @contact-fixture 2151cf7577d68edd email "quetzali.016@example.test"
+-- @contact-fixture 73ae16c82a1a294b email "rodrigo.017@example.test"
+-- @contact-fixture 3f3bdfd0aee9f2df email "sofia.018@example.test"
+-- @contact-fixture 47c617422c760f39 email "tomas.019@example.test"
+-- @contact-fixture 98173f4c9dde2608 email "ursula.020@example.test"
+-- @contact-fixture 787bafa29791fa66 email "valentin.021@example.test"
+-- @contact-fixture 500af05c6433bbd2 email "ximena.022@example.test"
+-- @contact-fixture 9b95752bf3c16a1f email "yago.023@example.test"
+-- @contact-fixture 0478e8898c152d9d email "zoe.024@example.test"
+-- @contact-fixture cf0a1bdce2051564 email "alonso.025@example.test"
+-- @contact-fixture 0f82fbeef24ae7d6 email "brenda.026@example.test"
+-- @contact-fixture 3d632ffd07ab6be1 email "cristobal.027@example.test"
+-- @contact-fixture 4264867e359db4e0 email "daniela.028@example.test"
+-- @contact-fixture 59ba2298e0f62760 email "emiliano.029@example.test"
+-- @contact-fixture 900cea6bc87f689a email "fernanda.030@example.test"
+-- @contact-fixture c942b93df53867ed email "gerardo.031@example.test"
+-- @contact-fixture d4cd4e9189026c6e email "helena.032@example.test"
+-- @contact-fixture a28ef7e4e3b0a377 email "ignacio.033@example.test"
+-- @contact-fixture 947332dfe6c1ff9e email "julieta.034@example.test"
+-- @contact-fixture 9502cbe98bbcbcb5 email "kevin.035@example.test"
+-- @contact-fixture a54c3fe7749a8470 email "lucia.036@example.test"
+-- @contact-fixture f09edf52242840f3 email "matias.037@example.test"
+-- @contact-fixture c401314a16cba2f6 email "natalia.038@example.test"
+-- @contact-fixture 1d9f53a7bf975bdd email "oscar.039@example.test"
+-- @contact-fixture 8d34cfa52bd637e6 email "paola.040@example.test"
+-- @contact-fixture d45fc69f05f64012 email "ramiro.041@example.test"
+-- @contact-fixture abef60edbce6a19b email "sergio.042@example.test"
+-- @contact-fixture e78aa609aa362f5b email "tania.043@example.test"
+-- @contact-fixture 0dc2c01438a1d472 email "ulises.044@example.test"
+-- @contact-fixture 0924b5470892e8ad email "veronica.045@example.test"
+-- @contact-fixture 24cd159eb604633a email "wendy.046@example.test"
+-- @contact-fixture 813ffd90ea378fda email "xavier.047@example.test"
+-- @contact-fixture 8d533526c0b109b5 email "yolanda.048@example.test"
+-- @contact-fixture 0d60d6f69f4fee74 email "zacarias.049@example.test"
+-- @contact-fixture 21ba5fae65f5271e email "ana.050@example.test"
+-- @contact-fixture ff5864713362ce5f email "braulio.051@example.test"
+-- @contact-fixture 9c9d16c5945bba97 email "cecilia.052@example.test"
+-- @contact-fixture 66c1126ca83f4680 email "damian.053@example.test"
+-- @contact-fixture 20486cf5b0a14f39 email "estela.054@example.test"
+-- @contact-fixture 51e4a30c93976bc9 email "fausto.055@example.test"
+-- @contact-fixture 037daff300c7eeb8 email "gina.056@example.test"
+-- @contact-fixture 4ee9556ffa739cea email "hugo.057@example.test"
+-- @contact-fixture c580fe7e7cff661b email "ines.058@example.test"
+-- @contact-fixture 66bc284934698be3 email "jonas.059@example.test"
+-- @contact-fixture d2a2136dfa70f93f email "katia.060@example.test"
+-- @contact-fixture c38e7d5ab6eea612 email "luis.061@example.test"
+-- @contact-fixture caa6dc7ceb732e56 email "miriam.062@example.test"
+-- @contact-fixture c0a6a21e726df155 email "nicolas.063@example.test"
+-- @contact-fixture ce0e20b8674df54b email "odette.064@example.test"
+-- @contact-fixture 8285a4fecc9cfce4 email "pablo.065@example.test"
+-- @contact-fixture def766c51ca567a5 email "regina.066@example.test"
+-- @contact-fixture dd52b0bf096f3bc7 email "samuel.067@example.test"
+-- @contact-fixture e8e10bd8f15e7d17 email "tere.068@example.test"
+-- @contact-fixture ae8ac30f26118f23 email "uriel.069@example.test"
+-- @contact-fixture 490e22dcb05b65a7 email "vania.070@example.test"
+-- @contact-fixture 8162fdb142b66c36 email "wilfrido.071@example.test"
+-- @contact-fixture da6eeef64beecc34 email "adriana.072@example.test"
+-- @contact-fixture 03cfa88a50ae3742 email "bruno.073@example.test"
+-- @contact-fixture 2ac6d00204da02b1 email "carla.074@example.test"
+-- @contact-fixture b542f5866b583594 email "diego.075@example.test"
+-- @contact-fixture 5b57b95a671a701b email "elena.076@example.test"
+-- @contact-fixture b5efbe70e85aba8e email "fabian.077@example.test"
+-- @contact-fixture 5072c23f8d93e98a email "gabriela.078@example.test"
+-- @contact-fixture 94bac13cbc9a575e email "hector.079@example.test"
+-- @contact-fixture 4bd32859b3fb4f41 email "irene.080@example.test"
+-- @contact-fixture 46e3c944b96ffbae email "joaquin.081@example.test"
+-- @contact-fixture 6c72c5a94a8d400f email "karla.082@example.test"
+-- @contact-fixture f9d407e52bf575f8 email "reserva.018@example.test"
+-- @contact-fixture 6c68c543e723a9b4 email "reserva.019@example.test"
+-- @contact-fixture 85ecb3de22941b87 email "reserva.020@example.test"
+-- @contact-fixture 814ecd04d2f1f5a9 email "reserva.021@example.test"
+-- @contact-fixture 0e9ed38bb09c4bc4 email "reserva.022@example.test"
+-- @contact-fixture cdff1d878f3b6c7a email "reserva.023@example.test"
+-- @contact-fixture dcd40171eee776e5 email "reserva.024@example.test"
+-- @contact-fixture 7b6d9ab9e049236b email "reserva.025@example.test"
+-- @contact-fixture 702e5a628bd2a1bb email "reserva.026@example.test"
+-- @contact-fixture b98bdf745e44a5a3 email "reserva.027@example.test"
+-- @contact-fixture af55a503c6b1028c email "reserva.001@example.test"
+-- @contact-fixture 6c92e1383dd133b4 email "reserva.002@example.test"
+-- @contact-fixture 37bd1dcacf24ea8e email "reserva.003@example.test"
+-- @contact-fixture f1754cfce8c93449 email "reserva.004@example.test"
+-- @contact-fixture 5232affc926cc267 email "reserva.005@example.test"
+-- @contact-fixture 2e1350f6fa2b5cd6 email "reserva.006@example.test"
+-- @contact-fixture 30c2a55461c71388 email "reserva.007@example.test"
+-- @contact-fixture 27d29856fd489752 email "reserva.008@example.test"
+-- @contact-fixture 23360e371d14fa69 email "reserva.009@example.test"
+-- @contact-fixture 4baf3b3e3a1f98db email "reserva.010@example.test"
+-- @contact-fixture f9b46767b4f19b54 email "reserva.011@example.test"
+-- @contact-fixture f4a8af390c135df7 email "reserva.012@example.test"
+-- @contact-fixture d07704fc4f99f595 email "reserva.013@example.test"
+-- @contact-fixture 38297904ed59dfe7 email "reserva.014@example.test"
+-- @contact-fixture 667786c8c63dff14 email "reserva.015@example.test"
+-- @contact-fixture 1e8b3b3566fddda2 email "reserva.016@example.test"
+-- @contact-fixture cd2b5c07825920a4 email "reserva.017@example.test"
+
 SET NAMES utf8mb4;
 SET @HOY := CURDATE();
 
@@ -771,72 +909,72 @@ WHERE estado = 'abierto';
 -- Límites por contacto: cero, una, cuatro y cinco activas.
 -- limite.cero@example.test no requiere una fila.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+  (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Límite Una', 'email', 'limite.una@example.test',
+  ('Límite Una', 'email', @fx_contact_2ee8e011febddbed, @fx_hash_2ee8e011febddbed,
    @fecha_principal, '13:00:00', 2, 'Una activa', 'admin', 'confirmada',
    'fx-limite-una-0001', @reloj_prueba),
 
-  ('Límite Cuatro 1', 'email', 'limite.cuatro@example.test',
+  ('Límite Cuatro 1', 'email', @fx_contact_99d0fb0d1f96541f, @fx_hash_99d0fb0d1f96541f,
    @fecha_principal, '14:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-01', @reloj_prueba),
-  ('Límite Cuatro 2', 'email', 'limite.cuatro@example.test',
+  ('Límite Cuatro 2', 'email', @fx_contact_99d0fb0d1f96541f, @fx_hash_99d0fb0d1f96541f,
    @fecha_posterior, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-02', @reloj_prueba),
-  ('Límite Cuatro 3', 'email', 'limite.cuatro@example.test',
+  ('Límite Cuatro 3', 'email', @fx_contact_99d0fb0d1f96541f, @fx_hash_99d0fb0d1f96541f,
    @fecha_especial, '16:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-03', @reloj_prueba),
-  ('Límite Cuatro 4', 'email', 'limite.cuatro@example.test',
+  ('Límite Cuatro 4', 'email', @fx_contact_99d0fb0d1f96541f, @fx_hash_99d0fb0d1f96541f,
    @fecha_futura, '17:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cuatro-04', @reloj_prueba),
 
-  ('Límite Cinco 1', 'email', 'limite.cinco@example.test',
+  ('Límite Cinco 1', 'email', @fx_contact_675ebeb2b40f5500, @fx_hash_675ebeb2b40f5500,
    @fecha_principal, '13:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-01', @reloj_prueba),
-  ('Límite Cinco 2', 'email', 'limite.cinco@example.test',
+  ('Límite Cinco 2', 'email', @fx_contact_675ebeb2b40f5500, @fx_hash_675ebeb2b40f5500,
    @fecha_principal, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-02', @reloj_prueba),
-  ('Límite Cinco 3', 'email', 'limite.cinco@example.test',
+  ('Límite Cinco 3', 'email', @fx_contact_675ebeb2b40f5500, @fx_hash_675ebeb2b40f5500,
    @fecha_posterior, '16:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-03', @reloj_prueba),
-  ('Límite Cinco 4', 'email', 'limite.cinco@example.test',
+  ('Límite Cinco 4', 'email', @fx_contact_675ebeb2b40f5500, @fx_hash_675ebeb2b40f5500,
    @fecha_especial, '18:00:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-04', @reloj_prueba),
-  ('Límite Cinco 5', 'email', 'limite.cinco@example.test',
+  ('Límite Cinco 5', 'email', @fx_contact_675ebeb2b40f5500, @fx_hash_675ebeb2b40f5500,
    @fecha_futura, '19:30:00', 2, '', 'admin', 'confirmada',
    'fx-limite-cinco-05', @reloj_prueba),
 
-  ('Identidad Teléfono', 'telefono', '+525544442026',
+  ('Identidad Teléfono', 'telefono', @fx_contact_7fc42ce2015cd981, @fx_hash_7fc42ce2015cd981,
    @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'landing', 'confirmada',
    'fx-contacto-tel-001', @reloj_prueba),
-  ('Histórica', 'email', 'historial@example.test',
+  ('Histórica', 'email', @fx_contact_dfcf10303b77e678, @fx_hash_dfcf10303b77e678,
    @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
    'fx-historica-000001', CONCAT(@fecha_historica, ' 19:30:00'));
 
 -- Retenciones, modificación, cancelación y falta de capacidad.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+  (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen, estado,
    hold_expires_at, request_token, estado_changed_at)
 VALUES
-  ('Retención Vigente', 'email', 'hold.vigente@example.test',
+  ('Retención Vigente', 'email', @fx_contact_dc36bfe0c2ef4d26, @fx_hash_dc36bfe0c2ef4d26,
    @fecha_principal, '17:30:00', 2, '', 'landing', 'pendiente_verificacion',
    CONCAT(@fecha_principal, ' 12:05:00'),
    'fx-hold-vigente-001', @reloj_prueba),
-  ('Retención Vencida', 'email', 'hold.vencida@example.test',
+  ('Retención Vencida', 'email', @fx_contact_16fb0159eb348238, @fx_hash_16fb0159eb348238,
    @fecha_principal, '18:00:00', 2, '', 'landing', 'pendiente_verificacion',
    CONCAT(@fecha_principal, ' 11:59:59'),
    'fx-hold-vencida-001', @reloj_prueba),
-  ('Modificable', 'email', 'modificar@example.test',
+  ('Modificable', 'email', @fx_contact_8eab836c6fa07bd7, @fx_hash_8eab836c6fa07bd7,
    @fecha_principal, '18:30:00', 2, 'Mover a otra hora',
    'admin', 'confirmada', NULL, 'fx-modificable-0001', @reloj_prueba),
-  ('Cancelable', 'email', 'cancelar@example.test',
+  ('Cancelable', 'email', @fx_contact_11d8e9722391d711, @fx_hash_11d8e9722391d711,
    @fecha_principal, '19:00:00', 2, '',
    'admin', 'confirmada', NULL, 'fx-cancelable-0001', @reloj_prueba),
-  ('Sin Capacidad', 'email', 'sin.capacidad@example.test',
+  ('Sin Capacidad', 'email', @fx_contact_f4fee2361c4e3598, @fx_hash_f4fee2361c4e3598,
    @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación',
    'admin', 'confirmada', NULL, 'fx-sin-capacidad-01', @reloj_prueba),
-  ('Bloqueo Total', 'email', 'bloqueo@example.test',
+  ('Bloqueo Total', 'email', @fx_contact_1050b0a5ce5b5a53, @fx_hash_1050b0a5ce5b5a53,
    @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas',
    'admin', 'confirmada', NULL, 'fx-bloqueo-total-01', @reloj_prueba);
 
@@ -862,25 +1000,25 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Asignaciones de una, dos y tres mesas, más reservas consecutivas.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+  (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Una Mesa', 'email', 'una.mesa@example.test',
+  ('Una Mesa', 'email', @fx_contact_5513f25083b1af68, @fx_hash_5513f25083b1af68,
    @fecha_principal, '13:00:00', 2, '', 'admin', 'confirmada',
    'fx-una-mesa-000001', @reloj_prueba),
-  ('Dos Mesas', 'email', 'dos.mesas@example.test',
+  ('Dos Mesas', 'email', @fx_contact_78c5839db1ce10c1, @fx_hash_78c5839db1ce10c1,
    @fecha_principal, '14:30:00', 6, '', 'admin', 'confirmada',
    'fx-dos-mesas-00001', @reloj_prueba),
-  ('Tres Mesas', 'email', 'tres.mesas@example.test',
+  ('Tres Mesas', 'email', @fx_contact_f0bed385ef785e4c, @fx_hash_f0bed385ef785e4c,
    @fecha_principal, '16:00:00', 10, '', 'admin', 'confirmada',
    'fx-tres-mesas-0001', @reloj_prueba),
-  ('Cuatro Mesas Administrativa', 'email', 'cuatro.mesas@example.test',
+  ('Cuatro Mesas Administrativa', 'email', @fx_contact_5901aae32bc75c04, @fx_hash_5901aae32bc75c04,
    @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'admin', 'confirmada',
    'fx-cuatro-mesas-001', @reloj_prueba),
-  ('Consecutiva A', 'email', 'consecutiva@example.test',
+  ('Consecutiva A', 'email', @fx_contact_440186c3896fcffb, @fx_hash_440186c3896fcffb,
    @fecha_futura, '13:00:00', 2, '', 'admin', 'confirmada',
    'fx-consecutiva-a-01', @reloj_prueba),
-  ('Consecutiva B', 'email', 'consecutiva@example.test',
+  ('Consecutiva B', 'email', @fx_contact_440186c3896fcffb, @fx_hash_440186c3896fcffb,
    @fecha_futura, '15:00:00', 2, '', 'admin', 'confirmada',
    'fx-consecutiva-b-01', @reloj_prueba);
 
@@ -901,25 +1039,25 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Estados operativos: llegada, tolerancia, no-show, servicio y cierre.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+  (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('POS Confirmada', 'email', 'pos.confirmada@example.test',
+  ('POS Confirmada', 'email', @fx_contact_cdf2c5e2e4591b80, @fx_hash_cdf2c5e2e4591b80,
    @fecha_principal, '19:30:00', 2, '', 'admin', 'confirmada',
    'fx-pos-confirmada-01', @reloj_prueba),
-  ('POS Convertida', 'email', 'pos.convertida@example.test',
+  ('POS Convertida', 'email', @fx_contact_b6cd03190eda4ed9, @fx_hash_b6cd03190eda4ed9,
    @fecha_principal, '20:00:00', 2, '', 'admin', 'confirmada',
    'fx-pos-convertida-000001', CONCAT(@fecha_principal, ' 19:50:00')),
-  ('POS En Curso', 'email', 'pos.encurso@example.test',
+  ('POS En Curso', 'email', @fx_contact_c4ea5b34eeb99f40, @fx_hash_c4ea5b34eeb99f40,
    @fecha_principal, '20:00:00', 6, '', 'admin', 'en_curso',
    'fx-pos-encurso-001', CONCAT(@fecha_principal, ' 20:00:00')),
-  ('POS Completada', 'email', 'pos.completa@example.test',
+  ('POS Completada', 'email', @fx_contact_ad5e4180fc1cb0d4, @fx_hash_ad5e4180fc1cb0d4,
    @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
    'fx-pos-completa-001', CONCAT(@fecha_historica, ' 19:30:00')),
-  ('POS Tolerancia', 'email', 'pos.tolerancia@example.test',
+  ('POS Tolerancia', 'email', @fx_contact_68306834428fd7e6, @fx_hash_68306834428fd7e6,
    @fecha_principal, '20:30:00', 2, '', 'admin', 'confirmada',
    'fx-pos-tolerancia-1', @reloj_prueba),
-  ('POS No Show', 'email', 'pos.noshow@example.test',
+  ('POS No Show', 'email', @fx_contact_a1753fc4784da914, @fx_hash_a1753fc4784da914,
    @fecha_principal, '19:00:00', 2, '', 'admin', 'no_show',
    'fx-pos-noshow-0001', @reloj_prueba);
 
@@ -970,13 +1108,13 @@ INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
   (@walkin_varias, 1, 1), (@walkin_varias, 11, 2);
 
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+  (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen, estado,
    request_token, estado_changed_at)
 VALUES
-  ('Reserva Futura', 'email', 'pos.futura@example.test',
+  ('Reserva Futura', 'email', @fx_contact_ae115365f78d5ca1, @fx_hash_ae115365f78d5ca1,
    @fecha_posterior, '13:00:00', 2, 'Advertencia de reserva próxima',
    'admin', 'confirmada', 'fx-pos-futura-00001', @reloj_prueba),
-  ('Horario Afectado', 'email', 'horario@example.test',
+  ('Horario Afectado', 'email', @fx_contact_6b76d63d5c1c3a07, @fx_hash_6b76d63d5c1c3a07,
    @fecha_principal, '21:00:00', 2, 'Conflicto al adelantar el cierre',
    'admin', 'confirmada', 'fx-horario-afectado', @reloj_prueba);
 
@@ -1181,8 +1319,8 @@ INSERT INTO catas (titulo, descripcion, fecha, hora, duracion_min, precio, dispo
 -- y los tickets del POS. Todo eso lo siembra dml.sql porque el sistema no
 -- arranca sin ello — la analítica solo los lee de pasada.
 --
--- Es idempotente: limpia sus propios rangos antes de insertar, así que puede
--- recargarse cuantas veces haga falta sin duplicar nada.
+-- Este bloque limpia sus rangos durante la única carga del archivo completo;
+-- no es una interfaz de recarga independiente.
 --
 -- Rango temporal: las ventas se reanclan al final del archivo para que la más
 -- reciente caiga SIEMPRE en la fecha de hoy; así el seed queda dentro del
@@ -1606,174 +1744,174 @@ UPDATE tickets
 -- ---------------------------------------------------------------------
 INSERT INTO reservaciones
   (
-   nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado, estado_changed_at, origen, request_token
+   nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, estado, estado_changed_at, origen, request_token
   )
 VALUES
-  ('Adriana Lozano', 'email', 'adriana.000@example.test',
+  ('Adriana Lozano', 'email', @fx_contact_8f8ad9af3bf27335, @fx_hash_8f8ad9af3bf27335,
    DATE_SUB(@HOY, INTERVAL 29 DAY), '13:00:00', 2, '', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 29 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-000'),
-  ('Bruno Cerván', 'email', 'bruno.001@example.test',
+  ('Bruno Cerván', 'email', @fx_contact_92cc45f920128a99, @fx_hash_92cc45f920128a99,
    DATE_SUB(@HOY, INTERVAL 29 DAY), '20:00:00', 4, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 29 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-001'),
-  ('Carla Ibáñez', 'email', 'carla.002@example.test',
+  ('Carla Ibáñez', 'email', @fx_contact_b6012fd578940117, @fx_hash_b6012fd578940117,
    DATE_SUB(@HOY, INTERVAL 28 DAY), '21:00:00', 2, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 28 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-002'),
-  ('Diego Maldonado', 'email', 'diego.003@example.test',
+  ('Diego Maldonado', 'email', @fx_contact_fa0b5d4017bde2ff, @fx_hash_fa0b5d4017bde2ff,
    DATE_SUB(@HOY, INTERVAL 28 DAY), '19:00:00', 6, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 28 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-003'),
-  ('Elena Ferrer', 'email', 'elena.004@example.test',
+  ('Elena Ferrer', 'email', @fx_contact_93961c1fc9bd40bf, @fx_hash_93961c1fc9bd40bf,
    DATE_SUB(@HOY, INTERVAL 28 DAY), '14:00:00', 3, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 28 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-004'),
-  ('Fabián Ortuño', 'email', 'fabian.005@example.test',
+  ('Fabián Ortuño', 'email', @fx_contact_026a954e174439b8, @fx_hash_026a954e174439b8,
    DATE_SUB(@HOY, INTERVAL 27 DAY), '13:30:00', 2, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 27 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-005'),
-  ('Gabriela Rentería', 'email', 'gabriela.006@example.test',
+  ('Gabriela Rentería', 'email', @fx_contact_d459edd65bdfae9f, @fx_hash_d459edd65bdfae9f,
    DATE_SUB(@HOY, INTERVAL 26 DAY), '19:00:00', 8, 'Cliente frecuente', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 26 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-006'),
-  ('Héctor Salcedo', 'email', 'hector.007@example.test',
+  ('Héctor Salcedo', 'email', @fx_contact_5e7f2ee528e57c79, @fx_hash_5e7f2ee528e57c79,
    DATE_SUB(@HOY, INTERVAL 26 DAY), '14:00:00', 4, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 26 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-007'),
-  ('Irene Bustos', 'email', 'irene.008@example.test',
+  ('Irene Bustos', 'email', @fx_contact_1155a30401f854f3, @fx_hash_1155a30401f854f3,
    DATE_SUB(@HOY, INTERVAL 26 DAY), '21:00:00', 2, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 26 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-008'),
-  ('Joaquín Nieto', 'email', 'joaquin.009@example.test',
+  ('Joaquín Nieto', 'email', @fx_contact_dc6b61df02caebd4, @fx_hash_dc6b61df02caebd4,
    DATE_SUB(@HOY, INTERVAL 26 DAY), '19:00:00', 5, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 26 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-009'),
-  ('Karla Villalobos', 'email', 'karla.010@example.test',
+  ('Karla Villalobos', 'email', @fx_contact_cec6be7544bd90b0, @fx_hash_cec6be7544bd90b0,
    DATE_SUB(@HOY, INTERVAL 25 DAY), '14:00:00', 2, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 25 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-010'),
-  ('Leonardo Prats', 'email', 'leonardo.011@example.test',
+  ('Leonardo Prats', 'email', @fx_contact_25880bc80acbde05, @fx_hash_25880bc80acbde05,
    DATE_SUB(@HOY, INTERVAL 25 DAY), '21:00:00', 4, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 25 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-011'),
-  ('Mariana Escobar', 'email', 'mariana.012@example.test',
+  ('Mariana Escobar', 'email', @fx_contact_4aab6677fc587d11, @fx_hash_4aab6677fc587d11,
    DATE_SUB(@HOY, INTERVAL 25 DAY), '19:00:00', 2, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 25 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-012'),
-  ('Néstor Aguilar', 'email', 'nestor.013@example.test',
+  ('Néstor Aguilar', 'email', @fx_contact_63387b2788a691fd, @fx_hash_63387b2788a691fd,
    DATE_SUB(@HOY, INTERVAL 25 DAY), '14:00:00', 6, 'Aniversario', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 25 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-013'),
-  ('Olivia Cardona', 'email', 'olivia.014@example.test',
+  ('Olivia Cardona', 'email', @fx_contact_48f8d21d2d42470d, @fx_hash_48f8d21d2d42470d,
    DATE_SUB(@HOY, INTERVAL 25 DAY), '21:00:00', 3, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 25 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-014'),
-  ('Patricio Rueda', 'email', 'patricio.015@example.test',
+  ('Patricio Rueda', 'email', @fx_contact_bf2779c84df83ba8, @fx_hash_bf2779c84df83ba8,
    DATE_SUB(@HOY, INTERVAL 24 DAY), '14:30:00', 2, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 24 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-015'),
-  ('Quetzali Moreno', 'email', 'quetzali.016@example.test',
+  ('Quetzali Moreno', 'email', @fx_contact_2151cf7577d68edd, @fx_hash_2151cf7577d68edd,
    DATE_SUB(@HOY, INTERVAL 24 DAY), '21:30:00', 8, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 24 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-016'),
-  ('Rodrigo Bañuelos', 'email', 'rodrigo.017@example.test',
+  ('Rodrigo Bañuelos', 'email', @fx_contact_73ae16c82a1a294b, @fx_hash_73ae16c82a1a294b,
    DATE_SUB(@HOY, INTERVAL 22 DAY), '13:30:00', 4, 'Cliente frecuente', 'no_show', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 22 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-017'),
-  ('Sofía Zamudio', 'email', 'sofia.018@example.test',
+  ('Sofía Zamudio', 'email', @fx_contact_3f3bdfd0aee9f2df, @fx_hash_3f3bdfd0aee9f2df,
    DATE_SUB(@HOY, INTERVAL 21 DAY), '19:00:00', 2, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 21 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-018'),
-  ('Tomás Iriarte', 'email', 'tomas.019@example.test',
+  ('Tomás Iriarte', 'email', @fx_contact_47c617422c760f39, @fx_hash_47c617422c760f39,
    DATE_SUB(@HOY, INTERVAL 21 DAY), '14:00:00', 5, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 21 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-019'),
-  ('Ursula Pineda', 'email', 'ursula.020@example.test',
+  ('Ursula Pineda', 'email', @fx_contact_98173f4c9dde2608, @fx_hash_98173f4c9dde2608,
    DATE_SUB(@HOY, INTERVAL 21 DAY), '21:00:00', 2, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 21 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-020'),
-  ('Valentín Cortés', 'email', 'valentin.021@example.test',
+  ('Valentín Cortés', 'email', @fx_contact_787bafa29791fa66, @fx_hash_787bafa29791fa66,
    DATE_SUB(@HOY, INTERVAL 20 DAY), '20:30:00', 4, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 20 DAY), '20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-021'),
-  ('Ximena Arreola', 'email', 'ximena.022@example.test',
+  ('Ximena Arreola', 'email', @fx_contact_500af05c6433bbd2, @fx_hash_500af05c6433bbd2,
    DATE_SUB(@HOY, INTERVAL 20 DAY), '15:30:00', 2, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 20 DAY), '15:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-022'),
-  ('Yago Benítez', 'email', 'yago.023@example.test',
+  ('Yago Benítez', 'email', @fx_contact_9b95752bf3c16a1f, @fx_hash_9b95752bf3c16a1f,
    DATE_SUB(@HOY, INTERVAL 19 DAY), '19:30:00', 6, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 19 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-023'),
-  ('Zoé Márquez', 'email', 'zoe.024@example.test',
+  ('Zoé Márquez', 'email', @fx_contact_0478e8898c152d9d, @fx_hash_0478e8898c152d9d,
    DATE_SUB(@HOY, INTERVAL 19 DAY), '14:30:00', 3, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 19 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-024'),
-  ('Alonso Vergara', 'email', 'alonso.025@example.test',
+  ('Alonso Vergara', 'email', @fx_contact_cf0a1bdce2051564, @fx_hash_cf0a1bdce2051564,
    DATE_SUB(@HOY, INTERVAL 19 DAY), '21:30:00', 2, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 19 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-025'),
-  ('Brenda Quiroz', 'email', 'brenda.026@example.test',
+  ('Brenda Quiroz', 'email', @fx_contact_0f82fbeef24ae7d6, @fx_hash_0f82fbeef24ae7d6,
    DATE_SUB(@HOY, INTERVAL 19 DAY), '19:30:00', 8, 'Mesa junto a ventana', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 19 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-026'),
-  ('Cristóbal Serna', 'email', 'cristobal.027@example.test',
+  ('Cristóbal Serna', 'email', @fx_contact_3d632ffd07ab6be1, @fx_hash_3d632ffd07ab6be1,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '14:30:00', 4, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-027'),
-  ('Daniela Rojas', 'email', 'daniela.028@example.test',
+  ('Daniela Rojas', 'email', @fx_contact_4264867e359db4e0, @fx_hash_4264867e359db4e0,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '21:30:00', 2, 'Cliente frecuente', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-028'),
-  ('Emiliano Tapia', 'email', 'emiliano.029@example.test',
+  ('Emiliano Tapia', 'email', @fx_contact_59ba2298e0f62760, @fx_hash_59ba2298e0f62760,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '19:30:00', 5, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-029'),
-  ('Fernanda Olmos', 'email', 'fernanda.030@example.test',
+  ('Fernanda Olmos', 'email', @fx_contact_900cea6bc87f689a, @fx_hash_900cea6bc87f689a,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '14:30:00', 2, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-030'),
-  ('Gerardo Pantoja', 'email', 'gerardo.031@example.test',
+  ('Gerardo Pantoja', 'email', @fx_contact_c942b93df53867ed, @fx_hash_c942b93df53867ed,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '21:30:00', 4, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-031'),
-  ('Helena Muñiz', 'email', 'helena.032@example.test',
+  ('Helena Muñiz', 'email', @fx_contact_d4cd4e9189026c6e, @fx_hash_d4cd4e9189026c6e,
    DATE_SUB(@HOY, INTERVAL 18 DAY), '19:30:00', 2, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 18 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-032'),
-  ('Ignacio Bravo', 'email', 'ignacio.033@example.test',
+  ('Ignacio Bravo', 'email', @fx_contact_a28ef7e4e3b0a377, @fx_hash_a28ef7e4e3b0a377,
    DATE_SUB(@HOY, INTERVAL 17 DAY), '20:30:00', 6, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 17 DAY), '20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-033'),
-  ('Julieta Ocampo', 'email', 'julieta.034@example.test',
+  ('Julieta Ocampo', 'email', @fx_contact_947332dfe6c1ff9e, @fx_hash_947332dfe6c1ff9e,
    DATE_SUB(@HOY, INTERVAL 17 DAY), '15:30:00', 3, 'Alergia a nueces', 'no_show', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 17 DAY), '15:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-034'),
-  ('Kevin Alcaraz', 'email', 'kevin.035@example.test',
+  ('Kevin Alcaraz', 'email', @fx_contact_9502cbe98bbcbcb5, @fx_hash_9502cbe98bbcbcb5,
    DATE_SUB(@HOY, INTERVAL 17 DAY), '13:30:00', 2, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 17 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-035'),
-  ('Lucía Sandoval', 'email', 'lucia.036@example.test',
+  ('Lucía Sandoval', 'email', @fx_contact_a54c3fe7749a8470, @fx_hash_a54c3fe7749a8470,
    DATE_SUB(@HOY, INTERVAL 16 DAY), '13:00:00', 8, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 16 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-036'),
-  ('Matías Grijalva', 'email', 'matias.037@example.test',
+  ('Matías Grijalva', 'email', @fx_contact_f09edf52242840f3, @fx_hash_f09edf52242840f3,
    DATE_SUB(@HOY, INTERVAL 14 DAY), '15:30:00', 4, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 14 DAY), '15:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-037'),
-  ('Natalia Espinoza', 'email', 'natalia.038@example.test',
+  ('Natalia Espinoza', 'email', @fx_contact_c401314a16cba2f6, @fx_hash_c401314a16cba2f6,
    DATE_SUB(@HOY, INTERVAL 14 DAY), '13:30:00', 2, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 14 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-038'),
-  ('Óscar Valadez', 'email', 'oscar.039@example.test',
+  ('Óscar Valadez', 'email', @fx_contact_1d9f53a7bf975bdd, @fx_hash_1d9f53a7bf975bdd,
    DATE_SUB(@HOY, INTERVAL 13 DAY), '14:30:00', 5, 'Cliente frecuente', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 13 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-039'),
-  ('Paola Zúñiga', 'email', 'paola.040@example.test',
+  ('Paola Zúñiga', 'email', @fx_contact_8d34cfa52bd637e6, @fx_hash_8d34cfa52bd637e6,
    DATE_SUB(@HOY, INTERVAL 13 DAY), '21:30:00', 2, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 13 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-040'),
-  ('Ramiro Cisneros', 'email', 'ramiro.041@example.test',
+  ('Ramiro Cisneros', 'email', @fx_contact_d45fc69f05f64012, @fx_hash_d45fc69f05f64012,
    DATE_SUB(@HOY, INTERVAL 13 DAY), '19:30:00', 4, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 13 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-041'),
-  ('Sergio Maldonado', 'email', 'sergio.042@example.test',
+  ('Sergio Maldonado', 'email', @fx_contact_abef60edbce6a19b, @fx_hash_abef60edbce6a19b,
    DATE_SUB(@HOY, INTERVAL 13 DAY), '14:30:00', 2, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 13 DAY), '14:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-042'),
-  ('Tania Vergara', 'email', 'tania.043@example.test',
+  ('Tania Vergara', 'email', @fx_contact_e78aa609aa362f5b, @fx_hash_e78aa609aa362f5b,
    DATE_SUB(@HOY, INTERVAL 13 DAY), '21:30:00', 6, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 13 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-043'),
-  ('Ulises Fonseca', 'email', 'ulises.044@example.test',
+  ('Ulises Fonseca', 'email', @fx_contact_0dc2c01438a1d472, @fx_hash_0dc2c01438a1d472,
    DATE_SUB(@HOY, INTERVAL 12 DAY), '15:00:00', 3, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 12 DAY), '15:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-044'),
-  ('Verónica Nájera', 'email', 'veronica.045@example.test',
+  ('Verónica Nájera', 'email', @fx_contact_0924b5470892e8ad, @fx_hash_0924b5470892e8ad,
    DATE_SUB(@HOY, INTERVAL 12 DAY), '13:00:00', 2, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 12 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-045'),
-  ('Wendy Cabrera', 'email', 'wendy.046@example.test',
+  ('Wendy Cabrera', 'email', @fx_contact_24cd159eb604633a, @fx_hash_24cd159eb604633a,
    DATE_SUB(@HOY, INTERVAL 12 DAY), '20:00:00', 8, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 12 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-046'),
-  ('Xavier Robledo', 'email', 'xavier.047@example.test',
+  ('Xavier Robledo', 'email', @fx_contact_813ffd90ea378fda, @fx_hash_813ffd90ea378fda,
    DATE_SUB(@HOY, INTERVAL 12 DAY), '15:00:00', 4, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 12 DAY), '15:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-047'),
-  ('Yolanda Prieto', 'email', 'yolanda.048@example.test',
+  ('Yolanda Prieto', 'email', @fx_contact_8d533526c0b109b5, @fx_hash_8d533526c0b109b5,
    DATE_SUB(@HOY, INTERVAL 11 DAY), '13:00:00', 2, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 11 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-048'),
-  ('Zacarías Beltrán', 'email', 'zacarias.049@example.test',
+  ('Zacarías Beltrán', 'email', @fx_contact_0d60d6f69f4fee74, @fx_hash_0d60d6f69f4fee74,
    DATE_SUB(@HOY, INTERVAL 11 DAY), '20:00:00', 5, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 11 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-049'),
-  ('Ana Sofía Lira', 'email', 'ana.050@example.test',
+  ('Ana Sofía Lira', 'email', @fx_contact_21ba5fae65f5271e, @fx_hash_21ba5fae65f5271e,
    DATE_SUB(@HOY, INTERVAL 10 DAY), '21:00:00', 2, 'Cliente frecuente', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 10 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-050'),
-  ('Braulio Mendieta', 'email', 'braulio.051@example.test',
+  ('Braulio Mendieta', 'email', @fx_contact_ff5864713362ce5f, @fx_hash_ff5864713362ce5f,
    DATE_SUB(@HOY, INTERVAL 10 DAY), '19:00:00', 4, '', 'no_show', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 10 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-051'),
-  ('Cecilia Ynzunza', 'email', 'cecilia.052@example.test',
+  ('Cecilia Ynzunza', 'email', @fx_contact_9c9d16c5945bba97, @fx_hash_9c9d16c5945bba97,
    DATE_SUB(@HOY, INTERVAL 10 DAY), '14:00:00', 2, 'Cumpleaños', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 10 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-052'),
-  ('Damián Portillo', 'email', 'damian.053@example.test',
+  ('Damián Portillo', 'email', @fx_contact_66c1126ca83f4680, @fx_hash_66c1126ca83f4680,
    DATE_SUB(@HOY, INTERVAL 9 DAY), '13:30:00', 6, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 9 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-053'),
-  ('Estela Guardado', 'email', 'estela.054@example.test',
+  ('Estela Guardado', 'email', @fx_contact_20486cf5b0a14f39, @fx_hash_20486cf5b0a14f39,
    DATE_SUB(@HOY, INTERVAL 8 DAY), '19:00:00', 3, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 8 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-054'),
-  ('Fausto Rivadeneira', 'email', 'fausto.055@example.test',
+  ('Fausto Rivadeneira', 'email', @fx_contact_51e4a30c93976bc9, @fx_hash_51e4a30c93976bc9,
    DATE_SUB(@HOY, INTERVAL 8 DAY), '14:00:00', 2, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 8 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-055'),
-  ('Gina Palomares', 'email', 'gina.056@example.test',
+  ('Gina Palomares', 'email', @fx_contact_037daff300c7eeb8, @fx_hash_037daff300c7eeb8,
    DATE_SUB(@HOY, INTERVAL 8 DAY), '21:00:00', 8, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 8 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-056'),
-  ('Hugo Villaseñor', 'email', 'hugo.057@example.test',
+  ('Hugo Villaseñor', 'email', @fx_contact_4ee9556ffa739cea, @fx_hash_4ee9556ffa739cea,
    DATE_SUB(@HOY, INTERVAL 8 DAY), '19:00:00', 4, 'Aniversario', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 8 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-057'),
-  ('Inés Carbajal', 'email', 'ines.058@example.test',
+  ('Inés Carbajal', 'email', @fx_contact_c580fe7e7cff661b, @fx_hash_c580fe7e7cff661b,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '14:00:00', 2, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-058'),
-  ('Jonás Ledesma', 'email', 'jonas.059@example.test',
+  ('Jonás Ledesma', 'email', @fx_contact_66bc284934698be3, @fx_hash_66bc284934698be3,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '21:00:00', 5, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-059'),
-  ('Katia Berrones', 'email', 'katia.060@example.test',
+  ('Katia Berrones', 'email', @fx_contact_d2a2136dfa70f93f, @fx_hash_d2a2136dfa70f93f,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '19:00:00', 2, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-060'),
-  ('Luis Ángel Toledo', 'email', 'luis.061@example.test',
+  ('Luis Ángel Toledo', 'email', @fx_contact_c38e7d5ab6eea612, @fx_hash_c38e7d5ab6eea612,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '14:00:00', 4, 'Cliente frecuente', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-061'),
-  ('Miriam Cuéllar', 'email', 'miriam.062@example.test',
+  ('Miriam Cuéllar', 'email', @fx_contact_caa6dc7ceb732e56, @fx_hash_caa6dc7ceb732e56,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '21:00:00', 2, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-062'),
-  ('Nicolás Arámbula', 'email', 'nicolas.063@example.test',
+  ('Nicolás Arámbula', 'email', @fx_contact_c0a6a21e726df155, @fx_hash_c0a6a21e726df155,
    DATE_SUB(@HOY, INTERVAL 7 DAY), '19:00:00', 6, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 7 DAY), '19:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-063'),
-  ('Odette Fierro', 'email', 'odette.064@example.test',
+  ('Odette Fierro', 'email', @fx_contact_ce0e20b8674df54b, @fx_hash_ce0e20b8674df54b,
    DATE_SUB(@HOY, INTERVAL 6 DAY), '20:00:00', 3, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 6 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-064'),
-  ('Pablo Zepeda', 'email', 'pablo.065@example.test',
+  ('Pablo Zepeda', 'email', @fx_contact_8285a4fecc9cfce4, @fx_hash_8285a4fecc9cfce4,
    DATE_SUB(@HOY, INTERVAL 6 DAY), '15:00:00', 2, 'Terraza si hay', 'cancelada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 6 DAY), '15:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-065'),
-  ('Regina Alfaro', 'email', 'regina.066@example.test',
+  ('Regina Alfaro', 'email', @fx_contact_def766c51ca567a5, @fx_hash_def766c51ca567a5,
    DATE_SUB(@HOY, INTERVAL 6 DAY), '13:00:00', 8, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 6 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-066'),
-  ('Samuel Íñiguez', 'email', 'samuel.067@example.test',
+  ('Samuel Íñiguez', 'email', @fx_contact_dd52b0bf096f3bc7, @fx_hash_dd52b0bf096f3bc7,
    DATE_SUB(@HOY, INTERVAL 5 DAY), '21:30:00', 4, 'Alergia a nueces', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 5 DAY), '21:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-067'),
-  ('Tere Camarillo', 'email', 'tere.068@example.test',
+  ('Tere Camarillo', 'email', @fx_contact_e8e10bd8f15e7d17, @fx_hash_e8e10bd8f15e7d17,
    DATE_SUB(@HOY, INTERVAL 5 DAY), '19:30:00', 2, 'Aniversario', 'no_show', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 5 DAY), '19:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-068'),
-  ('Uriel Bermúdez', 'email', 'uriel.069@example.test',
+  ('Uriel Bermúdez', 'email', @fx_contact_ae8ac30f26118f23, @fx_hash_ae8ac30f26118f23,
    DATE_SUB(@HOY, INTERVAL 3 DAY), '20:30:00', 5, 'Celebración de trabajo', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 3 DAY), '20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-069'),
-  ('Vania Loera', 'email', 'vania.070@example.test',
+  ('Vania Loera', 'email', @fx_contact_490e22dcb05b65a7, @fx_hash_490e22dcb05b65a7,
    DATE_SUB(@HOY, INTERVAL 3 DAY), '15:30:00', 2, 'Mesa junto a ventana', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 3 DAY), '15:30:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-070'),
-  ('Wilfrido Anaya', 'email', 'wilfrido.071@example.test',
+  ('Wilfrido Anaya', 'email', @fx_contact_8162fdb142b66c36, @fx_hash_8162fdb142b66c36,
    DATE_SUB(@HOY, INTERVAL 3 DAY), '13:30:00', 4, 'Carriola', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 3 DAY), '13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-071'),
-  ('Adriana Lozano', 'email', 'adriana.072@example.test',
+  ('Adriana Lozano', 'email', @fx_contact_da6eeef64beecc34, @fx_hash_da6eeef64beecc34,
    DATE_SUB(@HOY, INTERVAL 2 DAY), '13:00:00', 2, 'Cliente frecuente', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-072'),
-  ('Bruno Cerván', 'email', 'bruno.073@example.test',
+  ('Bruno Cerván', 'email', @fx_contact_03cfa88a50ae3742, @fx_hash_03cfa88a50ae3742,
    DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00', 6, '', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-073'),
-  ('Carla Ibáñez', 'email', 'carla.074@example.test',
+  ('Carla Ibáñez', 'email', @fx_contact_2ac6d00204da02b1, @fx_hash_2ac6d00204da02b1,
    DATE_SUB(@HOY, INTERVAL 2 DAY), '15:00:00', 3, 'Cumpleaños', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '15:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-074'),
-  ('Diego Maldonado', 'email', 'diego.075@example.test',
+  ('Diego Maldonado', 'email', @fx_contact_b542f5866b583594, @fx_hash_b542f5866b583594,
    DATE_SUB(@HOY, INTERVAL 2 DAY), '13:00:00', 2, 'Silla alta para bebé', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-analytics-res-075'),
-  ('Elena Ferrer', 'email', 'elena.076@example.test',
+  ('Elena Ferrer', 'email', @fx_contact_5b57b95a671a701b, @fx_hash_5b57b95a671a701b,
    DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00', 8, 'Terraza si hay', 'completada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 2 DAY), '20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-analytics-res-076'),
-  ('Fabián Ortuño', 'email', 'fabian.077@example.test',
+  ('Fabián Ortuño', 'email', @fx_contact_b5efbe70e85aba8e, @fx_hash_b5efbe70e85aba8e,
    DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 4, '', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-077'),
-  ('Gabriela Rentería', 'email', 'gabriela.078@example.test',
+  ('Gabriela Rentería', 'email', @fx_contact_5072c23f8d93e98a, @fx_hash_5072c23f8d93e98a,
    DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00', 2, 'Alergia a nueces', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '20:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-078'),
-  ('Héctor Salcedo', 'email', 'hector.079@example.test',
+  ('Héctor Salcedo', 'email', @fx_contact_94bac13cbc9a575e, @fx_hash_94bac13cbc9a575e,
    DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00', 5, 'Aniversario', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '15:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-079'),
-  ('Irene Bustos', 'email', 'irene.080@example.test',
+  ('Irene Bustos', 'email', @fx_contact_4bd32859b3fb4f41, @fx_hash_4bd32859b3fb4f41,
    DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00', 2, 'Celebración de trabajo', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 1 DAY), '13:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-080'),
-  ('Joaquín Nieto', 'email', 'joaquin.081@example.test',
+  ('Joaquín Nieto', 'email', @fx_contact_46e3c944b96ffbae, @fx_hash_46e3c944b96ffbae,
    DATE_SUB(@HOY, INTERVAL 0 DAY), '20:30:00', 4, 'Mesa junto a ventana', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 0 DAY), '20:30:00') + INTERVAL -1440 MINUTE, 'landing', 'fx-analytics-res-081'),
-  ('Karla Villalobos', 'email', 'karla.082@example.test',
+  ('Karla Villalobos', 'email', @fx_contact_6c72c5a94a8d400f, @fx_hash_6c72c5a94a8d400f,
    DATE_SUB(@HOY, INTERVAL 0 DAY), '15:30:00', 2, 'Carriola', 'confirmada', TIMESTAMP(DATE_SUB(@HOY, INTERVAL 0 DAY), '15:30:00') + INTERVAL -1440 MINUTE, 'admin', 'fx-analytics-res-082');
 
 -- Fin de analiticas-datos-ex.sql
@@ -1838,9 +1976,8 @@ VALUES
 --   fuera de horario —borde punteado— porque su denominador son los días con
 --   venta y no los días abiertos.
 --
--- Es idempotente: borra sus propios rangos antes de insertar (tickets
--- 300-499 y reservaciones 'fx-revpash-res-%'), así que puede recargarse
--- cuantas veces haga falta sin duplicar nada.
+-- Este bloque limpia sus rangos durante la única carga del archivo completo;
+-- no es una interfaz de recarga independiente.
 -- =====================================================================
 
 -- El cliente `mysql` negocia latin1 por defecto en esta instalación, y con eso
@@ -1912,9 +2049,8 @@ DELETE FROM reservaciones WHERE request_token LIKE 'fx-revpash-res-%';
 -- La siembra de ingredientes y de producto_componentes que este fixture
 -- traía aquí se retiró al fundir los tres archivos: era exactamente la misma
 -- que el bloque de analíticas de arriba, palabra por palabra. Cada archivo la
--- llevaba porque estaba pensado para cargarse solo; en un archivo único,
--- sembrarla dos veces sólo servía para que la segunda pasada borrase y
--- reinsertara lo mismo.
+-- llevaba porque estaba pensado para cargarse solo; el seeder actual sólo carga
+-- el archivo completo en una base vacía.
 -- ---------------------------------------------------------------------
 -- §3.2 / §3.4 · La semana de servicio, día por día.
 --
@@ -2929,61 +3065,61 @@ INSERT INTO ticket_pagos (ticket_id, comensal, metodo_pago, monto) VALUES
 -- ---------------------------------------------------------------------
 INSERT INTO reservaciones
   (
-   nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado, estado_changed_at, origen, request_token, created_at
+   nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, estado, estado_changed_at, origen, request_token, created_at
   ) VALUES
-  ('Gina Palomares', 'email', 'reserva.018@example.test', @D5, '13:00:00', 6, 'Cumpleaños', 'completada', TIMESTAMP(@D5,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-018',
+  ('Gina Palomares', 'email', @fx_contact_f9d407e52bf575f8, @fx_hash_f9d407e52bf575f8, @D5, '13:00:00', 6, 'Cumpleaños', 'completada', TIMESTAMP(@D5,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-018',
    TIMESTAMP(@D5,'13:00:00') - INTERVAL 1 DAY),
-  ('Nicolás Arámbula', 'email', 'reserva.019@example.test', @D5, '20:00:00', 4, 'Carriola', 'completada', TIMESTAMP(@D5,'20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-019',
+  ('Nicolás Arámbula', 'email', @fx_contact_6c68c543e723a9b4, @fx_hash_6c68c543e723a9b4, @D5, '20:00:00', 4, 'Carriola', 'completada', TIMESTAMP(@D5,'20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-019',
    TIMESTAMP(@D5,'20:00:00') - INTERVAL 2 DAY),
-  ('Vania Loera', 'email', 'reserva.020@example.test', @D5, '13:30:00', 2, 'Cliente frecuente', 'completada', TIMESTAMP(@D5,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-020',
+  ('Vania Loera', 'email', @fx_contact_85ecb3de22941b87, @fx_hash_85ecb3de22941b87, @D5, '13:30:00', 2, 'Cliente frecuente', 'completada', TIMESTAMP(@D5,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-020',
    TIMESTAMP(@D5,'13:30:00') - INTERVAL 3 DAY),
-  ('Cecilia Ynzunza', 'email', 'reserva.021@example.test', @D5, '13:00:00', 5, 'Alergia a nueces', 'no_show', TIMESTAMP(@D5,'13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-021',
+  ('Cecilia Ynzunza', 'email', @fx_contact_814ecd04d2f1f5a9, @fx_hash_814ecd04d2f1f5a9, @D5, '13:00:00', 5, 'Alergia a nueces', 'no_show', TIMESTAMP(@D5,'13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-021',
    TIMESTAMP(@D5,'13:00:00') - INTERVAL 1 DAY),
-  ('Joaquín Nieto', 'email', 'reserva.022@example.test', @D5, '20:00:00', 3, 'Aniversario', 'completada', TIMESTAMP(@D5,'20:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-022',
+  ('Joaquín Nieto', 'email', @fx_contact_0e9ed38bb09c4bc4, @fx_hash_0e9ed38bb09c4bc4, @D5, '20:00:00', 3, 'Aniversario', 'completada', TIMESTAMP(@D5,'20:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-022',
    TIMESTAMP(@D5,'20:00:00') - INTERVAL 2 DAY),
-  ('Quirino Ávila', 'email', 'reserva.023@example.test', @D5, '13:30:00', 6, 'Terraza si hay', 'cancelada', TIMESTAMP(@D5,'13:30:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-023',
+  ('Quirino Ávila', 'email', @fx_contact_cdff1d878f3b6c7a, @fx_hash_cdff1d878f3b6c7a, @D5, '13:30:00', 6, 'Terraza si hay', 'cancelada', TIMESTAMP(@D5,'13:30:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-023',
    TIMESTAMP(@D5,'13:30:00') - INTERVAL 3 DAY),
-  ('Xavier Peña', 'email', 'reserva.024@example.test', @D6, '13:00:00', 4, '', 'completada', TIMESTAMP(@D6,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-024',
+  ('Xavier Peña', 'email', @fx_contact_dcd40171eee776e5, @fx_hash_dcd40171eee776e5, @D6, '13:00:00', 4, '', 'completada', TIMESTAMP(@D6,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-024',
    TIMESTAMP(@D6,'13:00:00') - INTERVAL 1 DAY),
-  ('Familia Nava', 'email', 'reserva.025@example.test', @D6, '20:00:00', 2, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D6,'20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-025',
+  ('Familia Nava', 'email', @fx_contact_7b6d9ab9e049236b, @fx_hash_7b6d9ab9e049236b, @D6, '20:00:00', 2, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D6,'20:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-025',
    TIMESTAMP(@D6,'20:00:00') - INTERVAL 2 DAY),
-  ('Carla Ibáñez', 'email', 'reserva.026@example.test', @D6, '13:30:00', 5, 'Cumpleaños', 'completada', TIMESTAMP(@D6,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-026',
+  ('Carla Ibáñez', 'email', @fx_contact_702e5a628bd2a1bb, @fx_hash_702e5a628bd2a1bb, @D6, '13:30:00', 5, 'Cumpleaños', 'completada', TIMESTAMP(@D6,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-026',
    TIMESTAMP(@D6,'13:30:00') - INTERVAL 3 DAY),
-  ('Jonás Ledesma', 'email', 'reserva.027@example.test', @D6, '13:00:00', 3, 'Carriola', 'completada', TIMESTAMP(@D6,'13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-027',
+  ('Jonás Ledesma', 'email', @fx_contact_b98bdf745e44a5a3, @fx_hash_b98bdf745e44a5a3, @D6, '13:00:00', 3, 'Carriola', 'completada', TIMESTAMP(@D6,'13:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-027',
    TIMESTAMP(@D6,'13:00:00') - INTERVAL 1 DAY),
-  ('Hugo Villaseñor', 'email', 'reserva.001@example.test', @D0, '14:00:00', 5, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D0,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-001',
+  ('Hugo Villaseñor', 'email', @fx_contact_af55a503c6b1028c, @fx_hash_af55a503c6b1028c, @D0, '14:00:00', 5, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D0,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-001',
    TIMESTAMP(@D0,'14:00:00') - INTERVAL 2 DAY),
-  ('Odette Fierro', 'email', 'reserva.002@example.test', @D0, '21:00:00', 3, 'Cumpleaños', 'completada', TIMESTAMP(@D0,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-002',
+  ('Odette Fierro', 'email', @fx_contact_6c92e1383dd133b4, @fx_hash_6c92e1383dd133b4, @D0, '21:00:00', 3, 'Cumpleaños', 'completada', TIMESTAMP(@D0,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-002',
    TIMESTAMP(@D0,'21:00:00') - INTERVAL 3 DAY),
-  ('Wilfrido Anaya', 'email', 'reserva.003@example.test', @D1, '21:00:00', 6, 'Carriola', 'completada', TIMESTAMP(@D1,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-003',
+  ('Wilfrido Anaya', 'email', @fx_contact_37bd1dcacf24ea8e, @fx_hash_37bd1dcacf24ea8e, @D1, '21:00:00', 6, 'Carriola', 'completada', TIMESTAMP(@D1,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-003',
    TIMESTAMP(@D1,'21:00:00') - INTERVAL 1 DAY),
-  ('Damián Portillo', 'email', 'reserva.004@example.test', @D1, '20:30:00', 4, 'Cliente frecuente', 'completada', TIMESTAMP(@D1,'20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-004',
+  ('Damián Portillo', 'email', @fx_contact_f1754cfce8c93449, @fx_hash_f1754cfce8c93449, @D1, '20:30:00', 4, 'Cliente frecuente', 'completada', TIMESTAMP(@D1,'20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-004',
    TIMESTAMP(@D1,'20:30:00') - INTERVAL 2 DAY),
-  ('Karla Villalobos', 'email', 'reserva.005@example.test', @D1, '14:00:00', 2, 'Alergia a nueces', 'no_show', TIMESTAMP(@D1,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-005',
+  ('Karla Villalobos', 'email', @fx_contact_5232affc926cc267, @fx_hash_5232affc926cc267, @D1, '14:00:00', 2, 'Alergia a nueces', 'no_show', TIMESTAMP(@D1,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-005',
    TIMESTAMP(@D1,'14:00:00') - INTERVAL 3 DAY),
-  ('Rita Peña', 'email', 'reserva.006@example.test', @D2, '13:00:00', 5, 'Aniversario', 'completada', TIMESTAMP(@D2,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-006',
+  ('Rita Peña', 'email', @fx_contact_2e1350f6fa2b5cd6, @fx_hash_2e1350f6fa2b5cd6, @D2, '13:00:00', 5, 'Aniversario', 'completada', TIMESTAMP(@D2,'13:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-006',
    TIMESTAMP(@D2,'13:00:00') - INTERVAL 1 DAY),
-  ('Yara Sol', 'email', 'reserva.007@example.test', @D2, '20:00:00', 3, 'Terraza si hay', 'cancelada', TIMESTAMP(@D2,'20:00:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-007',
+  ('Yara Sol', 'email', @fx_contact_30c2a55461c71388, @fx_hash_30c2a55461c71388, @D2, '20:00:00', 3, 'Terraza si hay', 'cancelada', TIMESTAMP(@D2,'20:00:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-007',
    TIMESTAMP(@D2,'20:00:00') - INTERVAL 2 DAY),
-  ('Familia Robles', 'email', 'reserva.008@example.test', @D2, '13:30:00', 6, '', 'completada', TIMESTAMP(@D2,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-008',
+  ('Familia Robles', 'email', @fx_contact_27d29856fd489752, @fx_hash_27d29856fd489752, @D2, '13:30:00', 6, '', 'completada', TIMESTAMP(@D2,'13:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-008',
    TIMESTAMP(@D2,'13:30:00') - INTERVAL 3 DAY),
-  ('Diego Nava', 'email', 'reserva.009@example.test', @D3, '21:00:00', 4, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D3,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-009',
+  ('Diego Nava', 'email', @fx_contact_23360e371d14fa69, @fx_hash_23360e371d14fa69, @D3, '21:00:00', 4, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D3,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-009',
    TIMESTAMP(@D3,'21:00:00') - INTERVAL 1 DAY),
-  ('Katia Berrones', 'email', 'reserva.010@example.test', @D3, '20:30:00', 2, 'Cumpleaños', 'completada', TIMESTAMP(@D3,'20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-010',
+  ('Katia Berrones', 'email', @fx_contact_4baf3b3e3a1f98db, @fx_hash_4baf3b3e3a1f98db, @D3, '20:30:00', 2, 'Cumpleaños', 'completada', TIMESTAMP(@D3,'20:30:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-010',
    TIMESTAMP(@D3,'20:30:00') - INTERVAL 2 DAY),
-  ('Samuel Íñiguez', 'email', 'reserva.011@example.test', @D3, '14:00:00', 5, 'Carriola', 'completada', TIMESTAMP(@D3,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-011',
+  ('Samuel Íñiguez', 'email', @fx_contact_f9b46767b4f19b54, @fx_hash_f9b46767b4f19b54, @D3, '14:00:00', 5, 'Carriola', 'completada', TIMESTAMP(@D3,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-011',
    TIMESTAMP(@D3,'14:00:00') - INTERVAL 3 DAY),
-  ('Zacarías Beltrán', 'email', 'reserva.012@example.test', @D3, '21:00:00', 3, 'Cliente frecuente', 'completada', TIMESTAMP(@D3,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-012',
+  ('Zacarías Beltrán', 'email', @fx_contact_f4a8af390c135df7, @fx_hash_f4a8af390c135df7, @D3, '21:00:00', 3, 'Cliente frecuente', 'completada', TIMESTAMP(@D3,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-012',
    TIMESTAMP(@D3,'21:00:00') - INTERVAL 1 DAY),
-  ('Gael Ruan', 'email', 'reserva.013@example.test', @D4, '14:00:00', 6, 'Alergia a nueces', 'no_show', TIMESTAMP(@D4,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-013',
+  ('Gael Ruan', 'email', @fx_contact_d07704fc4f99f595, @fx_hash_d07704fc4f99f595, @D4, '14:00:00', 6, 'Alergia a nueces', 'no_show', TIMESTAMP(@D4,'14:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-013',
    TIMESTAMP(@D4,'14:00:00') - INTERVAL 2 DAY),
-  ('Noa Cid', 'email', 'reserva.014@example.test', @D4, '21:00:00', 4, 'Aniversario', 'completada', TIMESTAMP(@D4,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-014',
+  ('Noa Cid', 'email', @fx_contact_38297904ed59dfe7, @fx_hash_38297904ed59dfe7, @D4, '21:00:00', 4, 'Aniversario', 'completada', TIMESTAMP(@D4,'21:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-014',
    TIMESTAMP(@D4,'21:00:00') - INTERVAL 3 DAY),
-  ('Ulises Nava', 'email', 'reserva.015@example.test', @D4, '20:30:00', 2, 'Terraza si hay', 'cancelada', TIMESTAMP(@D4,'20:30:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-015',
+  ('Ulises Nava', 'email', @fx_contact_667786c8c63dff14, @fx_hash_667786c8c63dff14, @D4, '20:30:00', 2, 'Terraza si hay', 'cancelada', TIMESTAMP(@D4,'20:30:00') - INTERVAL 1 DAY, 'admin', 'fx-revpash-res-015',
    TIMESTAMP(@D4,'20:30:00') - INTERVAL 1 DAY),
-  ('Grupo Ibarra', 'email', 'reserva.016@example.test', @D4, '14:00:00', 5, '', 'completada', TIMESTAMP(@D4,'14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-016',
+  ('Grupo Ibarra', 'email', @fx_contact_1e8b3b3566fddda2, @fx_hash_1e8b3b3566fddda2, @D4, '14:00:00', 5, '', 'completada', TIMESTAMP(@D4,'14:00:00') + INTERVAL 120 MINUTE, 'landing', 'fx-revpash-res-016',
    TIMESTAMP(@D4,'14:00:00') - INTERVAL 2 DAY),
-  ('Familia Cruz', 'email', 'reserva.017@example.test', @D4, '21:00:00', 3, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D4,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-017',
+  ('Familia Cruz', 'email', @fx_contact_cd2b5c07825920a4, @fx_hash_cd2b5c07825920a4, @D4, '21:00:00', 3, 'Mesa junto a ventana', 'completada', TIMESTAMP(@D4,'21:00:00') + INTERVAL 120 MINUTE, 'admin', 'fx-revpash-res-017',
    TIMESTAMP(@D4,'21:00:00') - INTERVAL 3 DAY);
 
 -- ---------------------------------------------------------------------

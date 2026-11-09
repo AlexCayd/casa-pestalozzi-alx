@@ -88,7 +88,7 @@ su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
 2. `database/deploy.sql` — datos mínimos de operación. Es la **única** fuente del
    catálogo base: áreas, categorías, mesas, productos, `productos_semilla` y el
    horario semanal.
-3. `database/development.sql` — opcional, sólo desarrollo y QA. Funde los tres
+3. `database/development.sql` — metadata y escenarios opcionales, sólo desarrollo y QA. Funde los tres
    fixtures que antes vivían sueltos (`dml_pruebas`, `analiticas-datos-ex`,
    `REVPash-pruebas`) en tres bloques que se acotan por rango para no pisarse:
    analíticas trabaja sobre los tickets 200-299 y los tokens
@@ -105,9 +105,11 @@ su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
    que cada día caiga en su día de la semana, que es lo que da forma al mapa de
    calor. `SELECT @SEM_INI, @SEM_FIN;` dice en qué fechas quedó.
 
-Se carga **una vez**, sobre una base recién creada: los bloques 2 y 3 sí se
-pueden repetir, pero el 1 usa ids explícitos sin `ON DUPLICATE KEY` y una segunda
-pasada choca contra `tickets.PRIMARY`. Para rehacer el entorno, recrear la base.
+Tras cargar DDL y deploy en una base recién creada, cargar escenarios una sola
+vez mediante `php scripts/seed-development.php --database=NOMBRE`. El seeder
+protege los contactos sintéticos antes de escribirlos; no importar
+`development.sql` directamente con el cliente SQL. Para rehacer el entorno,
+recrear la base vacía y volver a ejecutar el seeder.
 
 `development.sql` declara los seis usuarios de desarrollo con id explícito porque
 los tickets de los fixtures apuntan a `mesero_id` 2..6 por llave foránea, pero los
@@ -124,8 +126,8 @@ Fuentes documentales vigentes: `docs/arquitectura.md`, `docs/config.md`,
 fuente normativa en `docs/reservaciones/reservaciones.md`.
 
 El esquema vigente está en `database/ddl.sql`. Los datos mínimos de operación
-están en `database/deploy.sql`; `database/development.sql` es opcional y se usa
-sólo para desarrollo y QA.
+están en `database/deploy.sql`; los escenarios de `database/development.sql` se
+cargan sólo con el seeder PHP en una base vacía de desarrollo o QA.
 
 `ddl.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
 agregar una tabla, añade su `DROP` al bloque correspondiente.

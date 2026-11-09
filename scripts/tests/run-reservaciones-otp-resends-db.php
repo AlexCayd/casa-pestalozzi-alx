@@ -7,6 +7,7 @@ use Model\ActiveRecord;
 use Services\Contact\ContactoAccesoService;
 use Services\Integrations\N8nClient;
 use Services\Notifications\ConfirmationResendPolicy;
+use Services\Contact\ContactoProtegidoService;
 
 function otpAssert(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
@@ -60,7 +61,9 @@ try {
     otpAssert($blocked['codigo'] === 'LIMITE_REENVIOS_ALCANZADO' && $calls === 4, 'reenvío3 bloqueado');
     $state = ConfirmationResendPolicy::estado('email', $contact);
     otpAssert($state['send_count'] === 3 && $state['remaining_resends'] === 0, 'estado tras refresh');
-    $row = $db->query("SELECT codigo_hash FROM verificaciones_contacto WHERE contacto = 'otp.policy@example.test' ORDER BY id DESC LIMIT 1")->fetch_assoc();
+    $contactHash = ContactoProtegidoService::identificador('email', $contact);
+    $lookup = $db->prepare('SELECT codigo_hash FROM verificaciones_contacto WHERE contacto_hash = ? ORDER BY id DESC LIMIT 1');
+    $lookup->bind_param('s', $contactHash); $lookup->execute(); $row = $lookup->get_result()->fetch_assoc(); $lookup->close();
     otpAssert(password_verify(end($codes), $row['codigo_hash']) && $row['codigo_hash'] !== end($codes), 'sólo hash');
 
     $workers = [];
@@ -79,5 +82,8 @@ try {
     otpAssert($accepted === 1 && $transports === 1, 'dos requests sólo generan un transporte');
     echo "OTP:3 aceptados,fallo,cooldown,hash,refresh,nueva sesión,concurrencia y post-commit OK\n";
 } finally {
-    $db->query("DELETE FROM verificaciones_contacto WHERE contacto IN ('otp.policy@example.test','otp.concurrent@example.test')");
+    $policyHash = ContactoProtegidoService::identificador('email', $contact);
+    $concurrentHash = ContactoProtegidoService::identificador('email', 'otp.concurrent@example.test');
+    $cleanup = $db->prepare('DELETE FROM verificaciones_contacto WHERE contacto_hash IN (?, ?)');
+    $cleanup->bind_param('ss', $policyHash, $concurrentHash); $cleanup->execute(); $cleanup->close();
 }

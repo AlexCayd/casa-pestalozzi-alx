@@ -2,6 +2,7 @@
 
 namespace Services\Reservations;
 use Services\Contact\ContactoService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Tables\OcupacionMesasService;
 
 use InvalidArgumentException;
@@ -404,7 +405,7 @@ final class ReservacionAdministrativaService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionAdministrativaService::crear - ' . $e->getMessage());
+            error_log('ReservacionAdministrativaService::crear - fallo redactado.');
             return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
         } finally {
             if ($lockFecha) {
@@ -509,7 +510,7 @@ final class ReservacionAdministrativaService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionAdministrativaService::actualizar - ' . $e->getMessage());
+            error_log('ReservacionAdministrativaService::actualizar - fallo redactado.');
             return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
         } finally {
             foreach (array_reverse($locks) as $fecha) {
@@ -586,7 +587,7 @@ final class ReservacionAdministrativaService
                  LIMIT 1 FOR UPDATE"
             );
             if ($ticket === false) {
-                throw new \RuntimeException($db->error);
+                throw new \RuntimeException('No fue posible actualizar la reservación administrativa.');
             }
             $ticketAbierto = $ticket->num_rows > 0;
             $ticket->free();
@@ -623,7 +624,7 @@ final class ReservacionAdministrativaService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionAdministrativaService::cancelar - ' . $e->getMessage());
+            error_log('ReservacionAdministrativaService::cancelar - fallo redactado.');
             return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
         } finally {
             foreach (array_reverse($locks) as $fecha) {
@@ -904,11 +905,13 @@ final class ReservacionAdministrativaService
     private static function actualizarFila(int $id, array $datos): void
     {
         $db = ActiveRecord::getDB();
-        $contacto = $datos['contacto'] === null ? 'NULL' : "'" . ActiveRecord::escaparString((string)$datos['contacto']) . "'";
+        $contacto = $datos['contacto'] === null ? 'NULL' : "'" . ActiveRecord::escaparString(ContactoProtegidoService::cifrar($datos['contacto_tipo'], (string)$datos['contacto'])) . "'";
+        $contactoHash = $datos['contacto'] === null ? 'NULL' : "'" . ActiveRecord::escaparString(ContactoProtegidoService::identificador($datos['contacto_tipo'], (string)$datos['contacto'])) . "'";
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
             "contacto_tipo = '" . ActiveRecord::escaparString($datos['contacto_tipo']) . "'",
             "contacto = {$contacto}",
+            "contacto_hash = {$contactoHash}",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             'comensales = ' . (int)$datos['comensales'],
@@ -947,17 +950,17 @@ final class ReservacionAdministrativaService
     {
         $resultado = ActiveRecord::getDB()->query($query);
         if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
         $fila = $resultado->fetch_assoc() ?: null;
         $resultado->free();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function ejecutar(string $query): void
     {
         if (ActiveRecord::getDB()->query($query) === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible guardar la reservación administrativa.');
         }
     }
 

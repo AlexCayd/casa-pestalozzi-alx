@@ -30,6 +30,24 @@ Los proveedores de correo, SMS u otros servicios de verificación pueden procesa
 
 Los flujos de automatización no deben versionar ni exportar datos de ejecución en `pinData`. Los archivos de workflow pueden conservar metadatos vacíos, pero nunca PII, códigos OTP o payloads de clientes.
 
+## Contactos protegidos
+
+Las columnas `contacto` almacenan sobres `cp1:` con AES-256-GCM, nonce aleatorio y autenticación del tipo de contacto. `contacto_hash` guarda un HMAC-SHA-256 independiente para búsquedas exactas e índices. Se normaliza el contacto antes de cifrar o calcular el HMAC. Los valores `ninguno` se guardan como `NULL` en ambas columnas. El POS excluye el contacto y su HMAC de sus respuestas.
+
+`CONTACT_ENCRYPTION_KEY` y `CONTACT_LOOKUP_KEY` son claves Base64 canónicas, independientes y de 32 bytes. Son obligatorias para leer o escribir contactos; no hay fallback a texto claro. Configúralas antes de iniciar la aplicación. No reemplaces una clave activa sin una estrategia de rotación compatible con los datos existentes.
+
+## Instalación de desarrollo desde cero
+
+Configura `APP_ENV=development`, las credenciales MySQL y las dos claves de contacto. Crea una base vacía y carga `database/ddl.sql` y después `database/deploy.sql` desde el cliente MySQL. Luego carga los datos ficticios una sola vez, con destino explícito:
+
+```powershell
+php scripts/seed-development.php --database=NOMBRE
+```
+
+El seeder valida claves y metadata, cifra los contactos sintéticos en memoria y ejecuta la carga dentro de una transacción. Rechaza destinos con reservaciones o tickets. No importes `database/development.sql` directamente con el cliente SQL. Para recargar, reconstruye una base vacía con DDL y deploy y ejecuta el seeder de nuevo. En producción no cargues datos de desarrollo.
+
+La validación aislada se ejecuta con `npm run test:contacts`. Sus runners crean y eliminan bases temporales y usan claves aleatorias en memoria. Las pruebas de transporte son simuladas; no envían mensajes reales. No ejecutes scripts DB individuales contra la base de la aplicación.
+
 ## Conservación y anonimización
 
 Los datos identificables se conservan sólo durante el tiempo necesario para gestionar la reservación, atender incidencias y mantener el registro operativo exigible. Después se eliminan o se anonimizan; los registros estadísticos pueden conservarse únicamente sin identificadores directos ni datos de contacto.

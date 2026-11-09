@@ -11,6 +11,7 @@
 namespace Services\Reservations;
 use Services\Contact\ContactoAccesoService;
 use Services\Contact\ContactoService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Notifications\ReservationConfirmationService;
 
 use DateTimeImmutable;
@@ -110,7 +111,11 @@ final class ReservacionPublicaService
             return false;
         }
 
-        $fila = self::buscarPorId($id);
+        try {
+            $fila = self::buscarPorId($id);
+        } catch (\Throwable $e) {
+            return false;
+        }
         if (!$fila) {
             return false;
         }
@@ -133,8 +138,13 @@ final class ReservacionPublicaService
 
         // La comprobación preliminar mejora la respuesta, pero sólo la segunda,
         // dentro del lock por contacto, protege contra solicitudes simultáneas.
-        if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
-            return self::limiteAlcanzado();
+        try {
+            if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
+                return self::limiteAlcanzado();
+            }
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::crearRetencion - fallo redactado.');
+            return self::errorInterno();
         }
 
         $resultado = self::conLocks($datos['tipo'], $datos['contacto'], [$datos['fecha']], function (\mysqli $db) use ($datos): array {
@@ -423,7 +433,12 @@ final class ReservacionPublicaService
         $extra = [];
         if ($token !== '') {
             if (!self::tokenValido($token)) return self::noEncontrada();
-            $row = self::buscarPorToken($token);
+            try {
+                $row = self::buscarPorToken($token);
+            } catch (\Throwable $e) {
+                error_log('ReservacionPublicaService::estadoOtp - fallo redactado.');
+                return self::errorInterno();
+            }
             if (!$row || !self::mismoContacto($row, $tipo, $contacto)) return self::noEncontrada();
             $id = (int)$row['id'];
             $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
@@ -518,7 +533,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearConfirmada - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearConfirmada - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -552,7 +567,12 @@ final class ReservacionPublicaService
             return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
         }
 
-        $original = self::buscarPorId($id);
+        try {
+            $original = self::buscarPorId($id);
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::crearReemplazo - fallo redactado.');
+            return self::errorInterno();
+        }
         if (!$original) {
             return self::noEncontrada();
         }
@@ -703,7 +723,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearReemplazo - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearReemplazo - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -745,7 +765,12 @@ final class ReservacionPublicaService
             return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
         }
 
-        $original = self::buscarPorId($id);
+        try {
+            $original = self::buscarPorId($id);
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::crearReemplazoConAccesoTemporal - fallo redactado.');
+            return self::errorInterno();
+        }
         if (!$original) {
             return self::noEncontrada();
         }
@@ -863,7 +888,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearReemplazoConAccesoTemporal - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearReemplazoConAccesoTemporal - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -892,11 +917,21 @@ final class ReservacionPublicaService
             return ['ok' => false, 'codigo' => self::SESION_PUBLICA_EXPIRADA];
         }
 
-        $previsualizacion = self::buscarPorToken($token);
+        try {
+            $previsualizacion = self::buscarPorToken($token);
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::confirmarReemplazo - fallo redactado.');
+            return self::errorInterno();
+        }
         $fechas = [];
         if ($previsualizacion) {
             $fechas[] = (string)($previsualizacion['fecha'] ?? '');
-            $originalPrevio = self::buscarPorId((int)($previsualizacion['reemplaza_reservacion_id'] ?? 0));
+            try {
+                $originalPrevio = self::buscarPorId((int)($previsualizacion['reemplaza_reservacion_id'] ?? 0));
+            } catch (\Throwable $e) {
+                error_log('ReservacionPublicaService::confirmarReemplazo - fallo redactado.');
+                return self::errorInterno();
+            }
             if ($originalPrevio) {
                 $fechas[] = (string)($originalPrevio['fecha'] ?? '');
             }
@@ -1026,7 +1061,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::confirmarReemplazo - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::confirmarReemplazo - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -1040,7 +1075,12 @@ final class ReservacionPublicaService
         if ($id < 1 || $tipo === '' || $contacto === '') {
             return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
-        $actual = self::buscarPorId($id);
+        try {
+            $actual = self::buscarPorId($id);
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::cancelar - fallo redactado.');
+            return self::errorInterno();
+        }
         if (!$actual) {
             return self::noEncontrada();
         }
@@ -1062,7 +1102,12 @@ final class ReservacionPublicaService
         if ($id < 1 || $id !== (int)($contexto['reservation_id'] ?? 0)) {
             return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
-        $actual = self::buscarPorId($id);
+        try {
+            $actual = self::buscarPorId($id);
+        } catch (\Throwable $e) {
+            error_log('ReservacionPublicaService::cancelarConAccesoTemporal - fallo redactado.');
+            return self::errorInterno();
+        }
         if (!$actual) {
             return self::noEncontrada();
         }
@@ -1134,7 +1179,7 @@ final class ReservacionPublicaService
                      LIMIT 1 FOR UPDATE"
                 );
                 if ($ticket === false) {
-                    throw new \RuntimeException($db->error);
+                    throw new \RuntimeException('No fue posible completar la cancelación.');
                 }
                 $ticketAbierto = $ticket->num_rows > 0;
                 $ticket->free();
@@ -1182,7 +1227,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::cancelar - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::cancelar - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -1212,7 +1257,7 @@ final class ReservacionPublicaService
                  FOR UPDATE SKIP LOCKED"
             );
             if ($resultado === false) {
-                throw new \RuntimeException($db->error);
+                throw new \RuntimeException('No fue posible consultar las retenciones.');
             }
             $ids = [];
             while ($fila = $resultado->fetch_assoc()) {
@@ -1229,7 +1274,7 @@ final class ReservacionPublicaService
                      WHERE id IN ({$lista})
                        AND estado = 'pendiente_verificacion'"
                 ) === false) {
-                    throw new \RuntimeException($db->error);
+                    throw new \RuntimeException('No fue posible actualizar las retenciones.');
                 }
                 VerificacionContacto::invalidarPorReservaciones($ids);
             }
@@ -1250,7 +1295,7 @@ final class ReservacionPublicaService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionPublicaService::expirarRetenciones - ' . $e->getMessage());
+            error_log('ReservacionPublicaService::expirarRetenciones - fallo redactado.');
             return self::errorInterno();
         }
     }
@@ -1335,14 +1380,17 @@ final class ReservacionPublicaService
             ?? ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $stmt = $db->prepare(
             'INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota,
                  origen, estado, hold_expires_at, request_token, estado_changed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?, ?)'
         );
-        self::ejecutarStmt($stmt, 'sssssisssss', [
+        $contactoCipher = ContactoProtegidoService::cifrar($datos['tipo'], $datos['contacto']);
+        $contactoHash = ContactoProtegidoService::identificador($datos['tipo'], $datos['contacto']);
+        self::ejecutarStmt($stmt, 'ssssssisssss', [
             $datos['nombre'],
             $datos['tipo'],
-            $datos['contacto'],
+            $contactoCipher,
+            $contactoHash,
             $datos['fecha'],
             $datos['hora'],
             $datos['personas'],
@@ -1382,7 +1430,7 @@ final class ReservacionPublicaService
         $sql = "SELECT r.id, r.request_token
                 FROM reservaciones r
                 WHERE r.contacto_tipo = ?
-                  AND r.contacto = ?
+                  AND r.contacto_hash = ?
                   AND r.fecha = ?
                   AND r.hora = ?
                   AND {$condicionActiva}";
@@ -1395,10 +1443,11 @@ final class ReservacionPublicaService
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la validación de duplicado.');
         }
+        $contactoHash = ContactoProtegidoService::identificador($tipo, $contacto);
         if ($excluirReservacionId > 0) {
-            $stmt->bind_param('ssssi', $tipo, $contacto, $fecha, $hora, $excluirReservacionId);
+            $stmt->bind_param('ssssi', $tipo, $contactoHash, $fecha, $hora, $excluirReservacionId);
         } else {
-            $stmt->bind_param('ssss', $tipo, $contacto, $fecha, $hora);
+            $stmt->bind_param('ssss', $tipo, $contactoHash, $fecha, $hora);
         }
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
@@ -1491,7 +1540,7 @@ final class ReservacionPublicaService
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function buscarPorIdParaActualizar(int $id): ?array
@@ -1524,11 +1573,11 @@ final class ReservacionPublicaService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar el cambio pendiente.');
         }
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function insertarReemplazo(
@@ -1546,24 +1595,26 @@ final class ReservacionPublicaService
         }
         $stmt = ActiveRecord::getDB()->prepare(
             "INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota,
                  origen, estado, hold_expires_at, reemplaza_reservacion_id,
                  request_token, estado_changed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'landing', ?, ?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'landing', ?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el reemplazo.');
         }
         $nombre = (string)$original['nombre'];
         $tipo = (string)$original['contacto_tipo'];
-        $contacto = (string)$original['contacto'];
+        $contacto = ContactoProtegidoService::cifrar($tipo, (string)$original['contacto']);
+        $contactoHash = ContactoProtegidoService::identificador($tipo, (string)$original['contacto']);
         $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $originalId = (int)$original['id'];
         $stmt->bind_param(
-            'sssssisssiss',
+            'ssssssisssiss',
             $nombre,
             $tipo,
             $contacto,
+            $contactoHash,
             $fecha,
             $hora,
             $personas,
@@ -1577,7 +1628,7 @@ final class ReservacionPublicaService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible insertar el reemplazo.');
         }
         $id = (int)$stmt->insert_id;
         $stmt->close();
@@ -1615,7 +1666,7 @@ final class ReservacionPublicaService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible actualizar el reemplazo.');
         }
         $stmt->close();
     }
@@ -1777,7 +1828,7 @@ final class ReservacionPublicaService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible completar la operación de acceso.');
         }
         $stmt->close();
     }

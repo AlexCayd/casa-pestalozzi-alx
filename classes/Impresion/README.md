@@ -110,8 +110,10 @@ La base se define en tres archivos: `database/ddl.sql` (estructura),
 `CREATE TABLE` del DDL, sin `ALTER TABLE` posteriores.
 
 > **Al desplegar en una máquina nueva**, ejecuta primero `database/ddl.sql` y luego
-> `database/deploy.sql`. Carga `database/development.sql` sólo en desarrollo
-> o QA. Sin la columna `conexion` el formulario y `conectar()` fallan.
+> `database/deploy.sql`. Para escenarios ficticios en desarrollo o QA, ejecuta
+> `php scripts/seed-development.php --database=NOMBRE` sobre una base vacía. No
+> importes `database/development.sql` directamente con un cliente SQL. Sin la
+> columna `conexion` el formulario y `conectar()` fallan.
 
 ### Campos según el tipo de conexión
 

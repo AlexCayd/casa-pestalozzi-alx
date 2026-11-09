@@ -9,6 +9,7 @@ namespace Model;
 
     use Services\Reservations\ReservacionConfig;
     use Services\Contact\ContactoService;
+    use Services\Contact\ContactoProtegidoService;
     use Services\Reservations\ReservacionVigenciaService;
 
 class Reservacion extends ActiveRecord {
@@ -18,6 +19,7 @@ class Reservacion extends ActiveRecord {
         'nombre',
         'contacto_tipo',
         'contacto',
+        'contacto_hash',
         'fecha',
         'hora',
         'comensales',
@@ -36,6 +38,67 @@ class Reservacion extends ActiveRecord {
     public $nombre;
     public $contacto_tipo = 'ninguno';
     public $contacto = null;
+
+    public static function consultarSQL($query) {
+        try {
+            return parent::consultarSQL($query);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('No fue posible consultar reservaciones.');
+        }
+    }
+
+    protected static function crearObjeto($registro) {
+        return parent::crearObjeto(ContactoProtegidoService::descifrarFila($registro));
+    }
+
+    /** Cifra en atributos temporales sin alterar el contacto visible del objeto. */
+    public function atributos() {
+        $atributos = [];
+        foreach (static::$columnasDB as $columna) {
+            if ($columna === 'id' || $columna === 'contacto_hash') continue;
+            $atributos[$columna] = $this->$columna;
+        }
+        $contacto = (string)($this->contacto ?? '');
+        $atributos['contacto'] = $contacto === '' ? null : ContactoProtegidoService::cifrar((string)$this->contacto_tipo, $contacto);
+        $atributos['contacto_hash'] = $contacto === '' ? null : ContactoProtegidoService::identificador((string)$this->contacto_tipo, $contacto);
+        return $atributos;
+    }
+
+    public function crear() {
+        return $this->persistirProtegido(true);
+    }
+
+    public function actualizar() {
+        return $this->persistirProtegido(false);
+    }
+
+    private function persistirProtegido(bool $crear) {
+        $atributos = $this->atributos();
+        $columnas = array_keys($atributos);
+        $valores = array_values($atributos);
+        $db = self::getDB();
+        if ($crear) {
+            $sql = 'INSERT INTO reservaciones (' . implode(', ', $columnas) . ') VALUES ('
+                . implode(', ', array_fill(0, count($columnas), '?')) . ')';
+        } else {
+            $sql = 'UPDATE reservaciones SET ' . implode(', ', array_map(
+                static fn(string $columna): string => $columna . ' = ?',
+                $columnas
+            )) . ' WHERE id = ? LIMIT 1';
+            $valores[] = $this->id;
+        }
+        $stmt = $db->prepare($sql);
+        if (!$stmt) throw new \RuntimeException('No fue posible preparar el guardado de la reservación.');
+        $tipos = str_repeat('s', count($valores));
+        $referencias = [$tipos];
+        foreach ($valores as $indice => &$valor) $referencias[] = &$valor;
+        unset($valor);
+        call_user_func_array([$stmt, 'bind_param'], $referencias);
+        $resultado = $stmt->execute();
+        $id = $crear ? (int)$stmt->insert_id : (int)$this->id;
+        $stmt->close();
+        return $crear ? ['resultado' => $resultado, 'id' => $id] : $resultado;
+    }
     public $fecha;
     public $hora;
     public $comensales = 2;
@@ -165,7 +228,7 @@ class Reservacion extends ActiveRecord {
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
@@ -195,11 +258,11 @@ class Reservacion extends ActiveRecord {
             "SELECT * FROM reservaciones WHERE id = {$id} LIMIT 1{$lock}"
         );
         if ($resultado === false) {
-            throw new \RuntimeException(self::getDB()->error);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
         $fila = $resultado->fetch_assoc() ?: null;
         $resultado->free();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     /**
@@ -213,10 +276,10 @@ class Reservacion extends ActiveRecord {
     {
         $stmt = self::getDB()->prepare(
             "INSERT INTO reservaciones
-                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota,
                  comentario_admin, origen, estado, request_token)
              VALUES
-                (?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''),
+                (?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''),
                  'admin', 'confirmada', NULLIF(?, ''))"
         );
         if (!$stmt) {
@@ -226,6 +289,8 @@ class Reservacion extends ActiveRecord {
         $nombre = (string)$this->nombre;
         $contactoTipo = (string)$this->contacto_tipo;
         $contacto = (string)($this->contacto ?? '');
+        $contactoHash = $contacto === '' ? '' : ContactoProtegidoService::identificador($contactoTipo, $contacto);
+        $contacto = $contacto === '' ? '' : ContactoProtegidoService::cifrar($contactoTipo, $contacto);
         $fecha = (string)$this->fecha;
         $hora = (string)$this->hora;
         $comensales = (int)$this->comensales;
@@ -234,10 +299,11 @@ class Reservacion extends ActiveRecord {
         $requestToken = (string)$this->request_token;
 
         $stmt->bind_param(
-            'sssssisss',
+            'ssssssisss',
             $nombre,
             $contactoTipo,
             $contacto,
+            $contactoHash,
             $fecha,
             $hora,
             $comensales,
@@ -340,7 +406,7 @@ class Reservacion extends ActiveRecord {
         $sql = "SELECT id, nombre, fecha, hora, comensales, nota, estado, contacto_tipo
                 FROM reservaciones
                 WHERE contacto_tipo = ?
-                  AND contacto = ?
+                  AND contacto_hash = ?
                   AND {$condicionVisible}
                 ORDER BY fecha ASC, hora ASC, id ASC
                 LIMIT ?";
@@ -349,16 +415,17 @@ class Reservacion extends ActiveRecord {
             throw new \RuntimeException('No fue posible preparar la consulta por contacto.');
         }
 
+        $hash = ContactoProtegidoService::identificador($tipo, $contactoNormalizado);
         $stmt->bind_param(
             'ssi',
             $tipo,
-            $contactoNormalizado,
+            $hash,
             $limite
         );
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
 
         $resultado = $stmt->get_result();
@@ -390,7 +457,7 @@ class Reservacion extends ActiveRecord {
         $sql = "SELECT COUNT(*) AS total
                 FROM reservaciones
                 WHERE contacto_tipo = ?
-                  AND contacto = ?
+                  AND contacto_hash = ?
                   AND {$condicionLimite}";
         if ($excluirReservacionId > 0) {
             $sql .= ' AND id <> ?';
@@ -400,15 +467,16 @@ class Reservacion extends ActiveRecord {
             throw new \RuntimeException('No fue posible preparar el conteo por contacto.');
         }
 
+        $hash = ContactoProtegidoService::identificador($tipo, $contactoNormalizado);
         if ($excluirReservacionId > 0) {
-            $stmt->bind_param('ssi', $tipo, $contactoNormalizado, $excluirReservacionId);
+            $stmt->bind_param('ssi', $tipo, $hash, $excluirReservacionId);
         } else {
-            $stmt->bind_param('ss', $tipo, $contactoNormalizado);
+            $stmt->bind_param('ss', $tipo, $hash);
         }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar reservaciones.');
         }
 
         $fila = $stmt->get_result()->fetch_assoc();
@@ -435,7 +503,7 @@ class Reservacion extends ActiveRecord {
             "SELECT reemplaza_reservacion_id, fecha, hora, comensales, nota, hold_expires_at
              FROM reservaciones
              WHERE contacto_tipo = ?
-               AND contacto = ?
+               AND contacto_hash = ?
                AND estado = 'pendiente_verificacion'
                AND reemplaza_reservacion_id IS NOT NULL
                AND hold_expires_at > ?
@@ -446,17 +514,18 @@ class Reservacion extends ActiveRecord {
         }
 
         $instante = $ahora->format('Y-m-d H:i:s');
-        $stmt->bind_param('sss', $tipo, $contactoNormalizado, $instante);
+        $hash = ContactoProtegidoService::identificador($tipo, $contactoNormalizado);
+        $stmt->bind_param('sss', $tipo, $hash, $instante);
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar reservaciones.');
         }
 
         $resultado = $stmt->get_result();
         $filas = [];
         while ($fila = $resultado->fetch_assoc()) {
-            $filas[] = $fila;
+            $filas[] = ContactoProtegidoService::descifrarFila($fila);
         }
         $stmt->close();
 
@@ -654,8 +723,12 @@ class Reservacion extends ActiveRecord {
         $origen = (string)($filtros['origen'] ?? '');
 
         if ($q !== '') {
-            $qEscapado = self::escaparLike($q);
-            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR r.contacto LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
+            $qEscapado = self::escaparString(addcslashes($q, "\\%_"));
+            $idsContacto = self::idsContactoCoincideAdmin($filtros, $incluirEstado);
+            $coincideContacto = $idsContacto === []
+                ? '0 = 1'
+                : 'r.id IN (' . implode(',', array_map('intval', $idsContacto)) . ')';
+            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR {$coincideContacto})";
         }
 
         if (self::fechaValidaAdmin($fechaInicio)) {
@@ -688,6 +761,61 @@ class Reservacion extends ActiveRecord {
         }
 
         return $condiciones;
+    }
+
+    /** Conserva la collation y semántica LIKE de MySQL al buscar texto descifrado. */
+    private static function idsContactoCoincideAdmin(array $filtros, bool $incluirEstado): array
+    {
+        $filtrosCandidatos = $filtros;
+        unset($filtrosCandidatos['q']);
+        $condiciones = self::condicionesAdmin($filtrosCandidatos, $incluirEstado);
+        $sql = 'SELECT id, contacto_tipo, contacto, contacto_hash FROM reservaciones r';
+        if ($condiciones !== []) $sql .= ' WHERE ' . implode(' AND ', $condiciones);
+        $db = self::getDB();
+        $resultado = $db->query($sql);
+        if ($resultado === false) throw new \RuntimeException('No fue posible consultar reservaciones.');
+
+        $metadata = $db->prepare('SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+        if (!$metadata) {
+            $resultado->free();
+            throw new \RuntimeException('No fue posible consultar reservaciones.');
+        }
+        $table = 'reservaciones';
+        $column = 'contacto';
+        $metadata->bind_param('ss', $table, $column);
+        $metadata->execute();
+        $columna = $metadata->get_result()->fetch_assoc() ?: [];
+        $metadata->close();
+        $charset = (string)($columna['CHARACTER_SET_NAME'] ?? '');
+        $collation = (string)($columna['COLLATION_NAME'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9_]+$/D', $charset) || !preg_match('/^[A-Za-z0-9_]+$/D', $collation)) {
+            $resultado->free();
+            throw new \RuntimeException('No fue posible consultar reservaciones.');
+        }
+        $like = $db->prepare("SELECT CONVERT(? USING {$charset}) COLLATE {$collation} LIKE CONVERT(? USING {$charset}) COLLATE {$collation} ESCAPE '\\\\'");
+        if (!$like) {
+            $resultado->free();
+            throw new \RuntimeException('No fue posible preparar la búsqueda de reservaciones.');
+        }
+        $qEscapado = addcslashes(trim((string)($filtros['q'] ?? '')), "\\%_");
+        $patron = '%' . $qEscapado . '%';
+        $contacto = '';
+        $ids = [];
+        $like->bind_param('ss', $contacto, $patron);
+        while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
+            $contacto = (string)($fila['contacto'] ?? '');
+            if ($contacto === '' || !in_array((string)($fila['contacto_tipo'] ?? ''), ContactoService::TIPOS, true)) continue;
+            if (!$like->execute()) {
+                $like->close();
+                $resultado->free();
+                throw new \RuntimeException('No fue posible consultar reservaciones.');
+            }
+            if ((int)($like->get_result()->fetch_row()[0] ?? 0) === 1) $ids[] = (int)$fila['id'];
+        }
+        $like->close();
+        $resultado->free();
+        return $ids;
     }
 
     private static function havingAsignacionAdmin(array $filtros) {

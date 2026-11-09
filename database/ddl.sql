@@ -140,8 +140,9 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   id                   INT AUTO_INCREMENT PRIMARY KEY,
   nombre               VARCHAR(100) NOT NULL,
   contacto_tipo        ENUM('email','telefono','ninguno') NOT NULL DEFAULT 'ninguno',
-  -- El contacto se persiste en su formato canónico, normalizado en PHP.
-  contacto             VARCHAR(150) NULL,
+  -- Contacto cifrado con AES-256-GCM; la búsqueda exacta usa sólo el HMAC.
+  contacto             VARCHAR(512) NULL,
+  contacto_hash        CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
   fecha                DATE NOT NULL,
   hora                 TIME NOT NULL,
   comensales           INT UNSIGNED NOT NULL DEFAULT 2,
@@ -167,16 +168,20 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
-  INDEX idx_reservaciones_contacto_horario (contacto_tipo, contacto, fecha, hora, estado),
+  INDEX idx_reservaciones_contacto_horario (contacto_tipo, contacto_hash, fecha, hora, estado),
   INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
   INDEX idx_reservaciones_reemplazo (reemplaza_reservacion_id),
   CONSTRAINT chk_reservaciones_comensales
     CHECK (comensales > 0),
   CONSTRAINT chk_reservaciones_contacto
     CHECK (
-      (contacto_tipo = 'ninguno' AND contacto IS NULL)
+      (contacto_tipo = 'ninguno' AND contacto IS NULL AND contacto_hash IS NULL)
       OR
-      (contacto_tipo IN ('email','telefono') AND contacto IS NOT NULL AND TRIM(contacto) <> '')
+      (contacto_tipo IN ('email','telefono')
+       AND contacto IS NOT NULL
+       AND BINARY LEFT(contacto, 4) = BINARY 'cp1:'
+       AND contacto_hash IS NOT NULL
+       AND contacto_hash REGEXP '^[a-f0-9]{64}$')
     ),
   CONSTRAINT chk_reservaciones_retencion_vencimiento
     CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
@@ -218,7 +223,8 @@ CREATE TABLE IF NOT EXISTS verificaciones_contacto (
   id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reservacion_id INT NULL,
   contacto_tipo  ENUM('email','telefono') NOT NULL,
-  contacto       VARCHAR(150) NOT NULL,
+  contacto       VARCHAR(512) NOT NULL,
+  contacto_hash  CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   -- Solamente se persiste el resultado de password_hash().
   codigo_hash    VARCHAR(255) NOT NULL,
   expires_at     DATETIME NOT NULL,
@@ -233,10 +239,12 @@ CREATE TABLE IF NOT EXISTS verificaciones_contacto (
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_verificacion_reservacion
     FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
-  INDEX idx_verificacion_contacto (contacto_tipo, contacto, created_at),
+  CONSTRAINT chk_verificacion_contacto_protegido
+    CHECK (BINARY LEFT(contacto, 4) = BINARY 'cp1:' AND contacto_hash REGEXP '^[a-f0-9]{64}$'),
+  INDEX idx_verificacion_contacto (contacto_tipo, contacto_hash, created_at),
   INDEX idx_verificacion_reservacion (reservacion_id),
   INDEX idx_verificacion_expiracion (expires_at),
-  INDEX idx_verificacion_ciclo (contacto_tipo, contacto, reservacion_id, cycle_id, id)
+  INDEX idx_verificacion_ciclo (contacto_tipo, contacto_hash, reservacion_id, cycle_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS reservacion_mesas (

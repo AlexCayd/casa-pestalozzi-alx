@@ -3,7 +3,7 @@
 > Documentación de las analíticas **implementadas** en la vista
 > `/admin/analytics` (`Services\Analytics\Analiticas` → `AdminController::analytics` →
 > `views/admin/analytics.php`), con datos de demostración en
-> `database/development.sql` (se carga después de `deploy.sql`). El resto —Niveles 2
+> `database/development.sql` (se aplica con el seeder PHP después de `deploy.sql`). El resto —Niveles 2
 > y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
 > implementada**.
 
@@ -69,8 +69,8 @@ Tablas con valor analítico y la señal que aporta cada una.
 
 ## 3. Analíticas diagnósticas implementadas
 
-> **De dónde salen los datos de cada gráfica.** Todo el seed que existe para que
-> el panel tenga algo que graficar vive en un solo archivo,
+> **De dónde salen los datos de cada gráfica.** Los escenarios SQL que carga el
+> seeder para que el panel tenga algo que graficar viven en
 > `database/development.sql` (bloque 2):
 >
 > | Gráfica | Datos |

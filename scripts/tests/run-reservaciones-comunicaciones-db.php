@@ -7,6 +7,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__, 2) . '/includes/app.php';
+require_once __DIR__ . '/contacto-fixture-helper.php';
 
 use Model\ActiveRecord;
 use Services\Contact\ContactoAccesoService;
@@ -16,6 +17,7 @@ use Services\Reservations\ReservacionPublicaService;
 use Services\Security\ReservationAccessTokenService;
 use Services\Security\ReservationManagementAccessService;
 use Services\Notifications\ReservacionNotificacionConfigService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Notifications\ReservationNotificationContract;
 use Services\Notifications\ReservationNotificationResultService;
 use Services\Notifications\ReservationReminderService;
@@ -48,11 +50,14 @@ function insertCommunicationReservation(
     ?int $rootId = null
 ): int {
     $requestToken = bin2hex(random_bytes(32));
+    $protected = contactoProtegidoFixture($contactType, $contact);
+    $contactCipher = $protected['contacto'];
+    $contactHash = $protected['contacto_hash'];
     $stmt = $db->prepare(
         'INSERT INTO reservaciones
-          (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+          (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen,
            estado, request_token, reemplaza_reservacion_id, estado_changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $date = '2037-01-15';
     $time = '13:00:00';
@@ -60,10 +65,11 @@ function insertCommunicationReservation(
     $origin = 'landing';
     $changedAt = '2037-01-14 12:00:00';
     $stmt->bind_param(
-        'sssssissssis',
+        'ssssssissssis',
         $name,
         $contactType,
-        $contact,
+        $contactCipher,
+        $contactHash,
         $date,
         $time,
         $guests,
@@ -88,6 +94,7 @@ $retryImpactItemId = 0;
 $standaloneContacts = [
     'test.accepted.fixture@example.test',
     'test.failed.fixture@example.test',
+    '+525500000123',
 ];
 $oldEnvironment = $_ENV['APP_ENV'] ?? null;
 $oldNow = $_ENV['RESERVATION_TEST_NOW'] ?? null;
@@ -130,9 +137,26 @@ try {
     communicationsDbAssert(!array_key_exists('development_confirmation_code', $externalConfirmation), 'test expuso el código development');
     communicationsDbAssert(
         preg_match('/^\d{6}$/', (string)($confirmationPayload['data']['confirmation_code'] ?? '')) === 1
+            && ($confirmationPayload['contact']['type'] ?? '') === 'email'
+            && ($confirmationPayload['contact']['value'] ?? '') === $standaloneContacts[0]
             && !str_contains((string)json_encode($externalConfirmation), (string)$confirmationPayload['data']['confirmation_code']),
-        'test no confinó el código al payload privado de n8n'
+        'confirmación email no preservó destinatario ni confinó el código al payload privado de n8n'
     );
+
+    $phoneConfirmationPayload = null;
+    $phoneConfirmationClient = new N8nClient(
+        'http://n8n.invalid',
+        'fixture-secret',
+        static function (string $url, string $secret, string $json) use (&$phoneConfirmationPayload): array {
+            $phoneConfirmationPayload = json_decode($json, true);
+            return ['status' => 200, 'body' => '{"ok":true,"accepted":true,"channel":"whatsapp"}'];
+        }
+    );
+    $phoneConfirmation = ContactoAccesoService::solicitarCodigo('telefono', $standaloneContacts[2], $phoneConfirmationClient);
+    communicationsDbAssert(($phoneConfirmation['ok'] ?? false) === true
+        && ($phoneConfirmationPayload['contact']['type'] ?? '') === 'whatsapp'
+        && ($phoneConfirmationPayload['contact']['value'] ?? '') === $standaloneContacts[2],
+        'confirmación WhatsApp no preservó destinatario');
 
     $failedConfirmationClient = new N8nClient(
         'http://n8n.invalid',
@@ -145,13 +169,16 @@ try {
         $failedConfirmationClient
     );
     communicationsDbAssert(($failedConfirmation['ok'] ?? true) === false && ($failedConfirmation['codigo'] ?? '') === 'OTP_ENVIO_FALLIDO', 'fallo de confirmación test no se informó');
-    $failedVerificationResult = $db->query(
-        "SELECT COUNT(*) AS total FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContacts[1]) . "'"
-    );
+    $standaloneHash = ContactoProtegidoService::identificador('email', $standaloneContacts[1]);
+    $failedVerificationStmt = $db->prepare('SELECT COUNT(*) AS total FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto_hash = ?');
+    $failedVerificationStmt->bind_param('s', $standaloneHash);
+    $failedVerificationStmt->execute();
+    $failedVerificationResult = $failedVerificationStmt->get_result();
     $failedVerificationCount = $failedVerificationResult ? (int)($failedVerificationResult->fetch_assoc()['total'] ?? 0) : 0;
     if ($failedVerificationResult) {
         $failedVerificationResult->free();
     }
+    $failedVerificationStmt->close();
     communicationsDbAssert($failedVerificationCount === 1, 'el fallo de transporte revirtió el hash de confirmación');
 
     $eligibleId = insertCommunicationReservation(
@@ -171,6 +198,9 @@ try {
     communicationsDbAssert(($firstBatch['due'] ?? false) === true, 'el recordatorio no quedó listo a la hora configurada');
     communicationsDbAssert(count($firstBatch['notifications'] ?? []) === 1, 'el primer lote debe contener sólo el fixture elegible');
     $first = $firstBatch['notifications'][0];
+    communicationsDbAssert(($first['contact']['type'] ?? '') === 'email'
+        && ($first['contact']['value'] ?? '') === 'reservation.fixture@example.test',
+        'recordatorio no preservó el destinatario de email');
     communicationsDbAssert(($first['reservation_id'] ?? 0) === $eligibleId, 'el lote preparó una reservación distinta');
     $firstToken = tokenFromManagementUrl((string)($first['data']['management_url'] ?? ''));
 
@@ -525,9 +555,12 @@ try {
         }
     }
     foreach ($standaloneContacts as $standaloneContact) {
-        $db->query(
-            "DELETE FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto = '" . $db->real_escape_string($standaloneContact) . "'"
-        );
+        $standaloneType = $standaloneContact === $standaloneContacts[2] ? 'telefono' : 'email';
+        $standaloneHash = ContactoProtegidoService::identificador($standaloneType, $standaloneContact);
+        $deleteStandalone = $db->prepare('DELETE FROM verificaciones_contacto WHERE reservacion_id IS NULL AND contacto_hash = ?');
+        $deleteStandalone->bind_param('s', $standaloneHash);
+        $deleteStandalone->execute();
+        $deleteStandalone->close();
     }
     $oldActive = (int)($oldConfig['recordatorio_dia_anterior_activo'] ?? 0);
     $oldTime = $db->real_escape_string((string)($oldConfig['hora_recordatorio'] ?? '18:00:00'));

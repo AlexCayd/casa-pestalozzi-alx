@@ -7,6 +7,7 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Services\Contact\ContactoProtegidoService;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Shared\FechaOperacionLock;
 
@@ -132,7 +133,7 @@ final class ReservacionMapaAdministrativaService
                 return $resultado;
             } catch (\Throwable $error) {
                 $db->rollback();
-                error_log('ReservacionMapaAdministrativaService::guardarAsignacion - ' . $error->getMessage());
+                error_log('ReservacionMapaAdministrativaService::guardarAsignacion - operación fallida.');
                 return ['ok' => false, 'codigo' => AsignacionMesasService::ERROR_INTERNO];
             }
         });
@@ -222,7 +223,7 @@ final class ReservacionMapaAdministrativaService
                 ];
             } catch (\Throwable $error) {
                 $db->rollback();
-                error_log('ReservacionMapaAdministrativaService::liberarAsignacion - ' . $error->getMessage());
+                error_log('ReservacionMapaAdministrativaService::liberarAsignacion - operación fallida.');
                 return ['ok' => false, 'codigo' => AsignacionMesasService::ERROR_INTERNO];
             }
         });
@@ -286,7 +287,7 @@ final class ReservacionMapaAdministrativaService
             $lockFecha = true;
             return $callback();
         } catch (\Throwable $error) {
-            error_log('ReservacionMapaAdministrativaService::conLocksFecha - ' . $error->getMessage());
+            error_log('ReservacionMapaAdministrativaService::conLocksFecha - operación fallida.');
             return ['ok' => false, 'codigo' => AsignacionMesasService::ERROR_INTERNO];
         } finally {
             if ($lockFecha) {
@@ -312,11 +313,11 @@ final class ReservacionMapaAdministrativaService
     {
         $resultado = ActiveRecord::getDB()->query($query);
         if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
         $fila = $resultado->fetch_assoc() ?: null;
         $resultado->free();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function version(array $reservacion, array $mesaIds): string

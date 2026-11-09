@@ -2,6 +2,8 @@
 
 namespace Services\Reservations;
 
+use Services\Contact\ContactoProtegidoService;
+
 use Model\ActiveRecord;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
@@ -120,7 +122,7 @@ final class ReservacionMantenimientoService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionMantenimientoService::procesarPendientesVencidas - ' . $e->getMessage());
+            error_log('ReservacionMantenimientoService::procesarPendientesVencidas - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }
@@ -143,7 +145,7 @@ final class ReservacionMantenimientoService
                 'filtros' => $filtros,
             ], self::resumenSeleccion($seleccion));
         } catch (\Throwable $e) {
-            error_log('ReservacionMantenimientoService::vistaPreviaLimpieza - ' . $e->getMessage());
+            error_log('ReservacionMantenimientoService::vistaPreviaLimpieza - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }
@@ -213,7 +215,7 @@ final class ReservacionMantenimientoService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionMantenimientoService::limpiar - ' . $e->getMessage());
+            error_log('ReservacionMantenimientoService::limpiar - operación fallida.');
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
@@ -261,11 +263,6 @@ final class ReservacionMantenimientoService
             static fn(string $estado): string => "'" . $estado . "'",
             $filtros['estados']
         ));
-        $prefijoSql = '';
-        if ($filtros['prefijo'] !== '') {
-            $prefijo = $db->real_escape_string($filtros['prefijo']) . '%';
-            $prefijoSql = " AND (r.nombre LIKE '{$prefijo}' OR r.contacto LIKE '{$prefijo}')";
-        }
         $lock = $bloquear ? ' FOR UPDATE' : '';
         $resultado = $db->query(
             "SELECT r.*,
@@ -282,16 +279,22 @@ final class ReservacionMantenimientoService
              FROM reservaciones r
              WHERE r.fecha BETWEEN '{$filtros['fecha_desde']}' AND '{$filtros['fecha_hasta']}'
                AND r.estado IN ({$estadosSql})
-               {$prefijoSql}
              ORDER BY r.id{$lock}"
         );
         if (!$resultado) {
-            throw new \RuntimeException($db->error);
+            throw new \RuntimeException('No fue posible consultar reservaciones para mantenimiento.');
         }
 
         $procesables = [];
         $omitidas = [];
+        $prefijo = (string)$filtros['prefijo'];
         while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
+            if ($prefijo !== ''
+                && !self::coincidePrefijoMySql($db, (string)$fila['nombre'], $prefijo, 'nombre')
+                && !self::coincidePrefijoMySql($db, (string)($fila['contacto'] ?? ''), $prefijo, 'contacto')) {
+                continue;
+            }
             $motivo = self::motivoOmision($fila, $filtros);
             if ($motivo === '') {
                 $procesables[] = $fila;
@@ -302,6 +305,37 @@ final class ReservacionMantenimientoService
         $resultado->free();
 
         return ['procesables' => $procesables, 'omitidas_detalle' => $omitidas];
+    }
+
+    private static function coincidePrefijoMySql(\mysqli $db, string $valor, string $prefijo, string $campo): bool
+    {
+        if (!in_array($campo, ['nombre', 'contacto'], true)) throw new \InvalidArgumentException('Campo de búsqueda inválido.');
+        $metadata = $db->prepare('SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+        if (!$metadata) throw new \RuntimeException('No fue posible aplicar el filtro de mantenimiento.');
+        $table = 'reservaciones';
+        $metadata->bind_param('ss', $table, $campo);
+        if (!$metadata->execute()) {
+            $metadata->close();
+            throw new \RuntimeException('No fue posible aplicar el filtro de mantenimiento.');
+        }
+        $columna = $metadata->get_result()->fetch_assoc() ?: [];
+        $metadata->close();
+        $charset = (string)($columna['CHARACTER_SET_NAME'] ?? '');
+        $collation = (string)($columna['COLLATION_NAME'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9_]+$/D', $charset) || !preg_match('/^[A-Za-z0-9_]+$/D', $collation)) {
+            throw new \RuntimeException('No fue posible aplicar el filtro de mantenimiento.');
+        }
+        $patron = $prefijo . '%';
+        $stmt = $db->prepare("SELECT CONVERT(? USING {$charset}) COLLATE {$collation} LIKE CONVERT(? USING {$charset}) COLLATE {$collation}");
+        if (!$stmt) throw new \RuntimeException('No fue posible preparar el filtro de mantenimiento.');
+        $stmt->bind_param('ss', $valor, $patron);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new \RuntimeException('No fue posible aplicar el filtro de mantenimiento.');
+        }
+        $coincide = (int)($stmt->get_result()->fetch_row()[0] ?? 0) === 1;
+        $stmt->close();
+        return $coincide;
     }
 
     private static function motivoOmision(array $fila, array $filtros): string

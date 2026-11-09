@@ -1,6 +1,7 @@
 <?php
 
 namespace Services\Notifications;
+use Services\Contact\ContactoProtegidoService;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
@@ -107,6 +108,7 @@ final class ReservationReminderService
             $stmt->execute();
             $fila = $stmt->get_result()->fetch_assoc() ?: null;
             $stmt->close();
+            $fila = $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
             if (!$fila || !self::esElegible($fila, $fechaObjetivo) || self::tieneAfectacionActiva($db, $reservacionId)) {
                 $db->rollback();
                 return null;

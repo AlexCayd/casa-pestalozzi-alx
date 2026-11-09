@@ -8,6 +8,7 @@
 namespace Model;
 
 use Services\Reservations\ReservacionVigenciaService;
+use Services\Contact\ContactoProtegidoService;
 
 class ReservacionMesa extends ActiveRecord
 {
@@ -154,6 +155,7 @@ class ReservacionMesa extends ActiveRecord
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,
                     r.nombre,
+                    r.contacto_tipo,
                     r.contacto,
                     r.fecha,
                     r.hora,
@@ -174,6 +176,7 @@ class ReservacionMesa extends ActiveRecord
 
         $ocupacion = [];
         while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
             $asignacion = [
                 'mesa_id' => (int)$fila['mesa_id'],
                 'reservacion_id' => (int)$fila['reservacion_id'],

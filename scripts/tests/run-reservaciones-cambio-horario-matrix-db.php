@@ -7,6 +7,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__, 2) . '/includes/app.php';
+require_once __DIR__ . '/contacto-fixture-helper.php';
 
 use Model\ActiveRecord;
 use Services\Integrations\N8nClient;
@@ -34,17 +35,21 @@ function insertScheduleMatrixReservation(
     $origin = 'landing';
     $status = 'confirmada';
     $changedAt = '2037-02-14 12:00:00';
+    $protected = contactoProtegidoFixture($contactType, $contact);
+    $contactCipher = $protected['contacto'];
+    $contactHash = $protected['contacto_hash'];
     $stmt = $db->prepare(
         'INSERT INTO reservaciones
-          (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen,
+          (nombre, contacto_tipo, contacto, contacto_hash, fecha, hora, comensales, nota, origen,
            estado, request_token, estado_changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $stmt->bind_param(
-        'sssssisssss',
+        'ssssssisssss',
         $name,
         $contactType,
-        $contact,
+        $contactCipher,
+        $contactHash,
         $date,
         $time,
         $guests,
@@ -125,6 +130,15 @@ try {
     $channels = array_map(static fn(array $payload): string => (string)($payload['contact']['type'] ?? ''), $captured);
     sort($channels);
     scheduleMatrixAssert($channels === ['email', 'whatsapp'], 'el impacto no cubrió Email y WhatsApp');
+    $recipients = [];
+    foreach ($captured as $payload) {
+        $recipients[(int)($payload['reservation_id'] ?? 0)] = [
+            (string)($payload['contact']['type'] ?? ''),
+            (string)($payload['contact']['value'] ?? ''),
+        ];
+    }
+    scheduleMatrixAssert(($recipients[$reservationIds['small_email']] ?? null) === ['email', 'matrix.email@example.test'], 'cambio de horario no preservó destinatario email');
+    scheduleMatrixAssert(($recipients[$reservationIds['small_whatsapp']] ?? null) === ['whatsapp', '+525500000021'], 'cambio de horario no preservó destinatario WhatsApp');
 
     $rowsResult = $db->query(
         "SELECT ir.id, ir.reservacion_id, ir.estado, ir.notification_attempts,

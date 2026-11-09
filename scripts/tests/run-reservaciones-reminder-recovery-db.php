@@ -2,6 +2,7 @@
 declare(strict_types=1);
 if (PHP_SAPI !== 'cli' || !getenv('CP_NOTIFICATION_TEST_DATABASE')) exit('Usar run-notifications-isolated.php');
 require dirname(__DIR__, 2) . '/includes/app.php';
+require_once __DIR__ . '/contacto-fixture-helper.php';
 use Model\ActiveRecord;
 use Services\Notifications\ReservationReminderService as Reminder;
 use Services\Notifications\ReservationNotificationResultService as Result;
@@ -16,10 +17,19 @@ try {
     ReservacionNotificacionConfigService::guardar(['recordatorio_dia_anterior_activo' => true, 'hora_recordatorio' => '18:00'], null);
     foreach (['email', 'telefono'] as $channel) {
         $contact = $channel === 'email' ? 'reminder.recovery@example.test' : '+525500000098';
-        $stmt = $db->prepare("INSERT INTO reservaciones (nombre,contacto_tipo,contacto,fecha,hora,comensales,origen,estado) VALUES ('FIXTURE recovery',?,?,'2037-01-15','13:00',2,'landing','confirmada')");
-        $stmt->bind_param('ss', $channel, $contact); $stmt->execute(); $ids[] = $db->insert_id; $stmt->close();
+        $protected = contactoProtegidoFixture($channel, $contact);
+        $contactCipher = $protected['contacto'];
+        $contactHash = $protected['contacto_hash'];
+        $stmt = $db->prepare("INSERT INTO reservaciones (nombre,contacto_tipo,contacto,contacto_hash,fecha,hora,comensales,origen,estado) VALUES ('FIXTURE recovery',?,?,?,'2037-01-15','13:00',2,'landing','confirmada')");
+        $stmt->bind_param('sss', $channel, $contactCipher, $contactHash); $stmt->execute(); $ids[] = $db->insert_id; $stmt->close();
     }
     $first = Reminder::preparar()['notifications']; reminderAssert(count($first) === 2, 'preparación dos canales');
+    $firstRecipients = [];
+    foreach ($first as $notification) {
+        $firstRecipients[(string)($notification['contact']['type'] ?? '')] = (string)($notification['contact']['value'] ?? '');
+    }
+    reminderAssert(($firstRecipients['email'] ?? '') === 'reminder.recovery@example.test'
+        && ($firstRecipients['whatsapp'] ?? '') === '+525500000098', 'destinatarios de ambos recordatorios preservados');
     reminderAssert(Reminder::preparar()['notifications'] === [], 'scheduler duplicado');
     $_ENV['RESERVATION_TEST_NOW'] = '2037-01-14 18:06:00';
     $retry = Reminder::preparar()['notifications']; reminderAssert(count($retry) === 2, 'caída después prepare recuperada');

@@ -11,6 +11,7 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Services\Contact\ContactoProtegidoService;
 use Services\Tables\OcupacionMesasService;
 
 class AsignacionMesasService
@@ -637,10 +638,10 @@ class AsignacionMesasService
                     $db->rollback();
                 }
             } catch (\Throwable $rollbackError) {
-                error_log('AsignacionMesasService rollback - ' . $rollbackError->getMessage());
+                error_log('AsignacionMesasService::asignar - fallo al revertir operación.');
             }
 
-            error_log('AsignacionMesasService::asignar - ' . $e->getMessage());
+            error_log('AsignacionMesasService::asignar - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }
@@ -746,13 +747,13 @@ class AsignacionMesasService
         $resultado = ActiveRecord::getDB()->query($query);
 
         if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
 
         $fila = $resultado->fetch_assoc() ?: null;
         $resultado->free();
 
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
 }

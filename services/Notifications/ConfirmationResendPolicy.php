@@ -6,6 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
 use Services\Contact\ContactoService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Reservations\ReservacionConfig;
 
 /**
@@ -65,12 +66,13 @@ final class ConfirmationResendPolicy
                 return ['error' => 'DATOS_INVALIDOS'];
             }
             $stmt = ActiveRecord::getDB()->prepare(
-                'SELECT contacto_tipo, contacto, estado, hold_expires_at FROM reservaciones WHERE id = ?'
+                'SELECT contacto_tipo, contacto, contacto_hash, estado, hold_expires_at FROM reservaciones WHERE id = ?'
             );
             $stmt->bind_param('i', $reservacionId);
             $stmt->execute();
             $reservation = $stmt->get_result()->fetch_assoc();
             $stmt->close();
+            $reservation = $reservation ? ContactoProtegidoService::descifrarFila($reservation) : null;
             if (!$reservation || !hash_equals((string)$reservation['contacto_tipo'], $tipo)
                 || !hash_equals((string)$reservation['contacto'], $contacto)) {
                 return ['error' => 'RESERVACION_NO_EXISTE'];

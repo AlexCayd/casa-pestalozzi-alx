@@ -7,6 +7,7 @@
 
 namespace Services\Reservations;
 use Services\Contact\ContactoService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Pos\PuntoVentaReservacionService;
 
 use DateTimeImmutable;
@@ -97,7 +98,7 @@ class ReservacionService
                 'motivo_no_disponible' => $calendario['motivo_no_disponible'] ?? null,
             ];
         } catch (\Throwable $e) {
-            error_log('ReservacionService::obtenerHorariosDisponiblesParaFecha - ' . $e->getMessage());
+            error_log('ReservacionService::obtenerHorariosDisponiblesParaFecha - operación fallida.');
 
             return self::respuestaDisponibilidadError(
                 $fecha,
@@ -185,10 +186,10 @@ class ReservacionService
             try {
                 $db->rollback();
             } catch (\Throwable $rollbackError) {
-                error_log('ReservacionService rollback - ' . $rollbackError->getMessage());
+                error_log('ReservacionService::actualizarComentario - fallo al revertir operación.');
             }
 
-            error_log('ReservacionService::actualizarComentario - ' . $e->getMessage());
+            error_log('ReservacionService::actualizarComentario - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }
@@ -326,10 +327,10 @@ class ReservacionService
             try {
                 $db->rollback();
             } catch (\Throwable $rollbackError) {
-                error_log('ReservacionService rollback - ' . $rollbackError->getMessage());
+                error_log('ReservacionService::cambiarEstado - fallo al revertir operación.');
             }
 
-            error_log('ReservacionService::cambiarEstado - ' . $e->getMessage());
+            error_log('ReservacionService::cambiarEstado - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }
@@ -580,18 +581,18 @@ class ReservacionService
                         return self::resultadoCreacionExistente($existente);
                     }
                 } catch (\Throwable $consultaError) {
-                    error_log('ReservacionService::crearReservacion idempotencia - ' . $consultaError->getMessage());
+                    error_log('ReservacionService::crearReservacion idempotencia - consulta fallida.');
                 }
             }
 
-            error_log('ReservacionService::crearReservacion - ' . $e->getMessage());
+            error_log('ReservacionService::crearReservacion - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'errors' => []];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
                 $transaccionIniciada = false;
             }
-            error_log('ReservacionService::crearReservacion - ' . $e->getMessage());
+            error_log('ReservacionService::crearReservacion - operación fallida.');
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'errors' => []];
         } finally {
             if ($transaccionIniciada) {
@@ -844,12 +845,16 @@ class ReservacionService
     {
         $contactoSql = $datos['contacto'] === null || $datos['contacto'] === ''
             ? 'NULL'
-            : "'" . ActiveRecord::escaparString($datos['contacto']) . "'";
+            : "'" . ActiveRecord::escaparString(ContactoProtegidoService::cifrar($datos['contacto_tipo'], $datos['contacto'])) . "'";
+        $contactoHashSql = $datos['contacto'] === null || $datos['contacto'] === ''
+            ? 'NULL'
+            : "'" . ActiveRecord::escaparString(ContactoProtegidoService::identificador($datos['contacto_tipo'], $datos['contacto'])) . "'";
         $estadoSql = ActiveRecord::escaparString($estado);
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
             "contacto_tipo = '" . ActiveRecord::escaparString($datos['contacto_tipo']) . "'",
             "contacto = {$contactoSql}",
+            "contacto_hash = {$contactoHashSql}",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             "comensales = " . (int)$datos['comensales'],
@@ -946,19 +951,19 @@ class ReservacionService
         $resultado = ActiveRecord::getDB()->query($query);
 
         if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible consultar la reservación.');
         }
 
         $fila = $resultado->fetch_assoc() ?: null;
         $resultado->free();
 
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function ejecutar(string $query): void
     {
         if (ActiveRecord::getDB()->query($query) === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+            throw new \RuntimeException('No fue posible guardar los cambios de la reservación.');
         }
     }
 

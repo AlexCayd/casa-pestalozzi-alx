@@ -9,6 +9,8 @@
 
 namespace Model;
 
+use Services\Contact\ContactoProtegidoService;
+
 class VerificacionContacto extends ActiveRecord
 {
     protected static $tabla = 'verificaciones_contacto';
@@ -25,11 +27,11 @@ class VerificacionContacto extends ActiveRecord
         ?int $reservacionId = null
     ): ?array
     {
-        $sql = 'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
+        $sql = 'SELECT id, reservacion_id, contacto_tipo, contacto, contacto_hash, codigo_hash, expires_at,
                        attempts, used_at, invalidated_at, created_at, delivery_status,
                        accepted_at, cycle_id, cycle_expires_at
                 FROM verificaciones_contacto
-                WHERE contacto_tipo = ? AND contacto = ? AND ';
+                WHERE contacto_tipo = ? AND contacto_hash = ? AND ';
         $sql .= $reservacionId === null
             ? 'reservacion_id IS NULL '
             : 'reservacion_id = ? ';
@@ -39,21 +41,22 @@ class VerificacionContacto extends ActiveRecord
             throw new \RuntimeException('No fue posible preparar la consulta de verificación.');
         }
 
+        $hash = ContactoProtegidoService::identificador($tipo, $contacto);
         if ($reservacionId === null) {
-            $stmt->bind_param('ss', $tipo, $contacto);
+            $stmt->bind_param('ss', $tipo, $hash);
         } else {
-            $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+            $stmt->bind_param('ssi', $tipo, $hash, $reservacionId);
         }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar la verificación.');
         }
 
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
 
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     /**
@@ -65,12 +68,12 @@ class VerificacionContacto extends ActiveRecord
         int $reservacionId
     ): ?array {
         $stmt = self::getDB()->prepare(
-            'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash,
+            'SELECT id, reservacion_id, contacto_tipo, contacto, contacto_hash, codigo_hash,
                     expires_at, attempts, used_at, invalidated_at, created_at,
                     delivery_status, accepted_at, cycle_id, cycle_expires_at
              FROM verificaciones_contacto
              WHERE contacto_tipo = ?
-               AND contacto = ?
+               AND contacto_hash = ?
                AND reservacion_id = ?
              ORDER BY id DESC
              LIMIT 1
@@ -79,16 +82,17 @@ class VerificacionContacto extends ActiveRecord
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la verificación de la retención.');
         }
-        $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+        $hash = ContactoProtegidoService::identificador($tipo, $contacto);
+        $stmt->bind_param('ssi', $tipo, $hash, $reservacionId);
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar la verificación.');
         }
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
 
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     /**
@@ -103,7 +107,7 @@ class VerificacionContacto extends ActiveRecord
         $sql = 'UPDATE verificaciones_contacto
                 SET invalidated_at = NOW()
                 WHERE contacto_tipo = ?
-                  AND contacto = ?
+                  AND contacto_hash = ?
                   AND used_at IS NULL
                   AND invalidated_at IS NULL
                   AND ';
@@ -113,15 +117,16 @@ class VerificacionContacto extends ActiveRecord
             throw new \RuntimeException('No fue posible preparar la invalidación de códigos anteriores.');
         }
 
+        $hash = ContactoProtegidoService::identificador($tipo, $contacto);
         if ($reservacionId === null) {
-            $stmt->bind_param('ss', $tipo, $contacto);
+            $stmt->bind_param('ss', $tipo, $hash);
         } else {
-            $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+            $stmt->bind_param('ssi', $tipo, $hash, $reservacionId);
         }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible actualizar la verificación.');
         }
         $stmt->close();
     }
@@ -143,20 +148,22 @@ class VerificacionContacto extends ActiveRecord
         $cycleExpiresAt ??= $expiresAt;
         $createdAt ??= \Services\Reservations\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $sql = "INSERT INTO verificaciones_contacto
-                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
+                (reservacion_id, contacto_tipo, contacto, contacto_hash, codigo_hash, expires_at,
                  attempts, delivery_status, cycle_id, cycle_expires_at, created_at)
-                VALUES (?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?)";
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del código.');
         }
 
-        $stmt->bind_param('isssssss', $reservacionId, $tipo, $contacto, $codigoHash,
+        $contactoCifrado = ContactoProtegidoService::cifrar($tipo, $contacto);
+        $contactoHash = ContactoProtegidoService::identificador($tipo, $contacto);
+        $stmt->bind_param('issssssss', $reservacionId, $tipo, $contactoCifrado, $contactoHash, $codigoHash,
             $expiresAt, $cycleId, $cycleExpiresAt, $createdAt);
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible guardar la verificación.');
         }
 
         $id = (int)self::getDB()->insert_id;
@@ -172,10 +179,11 @@ class VerificacionContacto extends ActiveRecord
             'SELECT id, delivery_status, accepted_at, created_at, expires_at,
                     used_at, cycle_id, cycle_expires_at
              FROM verificaciones_contacto
-             WHERE contacto_tipo = ? AND contacto = ? AND reservacion_id <=> ?
+             WHERE contacto_tipo = ? AND contacto_hash = ? AND reservacion_id <=> ?
              ORDER BY id DESC'
         );
-        $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+        $hash = ContactoProtegidoService::identificador($tipo, $contacto);
+        $stmt->bind_param('ssi', $tipo, $hash, $reservacionId);
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
@@ -222,7 +230,7 @@ class VerificacionContacto extends ActiveRecord
                   AND used_at IS NULL
                   AND invalidated_at IS NULL';
         if (self::getDB()->query($sql) === false) {
-            throw new \RuntimeException(self::getDB()->error);
+            throw new \RuntimeException('No fue posible actualizar la verificación.');
         }
     }
 
@@ -247,7 +255,7 @@ class VerificacionContacto extends ActiveRecord
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible actualizar la verificación.');
         }
         $stmt->close();
     }
@@ -270,7 +278,7 @@ class VerificacionContacto extends ActiveRecord
         if (!$stmt->execute() || $stmt->affected_rows !== 1) {
             $mensaje = $stmt->error ?: 'El código dejó de estar disponible.';
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible actualizar la verificación.');
         }
         $stmt->close();
     }

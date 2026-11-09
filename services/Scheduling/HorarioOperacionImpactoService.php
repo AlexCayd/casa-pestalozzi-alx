@@ -6,6 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
 use Services\Contact\ContactoService;
+use Services\Contact\ContactoProtegidoService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Notifications\ReservationNotificationContract;
@@ -177,7 +178,7 @@ final class HorarioOperacionImpactoService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible consultar el seguimiento de horario.');
         }
         $impactoId = (int)$db->insert_id;
         $stmt->close();
@@ -211,7 +212,7 @@ final class HorarioOperacionImpactoService
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
-            throw new \RuntimeException($mensaje);
+            throw new \RuntimeException('No fue posible actualizar el seguimiento de horario.');
         }
         $stmt->close();
         self::clasificarSeguimientosEnTransaccion($db, $impactoId, $usuarioId);
@@ -323,6 +324,7 @@ final class HorarioOperacionImpactoService
         $filas = [];
         $impacto = null;
         while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
             $impacto ??= [
                 'id' => (int)$fila['impacto_id'],
                 'tipo_origen' => (string)$fila['tipo_origen'],
@@ -398,6 +400,7 @@ final class HorarioOperacionImpactoService
             $stmt->execute();
             $fila = $stmt->get_result()->fetch_assoc() ?: null;
             $stmt->close();
+            $fila = $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
             if (!$fila) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
@@ -502,12 +505,14 @@ final class HorarioOperacionImpactoService
             }
             $stmt = $db->prepare(
                 "UPDATE reservaciones
-                 SET contacto_tipo = ?, contacto = ?
+                 SET contacto_tipo = ?, contacto = ?, contacto_hash = ?
                  WHERE id = ? AND contacto_tipo = 'ninguno'
                    AND (contacto IS NULL OR TRIM(contacto) = '')"
             );
             $reservacion = (int)$fila['reservacion_id'];
-            $stmt->bind_param('ssi', $tipo, $normalizado, $reservacion);
+            $contactoCifrado = ContactoProtegidoService::cifrar($tipo, $normalizado);
+            $contactoHash = ContactoProtegidoService::identificador($tipo, $normalizado);
+            $stmt->bind_param('sssi', $tipo, $contactoCifrado, $contactoHash, $reservacion);
             if (!$stmt->execute() || $stmt->affected_rows !== 1) {
                 $stmt->close();
                 return ['ok' => false, 'codigo' => 'CONTACTO_NO_EDITABLE'];
@@ -726,6 +731,7 @@ final class HorarioOperacionImpactoService
         $resultado = $stmt->get_result();
         $filas = [];
         while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
             $filas[] = $fila;
         }
         $stmt->close();
@@ -917,6 +923,7 @@ final class HorarioOperacionImpactoService
         if (!$fila) {
             return null;
         }
+        $fila = ContactoProtegidoService::descifrarFila($fila);
         $tieneContacto = self::filaTieneContacto($fila);
         $resultado = [
             'impacto_id' => (int)$fila['impacto_id'],
@@ -1006,7 +1013,7 @@ final class HorarioOperacionImpactoService
                 if (!$stmt->execute()) {
                     $mensaje = $stmt->error;
                     $stmt->close();
-                    throw new \RuntimeException($mensaje);
+                    throw new \RuntimeException('No fue posible reconciliar el seguimiento de horario.');
                 }
                 $stmt->close();
                 BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
@@ -1140,7 +1147,7 @@ final class HorarioOperacionImpactoService
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-        return $fila;
+        return $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
     }
 
     private static function accessUrl(string $token): string

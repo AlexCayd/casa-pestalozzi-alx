@@ -2,6 +2,7 @@
 
 namespace Services\Reservations;
 
+use Services\Contact\ContactoProtegidoService;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\TicketMesa;
@@ -206,7 +207,7 @@ final class ReservacionBuzonService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ReservacionBuzonService::sincronizarPendientesTemporales - ' . $e->getMessage());
+            error_log('ReservacionBuzonService::sincronizarPendientesTemporales - operación fallida.');
         }
 
         return [
@@ -326,6 +327,7 @@ final class ReservacionBuzonService
         $resultado = $stmt->get_result();
         $filas = [];
         while ($fila = $resultado->fetch_assoc()) {
+            $fila = ContactoProtegidoService::descifrarFila($fila);
             $fila['id'] = (int)$fila['id'];
             $fila['comensales'] = (int)$fila['comensales'];
             $fila['mesas_count'] = (int)$fila['mesas_count'];
@@ -382,6 +384,7 @@ final class ReservacionBuzonService
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
+        $fila = $fila ? ContactoProtegidoService::descifrarFila($fila) : null;
         if ($fila) {
             $fila['mesas_count'] = (int)$fila['mesas_count'];
         }

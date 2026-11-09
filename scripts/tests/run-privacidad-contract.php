@@ -21,6 +21,7 @@ function assertSinContacto($value): void
     $prohibidos = [
         'contacto',
         'contacto_tipo',
+        'contacto_hash',
         'email',
         'telefono',
         'phone',

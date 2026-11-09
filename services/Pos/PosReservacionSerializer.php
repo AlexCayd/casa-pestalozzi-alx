@@ -30,6 +30,7 @@ final class PosReservacionSerializer
     private const CAMPOS_CONTACTO_WAITER = [
         'contacto',
         'contacto_tipo',
+        'contacto_hash',
         'email',
         'telefono',
         'phone',
