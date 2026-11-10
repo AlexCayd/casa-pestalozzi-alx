@@ -7,7 +7,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS faltante_asignaciones, faltantes_inventario, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS faltante_asignaciones, faltantes_inventario, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, entradas_proveedor, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -374,6 +374,16 @@ CREATE TABLE ingrediente_proveedores (
  UNIQUE KEY uq_ing_prov(unidad_id,ingrediente_id,proveedor_id), INDEX idx_ing_prov_proveedor(unidad_id,proveedor_id),
  FOREIGN KEY(ingrediente_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
  FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT, CHECK(costo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- De quién llegó una entrada (arquitectura §17). Una fila por operación del motor:
+-- el proveedor es del documento recibido, no de cada línea. Mismo ámbito por FK
+-- compuesta en ambos lados; un proveedor con entradas no se borra, se desactiva.
+CREATE TABLE entradas_proveedor (
+ operacion_id BIGINT UNSIGNED NOT NULL PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, proveedor_id INT UNSIGNED NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_entrada_proveedor(unidad_id,proveedor_id),
+ FOREIGN KEY(operacion_id,unidad_id) REFERENCES operaciones_inventario(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE historial_precios (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, oferta_id INT UNSIGNED NULL, articulo_id INT UNSIGNED NULL,

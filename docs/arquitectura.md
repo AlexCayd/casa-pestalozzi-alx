@@ -77,6 +77,7 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Modelo preparado; POS sin mesas pendiente |
 | Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas, tickets, indicadores y productos más vendidos por negocio), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH); las ventas contestan en cero hasta que exista la caja |
+| Proveedores | Funcional: directorio propio para sus almacenes y consulta consolidada de los tres; no edita los de un negocio | Funcional: directorio, artículos que surte, entradas ligadas e histórico | Funcional: mismas operaciones locales, aisladas por propietario |
 | Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes y transferencias; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú; las de ventas contestan en cero hasta que exista la caja |
 | Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
 | Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
@@ -103,9 +104,9 @@ La guía técnica está en [Usuarios](usuarios/usuarios.md), [permisos directos]
 
 `almacen_articulos` es la única fuente de saldo por almacén/artículo. No existe saldo maestro duplicado ni almacén virtual para consolidación. El saldo consolidado se consulta por artículo compatible y se desglosa por negocio y almacén; cantidades de unidades incompatibles no se suman. Mínimo, estado y versión pertenecen a la asociación física. **Ningún saldo es negativo** (M3, §16): la política «Permitir existencias negativas» se retiró; `almacenes.permitir_negativos` se conserva por compatibilidad fijado en 0 por un `CHECK`. Lo que una venta no encuentra en su almacén de consumo se registra como faltante pendiente de origen, nunca como saldo negativo.
 
-`Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, ajustes, conteos, mermas, consumos y compensaciones deben ser trazables. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
+`Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, mermas, consumos y compensaciones deben ser trazables. **No existe operación que sobrescriba un saldo** (8 nov 2026, auditoría A-4): el conteo físico y el ajuste rápido se retiraron porque fijaban el saldo con motivo operacion_administrativa y nota vacía, ignoraban los faltantes pendientes y no se distinguían de una merma. Una diferencia real se registra como merma con su motivo, o como entrada. Los movimientos juste ya registrados (conteos anteriores y la conversión de negativos de M3) se conservan como historial de sólo lectura; el ENUM no cambia. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
 
-Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y concilian los faltantes de sus almacenes si tienen `inventario/editar`. Transferencias incorpora solicitud, autorización, envío, recepción parcial, incidencias y retornos con contexto propietario; véase su [contrato](modulos/transferencias.md). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
+Global consulta el inventario consolidado y opera únicamente sus propios almacenes. **Asociar y dar entrada entre negocios (9 nov 2026).** Asociar un artículo y registrar una entrada se autorizan en el negocio dueño del almacén, no en el contexto de la pantalla: quien ya tiene `inventario/editar` en ese negocio puede hacerlo desde cualquier pantalla de Almacenes (el superadministrador, en todos). No concede permisos nuevos, sólo evita cambiar de contexto; el motor recibe el contexto del dueño y vuelve a comprobar el permiso, y cada asociación y movimiento llevan la unidad dueña de su almacén. El alta de un artículo puede asociarlo a varios almacenes en la misma transacción, y «Asociar» acepta varios a la vez: todos o ninguno. Merma y configuración de la asociación siguen siendo del contexto actual. La justificación es de fricción: obligaba a cambiar de negocio para cada almacén de un mismo artículo. Una transferencia ya no exige asociación previa en el destino: recibir implica manejar el artículo, así que la crea con mínimo 0 y sin saldo, con la unidad dueña, y lo informa; en el origen sí se exige, porque sin asociación no hay existencias que enviar. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y concilian los faltantes de sus almacenes si tienen `inventario/editar`. Transferencias registra con contexto propietario. Dentro del mismo negocio, o cuando la registra el superadministrador, se aplica en un solo paso: salida y entrada en la misma transacción. Entre negocios distintos (Global, Restaurante y Panadería lo son entre sí) pasa por solicitada, enviada y recibida; si la registra el dueño del origen, nace enviada. Recepción parcial, incidencia y retorno son excepciones, no fases. El paso «autorizar» se retiró (8 nov 2026) porque no tenía efecto físico: comprobaba saldo sin reservarlo y el envío lo vuelve a comprobar. Detalle en su [contrato](modulos/transferencias.md). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
 
 ## 6. Catálogo, productos, cartas, ofertas y menú preservado
 
@@ -403,7 +404,7 @@ artículo puede ser ingrediente y reventa.
 
 `ingredientes.contenido_pieza DECIMAL(12,3) NULL` declara cuánto contiene una
 pieza comercial (750 ml en una botella). Sólo aplica a `g`, `kg`, `ml` y `l`. El
-saldo y el ledger siempre están en la unidad base; las entradas, mermas y conteos
+saldo y el ledger siempre están en la unidad base; las entradas y mermas
 pueden capturarse en piezas y el servidor convierte con aritmética exacta. La
 lectura muestra «8 botellas + 450 ml». La unidad sigue siendo inmutable con
 historial: un vino que ya existe en `pza` con composiciones se sustituye por un
@@ -473,3 +474,41 @@ por esa cantidad (`ticket_item_id` nulo, origen `migracion`); después
 `permitir_negativos = 0` en todos los almacenes y un `CHECK` que lo fija. El orden
 evita el rechazo de `trg_almacen_no_desactivar_negativos`. La columna se conserva
 por compatibilidad y la interfaz ya no ofrece la opción.
+
+## 17. M5: proveedores por ámbito e histórico de lo recibido
+
+Cada proveedor pertenece a un solo ámbito (`proveedores.unidad_id`): Global, Restaurante
+o Panadería. Sólo su ámbito lo edita, le asigna artículos, le liga entradas o lo retira,
+con `inventario/editar`; `inventario/ver` lo consulta. Global además lee el directorio
+de los tres negocios con la misma regla de lectura que Almacenes: consulta, nunca
+escritura. Un ID ajeno responde igual que uno inexistente. No hay módulo de permisos
+propio: la pantalla cuelga de `/almacenes/proveedores` y hereda la clasificación
+`inventario` de `Permisos`. Servicio: `ServicesInventoryDirectorioProveedores`.
+
+**Artículos que surte.** `ingrediente_proveedores` guarda costo de referencia,
+código y preferente por ámbito. Sólo se asignan artículos que el ámbito tiene en sus
+almacenes. La lista se reemplaza en bloque y hay un preferente por artículo y ámbito:
+marcar uno desmarca al anterior.
+
+**Entrada ligada.** `entradas_proveedor` (una fila por operación del motor, FK compuesta
+con `operaciones_inventario` y con `proveedores` del mismo ámbito) dice de quién llegó
+una entrada. El motor de Almacenes **no cambia**: `AdministracionAlmacenes` abre una
+transacción, valida que el proveedor sea del ámbito y esté activo (`FOR SHARE`),
+registra la entrada con el motor como un savepoint y liga la operación. Si una parte
+falla no queda ninguna. Con proveedor el costo unitario es obligatorio: sin él el motor
+congelaría el costo maestro y el histórico de costos no sería lo que cobró el proveedor.
+Un reintento con la misma clave repite el resultado; la misma clave con otro proveedor
+es `CONFLICTO_IDEMPOTENCIA`.
+
+**Histórico.** No es una bitácora propia: se lee de las entradas ligadas (operación →
+movimientos de tipo `entrada`), así que lo que se reporta como pedido es lo que llegó.
+Una recepción es un día con entradas del proveedor. Se informa: recepciones, primera y
+última, intervalo promedio y siguiente estimada (con dos recepciones o más); por
+artículo, recepciones, total, promedio por recepción, último costo, mínimo, máximo,
+variación del primer al último costo y los últimos doce costos. Cantidades y costos se
+agregan en enteros exactos; sólo la variación y el intervalo son de lectura.
+
+**Retiro.** Un proveedor con entradas no se elimina (`PROVEEDOR_CON_HISTORIAL`): se
+desactiva, deja de ofrecerse en las entradas y conserva su historial. Sin entradas se
+elimina junto con sus asignaciones. Migración para bases existentes:
+`database/actualizaciones/m5-proveedores.sql`, aditiva y repetible.

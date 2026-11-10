@@ -554,26 +554,6 @@
 .admin-inventario .admin-table-wrap {
   margin-top: 4px;
 }
-.admin-inventario .admin-inventario__save {
-  white-space: nowrap;
-  min-height: 38px;
-  padding-inline: 14px;
-  font-size: 12px;
-}
-.admin-inventario {
-  /* El campo del ajuste rápido a la misma altura que su botón. `!important`
-     acotado: la regla global de campos de _forms.scss suma (0,6,1) e impone
-     46 px, ancho completo y su relleno a cualquier input que no sea casilla o
-     radio (ver CLAUDE.md); con una clase sola no se llega. Es lo que dejaba
-     el campo más alto que «Guardar» en cada una de las setenta filas. */
-}
-.admin-inventario .admin-inline-form input[type=number] {
-  width: 104px !important;
-  min-height: 38px !important;
-  padding-block: 7px !important;
-  font-family: var(--admin-font-mono) !important;
-  font-size: 13px !important;
-}
 
 /* Un <button class="admin-btn"> salía a 16 px y un <a class="admin-btn"> a
    13: `.admin-body button { font: inherit }` (0,1,1) le gana a la clase del
@@ -1050,12 +1030,13 @@
   max-width: 70ch;
 }
 
-/* «Almacenes en consulta» es el filtro de la tabla, no contenido: un renglón por
-   propietario con casillas compactas. Las existencias de abajo (y los avisos)
-   son lo que el operador viene a ver; esta franja sólo acota dónde se mira. */
+/* «Almacenes en consulta» es el filtro de la tabla, no contenido. En la página es una
+   sola línea —cuántos almacenes y cómo se reparten por propietario— que no crece con
+   el número de almacenes; las casillas viven en un panel con una columna por
+   propietario. Las existencias de abajo son lo que el operador viene a ver. */
 .almacen-selection {
   margin-bottom: 20px;
-  padding-bottom: 14px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--admin-border);
 }
 .almacen-selection > .almacen-section-head {
@@ -1072,63 +1053,261 @@
   font-size: 12px;
 }
 
+.admin-body .almacen-alcance__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  min-height: 52px;
+  padding: 8px 12px 8px 14px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .almacen-alcance__trigger > svg {
+  flex: none;
+  color: var(--admin-muted);
+}
+.admin-body .almacen-alcance__trigger:hover, .admin-body .almacen-alcance__trigger[aria-expanded=true] {
+  background: var(--admin-surface-soft);
+}
+
+.almacen-alcance__texto {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.almacen-alcance__cuenta {
+  font-size: 14px;
+  font-weight: 600;
+}
+.almacen-alcance__cuenta strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.almacen-alcance__resumen {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.almacen-alcance__cambiar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.almacen-alcance__cambiar svg {
+  transition: transform var(--admin-t-fast) var(--admin-ease-out);
+}
+[aria-expanded=true] > .almacen-alcance__cambiar svg {
+  transform: rotate(180deg);
+}
+
+/* Panel de almacenes. Popover nativo en la capa superior: sin JavaScript queda
+   centrado; inventario.js lo ancla bajo el resumen con .is-anclado. Cabecera y pie
+   fijos; en medio, una columna por propietario con su propio desplazamiento. */
+.almacen-alcance__panel {
+  position: fixed;
+  inset: 0;
+  width: min(880px, 100vw - 24px);
+  height: fit-content;
+  max-height: min(600px, 100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-lg);
+  font: 13px/1.35 var(--admin-font-sans);
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
+}
+.almacen-alcance__panel:popover-open {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.almacen-alcance__panel.is-anclado {
+  inset: auto;
+  margin: 0;
+}
+@starting-style {
+  .almacen-alcance__panel:popover-open {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.almacen-alcance__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-body .almacen-alcance__titulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.almacen-alcance__buscar {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+.almacen-alcance__buscar svg {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  color: var(--admin-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.almacen-alcance__buscar #almacen-alcance-q {
+  width: 100%;
+  min-height: 36px;
+  padding-left: 32px;
+  font-size: 13px;
+}
+.almacen-alcance__buscar[hidden] {
+  display: none;
+}
+
+.admin-body .almacen-alcance__enlace {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--admin-border);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.admin-body .almacen-alcance__enlace:hover {
+  color: var(--admin-text);
+  text-decoration-color: currentColor;
+}
+.admin-body .almacen-alcance__enlace[hidden] {
+  display: none;
+}
+
+.almacen-alcance__cabecera > .almacen-alcance__enlace {
+  margin-left: auto;
+}
+
+.almacen-alcance__grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .almacen-owner {
   min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 14px 10px 12px;
   border: 0;
 }
 .almacen-owner + .almacen-owner {
-  margin-top: 8px;
+  border-left: 1px solid var(--admin-border-soft);
 }
 .almacen-owner legend {
   float: left;
   display: flex;
-  align-items: center;
-  width: 7.5rem;
-  min-height: 36px;
-  padding: 0 12px 0 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
   margin: 0;
+  padding: 0 8px 4px;
+}
+
+.almacen-owner__cuenta {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-body .almacen-owner__atajos {
+  display: flex;
+  gap: 12px;
+  clear: left;
+  margin: 0 0 6px;
+  padding: 0 8px;
+}
+.admin-body .almacen-owner__atajos[hidden] {
+  display: none;
 }
 
 .almacen-owner__choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  clear: left;
+  max-height: 320px;
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-body .almacen-owner__vacio {
+  margin: 4px 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
 }
 
 .almacen-choice {
   position: relative;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-  max-width: 100%;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 10px;
   min-height: 36px;
-  padding: 6px 12px 6px 10px;
-  border: 1px solid var(--admin-border-soft);
+  padding: 8px;
+  border: 1px dashed transparent;
   border-radius: var(--admin-radius-sm);
   color: var(--admin-muted);
   font-size: 13px;
   line-height: 1.3;
   cursor: pointer;
-  transition: background-color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
 }
 .almacen-choice input {
-  flex: 0 0 auto;
   width: 16px;
   height: 16px;
-  margin: 0;
+  margin: 1px 0 0;
   accent-color: var(--admin-text);
   cursor: inherit;
 }
 .almacen-choice:hover {
   background: var(--admin-surface-soft);
-  border-color: var(--admin-border);
 }
 .almacen-choice:has(input:checked) {
-  border-color: var(--admin-border-strong);
   color: var(--admin-text);
 }
 .almacen-choice__name {
@@ -1137,12 +1316,16 @@
   overflow-wrap: anywhere;
 }
 .almacen-choice__meta {
+  grid-column: 2;
   color: var(--admin-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .almacen-choice.is-inactive {
-  border-style: dashed;
+  border-color: var(--admin-border);
+}
+.almacen-choice[hidden] {
+  display: none;
 }
 
 @supports selector(:has(*)) {
@@ -1151,29 +1334,124 @@
     box-shadow: none;
   }
   .almacen-choice:has(input:focus-visible) {
-    box-shadow: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
   }
 }
+.almacen-alcance__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+}
+
+.admin-body .almacen-selection__status {
+  flex: 1 1 220px;
+  min-height: 18px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
 @media (pointer: coarse) {
-  .almacen-choice, .almacen-owner legend {
+  .almacen-choice, .admin-body .almacen-alcance__enlace {
     min-height: 44px;
   }
-  .almacen-selection .admin-btn--small {
+  .almacen-alcance__panel .admin-btn--small {
     min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .almacen-choice {
+  .almacen-choice, .admin-body .almacen-alcance__trigger, .almacen-alcance__cambiar svg {
     transition: none;
   }
+  .almacen-alcance__panel {
+    transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+  }
+  @starting-style {
+    .almacen-alcance__panel:popover-open {
+      transform: none;
+    }
+  }
 }
-.almacen-selection__status {
-  color: var(--admin-muted);
-  font-size: 12px;
-  margin: 10px 0 0;
-  min-height: 18px;
+/* Carga de la consulta. Al aplicar la selección la página se recarga con el GET;
+   mientras llega, inventario.js cambia la tabla por filas fantasma con la misma
+   rejilla, para que nada salte cuando llegan los datos. Un brillo recorre cada barra
+   con un desfase corto por fila; con movimiento reducido las barras quedan quietas. */
+.almacen-list > [data-stock-oculto] {
+  display: none;
 }
 
+.almacen-skeleton__filas {
+  border-top: 1px solid var(--admin-border);
+}
+
+.almacen-skeleton__fila {
+  display: grid;
+  grid-template-columns: 16% 17% minmax(0, 1fr) 220px;
+  align-items: start;
+  gap: 24px;
+  padding: 18px 12px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.almacen-skeleton__celda {
+  display: grid;
+  gap: 8px;
+}
+.almacen-skeleton__celda span {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--admin-surface-soft) 0%, var(--admin-border-soft) 50%, var(--admin-surface-soft) 100%) 0 0/300% 100%;
+  animation: almacen-skeleton-brillo 1.4s var(--admin-ease-out) infinite;
+  animation-delay: calc(var(--fila, 0) * 90ms);
+}
+.almacen-skeleton__celda--nombre span:first-child {
+  width: 72%;
+  height: 14px;
+}
+.almacen-skeleton__celda--nombre span:last-child {
+  width: 28%;
+}
+.almacen-skeleton__celda--saldo span:first-child {
+  width: 58%;
+  height: 16px;
+}
+.almacen-skeleton__celda--saldo span:last-child {
+  width: 80%;
+}
+.almacen-skeleton__celda--barra span:first-child {
+  height: 24px;
+}
+.almacen-skeleton__celda--barra span:last-child {
+  width: 38%;
+}
+.almacen-skeleton__celda--acciones span:first-child {
+  height: 34px;
+  border-radius: var(--admin-radius-sm);
+}
+.almacen-skeleton__celda--acciones span:last-child {
+  display: none;
+}
+
+@keyframes almacen-skeleton-brillo {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .almacen-skeleton__celda span {
+    animation: none;
+    background: var(--admin-surface-soft);
+  }
+}
 .almacen-summary {
   display: flex;
   align-items: center;
@@ -1692,6 +1970,39 @@
   margin: 0 0 20px;
 }
 
+/* Diálogo con cuerpo desplazable (Transferencias). Antes se desplazaba el diálogo
+   entero y el título con «Cerrar» se iba con el historial. Ahora el diálogo es una
+   columna que no desborda: la cabecera queda fija y sólo corre el cuerpo, con la barra
+   de la casa (`.admin-modal__body` en _finishes.scss), hueco reservado para que el
+   texto no salte cuando aparece la barra y `overscroll-behavior: contain` para que el
+   final del historial no arrastre la página. El alto sale de `dvh` (las barras del
+   navegador móvil no tapan el pie), con `vh` de respaldo. Sin :has() el diálogo sigue
+   desplazándose entero, como antes. */
+.almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  overflow: hidden;
+}
+.almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) > .almacen-modal__header {
+  flex: none;
+  align-items: center;
+  margin: 0;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.almacen-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 22px 18px 28px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .almacen-modal--operacion .admin-modal__dialog {
   max-width: 680px;
 }
@@ -1721,17 +2032,48 @@
   .almacen-actions {
     justify-content: flex-start;
   }
-  .almacen-owner legend {
+  .admin-body .almacen-alcance__trigger {
+    display: flex;
     width: 100%;
-    min-height: 0;
-    padding: 0;
-    margin-bottom: 6px;
   }
-  .almacen-owner__choices {
-    clear: left;
+  .almacen-alcance__cambiar {
+    margin-left: auto;
+  }
+  .almacen-alcance__panel, .almacen-alcance__panel.is-anclado {
+    inset: auto 12px 12px;
+    width: auto;
+    max-height: calc(100dvh - 24px);
+    margin: 0;
+  }
+  @starting-style {
+    .almacen-alcance__panel:popover-open, .almacen-alcance__panel.is-anclado:popover-open {
+      transform: translateY(8px);
+    }
+  }
+  .almacen-alcance__buscar {
+    flex-basis: 100%;
+    max-width: none;
+    order: 2;
+  }
+  .almacen-alcance__grupos {
+    grid-template-columns: 1fr;
   }
   .almacen-owner + .almacen-owner {
-    margin-top: 12px;
+    border-top: 1px solid var(--admin-border-soft);
+    border-left: 0;
+  }
+  .almacen-owner__choices {
+    max-height: none;
+    overflow: visible;
+  }
+  .almacen-alcance__pie .almacen-actions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .almacen-skeleton__fila {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-inline: 0;
   }
   .almacen-pending {
     margin-left: 0;
@@ -1807,17 +2149,26 @@
     padding: 20px;
     max-height: calc(100dvh - 20px);
   }
+  .almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    padding: 0;
+  }
+  .almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) > .almacen-modal__header {
+    padding: 16px 20px 14px;
+  }
+  .almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) > .almacen-modal__header h3 {
+    font-size: 20px;
+  }
+  .almacen-modal__body {
+    padding: 18px 12px calc(22px + env(safe-area-inset-bottom, 0px)) 20px;
+  }
   .almacen-summary {
     gap: 12px 18px;
   }
 }
 .almacen-transfer-wide {
   grid-column: 1/-1;
-}
-
-.almacen-transfer-document {
-  padding-block: 1rem;
-  border-bottom: 1px solid var(--admin-gris-3);
 }
 
 /* «Solicitar transferencia»: la acción principal del modal es un summary con forma de
@@ -1859,10 +2210,13 @@
   animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
 }
 
-.almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron {
+.almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron,
+.almacen-transfer-document__chevron, .almacen-transfer-action__chevron, .almacen-transfer-history__chevron {
+  flex: none;
   transition: transform var(--admin-t-fast) var(--admin-ease-out);
 }
-[open] > summary > .almacen-transfer-request__chevron, [open] > summary > .almacen-config-alta__chevron, [open] > summary > .almacen-config__chevron {
+[open] > summary > .almacen-transfer-request__chevron, [open] > summary > .almacen-config-alta__chevron, [open] > summary > .almacen-config__chevron,
+[open] > summary > .almacen-transfer-document__chevron, [open] > summary > .almacen-transfer-action__chevron, [open] > summary > .almacen-transfer-history__chevron {
   transform: rotate(180deg);
 }
 
@@ -1878,7 +2232,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron {
+  .almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron,
+  .almacen-transfer-document__chevron, .almacen-transfer-action__chevron, .almacen-transfer-history__chevron {
     transition: none;
   }
   .almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > form {
@@ -2152,30 +2507,6 @@
   margin-top: 20px;
 }
 
-.almacen-transfer-document > summary,
-.almacen-transfer-action > summary,
-.almacen-transfer-history > summary {
-  cursor: pointer;
-  padding-block: 0.65rem;
-}
-
-.almacen-transfer-document > summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.almacen-transfer-document > p {
-  margin-block: 0.75rem;
-}
-
-.almacen-transfer-action,
-.almacen-transfer-history {
-  margin-block: 0.75rem;
-}
-
-.almacen-transfer-action form,
 .almacen-transfer-request form {
   padding-block: 1rem;
 }
@@ -2192,21 +2523,436 @@
   align-items: end;
 }
 
-.almacen-transfer-history ol {
-  padding-inline-start: 1.5rem;
+/* Pista de «Nueva transferencia»: es lo que dice qué pasará al enviar (un paso, enviada
+   o solicitada), no una nota al pie. Con el gris de 11.5 px de admin-field__hint se
+   perdía bajo los selectores y el botón cambiaba a «Enviar» sin contexto visible. Va
+   en tinta plena, a todo el ancho y en una caja hundida neutra (no es un estado: el
+   panel es blanco y negro). Reserva dos renglones para que cambiar de pareja no
+   empuje artículos, motivo y botón. (0,3,1) para ganar a `.admin-body p` y a la regla
+   de la pista del panel. */
+.admin-body .almacen-transfer-request p.almacen-transfer-hint {
+  max-width: none;
+  min-height: calc(3em + 22px);
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.almacen-transfer-history li {
-  margin-block: 1rem;
+/* Aviso de asociación (lo escribe inventario.js): comparte la caja de la pista pero no
+   es la pista. No reserva renglones (aparece bajo las líneas y sólo empuja lo que
+   sigue) y lleva el rol de estado: informativo cuando el destino quedará asociado al
+   registrar y de peligro cuando el artículo falta en el origen, que el servidor
+   rechaza. El segundo va además en negrita y pide una acción en el texto: no depende
+   sólo del color. `[hidden]` explícito por si una regla de caja le diera display. */
+.admin-body .almacen-transfer-request p.almacen-transfer-asociacion {
+  min-height: 0;
+  border-color: var(--admin-info-border);
+  background: var(--admin-info-bg);
+  color: var(--admin-info-text);
+  overflow-wrap: anywhere;
+}
+.admin-body .almacen-transfer-request p.almacen-transfer-asociacion[data-tono=error] {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  font-weight: 600;
+}
+.admin-body .almacen-transfer-request p.almacen-transfer-asociacion[hidden] {
+  display: none;
+}
+
+/* «Asociar artículo»: casillas de almacén agrupadas por negocio. Cada negocio es una
+   caja con su rótulo y cada almacén una fila completa que se pulsa (44 px), con la
+   casilla nativa en tinta como en el selector de alcance de esta pantalla. Las cajas
+   se reparten en columnas mientras quepan 200 px; en móvil quedan una bajo otra. */
+.almacen-asociar-almacenes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.almacen-asociar-almacenes > legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.almacen-asociar-almacenes > legend, .almacen-asociar-almacenes > p {
+  grid-column: 1/-1;
+}
+.almacen-asociar-almacenes__grupo {
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.almacen-asociar-almacenes.has-error .almacen-asociar-almacenes__grupo {
+  border-color: var(--admin-danger-text);
+}
+.almacen-asociar-almacenes__opcion {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: calc(var(--admin-radius-sm) - 4px);
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+}
+.almacen-asociar-almacenes__opcion input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--admin-text);
+  cursor: inherit;
+}
+.almacen-asociar-almacenes__opcion span {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.almacen-asociar-almacenes__opcion:hover {
+  background: var(--admin-surface-soft);
+}
+.almacen-asociar-almacenes__opcion:has(input:checked) {
+  color: var(--admin-text);
+}
+
+.admin-body .almacen-asociar-almacenes p.almacen-asociar-almacenes__negocio {
+  margin: 0;
+  padding: 6px 8px 4px;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.almacen-workspace .almacen-asociar-almacenes label.almacen-asociar-almacenes__opcion {
+  display: grid;
+  margin: 0;
+  font-size: 14px;
+}
+
+.admin-body .almacen-asociar-almacenes > p.admin-field__hint {
+  margin: 0;
+}
+
+.admin-body .almacen-asociar-almacenes > p.almacen-asociar-almacenes__error {
+  min-height: 0;
+  margin: 0;
+  color: var(--admin-danger-text);
+  font-size: 13px;
+}
+.admin-body .almacen-asociar-almacenes > p.almacen-asociar-almacenes__error[hidden] {
+  display: none;
+}
+
+@supports selector(:has(*)) {
+  .admin-body .almacen-asociar-almacenes__opcion input:focus-visible {
+    outline: 0;
+    box-shadow: none;
+  }
+  .almacen-asociar-almacenes__opcion:has(input:focus-visible) {
+    box-shadow: inset 0 0 0 2px var(--admin-accent);
+  }
+}
+.almacen-modal .almacen-asociar__enviar {
+  grid-column: 1/-1;
+  justify-self: start;
+}
+
+@media (max-width: 600px) {
+  .almacen-modal .almacen-asociar__enviar {
+    justify-self: stretch;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .almacen-asociar-almacenes__grupo, .almacen-asociar-almacenes__opcion {
+    transition: none;
+  }
+}
+/* Documento de transferencia. Un filete por documento (no uno arriba y otro abajo):
+   `.almacen-modal details` le ponía el de arriba y la regla propia el de abajo. El
+   summary es la cabecera del documento: número, estado (insignia con el rol de estado;
+   la palabra siempre va escrita), ruta y un chevron que dice que se pliega. */
+.almacen-modal .almacen-transfer-document {
+  padding-block: 6px 22px;
+  border-top: 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.almacen-modal .almacen-transfer-document > summary {
+  position: relative;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-inline: -8px;
+  padding: 8px 36px 8px 8px;
+  border-radius: var(--admin-radius-sm);
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.almacen-modal .almacen-transfer-document > summary::-webkit-details-marker {
+  display: none;
+}
+.almacen-modal .almacen-transfer-document > summary:hover {
+  background-color: var(--admin-surface-soft);
+}
+.almacen-modal .almacen-transfer-document > summary strong {
+  font-size: 15px;
+}
+
+.almacen-transfer-document__chevron {
+  position: absolute;
+  top: 14px;
+  right: 10px;
+  color: var(--admin-muted);
+}
+
+.admin-body .almacen-transfer-document > p.almacen-transfer-route {
+  margin-block: 4px 14px;
+  color: var(--admin-muted);
+  font-size: 14px;
 }
 
 .almacen-transfer-caption {
   text-align: start;
-  padding-block: 0.75rem;
-  color: var(--admin-gris-8);
+  padding-block: 0 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
 }
 
+.almacen-modal .almacen-transfer-document .admin-table-wrap {
+  overscroll-behavior-block: auto;
+  overscroll-behavior-inline: contain;
+}
+
+/* Acciones del documento: una barra de botones bajo la tabla. Cada acción sigue siendo
+   details/summary (el navegador anuncia expandido/contraído y funciona sin JS); su
+   formulario se abre debajo de la barra, a todo el ancho, en un panel hundido. Ningún
+   disparador es primario —el único primario del modal es «Solicitar transferencia»—;
+   la jerarquía va por contorno:
+     · avanza (autorizar, enviar, recibir, retornar, confirmar): contorno en tinta, el
+       más pesado de la barra;
+     · neutra (registrar diferencia): contorno de control (`--admin-border-strong`,
+       3.2:1 en claro y 3.4:1 en oscuro; el secundario de serie no llega a 3:1);
+     · cierra (rechazar, cancelar): el mismo contorno con tinta de peligro, apartado a
+       la derecha para no caer en él por error; su envío, dentro, va en rojo pleno.
+   Abierto, el botón se hunde con un filete inferior del color de su tinta, como una
+   pestaña elegida, y el chevron gira. El selector sube a (0,3,1) porque
+   `.almacen-modal summary` (0,1,1) le imponía letra de 14 px y la caja de un disclosure. */
+.almacen-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.almacen-modal .almacen-transfer-action {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+}
+.almacen-modal .almacen-transfer-action > summary.admin-btn {
+  --accion-tinta: var(--admin-text);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-color: var(--admin-border-strong);
+  font-size: 13px;
+  list-style: none;
+}
+.almacen-modal .almacen-transfer-action > summary.admin-btn::-webkit-details-marker {
+  display: none;
+}
+.almacen-modal .almacen-transfer-action > summary.admin-btn:hover {
+  border-color: var(--admin-border-strong);
+}
+.almacen-modal .almacen-transfer-action > summary.admin-btn svg {
+  flex: none;
+}
+.almacen-modal .almacen-transfer-action--avanza > summary.admin-btn, .almacen-modal .almacen-transfer-action--avanza > summary.admin-btn:hover {
+  border-color: var(--admin-text);
+}
+.almacen-modal .almacen-transfer-action--cierra > summary.admin-btn {
+  --accion-tinta: var(--admin-danger-text);
+  color: var(--admin-danger-text);
+}
+.almacen-modal .almacen-transfer-action--cierra > summary.admin-btn:hover {
+  border-color: var(--admin-danger-text);
+  background-color: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+}
+.almacen-modal .almacen-transfer-action[open] > summary.admin-btn {
+  background-color: var(--admin-surface-strong);
+  box-shadow: inset 0 -3px 0 var(--accion-tinta);
+  transform: none;
+}
+.almacen-modal .almacen-transfer-action[open] > summary.admin-btn:focus-visible {
+  box-shadow: inset 0 -3px 0 var(--accion-tinta), 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+}
+.almacen-modal .almacen-transfer-action > form.admin-form-grid {
+  margin: 0 0 4px;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  scroll-margin-block: 72px 16px;
+}
+.almacen-modal .almacen-transfer-action[open] > form {
+  animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
+}
+
+.almacen-modal .almacen-transfer-action:not(.almacen-transfer-action--cierra) + .almacen-transfer-action--cierra > summary.admin-btn {
+  margin-left: auto;
+}
+
+.admin-body .almacen-transfer-action > form > p.almacen-transfer-wide {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.almacen-transfer-action > form > .admin-btn {
+  justify-self: start;
+}
+
+.almacen-modal .almacen-transfer-action[open] {
+  flex-basis: 100%;
+}
+
+@supports selector(::details-content) {
+  .almacen-transfer-actions {
+    row-gap: 0;
+  }
+  .almacen-modal .almacen-transfer-action {
+    display: contents;
+  }
+  .almacen-modal .almacen-transfer-action > summary.admin-btn {
+    margin-bottom: 10px;
+  }
+  .almacen-transfer-action::details-content {
+    order: 1;
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+}
+/* Historial: consulta, no acción. Un secundario pequeño con reloj y chevron, por debajo
+   de la barra de acciones; abierto, una lista numerada con un filete por evento. */
+.almacen-modal .almacen-transfer-history {
+  margin-top: 16px;
+  padding: 0;
+  border-top: 0;
+}
+.almacen-modal .almacen-transfer-history > summary.admin-btn {
+  display: inline-flex;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+  list-style: none;
+}
+.almacen-modal .almacen-transfer-history > summary.admin-btn::-webkit-details-marker {
+  display: none;
+}
+.almacen-modal .almacen-transfer-history[open] > summary.admin-btn {
+  border-color: var(--admin-border-strong);
+  background-color: var(--admin-surface-strong);
+  transform: none;
+}
+.almacen-modal .almacen-transfer-history[open] > ol {
+  animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out);
+}
+
+.almacen-transfer-history ol {
+  margin: 12px 0 0;
+  padding-inline-start: 2rem;
+  scroll-margin-block: 56px 16px;
+}
+
+.almacen-transfer-history li {
+  padding-block: 10px;
+  border-top: 1px solid var(--admin-border-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.almacen-transfer-history li::marker {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+}
+.almacen-transfer-history li:first-child {
+  border-top: 0;
+}
+
+.admin-body .almacen-transfer-history li p {
+  margin: 2px 0 0;
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almacen-modal .almacen-transfer-action[open] > form,
+  .almacen-modal .almacen-transfer-history[open] > ol {
+    animation-name: almacen-transfer-funde;
+  }
+  .almacen-modal .almacen-transfer-document > summary {
+    transition: none;
+  }
+}
+@media (pointer: coarse) {
+  .almacen-modal .almacen-transfer-history > summary.admin-btn {
+    min-height: 44px;
+  }
+}
 @media (max-width: 600px) {
+  .almacen-modal .almacen-transfer-action {
+    display: block;
+    flex-basis: 100%;
+  }
+  .almacen-transfer-action::details-content {
+    order: 0;
+  }
+  .almacen-modal .almacen-transfer-action > summary.admin-btn {
+    width: 100%;
+    margin: 0 0 10px;
+    justify-content: flex-start;
+  }
+  .almacen-modal .almacen-transfer-action > form.admin-form-grid {
+    margin-bottom: 10px;
+    scroll-margin-block: 16px;
+  }
+  .almacen-transfer-action__chevron {
+    margin-left: auto;
+  }
+  .almacen-modal .almacen-transfer-action > form.admin-form-grid {
+    padding: 14px;
+  }
+  .almacen-transfer-action > form > .admin-btn {
+    justify-self: stretch;
+  }
   .almacen-transfer-line {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2227,7 +2973,7 @@
   }
   .almacen-transfer-document .admin-table tr {
     display: grid;
-    border-bottom: 1px solid var(--admin-gris-3);
+    border-bottom: 1px solid var(--admin-border-soft);
     padding-block: 0.75rem;
   }
   .almacen-transfer-document .admin-table td {
@@ -2241,8 +2987,10 @@
   }
   .almacen-transfer-document .admin-table td::before {
     content: attr(data-label);
+    color: var(--admin-muted);
     font-family: var(--admin-font-sans);
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
   }
 }
 .almacen-entry-picker {
@@ -2278,7 +3026,9 @@
 }
 
 .almacen-workspace .admin-menu__flash,
-.almacen-workspace .admin-menu__alert {
+.almacen-workspace .admin-menu__alert,
+.almacen-proveedores .admin-menu__flash,
+.almacen-proveedores .admin-menu__alert {
   margin-bottom: 16px;
   padding: 14px 16px;
   border: 1px solid;
@@ -2286,18 +3036,22 @@
   font-size: 14px;
   line-height: 1.45;
 }
-.almacen-workspace .admin-menu__flash--exito {
+.almacen-workspace .admin-menu__flash--exito,
+.almacen-proveedores .admin-menu__flash--exito {
   border-color: var(--admin-success-border);
   background: var(--admin-success-bg);
   color: var(--admin-success-text);
 }
 .almacen-workspace .admin-menu__flash--error,
-.almacen-workspace .admin-menu__alert {
+.almacen-workspace .admin-menu__alert,
+.almacen-proveedores .admin-menu__flash--error,
+.almacen-proveedores .admin-menu__alert {
   border-color: var(--admin-danger-border);
   background: var(--admin-danger-bg);
   color: var(--admin-danger-text);
 }
-.almacen-workspace .admin-menu__alert ul {
+.almacen-workspace .admin-menu__alert ul,
+.almacen-proveedores .admin-menu__alert ul {
   margin: 8px 0 0 18px;
 }
 
@@ -2573,9 +3327,6 @@
   flex-wrap: wrap;
   gap: 2px 6px;
 }
-.almacen-workspace .almacen-transfer-route small {
-  flex-basis: 100%;
-}
 
 .almacen-transfer-route__sep {
   display: inline-flex;
@@ -2586,6 +3337,11 @@
   margin-block: 0.5rem 0.75rem;
   color: var(--admin-text);
   font-size: 13px;
+}
+
+.admin-body .almacen-transfer-document > p.almacen-transfer-next {
+  margin-block: -6px 14px;
+  line-height: 1.5;
 }
 
 @media (max-width: 600px) {
@@ -2611,5 +3367,183 @@
   }
   .almacen-piezas__campos {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Proveedores (arquitectura §17). Comparte la composición de Almacenes —cabecera,
+   secciones en panel, cifras del resumen— porque es una pantalla suya: quien surte
+   los almacenes se lee con el mismo lenguaje que sus existencias. */
+.almacen-proveedores {
+  min-width: 0;
+}
+.almacen-proveedores .admin-page__header {
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+.almacen-proveedores .admin-page__subtitle {
+  max-width: 66ch;
+}
+.almacen-proveedores .admin-table td {
+  vertical-align: top;
+}
+.almacen-proveedores .almacen-list + .almacen-list {
+  margin-top: 20px;
+}
+.almacen-proveedores .almacen-summary {
+  margin-bottom: 20px;
+}
+.almacen-proveedores .admin-table__cell-main {
+  font-weight: 600;
+}
+.almacen-proveedores .admin-table .admin-table__num {
+  text-align: right;
+}
+
+.admin-body .almacen-summary__cifras .proveedor-cifra-fecha {
+  font-size: 15px;
+}
+
+.proveedores-vistas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--admin-border);
+}
+.proveedores-vistas a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.proveedores-vistas a:hover {
+  color: var(--admin-text);
+}
+.proveedores-vistas a[aria-current=page] {
+  border-bottom-color: var(--admin-text);
+  color: var(--admin-text);
+}
+
+.admin-body .proveedor-evolucion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.proveedor-variacion {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.proveedor-variacion.is-sube {
+  color: var(--admin-warning-text);
+}
+.proveedor-variacion.is-baja {
+  color: var(--admin-success-text);
+}
+
+.proveedor-serie {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.proveedor-serie summary {
+  min-height: 28px;
+  color: var(--admin-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.proveedor-serie summary:hover {
+  color: var(--admin-text);
+}
+.proveedor-serie ol {
+  display: grid;
+  gap: 2px;
+  max-width: 220px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.proveedor-serie li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.proveedor-asignaciones .admin-table td {
+  vertical-align: middle;
+}
+.proveedor-asignaciones .admin-table-wrap {
+  position: relative;
+}
+.proveedor-asignaciones input[type=number] {
+  width: 9rem;
+}
+.proveedor-asignaciones input[type=text] {
+  width: 10rem;
+}
+.proveedor-asignaciones select {
+  min-width: 14rem;
+}
+.proveedor-asignaciones .admin-actions {
+  margin-top: 14px;
+}
+
+.proveedor-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.proveedor-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--admin-text);
+}
+
+.proveedor-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+}
+.proveedor-datos dt {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.proveedor-datos dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.proveedor-datos__full {
+  grid-column: 1/-1;
+}
+
+.proveedor-retiro .almacen-section-head {
+  margin-bottom: 0;
+}
+
+@media (pointer: coarse) {
+  .proveedor-check, .proveedores-vistas a, .proveedor-serie summary {
+    min-height: 44px;
+  }
+}
+@media (max-width: 760px) {
+  .almacen-proveedores .admin-page__header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

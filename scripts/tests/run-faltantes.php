@@ -84,7 +84,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a($fila&&$fila['acciones']===['confirmar','rechazar']&&!array_key_exists('saldo',$fila),'Global ve confirmar/rechazar y sólo la identidad del destino');
     $listaR=$tr->consultar('restaurante');foreach($listaR['transferencias'] as $x)if((int)$x['id']===(int)$t['id'])$a($x['acciones']===[],'El destino no opera la regularización');
     $no(fn()=>$tr->ejecutar('restaurante','confirmar',['clave'=>$clave('m3f_conf_rest'),'transferencia_id'=>(string)$t['id'],'version'=>(string)$t['version'],'motivo'=>'ok']),'Restaurante no confirma un origen de Global','AMBITO_DENEGADO');
-    $no(fn()=>$tr->ejecutar('global','autorizar',['clave'=>$clave('m3f_aut_global'),'transferencia_id'=>(string)$t['id'],'version'=>(string)$t['version'],'motivo'=>'ok']),'La regularización no admite el flujo ordinario','ESTADO_INVALIDO');
+    $no(fn()=>$tr->ejecutar('global','enviar',['clave'=>$clave('m3f_env_global'),'transferencia_id'=>(string)$t['id'],'version'=>(string)$t['version'],'motivo'=>'ok']),'La regularización no admite el flujo ordinario','ESTADO_INVALIDO');
     // Costo: cambia el costo maestro después de la venta.
     $db->execute_query('UPDATE ingredientes SET costo=? WHERE id=?',['3.5000',$fresa]);
     $r=$tr->ejecutar('global','confirmar',['clave'=>$clave('m3f_conf_global'),'transferencia_id'=>(string)$t['id'],'version'=>(string)$t['version'],'motivo'=>'Confirmado por Global']);

@@ -89,7 +89,8 @@ Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
-| Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
+| Almacenes | Conteo físico rediseñado (sólo si el negocio hace conteos periódicos) | Se retiró el 8 nov 2026 (auditoría A-4). Un rediseño exigiría motivo de la diferencia, avisaría o bloquearía ante faltantes pendientes del artículo en ese almacén y se distinguiría de la merma en Movimientos; hasta entonces, merma con motivo o entrada |
+| Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora transferencia en un paso (mismo negocio o superadministrador), solicitud, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
 | Artículos | Retiro progresivo de adaptadores anteriores | Asociaciones explícitas verificadas, cero escritores anteriores y suites de regresión antes del retiro; conservar tablas históricas |
 | Panadería | POS operativo sin mesas | Negocio vendedor propio; autorización y consumo de sus almacenes |
 | Panadería | Tickets y pagos de caja | Snapshots, idempotencia y compensaciones; Finanzas y el Asistente ya leen sus tickets en cuanto existan |

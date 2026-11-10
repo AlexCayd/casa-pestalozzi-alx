@@ -9,13 +9,13 @@ const form=dom.window.document.querySelector('form'), input=form.querySelector('
 function change(value,type='entrada') { form.dataset.stockOperation=type; input.value=value; input.dispatchEvent(new dom.window.Event('input')); return output.textContent; }
 assert.match(change('0.200'),/0\.300 g/,'Suma exacta sin errores binarios');
 assert.match(change('0.225','merma'),/-0\.125 g/,'Negativo se informa sin ocultarlo');
-assert.match(change('999999999.999','ajuste'),/999999999\.999 g/,'Conserva límite decimal');
+assert.match(change('999999999.899'),/999999999\.999 g/,'Conserva límite decimal');
 assert.match(change('1.0001'),/cantidad válida/,'No redondea precisión excesiva');
 assert.match(change('-1','entrada'),/cantidad válida/,'Entrada positiva');
 assert.match(change('2.345'),/2\.445 g/);
 assert.match(form.dataset.confirmDescription,/Cantidad: 2\.345 g/,'Confirmación presenta la cantidad y el resultado');
 assert.match(change('0.225','merma'),/no puede ser negativo/,'Sin negativos: se avisa que el servidor rechazará la merma');
-assert.match(change('-1','ajuste'),/cantidad válida/,'El conteo ya no admite negativos');
+assert.match(change('0','merma'),/cantidad válida/,'Una merma de cero no es una operación (el conteo físico que admitía cero se retiró)');
 dom.window.close();
 console.log('Almacenes M1.1: preview decimal exacto, límites y confirmación OK.');
 
@@ -31,7 +31,7 @@ assert.match(piezas('8','450'),/6900\.000 ml/,'8 piezas + 450 ml sobre 450 ml de
 assert.match(pf.dataset.confirmDescription,/8 piezas \+ 450\.000 ml \(6450\.000 ml\)/,'La confirmación dice piezas, suelto y total');
 assert.match(piezas('2',''),/1950\.000 ml/,'Sin suelto cuenta sólo las piezas');
 assert.match(piezas('','100'),/550\.000 ml/,'Sin piezas lo suelto es el total');
-assert.match(piezas('0','0','ajuste'),/0\.000 ml/,'Un conteo admite cero');
+assert.match(piezas('0','0','merma'),/cantidad válida/,'Cero piezas y nada suelto no es una operación');
 assert.match(piezas('1','-5'),/cantidad válida/,'Suelto negativo no es válido');
 const ff = pd.querySelector('[data-faltante-form]'), [refri, central] = ff.querySelectorAll('[data-faltante-cantidad]'), suma = ff.querySelector('[data-faltante-suma]');
 function reparto(a, b) { refri.value=a; central.value=b; ff.dispatchEvent(new piezasDom.window.Event('input')); return suma.textContent; }
@@ -114,7 +114,7 @@ console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia
     + '<select id="articulo-1-merma-almacen" data-warehouse-picker><option value="">Elige</option><option value="1">Central</option><option value="4">Bodega</option></select><p data-warehouse-empty>Elige uno</p>'
     + '<div data-warehouse-panel="1" hidden><form><input type="hidden" name="accion" value="merma"><input id="c1" name="cantidad"></form></div>'
     + '<div data-warehouse-panel="4" hidden><form><input type="hidden" name="accion" value="merma"><input id="c4" name="cantidad"></form></div></div>'
-    + '<div id="articulo-2-ajuste" data-admin-modal><button data-admin-modal-close>x</button><div data-warehouse-panel="1"><form><input type="hidden" name="version" value="3"><input id="p2" name="piezas"><input name="cantidad"></form></div></div>'
+    + '<div id="articulo-2-entrada" data-admin-modal><button data-admin-modal-close>x</button><div data-warehouse-panel="1"><form><input type="hidden" name="version" value="3"><input id="p2" name="piezas"><input name="cantidad"></form></div></div>'
     + '</main>', { runScripts:'outside-only', pretendToBeVisual:true });
   const w = d.window, doc = w.document;
   // La trampa de Tab vive en el gestor compartido: se carga admin.js antes del módulo,
@@ -149,9 +149,37 @@ console.log('Almacenes: cancelar «Asociar artículo» abierto por URL la limpia
   assert.equal(doc.activeElement.getAttribute('aria-label'), 'Cerrar ventana', 'Tab desde el campo del primer almacén no se escapa al panel oculto');
   tab(true);
   assert.equal(doc.activeElement.id, 'c1', 'Mayús+Tab desde el primero vuelve al campo visible, no al oculto del final');
-  const uno = doc.getElementById('articulo-2-ajuste');
+  const uno = doc.getElementById('articulo-2-entrada');
   uno.dispatchEvent(new w.CustomEvent('admin:modal-opened', {detail:{trigger:null}}));
   assert.equal(doc.activeElement.id, 'p2', 'Con un solo almacén el foco va al primer campo visible, no a un oculto');
   d.window.close();
   console.log('Almacenes: diálogo por operación, selector de almacén y foco inicial OK.');
+}
+
+// Transferencias: ya no exige asociar antes. Se avisa qué artículo quedará asociado al
+// destino y cuál no está en el origen, antes de registrar.
+{
+  const opciones = '<option value="">Elige</option><option value="1" data-contexto="global">Central · Global</option><option value="2" data-contexto="restaurante">Cocina · Restaurante</option><option value="5" data-contexto="restaurante">Barra · Restaurante</option>';
+  const d = new JSDOM('<main data-almacenes-workspace><form data-transfer-request data-contexto="restaurante" data-super="0" data-asociaciones=\'{"10":[2,5],"12":[2]}\'>'
+    + '<select name="origen_id">' + opciones + '</select><select name="destino_id">' + opciones + '</select>'
+    + '<p data-transfer-hint>Base.</p><p data-transfer-asociacion hidden></p>'
+    + '<div data-transfer-lines><div data-transfer-line><label for="transfer-articulo-0">Artículo</label><select id="transfer-articulo-0" name="lineas[0][articulo_id]"><option value="">Elige</option><option value="10">Harina · g</option><option value="12">Vino tinto · ml</option></select><label for="transfer-cantidad-0">Cantidad</label><input id="transfer-cantidad-0" name="lineas[0][cantidad]"><button type="button" data-transfer-remove hidden>Quitar</button></div></div>'
+    + '<button type="button" data-transfer-add>Agregar</button><button type="submit" data-transfer-submit>Registrar transferencia</button></form></main>', { runScripts:'outside-only', pretendToBeVisual:true });
+  const w = d.window, doc = w.document;
+  w.eval(fs.readFileSync(path.resolve(__dirname,'../../src/js/admin/inventario/inventario.js'),'utf8'));
+  doc.dispatchEvent(new w.Event('DOMContentLoaded'));
+  const aviso = doc.querySelector('[data-transfer-asociacion]');
+  const elegir = (sel, value) => { const el = doc.querySelector(sel); el.value = value; el.dispatchEvent(new w.Event('change', {bubbles:true})); };
+  elegir('[name="origen_id"]', '2'); elegir('[name="destino_id"]', '5'); elegir('[name="lineas[0][articulo_id]"]', '10');
+  assert.equal(aviso.hidden, true, 'Asociado en ambos: sin aviso');
+  elegir('[name="lineas[0][articulo_id]"]', '12');
+  assert.equal(aviso.hidden, false);
+  assert.match(aviso.textContent, /«Vino tinto» todavía no se maneja en Barra\. Al registrar, quedará asociado a ese almacén con mínimo 0\./, 'Avisa la asociación automática del destino');
+  elegir('[name="origen_id"]', '5'); elegir('[name="destino_id"]', '2');
+  assert.match(aviso.textContent, /«Vino tinto» no está asociado a Barra: ahí no hay existencias que enviar\./, 'Avisa cuando falta en el origen');
+  assert.doesNotMatch(doc.querySelector('[data-transfer-hint]').textContent, /deben estar asociados en ambos/, 'Ya no se exige asociación previa');
+  elegir('[name="lineas[0][articulo_id]"]', '');
+  assert.equal(aviso.hidden, true, 'Sin artículo no hay aviso');
+  d.window.close();
+  console.log('Almacenes: aviso de asociación automática en transferencias OK.');
 }

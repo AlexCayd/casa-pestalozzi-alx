@@ -35,10 +35,11 @@ $assert($x->query('//input[@name="permitir_negativos"]')->length===0&&!str_conta
 $assert($x->query('//button[@data-stock-tip and @aria-label and @popovertarget]')->length===8,'Segmentos y etiquetas permiten detalle incluso cuando el saldo es cero.');
 $assert(!str_contains($html,'↓')&&$x->query('//*[contains(@class,"almacen-balance-alert")]/svg[@aria-hidden="true"]')->length===1&&$x->query('//*[contains(@class,"almacen-balance-alert")]/span[contains(@class,"admin-visually-hidden") and contains(.,"Bajo mínimo")]')->length===1,'Bajo mínimo usa el SVG del catálogo con texto para lectores, no un glifo.');
 $assert(str_contains($html,'Sin asociación en la selección'),'Estado sin asociación explícito.');
-$assert($x->query('//input[@name="almacen_ids[]" and @type="checkbox" and @checked]')->length===3,'Selección inicial múltiple visible.');
-$assert($x->query('//input[@name="version" and @value="3"]')->length===3,'Se conserva la versión de la asociación en formularios físicos.');
-$assert($x->query('//form[.//input[@name="accion" and (@value="entrada" or @value="merma" or @value="ajuste")]]//input[@name="clave"]')->length===6,'Cada operación física conserva idempotencia.');
-foreach(['Entrada','Merma','Conteo físico'] as $label)$assert(str_contains($html,$label),'Acción explícita '.$label);
+$assert($x->query('//*[@id="almacen-alcance"]//input[@name="almacen_ids[]" and @type="checkbox" and @checked]')->length===3,'Selección inicial múltiple visible.');
+$assert($x->query('//input[@name="version" and @value="3"]')->length===2,'Se conserva la versión de la asociación en formularios físicos.');
+$assert($x->query('//form[.//input[@name="accion" and (@value="entrada" or @value="merma")]]//input[@name="clave"]')->length===4,'Cada operación física conserva idempotencia.');
+foreach(['Entrada','Merma'] as $label)$assert(str_contains($html,$label),'Acción explícita '.$label);
+$assert(!str_contains($html,'Conteo físico')&&!str_contains($html,'conteo físico')&&$x->query('//input[@name="accion" and @value="ajuste"]')->length===0&&$x->query('//*[contains(@data-admin-modal-open,"-ajuste")]')->length===0,'El conteo físico se retiró: ni botón, ni diálogo, ni formulario (auditoría A-4).');
 // Jerarquía de acciones: la cabecera sólo cambia existencias (una principal), la fila
 // ofrece las operaciones físicas como grupo y lo demás va en «Más», un popover nativo.
 $cab='//header[contains(@class,"admin-page__header")]';
@@ -50,8 +51,8 @@ $ops='//div[contains(@class,"almacen-ops") and @role="group" and @aria-label]';
 // Cada operación tiene su propio diálogo (articulo-{id}-{operación}) con sólo su
 // formulario: el botón ya no lleva data-operation para desplegar un details dentro de
 // un modal único, sino que abre directamente el diálogo de esa operación.
-$assert($x->query($ops)->length===2&&$x->query($ops.'/button[@data-admin-modal-open]')->length===6,'Entrada, merma y conteo forman un grupo etiquetado por fila operable.');
-$accionModal=['entrada'=>'entrada','merma'=>'merma','ajuste'=>'ajuste','configurar'=>'configurar_asociacion'];
+$assert($x->query($ops)->length===2&&$x->query($ops.'/button[@data-admin-modal-open]')->length===4,'Entrada y merma forman un grupo etiquetado por fila operable.');
+$accionModal=['entrada'=>'entrada','merma'=>'merma','configurar'=>'configurar_asociacion'];
 foreach($x->query('//*[@data-admin-modal-open and starts-with(@data-admin-modal-open,"articulo-")]') as $b){if(!$b instanceof DOMElement)continue;$id=$b->getAttribute('data-admin-modal-open');$op=substr($id,strrpos($id,'-')+1);
  $m='//*[@id="'.$id.'" and @data-admin-modal]';
  $assert(isset($accionModal[$op])&&$x->query($m)->length===1,'El botón '.$id.' abre un diálogo existente de una operación conocida.');
@@ -59,7 +60,7 @@ foreach($x->query('//*[@data-admin-modal-open and starts-with(@data-admin-modal-
  $assert($acciones===[$accionModal[$op]],'El diálogo '.$id.' sólo contiene formularios de su operación.');
  $assert($x->query($m.'//*[@role="dialog" and @aria-modal="true" and @aria-labelledby="'.$id.'-title"]')->length===1&&$x->query($m.'//button[@data-admin-modal-close and @aria-label="Cerrar ventana"]')->length===1,'El diálogo '.$id.' conserva rol, título y cierre accesibles.');
  $assert($x->query($m.'//form')->length===$x->query($m.'//form//button[@type="button" and @data-admin-modal-close and .="Cancelar"]')->length&&$x->query($m.'//form//button[@type="submit" and contains(@class,"admin-btn--primary")]')->length===$x->query($m.'//form')->length,'Cada formulario de '.$id.' tiene su acción principal y Cancelar.');}
-$assert($x->query('//h3[@id="articulo-10-entrada-title" and .="Registrar entrada · Harina <especial>"]')->length===1&&$x->query('//h3[@id="articulo-12-ajuste-title" and .="Registrar conteo físico · Vino tinto"]')->length===1&&$x->query('//h3[@id="articulo-10-configurar-title" and .="Configurar asociación · Harina <especial>"]')->length===1,'Cada diálogo se titula con su operación y el artículo.');
+$assert($x->query('//h3[@id="articulo-10-entrada-title" and .="Registrar entrada · Harina <especial>"]')->length===1&&$x->query('//h3[@id="articulo-12-merma-title" and .="Registrar merma · Vino tinto"]')->length===1&&$x->query('//h3[@id="articulo-10-configurar-title" and .="Configurar asociación · Harina <especial>"]')->length===1,'Cada diálogo se titula con su operación y el artículo.');
 $assert($x->query('//*[@data-admin-modal and starts-with(@id,"articulo-")]//details')->length===0,'Las operaciones ya no se apilan en details dentro del diálogo.');
 $assert($x->query('//*[@data-warehouse-picker]')->length===0&&$x->query('//*[@data-warehouse-panel and @hidden]')->length===0,'Con un solo almacén propio no hay selector y su formulario está visible.');
 $mas='//button[contains(@class,"almacen-more") and @popovertarget and @aria-expanded="false"]';
@@ -68,12 +69,12 @@ foreach($x->query($mas) as $b){if(!$b instanceof DOMElement)continue;$id=$b->get
 $assert($x->query('//*[@popover]//button[@data-admin-modal-open="articulo-10-configurar" and contains(.,"Configurar asociación")]')->length===1&&$x->query('//*[@popover]//button[@data-admin-modal-open="articulo-12-configurar"]')->length===1,'Configurar asociación abre su propio diálogo desde «Más».');
 $assert($x->query('//*[@id="almacen-elegir-entrada"]//button[@data-admin-modal-open="articulo-10-entrada"]')->length===1&&$x->query('//*[@id="almacen-elegir-entrada"]//button[@data-admin-modal-open="articulo-12-entrada"]')->length===1,'«Registrar entrada» de la cabecera lleva al diálogo de entrada de cada artículo.');
 // Varios almacenes propios: cada diálogo trae su selector y un panel oculto por almacén;
-// una asociación inactiva sólo se configura, sin entrada, merma ni conteo.
+// una asociación inactiva sólo se configura, sin entrada ni merma.
 $ajustarMulti=static function(array $multi):array{$multi['articulos'][0]['ambitos'][0]['almacenes'][]=['almacen_id'=>4,'nombre'=>'Bodega fría','saldo'=>'5.500','minimo'=>'0.000','activo'=>true,'asociacion_activa'=>true,'version'=>2,'alerta'=>false,'saldo_piezas'=>null];
 $multi['articulos'][2]['ambitos'][0]['almacenes'][]=['almacen_id'=>4,'nombre'=>'Bodega fría','saldo'=>'0.000','minimo'=>'0.000','activo'=>true,'asociacion_activa'=>false,'version'=>1,'alerta'=>false,'saldo_piezas'=>null];
 $multi['articulos'][]=['articulo_id'=>13,'nombre'=>'Solo inactiva','unidad'=>'g','costo'=>'0.0000','activo'=>1,'contenido_pieza'=>null,'saldo_piezas'=>null,'saldo_total'=>'0.000','minimo_total'=>'0.000','alerta'=>false,'ambitos'=>[['slug'=>'global','almacenes'=>[['almacen_id'=>1,'nombre'=>'Central <seguro>','saldo'=>'0.000','minimo'=>'0.000','activo'=>true,'asociacion_activa'=>false,'version'=>1,'alerta'=>false,'saldo_piezas'=>null]]]]];return $multi;};
 $xm=$dom($render(true,['ajustar'=>$ajustarMulti]));
-foreach(['entrada','merma','ajuste','configurar'] as $op){$m='//*[@id="articulo-10-'.$op.'"]';
+foreach(['entrada','merma','configurar'] as $op){$m='//*[@id="articulo-10-'.$op.'"]';
  $assert($xm->query($m.'//select[@data-warehouse-picker and @id="articulo-10-'.$op.'-almacen"]/option[@value=""]')->length===1&&$xm->query('//label[@for="articulo-10-'.$op.'-almacen" and .="Almacén físico"]')->length===1,'Diálogo '.$op.' con varios almacenes: selector propio etiquetado y sin almacén preelegido.');
  $assert($xm->query($m.'//*[@data-warehouse-panel="1" and @hidden]//p[contains(@class,"almacen-modal__balance") and contains(.,"Saldo 1.000 g")]')->length===1&&$xm->query($m.'//*[@data-warehouse-panel="4" and @hidden]//p[contains(@class,"almacen-modal__balance") and contains(.,"Saldo 5.500 g")]')->length===1,'Diálogo '.$op.': cada almacén muestra su saldo junto a su formulario.');}
 $assert($xm->query('//*[@id="articulo-12-configurar"]//select[@data-warehouse-picker]/option[@value!=""]')->length===2&&$xm->query('//*[@id="articulo-12-entrada"]//select[@data-warehouse-picker]')->length===0&&$xm->query('//*[@id="articulo-12-entrada"]//input[@name="almacen_id" and @value="4"]')->length===0,'La asociación inactiva se configura pero no admite operaciones físicas.');
@@ -86,10 +87,8 @@ $assert($sinAlmacen->query($cab.'//button[contains(@class,"admin-btn--primary") 
 // Piezas (Fase 1): lectura junto al saldo y captura en piezas sólo si hay contenido.
 $assert($x->query('//td[@data-label="Saldo seleccionado"]//small[contains(@class,"almacen-piezas-lectura") and .="8 piezas + 450 ml"]')->length===1,'El saldo total muestra su lectura en piezas.');
 $assert($x->query('//ul[contains(@class,"almacen-balances")]//small[.="8 piezas + 450 ml"]')->length===1,'El desglose por almacén muestra su lectura en piezas.');
-$assert($x->query('//form[@data-stock-contenido="750.000"]//input[@name="piezas"]')->length===3&&$x->query('//form[.//input[@name="articulo_id" and @value="10"]]//input[@name="piezas"]')->length===0,'Entrada, merma y conteo ofrecen piezas sólo al artículo con contenido.');
+$assert($x->query('//form[@data-stock-contenido="750.000"]//input[@name="piezas"]')->length===2&&$x->query('//form[.//input[@name="articulo_id" and @value="10"]]//input[@name="piezas"]')->length===0,'Entrada y merma ofrecen piezas sólo al artículo con contenido.');
 $assert($x->query('//form[@data-stock-contenido and .//input[@name="accion" and @value="entrada"]]//input[@name="costo_por"]')->length===2&&$x->query('//form[.//input[@name="articulo_id" and @value="10"]]//input[@name="costo_por"]')->length===0,'El costo por pieza sólo se ofrece con contenido; sin él no se envía costo_por.');
-$assert($x->query('//form[@data-stock-contenido and .//input[@name="accion" and @value="ajuste"]][.//input[@name="piezas" and @value="8"]][.//input[@name="cantidad" and @value="450.000"]]')->length===1,'El conteo en piezas parte del saldo vigente: 8 piezas + 450.000 ml.');
-$assert($x->query('//form[.//input[@name="accion" and @value="ajuste"] and .//input[@name="articulo_id" and @value="10"]]//input[@name="cantidad" and @min="0"]')->length===1,'El conteo ya no admite cantidades negativas.');
 // Aviso de faltantes: sólo con pendientes, antes de la selección y con enlace a la bandeja.
 $assert($x->query('//*[contains(@class,"almacen-faltantes-aviso")]')->length===0,'Sin faltantes pendientes no hay aviso.');
 $aviso=$render(true,['faltantesPendientes'=>3]);$xa=$dom($aviso);
@@ -151,14 +150,22 @@ $xt=$dom($render(true,['transferencias'=>$transferencias,'transferenciasTotal'=>
 $assert($xt->query('//summary[contains(.,"Regularización de faltante #9")]')->length===1,'La regularización se rotula como tal.');
 $assert($xt->query('//form[.//input[@name="accion" and @value="transferencia_confirmar"] and .//input[@name="version" and @value="4"]]//textarea[@name="motivo" and @required and .="Confirmado"]')->length===1,'Confirmar trae un motivo editable por omisión.');
 $assert($xt->query('//form[.//input[@name="accion" and @value="transferencia_rechazar"]]//textarea[@name="motivo" and @required and .=""]')->length===1,'Rechazar pide el motivo.');
-$assert($xt->query('//form[.//input[@name="accion" and (@value="transferencia_autorizar" or @value="transferencia_enviar")]]')->length===0,'Una regularización no ofrece el flujo ordinario.');
+$assert($xt->query('//form[.//input[@name="accion" and (@value="transferencia_enviar" or @value="transferencia_recibir")]]')->length===0,'Una regularización no ofrece el flujo ordinario.');
 $assert($xt->query('//*[contains(@class,"almacen-transfer-route__sep")]/span[contains(@class,"admin-visually-hidden")]')->length===2,'La ruta usa el SVG del catálogo con texto para lectores, no una flecha Unicode.');
-// «Solicitar transferencia»: acción principal del modal, con forma de botón y por encima del historial.
+// «Nueva transferencia»: acción principal del modal, con forma de botón y por encima del historial.
 $toggle='//details[contains(@class,"almacen-transfer-request")]/summary[contains(@class,"admin-btn") and contains(@class,"admin-btn--primary")]';
-$assert($xt->query($toggle.'[normalize-space(.)="Solicitar transferencia"]')->length===1&&$xt->query($toggle.'/svg[@aria-hidden="true"]')->length===2,'La solicitud es un summary nativo con forma de botón primario e iconos SVG del catálogo.');
+$assert($xt->query($toggle.'[normalize-space(.)="Nueva transferencia"]')->length===1&&$xt->query($toggle.'/svg[@aria-hidden="true"]')->length===2,'La transferencia nueva es un summary nativo con forma de botón primario e iconos SVG del catálogo.');
+$xc=$dom($render(true,['transferencias'=>[],'transferenciasTotal'=>0,'contrapartes'=>[['id'=>1,'nombre'=>'Central','contexto'=>'global'],['id'=>2,'nombre'=>'Cocina','contexto'=>'restaurante']]]));
+$assert($xc->query('//form[@data-transfer-request and @data-super="0" and @data-contexto]//select[@name="origen_id"]/option[@value="2" and @data-contexto="restaurante"]')->length===1&&$xt->query('//form[@data-transfer-request]//*[@data-transfer-hint and @aria-live="polite"]')->length===1&&$xt->query('//form[@data-transfer-request]//button[@data-transfer-submit and normalize-space(.)="Registrar transferencia"]')->length===1,'El formulario anticipa el resultado con el negocio de cada almacén.');
+$assert($dom($render(true,['transferencias'=>[],'transferenciasTotal'=>0,'transferenciasSuper'=>true]))->query('//form[@data-transfer-request and @data-super="1"]//button[normalize-space(.)="Transferir ahora"]')->length===1,'Al superadministrador se le anuncia el paso único.');
+// Entre negocios: sin «autorizar»; el destino recibe con todo lo enviado precargado.
+$enviada=[['id'=>12,'tipo'=>'ordinaria','estado'=>'enviada','version'=>1,'origen_nombre'=>'Central','origen_contexto'=>'global','destino_nombre'=>'Producción','destino_contexto'=>'panaderia','creada_at'=>'2026-11-08 09:00:00','lineas'=>[['articulo_id'=>12,'nombre'=>'Vino tinto','unidad'=>'ml','cantidad_solicitada'=>'750.000','cantidad_enviada'=>'750.000','cantidad_recibida'=>'0.000','cantidad_retornada'=>'0.000','transito'=>'750.000']],'historial'=>[],'acciones'=>['recibir','incidencia']]];
+$xe=$dom($render(true,['transferencias'=>$enviada,'transferenciasTotal'=>1]));
+$assert($xe->query('//form[.//input[@name="accion" and @value="transferencia_recibir"]]//input[@name="lineas[0][cantidad]" and @value="750.000" and @max="750.000"]')->length===1,'La recepción llega precargada con lo enviado.');
+$assert($xe->query('//*[contains(@class,"admin-badge") and normalize-space(.)="Enviada"]')->length===1&&$xe->query('//input[@value="transferencia_autorizar"]')->length===0,'Estado «Enviada» y ningún paso de autorización.');
 $assert($xt->query('//*[@id="almacen-transferencias"]//*[contains(@class,"admin-btn--primary") and not(ancestor::details[contains(@class,"almacen-transfer-request")]) and not(ancestor::details[contains(@class,"almacen-transfer-action")])]')->length===0,'Fuera de los formularios plegados, el botón de solicitud es el único primario del modal.');
 $conAlerta=$render(true,['vista'=>'transferencias','transferencias'=>$transferencias,'transferenciasTotal'=>1,'alertas'=>['exito'=>['Solicitud registrada.']]]);
-$pAlerta=strpos($conAlerta,'Solicitud registrada.');$pAccion=strpos($conAlerta,'almacen-transfer-request');$pHistorial=strpos($conAlerta,'Solicitudes e historial');
+$pAlerta=strpos($conAlerta,'Solicitud registrada.');$pAccion=strpos($conAlerta,'almacen-transfer-request');$pHistorial=strpos($conAlerta,'Transferencias e historial');
 $assert($pAlerta!==false&&$pAlerta<$pAccion&&$pAccion<$pHistorial,'Resultado, acción y después el historial.');
 $solicitud='//form[.//input[@name="accion" and @value="transferencia_solicitar"]]';$nombres=[];
 foreach($xt->query($solicitud.'//*[@name]') as $n)$nombres[]=$n->getAttribute('name');sort($nombres);
@@ -167,11 +174,22 @@ $assert($xt->query($solicitud.'//input[@name="volver_vista" and @value="transfer
 $assert(str_contains($conAlerta,'>1</span> documento · pendientes primero'),'Un documento en singular.');
 $assert($xt->query('//nav[@aria-label="Paginación de transferencias"]')->length===0,'Con una sola página no hay paginación.');
 $vacio=$render(true,['transferencias'=>[],'transferenciasTotal'=>0]);$xv=$dom($vacio);
-$assert($xv->query('//*[contains(@class,"almacen-transfer-head")]/span')->length===0&&str_contains($vacio,'Las solicitudes que registres con «Solicitar transferencia» aparecerán aquí'),'Vacío sin contador y remitiendo a la acción.');
+$assert($xv->query('//*[contains(@class,"almacen-transfer-head")]/span')->length===0&&str_contains($vacio,'Las que registres con «Nueva transferencia» aparecerán aquí'),'Vacío sin contador y remitiendo a la acción.');
 $assert(str_contains($render(false,['transferencias'=>[],'transferenciasTotal'=>0]),'<p class="admin-empty">Todavía no hay transferencias en este ámbito.</p>'),'Vacío de solo consulta sin acción que no puede ejecutar.');
 $xp=$dom($render(true,['transferencias'=>$transferencias,'transferenciasTotal'=>240,'transferenciasPagina'=>2]));
 $assert($xp->query('//nav[@aria-label="Paginación de transferencias"]/a[contains(@class,"admin-btn--secondary") and contains(@class,"admin-btn--small")]')->length===2&&$xp->query('//nav[@aria-label="Paginación de transferencias"]/a[@rel="prev"]')->length===1,'Paginación secundaria pequeña, sólo con varias páginas.');
 $inactivos=array_map(static fn(array $a):array=>['activo'=>0]+$a,[['almacen_id'=>1,'nombre'=>'Central','slug'=>'global','permitir_negativos'=>0]]);
 $sinActivos=$render(true,['opcionesAlmacen'=>$inactivos,'transferencias'=>[],'transferenciasTotal'=>0]);
-$assert(!str_contains($sinActivos,'transferencia_solicitar')&&str_contains($sinActivos,'Para solicitar una transferencia, Global necesita al menos un almacén propio activo.'),'Sin almacén propio activo se explica por qué no hay acción.');
+$assert(!str_contains($sinActivos,'transferencia_solicitar')&&str_contains($sinActivos,'Para registrar una transferencia, Global necesita al menos un almacén propio activo.'),'Sin almacén propio activo se explica por qué no hay acción.');
+// Asociar y dar entrada en almacenes de otros negocios donde el usuario edita (§5).
+$editables=[['almacen_id'=>1,'nombre'=>'Central <seguro>','slug'=>'global','asociado'=>false],['almacen_id'=>2,'nombre'=>'Cocina','slug'=>'restaurante','asociado'=>false],['almacen_id'=>3,'nombre'=>'Obrador','slug'=>'panaderia','asociado'=>false]];
+$xa=$dom($render(true,['almacenesEditables'=>$editables,'contextosEditables'=>['global','restaurante']]));
+$asociar='//*[@id="almacen-asociar"]//form[.//input[@name="accion" and @value="asociar"]]';
+$assert($xa->query($asociar.'//fieldset[@data-asociar-almacenes]//*[@role="group"]')->length===3&&$xa->query($asociar.'//input[@type="checkbox" and @name="almacen_ids[]"]')->length===3&&$xa->query($asociar.'//select[@name="almacen_id"]')->length===0,'Asociar ofrece casillas por negocio para varios almacenes a la vez.');
+$assert($xa->query($asociar.'//*[@role="group" and @aria-label="Restaurante"]//input[@value="2"]')->length===1&&$xa->query($asociar.'//input[@type="checkbox" and @checked]')->length===0,'Cada almacén va bajo su negocio y ninguno llega marcado si hay varios.');
+$assert($x->query($asociar.'//input[@type="checkbox" and @name="almacen_ids[]" and @value="1" and @checked]')->length===1,'Con un solo almacén disponible llega marcado.');
+$assert($xa->query('//*[@id="articulo-10-entrada"]//select[@data-warehouse-picker]/option[.="Cocina · Restaurante"]')->length===1&&$xa->query('//*[@id="articulo-10-entrada"]//*[@data-warehouse-panel="2"]//input[@name="accion" and @value="entrada"]')->length===1,'La entrada alcanza el almacén de otro negocio donde el usuario edita, rotulado con su dueño.');
+$assert($xa->query('//*[@id="articulo-10-entrada"]//*[@data-warehouse-panel="3"]')->length===0&&$xa->query('//*[@id="articulo-10-merma"]//*[@data-warehouse-panel="2"]')->length===0&&$xa->query('//*[@id="articulo-10-configurar"]//*[@data-warehouse-panel="2"]')->length===0,'Sin edición en Panadería no hay entrada ahí; merma y configuración siguen en el contexto actual.');
+$xs=$dom($render(true,['transferencias'=>[],'transferenciasTotal'=>0,'asociacionesTransferencia'=>[10=>[1,2],12=>[1]]]));
+$assert($xs->query('//form[@data-transfer-request and @data-asociaciones=\'{"10":[1,2],"12":[1]}\']')->length===1&&$xs->query('//form[@data-transfer-request]//p[@data-transfer-asociacion and @role="status" and @hidden]')->length===1&&!str_contains($render(true,['transferencias'=>[],'transferenciasTotal'=>0]),'deben estar asociados en ambos'),'La transferencia ya no exige asociación previa y lleva el aviso de asociación automática.');
 echo "Almacenes representación: {$count} comprobaciones OK.\n";

@@ -60,7 +60,7 @@ final class AdministracionAlmacenes
         $faltantes=$vista==='faltantes'?$this->faltantes->bandeja($ctx):['ok'=>true,'confirmado'=>true,'faltantes'=>[]];
         self::exigirResultado($faltantes);
         $faltantesPendientes=$this->faltantes->contar($ctx);
-        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina'],'faltantes'=>$faltantes['faltantes'],'faltantesPendientes'=>$faltantesPendientes];
+        return ['existencias'=>$existencias,'almacenes'=>$almacenes,'movimientos'=>$movimientos,'catalogo'=>$catalogo,'opcionesAlmacen'=>$opciones['almacenes'],'totalOpcionesAlmacen'=>$opciones['total'],'transferencias'=>$transferencias['transferencias'],'contrapartes'=>$transferencias['contrapartes'],'asociacionesTransferencia'=>$transferencias['asociaciones_transferencia'],'catalogoTransferencias'=>$catalogoTransferencias['articulos'],'transferenciasTotal'=>$transferencias['transferencias_total'],'transferenciasPendientes'=>$transferencias['transferencias_pendientes'],'transferenciasPagina'=>$transferencias['transferencias_pagina'],'faltantes'=>$faltantes['faltantes'],'faltantesPendientes'=>$faltantesPendientes];
     }
 
     /** Datos maestros para elegir una asociación: no incluye existencias ajenas. */
@@ -107,10 +107,13 @@ final class AdministracionAlmacenes
                 'crear_almacen'=>['propietario','nombre'],
                 'configurar_almacen'=>['almacen_id','nombre','activo'],
                 'eliminar_almacen'=>['almacen_id'],
-                'crear_articulo','editar_articulo'=>['articulo_id','nombre','unidad','costo','activo','contenido_pieza'],
-                'asociar'=>['almacen_id','articulo_id','minimo'],
+                'crear_articulo'=>['nombre','unidad','costo','activo','contenido_pieza','almacen_ids'],
+                'editar_articulo'=>['articulo_id','nombre','unidad','costo','activo','contenido_pieza'],
+                'asociar'=>['almacen_id','almacen_ids','articulo_id','minimo'],
                 'configurar_asociacion'=>['almacen_id','articulo_id','minimo','activo'],
-                'entrada','ajuste','merma'=>['almacen_id','articulo_id','cantidad','piezas','costo_unitario','costo_por','version','clave','motivo','nota'],
+                'entrada'=>['almacen_id','articulo_id','cantidad','piezas','costo_unitario','costo_por','proveedor_id','version','clave','motivo','nota'],
+                // «ajuste» (conteo físico) se retiró: sobrescribía el saldo sin motivo (auditoría A-4).
+                'merma'=>['almacen_id','articulo_id','cantidad','piezas','costo_unitario','costo_por','version','clave','motivo','nota'],
                 default=>throw new InventarioError('ACCION_INVALIDA','La operación solicitada no está disponible.'),
             };
             if(array_diff(array_keys($datos),array_merge(['admin_csrf','accion','volver_vista','volver_filtros'],$permitidas))) throw new InventarioError('DATOS_INVALIDOS','Hay campos no admitidos en el formulario.');
@@ -127,20 +130,21 @@ final class AdministracionAlmacenes
                     $articulo=['nombre'=>self::texto($datos,'nombre'),'unidad'=>self::texto($datos,'unidad'),'costo'=>self::texto($datos,'costo'),'activo'=>isset($datos['activo'])];
                     // Campo ausente conserva el contenido vigente; vacío lo retira.
                     if(array_key_exists('contenido_pieza',$datos)) $articulo['contenido_pieza']=self::texto($datos,'contenido_pieza',false);
-                    return $accion==='crear_articulo' ? $this->crearArticulo($ctx,$articulo) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
+                    return $accion==='crear_articulo' ? $this->crearArticulo($ctx,$articulo,self::ids($datos['almacen_ids']??[])) : $this->motor->editarArticulo($ctx,$id('articulo_id'),$articulo);
                 case 'asociar':
-                    return $this->motor->asociarArticulo($ctx,$id('almacen_id'),$id('articulo_id'),self::texto($datos,'minimo'));
+                    $destinos=self::ids($datos['almacen_ids']??[]);
+                    if(isset($datos['almacen_id'])&&$datos['almacen_id']!=='')$destinos[]=$id('almacen_id');
+                    return $this->asociarVarios($ctx,$id('articulo_id'),array_values(array_unique($destinos)),self::texto($datos,'minimo'));
                 case 'configurar_asociacion':
                     return $this->motor->configurarAsociacion($ctx,$id('almacen_id'),$id('articulo_id'),['minimo'=>self::texto($datos,'minimo'),'activo'=>isset($datos['activo'])]);
                 case 'entrada':
-                case 'ajuste':
                 case 'merma':
                     $linea=['almacen_id'=>$id('almacen_id'),'articulo_id'=>$id('articulo_id')];
                     $pieza=null;
                     if(self::texto($datos,'piezas',false)!==''){
                         // Captura en piezas (8 botellas + 450 ml): el motor sólo recibe la unidad base.
                         $pieza=$this->contenidoPieza($linea['articulo_id']);
-                        $linea['cantidad']=self::enUnidadBase(self::texto($datos,'piezas'),self::texto($datos,'cantidad',false),$pieza,$accion==='ajuste');
+                        $linea['cantidad']=self::enUnidadBase(self::texto($datos,'piezas'),self::texto($datos,'cantidad',false),$pieza);
                     } else $linea['cantidad']=self::texto($datos,'cantidad');
                     if ($accion==='entrada' && isset($datos['costo_unitario']) && $datos['costo_unitario']!=='') {
                         $costo=self::texto($datos,'costo_unitario');
@@ -150,12 +154,17 @@ final class AdministracionAlmacenes
                         } elseif(isset($datos['costo_por']) && !in_array($datos['costo_por'],['','unidad'],true)) throw new InventarioError('DATOS_INVALIDOS','Indica si el costo es por pieza o por unidad.');
                         $linea['costo_unitario']=$costo;
                     }
-                    if ($accion==='ajuste') $linea['version']=self::texto($datos,'version');
                     $clave=self::texto($datos,'clave');
                     $documento=['clave'=>$clave,'referencia'=>$clave,'origen'=>'admin_almacenes','motivo'=>$accion==='merma'?self::texto($datos,'motivo'):'operacion_administrativa','nota'=>self::texto($datos,'nota',false),'lineas'=>[$linea]];
+                    if($accion==='entrada' && self::texto($datos,'proveedor_id',false)!=='') {
+                        // Sin costo capturado el motor usaría el maestro, que no es lo que
+                        // cobró este proveedor: el histórico de costos quedaría falso.
+                        if(!isset($linea['costo_unitario'])) throw new InventarioError('COSTO_REQUERIDO','Indica el costo de esta entrada para registrarla en el historial del proveedor.');
+                        return $this->entradaConProveedor($this->contextoAlmacen($linea['almacen_id'],$ctx),$documento,$id('proveedor_id'));
+                    }
                     return match($accion) {
-                        'entrada'=>$this->motor->registrarEntrada($ctx,$documento),
-                        'ajuste'=>$this->motor->registrarAjuste($ctx,$documento),
+                        // La entrada se autoriza en el negocio dueño del almacén (§5).
+                        'entrada'=>$this->motor->registrarEntrada($this->contextoAlmacen($linea['almacen_id'],$ctx),$documento),
                         'merma'=>$this->motor->registrarMerma($ctx,$documento),
                     };
                 default:
@@ -164,16 +173,95 @@ final class AdministracionAlmacenes
         } catch (\Throwable $e) { return Almacenes::errorLectura($e) + ['confirmado'=>false]; }
     }
 
-    /** Alta rápida local con ambas autorizaciones, sin asociación ni saldo implícitos. */
-    private function crearArticulo(string $ctx,array $articulo): array
+    /**
+     * Entrada y su proveedor en la misma transacción (arquitectura §17): el motor
+     * registra la operación como siempre y aquí sólo se liga quién la surtió. Si
+     * cualquiera de las dos partes falla no queda ni la entrada ni el vínculo.
+     */
+    private function entradaConProveedor(string $ctx,array $documento,int $proveedor): array
     {
-        if ($ctx==='global') return $this->motor->crearArticulo('global',$articulo);
-        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$articulo):array {
-            $this->alcance->autorizar($ctx,'editar',null,true);
-            $r=$this->motor->crearArticulo('global',$articulo);
-            if (empty($r['confirmado']) && !(($r['ok']??null)===null && !empty($r['pendiente']))) throw new InventarioError($r['codigo']??'ALTA_RECHAZADA',$r['mensaje']??'No se pudo crear el artículo.');
-            return $r;
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$documento,$proveedor):array {
+            $alcance=$this->alcance->autorizar($ctx,'editar',null,true);
+            DirectorioProveedores::exigirActivo($this->db,$alcance['unidad_id'],$proveedor);
+            $r=$this->motor->registrarEntrada($ctx,$documento);
+            if(($r['ok']??null)===false || !isset($r['operacion_id'])) throw new InventarioError((string)($r['codigo']??'ENTRADA_RECHAZADA'),(string)($r['mensaje']??'No se registró la entrada.'));
+            DirectorioProveedores::ligar($this->db,$alcance['unidad_id'],(int)$r['operacion_id'],$proveedor);
+            // El coordinador exterior publica su propio estado de confirmación.
+            unset($r['ok'],$r['confirmado'],$r['pendiente']);
+            return $r+['proveedor_id'=>$proveedor];
         });
+    }
+
+    /**
+     * Alta del artículo y, si se eligieron, sus asociaciones en la misma transacción:
+     * o queda creado y asociado a todos los almacenes marcados, o no queda nada.
+     * Nunca crea saldo.
+     */
+    private function crearArticulo(string $ctx,array $articulo,array $almacenes=[]): array
+    {
+        if ($ctx==='global' && !$almacenes) return $this->motor->crearArticulo('global',$articulo);
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$articulo,$almacenes):array {
+            $this->alcance->autorizar($ctx,'editar',null,true);
+            $r=self::interno($this->motor->crearArticulo('global',$articulo),'No se pudo crear el artículo.');
+            foreach($almacenes as $almacen) self::interno($this->motor->asociarArticulo($this->contextoAlmacen($almacen,$ctx),$almacen,(int)$r['articulo_id']),'No se pudo asociar el artículo.');
+            return $r+['almacenes_asociados'=>$almacenes];
+        });
+    }
+
+    /** Asocia el artículo a uno o varios almacenes, todos o ninguno. */
+    private function asociarVarios(string $ctx,int $articulo,array $almacenes,string $minimo): array
+    {
+        if(!$almacenes) throw new InventarioError('ALMACEN_REQUERIDO','Elige al menos un almacén.');
+        if(count($almacenes)===1) return $this->motor->asociarArticulo($this->contextoAlmacen($almacenes[0],$ctx),$almacenes[0],$articulo,$minimo);
+        return TransaccionInventario::ejecutar($this->db,function()use($ctx,$articulo,$almacenes,$minimo):array {
+            foreach($almacenes as $almacen) self::interno($this->motor->asociarArticulo($this->contextoAlmacen($almacen,$ctx),$almacen,$articulo,$minimo),'No se pudo asociar el artículo.');
+            return ['codigo'=>'ARTICULO_ASOCIADO','articulo_id'=>$articulo,'almacenes_asociados'=>$almacenes];
+        });
+    }
+
+    /** Resultado de una operación anidada: confirmada o pendiente del coordinador; si no, se revierte todo. */
+    private static function interno(array $r,string $mensaje): array
+    {
+        if (empty($r['confirmado']) && !(($r['ok']??null)===null && !empty($r['pendiente']))) throw new InventarioError((string)($r['codigo']??'OPERACION_RECHAZADA'),(string)($r['mensaje']??$mensaje));
+        unset($r['ok'],$r['confirmado'],$r['pendiente']);
+        return $r;
+    }
+
+    /**
+     * Negocio dueño del almacén. Asociar y dar entrada se autorizan ahí (arquitectura §5):
+     * la pantalla de un negocio puede escribir en almacenes de otro sólo si el usuario
+     * ya tiene edición de Almacenes en ese otro; el motor lo vuelve a comprobar.
+     * Un almacén inexistente conserva el contexto actual y el motor lo rechaza.
+     */
+    private function contextoAlmacen(int $almacen,string $ctx): string
+    {
+        $s=$this->db->prepare("SELECT u.slug FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.id=? AND u.slug IN('global','restaurante','panaderia')");
+        $s->execute([$almacen]);$r=$s->get_result()->fetch_row();$s->close();
+        return $r?(string)$r[0]:$ctx;
+    }
+
+    /**
+     * Almacenes activos de todos los negocios donde el actor edita Almacenes, con la
+     * marca de si $articulo ya está asociado. Sólo identidad: nunca saldos.
+     * @return list<array{almacen_id:int,nombre:string,slug:string,asociado:bool}>
+     */
+    public function almacenesEditables(?int $articulo=null): array
+    {
+        $editables=[];
+        foreach(['global','restaurante','panaderia'] as $slug){try{$this->alcance->autorizar($slug,'editar');$editables[]=$slug;}catch(InventarioError){}}
+        if(!$editables) return [];
+        $marcas=implode(',',array_fill(0,count($editables),'?'));
+        $s=$this->db->prepare("SELECT a.id almacen_id,a.nombre,u.slug,EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.almacen_id=a.id AND aa.articulo_id=?) asociado FROM almacenes a JOIN unidades u ON u.id=a.unidad_id WHERE a.activo=1 AND u.slug IN ({$marcas}) ORDER BY a.unidad_id,a.nombre");
+        $s->execute(array_merge([(int)$articulo],$editables));$rows=$s->get_result()->fetch_all(MYSQLI_ASSOC);$s->close();
+        return array_map(static fn(array $r):array=>['almacen_id'=>(int)$r['almacen_id'],'nombre'=>(string)$r['nombre'],'slug'=>(string)$r['slug'],'asociado'=>(bool)$r['asociado']],$rows);
+    }
+
+    /** @return list<int> */
+    private static function ids(mixed $v): array
+    {
+        if($v===null||$v===''||$v===[]) return [];
+        if(!is_array($v)||!array_is_list($v)||count($v)>100) throw new InventarioError('DATOS_INVALIDOS','La selección de almacenes no es válida.');
+        return array_values(array_unique(array_map(static fn($x):int=>self::id($x),$v)));
     }
 
     private function contenidoPieza(int $articulo): string
@@ -184,7 +272,7 @@ final class AdministracionAlmacenes
     }
 
     /** piezas × contenido + resto, exacto a milésimas. Un conteo admite cero. */
-    public static function enUnidadBase(string $piezas,string $resto,string $contenido,bool $permitirCero=false): string
+    public static function enUnidadBase(string $piezas,string $resto,string $contenido): string
     {
         $p=DecimalInventario::leer($piezas);$c=DecimalInventario::leer($contenido);$r=$resto===''?0:DecimalInventario::leer($resto);
         // p y c tienen tres decimales implícitos: el producto trae seis y se exige exacto.
@@ -192,7 +280,7 @@ final class AdministracionAlmacenes
         $bruto=$p*$c;
         if($bruto%1000!==0) throw new InventarioError('CANTIDAD_INVALIDA','Las piezas por su contenido deben dar una cantidad exacta a milésimas.');
         $total=DecimalInventario::sumar(intdiv($bruto,1000),$r);
-        if($total<=0 && !($permitirCero && $total===0)) throw new InventarioError('CANTIDAD_INVALIDA','La cantidad debe ser positiva.');
+        if($total<=0) throw new InventarioError('CANTIDAD_INVALIDA','La cantidad debe ser positiva.');
         return DecimalInventario::cantidad($total);
     }
 

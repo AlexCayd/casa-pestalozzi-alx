@@ -10,23 +10,68 @@ Se conservan sus FK, checks y movimientos inmutables. Se añade el estado
 `autorizada` y un registro de comandos para idempotencia sin movimientos ficticios.
 Las instalaciones nuevas incorporan el DDL; no se migra la base activa.
 
+### Fases según el caso (8 nov 2026)
+
+El número de pasos depende de quién registra la transferencia y de si los dos
+almacenes son del mismo negocio. Global, Restaurante y Panadería son negocios
+distintos entre sí.
+
+| Caso | Fases | Al registrarla |
+|---|---|---|
+| Mismo negocio (p. ej. Barra → Cocina) | Una | Salida y entrada en la misma transacción; nace `recibida` |
+| Superadministrador, cualquier par de almacenes | Una | Igual que la interna, aunque los almacenes sean de negocios ajenos al contexto desde el que opera |
+| Entre negocios, la registra el dueño del origen | Enviada → recibida | Descuenta el origen y nace `enviada`; el destino sólo recibe |
+| Entre negocios, la pide el destino | Solicitada → enviada → recibida | Queda `solicitada`, sin saldo ni reserva, hasta que el origen la envía |
+
+En una sola fase cada movimiento lleva la unidad dueña de su almacén, con una
+operación de salida y otra de entrada, como la regularización de faltantes.
+Superadministrador es sólo `usuarios.es_superadmin`; tener edición en los dos
+negocios no basta. Sobre documentos ajenos ya registrados, el superadministrador
+respeta al propietario físico como cualquier otro actor.
+
 | Acción | Estado previo | Autorización física | Resultado |
 |---|---|---|---|
-| Solicitar | Nueva | Origen o destino propios en el contexto efectivo | Solicitada, sin saldo ni reserva |
-| Autorizar | Solicitada | Origen | Autorizada; comprueba existencias, sin reservar |
-| Enviar | Autorizada | Origen | Enviada; descuenta origen y crea tránsito |
+| Registrar | Nueva | Origen o destino propios en el contexto efectivo; el superadministrador, cualquiera | Recibida, enviada o solicitada según la tabla anterior |
+| Enviar | Solicitada (o `autorizada` heredada) | Origen | Enviada; revalida saldo, descuenta origen y crea tránsito |
 | Recibir | Enviada / incidencia | Destino | Suma únicamente lo recibido; parcial deja incidencia |
 | Registrar diferencia | Enviada / incidencia | Destino | Incidencia con motivo, incluso sin recepción |
 | Retornar | Incidencia | Origen | Compensa lo que vuelve físicamente; no inventa recepción |
-| Rechazar | Solicitada / autorizada | Origen o destino propios | Rechazada sin movimientos |
-| Cancelar | Solicitada / autorizada | Origen o destino propios | Cancelada sin movimientos |
+| Rechazar | Solicitada / autorizada | Origen o destino propios (la interfaz la ofrece al origen) | Rechazada sin movimientos |
+| Cancelar | Solicitada / autorizada | Origen o destino propios (la interfaz la ofrece al destino) | Cancelada sin movimientos |
+
+**Autorizar se retiró.** Era un paso sin efecto físico: comprobaba existencias sin
+reservarlas, y el envío las volvía a comprobar. Ahora el servicio responde
+`ACCION_INVALIDA`. Los documentos ya `autorizada` se conservan con ese estado y se
+envían, rechazan o cancelan igual que una solicitada. El ENUM no cambia, así que
+no hace falta migración.
+
+Diferencia y retorno no son fases: sólo aparecen cuando una recepción no cubre
+todo lo enviado. La recepción llega precargada con lo enviado, de modo que el
+caso normal es un solo envío del formulario.
 
 Cada acción requiere `inventario.editar`, contraseña, contexto propietario y
 versión vigente. Global consolidado permite lectura; no escritura extranjera.
 La petición ofrece solo identidad de la contraparte, no su saldo. La salida se
 vuelve a validar al enviar y nunca permite transferir saldo inexistente; desde M3
-ningún almacén admite negativos. No hay reserva entre autorización
-y envío. Los almacenes deben ser distintos y las asociaciones explícitas.
+ningún almacén admite negativos. No hay reserva entre la solicitud y el envío.
+Una línea sin saldo revierte el documento entero, incluso en una transferencia de
+un paso. Los almacenes deben ser distintos.
+
+### Asociación del artículo (9 nov 2026)
+
+Ya no hace falta asociar el artículo a los dos almacenes antes de transferir.
+
+| Almacén | Si el artículo no está asociado | Motivo |
+|---|---|---|
+| Origen | Se rechaza (`ASOCIACION_NO_EXISTE`) | Sin asociación no hay existencias que enviar |
+| Destino | Se asocia al registrar: mínimo 0, sin saldo, unidad dueña del almacén | Recibir mercancía implica manejar el artículo |
+
+Aplica también cuando el destino es de otro negocio. Una asociación inactiva o un
+artículo inactivo se siguen rechazando: reactivar es una decisión explícita. El
+resultado lleva `asociados` (almacén y artículos) y el aviso de la interfaz lo
+nombra. Antes de enviar, el formulario avisa qué artículos quedarán asociados al
+destino y cuáles faltan en el origen, con un mapa artículo → almacenes que sólo
+contiene identidad, nunca saldos.
 
 La recepción y el retorno expresan incrementos, no totales sobrescribibles.
 Por línea: `enviada = recibida + retornada + tránsito`. Una recepción parcial
@@ -51,7 +96,7 @@ y comandos se conservan; las compensaciones nunca editan el ledger anterior.
 
 `transferencias.tipo` distingue `ordinaria` y `regularizacion`. Una regularización
 nace al conciliar un faltante de venta (arquitectura §16) y no admite el flujo
-ordinario (autorizar, enviar, recibir, incidencia, retornar ni cancelar manual):
+ordinario (enviar, recibir, incidencia, retornar ni cancelar manual):
 
 | Caso | Estado | Quién actúa | Efecto |
 |---|---|---|---|

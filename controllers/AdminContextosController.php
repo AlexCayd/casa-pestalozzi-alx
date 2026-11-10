@@ -21,12 +21,27 @@ final class AdminContextosController
         header('Location: ' . Contextos::inicio($contexto), true, 302);
     }
 
+    /**
+     * «Proveedores» va justo después de Almacenes y con su mismo permiso: no es un
+     * módulo de permisos propio sino una pantalla de Almacenes (arquitectura §17).
+     */
+    private static function conProveedores(array $entradas, string $contexto): array
+    {
+        if (!isset($entradas['inventario'])) return $entradas;
+        $salida = [];
+        foreach ($entradas as $clave => $entrada) {
+            $salida[$clave] = $entrada;
+            if ($clave === 'inventario') $salida['proveedores'] = ['title' => 'Proveedores', 'path' => AdminProveedoresController::base($contexto)];
+        }
+        return $salida;
+    }
+
     public static function navegacion(string $contexto, array $restaurante): array
     {
         if (Auth::multinegocio()) {
             if ($contexto === 'restaurante') {
                 $habilitados=\Services\Security\ContextoNegocio::modulosHabilitados($contexto);
-                return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY);
+                return self::conProveedores(['inicio'=>['title'=>'Inicio','path'=>'/admin']] + array_filter($restaurante,static fn(string $clave): bool => in_array($clave,$habilitados,true),ARRAY_FILTER_USE_KEY),$contexto);
             }
             $base='/admin/'.$contexto;
             $entradas=[];
@@ -40,7 +55,7 @@ final class AdminContextosController
             if (Auth::puede('productos','ver',$contexto)) $entradas['productos']=['title'=>'Artículos y preparaciones','path'=>$base.'/recetas/articulos'];
             if ($contexto==='global' && (Auth::puede('inventario','ver',$contexto)||Auth::puede('users','ver',$contexto)||Auth::puede('productos','ver',$contexto))) $entradas['menus']=['title'=>'Menús PDF','path'=>$base.'/menus'];
             if (Auth::puede('users','ver',$contexto)) $entradas['users']=['title'=>'Usuarios','path'=>$base.'/usuarios'];
-            return $entradas;
+            return self::conProveedores($entradas,$contexto);
         }
         if ($contexto === 'restaurante') {
             return ['inicio'=>['title'=>'Inicio','path'=>'/admin']] + $restaurante;

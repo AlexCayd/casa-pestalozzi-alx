@@ -132,7 +132,9 @@ final class Almacenes
     public function registrarEntrada(string $ctx,array $doc): array { return $this->operar($ctx,'entrada',$doc); }
     public function registrarMerma(string $ctx,array $doc): array { return $this->operar($ctx,'merma',$doc); }
     public function registrarSalida(string $ctx,array $doc): array { return $this->operar($ctx,'salida',$doc); }
-    public function registrarAjuste(string $ctx,array $doc): array { return $this->operar($ctx,'ajuste',$doc); }
+    // registrarAjuste (conteo físico) se retiró: sobrescribía el saldo sin motivo y no se
+    // distinguía de una merma (auditoría A-4). Una diferencia real se registra como merma
+    // con su motivo o como entrada. Los ajustes históricos siguen en el ledger.
     public function revertirMovimientos(string $ctx,array $doc): array { return $this->operar($ctx,'cancelacion',$doc); }
 
     /** Consume la receta/version guardada en el item; solo Restaurante POS. */
@@ -246,7 +248,7 @@ final class Almacenes
                 if(!$a) throw new InventarioError('ASOCIACION_NO_EXISTE','El artículo no está asociado al almacén autorizado.');
                 if(!(int)$a['activo']) throw new InventarioError('ASOCIACION_INACTIVA','La asociación está inactiva.');
                 $maestro=$this->articuloActivo($articulo);
-                $cantidad=DecimalInventario::leer($l['cantidad'],3,$tipo==='ajuste');
+                $cantidad=DecimalInventario::leer($l['cantidad']);
                 $saldo=DecimalInventario::leer($a['saldo'],3,true);
                 $delta=in_array($tipo,['merma','salida','venta'],true)?-$cantidad:$cantidad;
                 if($tipo==='venta') {
@@ -255,10 +257,6 @@ final class Almacenes
                     $descontar=min(max($saldo,0),$cantidad);
                     $delta=-$descontar;
                     if($cantidad>$descontar) $faltantes[]=Faltantes::registrarVenta($this->db,$alcance['unidad_id'],$almacen,$articulo,(int)$ticketItemId,$operacion,DecimalInventario::cantidad($cantidad-$descontar));
-                }
-                if($tipo==='ajuste') {
-                    if((string)$a['version']!==(string)$l['version']) throw new InventarioError('VERSION_CONFLICTO','Las existencias cambiaron después del conteo.');
-                    $delta=$cantidad-$saldo;
                 }
                 if($tipo==='cancelacion') {
                     // Lectura actual también si el coordinador usa REPEATABLE READ.
@@ -271,7 +269,7 @@ final class Almacenes
                 $nuevo=DecimalInventario::sumar($saldo,$delta);
                 $nuevoSql=DecimalInventario::cantidad($nuevo);
                 $deltaSql=DecimalInventario::cantidad($delta);
-                if($nuevo<0) throw $tipo==='ajuste' ? new InventarioError('CONTEO_INVALIDO','Un conteo físico no puede ser negativo.') : new InventarioError('SALDO_INSUFICIENTE','El almacén no tiene saldo suficiente.');
+                if($nuevo<0) throw new InventarioError('SALDO_INSUFICIENTE','El almacén no tiene saldo suficiente.');
                 if($delta===0) continue;
                 $costo=$tipo==='cancelacion'?$l['costo_unitario']:(array_key_exists('costo_unitario',$l)?$l['costo_unitario']:$maestro['costo']);
                 $this->sql('UPDATE almacen_articulos SET saldo=?,version=version+1 WHERE almacen_id=? AND articulo_id=?',[$nuevoSql,$almacen,$articulo]);
@@ -302,24 +300,22 @@ final class Almacenes
         $agregadas=[];
         foreach($doc['lineas'] as $l) {
             if(!is_array($l)) throw new InventarioError('LINEAS_INVALIDAS','La línea no es válida.');
-            self::claves($l,$tipo==='cancelacion'?['movimiento_id','cantidad']:['almacen_id','articulo_id','cantidad','costo_unitario','version']);
-            $q=DecimalInventario::leer($l['cantidad']??null,3,$tipo==='ajuste');
-            if($tipo!=='ajuste' && $q<=0) throw new InventarioError('CANTIDAD_INVALIDA','La cantidad debe ser positiva.');
+            self::claves($l,$tipo==='cancelacion'?['movimiento_id','cantidad']:['almacen_id','articulo_id','cantidad','costo_unitario']);
+            $q=DecimalInventario::leer($l['cantidad']??null);
+            if($q<=0) throw new InventarioError('CANTIDAD_INVALIDA','La cantidad debe ser positiva.');
             if($tipo==='cancelacion') {
                 $id=self::id($l['movimiento_id']??null); $key=(string)$id;
                 $n=['movimiento_id'=>$id];
             } else {
                 $n=['almacen_id'=>self::id($l['almacen_id']??null),'articulo_id'=>self::id($l['articulo_id']??null)];
                 $key=$n['almacen_id'].':'.$n['articulo_id'];
-                if($tipo==='ajuste') $n['version']=self::version($l['version']??null);
-                elseif(array_key_exists('version',$l)) throw new InventarioError('DATOS_INVALIDOS','La versión solo corresponde a un ajuste.');
                 if(array_key_exists('costo_unitario',$l)) {
                     if($tipo!=='entrada' && !($tipo==='venta' && $comercial)) throw new InventarioError('DATOS_INVALIDOS','El costo solo puede indicarse al registrar una entrada o venta interna.');
                     $n['costo_unitario']=$comercial && $l['costo_unitario']===null ? null : DecimalInventario::formato(DecimalInventario::leer($l['costo_unitario'],4),4);
                 }
             }
             if(isset($agregadas[$key])) {
-                if($tipo==='ajuste' || ($n['costo_unitario']??null)!==($agregadas[$key]['costo_unitario']??null)) throw new InventarioError('LINEAS_INVALIDAS','Hay líneas repetidas con conteos o costos incompatibles.');
+                if(($n['costo_unitario']??null)!==($agregadas[$key]['costo_unitario']??null)) throw new InventarioError('LINEAS_INVALIDAS','Hay líneas repetidas con conteos o costos incompatibles.');
                 $q=DecimalInventario::sumar($q,DecimalInventario::leer($agregadas[$key]['cantidad']));
             }
             $n['cantidad']=DecimalInventario::cantidad($q);
@@ -413,5 +409,4 @@ final class Almacenes
     private static function booleano(mixed $v): int { if(!in_array($v,[true,false,0,1],true)) throw new InventarioError('DATOS_INVALIDOS','El estado debe ser booleano.'); return (int)$v; }
     private static function medida(mixed $v): string { if(!in_array($v,['g','kg','ml','l','pza'],true)) throw new InventarioError('UNIDAD_INVALIDA','La unidad de medida no es válida.'); return $v; }
     private static function id(mixed $v): int { if((!is_int($v)&&!is_string($v)) || !preg_match('/^[1-9][0-9]{0,17}$/D',(string)$v)) throw new InventarioError('ID_INVALIDO','El identificador no es válido.'); return (int)$v; }
-    private static function version(mixed $v): int { if((!is_int($v)&&!is_string($v)) || !preg_match('/^(0|[1-9][0-9]{0,17})$/D',(string)$v)) throw new InventarioError('VERSION_INVALIDA','Indica una versión de existencias válida.'); return (int)$v; }
 }

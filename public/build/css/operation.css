@@ -2962,17 +2962,6 @@ html.lenis body {
   }
 }
 
-/* Formulario en línea (input + botón), p. ej. ajuste rápido de stock. */
-.admin-inline-form {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.admin-inline-form input {
-  width: 110px;
-  min-height: 40px;
-}
-
 /* Tabs full-width (segmented control) para elegir una opción entre varias. */
 .admin-tabs {
   display: flex;

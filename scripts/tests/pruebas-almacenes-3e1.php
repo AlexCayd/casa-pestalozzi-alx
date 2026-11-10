@@ -46,7 +46,7 @@ function probarAlmacenes3E1(mysqli $db, int &$count): void
     $assert(!empty($replay['reintento'])&&$replay['operacion_id']===$primero['operacion_id']&&$saldo('restaurante')['saldo']==='10.250','El reintento conserva una sola entrada.');
     $conflicto=$servicios['restaurante']->guardar('restaurante','entrada',array_replace($doc,['cantidad'=>'1.000']));
     $assert(($conflicto['codigo']??'')==='CONFLICTO_IDEMPOTENCIA','Una clave no puede reutilizarse con otra cantidad.');
-    foreach(['entrada','ajuste','merma'] as $accion) {
+    foreach(['entrada','merma'] as $accion) {
         $r=$servicios['restaurante']->guardar('restaurante',$accion,['almacen_id'=>(string)$almacenes['panaderia'],'articulo_id'=>(string)$articulo,'cantidad'=>'1.000','version'=>'1','motivo'=>'otro','clave'=>'ajeno-'.$accion.'-'.$sufijo]);
         $assert(($r['ok']??true)===false,'Se rechaza almacén Panadería manipulado en '.$accion.'.');
     }
@@ -55,20 +55,21 @@ function probarAlmacenes3E1(mysqli $db, int &$count): void
     $r=$servicios['lector']->guardar('restaurante','entrada',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'1.000','clave'=>'lector-'.$sufijo]);
     $assert(($r['ok']??true)===false,'Solo lectura no registra entradas.');
     $antes=$saldo('restaurante');
-    $confirmado($servicios['restaurante']->guardar('restaurante','ajuste',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'9.001','version'=>(string)$antes['version'],'clave'=>'conteo-'.$sufijo]),'Conteo físico con versión vigente');
-    $r=$servicios['restaurante']->guardar('restaurante','ajuste',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'8.000','version'=>(string)$antes['version'],'clave'=>'conteo-viejo-'.$sufijo]);
-    $assert(($r['codigo']??'')==='VERSION_CONFLICTO'&&$saldo('restaurante')['saldo']==='9.001','Un conteo obsoleto no pisa el saldo posterior.');
+    // El conteo físico se retiró (auditoría A-4): la diferencia se registra como merma con motivo.
+    $confirmado($servicios['restaurante']->guardar('restaurante','merma',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'1.249','motivo'=>'otro','nota'=>'Diferencia de inventario','clave'=>'diferencia-'.$sufijo]),'Diferencia registrada como merma');
+    $r=$servicios['restaurante']->guardar('restaurante','ajuste',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'8.000','version'=>(string)$antes['version'],'clave'=>'conteo-retirado-'.$sufijo]);
+    $assert(($r['codigo']??'')==='ACCION_INVALIDA'&&$saldo('restaurante')['saldo']==='9.001','El conteo físico ya no existe y no toca el saldo.');
     $confirmado($servicios['restaurante']->guardar('restaurante','merma',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'0.001','motivo'=>'derrame','nota'=>'Merma QA','clave'=>'merma-'.$sufijo]),'Merma con motivo autorizado');
     $assert($saldo('restaurante')['saldo']==='9.000','La merma conserva la precisión de tres decimales.');
     $r=$servicios['restaurante']->guardar('restaurante','merma',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'99.000','motivo'=>'otro','clave'=>'negativo-no-'.$sufijo]);
     $assert(($r['codigo']??'')==='SALDO_INSUFICIENTE'&&$saldo('restaurante')['saldo']==='9.000','Negativos bloqueados revierten toda la operación.');
-    // M3 (§16): la política de negativos se retiró; un conteo negativo se rechaza.
+    // M3 (§16): la política de negativos se retiró.
     $r=$servicios['restaurante']->guardar('restaurante','configurar_almacen',['almacen_id'=>(string)$almacenes['restaurante'],'nombre'=>'QA local renombrado '.$sufijo,'activo'=>'1','permitir_negativos'=>'1']);
     $assert(($r['codigo']??'')==='DATOS_INVALIDOS','La política de negativos ya no se configura.');
     $confirmado($servicios['restaurante']->guardar('restaurante','configurar_almacen',['almacen_id'=>(string)$almacenes['restaurante'],'nombre'=>'QA local renombrado '.$sufijo,'activo'=>'1']),'Configuración propia del almacén');
     $actual=$saldo('restaurante');
-    $r=$servicios['restaurante']->guardar('restaurante','ajuste',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'-0.001','version'=>(string)$actual['version'],'clave'=>'negativo-si-'.$sufijo]);
-    $assert(($r['codigo']??'')==='CONTEO_INVALIDO'&&$saldo('restaurante')['saldo']==='9.000','Un conteo negativo se rechaza sin cambios.');
+    $r=$servicios['restaurante']->guardar('restaurante','merma',['almacen_id'=>(string)$almacenes['restaurante'],'articulo_id'=>(string)$articulo,'cantidad'=>'-0.001','motivo'=>'otro','clave'=>'negativo-si-'.$sufijo]);
+    $assert(($r['ok']??true)===false&&$saldo('restaurante')['saldo']==='9.000','Una cantidad negativa se rechaza sin cambios.');
     $confirmado($servicios['restaurante']->guardar('restaurante','configurar_almacen',['almacen_id'=>(string)$almacenes['restaurante'],'nombre'=>'QA local '.$sufijo,'activo'=>'1']),'Renombrar el almacén propio');
     $local=$servicios['restaurante']->consultar('restaurante',['q'=>$sufijo]);
     $assert(count($local['existencias']['articulos'])===1&&count($local['existencias']['articulos'][0]['ambitos'])===1&&$local['existencias']['articulos'][0]['ambitos'][0]['slug']==='restaurante','La consulta local excluye los saldos ajenos.');

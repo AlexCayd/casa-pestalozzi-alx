@@ -1,5 +1,24 @@
 # Pruebas y criterios de aceptación
 
+## M5: proveedores por ámbito
+
+Rama `refactor-almacenes`, 6 de noviembre de 2026 (arquitectura §17). Las suites con
+base usaron bases temporales propias y las eliminaron. Para el recorrido en navegador
+se aplicó `m5-proveedores.sql` (aditiva) a la base local de desarrollo, con
+autorización, y se crearon ahí datos de prueba.
+
+| Comprobación | Resultado M5 |
+|---|---|
+| `npm run test:php` | PASS |
+| `npm run test:js` | Se detiene en `run-reservaciones-notification-docs.cjs`, que ya fallaba: no espera `docs/API.md` ni `docs/integracion-a6-main.md`, ajenos a M5. Los pasos posteriores de Almacenes y Artículos se corrieron por separado |
+| Proveedores / `run-proveedores.php` | PASS: 81 comprobaciones (directorio propio y consolidado de Global, IDs ajenos, sólo consulta, alta y validación, asignaciones con un preferente por artículo, entrada ligada atómica con rollback, costo obligatorio, ajeno, inactivo, reintento y conflicto de idempotencia, histórico exacto con intervalo y evolución de costo, retiro con y sin historial) |
+| Faltantes, vista de faltantes, tipo de venta | PASS: 68, 18 y 49 comprobaciones |
+| Artículos M2 y resolución M2 | PASS: 130 y 29 comprobaciones |
+| UI de Almacenes / `run-almacenes-ux.php` y JS de Almacenes y Artículos | PASS: 148 comprobaciones de representación; cinco suites JS |
+| `run-estandares-estructura-m12.php` | FALLA también en `HEAD` (6faa9b6), sin estos cambios: espera 51 movimientos de fixture y M3 añadió más |
+| Motor 3C / `run-almacenes-3c*.php` | No ejecutado: sólo aceptan `--base casa-pestalozzi` en `127.0.0.1` y la configuración local usa otra base. El motor no cambió |
+| Navegador (Chrome, escritorio) | Global: menú, directorio, consolidado, alta, asignación, entrada con proveedor confirmada y ficha con histórico. Restaurante: ruta anterior redirige. Panadería: un ID de Restaurante responde «No se encontró el proveedor» |
+
 ## Cierre M3: refactor de Almacenes
 
 Rama `refactor-almacenes`, 4 de noviembre de 2026 (arquitectura §16). Las suites

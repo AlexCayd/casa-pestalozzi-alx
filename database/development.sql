@@ -303,10 +303,15 @@ INSERT INTO buzon_notificaciones(unidad_id,tipo,modulo,entidad_tipo,entidad_id,p
  (2,'inventario.faltante','inventario','faltante_inventario',1001,'alta',1,@dev_cierre,CONCAT('inventario.faltante:1002:1007:',DATE_FORMAT(@dev_cierre,'%Y-%m-%d')));
 INSERT INTO proveedores(id,unidad_id,nombre,activo) VALUES
  ('1001','2','Proveedor Restaurante','1'),
- ('1002','3','Proveedor Panadería','1');
+ ('1002','3','Proveedor Panadería','1'),
+ ('1003','1','Proveedor Global','1');
 INSERT INTO ingrediente_proveedores(id,unidad_id,ingrediente_id,proveedor_id,costo,preferente) VALUES
  ('1001','2','1002','1001','0.0150','1'),
- ('1002','3','1001','1002','0.0200','1');
+ ('1002','3','1001','1002','0.0200','1'),
+ ('1003','1','1001','1003','0.0200','1');
+-- Las aperturas de cada ámbito llegaron de su proveedor: el histórico arranca con datos.
+INSERT INTO entradas_proveedor(operacion_id,unidad_id,proveedor_id) VALUES
+ ('1001','1','1003'),('1002','2','1001'),('1003','3','1002');
 INSERT INTO gastos_fijos(id,unidad_id,nombre,categoria,monto,activo) VALUES
  ('1001','2','Renta simulada','renta','2000.00','1'),
  ('1002','3','Servicios simulados','servicios','500.00','1');

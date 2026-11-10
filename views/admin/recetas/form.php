@@ -109,6 +109,7 @@
     <?php endif; ?>
 
     <form method="POST" data-recipe-builder>
+    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <fieldset class="admin-menu__fieldset" <?= empty($configuracionComposicion['edicionCompatible'])||!\Classes\Auth::puede('productos','editar',$recetasContexto)?'disabled':'' ?>>
         <section class="admin-panel admin-card admin-recipe">
             <div class="admin-recipe__head">

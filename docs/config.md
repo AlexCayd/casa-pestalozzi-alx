@@ -125,8 +125,8 @@ Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbi
 - **Entradas** cuenta sólo movimientos `entrada`: una transferencia interna es
   salida de un almacén y entrada de otro, y contarla sumaría dos veces lo mismo
   en el consolidado. Las transferencias tienen su propia pregunta.
-- Una **transferencia abierta** es la que está solicitada, autorizada, enviada
-  o con incidencia.
+- Una **transferencia abierta** es la que está solicitada, enviada o con
+  incidencia (o `autorizada`, estado heredado de antes de retirar ese paso).
 - El historial del navegador va **por ámbito**
   (`cp-admin-ia-panaderia-conversaciones-v1`, `cp-admin-ia-global-…`);
   Restaurante conserva sus claves. Plegar el historial vale para los tres.

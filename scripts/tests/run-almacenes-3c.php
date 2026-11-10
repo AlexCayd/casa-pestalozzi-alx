@@ -148,8 +148,10 @@ function test3cCore(mysqli $db, int &$count): array
     test3cAssert(($entryG['movimientos'][0]['saldo'] ?? '') === '5.125', 'La cantidad decimal se conserva exactamente.', $count);
     test3cAssert((string)$db->query("SELECT costo_unitario FROM movimientos_inventario WHERE operacion_id=" . (int)$entryG['operacion_id'] . ' LIMIT 1')->fetch_row()[0] === '1.2500', 'El costo unitario del movimiento conserva cuatro decimales.', $count);
     $version = (int)$db->query("SELECT version FROM almacen_articulos WHERE almacen_id=$gid AND articulo_id=$articleId")->fetch_row()[0];
-    $adjust = test3cCall(fn() => $localGlobal->registrarAjuste('global', test3cDoc('qa3c-adjust', 'qa3c-adjust', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.500','version'=>$version]], 'conteo')), 'Registrar ajuste con versión.', $count);
-    test3cAssert(($adjust['movimientos'][0]['saldo'] ?? '') === '4.500', 'Ajuste establece el conteo exacto.', $count);
+    // El conteo físico (registrarAjuste) se retiró (auditoría A-4): una diferencia se registra como merma con motivo.
+    test3cAssert(!method_exists($localGlobal, 'registrarAjuste'), 'El motor ya no ofrece sobrescribir un saldo.', $count);
+    $adjust = test3cCall(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-adjust', 'qa3c-adjust', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'0.625']], 'otro')), 'Registrar la diferencia como merma.', $count);
+    test3cAssert(($adjust['movimientos'][0]['saldo'] ?? '') === '4.500', 'La merma deja el saldo exacto.', $count);
     $waste = test3cCall(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-waste', 'qa3c-waste', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'0.500']], 'otro')), 'Registrar merma.', $count);
     test3cAssert(($waste['movimientos'][0]['saldo'] ?? '') === '4.000', 'La merma descuenta el saldo.', $count);
     // M3 (§16): ningún almacén admite saldo negativo; la política ya no se configura.
@@ -158,7 +160,7 @@ function test3cCore(mysqli $db, int &$count): array
     test3cDenied(fn() => $localRest->configurarAlmacen('restaurante', $rid, ['permitir_negativos'=>true]), 'La política de negativos ya no se configura.', $count);
     $staleVersion = $version;
     $newVersion = (int)$db->query("SELECT version FROM almacen_articulos WHERE almacen_id=$gid AND articulo_id=$articleId")->fetch_row()[0];
-    test3cDenied(fn() => $localGlobal->registrarAjuste('global', test3cDoc('qa3c-adjust-stale', 'qa3c-adjust-stale', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.000','version'=>$staleVersion]], 'conteo')), 'Rechaza ajuste con versión obsoleta.', $count);
+    test3cDenied(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-adjust-stale', 'qa3c-adjust-stale', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'1.000','version'=>$staleVersion]], 'otro')), 'Una operación no acepta versión: ya no hay conteo que la use.', $count);
     test3cAssert($newVersion > $staleVersion, 'Las operaciones incrementan versión de concurrencia.', $count);
     $negativo = test3cDenied(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-negative-no', 'qa3c-negative-no', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.001']], 'otro')), 'Ningún almacén deja un saldo menor que cero.', $count);
     test3cAssert($negativo['codigo']==='SALDO_INSUFICIENTE','La salida se rechaza por falta de saldo, no por otro error.', $count);
@@ -239,8 +241,8 @@ function test3cCore(mysqli $db, int &$count): array
         $badResult=$localGlobal->registrarEntrada('global',test3cDoc('bad-'.$bad,'bad-'.$bad,[['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>$bad]]));
         test3cAssert($badResult['ok']===false && in_array($badResult['codigo'],['DECIMAL_INVALIDO','DECIMAL_FUERA_RANGO'],true),'Rechaza precisión, notación o rango inválidos.',$count);
     }
-    $nullAdjustment=test3cCall(fn()=>$localGlobal->registrarAjuste('global',test3cDoc('qa3c-noop','qa3c-noop',[['almacen_id'=>$gid,'articulo_id'=>$secondId,'cantidad'=>'0','version'=>0]],'conteo')),'Ajuste cero trazable sin movimiento.',$count);
-    test3cAssert($nullAdjustment['movimientos']===[],'No se registran deltas cero.',$count);
+    $cero=test3cDenied(fn()=>$localGlobal->registrarEntrada('global',test3cDoc('qa3c-noop','qa3c-noop',[['almacen_id'=>$gid,'articulo_id'=>$secondId,'cantidad'=>'0']])),'Una operación de cantidad cero se rechaza.',$count);
+    test3cAssert($cero['codigo']==='CANTIDAD_INVALIDA','No se registran deltas cero.',$count);
     foreach(["UPDATE movimientos_inventario SET motivo='alterado' WHERE id=$movementId","DELETE FROM movimientos_inventario WHERE id=$movementId"] as $sql) {
         $denegado=false;
         try { $db->query($sql); } catch(mysqli_sql_exception $e) { $denegado=$e->getCode()===1644; }

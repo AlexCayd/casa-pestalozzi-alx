@@ -1072,6 +1072,63 @@
   color: var(--admin-muted);
 }
 
+.m2-alta-almacenes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.m2-alta-almacenes > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.m2-alta-almacenes > legend, .m2-articulo .m2-alta-almacenes > .admin-field__hint {
+  grid-column: 1/-1;
+  margin: 0;
+}
+
+.m2-alta-almacenes__grupo {
+  min-width: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+}
+
+.m2-articulo p.m2-alta-almacenes__negocio {
+  margin: 0;
+  padding: 6px 0 2px;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.m2-articulo .m2-alta-almacenes .m2-capacidad {
+  align-items: center;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.m2-articulo .m2-alta-almacenes .m2-capacidad input {
+  margin-top: 0;
+  accent-color: var(--admin-text);
+  cursor: inherit;
+}
+
+.m2-articulo .m2-fieldset:disabled .m2-alta-almacenes .m2-capacidad {
+  cursor: default;
+}
+
 .m2-catalogo .admin-actions {
   flex-wrap: wrap;
   gap: 8px;

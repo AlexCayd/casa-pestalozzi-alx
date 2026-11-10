@@ -1,7 +1,7 @@
 <?php
 /**
  * Módulo de Inventario (Ingredientes) del panel admin.
- * CRUD de ingredientes y ajuste manual de existencias con bitácora.
+ * CRUD de ingredientes, entradas y mermas con bitácora. El ajuste manual se retiró (auditoría A-4).
  */
 
 namespace Controllers;
@@ -133,7 +133,7 @@ class AdminInventarioController
 
     /**
      * La query de lo que se está viendo —periodo y pendiente—, para que los
-     * formularios de la página (entrada, ajuste, merma, borrar) devuelvan al
+     * formularios de la página (entrada, merma, borrar) devuelvan al
      * mismo sitio: estos controladores pintan el listado leyendo $_GET tras el
      * POST, así que basta con que la acción del formulario la lleve.
      *
@@ -502,13 +502,12 @@ class AdminInventarioController
 
     // ── Proveedores ──────────────────────────────────────────────
     //
-    // Submódulo de Inventario y no entrada propia del menú: un proveedor sólo
-    // existe en función de los insumos que surte, y se consulta desde la ficha
-    // del ingrediente.
+    // Modo de un solo negocio. En multinegocio los proveedores viven bajo
+    // Almacenes, por ámbito (AdminProveedoresController): estas rutas redirigen.
 
     public static function proveedores(Router $router): void
     {
-        if (ContextoNegocio::nuevo()) ContextoNegocio::exigir('inventario', 'ver', 'restaurante');
+        if (ContextoNegocio::nuevo()) self::redirect(AdminProveedoresController::base('restaurante'));
         self::render('inventario/proveedores', [
             'title' => 'Proveedores',
             'topbarSection' => 'Inventario / Proveedores',
@@ -520,7 +519,7 @@ class AdminInventarioController
 
     public static function proveedorCreate(Router $router): void
     {
-        if (ContextoNegocio::nuevo()) ContextoNegocio::exigir('inventario', 'editar', 'restaurante');
+        if (ContextoNegocio::nuevo()) self::redirect(AdminProveedoresController::base('restaurante') . '/nuevo');
         $proveedor = new Proveedor();
         $alertas = [];
 
@@ -546,7 +545,7 @@ class AdminInventarioController
 
     public static function proveedorEdit(Router $router): void
     {
-        if (ContextoNegocio::nuevo()) ContextoNegocio::exigir('inventario', 'editar', 'restaurante');
+        if (ContextoNegocio::nuevo()) self::redirect(AdminProveedoresController::base('restaurante') . '/ficha?' . http_build_query(['id' => (int) ($_GET['id'] ?? 0)]));
         $id = self::validarId($_GET['id'] ?? null, $router);
         $proveedor = Proveedor::find($id);
 
@@ -579,7 +578,8 @@ class AdminInventarioController
 
     public static function proveedorDelete(Router $router): void
     {
-        if (ContextoNegocio::nuevo()) ContextoNegocio::exigir('inventario', 'editar', 'restaurante');
+        // Sin el CSRF de la superficie nueva no se borra nada: se vuelve al directorio.
+        if (ContextoNegocio::nuevo()) self::redirect(AdminProveedoresController::base('restaurante'));
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirect(self::PATH . '/proveedores');
         }
@@ -641,53 +641,6 @@ class AdminInventarioController
                 ? IngredienteProveedor::porProveedor((int) $proveedor->id)
                 : [],
         ]);
-    }
-
-    /** Ajuste manual de existencias: fija el nuevo stock y registra el movimiento. */
-    public static function ajustar(Router $router): void
-    {
-        if (ContextoNegocio::nuevo()) { self::ajustarNuevo($router); return; }
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::PATH);
-        }
-
-        $id = self::validarId($_POST['id'] ?? null, $router);
-        $ingrediente = Ingrediente::find($id);
-        $nuevo = $_POST['stock'] ?? null;
-
-        if (!$ingrediente) {
-            Ingrediente::setAlerta('error', 'El ingrediente no existe');
-            self::index($router);
-            return;
-        }
-
-        if (!is_numeric($nuevo)) {
-            Ingrediente::setAlerta('error', 'El nuevo stock debe ser un número');
-            self::index($router);
-            return;
-        }
-
-        $anterior = (float) $ingrediente->stock;
-        $nuevoStock = (float) $nuevo;
-        $delta = $nuevoStock - $anterior;
-
-        $ingrediente->stock = $nuevoStock;
-        $ingrediente->guardar();
-
-        try {
-            $ingId = (int) $ingrediente->id;
-            $deltaSql = number_format($delta, 3, '.', '');
-            $usuarioSql = self::usuarioActual() ?? 'NULL';
-            Ingrediente::ejecutarSQL(
-                "INSERT INTO movimientos_inventario (ingrediente_id, tipo, cantidad, usuario_id, ticket_item_id)
-                 VALUES ({$ingId}, 'ajuste', {$deltaSql}, {$usuarioSql}, NULL)"
-            );
-        } catch (\Throwable $e) {
-            error_log('AdminInventarioController::ajustar - ' . $e->getMessage());
-        }
-
-        Ingrediente::setAlerta('exito', 'Existencias actualizadas');
-        self::index($router);
     }
 
     /** Entrada de mercancía: SUMA la cantidad recibida al stock y la registra. */
@@ -915,10 +868,6 @@ class AdminInventarioController
         } catch (\Throwable $e) { http_response_code(403); echo json_encode(['ok'=>false,'mensaje'=>self::mensajeError($e)]); }
     }
 
-    private static function ajustarNuevo(Router $router): void
-    {
-        self::operacionStockNuevo($router,'ajuste');
-    }
     private static function entradaNuevo(Router $router): void { self::operacionStockNuevo($router,'entrada'); }
     private static function mermaNuevo(Router $router): void { self::operacionStockNuevo($router,'merma'); }
 
@@ -929,20 +878,12 @@ class AdminInventarioController
             ContextoNegocio::exigir('inventario','editar','restaurante');
             $id=self::idPost($_POST['id']??null); $alm=self::idPost($_POST['almacen_id']??null);
             $engine=self::motorNuevo();
-            if($tipo==='ajuste') {
-                $ex=$engine->existencia('restaurante',$alm,$id)['existencia'];
-                $doc=['origen'=>'admin_inventario','clave'=>'ajuste-'.bin2hex(random_bytes(16)),'referencia'=>'ajuste-manual',
-                    'motivo'=>'conteo','nota'=>'Ajuste manual','lineas'=>[['almacen_id'=>$alm,'articulo_id'=>$id,
-                        'cantidad'=>self::decimalPost($_POST['stock']??null,3,true),'version'=>(int)$ex['version']]]];
-                $r=$engine->registrarAjuste('restaurante',$doc);
-            } else {
-                $line=['almacen_id'=>$alm,'articulo_id'=>$id,'cantidad'=>self::decimalPost($_POST['cantidad']??null,3)];
-                $doc=['origen'=>'admin_inventario','clave'=>$tipo.'-'.bin2hex(random_bytes(16)),'referencia'=>$tipo.'-'.bin2hex(random_bytes(12)),
-                    'motivo'=>$tipo==='merma'?(string)($_POST['motivo']??'otro'):$tipo,'nota'=>substr((string)($_POST['nota']??''),0,255),'lineas'=>[$line]];
-                $r=$tipo==='entrada'?$engine->registrarEntrada('restaurante',$doc):$engine->registrarMerma('restaurante',$doc);
-            }
+            $line=['almacen_id'=>$alm,'articulo_id'=>$id,'cantidad'=>self::decimalPost($_POST['cantidad']??null,3)];
+            $doc=['origen'=>'admin_inventario','clave'=>$tipo.'-'.bin2hex(random_bytes(16)),'referencia'=>$tipo.'-'.bin2hex(random_bytes(12)),
+                'motivo'=>$tipo==='merma'?(string)($_POST['motivo']??'otro'):$tipo,'nota'=>substr((string)($_POST['nota']??''),0,255),'lineas'=>[$line]];
+            $r=$tipo==='entrada'?$engine->registrarEntrada('restaurante',$doc):$engine->registrarMerma('restaurante',$doc);
             if(($r['ok']??false)===false) throw new InventarioError((string)($r['codigo']??'OPERACION_RECHAZADA'),(string)($r['mensaje']??'No se pudo registrar el movimiento.'));
-            Ingrediente::setAlerta('exito',$tipo==='ajuste'?'Existencias actualizadas':'Movimiento registrado.');
+            Ingrediente::setAlerta('exito','Movimiento registrado.');
         } catch(\Throwable $e) { Ingrediente::setAlerta('error',self::mensajeError($e)); }
         self::index($router);
     }

@@ -316,44 +316,204 @@
         const selection = workspace.querySelector('[data-warehouse-selection]');
         const status = workspace.querySelector('[data-selection-status]');
         if (selection) {
-            let timer, submitting = false;
-            const all = selection.querySelector('[data-warehouse-all]');
-            function schedule() {
-                window.clearTimeout(timer);
-                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
-                status.textContent = checked.length + ' seleccionados. La consulta se actualizará automáticamente.';
-                timer = window.setTimeout(function () { selection.requestSubmit(); }, 600);
+            let submitting = false;
+            const all = workspace.querySelector('[data-warehouse-all]');
+            const panel = workspace.querySelector('[data-alcance-panel]');
+            const trigger = workspace.querySelector('[data-alcance-trigger]');
+            const aplicar = workspace.querySelector('[data-alcance-aplicar]');
+            const boxes = function () { return Array.from(selection.querySelectorAll('input[name="almacen_ids[]"]')); };
+            const avisar = function (texto) { if (status) status.textContent = texto; };
+            // Lo aplicado es lo que pintó el servidor (defaultChecked). Cerrar el panel sin
+            // aplicar vuelve a ello: el resumen de la página siempre dice lo que la tabla
+            // muestra, aunque el navegador restaure casillas al volver con el historial.
+            const pendiente = function () { return boxes().some(function (box) { return box.checked !== box.defaultChecked; }); };
+            const restablecer = function () { boxes().forEach(function (box) { box.checked = box.defaultChecked; }); };
+            // Cada propietario lleva su recuento; «Aplicar» dice cuántos quedarán.
+            function pintar() {
+                const marcados = boxes().filter(function (box) { return box.checked; }).length;
+                workspace.querySelectorAll('[data-alcance-grupo]').forEach(function (grupo) {
+                    const propias = Array.from(grupo.querySelectorAll('input[name="almacen_ids[]"]'));
+                    const cuenta = grupo.querySelector('[data-alcance-cuenta]');
+                    if (cuenta) cuenta.textContent = propias.filter(function (box) { return box.checked; }).length + '/' + propias.length;
+                });
+                if (aplicar) aplicar.textContent = pendiente() ? 'Aplicar (' + marcados + ')' : 'Aplicar selección';
+                return marcados;
+            }
+            function anunciarCambio() {
+                const marcados = pintar();
+                avisar(pendiente() ? marcados + ' seleccionados. Pulsa Aplicar para actualizar la consulta.' : marcados + ' almacenes en el alcance actual.');
+            }
+            // Ninguna acción deja la consulta vacía: si quitar dejaría cero, no se quita.
+            function marcar(lista, valor) {
+                const antes = lista.map(function (box) { return box.checked; });
+                lista.forEach(function (box) { box.checked = valor; });
+                if (!boxes().some(function (box) { return box.checked; })) {
+                    lista.forEach(function (box, i) { box.checked = antes[i]; });
+                    pintar(); avisar('Mantén al menos un almacén seleccionado.');
+                    return;
+                }
+                anunciarCambio();
             }
             if (all) {
                 all.hidden = false;
-                all.addEventListener('click', function () {
-                    selection.querySelectorAll('input[name="almacen_ids[]"]').forEach(function (box) { box.checked = true; });
-                    schedule();
-                });
+                all.addEventListener('click', function () { marcar(boxes(), true); });
             }
             selection.addEventListener('change', function (event) {
                 if (!event.target.matches('input[name="almacen_ids[]"]')) return;
-                const checked = selection.querySelectorAll('input[name="almacen_ids[]"]:checked');
-                if (!checked.length) {
+                if (!selection.querySelectorAll('input[name="almacen_ids[]"]:checked').length) {
                     event.target.checked = true;
-                    status.textContent = 'Mantén al menos un almacén seleccionado.';
+                    avisar('Mantén al menos un almacén seleccionado.');
                 } else {
-                    schedule();
+                    anunciarCambio();
                 }
             });
+            workspace.querySelectorAll('[data-alcance-grupo]').forEach(function (grupo) {
+                const atajos = grupo.querySelector('[data-alcance-atajos]');
+                if (!atajos) return;
+                atajos.hidden = false;
+                const visibles = function () { return Array.from(grupo.querySelectorAll('.almacen-choice:not([hidden]) input[name="almacen_ids[]"]')); };
+                grupo.querySelector('[data-alcance-todos]').addEventListener('click', function () { marcar(visibles(), true); });
+                grupo.querySelector('[data-alcance-ninguno]').addEventListener('click', function () { marcar(visibles(), false); });
+            });
+            // Buscar acota lo visible, nunca lo marcado: una casilla oculta conserva su
+            // estado y se sigue enviando. Comparación sin acentos ni mayúsculas.
+            const buscar = workspace.querySelector('[data-alcance-buscar]');
+            const q = workspace.querySelector('[data-alcance-q]');
+            const plano = function (texto) { return String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); };
+            function filtrar() {
+                const termino = plano(q.value.trim());
+                workspace.querySelectorAll('[data-alcance-grupo]').forEach(function (grupo) {
+                    let alguno = false;
+                    grupo.querySelectorAll('[data-alcance-nombre]').forEach(function (label) {
+                        const coincide = termino === '' || plano(label.dataset.alcanceNombre).indexOf(termino) !== -1;
+                        label.hidden = !coincide;
+                        if (coincide) alguno = true;
+                    });
+                    const vacio = grupo.querySelector('[data-alcance-vacio]');
+                    if (vacio) vacio.hidden = alguno;
+                });
+            }
+            if (buscar && q) {
+                buscar.hidden = false;
+                q.addEventListener('input', filtrar);
+                // Enter en el buscador no envía la consulta: aún se está eligiendo.
+                q.addEventListener('keydown', function (event) { if (event.key === 'Enter') event.preventDefault(); });
+            }
+            // Panel: popover nativo (abre, cierra con Escape o al pulsar fuera y devuelve
+            // el foco). Aquí se ancla bajo el resumen, se sincroniza aria-expanded y, si se
+            // cierra sin aplicar, se restablece lo aplicado. En móvil es hoja inferior.
+            const compactoAlcance = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
+            if (panel && trigger && panel.showPopover) {
+                let frame = 0;
+                function position() {
+                    frame = 0;
+                    if (compactoAlcance && compactoAlcance.matches) { panel.classList.remove('is-anclado'); panel.style.left = panel.style.top = ''; return; }
+                    panel.classList.add('is-anclado');
+                    const rect = trigger.getBoundingClientRect();
+                    const ancho = panel.offsetWidth, alto = panel.offsetHeight;
+                    panel.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - ancho - 12)) + 'px';
+                    panel.style.top = Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - alto - 12)) + 'px';
+                }
+                function seguir() { if (!frame) frame = window.requestAnimationFrame(position); }
+                panel.addEventListener('toggle', function (event) {
+                    const abierto = event.newState === 'open';
+                    trigger.setAttribute('aria-expanded', String(abierto));
+                    if (abierto) {
+                        position();
+                        window.addEventListener('scroll', seguir, {capture: true, passive: true});
+                        window.addEventListener('resize', seguir, {passive: true});
+                        // Con buscador, el foco va a él; si no, a la primera casilla.
+                        const destino = (buscar && !buscar.hidden && q) || boxes()[0];
+                        if (destino) destino.focus();
+                        return;
+                    }
+                    window.removeEventListener('scroll', seguir, {capture: true});
+                    window.removeEventListener('resize', seguir);
+                    if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
+                    if (submitting) return;
+                    restablecer();
+                    if (q && q.value !== '') { q.value = ''; filtrar(); }
+                    pintar(); avisar(boxes().filter(function (box) { return box.checked; }).length + ' almacenes en el alcance actual.');
+                });
+                // Salir con Tab no deja el panel flotando sobre la tabla.
+                panel.addEventListener('focusout', function () {
+                    window.setTimeout(function () {
+                        const activo = document.activeElement;
+                        if (panel.matches(':popover-open') && activo && activo !== document.body && activo !== trigger && !panel.contains(activo)) panel.hidePopover();
+                    }, 0);
+                });
+            }
             selection.addEventListener('submit', function (event) {
-                window.clearTimeout(timer);
-                const boxes = selection.querySelectorAll('input[name="almacen_ids[]"]');
-                if (boxes.length && !selection.querySelector('input[name="almacen_ids[]"]:checked')) {
-                    event.preventDefault(); status.textContent = 'Selecciona al menos un almacén.'; boxes[0].focus();
+                const lista = boxes();
+                if (lista.length && !selection.querySelector('input[name="almacen_ids[]"]:checked')) {
+                    event.preventDefault(); avisar('Selecciona al menos un almacén.'); lista[0].focus();
                     return;
                 }
                 if (submitting) { event.preventDefault(); return; }
+                // Sin popover nativo el panel no se abre ni se cierra desde aquí.
+                const abierto = !!(panel && panel.showPopover && panel.matches(':popover-open'));
+                // Sin cambios no hay nada que pedir: se cierra el panel y ya.
+                if (abierto && !pendiente()) {
+                    event.preventDefault(); panel.hidePopover(); if (trigger) trigger.focus();
+                    return;
+                }
                 submitting = true;
-                status.textContent = 'Actualizando la consulta…';
+                avisar('Actualizando la consulta…');
+                if (abierto) panel.hidePopover();
+                esqueleto(true);
             });
-            window.addEventListener('pageshow', function () { submitting = false; });
-            window.addEventListener('pagehide', function () { window.clearTimeout(timer); });
+            // Volver con el historial restaura la página tal cual se dejó (bfcache): se
+            // retira el esqueleto y la selección vuelve a ser la que se ve.
+            window.addEventListener('pageshow', function () {
+                submitting = false;
+                esqueleto(false);
+                restablecer();
+                pintar();
+            });
+        }
+        // Carga de la consulta: la página se recarga con el GET, así que mientras llega la
+        // respuesta la tabla vieja se cambia por filas fantasma. Dicen «esto se está
+        // actualizando» y conservan la forma de la tabla, para que nada salte al llegar.
+        function esqueleto(activo) {
+            const lista = workspace.querySelector('[data-stock-list]');
+            if (!lista || !lista.querySelectorAll) return;
+            const contenido = lista.querySelectorAll(':scope > .almacen-legend, :scope > .almacen-table, :scope > .admin-empty, :scope > .admin-pagination');
+            const previo = lista.querySelector('[data-stock-skeleton]');
+            if (!activo) {
+                if (previo) previo.remove();
+                contenido.forEach(function (nodo) { if (nodo.dataset.stockOculto) { nodo.hidden = false; delete nodo.dataset.stockOculto; } });
+                return;
+            }
+            if (previo) return;
+            const filas = Math.min(6, Math.max(3, lista.querySelectorAll('.almacen-table tbody tr').length));
+            const bloque = document.createElement('div');
+            bloque.className = 'almacen-skeleton';
+            bloque.dataset.stockSkeleton = '';
+            const aviso = document.createElement('p');
+            aviso.className = 'admin-visually-hidden';
+            aviso.setAttribute('role', 'status');
+            bloque.appendChild(aviso);
+            const rejilla = document.createElement('div');
+            rejilla.className = 'almacen-skeleton__filas';
+            rejilla.setAttribute('aria-hidden', 'true');
+            for (let i = 0; i < filas; i++) {
+                const fila = document.createElement('div');
+                fila.className = 'almacen-skeleton__fila';
+                fila.style.setProperty('--fila', String(i));
+                ['nombre', 'saldo', 'barra', 'acciones'].forEach(function (celda) {
+                    const c = document.createElement('div');
+                    c.className = 'almacen-skeleton__celda almacen-skeleton__celda--' + celda;
+                    c.innerHTML = '<span></span><span></span>';
+                    fila.appendChild(c);
+                });
+                rejilla.appendChild(fila);
+            }
+            bloque.appendChild(rejilla);
+            const ancla = contenido[0];
+            if (ancla) lista.insertBefore(bloque, ancla); else lista.appendChild(bloque);
+            contenido.forEach(function (nodo) { if (!nodo.hidden) { nodo.hidden = true; nodo.dataset.stockOculto = '1'; } });
+            // La región viva ya existe cuando cambia su texto: así se anuncia.
+            (window.requestAnimationFrame || window.setTimeout)(function () { aviso.textContent = 'Actualizando existencias de la selección…'; });
         }
         // Diálogos de operación de un artículo (articulo-{id}-{operación}): cada uno trae
         // un formulario por almacén. Con varios almacenes, el selector muestra sólo el
@@ -388,6 +548,37 @@
                 if (target) focusable(target).focus();
             });
         });
+        // Entrada con proveedor: el costo pasa a obligatorio (el servidor también lo
+        // exige) y, si está vacío, se propone el costo de referencia que ese proveedor
+        // tiene para el artículo. Ese costo es por unidad base, así que se marca «por
+        // unidad» cuando el artículo admite captura por pieza.
+        workspace.querySelectorAll('[data-entrada-proveedor]').forEach(function (select) {
+            const form = select.form;
+            const costo = form && form.querySelector('[name="costo_unitario"]');
+            if (!costo) return;
+            // El rótulo deja de decir «(opcional)» cuando el costo se vuelve obligatorio.
+            const opcional = form.querySelector('[data-costo-opcional]');
+            // Lo que se propuso al elegir el proveedor anterior: si el operador no lo
+            // tocó, cambiar de proveedor lo reemplaza en vez de arrastrar un costo ajeno.
+            let propuesto = '';
+            select.addEventListener('change', function () {
+                const opcion = select.options[select.selectedIndex];
+                costo.required = select.value !== '';
+                if (opcional) opcional.hidden = costo.required;
+                if (propuesto !== '' && costo.value === propuesto) costo.value = '';
+                propuesto = '';
+                if (select.value !== '' && costo.value === '' && opcion && opcion.dataset.costo) {
+                    costo.value = opcion.dataset.costo;
+                    propuesto = costo.value;
+                    const porUnidad = form.querySelector('[name="costo_por"][value="unidad"]');
+                    if (porUnidad) porUnidad.checked = true;
+                    costo.dispatchEvent(new Event('input', {bubbles: true}));
+                }
+                // La confirmación repite de quién llega la entrada: se recalcula su texto.
+                const cantidad = form.querySelector('[name="cantidad"]');
+                if (cantidad) cantidad.dispatchEvent(new Event('input', {bubbles: true}));
+            });
+        });
         workspace.querySelectorAll('form[data-stock-operation]').forEach(function (form) {
             const input = form.querySelector('[name="cantidad"]');
             // Sólo existe si el artículo declara contenido por pieza (750 ml por botella).
@@ -413,20 +604,21 @@
             function pintar() {
                 const saldo = mil(form.dataset.stockSaldo || '');
                 const cantidad = capturado();
-                const conteo = form.dataset.stockOperation === 'ajuste';
-                if (saldo === null || cantidad === null || (conteo ? cantidad.total < 0n : cantidad.total <= 0n)) {
+                if (saldo === null || cantidad === null || cantidad.total <= 0n) {
                     output.textContent = 'Escribe una cantidad válida con hasta tres decimales.';
                     form.dataset.confirmDescription = originalDescription;
                     return;
                 }
-                const resultado = conteo ? cantidad.total : saldo + (form.dataset.stockOperation === 'merma' ? -cantidad.total : cantidad.total);
+                const resultado = saldo + (form.dataset.stockOperation === 'merma' ? -cantidad.total : cantidad.total);
                 const texto = decimal(resultado) + ' ' + unidad;
                 // Ningún almacén admite saldo negativo: se avisa antes de enviar, sin
                 // bloquear; el servidor es quien rechaza.
                 output.textContent = resultado < 0n
                     ? 'Quedaría en ' + texto + '. El saldo no puede ser negativo: el servidor rechazará la operación.'
                     : 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
-                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + cantidad.texto + ' · Resultado estimado: ' + texto;
+                const proveedor = form.querySelector('[data-entrada-proveedor]');
+                const deQuien = proveedor && proveedor.value !== '' ? ' · Proveedor: ' + proveedor.options[proveedor.selectedIndex].text.split(' · ')[0] : '';
+                form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + cantidad.texto + deQuien + ' · Resultado estimado: ' + texto;
             }
             if (input && output) {
                 input.addEventListener('input', pintar);
@@ -568,6 +760,23 @@
                 if (modal) modal.addEventListener('admin:modal-closed', function () { window.requestAnimationFrame(function () { trigger.focus(); }); }, {once: true});
             });
         });
+        // Al desplegar una acción del documento, su historial o la solicitud, lo que se
+        // abre suele quedar bajo el borde del cuerpo desplazable del modal: se acerca lo
+        // justo para verlo entero o, si no cabe, desde arriba (el scroll-margin de
+        // inventario.scss deja a la vista el botón que lo abrió). `toggle` no burbujea:
+        // se escucha en captura. Los documentos que llegan abiertos no se tocan.
+        workspace.querySelectorAll('.almacen-modal__body').forEach(function (body) {
+            body.addEventListener('toggle', function (event) {
+                const details = event.target;
+                if (!details.open || !details.matches('.almacen-transfer-action, .almacen-transfer-history, .almacen-transfer-request')) return;
+                // El details de una acción cede su caja a la barra (display: contents) y
+                // no se puede desplazar hacia él: se usa lo que despliega.
+                const target = details.querySelector(':scope > form, :scope > ol');
+                if (!target || body.closest('[hidden]')) return;
+                const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                window.requestAnimationFrame(function () { target.scrollIntoView({block: 'nearest', behavior: reduce ? 'auto' : 'smooth'}); });
+            }, true);
+        });
         const request = workspace.querySelector('[data-transfer-request]');
         if (request) {
             const lines = request.querySelector('[data-transfer-lines]');
@@ -611,8 +820,133 @@
                 destination.setCustomValidity(origin.value === destination.value ? 'Elige un destino distinto al origen.' : '');
                 if (!destination.checkValidity()) { event.preventDefault(); destination.reportValidity(); }
             });
+            // Anticipa qué hará el servidor con la pareja elegida (él decide; esto sólo
+            // informa): mismo negocio o superadministrador, un paso; si el origen es propio,
+            // sale enviada; si sólo el destino es propio, queda solicitada al otro negocio.
+            const hint = request.querySelector('[data-transfer-hint]');
+            const submit = request.querySelector('[data-transfer-submit]');
+            const hintBase = hint ? hint.textContent : '';
+            const submitBase = submit ? submit.textContent : '';
+            const negocio = function (field) {
+                const option = field.options[field.selectedIndex];
+                return option && option.value ? option.dataset.contexto : '';
+            };
+            // Nombre visible del negocio: cada opción se rotula «Almacén · Negocio» con
+            // Contextos::NOMBRES, así que basta con su último tramo.
+            const nombreNegocio = function (field) {
+                const option = field.options[field.selectedIndex];
+                const partes = option ? option.textContent.split(' · ') : [];
+                return partes.length > 1 ? partes[partes.length - 1].trim() : 'el otro negocio';
+            };
+            const nombrePropio = function () {
+                const propia = request.querySelector('[name="origen_id"] option[data-contexto="' + request.dataset.contexto + '"]');
+                const partes = propia ? propia.textContent.split(' · ') : [];
+                return partes.length > 1 ? partes[partes.length - 1].trim() : 'este negocio';
+            };
+            const anticipar = function () {
+                const campoOrigen = request.querySelector('[name="origen_id"]');
+                const campoDestino = request.querySelector('[name="destino_id"]');
+                const origen = negocio(campoOrigen);
+                const destino = negocio(campoDestino);
+                let texto = hintBase;
+                let boton = submitBase;
+                let valida = false;
+                if (origen && destino) {
+                    if (campoOrigen.value === campoDestino.value) {
+                        // Antes anunciaba «Transferir ahora» con el mismo almacén en los dos
+                        // lados; el envío lo rechazaba después. Se dice antes.
+                        texto = 'Elige un destino distinto al origen.';
+                    } else if (request.dataset.super === '1' || origen === destino) {
+                        texto = 'Se aplica en un solo paso: sale del origen y entra al destino al registrarla.';
+                        boton = 'Transferir ahora';
+                        valida = true;
+                    } else if (origen === request.dataset.contexto) {
+                        texto = 'Sale enviada: se descuenta del origen y ' + nombreNegocio(campoDestino) + ' registra la recepción. Mientras tanto no está disponible en ningún almacén.';
+                        boton = 'Enviar';
+                        valida = true;
+                    } else if (destino === request.dataset.contexto) {
+                        texto = 'Queda solicitada: ' + nombreNegocio(campoOrigen) + ', dueño del origen, la envía y aquí registras la recepción.';
+                        boton = 'Solicitar';
+                        valida = true;
+                    } else {
+                        texto = 'Uno de los dos almacenes debe pertenecer a ' + nombrePropio() + '.';
+                    }
+                }
+                // La condición de asociación sólo acompaña a una pareja válida; junto a un
+                // aviso de pareja inválida distraía del arreglo. Se compara antes de
+                // escribir: reescribir el mismo texto haría que el aria-live lo repitiera.
+                if (hint && hint.textContent !== texto) hint.textContent = texto;
+                if (submit && submit.textContent !== boton) submit.textContent = boton;
+                avisarAsociacion();
+            };
+            // Ya no hace falta asociar antes de transferir: el destino queda asociado al
+            // registrar. Aquí sólo se avisa antes de enviar qué artículos estrenarán
+            // almacén, y cuáles no están en el origen (el servidor rechazará esos).
+            let asociaciones = {};
+            try { asociaciones = JSON.parse(request.dataset.asociaciones || '{}') || {}; } catch (error) { asociaciones = {}; }
+            const aviso = request.querySelector('[data-transfer-asociacion]');
+            const nombreAlmacen = function (field) {
+                const option = field.options[field.selectedIndex];
+                return option && option.value ? option.textContent.split(' · ')[0].trim() : '';
+            };
+            function avisarAsociacion() {
+                if (!aviso) return;
+                const campoOrigen = request.querySelector('[name="origen_id"]');
+                const campoDestino = request.querySelector('[name="destino_id"]');
+                const origen = Number(campoOrigen.value), destino = Number(campoDestino.value);
+                const nuevos = [], sinOrigen = [];
+                request.querySelectorAll('[name$="[articulo_id]"]').forEach(function (select) {
+                    const option = select.options ? select.options[select.selectedIndex] : null;
+                    if (!option || !option.value) return;
+                    const donde = asociaciones[option.value] || [];
+                    const nombre = '«' + option.textContent.split(' · ')[0].trim() + '»';
+                    if (origen && donde.indexOf(origen) === -1) { if (sinOrigen.indexOf(nombre) === -1) sinOrigen.push(nombre); return; }
+                    if (destino && destino !== origen && donde.indexOf(destino) === -1 && nuevos.indexOf(nombre) === -1) nuevos.push(nombre);
+                });
+                let texto = '';
+                // Lo que falta en el origen no es un aviso: el servidor rechazará el envío.
+                // Se dice cómo arreglarlo y se marca con data-tono (rojo, no sólo color:
+                // el texto cambia y pide una acción).
+                if (sinOrigen.length) texto = sinOrigen.join(', ') + (sinOrigen.length === 1 ? ' no está asociado' : ' no están asociados') + ' a ' + nombreAlmacen(campoOrigen) + ': ahí no hay existencias que enviar. Elige otro origen o ' + (sinOrigen.length === 1 ? 'quita ese artículo.' : 'quita esos artículos.');
+                if (nuevos.length) texto += (texto ? ' ' : '') + nuevos.join(', ') + (nuevos.length === 1 ? ' todavía no se maneja' : ' todavía no se manejan') + ' en ' + nombreAlmacen(campoDestino) + '. Al registrar, ' + (nuevos.length === 1 ? 'quedará asociado' : 'quedarán asociados') + ' a ese almacén con mínimo 0.';
+                if (texto === '') { aviso.hidden = true; aviso.textContent = ''; aviso.removeAttribute('data-tono'); return; }
+                // Primero se muestra y después se escribe: un role="status" que recibe el
+                // texto mientras está oculto no siempre se anuncia al aparecer.
+                aviso.dataset.tono = sinOrigen.length ? 'error' : 'aviso';
+                aviso.hidden = false;
+                if (aviso.textContent !== texto) aviso.textContent = texto;
+            }
+            request.addEventListener('change', function (event) {
+                if (event.target.matches('[name$="[articulo_id]"]')) avisarAsociacion();
+            });
+            lines.addEventListener('click', function (event) {
+                if (event.target.closest('[data-transfer-remove]')) window.setTimeout(avisarAsociacion, 0);
+            });
             request.querySelectorAll('[name="origen_id"], [name="destino_id"]').forEach(function (field) {
-                field.addEventListener('change', function () { request.querySelector('[name="destino_id"]').setCustomValidity(''); });
+                field.addEventListener('change', function () { request.querySelector('[name="destino_id"]').setCustomValidity(''); anticipar(); });
+            });
+        }
+        // «Asociar artículo»: sin casillas el servidor responde «Elige al menos un almacén»
+        // tras recargar. Se dice antes, junto a las casillas y con role="alert"; la casilla
+        // nativa no tiene «al menos una» y un globo en la primera se leería como si esa
+        // en particular fuera obligatoria.
+        const grupoAsociar = document.querySelector('[data-asociar-almacenes]');
+        const formAsociar = grupoAsociar ? grupoAsociar.closest('form') : null;
+        const errorAsociar = grupoAsociar ? grupoAsociar.querySelector('[data-asociar-error]') : null;
+        if (formAsociar && errorAsociar) {
+            const casillas = function () { return Array.prototype.slice.call(grupoAsociar.querySelectorAll('input[type="checkbox"]')); };
+            const limpiar = function () { errorAsociar.hidden = true; errorAsociar.textContent = ''; grupoAsociar.classList.remove('has-error'); };
+            formAsociar.addEventListener('submit', function (event) {
+                const todas = casillas();
+                if (!todas.length || todas.some(function (casilla) { return casilla.checked; })) return;
+                event.preventDefault();
+                grupoAsociar.classList.add('has-error');
+                errorAsociar.hidden = false;
+                errorAsociar.textContent = 'Elige al menos un almacén.';
+                todas[0].focus();
+            });
+            grupoAsociar.addEventListener('change', function () {
+                if (!errorAsociar.hidden && casillas().some(function (casilla) { return casilla.checked; })) limpiar();
             });
         }
         const contextual = document.querySelector('[data-admin-modal][data-contextual-open="1"]');

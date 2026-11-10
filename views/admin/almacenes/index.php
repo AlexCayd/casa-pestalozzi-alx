@@ -12,7 +12,14 @@ $articuloContextual=$articuloContextual??null;
 $puedeNuevoArticulo=$puedeNuevoArticulo??false;
 $propios=array_values(array_filter($opcionesAlmacen,static fn($a)=>(string)$a['slug']===$ctx));
 $activos=array_values(array_filter($propios,static fn($a)=>(int)$a['activo']===1));
-$almacenesAsociarForm=$articuloContextual?$almacenesDisponiblesAsociacion:$activos;
+// Asociar y dar entrada alcanzan los almacenes de todo negocio donde el usuario edita
+// Almacenes (arquitectura §5); merma y configuración siguen siendo del contexto actual.
+$contextosEditables=$contextosEditables??($puedeEditar?[$ctx]:[]);
+$almacenesEditables=$almacenesEditables??array_map(static fn($a)=>['almacen_id'=>(int)$a['almacen_id'],'nombre'=>$a['nombre'],'slug'=>$a['slug'],'asociado'=>false],$activos);
+$proveedoresPorContexto=$proveedoresPorContexto??[];
+$almacenesAsociarForm=$articuloContextual?$almacenesDisponiblesAsociacion:$almacenesEditables;
+foreach($almacenesAsociarForm as $n=>$a)$almacenesAsociarForm[$n]['slug']=$a['slug']??$ctx;
+$entradables=static fn(array $i): array=>array_values(array_filter(array_merge(...array_map(static fn($ambito)=>array_map(static fn($x)=>$x+['slug'=>$ambito['slug']],in_array($ambito['slug'],$contextosEditables,true)?$ambito['almacenes']:[]),$i['ambitos']?:[[ 'slug'=>'','almacenes'=>[]]])),static fn($x)=>!empty($x['activo'])&&!empty($x['asociacion_activa'])));
 $puedeAsociarContextual=$puedeEditar&&(!$articuloContextual||(int)$articuloContextual['activo']===1);
 $seleccionados=isset($filtros['almacen_ids'])?(array)$filtros['almacen_ids']:(isset($filtros['almacen_id'])?[(int)$filtros['almacen_id']]:array_column(array_filter($opcionesAlmacen,static fn($a)=>empty($filtros['negocio'])||$a['slug']===$filtros['negocio']),'almacen_id'));
 $seleccionados=array_map('intval',$seleccionados);
@@ -43,7 +50,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
        uno: entonces esa es la acción principal. Con un artículo contextual, el panel
        de abajo trae su propia acción principal y aquí no se repite. */
     $accionEntrada=$puedeEditar&&$activos;
-    $accionAsociar=$accionEntrada&&!$articuloContextual;
+    $accionAsociar=$puedeEditar&&$almacenesAsociarForm&&!$articuloContextual;
     $accionPrimerAlmacen=$puedeCrearAlmacen&&!$activos;
     if($accionEntrada||$accionPrimerAlmacen): ?>
     <div class="almacen-actions almacen-page-actions">
@@ -72,20 +79,56 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <input type="hidden" name="seleccion" value="1">
     <?php foreach(['q','negocio','articulo_id','desde','hasta','tipo','solo_alertas'] as $campo): if(!isset($filtros[$campo])||$filtros[$campo]==='')continue; ?><input type="hidden" name="<?php echo $campo; ?>" value="<?php echo $esc($filtros[$campo]); ?>"><?php endforeach; ?>
     <?php if($vista!=='existencias'): ?><input type="hidden" name="vista" value="<?php echo $esc($vista); ?>"><?php endif; ?>
-    <div class="almacen-section-head"><div><h3>Almacenes en consulta</h3><p>Combina almacenes para consultar. Cada operación física se registra en uno solo.</p></div><div class="almacen-actions"><button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-warehouse-all hidden>Seleccionar todos</button><button type="submit" class="admin-btn admin-btn--secondary admin-btn--small">Aplicar selección</button></div></div>
-    <?php /* La selección es el filtro de la consulta: cada almacén es una casilla con su
-       nombre y sólo lo excepcional (inactivo, bajo mínimo, agotado). Lo que siempre está
-       —total de artículos, estado activo— ya lo dicen el resumen y la tabla. El espacio
-       literal entre nombre y aviso separa las palabras en el nombre accesible. */ ?>
-    <?php foreach(Contextos::NOMBRES as $slug=>$nombre): $grupo=array_values(array_filter($opcionesAlmacen,static fn($a)=>$a['slug']===$slug)); if(!$grupo)continue; ?>
-    <fieldset class="almacen-owner"><legend class="admin-eyebrow"><?php echo $esc($nombre); ?></legend><div class="almacen-owner__choices">
-      <?php foreach($grupo as $a): $aId=(int)$a['almacen_id']; $activo=(int)$a['activo']===1; $bajo=(int)($a['bajo_minimo']??0); $agotados=(int)($a['agotados']??0);
-        $avisos=array_filter([$bajo?$bajo.' bajo mínimo':'',$agotados?$agotados.' '.($agotados===1?'agotado':'agotados'):'']); ?>
-      <label class="almacen-choice<?php echo $activo?'':' is-inactive'; ?>"><input type="checkbox" name="almacen_ids[]" value="<?php echo $aId; ?>" <?php echo in_array($aId,$seleccionados,true)?'checked':''; ?>><span class="almacen-choice__name"><?php echo $esc($a['nombre']); ?></span><?php if(!$activo): ?> <span class="almacen-choice__meta">Inactivo</span><?php endif; ?><?php if($avisos): ?> <span class="almacen-choice__meta"><?php echo $esc(implode(' · ',$avisos)); ?></span><?php endif; ?></label>
+    <?php /* La selección es el filtro de la consulta y no debe crecer con el número de
+       almacenes: en la página queda una sola línea (cuántos y de qué propietario) y las
+       casillas viven en un panel. El panel es un popover nativo dentro del formulario:
+       sin JavaScript abre igual y «Aplicar selección» envía el mismo GET. Dentro, cada
+       propietario es una columna con su propia lista desplazable; cada almacén muestra
+       nombre y sólo lo excepcional (inactivo, bajo mínimo, agotado). El espacio literal
+       entre nombre y aviso separa las palabras en el nombre accesible. */
+    $grupos=[];foreach(Contextos::NOMBRES as $slug=>$nombre){$g=array_values(array_filter($opcionesAlmacen,static fn($a)=>$a['slug']===$slug));if($g)$grupos[$slug]=['nombre'=>$nombre,'almacenes'=>$g,'elegidos'=>count(array_filter($g,static fn($a)=>in_array((int)$a['almacen_id'],$seleccionados,true)))];}
+    $totalOpciones=count($opcionesAlmacen);$totalElegidos=array_sum(array_column($grupos,'elegidos'));
+    $resumenGrupo=static fn(array $g): string=>$g['nombre'].': '.($g['elegidos']===count($g['almacenes'])?'todos':($g['elegidos']===0?'ninguno':$g['elegidos'].' de '.count($g['almacenes'])));
+    $panelId='almacen-alcance'; ?>
+    <div class="almacen-section-head"><div><h3 id="almacen-alcance-titulo">Almacenes en consulta</h3><p>Combina almacenes para consultar. Cada operación física se registra en uno solo.</p></div></div>
+    <?php if($opcionesAlmacen): ?>
+    <button type="button" class="almacen-alcance__trigger" popovertarget="<?php echo $panelId; ?>" aria-controls="<?php echo $panelId; ?>" aria-expanded="false" aria-describedby="almacen-alcance-titulo" data-alcance-trigger>
+      <?php echo admin_icon('inventario',18); ?>
+      <span class="almacen-alcance__texto"><span class="almacen-alcance__cuenta"><strong class="admin-num"><?php echo $totalElegidos; ?></strong> de <?php echo $totalOpciones; ?> almacenes</span><span class="almacen-alcance__resumen"><?php echo $esc(implode(' · ',array_map($resumenGrupo,$grupos))); ?></span></span>
+      <span class="almacen-alcance__cambiar">Cambiar<?php echo admin_icon('chevron-abajo',16); ?></span>
+    </button>
+    <div class="almacen-alcance__panel" id="<?php echo $panelId; ?>" popover role="dialog" aria-labelledby="almacen-alcance-panel-titulo" data-alcance-panel>
+      <div class="almacen-alcance__cabecera">
+        <p class="almacen-alcance__titulo" id="almacen-alcance-panel-titulo">Elige dónde consultar</p>
+        <?php /* El buscador sólo filtra lo visible y no tiene name: no viaja en el GET. Sin
+           JavaScript no hace nada, así que nace oculto. */ ?>
+        <div class="almacen-alcance__buscar" data-alcance-buscar hidden><label class="admin-visually-hidden" for="almacen-alcance-q">Buscar almacén</label><?php echo admin_icon('buscar',16); ?><input id="almacen-alcance-q" type="search" placeholder="Buscar almacén…" autocomplete="off" data-alcance-q></div>
+        <button type="button" class="almacen-alcance__enlace" data-warehouse-all hidden>Seleccionar todos</button>
+      </div>
+      <div class="almacen-alcance__grupos">
+      <?php foreach($grupos as $slug=>$g): ?>
+        <fieldset class="almacen-owner" data-alcance-grupo>
+          <legend class="admin-eyebrow"><?php echo $esc($g['nombre']); ?> <span class="almacen-owner__cuenta" data-alcance-cuenta><?php echo $g['elegidos'].'/'.count($g['almacenes']); ?></span></legend>
+          <p class="almacen-owner__atajos" data-alcance-atajos hidden><button type="button" class="almacen-alcance__enlace" data-alcance-todos>Todos<span class="admin-visually-hidden"> en <?php echo $esc($g['nombre']); ?></span></button><button type="button" class="almacen-alcance__enlace" data-alcance-ninguno>Ninguno<span class="admin-visually-hidden"> en <?php echo $esc($g['nombre']); ?></span></button></p>
+          <div class="almacen-owner__choices">
+          <?php foreach($g['almacenes'] as $a): $aId=(int)$a['almacen_id']; $activo=(int)$a['activo']===1; $bajo=(int)($a['bajo_minimo']??0); $agotados=(int)($a['agotados']??0);
+            $avisos=array_filter([$bajo?$bajo.' bajo mínimo':'',$agotados?$agotados.' '.($agotados===1?'agotado':'agotados'):'']); ?>
+            <label class="almacen-choice<?php echo $activo?'':' is-inactive'; ?>" data-alcance-nombre="<?php echo $esc($a['nombre']); ?>"><input type="checkbox" name="almacen_ids[]" value="<?php echo $aId; ?>" <?php echo in_array($aId,$seleccionados,true)?'checked':''; ?>><span class="almacen-choice__name"><?php echo $esc($a['nombre']); ?></span><?php if(!$activo): ?> <span class="almacen-choice__meta">Inactivo</span><?php endif; ?><?php if($avisos): ?> <span class="almacen-choice__meta"><?php echo $esc(implode(' · ',$avisos)); ?></span><?php endif; ?></label>
+          <?php endforeach; ?>
+          </div>
+          <p class="almacen-owner__vacio" data-alcance-vacio hidden>Sin coincidencias</p>
+        </fieldset>
       <?php endforeach; ?>
-    </div></fieldset><?php endforeach; ?>
-    <?php if(!$opcionesAlmacen): ?><p class="admin-empty">Todavía no hay almacenes autorizados. Un administrador de Global puede crear el primero.</p><?php endif; ?>
-    <p class="almacen-selection__status" role="status" aria-live="polite" data-selection-status><?php echo count($seleccionados); ?> almacenes en el alcance actual.</p>
+      </div>
+      <div class="almacen-alcance__pie">
+        <p class="almacen-selection__status" role="status" aria-live="polite" data-selection-status><?php echo $totalElegidos; ?> almacenes en el alcance actual.</p>
+        <div class="almacen-actions">
+          <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" popovertarget="<?php echo $panelId; ?>" popovertargetaction="hide" data-alcance-cancelar>Cancelar</button>
+          <button type="submit" class="admin-btn admin-btn--primary admin-btn--small" data-alcance-aplicar>Aplicar selección</button>
+        </div>
+      </div>
+    </div>
+    <?php else: ?><p class="admin-empty">Todavía no hay almacenes autorizados. Un administrador de Global puede crear el primero.</p><?php endif; ?>
   </form>
   <?php /* Cifras del alcance a la izquierda y, a la derecha, las herramientas de consulta
      y configuración: no cambian existencias, así que van un escalón por debajo de las
@@ -95,11 +138,14 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
     <p class="almacen-summary__cifras"><span><strong><?php echo (int)($existencias['total']??0); ?></strong> artículos</span><span><strong><?php echo (int)($existencias['total_alertas']??0); ?></strong> con saldo bajo mínimo</span></p>
     <div class="almacen-tools" role="group" aria-label="Consultas y configuración de almacenes">
       <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-admin-modal-open="almacen-movimientos"><?php echo admin_icon('reloj',16); ?> Movimientos</button>
+      <?php /* Proveedores es su propia pantalla (también en el menú lateral): quien
+         surte los almacenes se consulta junto a sus movimientos. */ ?>
+      <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $esc($proveedoresUrl??($base.'/proveedores')); ?>"><?php echo admin_icon('proveedores',16); ?> Proveedores</a>
       <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-admin-modal-open="almacen-transferencias"><?php echo admin_icon('transferencias',16); ?> Transferencias<?php if($pendientes>0): ?> <span class="almacen-tools__meta"><span class="admin-num"><?php echo $pendientes; ?></span> <?php echo $pendientes===1?'pendiente':'pendientes'; ?></span><?php endif; ?></button>
       <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-admin-modal-open="almacen-config"><?php echo admin_icon('configuration',16); ?> <?php echo $puedeCrearAlmacen?'Crear o configurar almacenes':($puedeEditar?'Configurar almacenes':'Ver almacenes'); ?></button>
     </div>
   </div>
-  <section class="admin-panel almacen-list">
+  <section class="admin-panel almacen-list" data-stock-list>
     <div class="almacen-section-head"><div><h3>Existencias por artículo</h3><p>Saldo y mínimos del alcance seleccionado. Las alertas se evalúan en cada almacén.</p></div><?php /* Crear la identidad es tarea del catálogo: «Nuevo artículo» va junto a él. */ ?><div class="almacen-actions"><a class="admin-btn admin-btn--secondary admin-btn--small" href="<?= $esc($catalogoUrl) ?>"><?php echo admin_icon('editar',16); ?> Catálogo de artículos</a><?php if($puedeNuevoArticulo): ?><a class="admin-btn admin-btn--secondary admin-btn--small" href="<?= $esc($base.'/catalogo/nuevo?'.http_build_query(['volver'=>$origenCatalogo])) ?>"><?php echo admin_icon('mas',16); ?> Nuevo artículo</a><?php endif; ?></div></div>
     <form method="GET" action="<?php echo $esc($base); ?>" class="almacen-filters"><?php $seleccionOculta(); ?>
       <div class="admin-field"><label for="almacenes-q">Buscar artículo</label><input id="almacenes-q" name="q" type="search" maxlength="120" placeholder="Nombre del artículo…" value="<?php echo $esc($filtros['q']??''); ?>"></div>
@@ -133,11 +179,14 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
       $asociarUrl=$url('existencias',['articulo_id'=>$artId,'asociar'=>$artId,'pagina'=>null]);
       $verFicha=\Classes\Auth::puede('productos','ver',$ctx);
       $menuId='almacen-acciones-'.$artId;
-      // Entrada, merma y conteo sólo existen donde la asociación está activa: con todas
+      // Entrada y merma sólo existen donde la asociación está activa: con todas
       // inactivas, la fila no ofrece un botón que abriría un diálogo vacío.
-      $fisicosFila=array_filter($operables,static fn($x)=>!empty($x['asociacion_activa'])); ?>
+      $fisicosFila=array_filter($operables,static fn($x)=>!empty($x['asociacion_activa']));
+      // La entrada alcanza también almacenes de otros negocios donde el usuario edita.
+      $entradaFila=$puedeEditar?$entradables($i):[];
+      $opsFila=array_filter(['entrada'=>$entradaFila?['mas','Entrada']:null,'merma'=>$fisicosFila?['menos','Merma']:null]); ?>
     <div class="almacen-row-actions">
-      <?php if($fisicosFila&&$artActivo): ?><div class="almacen-ops" role="group" aria-label="<?php echo $esc('Operación física · '.$i['nombre']); ?>"><?php foreach(['entrada'=>['mas','Entrada'],'merma'=>['menos','Merma'],'ajuste'=>['editar','Conteo físico']] as $accion=>$etiqueta): ?><button type="button" class="almacen-op" data-admin-modal-open="articulo-<?php echo $artId.'-'.$accion; ?>"><?php echo admin_icon($etiqueta[0],16); ?><span><?php echo $etiqueta[1]; ?></span></button><?php endforeach; ?></div>
+      <?php if($opsFila&&$artActivo): ?><div class="almacen-ops" role="group" aria-label="<?php echo $esc('Operación física · '.$i['nombre']); ?>"><?php foreach($opsFila as $accion=>$etiqueta): ?><button type="button" class="almacen-op" data-admin-modal-open="articulo-<?php echo $artId.'-'.$accion; ?>"><?php echo admin_icon($etiqueta[0],16); ?><span><?php echo $etiqueta[1]; ?></span></button><?php endforeach; ?></div>
       <?php elseif($operables&&$artActivo): ?><span class="almacen-unassociated">Asociación inactiva</span>
       <?php elseif($asociable&&!$propiasFila): ?><a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $esc($asociarUrl); ?>"><?php echo admin_icon('inventario',16); ?> Asociar a un almacén<span class="admin-visually-hidden">: <?php echo $esc($i['nombre']); ?></span></a><?php endif; ?>
       <button type="button" class="almacen-more" popovertarget="<?php echo $menuId; ?>" aria-controls="<?php echo $menuId; ?>" aria-expanded="false" data-row-menu-trigger>Más<span class="admin-visually-hidden"> acciones: <?php echo $esc($i['nombre']); ?></span><?php echo admin_icon('chevron-abajo',16); ?></button>
@@ -160,35 +209,50 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
   <?php /* Un diálogo por operación y artículo (articulo-{id}-{operación}), cada uno con
      sólo sus campos. Los formularios son los mismos que en el modal único anterior (uno
      por almacén operable y operación); sólo se reparten, y lo nuevo son los marcos.
-     La configuración existe en todo almacén propio activo; entrada, merma y conteo,
-     sólo donde la asociación está activa y el artículo también. */
+     La configuración existe en todo almacén propio activo; entrada y merma, sólo donde
+     la asociación está activa y el artículo también. El conteo físico se retiró (auditoría
+     A-4): sobrescribía el saldo sin motivo. Una diferencia real se corrige con una merma
+     con su motivo, o con una entrada. */
   $operacionesArticulo=[
-    'entrada'=>['Registrar entrada','Registra lo que llegó a un almacén de %s.'],
+    'entrada'=>['Registrar entrada','Registra lo que llegó a uno de los almacenes donde editas.'],
     'merma'=>['Registrar merma','Registra lo que se perdió, caducó o se dañó en un almacén de %s.'],
-    'ajuste'=>['Registrar conteo físico','Captura lo que contaste en un almacén de %s: el saldo pasa a esa cifra y la diferencia queda como movimiento.'],
     'configurar'=>['Configurar asociación','Mínimo de alerta y estado del artículo en un almacén de %s.'],
   ];
-  foreach($articulos as $i): $operables=[];foreach($i['ambitos'] as $ambito)foreach($ambito['almacenes'] as $asociacion)if($puedeEditar&&$ambito['slug']===$ctx&&$asociacion['activo'])$operables[]=$asociacion;if(!$operables)continue;
+  foreach($articulos as $i): $operables=[];foreach($i['ambitos'] as $ambito)foreach($ambito['almacenes'] as $asociacion)if($puedeEditar&&$ambito['slug']===$ctx&&$asociacion['activo'])$operables[]=$asociacion+['slug'=>$ambito['slug']];
+    $entradaArticulo=$puedeEditar&&(int)$i['activo']?$entradables($i):[];
+    if(!$operables&&!$entradaArticulo)continue;
     $fisicos=(int)$i['activo']?array_values(array_filter($operables,static fn($x)=>!empty($x['asociacion_activa']))):[];
-    foreach($operacionesArticulo as $tipoOperacion=>[$tituloOperacion,$introOperacion]): $almacenesOperacion=$tipoOperacion==='configurar'?$operables:$fisicos; if(!$almacenesOperacion)continue;
+    foreach($operacionesArticulo as $tipoOperacion=>[$tituloOperacion,$introOperacion]): $almacenesOperacion=match($tipoOperacion){'configurar'=>$operables,'entrada'=>$entradaArticulo,default=>$fisicos}; if(!$almacenesOperacion)continue;
       include __DIR__.'/_operacion.php';
     endforeach;
   endforeach; ?>
 
   <?php if($puedeEditar&&$activos): $modalInicio('almacen-elegir-entrada','Registrar entrada'); ?>
-    <p>Elige el artículo y después un único almacén físico propio. Usa la búsqueda de existencias para encontrar otros artículos.</p>
-    <div class="almacen-entry-picker"><?php foreach($articulos as $i): if(!(int)$i['activo'])continue;$operable=false;foreach($i['ambitos'] as $ambito)if($ambito['slug']===$ctx)foreach($ambito['almacenes'] as $asoc)if($asoc['activo']&&$asoc['asociacion_activa'])$operable=true;if(!$operable)continue; ?>
+    <p>Elige el artículo y después el almacén físico que lo recibe. Usa la búsqueda de existencias para encontrar otros artículos.</p>
+    <div class="almacen-entry-picker"><?php foreach($articulos as $i): if(!(int)$i['activo']||!$entradables($i))continue; ?>
       <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-open="articulo-<?php echo (int)$i['articulo_id']; ?>-entrada"><?php echo $esc($i['nombre'].' · '.$i['unidad']); ?></button>
     <?php endforeach; ?></div>
   <?php $modalFin();endif; ?>
   <?php $modalInicio('almacen-config','Almacenes físicos');$filasAlmacen=$almacenes['almacenes']??[];include __DIR__.'/_almacenes.php';$modalFin(); ?>
 
-  <?php if(($articuloContextual?$puedeAsociarContextual:$puedeEditar)&&($articuloContextual?$almacenesAsociarForm:$activos)): $modalInicio('almacen-asociar','Asociar artículo existente',!empty($abrirAsociacion)); ?>
-    <p>La asociación comienza sin saldo. Después puedes registrar una entrada.</p>
+  <?php if(($articuloContextual?$puedeAsociarContextual:$puedeEditar)&&$almacenesAsociarForm): $modalInicio('almacen-asociar','Asociar artículo existente',!empty($abrirAsociacion));
+    // Varias casillas, agrupadas por negocio: un artículo se asocia a todos sus almacenes
+    // en un solo envío. Se listan los de cada negocio donde el usuario edita Almacenes.
+    $porNegocio=[];foreach($almacenesAsociarForm as $a)$porNegocio[$a['slug']][]=$a; ?>
+    <p>Marca todos los almacenes que manejarán el artículo. Cada asociación comienza sin saldo; después puedes registrar una entrada.</p>
     <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid"><?php $campos('asociar'); ?>
-      <div class="admin-field"><label for="asociar-almacen">Almacén propio</label><select id="asociar-almacen" name="almacen_id" required><option value="">Elige el almacén</option><?php foreach($almacenesAsociarForm as $a): ?><option value="<?php echo (int)$a['almacen_id']; ?>"><?php echo $esc($a['nombre']); ?></option><?php endforeach; ?></select></div>
+      <?php // Primero qué artículo y después dónde: el orden en que se decide. ?>
       <?php if($articuloContextual): ?><div class="admin-field"><label>Artículo</label><p class="almacen-modal__balance"><?= $esc($articuloContextual['nombre'].' · '.$articuloContextual['unidad']) ?></p><input type="hidden" name="articulo_id" value="<?= (int)$articuloContextual['id'] ?>"></div><?php else: ?><div class="admin-field"><label for="asociar-articulo">Artículo compartido</label><select id="asociar-articulo" name="articulo_id" required><option value="">Elige el artículo</option><?php foreach($catalogo['articulos'] as $a): if(!(int)$a['activo'])continue; ?><option value="<?php echo (int)$a['id']; ?>" <?= (int)($filtros['articulo_id']??0)===(int)$a['id']?'selected':'' ?>><?php echo $esc($a['nombre'].' · '.$a['unidad']); ?></option><?php endforeach; ?></select><p class="admin-field__hint"><?php echo (int)$catalogo['total']; ?> coincidencias. Usa la búsqueda principal para afinar la lista.</p></div><?php endif; ?>
-      <div class="admin-field"><label for="asociar-minimo">Mínimo físico</label><input id="asociar-minimo" name="minimo" type="number" min="0" step="0.001" value="0.000" required></div><button type="submit" class="admin-btn admin-btn--primary">Asociar artículo</button>
+      <div class="admin-field"><label for="asociar-minimo">Mínimo físico</label><input id="asociar-minimo" name="minimo" type="number" min="0" step="0.001" value="0.000" required inputmode="decimal" aria-describedby="asociar-minimo-ayuda"><p class="admin-field__hint" id="asociar-minimo-ayuda">Se aplica a cada almacén marcado; puedes ajustarlo después en cada uno.</p></div>
+      <fieldset class="almacen-asociar-almacenes admin-form-grid__full" data-asociar-almacenes aria-describedby="asociar-almacenes-ayuda asociar-almacenes-error"><legend class="admin-field__label">Almacenes</legend>
+        <?php foreach($porNegocio as $slug=>$lista): ?><div class="almacen-asociar-almacenes__grupo" role="group" aria-label="<?php echo $esc(Contextos::NOMBRES[$slug]??$slug); ?>"><p class="almacen-asociar-almacenes__negocio"><?php echo $esc(Contextos::NOMBRES[$slug]??$slug); ?></p>
+          <?php foreach($lista as $a): ?><label class="almacen-asociar-almacenes__opcion"><input type="checkbox" name="almacen_ids[]" value="<?php echo (int)$a['almacen_id']; ?>" <?php echo count($almacenesAsociarForm)===1?'checked':''; ?>> <span><?php echo $esc($a['nombre']); ?></span></label><?php endforeach; ?>
+        </div><?php endforeach; ?>
+        <p class="admin-field__hint" id="asociar-almacenes-ayuda">Elige al menos uno.</p>
+        <?php // Lo muestra inventario.js si se envía sin casillas; sin JavaScript responde el servidor. ?>
+        <p class="admin-field__error almacen-asociar-almacenes__error" id="asociar-almacenes-error" data-asociar-error role="alert" hidden></p>
+      </fieldset>
+      <button type="submit" class="admin-btn admin-btn--primary almacen-asociar__enviar">Asociar artículo</button>
     </form><?php $modalFin();endif; ?>
   <?php $modalInicio('almacen-movimientos','Movimientos del alcance seleccionado'); ?>
     <form method="GET" action="<?php echo $esc($base); ?>" class="admin-form-grid"><input type="hidden" name="vista" value="movimientos"><?php $seleccionOculta(); ?>
@@ -197,7 +261,7 @@ $transferencias=$transferencias??[];$contrapartes=$contrapartes??[];$catalogoTra
       <div class="admin-field"><label for="mov-q">Artículo</label><input id="mov-q" name="q" type="search" value="<?php echo $esc($filtros['q']??''); ?>"></div><button class="admin-btn admin-btn--primary" type="submit">Filtrar movimientos</button>
     </form>
     <p><?php echo (int)$movimientos['total']; ?> movimientos autorizados. Las correcciones se registran con operaciones nuevas.</p>
-    <div class="admin-table-wrap" data-scrollable><table class="admin-table"><thead><tr><th>Fecha / artículo</th><th>Almacén</th><th>Movimiento</th><th>Referencia</th></tr></thead><tbody><?php foreach($movimientos['movimientos'] as $m): ?><tr><td><?php echo $esc($m['articulo_nombre']); ?><small><?php echo $esc($m['fecha']); ?></small></td><td><?php echo $esc($m['almacen_nombre'].' · '.Contextos::NOMBRES[$m['slug']]); ?></td><td><?php echo $esc($m['tipo'].' · '.$m['delta'].' '.$m['unidad']); ?></td><td><?php echo $esc($m['referencia']); ?><small><?php echo $esc($m['nota']); ?></small></td></tr><?php endforeach; ?></tbody></table></div>
+    <div class="admin-table-wrap" data-scrollable><table class="admin-table"><thead><tr><th>Fecha / artículo</th><th>Almacén</th><th>Movimiento</th><th>Referencia</th></tr></thead><tbody><?php foreach($movimientos['movimientos'] as $m): ?><tr><td><?php echo $esc($m['articulo_nombre']); ?><small><?php echo $esc($m['fecha']); ?></small></td><td><?php echo $esc($m['almacen_nombre'].' · '.Contextos::NOMBRES[$m['slug']]); ?></td><td><?php /* Ningún flujo crea ya ajustes (conteo retirado, auditoría A-4): los que quedan son historial. */ echo $esc(($m['tipo']==='ajuste'?'ajuste (histórico)':$m['tipo']).' · '.$m['delta'].' '.$m['unidad']); ?></td><td><?php echo $esc($m['referencia']); ?><small><?php echo $esc($m['nota']); ?></small></td></tr><?php endforeach; ?></tbody></table></div>
     <?php $mp=(int)$movimientos['pagina'];$mt=max(1,(int)ceil($movimientos['total']/$movimientos['por_pagina'])); ?><nav class="admin-pagination" aria-label="Paginación de movimientos"><span>Página <?php echo $mp; ?> de <?php echo $mt; ?></span><?php if($mp>1): ?><a href="<?php echo $esc($url('movimientos',['pagina'=>$mp-1])); ?>">Anterior</a><?php endif;if($mp<$mt): ?><a href="<?php echo $esc($url('movimientos',['pagina'=>$mp+1])); ?>">Siguiente</a><?php endif; ?></nav>
   <?php $modalFin(); ?>
   <?php $modalInicio('almacen-transferencias','Transferencias entre almacenes');include __DIR__.'/_transferencias.php';$modalFin(); ?>

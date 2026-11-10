@@ -59,26 +59,35 @@ Restaurante incorpora Inicio primero, con su SVG existente y estado activo.
 Punto de venta y Producción usan las rutas operativas ya autorizadas del catálogo,
 `/punto-de-venta` y `/area`, sin conceder configuración ni operación por navegar.
 
-La selección «Almacenes en consulta» es un filtro, no contenido (M3, Fase 3): un
-renglón por propietario con su rótulo (`.admin-eyebrow`) y casillas compactas de
-36 px (44 px con puntero táctil). Cada casilla muestra el control checkbox nativo
-visible (`accent-color`), el nombre y sólo lo excepcional: «Inactivo» y
-«N bajo mínimo · N agotado(s)» cuando son mayores que cero. Seleccionada: borde
-fuerte y texto pleno; sin seleccionar: borde suave y texto atenuado; inactiva:
-borde discontinuo además de la palabra. Con `:has()` el anillo de foco del sistema
-rodea la etiqueta completa; sin él, la casilla. Tab y Espacio operan el control
-nativo y su estado anunciado; la última casilla marcada no se desmarca. No se usa
-`display:none` y la transición respeta movimiento reducido. Con 7 almacenes en tres
-propietarios la franja mide unos 211 px en escritorio (antes 459 px) y 474 px en
-móvil de 390 px (antes 904 px). La política de negativos ya no aparece.
+La selección «Almacenes en consulta» es un filtro, no contenido, y no crece con el
+número de almacenes. En la página es un solo control (`.almacen-alcance__trigger`):
+«N de M almacenes» y, debajo, el reparto por propietario («Global: todos ·
+Restaurante: 2 de 3 · Panadería: ninguno»), recortado a un renglón. Abre un panel
+(`.almacen-alcance__panel`, popover nativo dentro del mismo formulario GET) con una
+columna por propietario en el orden Global, Restaurante, Panadería; cada columna
+lleva su rótulo (`.admin-eyebrow`), el recuento `n/m`, los atajos «Todos · Ninguno»
+y su propia lista desplazable (320 px). Cada fila muestra el checkbox nativo visible
+(`accent-color`), el nombre y sólo lo excepcional: «Inactivo» y «N bajo mínimo · N
+agotado(s)». Inactiva: borde discontinuo además de la palabra. Con `:has()` el
+anillo de foco va por dentro de la fila completa. En escritorio `inventario.js`
+ancla el panel bajo el control; en móvil (≤ 760 px) es hoja inferior con las
+columnas apiladas y un solo desplazamiento. Sin JavaScript el panel abre centrado
+con `popovertarget` y «Aplicar selección» envía el mismo GET.
 
-Con JavaScript, los cambios se agrupan durante 600 ms antes de enviar el mismo
-formulario GET. No se duplica un envío pendiente y volver mediante historial
-restablece el control. Seleccionar todos conserva todos los IDs autorizados.
-La última tarjeta no se puede deseleccionar. El botón Aplicar selección permanece
-operativo como alternativa nativa: sin JavaScript el formulario conserva el mismo
-contrato GET. Se conservan búsqueda, alertas y demás filtros del alcance; se
-descartan páginas y el antiguo ID único al emitir la selección múltiple explícita.
+Los cambios quedan pendientes hasta «Aplicar»: el pie anuncia cuántos quedarán y
+el botón pasa a «Aplicar (N)». Cerrar el panel sin aplicar (Cancelar, Escape, pulsar
+fuera o salir con Tab) restablece lo que pintó el servidor (`defaultChecked`), así
+el resumen siempre dice lo que muestra la tabla; volver con el historial también lo
+restablece. Aplicar sin cambios sólo cierra. Un buscador sin `name` (no viaja en el
+GET) acota lo visible sin acentos ni mayúsculas y nunca desmarca; «Todos/Ninguno»
+actúan sobre lo visible del grupo. Ninguna acción deja la consulta vacía. Se
+conservan búsqueda, alertas y demás filtros del alcance; se descartan páginas y el
+antiguo ID único al emitir la selección múltiple explícita.
+
+Al enviar, la tabla, la leyenda y la paginación se cambian por filas esqueleto
+(`.almacen-skeleton`, entre 3 y 6 según las filas visibles) con la misma rejilla y
+un brillo con desfase por fila; una región `role="status"` anuncia «Actualizando
+existencias de la selección…». Con movimiento reducido las barras quedan quietas.
 No cambian consultas, permisos, saldos, movimientos, costos ni operaciones físicas.
 
 Archivos: `controllers/AdminController.php`, `AdminContextosController.php`;
@@ -285,7 +294,7 @@ propios activos), con «Registrar entrada» como secundaria; en solo consulta no
 acciones. **Herramientas:** bajo la selección, botones secundarios pequeños
 «Movimientos», «Transferencias» (con el número de pendientes sólo si es mayor que
 cero) y «Crear o configurar almacenes»; «Nuevo artículo» vive junto a «Catálogo de
-artículos», en la cabecera de la lista. **Fila:** Entrada, Merma y Conteo físico
+artículos», en la cabecera de la lista. **Fila:** Entrada y Merma
 forman un grupo de botones con nombre accesible por artículo; un artículo sin
 almacén propio ofrece «Asociar a un almacén» (flujo `?articulo_id=&asociar=`). Lo
 secundario de la fila (Configurar asociación, Asociar a otro almacén, Capacidades y
@@ -294,7 +303,7 @@ elaboración, Movimientos) va en el menú «Más», un popover nativo anclado po
 foco, `aria-expanded` sigue el estado y en móvil se presenta como hoja inferior.
 
 Cada operación de un artículo tiene su propio diálogo, `articulo-{id}-{operación}`
-(`entrada`, `merma`, `ajuste` para el conteo físico y `configurar`), titulado
+(`entrada`, `merma` y `configurar`; el conteo físico se retiró, auditoría A-4), titulado
 «Registrar entrada · Canela» y con sólo sus campos, Cancelar y su acción principal
 (`views/admin/almacenes/_operacion.php` pinta el diálogo; `_asociacion.php`, un
 formulario). Los botones de la fila, «Más» y el selector «Registrar entrada» de la
@@ -304,7 +313,7 @@ panel oculto por almacén con su saldo y su formulario; con uno solo, el panel e
 visible. Los formularios son los mismos que antes vivían apilados en un modal por
 artículo (mismos campos, versión y clave idempotente), así que el DOM no crece salvo
 por los marcos de diálogo. La configuración existe en todo almacén propio activo;
-entrada, merma y conteo sólo donde la asociación y el artículo están activos, y una
+entrada y merma sólo donde la asociación y el artículo están activos, y una
 fila sin asociaciones activas dice «Asociación inactiva» en lugar de abrir un diálogo
 vacío. Al abrir, el foco va al selector si falta elegir almacén o al primer campo; Tab
 recorre sólo lo visible porque la trampa compartida ignora los paneles ocultos.
@@ -322,7 +331,7 @@ El modal `almacen-config` («Almacenes físicos», `views/admin/almacenes/_almac
 no repite su título: abre con una frase de recuento («7 almacenes en 3 negocios», o «Se
 muestran N de M» si la selección acota la lista) y, sin permiso de edición, una sola
 nota de solo consulta. Con `$puedeCrearAlmacen`, «Nuevo almacén» es el primario del
-modal con el mismo patrón que «Solicitar transferencia» (una regla compartida en
+modal con el mismo patrón que «Nueva transferencia» (una regla compartida en
 `inventario.scss`); llega desplegado si el negocio no tiene almacenes propios activos,
 con foco en el propietario. El propietario se elige en `admin-pills` sin valor previo,
 porque no cambia después; el formulario envía los mismos campos que el select anterior.
@@ -339,21 +348,65 @@ pequeño con `data-confirm-*` propios: ConfirmationModal pide escribir el nombre
 600 px o menos cada almacén es una tarjeta: nombre y estado en un renglón, acciones
 debajo, y las tres opciones de propietario una por renglón.
 
+«Asociar artículo» (`almacen-asociar`) ya no es un selector de un almacén propio: es un
+`fieldset[data-asociar-almacenes]` con un grupo (`role="group"`) por negocio y una
+casilla `almacen_ids[]` por almacén donde el usuario edita; con un solo almacén
+disponible llega marcado. El alta de artículo (`recetas/articulo-identidad.php`) trae
+el mismo patrón, opcional, en `m2-alta-almacenes`. El diálogo de Entrada lista también
+almacenes de otros negocios donde el usuario edita, rotulados «Almacén · Negocio»;
+Merma y Configurar sólo los del contexto. En Transferencias, `data-asociaciones`
+(artículo → almacenes, sin saldos) alimenta `[data-transfer-asociacion]`
+(`role="status"`): `inventario.js` avisa qué artículo quedará asociado al destino y
+cuál falta en el origen; sin JavaScript lo dice el aviso posterior del servidor. El
+aviso va debajo de las líneas (al aparecer no desplaza el selector recién usado), no
+reserva renglones y lleva `data-tono`: `aviso` con el rol informativo y `error` (rol de
+peligro, negrita y texto que pide corregir) cuando el artículo falta en el origen. En
+«Asociar artículo» el orden es artículo y mínimo, luego almacenes; cada negocio es una
+caja con rótulo y filas de 44 px, y enviar sin casillas muestra «Elige al menos un
+almacén.» en `[data-asociar-error]` (`role="alert"`) con foco en la primera casilla,
+sin diálogo nativo; sin JavaScript responde el servidor.
+
 Transferencias amplía esta misma interfaz en Restaurante, Panadería y Global:
 `almacen-transferencias` usa el modal administrativo compartido y
 `views/admin/almacenes/_transferencias.php`. Solicitud multilínea, documentos,
 acciones e historial usan `details`/`summary`; los documentos pendientes aparecen
 abiertos. Orden del modal: introducción, alertas de la última operación, la acción y
-después «Solicitudes e historial». «Solicitar transferencia» es la acción principal:
+después «Transferencias e historial». «Nueva transferencia» es la acción principal:
 su `summary` lleva `admin-btn admin-btn--primary` con `mas` y un `chevron-abajo` que
 gira al abrir; abierto pesa como secundario para que el único primario a la vista sea
-«Registrar solicitud», y el formulario entra con un desplazamiento corto (sólo
-opacidad con movimiento reducido). Sin almacén propio activo, un aviso explica por qué
+el envío del formulario, y el formulario entra con un desplazamiento corto (sólo
+opacidad con movimiento reducido). Un solo formulario sirve a los tres casos del
+[contrato](../modulos/transferencias.md#fases-según-el-caso-8-nov-2026). Cada opción
+lleva `data-contexto` e `inventario.js` anticipa en la pista (`aria-live`) y en el
+botón lo que hará el servidor: «Transferir ahora» (mismo negocio o superadministrador),
+«Enviar» (origen propio) o «Solicitar» (sólo el destino es propio). Sin JavaScript, el
+botón dice «Registrar transferencia» y el aviso posterior nombra el estado resultante.
+La pista es una caja hundida neutra en tinta plena, a todo el ancho y con dos renglones
+reservados (cambiar de pareja no mueve lo de abajo en escritorio); el botón la cita con
+`aria-describedby`, nombra al otro negocio y avisa si origen y destino coinciden. Cada
+documento pendiente dice «Siguiente paso:» bajo la ruta: en segunda persona si la
+acción está entre las que llegaron del servidor, o con el negocio que debe darlo.
+La recepción llega precargada con lo enviado. Sin almacén propio activo, un aviso explica por qué
 no hay acción; en solo consulta no hay ni acción ni aviso. El contador de documentos
 sólo aparece con documentos (singular con uno), el vacío remite a la acción cuando
 existe y la paginación (secundaria pequeña) sólo con más de una página. Estado, origen/destino y propietario se expresan con texto. Las acciones
 disponibles llegan del servidor según ámbito y estado; recepción, diferencia y
 retorno conservan explicaciones distintas sobre su efecto en existencias.
+
+Bajo la tabla, las acciones forman una barra (`almacen-transfer-actions`, `role="group"`)
+de `summary` secundarios con icono, etiqueta y chevron; ninguno es primario. Avanzar
+(enviar, recibir, retornar, confirmar) lleva contorno en tinta; registrar
+diferencia, `--admin-border-strong`; rechazar y cancelar, el mismo contorno con
+`--admin-danger-text`, apartados a la derecha, y su envío es `admin-btn--danger`. Los
+`details` de un documento comparten `name` (abrir uno pliega el otro); con
+`::details-content` el formulario abierto baja a un panel hundido a todo el ancho y el
+botón abierto lleva un filete inferior; a 600 px o menos es un acordeón. El historial es
+un secundario pequeño con `reloj`. El cuerpo del modal (`.almacen-modal__body`,
+`data-scrollable`) es lo único que se desplaza: cabecera fija, `dvh`, `overscroll-behavior:
+contain` y hueco de barra reservado; la tabla documental conserva `contain` sólo a lo ancho
+para no cortar la rueda. Al abrir una acción, el historial o la solicitud, `inventario.js`
+acerca lo desplegado con `scrollIntoView({block:'nearest'})` (sin animar con movimiento
+reducido).
 
 Al agregar una línea, clonar controles nativos limpios, generar nombres/ids y
 labels únicos e invocar `AdminSelect.init(row)` después de insertarla; enfocar el
@@ -385,8 +438,8 @@ no emite campos: un `almacen_id` sin cantidad llegaría como fila. La suma del
 reparto se anuncia en `role="status"` con milésimas exactas (BigInt) y no bloquea
 el envío. Las regularizaciones se rotulan «Regularización de faltante» y sólo
 ofrecen confirmar (motivo editable «Confirmado») o rechazar (motivo obligatorio).
-Piezas (Fase 1): con `contenido_pieza`, entrada, merma y conteo capturan piezas y
-suelto; el conteo parte del saldo vigente así expresado y la entrada ofrece el
+Piezas (Fase 1): con `contenido_pieza`, entrada y merma capturan piezas y
+suelto, y la entrada ofrece el
 costo por unidad (por omisión) o por pieza en `admin-pills`.
 
 ## Piso, reservaciones y POS

@@ -58,6 +58,14 @@ foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
         $router->post($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
     }
     $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
+    // Proveedores de cada ámbito (arquitectura §17). Bajo /almacenes heredan la
+    // clasificación `inventario` de Permisos sin una excepción nueva.
+    $router->get($baseAlmacenes.'/almacenes/proveedores',[\Controllers\AdminProveedoresController::class,'index']);
+    $router->get($baseAlmacenes.'/almacenes/proveedores/nuevo',[\Controllers\AdminProveedoresController::class,'nuevo']);
+    $router->get($baseAlmacenes.'/almacenes/proveedores/ficha',[\Controllers\AdminProveedoresController::class,'ficha']);
+    foreach(['guardar','asignaciones','eliminar'] as $accionProveedor){
+        $router->post($baseAlmacenes.'/almacenes/proveedores/'.$accionProveedor,[\Controllers\AdminProveedoresController::class,$accionProveedor]);
+    }
 }
 
 // Home
@@ -253,14 +261,15 @@ $router->post('/admin/inventario/create',   [AdminInventarioController::class, '
 $router->get('/admin/inventario/edit',      [AdminInventarioController::class, 'edit']);
 $router->post('/admin/inventario/edit',     [AdminInventarioController::class, 'edit']);
 $router->post('/admin/inventario/delete',   [AdminInventarioController::class, 'delete']);
-$router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
+// /admin/inventario/ajustar (ajuste rápido) se retiró con el conteo físico: auditoría A-4.
 $router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
 $router->post('/admin/inventario/merma',    [AdminInventarioController::class, 'merma']);
 // Consulta previa al borrado: qué recetas usan el ingrediente. Bajo /admin/api/
 // queda protegida por el prefijo, sin tocar ninguna allowlist.
 $router->get('/admin/api/inventario/uso',   [AdminInventarioController::class, 'uso']);
 // Proveedores: submódulo de inventario. Cuelgan de los ingredientes, que es lo
-// que se compra; un platillo se produce aquí.
+// que se compra; un platillo se produce aquí. En modo multinegocio estas rutas
+// redirigen a /admin/almacenes/proveedores (AdminProveedoresController).
 $router->get('/admin/inventario/proveedores',         [AdminInventarioController::class, 'proveedores']);
 $router->get('/admin/inventario/proveedores/create',  [AdminInventarioController::class, 'proveedorCreate']);
 $router->post('/admin/inventario/proveedores/create', [AdminInventarioController::class, 'proveedorCreate']);

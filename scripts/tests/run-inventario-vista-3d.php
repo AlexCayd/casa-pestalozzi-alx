@@ -50,6 +50,6 @@ namespace {
     $assert(str_contains($pending,'Cocina &lt;principal&gt;'), 'El pendiente identifica el almacén deficitario y escapa su nombre.');
     $assert(str_contains($pending,'faltan 10 g') && !str_contains($pending,'Justo en el mínimo'), 'El faltante usa el saldo físico, no el agregado.');
     $assert(str_contains($pending,'action="/admin/inventario/entrada"') && str_contains($pending,'name="almacen_id" required'), 'Editar permite recibir con almacén explícito.');
-    $assert(str_contains($render(true),'action="/admin/inventario/ajustar"'), 'Editar conserva el ajuste rápido.');
+    $assert(!str_contains($render(true),'/admin/inventario/ajustar') && !str_contains($render(true),'Ajuste rápido'), 'El ajuste rápido se retiró con el conteo físico (auditoría A-4).');
     echo "Inventario 3D: {$count} comprobaciones de presentación OK\n";
 }

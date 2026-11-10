@@ -29,8 +29,8 @@ try{
  $r=$ok($servicio->guardar('global','crear_articulo',['nombre'=>'UX exacto','unidad'=>'g','costo'=>'1.0000','activo'=>'1']),'Crear artículo');$art=(int)$r['articulo_id'];
  foreach(['central'=>'global','r1'=>'restaurante','r2'=>'restaurante','pan'=>'panaderia'] as $key=>$ctx)$ok($servicio->guardar($ctx,'asociar',['almacen_id'=>(string)$alm[$key],'articulo_id'=>(string)$art,'minimo'=>'3.000']),'Asociar sin saldo');
  foreach(['r1'=>'1.001','pan'=>'4.004'] as $key=>$cantidad)$ok($servicio->guardar($key==='pan'?'panaderia':'restaurante','entrada',['almacen_id'=>(string)$alm[$key],'articulo_id'=>(string)$art,'cantidad'=>$cantidad,'clave'=>'ux-entrada-'.$key]),'Entrada exacta');
- $asoc=$ok($motor->existencia('restaurante',$alm['r2'],$art),'Leer versión')['existencia'];
- $ok($servicio->guardar('restaurante','ajuste',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$art,'cantidad'=>'0.500','version'=>(string)$asoc['version'],'clave'=>'ux-conteo-exacto']),'Conteo físico exacto (M3: sin negativos)');
+ $ok($servicio->guardar('restaurante','entrada',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$art,'cantidad'=>'0.500','clave'=>'ux-entrada-r2']),'Entrada exacta en el segundo almacén');
+ $assert($servicio->guardar('restaurante','ajuste',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$art,'cantidad'=>'9.000','version'=>'1','clave'=>'ux-conteo-retirado'])['codigo']==='ACCION_INVALIDA','El conteo físico se retiró: «ajuste» ya no es una operación.');
  $todos=$ok($motor->consultarExistencias('global'),'Global por defecto');
  $assert($todos['articulos'][0]['saldo_total']==='5.505','Global suma exactamente los tres ámbitos, incluyendo cero.');
  $par=$ok($motor->consultarExistencias('restaurante',['almacen_ids'=>[$alm['r1'],$alm['r2']]]),'Seleccionar dos propios');
@@ -66,6 +66,30 @@ try{
  $assert($otraSeleccion['articulos'][0]['articulo_id']===$panArt,'Las alertas de un almacén excluido no conceden prioridad.');
  $busqueda=$ok($motor->consultarExistencias('global',['almacen_ids'=>[$alm['r1']],'q'=>'con alerta']),'Prioridad durante búsqueda');
  $assert(array_column($busqueda['articulos'],'articulo_id')===[$orden['AAA con alerta'],$orden['ZZZ con alerta']],'La búsqueda conserva el orden dentro del grupo de alertas.');
+ // Asociar y dar entrada alcanzan los almacenes de todo negocio donde el actor edita (§5).
+ $n=static fn(int $w,int $a):int=>(int)$db->query("SELECT COUNT(*) FROM almacen_articulos WHERE almacen_id=$w AND articulo_id=$a")->fetch_row()[0];
+ $r=$ok($servicio->guardar('global','crear_articulo',['nombre'=>'UX multi','unidad'=>'g','costo'=>'1.0000','activo'=>'1','almacen_ids'=>[(string)$alm['central'],(string)$alm['r1'],(string)$alm['pan']]]),'Alta con almacenes');$multi=(int)$r['articulo_id'];
+ $assert($r['almacenes_asociados']===[$alm['central'],$alm['r1'],$alm['pan']]&&$n($alm['central'],$multi)===1&&$n($alm['r1'],$multi)===1&&$n($alm['pan'],$multi)===1&&$n($alm['r2'],$multi)===0,'El alta asocia el artículo a los almacenes marcados de varios negocios.');
+ $assert((int)$db->query("SELECT COUNT(*) FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id WHERE aa.articulo_id=$multi AND (aa.unidad_id<>a.unidad_id OR aa.saldo<>0)")->fetch_row()[0]===0,'Cada asociación lleva la unidad dueña de su almacén y empieza sin saldo.');
+ $antes=(int)$db->query('SELECT COUNT(*) FROM ingredientes')->fetch_row()[0];
+ $r=$servicio->guardar('global','crear_articulo',['nombre'=>'UX multi roto','unidad'=>'g','costo'=>'1.0000','activo'=>'1','almacen_ids'=>[(string)$alm['central'],'999999']]);
+ $assert(($r['ok']??true)===false&&(int)$db->query('SELECT COUNT(*) FROM ingredientes')->fetch_row()[0]===$antes,'Un almacén inválido en el alta no deja ni el artículo.');
+ $ok($servicio->guardar('global','asociar',['articulo_id'=>(string)$multi,'almacen_ids'=>[(string)$alm['r2']],'minimo'=>'2.000']),'Asociar un almacén de otro negocio desde Global');
+ $assert($n($alm['r2'],$multi)===1,'Global asocia en Restaurante cuando el actor edita Restaurante.');
+ $ok($servicio->guardar('global','entrada',['almacen_id'=>(string)$alm['r2'],'articulo_id'=>(string)$multi,'cantidad'=>'3.250','clave'=>'ux-entrada-cruzada']),'Entrada en almacén de otro negocio');
+ $assert((string)$db->query("SELECT CONCAT(m.unidad_id,':',m.delta) FROM movimientos_inventario m WHERE m.almacen_id={$alm['r2']} AND m.articulo_id=$multi")->fetch_row()[0]===((int)$db->query("SELECT unidad_id FROM almacenes WHERE id={$alm['r2']}")->fetch_row()[0]).':3.250','La entrada cruzada queda con la unidad dueña del almacén.');
+ $local=FixtureAutorizacion3B::usuario($db,'ux_local',['restaurante'=>['permisos'=>['inventario'=>'editar']]]);$servLocal=new AdministracionAlmacenes($db,$local['id'],'contrasena');
+ $assert(array_values(array_unique(array_column($servLocal->almacenesEditables(),'slug')))===['restaurante'],'Un operador local sólo ve como editables los almacenes de su negocio.');
+ $r=$ok($servicio->guardar('global','crear_articulo',['nombre'=>'UX local','unidad'=>'g','costo'=>'1.0000','activo'=>'1']),'Artículo sin asociaciones');$suelto=(int)$r['articulo_id'];
+ $r=$servLocal->guardar('restaurante','asociar',['articulo_id'=>(string)$suelto,'almacen_ids'=>[(string)$alm['r1'],(string)$alm['pan']],'minimo'=>'0.000']);
+ $assert(($r['ok']??true)===false&&$n($alm['r1'],$suelto)===0&&$n($alm['pan'],$suelto)===0,'Sin edición en Panadería se rechaza todo el lote: ninguna asociación parcial.');
+ $r=$servLocal->guardar('restaurante','entrada',['almacen_id'=>(string)$alm['pan'],'articulo_id'=>(string)$multi,'cantidad'=>'1.000','clave'=>'ux-entrada-ajena']);
+ $assert(($r['ok']??true)===false&&(int)$db->query("SELECT COUNT(*) FROM movimientos_inventario WHERE almacen_id={$alm['pan']} AND articulo_id=$multi")->fetch_row()[0]===0,'Sin edición en Panadería no se da entrada en su almacén.');
+ $ok($servLocal->guardar('restaurante','asociar',['articulo_id'=>(string)$suelto,'almacen_ids'=>[(string)$alm['r1'],(string)$alm['r2']],'minimo'=>'0.000']),'Asociar a dos almacenes propios');
+ $assert($n($alm['r1'],$suelto)===1&&$n($alm['r2'],$suelto)===1,'Un envío asocia a varios almacenes propios.');
+ $assert(($servLocal->guardar('restaurante','asociar',['articulo_id'=>(string)$suelto,'minimo'=>'0.000'])['codigo']??'')==='ALMACEN_REQUERIDO','Asociar exige al menos un almacén.');
+ $marcados=array_column(array_filter($servicio->almacenesEditables($suelto),static fn($a)=>$a['asociado']),'almacen_id');sort($marcados);$esperados=[$alm['r1'],$alm['r2']];sort($esperados);
+ $assert($marcados===$esperados,'almacenesEditables marca dónde ya está asociado el artículo.');
  echo "Almacenes selección: {$count} comprobaciones OK.\n";
 }finally{
  if($created&&$name!==$op['base']&&preg_match('/^cp_multinegocio_test_[a-f0-9]{20}$/D',$name)){$mark=$db->query('SELECT token FROM `'.$name.'`._cp_multinegocio_owner')->fetch_row()[0]??'';if(!hash_equals($token,(string)$mark))throw new RuntimeException('Propiedad no verificada.');$db->query('DROP DATABASE `'.$name.'`');echo "Base temporal propia eliminada.\n";}$db->close();
