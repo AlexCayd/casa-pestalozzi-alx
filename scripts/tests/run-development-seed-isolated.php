@@ -10,8 +10,10 @@ Dotenv\Dotenv::createImmutable($root . '/includes')->safeLoad();
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $database = 'cp_development_seed_test_' . bin2hex(random_bytes(6));
+$existingEmptyDatabase = 'cp_development_seed_test_' . bin2hex(random_bytes(6));
+$existingMarkedDatabase = 'cp_development_seed_test_' . bin2hex(random_bytes(6));
 $db = null;
-$created = false;
+$createdDatabases = [];
 $failed = false;
 $phase = 'connect';
 $encKey = random_bytes(32);
@@ -31,7 +33,7 @@ function developmentSeedAssert(bool $ok, string $message): void
 }
 
 /** @return array{exit:int,output:string} */
-function invokeDevelopmentSeeder(string $root, string $database, string $enc, string $lookup): array
+function invokeDevelopmentSeeder(string $root, string $database, string $enc, string $lookup, bool $initialize = false, bool $clearKeys = false): array
 {
     $env = array_merge(getenv(), $_ENV);
     foreach (['DB_HOST', 'DB_USER', 'DB_PASS'] as $name) {
@@ -42,8 +44,19 @@ function invokeDevelopmentSeeder(string $root, string $database, string $enc, st
     $env['CONTACT_LOOKUP_KEY'] = $lookup;
     $stdout = tempnam(sys_get_temp_dir(), 'cp-dev-seed-out-');
     $stderr = tempnam(sys_get_temp_dir(), 'cp-dev-seed-err-');
+    $command = [PHP_BINARY, $root . '/scripts/seed-development.php', '--database=' . $database];
+    if ($initialize) $command[] = '--initialize';
+    if ($clearKeys) {
+        $wrapper = tempnam(sys_get_temp_dir(), 'cp-dev-seed-wrapper-');
+        $wrapperPhp = "<?php\nputenv('CONTACT_ENCRYPTION_KEY=');\nputenv('CONTACT_LOOKUP_KEY=');\n"
+            . "\$_ENV['CONTACT_ENCRYPTION_KEY'] = '';\n\$_ENV['CONTACT_LOOKUP_KEY'] = '';\n"
+            . '$argv = [__FILE__, ' . var_export('--database=' . $database, true) . ', ' . var_export('--initialize', true) . "];\n"
+            . 'require ' . var_export($root . '/scripts/seed-development.php', true) . ";\n";
+        if (file_put_contents($wrapper, $wrapperPhp) === false) throw new RuntimeException('No se pudo preparar el runner de configuración ausente.');
+        $command = [PHP_BINARY, $wrapper];
+    }
     $process = proc_open(
-        [PHP_BINARY, $root . '/scripts/seed-development.php', '--database=' . $database],
+        $command,
         [0 => ['pipe', 'r'], 1 => ['file', $stdout, 'w'], 2 => ['file', $stderr, 'w']],
         $pipes,
         $root,
@@ -55,6 +68,7 @@ function invokeDevelopmentSeeder(string $root, string $database, string $enc, st
     $output = (string)file_get_contents($stdout) . (string)file_get_contents($stderr);
     unlink($stdout);
     unlink($stderr);
+    if (isset($wrapper) && is_file($wrapper)) unlink($wrapper);
     return ['exit' => $exit, 'output' => $output];
 }
 
@@ -86,34 +100,70 @@ try {
     $db = new mysqli((string)($_ENV['DB_HOST'] ?? getenv('DB_HOST')),
         (string)($_ENV['DB_USER'] ?? getenv('DB_USER')),
         (string)($_ENV['DB_PASS'] ?? getenv('DB_PASS')));
-    $db->query("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $created = true;
-    $db->select_db($database);
-    developmentSeedAssert((string)$db->query('SELECT DATABASE()')->fetch_row()[0] === $database, 'La suite no aisló la base de prueba.');
-    $db->query("SET time_zone = '-06:00'");
-    $phase = 'ddl';
-    executeSqlFile($db, (string)file_get_contents($root . '/database/ddl.sql'));
-    $phase = 'deploy';
-    executeSqlFile($db, (string)file_get_contents($root . '/database/deploy.sql'));
-    developmentSeedAssert((int)$db->query('SELECT COUNT(*) FROM reservaciones')->fetch_row()[0] === 0, 'DDL/deploy insertó reservaciones.');
+    $db->set_charset('utf8mb4');
+    $schemaExists = static function (mysqli $connection, string $name): bool {
+        $stmt = $connection->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?');
+        $stmt->bind_param('s', $name);
+        $stmt->execute();
+        $exists = (int)$stmt->get_result()->fetch_row()[0] === 1;
+        $stmt->close();
+        return $exists;
+    };
+    $rememberOwnedDatabase = static function (string $name) use ($db, $schemaExists, &$createdDatabases): void {
+        if ($schemaExists($db, $name) && !in_array($name, $createdDatabases, true)) $createdDatabases[] = $name;
+    };
+    foreach ([$database, $existingEmptyDatabase, $existingMarkedDatabase] as $temporaryName) {
+        developmentSeedAssert(!$schemaExists($db, $temporaryName), 'Nombre temporal ya existente; suite abortada sin cambios.');
+    }
 
-    $phase = 'invalid-key';
-    $invalidKey = invokeDevelopmentSeeder($root, $database, '', '');
-    developmentSeedAssert($invalidKey['exit'] !== 0 && !str_contains($invalidKey['output'], $encEncoded)
-        && (int)$db->query('SELECT COUNT(*) FROM reservaciones')->fetch_row()[0] === 0, 'Seeder aceptó claves ausentes o escribió datos.');
-    $phase = 'malformed-key';
-    $malformedKey = invokeDevelopmentSeeder($root, $database, 'not-base64', $lookupEncoded);
-    developmentSeedAssert($malformedKey['exit'] !== 0 && !str_contains($malformedKey['output'], 'not-base64')
-        && (int)$db->query('SELECT COUNT(*) FROM reservaciones')->fetch_row()[0] === 0, 'Seeder aceptó clave malformada o escribió datos.');
+    $phase = 'invalid-key-initialize';
+    $invalidKey = invokeDevelopmentSeeder($root, $database, '', '', true, true);
+    $rememberOwnedDatabase($database);
+    if ($invalidKey['exit'] === 0) { $phase = 'invalid-key-accepted'; throw new RuntimeException(''); }
+    $phase = 'invalid-key-no-database';
+    developmentSeedAssert(!$schemaExists($db, $database), 'Configuración ausente creó una base.');
+    developmentSeedAssert(!str_contains($invalidKey['output'], $encEncoded) && !str_contains($invalidKey['output'], $lookupEncoded), 'Configuración ausente filtró claves.');
+    $phase = 'malformed-key-initialize';
+    $malformedKey = invokeDevelopmentSeeder($root, $database, 'not-base64', $lookupEncoded, true);
+    $rememberOwnedDatabase($database);
+    developmentSeedAssert($malformedKey['exit'] !== 0, 'Seeder aceptó clave malformada.');
+    $phase = 'malformed-key-no-database';
+    developmentSeedAssert(!$schemaExists($db, $database), 'Configuración inválida creó una base.');
+    developmentSeedAssert(!str_contains($malformedKey['output'], 'not-base64') && !str_contains($malformedKey['output'], $lookupEncoded), 'Configuración inválida filtró valores.');
 
-    $phase = 'seed';
-    $seed = invokeDevelopmentSeeder($root, $database, $encEncoded, $lookupEncoded);
+    $db->query("CREATE DATABASE `{$existingEmptyDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $createdDatabases[] = $existingEmptyDatabase;
+    $phase = 'existing-empty-guard';
+    $emptyTarget = invokeDevelopmentSeeder($root, $existingEmptyDatabase, $encEncoded, $lookupEncoded, true);
+    $db->select_db($existingEmptyDatabase);
+    developmentSeedAssert($emptyTarget['exit'] !== 0
+        && (int)$db->query('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')->fetch_row()[0] === 0,
+        'Initialize alteró una base existente vacía.');
+
+    $db->query("CREATE DATABASE `{$existingMarkedDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $createdDatabases[] = $existingMarkedDatabase;
+    $db->select_db($existingMarkedDatabase);
+    $db->query('CREATE TABLE sentinel (id INT PRIMARY KEY, marker VARCHAR(40) NOT NULL)');
+    $db->query("INSERT INTO sentinel VALUES (1, 'preserve-this-row')");
+    $phase = 'existing-marked-guard';
+    $markedTarget = invokeDevelopmentSeeder($root, $existingMarkedDatabase, $encEncoded, $lookupEncoded, true);
+    $marker = $db->query('SELECT marker FROM sentinel WHERE id = 1')->fetch_row()[0];
+    developmentSeedAssert($markedTarget['exit'] !== 0 && $marker === 'preserve-this-row'
+        && (int)$db->query('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')->fetch_row()[0] === 1,
+        'Initialize modificó objetos/datos de una base existente.');
+
+    $phase = 'initialize';
+    $seed = invokeDevelopmentSeeder($root, $database, rtrim($encEncoded, '='), rtrim($lookupEncoded, '='), true);
+    $rememberOwnedDatabase($database);
     if ($seed['exit'] !== 0) {
         $phase = preg_match('/Carga de development\.sql detenida en fase ([a-z-]+)/', $seed['output'], $seedPhase)
             ? 'seed-' . $seedPhase[1]
             : 'seed-child-failure';
         throw new RuntimeException('Seeder no completó.');
     }
+    $db->select_db($database);
+    developmentSeedAssert((string)$db->query('SELECT DATABASE()')->fetch_row()[0] === $database, 'La suite no aisló la base de prueba.');
+    $db->query("SET time_zone = '-06:00'");
     developmentSeedAssert($seed['exit'] === 0 && str_contains($seed['output'], 'DEVELOPMENT_SEEDED: 142 reservaciones protegidas.'), 'La carga limpia no completó los 142 escenarios.');
     developmentSeedAssert(!str_contains($seed['output'], $encEncoded) && !str_contains($seed['output'], $lookupEncoded), 'Seeder mostró una clave.');
 
@@ -194,8 +244,14 @@ try {
     $failed = true;
     fwrite(STDERR, "Prueba aislada de reconstrucción fallida en fase {$phase}; no se muestran datos ni SQL.\n");
 } finally {
-    if ($created && $db instanceof mysqli && preg_match('/^cp_development_seed_test_[a-f0-9]{12}$/D', $database)) {
-        try { $db->query("DROP DATABASE `{$database}`"); } catch (Throwable) { $failed = true; }
+    if ($db instanceof mysqli) {
+        foreach ($createdDatabases as $createdDatabase) {
+            if (!preg_match('/^cp_development_seed_test_[a-f0-9]{12}$/D', $createdDatabase)) {
+                $failed = true;
+                continue;
+            }
+            try { $db->query("DROP DATABASE `{$createdDatabase}`"); } catch (Throwable) { $failed = true; }
+        }
     }
     if ($db instanceof mysqli) $db->close();
 }

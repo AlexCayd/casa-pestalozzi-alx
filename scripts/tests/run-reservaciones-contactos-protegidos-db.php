@@ -80,6 +80,10 @@ try {
     $_ENV['APP_ENV'] = 'test';
     $_ENV['RESERVATION_TEST_NOW'] = '2037-01-14 17:59:00';
     putenv('RESERVATION_TEST_NOW=2037-01-14 17:59:00');
+    $_ENV['CONTACT_ENCRYPTION_KEY'] = rtrim((string)$oldEnc, '=');
+    $_ENV['CONTACT_LOOKUP_KEY'] = rtrim((string)$oldLookup, '=');
+    putenv('CONTACT_ENCRYPTION_KEY=' . $_ENV['CONTACT_ENCRYPTION_KEY']);
+    putenv('CONTACT_LOOKUP_KEY=' . $_ENV['CONTACT_LOOKUP_KEY']);
     $contactEmail = "O'Reilly.case@example.test";
     $contactPhone = '+52 (55) 1000-2020';
     $emailId = insertProtectedContactFixture($db, $ids, 'Café Águila', 'email', $contactEmail, '2037-01-15');

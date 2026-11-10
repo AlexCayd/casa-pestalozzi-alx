@@ -2,8 +2,9 @@
 -- development.sql — datos de DESARROLLO y QA.
 --
 -- Los contactos sintéticos están declarados como metadata @contact-fixture;
--- no ejecutes este SQL con mysql directamente. Tras crear ddl.sql y deploy.sql
--- en una base limpia, cargarlo con: php scripts/seed-development.php --database=NOMBRE
+-- no ejecutes este SQL con mysql directamente. Para crear una base nueva y
+-- cargar DDL, deploy y estos fixtures protegidos, usa:
+-- npm run dev:db -- --database=NUEVO_NOMBRE
 --
 -- Opcional: no cargar nunca en producción. El orden de instalación es
 --
@@ -22,7 +23,7 @@
 --
 -- El seeder carga el archivo completo una vez en una base vacía, después de DDL
 -- y deploy. No ejecutar ni repetir bloques por separado. Para rehacer el entorno,
--- reconstruir la base vacía y volver a ejecutar scripts/seed-development.php.
+-- reconstruirla con un nombre nuevo usando npm run dev:db -- --database=NUEVO_NOMBRE.
 --
 -- Dos cosas se arreglaron al fundirlos, y las dos estaban rotas antes:
 --

@@ -34,17 +34,13 @@ Los flujos de automatización no deben versionar ni exportar datos de ejecución
 
 Las columnas `contacto` almacenan sobres `cp1:` con AES-256-GCM, nonce aleatorio y autenticación del tipo de contacto. `contacto_hash` guarda un HMAC-SHA-256 independiente para búsquedas exactas e índices. Se normaliza el contacto antes de cifrar o calcular el HMAC. Los valores `ninguno` se guardan como `NULL` en ambas columnas. El POS excluye el contacto y su HMAC de sus respuestas.
 
-`CONTACT_ENCRYPTION_KEY` y `CONTACT_LOOKUP_KEY` son claves Base64 canónicas, independientes y de 32 bytes. Son obligatorias para leer o escribir contactos; no hay fallback a texto claro. Configúralas antes de iniciar la aplicación. No reemplaces una clave activa sin una estrategia de rotación compatible con los datos existentes.
+`CONTACT_ENCRYPTION_KEY` y `CONTACT_LOOKUP_KEY` son claves Base64 canónicas, con o sin padding, independientes y de 32 bytes. Son obligatorias para leer o escribir contactos; no hay fallback a texto claro. Configúralas antes de iniciar la aplicación. No reemplaces una clave activa sin una estrategia de rotación compatible con los datos existentes.
 
 ## Instalación de desarrollo desde cero
 
-Configura `APP_ENV=development`, las credenciales MySQL y las dos claves de contacto. Crea una base vacía y carga `database/ddl.sql` y después `database/deploy.sql` desde el cliente MySQL. Luego carga los datos ficticios una sola vez, con destino explícito:
+Configura `APP_ENV=development`, las credenciales MySQL y las dos claves de contacto. La [configuración](../config.md) explica cómo generarlas y cómo inicializar una base nueva con `npm run dev:db -- --database=NUEVO_NOMBRE`. El usuario MySQL necesita permiso para crear bases. El comando rechaza cualquier nombre existente sin tocar sus datos; después del éxito, actualiza `DB_NAME` manualmente. No importes `database/development.sql` directamente: el seeder cifra sus contactos sintéticos al cargarlo.
 
-```powershell
-php scripts/seed-development.php --database=NOMBRE
-```
-
-El seeder valida claves y metadata, cifra los contactos sintéticos en memoria y ejecuta la carga dentro de una transacción. Rechaza destinos con reservaciones o tickets. No importes `database/development.sql` directamente con el cliente SQL. Para recargar, reconstruye una base vacía con DDL y deploy y ejecuta el seeder de nuevo. En producción no cargues datos de desarrollo.
+El seeder valida claves y metadata antes de conectar o crear la base, carga DDL/deploy y luego los escenarios protegidos en una transacción. Para iniciar de nuevo, elige un nombre nuevo; el seeder nunca borra ni reutiliza un destino. En producción no cargues datos de desarrollo.
 
 La validación aislada se ejecuta con `npm run test:contacts`. Sus runners crean y eliminan bases temporales y usan claves aleatorias en memoria. Las pruebas de transporte son simuladas; no envían mensajes reales. No ejecutes scripts DB individuales contra la base de la aplicación.
 

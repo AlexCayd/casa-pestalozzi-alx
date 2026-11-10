@@ -37,6 +37,16 @@ $emailCipher1 = Protegido::cifrar('email', $email);
 $emailCipher2 = Protegido::cifrar('email', $email);
 protegidoAssert(Protegido::descifrar('email', $emailCipher1) === 'fixture.user@example.test', 'Falló roundtrip de email normalizado.');
 protegidoAssert($emailCipher1 !== $emailCipher2, 'El nonce aleatorio no cambió el cifrado.');
+$paddedEncryptionKey = base64_encode($enc);
+$paddedLookupKey = base64_encode($lookup);
+$unpaddedEncryptionKey = rtrim($paddedEncryptionKey, '=');
+$unpaddedLookupKey = rtrim($paddedLookupKey, '=');
+$setEnv($unpaddedEncryptionKey, $unpaddedLookupKey);
+Protegido::validarConfiguracion();
+protegidoAssert(Protegido::descifrar('email', $emailCipher1) === 'fixture.user@example.test', 'La forma sin padding no descifró una envoltura existente.');
+protegidoAssert(Protegido::identificador('email', $email) === hash_hmac('sha256', 'casa-pestalozzi/contact/email/fixture.user@example.test', $lookup), 'El HMAC cambió entre formas Base64.');
+protegidoAssert(Protegido::descifrar('email', Protegido::cifrar('email', $email)) === 'fixture.user@example.test', 'Falló roundtrip con claves sin padding.');
+$setEnv($paddedEncryptionKey, $paddedLookupKey);
 
 $phone = '+52 (55) 1234-5678';
 $phoneCipher = Protegido::cifrar('telefono', $phone);
@@ -68,8 +78,20 @@ protegidoFalla(fn() => Protegido::cifrar('email', 'fixture@example.test'), 'Acep
 
 $setEnv('not-base64', base64_encode($lookup));
 protegidoFalla(fn() => Protegido::cifrar('email', 'fixture@example.test'), 'Aceptó una clave inválida.');
+$invalidKeys = [
+    base64_encode(random_bytes(31)),
+    base64_encode(random_bytes(33)),
+    $paddedEncryptionKey . "\n",
+    substr($paddedEncryptionKey, 0, -2) . chr(ord(substr($paddedEncryptionKey, -2, 1)) + 1) . '=',
+];
+foreach ($invalidKeys as $invalidKey) {
+    $setEnv($invalidKey, $paddedLookupKey);
+    protegidoFalla(fn() => Protegido::validarConfiguracion(), 'Aceptó una clave Base64 no canónica o de longitud incorrecta.');
+}
 $setEnv(base64_encode($enc), base64_encode($enc));
 protegidoFalla(fn() => Protegido::cifrar('email', 'fixture@example.test'), 'Aceptó claves iguales.');
+$setEnv($paddedEncryptionKey, $unpaddedEncryptionKey);
+protegidoFalla(fn() => Protegido::validarConfiguracion(), 'Aceptó claves iguales con formas Base64 distintas.');
 $setEnv(base64_encode(random_bytes(32)), base64_encode($lookup));
 protegidoFalla(fn() => Protegido::descifrar('email', $emailCipher1), 'Descifró con una clave de cifrado distinta.');
 $setEnv(base64_encode($enc), base64_encode(random_bytes(31)));

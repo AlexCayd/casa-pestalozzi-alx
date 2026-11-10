@@ -27,30 +27,32 @@ credenciales y configuración de workflows.
 
 `CONTACT_ENCRYPTION_KEY` y `CONTACT_LOOKUP_KEY` son obligatorias cuando se lee o
 escribe una reservación con correo o teléfono. Cada valor debe ser Base64 canónica
-de 32 bytes aleatorios; las dos claves deben ser distintas. No hay valor
-predeterminado ni fallback a texto claro. Genéralas con un generador criptográfico
-seguro, codifica cada una en Base64 y guárdalas en el almacén de secretos del
+(con o sin padding) de 32 bytes aleatorios; las dos claves deben ser distintas.
+No hay valor predeterminado ni fallback a texto claro. Genéralas con un generador
+criptográfico seguro, codifica cada una en Base64 y guárdalas en el almacén de secretos del
 entorno. No reutilices claves entre ambientes. No reemplaces una clave activa sin
 una estrategia de rotación compatible con los datos existentes.
 
 ## Base nueva de desarrollo
 
-En una instalación nueva, configura `APP_ENV=development`, las credenciales MySQL
-y las dos claves de contacto antes de iniciar PHP. Crea una base vacía y, desde
-el cliente MySQL, ejecuta `database/ddl.sql` y luego `database/deploy.sql`. Carga
-los datos ficticios una sola vez con el seeder, indicando explícitamente el nombre
-de la base:
+En `includes/.env.example` están las variables de contacto vacías y el comando
+para generar cada clave. Configura `APP_ENV=development`, las credenciales MySQL
+y dos claves aleatorias distintas antes de iniciar PHP. Para inicializar en un
+solo paso, el usuario MySQL necesita privilegio `CREATE DATABASE`. Usa un nombre
+nuevo que no exista:
 
 ```powershell
-php scripts/seed-development.php --database=NOMBRE
+npm run dev:db -- --database=NUEVO_NOMBRE
 ```
 
-El seeder requiere claves válidas, admite sólo `development` o `test` y rechaza
-una base que ya tenga reservaciones o tickets. No cargues `database/development.sql`
-directamente mediante `SOURCE` ni importación SQL: los contactos sintéticos están
-en comentarios de metadata y se cifran en memoria durante la carga. Para empezar
-de nuevo, reconstruye una base vacía con DDL y deploy y ejecuta el seeder otra vez.
-No se proporciona carga de bloques históricos ni actualización de bases existentes.
+El comando crea una base nueva y carga DDL, deploy y el fixture protegido. Falla
+si el nombre ya existe, sin alterar esa base incluso si está vacía. Nunca
+borra ni reutiliza destinos automáticamente. Tras completarse, actualiza
+`DB_NAME` manualmente para apuntar la aplicación a esa base; el seeder no modifica
+`.env`. Para iniciar otra instalación usa otro nombre nuevo. No importes
+`database/development.sql` directamente mediante `SOURCE` ni importación SQL: sus
+contactos ficticios se cifran en memoria durante la carga. No se ofrecen modos
+para convertir o actualizar bases existentes.
 
 ## Comportamiento por entorno
 

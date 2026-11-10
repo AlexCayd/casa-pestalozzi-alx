@@ -21,7 +21,8 @@ try {
 
 function seedEnv(string $name): ?string
 {
-    $value = array_key_exists($name, $_ENV) ? $_ENV[$name] : getenv($name);
+    $processValue = getenv($name);
+    $value = $processValue !== false ? $processValue : ($_ENV[$name] ?? null);
     return is_string($value) && $value !== '' ? $value : null;
 }
 
@@ -63,10 +64,16 @@ function readContactFixtureMetadata(string $sql): array
 }
 
 $database = '';
+$initialize = false;
+$databaseSeen = false;
 foreach (array_slice($argv, 1) as $argument) {
-    if (str_starts_with($argument, '--database=')) $database = substr($argument, 11);
+    if (str_starts_with($argument, '--database=') && !$databaseSeen) {
+        $database = substr($argument, 11);
+        $databaseSeen = true;
+    }
+    elseif ($argument === '--initialize' && !$initialize) $initialize = true;
     else {
-        fwrite(STDERR, "Uso: php scripts/seed-development.php --database=NOMBRE\n");
+        fwrite(STDERR, "Uso: php scripts/seed-development.php --database=NOMBRE [--initialize]\n");
         exit(2);
     }
 }
@@ -81,6 +88,8 @@ $db = null;
 $transaction = false;
 $phase = 'metadata';
 try {
+    $phase = 'configuration';
+    ContactoProtegidoService::validarConfiguracion();
     $sql = file_get_contents($root . '/database/development.sql');
     if (!is_string($sql)) throw new RuntimeException('No se pudo leer la semilla.');
     $fixtures = readContactFixtureMetadata($sql);
@@ -89,10 +98,20 @@ try {
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     $db = new mysqli((string)seedEnv('DB_HOST'), (string)seedEnv('DB_USER'), (string)seedEnv('DB_PASS'));
     $db->set_charset('utf8mb4');
+    if ($initialize) {
+        $phase = 'create-database';
+        $db->query("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    }
     $db->select_db($database);
     $selected = (string)$db->query('SELECT DATABASE()')->fetch_row()[0];
     if ($selected !== $database) throw new RuntimeException('No se pudo seleccionar destino.');
     $db->query("SET time_zone = '-06:00'");
+
+    if ($initialize) {
+        $phase = 'create-schema';
+        executeSqlFile($db, (string)file_get_contents($root . '/database/ddl.sql'));
+        executeSqlFile($db, (string)file_get_contents($root . '/database/deploy.sql'));
+    }
 
     $phase = 'preflight';
     // development.sql sólo es una entrada para bases recién desplegadas.
@@ -132,6 +151,7 @@ try {
         $count++;
     }
     $result->free();
+    if ($count !== 142) throw new RuntimeException('La carga no produjo el conjunto esperado.');
     $phase = 'commit';
     $db->commit();
     $transaction = false;

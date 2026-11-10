@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "gulp dev",
+    "dev:db": "php scripts/seed-development.php --initialize",
     "build": "gulp build",
     "test:menu-pdf": "php scripts/tests/run-notifications-isolated.php run-reservaciones-menu-pdf.php",
     "test:pos-print-alerts": "php scripts/tests/run-notifications-isolated.php run-pos-print-alerts-db.php",
@@ -15,7 +16,7 @@
     "test:notifications": "php scripts/tests/run-notifications-isolated.php && php scripts/tests/run-reservaciones-confirmacion-transporte.php && php scripts/tests/run-reservaciones-notification-boundary.php && php scripts/tests/run-reservaciones-no-legacy.php && node scripts/tests/run-reservaciones-resend-ui.cjs && node scripts/tests/run-reservaciones-notification-docs.cjs && node scripts/tests/run-reservaciones-notification-workflows.cjs",
     "test": "npm run test:php && npm run test:js",
     "test:runtime": "php scripts/tests/run-notifications-isolated.php run-reservaciones-reasignacion-db.php run-punto-venta-cierre-db.php run-reservaciones-comunicaciones-db.php run-reservaciones-notificaciones-development-db.php run-reservaciones-cambio-horario-matrix-db.php",
-    "test:contacts": "php scripts/tests/run-contacto-protegido.php && php scripts/tests/run-development-seed-isolated.php && php scripts/tests/run-notifications-isolated.php run-reservaciones-contactos-protegidos-db.php run-reservaciones-comunicaciones-db.php run-reservaciones-otp-resends-db.php run-reservaciones-reminder-recovery-db.php run-reservaciones-cambio-horario-matrix-db.php"
+    "test:contacts": "php scripts/tests/run-contacto-protegido.php && php scripts/tests/run-development-seed-isolated.php && php scripts/tests/run-notifications-isolated.php run-reservaciones-contactos-protegidos-db.php run-reservaciones-retencion-http-db.php run-reservaciones-comunicaciones-db.php run-reservaciones-otp-resends-db.php run-reservaciones-reminder-recovery-db.php run-reservaciones-cambio-horario-matrix-db.php"
   },
   "author": "",
   "license": "ISC",

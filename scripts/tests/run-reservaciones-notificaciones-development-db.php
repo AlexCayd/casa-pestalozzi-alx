@@ -50,10 +50,16 @@ $impactItemId = 0;
 $oldEnvironment = $_ENV['APP_ENV'] ?? null;
 $oldNow = $_ENV['RESERVATION_TEST_NOW'] ?? null;
 $oldBaseUrl = $_ENV['RESERVATION_PUBLIC_BASE_URL'] ?? null;
+$oldEncryptionKey = $_ENV['CONTACT_ENCRYPTION_KEY'] ?? null;
+$oldLookupKey = $_ENV['CONTACT_LOOKUP_KEY'] ?? null;
 
 try {
     $_ENV['APP_ENV'] = 'development';
     $_ENV['RESERVATION_PUBLIC_BASE_URL'] = 'http://localhost';
+    $_ENV['CONTACT_ENCRYPTION_KEY'] = rtrim((string)$oldEncryptionKey, '=');
+    $_ENV['CONTACT_LOOKUP_KEY'] = rtrim((string)$oldLookupKey, '=');
+    putenv('CONTACT_ENCRYPTION_KEY=' . $_ENV['CONTACT_ENCRYPTION_KEY']);
+    putenv('CONTACT_LOOKUP_KEY=' . $_ENV['CONTACT_LOOKUP_KEY']);
 
     $slot = developmentAvailableSlot();
     $requestToken = bin2hex(random_bytes(32));
@@ -152,4 +158,8 @@ try {
     if ($oldEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $oldEnvironment;
     if ($oldNow === null) unset($_ENV['RESERVATION_TEST_NOW']); else $_ENV['RESERVATION_TEST_NOW'] = $oldNow;
     if ($oldBaseUrl === null) unset($_ENV['RESERVATION_PUBLIC_BASE_URL']); else $_ENV['RESERVATION_PUBLIC_BASE_URL'] = $oldBaseUrl;
+    if ($oldEncryptionKey === null) unset($_ENV['CONTACT_ENCRYPTION_KEY']); else $_ENV['CONTACT_ENCRYPTION_KEY'] = $oldEncryptionKey;
+    if ($oldLookupKey === null) unset($_ENV['CONTACT_LOOKUP_KEY']); else $_ENV['CONTACT_LOOKUP_KEY'] = $oldLookupKey;
+    if ($oldEncryptionKey === null) putenv('CONTACT_ENCRYPTION_KEY'); else putenv('CONTACT_ENCRYPTION_KEY=' . $oldEncryptionKey);
+    if ($oldLookupKey === null) putenv('CONTACT_LOOKUP_KEY'); else putenv('CONTACT_LOOKUP_KEY=' . $oldLookupKey);
 }

@@ -105,11 +105,11 @@ su propio SCSS. Ya no: `app.css` bajó a ~220 KB y el piso tiene lo suyo.
    que cada día caiga en su día de la semana, que es lo que da forma al mapa de
    calor. `SELECT @SEM_INI, @SEM_FIN;` dice en qué fechas quedó.
 
-Tras cargar DDL y deploy en una base recién creada, cargar escenarios una sola
-vez mediante `php scripts/seed-development.php --database=NOMBRE`. El seeder
-protege los contactos sintéticos antes de escribirlos; no importar
-`development.sql` directamente con el cliente SQL. Para rehacer el entorno,
-recrear la base vacía y volver a ejecutar el seeder.
+La instalación nueva recomendada es `npm run dev:db -- --database=NUEVO_NOMBRE`:
+crea el destino si no existe, carga DDL/deploy y cifra los escenarios antes de
+escribirlos. No importar `development.sql` directamente con el cliente SQL.
+El modo `php scripts/seed-development.php --database=NOMBRE` queda para bases
+vacías que ya tengan DDL/deploy. Para rehacer el entorno, usa un nombre nuevo.
 
 `development.sql` declara los seis usuarios de desarrollo con id explícito porque
 los tickets de los fixtures apuntan a `mesero_id` 2..6 por llave foránea, pero los

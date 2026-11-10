@@ -12,6 +12,18 @@ class ContactoProtegidoService
     private const NONCE_BYTES = 12;
     private const TAG_BYTES = 16;
 
+    /** Valida las dos claves antes de iniciar consultas o persistencia. */
+    public static function validarConfiguracion(): void
+    {
+        try {
+            $encryptionKey = self::clave('CONTACT_ENCRYPTION_KEY');
+            $lookupKey = self::clave('CONTACT_LOOKUP_KEY');
+            self::validarClavesDistintas($encryptionKey, $lookupKey);
+        } catch (Throwable) {
+            throw new RuntimeException('CONTACT_CONFIG_INVALID');
+        }
+    }
+
     /** Cifra el contacto normalizado con AES-256-GCM. El vacío se conserva. */
     public static function cifrar(string $tipo, string $contacto): string
     {
@@ -97,12 +109,18 @@ class ContactoProtegidoService
 
     private static function clave(string $nombre): string
     {
-        $encoded = array_key_exists($nombre, $_ENV) ? $_ENV[$nombre] : getenv($nombre);
+        $processValue = getenv($nombre);
+        $encoded = $processValue !== false ? $processValue : ($_ENV[$nombre] ?? null);
         if (!is_string($encoded) || $encoded === '') throw new RuntimeException();
-        $decoded = base64_decode($encoded, true);
-        if (!is_string($decoded) || strlen($decoded) !== 32 || base64_encode($decoded) !== $encoded) {
+        if (preg_match('/\A[A-Za-z0-9+\/]{43}=\z/D', $encoded) === 1) {
+            $canonical = $encoded;
+        } elseif (preg_match('/\A[A-Za-z0-9+\/]{43}\z/D', $encoded) === 1) {
+            $canonical = $encoded . '=';
+        } else {
             throw new RuntimeException();
         }
+        $decoded = base64_decode($canonical, true);
+        if (!is_string($decoded) || strlen($decoded) !== 32 || base64_encode($decoded) !== $canonical) throw new RuntimeException();
         return $decoded;
     }
 

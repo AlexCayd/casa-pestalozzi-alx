@@ -139,11 +139,17 @@ final class ReservacionPublicaService
         // La comprobación preliminar mejora la respuesta, pero sólo la segunda,
         // dentro del lock por contacto, protege contra solicitudes simultáneas.
         try {
+            ContactoProtegidoService::validarConfiguracion();
+        } catch (\Throwable) {
+            error_log('ReservacionPublicaService::crearRetencion - fase=precheck codigo=contact_config_invalid.');
+            return self::errorInterno();
+        }
+        try {
             if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                 return self::limiteAlcanzado();
             }
         } catch (\Throwable $e) {
-            error_log('ReservacionPublicaService::crearRetencion - fallo redactado.');
+            error_log('ReservacionPublicaService::crearRetencion - fase=precheck codigo=database_failure.');
             return self::errorInterno();
         }
 
