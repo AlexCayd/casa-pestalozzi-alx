@@ -1685,6 +1685,79 @@
   font-size: 13px;
 }
 
+/* Estado en la tabla de existencias. El artículo activo es lo normal en casi todas las
+   filas: punto y palabra en tinta tenue, sin caja, para que veinticinco «Activo» no
+   compitan con el saldo. Lo inactivo cambia de forma, no sólo de color: insignia neutra
+   con borde discontinuo (la misma de «Almacenes físicos») y nombre atenuado. */
+.almacen-articulo__nombre {
+  display: block;
+}
+
+.almacen-articulo__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 4px;
+}
+
+.almacen-articulo.is-inactive .almacen-articulo__nombre {
+  color: var(--admin-muted);
+}
+
+.admin-status.almacen-estado {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.admin-status.almacen-estado--activo {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+.admin-status.almacen-estado--activo::before {
+  width: 6px;
+  height: 6px;
+  background: var(--admin-success-text);
+}
+
+.admin-status.almacen-estado--compacto {
+  min-height: 18px;
+  gap: 4px;
+  padding: 0 6px;
+  line-height: 1;
+}
+.admin-status.almacen-estado--compacto::before {
+  width: 5px;
+  height: 5px;
+}
+
+.almacen-balance-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.admin-body .almacen-balances .is-inactive .almacen-balance-label {
+  color: var(--admin-muted);
+}
+
+.admin-body .almacen-row-note {
+  width: 22ch;
+  max-width: 100%;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: start;
+}
+
 .admin-body .almacen-balance-label {
   border: 0;
   padding: 0;
@@ -2351,7 +2424,7 @@
   color: var(--admin-muted);
 }
 
-.admin-status.almacen-config__inactivo {
+.admin-status.almacen-config__inactivo, .admin-status.almacen-estado--inactivo {
   border-style: dashed;
   border-color: var(--admin-border-strong);
 }

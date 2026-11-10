@@ -314,8 +314,8 @@ visible. Los formularios son los mismos que antes vivían apilados en un modal p
 artículo (mismos campos, versión y clave idempotente), así que el DOM no crece salvo
 por los marcos de diálogo. La configuración existe en todo almacén propio activo;
 entrada y merma sólo donde la asociación y el artículo están activos, y una
-fila sin asociaciones activas dice «Asociación inactiva» en lugar de abrir un diálogo
-vacío. Al abrir, el foco va al selector si falta elegir almacén o al primer campo; Tab
+fila sin operaciones físicas explica en Acciones cómo resolverlo (ver el estado más abajo)
+en lugar de abrir un diálogo vacío. Al abrir, el foco va al selector si falta elegir almacén o al primer campo; Tab
 recorre sólo lo visible porque la trampa compartida ignora los paneles ocultos.
 
 En Global, las barras usan el saldo de cada almacén para la proporción; desde M3
@@ -326,6 +326,25 @@ admiten recorrerlos con el puntero y cierran con Escape. No depender del color
 para identificar una alerta: «Bajo mínimo» lleva el SVG `baja` y texto para lectores. El resumen cuenta artículos e
 identidades, sin sumar unidades heterogéneas. El estado «Sin asociación en la
 selección» mantiene visible la identidad maestra con saldo y mínimo cero.
+
+Estado en «Existencias por artículo». El del artículo maestro va en la celda Artículo,
+pegado al nombre y antes de la unidad (el lector lee «Canela Inactivo g»), con
+`admin-status`: activo, que es lo normal, sólo punto verde y palabra en tinta tenue, sin
+caja (`almacen-estado--activo`); inactivo, insignia neutra con borde discontinuo
+(`almacen-estado--inactivo`, la misma regla que el estado de «Almacenes físicos») y
+nombre atenuado. En el desglose, cada almacén lleva como mucho una marca compacta
+(`almacen-estado--compacto`): «Almacén inactivo» manda sobre «Asociación inactiva»; la
+etiqueta atenúa el nombre y conserva la cifra en tinta plena. La marca es `aria-hidden`
+porque el nombre accesible de la etiqueta y del segmento ya dice el estado justo tras el
+nombre («Barra · Restaurante, asociación inactiva: …»), y el detalle sustituye «Sin alerta
+de mínimo» (no se evalúa) por qué implica y quién lo reactiva («No admite operaciones
+físicas hasta que Restaurante la reactive»). La palabra no se repite en Acciones: donde
+irían Entrada y Merma, `almacen-row-note` dice la consecuencia y quién la resuelve —el
+artículo inactivo a todos («Global debe reactivarlo…» o, en Global, «Se reactiva en el
+catálogo…»); asociación o almacén inactivos sólo a quien edita («Reactiva la asociación
+desde «Más»…», «Reactiva el almacén desde «Configurar almacenes»…»)—. El antiguo
+`<small>` «Artículo inactivo», que sustituía a la unidad, y el «Asociación inactiva» de
+Acciones se retiraron.
 
 El modal `almacen-config` («Almacenes físicos», `views/admin/almacenes/_almacenes.php`)
 no repite su título: abre con una frase de recuento («7 almacenes en 3 negocios», o «Se

@@ -764,6 +764,30 @@
 .almacen-balance-alert { display: inline-flex; color: var(--admin-warning-text); }
 .almacen-workspace .almacen-piezas-lectura { color: var(--admin-text); font-family: var(--admin-font-mono); font-size: 12px; }
 .almacen-unassociated { color: var(--admin-muted); font-size: 13px; }
+/* Estado en la tabla de existencias. El artículo activo es lo normal en casi todas las
+   filas: punto y palabra en tinta tenue, sin caja, para que veinticinco «Activo» no
+   compitan con el saldo. Lo inactivo cambia de forma, no sólo de color: insignia neutra
+   con borde discontinuo (la misma de «Almacenes físicos») y nombre atenuado. */
+.almacen-articulo__nombre { display: block; }
+.almacen-articulo__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.almacen-articulo.is-inactive .almacen-articulo__nombre { color: var(--admin-muted); }
+.admin-status.almacen-estado { min-height: 22px; padding: 0 8px; font-size: 11px; }
+.admin-status.almacen-estado--activo { min-height: 0; padding: 0; border: 0; background: none; color: var(--admin-muted); font-weight: 600;
+  // El punto conserva el verde de «Activo» del modal: mismo estado, misma señal.
+  &::before { width: 6px; height: 6px; background: var(--admin-success-text); }
+}
+// En el desglose la marca acompaña a un nombre de 12 px: un escalón más pequeña para
+// no ensanchar el renglón; la cifra de la derecha sigue siendo lo que se lee.
+.admin-status.almacen-estado--compacto { min-height: 18px; gap: 4px; padding: 0 6px; line-height: 1;
+  &::before { width: 5px; height: 5px; }
+}
+.almacen-balance-name { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.admin-body .almacen-balances .is-inactive .almacen-balance-label { color: var(--admin-muted); }
+// Por qué la fila no ofrece operaciones físicas: texto de apoyo, no aviso. Alineado al
+// inicio como los botones que sustituye (la celda de Acciones hereda alineación derecha).
+// Ancho propio, cercano al del grupo Entrada · Merma: la columna mide lo que su contenido
+// (width: 1 %) y en solo consulta, con «Más» como único vecino, la nota caía palabra a palabra.
+.admin-body .almacen-row-note { width: 22ch; max-width: 100%; margin: 0; color: var(--admin-muted); font-size: 12px; line-height: 1.45; text-align: start; }
 .admin-body .almacen-balance-label { border: 0; padding: 0; background: transparent; color: var(--admin-text); text-align: left; font: inherit; text-decoration: underline; text-decoration-color: var(--admin-border); text-underline-offset: 3px; cursor: pointer; }
 /* Acciones de la fila: dos niveles. Las operaciones físicas forman un solo grupo de
    botones con borde de componente (3:1), así se leen como botones y como familia; «Más»
@@ -990,7 +1014,7 @@
 .almacen-config__fila.is-inactive .almacen-config__nombre strong { color: var(--admin-muted); }
 // Inactivo también por forma, igual que la casilla inactiva de la selección.
 // El filete pasa a la línea de control (3:1) para que el discontinuo se vea de verdad.
-.admin-status.almacen-config__inactivo { border-style: dashed; border-color: var(--admin-border-strong); }
+.admin-status.almacen-config__inactivo, .admin-status.almacen-estado--inactivo { border-style: dashed; border-color: var(--admin-border-strong); }
 // «Ver artículos» y «Configurar» en un renglón; el panel de configuración se abre debajo
 // a todo el ancho de la celda. Con ::details-content el <details> cede su caja a la
 // rejilla (display: contents) y el summary no se mueve al abrir. Sin soporte, el
