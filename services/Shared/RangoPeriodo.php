@@ -16,6 +16,27 @@ namespace Services\Shared;
  */
 class RangoPeriodo
 {
+    /** Agrupa una serie diaria completa en días, semanas consecutivas o meses naturales. */
+    public static function agruparSerieInforme(array $dias): array
+    {
+        $n = count($dias);
+        $modo = $n <= 7 ? 'día' : ($n <= 93 ? 'semana' : 'mes');
+        $grupos = [];
+        $indice = 0;
+        foreach ($dias as $fecha => $valor) {
+            $clave = $modo === 'día' ? $fecha : ($modo === 'semana' ? (string) intdiv($indice, 7) : substr($fecha, 0, 7));
+            $indice++;
+            if (!isset($grupos[$clave])) $grupos[$clave] = ['inicio' => $fecha, 'fin' => $fecha, 'valor' => 0];
+            $grupos[$clave]['fin'] = $fecha;
+            $grupos[$clave]['valor'] += $valor;
+        }
+        $filas = [];
+        foreach ($grupos as $grupo) {
+            $etiqueta = $grupo['inicio'] === $grupo['fin'] ? $grupo['inicio'] : $grupo['inicio'] . ' a ' . $grupo['fin'];
+            $filas[] = [$etiqueta, $grupo['valor']];
+        }
+        return ['modo' => $modo, 'filas' => $filas];
+    }
     private const FORMATO = '/^\d{4}-\d{2}-\d{2}$/';
 
     /** Presets ofrecidos por el selector, en días. */

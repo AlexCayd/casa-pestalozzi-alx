@@ -140,9 +140,9 @@ final class ConsultasAlmacen
         foreach ($almacenes as $almacen) $filasAlmacenes[] = [$almacen['nombre'], (int)$almacen['relaciones'], (int)$almacen['alertas']];
         $filasAlertas = [];
         foreach ($alertas as $alerta) $filasAlertas[] = [$alerta['almacen'], $alerta['articulo'], $alerta['unidad'], (float)$alerta['saldo'], (float)$alerta['minimo']];
-        $resumen = 'La fotografía incluye las asociaciones activas de artículos y almacenes activos al generar el informe.';
-        $resumen .= ' Los movimientos corresponden al periodo indicado e incluyen el historial de almacenes inactivos.';
-        if ($sinCosto > 0) $resumen .= ' Hay movimientos de merma sin costo conocido que no se incluyen en su importe.';
+        $resumen = 'Al generar el informe hay ' . (int)$foto['alertas'] . ' relaciones bajo mínimo en ' . count($almacenes) . ' almacenes activos.';
+        $resumen .= ' En el periodo se registraron ' . $totalMovimientos . ' movimientos.';
+        if ($sinCosto > 0) $resumen .= ' Hay ' . $sinCosto . ' movimientos de merma sin costo conocido.';
         return [
             'titulo' => 'Informe de inventario y movimientos', 'contexto' => ucfirst($ctx),
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],

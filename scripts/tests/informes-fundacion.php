@@ -13,6 +13,13 @@ function rechazar(callable $accion): void {
 }
 $rango = RangoPeriodo::resolverInforme(['desde' => '2024-01-01', 'hasta' => '2024-12-31'], '2026-11-06');
 comprobar($rango['dias'] === 366 && $rango['prevEnd'] === '2023-12-31', 'Rango bisiesto incorrecto');
+foreach ([7 => ['día', 7], 8 => ['semana', 2], 93 => ['semana', 14], 94 => ['mes', 4], 366 => ['mes', 12]] as $cantidad => [$modo, $filas]) {
+    $dias = [];
+    $inicio = new DateTimeImmutable('2024-01-01');
+    for ($i = 0; $i < $cantidad; $i++) $dias[$inicio->modify('+' . $i . ' days')->format('Y-m-d')] = $i + 1;
+    $agrupada = RangoPeriodo::agruparSerieInforme($dias);
+    comprobar($agrupada['modo'] === $modo && count($agrupada['filas']) === $filas && array_sum(array_column($agrupada['filas'], 1)) === array_sum($dias), 'Agrupación o total incorrecto para ' . $cantidad . ' días');
+}
 comprobar(RangoPeriodo::resolverInforme([], '2026-11-06')['start'] === '2026-10-08', 'Predeterminado incorrecto');
 foreach ([
     ['desde' => '2026-02-29', 'hasta' => '2026-03-01'],

@@ -31,7 +31,7 @@ try {
     verificarAnalytics($k['Ventas'] === 250.0 && $k['Tickets cerrados'] === 3 && $k['Piezas vendidas'] === 3 && $k['Comensales en tickets cerrados'] === 6, 'Totales/exclusiones incorrectos');
     verificarAnalytics(abs($k['Ticket promedio'] - 250 / 3) < 0.00001 && $k['Ventas'] === $autoridad['ventas'], 'Paridad o denominador incorrectos');
     $serie = $doc['secciones'][0]['filas'];
-    verificarAnalytics(count($serie) === 366 && $serie[0] === ['2024-01-01', 200.0] && $serie[1] === ['2024-01-02', 0.0] && $serie[365] === ['2024-12-31', 50.0], 'Serie de 366 días incorrecta');
+    verificarAnalytics(count($serie) === 12 && $serie[0] === ['2024-01-01 a 2024-01-31', 200.0] && $serie[11] === ['2024-12-01 a 2024-12-31', 50.0] && array_sum(array_column($serie, 1)) === 250.0, 'Serie mensual incorrecta');
     verificarAnalytics($doc['secciones'][1]['filas'][0] === ['Nombre histórico', 2, 200.0], 'Nombre histórico/top incorrecto');
     verificarAnalytics($doc['kpis'][0]['comparacion'] === null, 'Comparación sin base incorrecta');
     $pdf = GeneradorPdf::documento($doc);

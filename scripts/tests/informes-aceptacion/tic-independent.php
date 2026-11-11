@@ -12,8 +12,8 @@ foreach(['Tickets cerrados'=>3,'Tickets cancelados'=>1,'Ventas'=>125,'Ticket pro
 $f=F::agregados($db,$u,$r['start'],$r['end']);$a=A::totales($db,$u,$r['start'],$r['end']);pdfTestNear($k['Ventas'],$f['ingresos'],'TIC FIN paridad');pdfTestNear($k['Ventas'],$a['ventas'],'TIC ANA paridad');
 pdfTestAssert($doc['secciones'][1]['filas']===[['2001-01-15',115.0],['2001-01-16',10.0],['2001-01-17',0.0]],'Serie diaria y cero');
 $json=json_encode($doc,JSON_THROW_ON_ERROR);pdfTestAssert(!str_contains($json,'CLIENTE_PRIVADO_900')&&!str_contains($json,'Empleado privado')&&!str_contains($json,'comensal'),'PII');
-$empty=T::informe($db,$u,R::resolverInforme(['desde'=>'1990-01-01','hasta'=>'1990-01-02']),'2026-11-07 12:00:00');$e=array_column($empty['kpis'],'valor');pdfTestAssert($e===[0,0,0.0,null],'Vacio honesto');
-$year=R::resolverInforme(['desde'=>'2000-02-01','hasta'=>'2001-01-31']);$large=T::informe($db,$u,$year,'2026-11-07 12:00:00');pdfTestAssert(count($large['secciones'][1]['filas'])===366,'TIC 366 dias');
+$empty=T::informe($db,$u,R::resolverInforme(['desde'=>'1990-01-01','hasta'=>'1990-01-02']),'2026-11-07 12:00:00');$e=array_column($empty['kpis'],'valor');pdfTestAssert($e===[0,0,0.0,null,0,0] && $empty['secciones'][2]['filas'][0][3]===null,'Vacio honesto');
+$year=R::resolverInforme(['desde'=>'2000-02-01','hasta'=>'2001-01-31']);$large=T::informe($db,$u,$year,'2026-11-07 12:00:00');pdfTestAssert(count($large['secciones'][1]['filas'])===12 && abs(array_sum(array_column($large['secciones'][1]['filas'],1))-125)<0.01,'TIC agrupación mensual');
 $pdf=G::documento($doc);file_put_contents(pdfTestTemp().'/tic-independent.pdf',$pdf->output());file_put_contents(pdfTestTemp().'/tic-documento.json',json_encode($doc,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR));pdfTestAssert($before===pdfTestSnapshot($db),'TIC muta datos');
 echo 'TIC independiente PASS:4KPIs,venta125,cerrados3,cancelados1,promedio41.6667,paridadFINANA0,serie[115,10,0],abiertos/cancelados/propinafuera,empty,366d,PIIfuera,hash12tablasigual; paginas='.$pdf->getCanvas()->get_page_count().PHP_EOL;
 $db->close();

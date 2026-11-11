@@ -36,15 +36,14 @@ final class InformeReservaciones
         $total = array_sum($conteos);
         $pendientes = $conteos['confirmada'] + $conteos['en_curso'];
         $provisional = $rango['end'] >= $ahora->format('Y-m-d');
-        $resumen = $total === 0 ? 'No hubo reservaciones de negocio en el periodo.' : 'El informe reúne las reservaciones de negocio según su fecha programada.';
+        $resumen = $total === 0 ? 'No hubo reservaciones de negocio en el periodo.' : 'Se registraron ' . $total . ' reservaciones para ' . $personas . ' comensales programados; ' . $conteos['completada'] . ' fueron completadas.';
         $resumen .= $provisional
             ? ' El periodo incluye hoy o fechas futuras; sus resultados son provisionales.'
             : ' El periodo corresponde a fechas anteriores al día de generación.';
-        if ($pendientes > 0) $resumen .= ' Hay reservaciones confirmadas o en curso pendientes de cierre.';
+        if ($pendientes > 0) $resumen .= ' Hay ' . $pendientes . ' reservaciones pendientes de cierre.';
         $distribucion = [];
         foreach ($estados as $clave => $etiqueta) $distribucion[] = [$etiqueta, $conteos[$clave]];
-        $serie = [];
-        foreach ($dias as $fecha => $cantidad) $serie[] = [$fecha, $cantidad];
+        $serie = \Services\Shared\RangoPeriodo::agruparSerieInforme($dias);
         $ordenados = $dias;
         arsort($ordenados);
         $demanda = [];
@@ -66,11 +65,12 @@ final class InformeReservaciones
             ],
             'secciones' => [
                 ['titulo' => 'Distribución de estados', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $distribucion],
-                ['titulo' => 'Reservaciones por día', 'tipo' => 'serie', 'columnas' => ['Fecha', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie],
+                ['titulo' => 'Reservaciones por ' . $serie['modo'], 'tipo' => 'serie', 'columnas' => ['Periodo', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie['filas']],
                 ['titulo' => 'Días de mayor demanda', 'tipo' => 'tabla', 'columnas' => ['Fecha', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $demanda],
             ],
             'notas' => [
                 'El periodo corresponde a la fecha programada de servicio, no a la fecha de registro ni de cancelación.',
+                'Las semanas son tramos consecutivos de hasta siete días desde el inicio del periodo; los meses siguen el calendario.',
                 'Se incluyen confirmadas, en curso, completadas, no-show registrados y canceladas; se excluyen retenciones pendientes, expiradas y versiones reemplazadas.',
                 'Los comensales son los programados, no una medición de asistencia real. No se infieren ausencias a partir de reservas confirmadas.',
                 'Las confirmadas y en curso no han finalizado. Los estados son una instantánea al generar el documento y pueden cambiar.',

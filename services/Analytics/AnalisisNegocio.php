@@ -40,7 +40,7 @@ final class AnalisisNegocio
     {
         [$desde, $hasta] = self::limites($start, $end);
         $cierre = self::CIERRE;
-        $r = self::fila($db, "SELECT COUNT(*) AS n, COALESCE(SUM(t.comensales), 0) AS comensales, COALESCE(SUM(sub.total), 0) AS ventas
+        $r = self::fila($db, "SELECT COUNT(*) AS n, COUNT(sub.ticket_id) AS con_consumo, COALESCE(SUM(t.comensales), 0) AS comensales, COALESCE(SUM(sub.total), 0) AS ventas
                FROM tickets t
                LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total FROM ticket_items
                            WHERE estado <> 'cancelado' AND unidad_id = ? GROUP BY ticket_id) sub ON sub.ticket_id = t.id
@@ -52,6 +52,7 @@ final class AnalisisNegocio
         return [
             'ventas' => (float) ($r['ventas'] ?? 0),
             'tickets' => (int) ($r['n'] ?? 0),
+            'conConsumo' => (int) ($r['con_consumo'] ?? 0),
             'comensales' => (int) ($r['comensales'] ?? 0),
             'piezas' => (int) ($p['u'] ?? 0),
         ];
@@ -105,14 +106,13 @@ final class AnalisisNegocio
         $previo = self::totales($db, $unidad, $rango['prevStart'], $rango['prevEnd']);
         $porDia = self::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
         $productos = self::masVendidos($db, $unidad, $rango['start'], $rango['end'], 7);
-        $serie = [];
-        foreach ($porDia as $fecha => $venta) $serie[] = [$fecha, $venta];
+        $serie = RangoPeriodo::agruparSerieInforme($porDia);
         $top = [];
         foreach ($productos as $producto) $top[] = [$producto['nombre'], $producto['piezas'], $producto['ventas']];
         $resumen = $actual['tickets'] === 0
             ? 'No hubo tickets cerrados en el periodo.'
-            : 'El informe reúne la venta y las piezas de los tickets cerrados del periodo.';
-        $resumen .= ' La tendencia incluye los días sin ventas y la comparación usa un periodo anterior de igual duración.';
+            : 'Se cerraron ' . $actual['tickets'] . ' tickets; ' . $actual['conConsumo'] . ' tenían partidas no canceladas y ' . ($actual['tickets'] - $actual['conConsumo']) . ' no tenían.';
+        if ($productos) $resumen .= ' El producto con más piezas fue ' . $productos[0]['nombre'] . ' (' . $productos[0]['piezas'] . ').';
         return [
             'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
@@ -125,17 +125,21 @@ final class AnalisisNegocio
                 ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ventas'] / $actual['tickets'] : null, 'formato' => 'moneda'],
                 ['etiqueta' => 'Piezas vendidas', 'valor' => $actual['piezas'], 'formato' => 'entero'],
                 ['etiqueta' => 'Comensales en tickets cerrados', 'valor' => $actual['comensales'], 'formato' => 'entero'],
+                ['etiqueta' => 'Con consumo', 'valor' => $actual['conConsumo'], 'formato' => 'entero'],
+                ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $actual['conConsumo'], 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Ventas por día', 'tipo' => 'serie', 'columnas' => ['Fecha', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie],
+                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
                 ['titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
                 ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
-                    'columnas' => [$rango['prevStart'] . ' a ' . $rango['prevEnd'], $rango['start'] . ' a ' . $rango['end']],
-                    'formatos' => ['moneda', 'moneda'], 'filas' => [[$previo['ventas'], $actual['ventas']]]],
+                    'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'],
+                    'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ventas'], $actual['ventas'], $actual['ventas'] - $previo['ventas'], RangoPeriodo::delta($actual['ventas'], $previo['ventas'])]]],
             ],
             'notas' => [
                 'Ventas y piezas excluyen partidas canceladas y se atribuyen a tickets cerrados por fecha de cierre o apertura si falta el cierre; las propinas quedan fuera de ventas.',
                 'Los comensales son los asociados a tickets cerrados; no representan reservas atendidas.',
+                'Con consumo significa al menos una partida no cancelada, incluso de importe cero; sin consumo incluye tickets sin partidas vigentes.',
+                'Las semanas son tramos consecutivos de hasta siete días desde el inicio del periodo; los meses siguen el calendario.',
                 'Los productos se agrupan por el nombre guardado en la partida. No se incluye ocupación ni RevPASH.',
                 'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
             ],

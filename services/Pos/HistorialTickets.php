@@ -50,6 +50,8 @@ final class HistorialTickets
     public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
     {
         $actual = \Services\Finance\FinanzasNegocio::agregados($db, $unidad, $rango['start'], $rango['end']);
+        $consumo = \Services\Analytics\AnalisisNegocio::totales($db, $unidad, $rango['start'], $rango['end']);
+        $previo = \Services\Finance\FinanzasNegocio::agregados($db, $unidad, $rango['prevStart'], $rango['prevEnd']);
         $porDia = \Services\Analytics\AnalisisNegocio::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
         $inicio = $rango['start'] . ' 00:00:00';
         $fin = (new \DateTimeImmutable($rango['end']))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
@@ -63,15 +65,14 @@ final class HistorialTickets
         } finally {
             $stmt->close();
         }
-        $serie = [];
-        foreach ($porDia as $fecha => $venta) $serie[] = [$fecha, $venta];
+        $serie = RangoPeriodo::agruparSerieInforme($porDia);
         $resumen = $actual['tickets'] === 0 && $cancelados === 0
             ? 'No hubo tickets cerrados ni cancelados en el periodo.'
             : 'En el periodo hubo ' . $actual['tickets'] . ' tickets cerrados y ' . $cancelados . ' cancelados.';
-        $resumen .= ' Las ventas excluyen partidas canceladas y propinas. Los tickets abiertos quedan fuera del informe.';
+        if ($actual['tickets'] > 0) $resumen .= ' Con partidas vigentes: ' . $consumo['conConsumo'] . '; sin partidas vigentes: ' . ($actual['tickets'] - $consumo['conConsumo']) . '.';
         return [
             'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
-            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'], 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
             'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn,
             'resumen' => $resumen,
             'kpis' => [
@@ -79,13 +80,18 @@ final class HistorialTickets
                 ['etiqueta' => 'Tickets cancelados', 'valor' => $cancelados, 'formato' => 'entero'],
                 ['etiqueta' => 'Ventas', 'valor' => $actual['ingresos'], 'formato' => 'moneda'],
                 ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ingresos'] / $actual['tickets'] : null, 'formato' => 'moneda'],
+                ['etiqueta' => 'Con consumo', 'valor' => $consumo['conConsumo'], 'formato' => 'entero'],
+                ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $consumo['conConsumo'], 'formato' => 'entero'],
             ],
             'secciones' => [
                 ['titulo' => 'Tickets por estado', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Tickets'], 'formatos' => ['texto', 'entero'], 'filas' => [['Cerrados', $actual['tickets']], ['Cancelados', $cancelados]]],
-                ['titulo' => 'Ventas por día', 'tipo' => 'serie', 'columnas' => ['Fecha', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie],
+                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla', 'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'], 'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ingresos'], $actual['ingresos'], $actual['ingresos'] - $previo['ingresos'], RangoPeriodo::delta($actual['ingresos'], $previo['ingresos'])]]],
             ],
             'notas' => [
                 'Las ventas corresponden a partidas no canceladas de tickets cerrados; las propinas quedan fuera.',
+                'Con consumo significa al menos una partida no cancelada, incluso de importe cero; sin consumo incluye tickets sin partidas vigentes.',
+                'Las semanas son tramos consecutivos de hasta siete días desde el inicio del periodo; los meses siguen el calendario.',
                 'Los tickets se atribuyen a la fecha de cierre o a la apertura si falta el cierre. Los abiertos quedan fuera del informe.',
                 'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
             ],

@@ -272,8 +272,8 @@ final class FinanzasNegocio
         $deltaNeta = RangoPeriodo::delta($r['utilidadNeta'], $anterior['utilidadNeta']);
         $resumen = $r['tickets'] === 0
             ? 'No hubo tickets cerrados en el periodo.'
-            : 'El informe reúne las ventas y los costos de los tickets cerrados del periodo.';
-        $resumen .= ' La utilidad neta considera la merma con costo conocido y el prorrateo de gastos fijos.';
+            : 'Se cerraron ' . $r['tickets'] . ' tickets con ingresos de $' . number_format($r['ingresos'], 2) . '.';
+        $resumen .= ' La utilidad neta fue $' . number_format($r['utilidadNeta'], 2) . '.';
         if ($r['sinCosto'] > 0) {
             $resumen .= ' Hay ventas sin costo conocido; las utilidades no incluyen ese costo faltante.';
         }
@@ -305,11 +305,11 @@ final class FinanzasNegocio
                         ['Utilidad neta', $r['utilidadNeta']], ['Ventas sin costo conocido', $r['sinCosto']],
                     ]],
                 ['titulo' => 'Comparación con el periodo anterior', 'tipo' => 'tabla',
-                    'columnas' => ['Concepto', $rango['prevStart'] . ' a ' . $rango['prevEnd'], $rango['start'] . ' a ' . $rango['end']],
-                    'formatos' => ['texto', 'moneda', 'moneda'], 'filas' => [
-                        ['Ingresos por ventas', $anterior['ingresos'], $r['ingresos']],
-                        ['Utilidad bruta', $anterior['utilidadBruta'], $r['utilidadBruta']],
-                        ['Utilidad neta', $anterior['utilidadNeta'], $r['utilidadNeta']],
+                    'columnas' => ['Concepto', 'Anterior', 'Actual', 'Diferencia', 'Variación'],
+                    'formatos' => ['texto', 'moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [
+                        ['Ingresos por ventas', $anterior['ingresos'], $r['ingresos'], $r['ingresos'] - $anterior['ingresos'], $deltaIngresos],
+                        ['Utilidad bruta', $anterior['utilidadBruta'], $r['utilidadBruta'], $r['utilidadBruta'] - $anterior['utilidadBruta'], RangoPeriodo::delta($r['utilidadBruta'], $anterior['utilidadBruta'])],
+                        ['Utilidad neta', $anterior['utilidadNeta'], $r['utilidadNeta'], $r['utilidadNeta'] - $anterior['utilidadNeta'], $deltaNeta],
                     ]],
             ],
             'notas' => $notas,
