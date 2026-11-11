@@ -1842,6 +1842,8 @@
 
     /* ── Compositor ─────────────────────────────────────────────── */
 
+    var informePendiente = false;
+
     function actualizarCompositor() {
         var c = activa();
         var pendiente = c ? estado.pendientes[c.id] : null;
@@ -1852,7 +1854,7 @@
         if (el.detener) el.detener.hidden = !lento;
         // Un hueco por elegir no deshabilita: enviar lo señala y lleva a él
         // (ver enviar()), que dice más que un botón apagado.
-        el.enviar.disabled = !estado.armada || !!pendiente;
+        el.enviar.disabled = !estado.armada || !!pendiente || informePendiente;
     }
 
     /* ── La pregunta armada ─────────────────────────────────────── *
@@ -2010,6 +2012,26 @@
                 destino.appendChild(crear('span', 'ia-constructor__texto', p.texto));
             }
         });
+        if (esInforme(c) && c.consulta.periodo === 'personalizado') {
+            var fechas = crear('div', 'ia-fechas');
+            ['desde', 'hasta'].forEach(function (campo) {
+                var etiqueta = crear('label', 'ia-fechas__campo', campo === 'desde' ? 'Fecha de inicio' : 'Fecha de fin');
+                var entrada = crear('input', 'ia-fechas__entrada');
+                entrada.type = 'date';
+                entrada.required = true;
+                entrada.min = '1000-01-01';
+                entrada.max = '9998-12-31';
+                entrada.setAttribute('data-ia-fecha', campo);
+                entrada.value = c.consulta[campo] || '';
+                entrada.addEventListener('input', function () {
+                    c.consulta[campo] = entrada.value;
+                    estado.armadaTocada = true;
+                });
+                etiqueta.appendChild(entrada);
+                fechas.appendChild(etiqueta);
+            });
+            frase.appendChild(fechas);
+        }
     }
 
     /**
@@ -2190,6 +2212,10 @@
             ? api.consultaDeOpcion(p, op)
             : (esObjeto(op.consulta) ? op.consulta : {});
         Object.keys(cambio).forEach(function (k) { c.consulta[k] = cambio[k]; });
+        if (esInforme(c) && p.campo === 'periodo' && c.consulta.periodo !== 'personalizado') {
+            delete c.consulta.desde;
+            delete c.consulta.hasta;
+        }
         if (p.campo === 'entidad') {
             c.consulta.opcion = null;
             quitarHuecoOpcion(c);
@@ -2218,6 +2244,7 @@
         var c = estado.armada;
         var actual = activa();
         if (!c || (actual && estado.pendientes[actual.id])) return;
+        if (esInforme(c)) { enviarInforme(c); return; }
         if (preguntaIncompleta()) {
             var vacio = el.armadoFrase.querySelector('.ia-hueco.is-vacio');
             if (vacio) {
@@ -2230,6 +2257,72 @@
         // `generada`: lo que se ve como pregunta es la frase armada hasta que
         // el motor devuelve su texto canónico, que la reemplaza.
         if (preguntar(textoDeBorrador(c), c.consulta, true)) rescatarFoco();
+    }
+
+    function esInforme(borrador) {
+        return !!(borrador && borrador.consulta && /^informe_/.test(borrador.consulta.intencion || ''));
+    }
+
+    /** La API resuelve fechas y autorización; el endpoint original produce el PDF. */
+    function enviarInforme(borrador) {
+        if (informePendiente || AMBITO !== 'restaurante') return;
+        var entradas = el.armadoFrase.querySelectorAll('[data-ia-fecha]');
+        for (var i = 0; i < entradas.length; i++) {
+            if (!entradas[i].reportValidity()) return;
+        }
+        var consulta = borrador.consulta;
+        if (consulta.periodo === 'personalizado' && (!consulta.desde || !consulta.hasta)) {
+            anunciar('Indica las dos fechas del informe.');
+            return;
+        }
+        var pestana = window.open('about:blank', '_blank');
+        if (!pestana) {
+            avisoInforme('Permite las ventanas emergentes para abrir el PDF y vuelve a enviar.');
+            return;
+        }
+        pestana.opener = null;
+        informePendiente = true;
+        actualizarCompositor();
+        anunciar('Preparando el enlace del informe PDF.');
+        var parametros = new URLSearchParams();
+        ['intencion', 'periodo', 'desde', 'hasta'].forEach(function (campo) {
+            if (consulta[campo] !== undefined) parametros.set(campo, consulta[campo]);
+        });
+        var control = new window.AbortController();
+        var reloj = window.setTimeout(function () { control.abort(); }, TIEMPO_LIMITE);
+        window.fetch(API + '?' + parametros.toString(), {
+            method: 'GET', credentials: 'same-origin', cache: 'no-store', signal: control.signal,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (respuesta) {
+            if (respuesta.redirected) throw new Error('La sesión cambió. Recarga la página antes de generar el informe.');
+            return respuesta.json().then(function (datos) {
+                if (!respuesta.ok || !datos || datos.ok !== true) {
+                    throw new Error(datos && datos.mensaje || 'No fue posible preparar el informe.');
+                }
+                var url = datos.informe && datos.informe.url;
+                if (typeof url !== 'string' || !/^\/admin\/(finanzas|analytics|reservaciones|almacenes|tickets)\/informe\.pdf\?desde=\d{4}-\d{2}-\d{2}&hasta=\d{4}-\d{2}-\d{2}$/.test(url)) {
+                    throw new Error('No se recibió un enlace de informe válido.');
+                }
+                if (!pestana.closed) pestana.location.replace(url);
+                anunciar('El informe PDF se abrió en una nueva pestaña.');
+            });
+        }).catch(function (error) {
+            if (!pestana.closed) pestana.close();
+            avisoInforme(error && error.name === 'AbortError'
+                ? 'La solicitud tardó demasiado. Vuelve a enviar el informe.'
+                : (error.message || 'No fue posible abrir el informe. Intenta de nuevo.'));
+        }).then(function () {
+            window.clearTimeout(reloj);
+            informePendiente = false;
+            actualizarCompositor();
+        });
+    }
+
+    function avisoInforme(texto) {
+        anunciar(texto);
+        if (window.AppNotice && typeof window.AppNotice.show === 'function') {
+            window.AppNotice.show({ text: texto, variant: 'warning' });
+        }
     }
 
     /** La lista de preguntas base, sobre el botón de la pregunta. */

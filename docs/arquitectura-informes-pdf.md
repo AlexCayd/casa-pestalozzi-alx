@@ -38,13 +38,13 @@ pero con permiso, alcance y cálculo propios; NO activos en primera entrega.
 
 ## 2. Alcance y matriz de activación
 
-| Informe lógico | Restaurante (entrega 1) | Panadería (futuro) | Global (futuro) |
-|---|---|---|---|
-| `finanzas` | **Implementar y habilitar** | Reservar integración con finanzas locales | Reservar informe consolidado, no suma de documentos |
-| `analytics` | **Implementar y habilitar** | Reservar indicadores específicos de caja | Reservar comparativos entre negocios |
-| `reservaciones` | **Implementar y habilitar** | No aplica actualmente | No aplica actualmente sin contrato explícito |
-| `inventario` | **Implementar y habilitar** | Reservar inventario local | Reservar consolidación por unidades/almacenes |
-| `tickets` | **Implementar y habilitar** | Reservar tickets de caja con contrato propio | No habilitar sin un contrato de reporte Global |
+| Informe lógico  | Restaurante (entrega 1)     | Panadería (futuro)                           | Global (futuro)                                     |
+| --------------- | --------------------------- | -------------------------------------------- | --------------------------------------------------- |
+| `finanzas`      | **Implementar y habilitar** | Reservar integración con finanzas locales    | Reservar informe consolidado, no suma de documentos |
+| `analytics`     | **Implementar y habilitar** | Reservar indicadores específicos de caja     | Reservar comparativos entre negocios                |
+| `reservaciones` | **Implementar y habilitar** | No aplica actualmente                        | No aplica actualmente sin contrato explícito        |
+| `inventario`    | **Implementar y habilitar** | Reservar inventario local                    | Reservar consolidación por unidades/almacenes       |
+| `tickets`       | **Implementar y habilitar** | Reservar tickets de caja con contrato propio | No habilitar sin un contrato de reporte Global      |
 
 «Reservar» **no** implica crear rutas funcionales, acceso efectivo, permisos ficticios, servicios vacíos ni botones engañosos. Significa que la plantilla y `GeneradorPdf` son neutrales al contexto y que la integración futura no exige reescribirlos. La activación es explícita por **ruta existente + autorización + datos compatibles + pruebas**, no por detectar tablas.
 
@@ -54,21 +54,21 @@ La primera entrega **no modifica** los módulos de Panadería/Global salvo un ca
 
 Inspección de la referencia anterior; revalidar en preflight:
 
-| Componente vigente | Uso permitido |
-|---|---|
-| `composer.json` (`dompdf/dompdf:^3.1`) | Renderizar HTML en PDF sin nueva dependencia |
-| `services/Menu/MenuPdf.php` | Referencia de configuración segura de Dompdf, fuentes, márgenes y folios; **no usarlo como generador de informes**, pues pertenece a cartas comerciales |
-| `services/Shared/RangoPeriodo.php` | Ventanas retrospectivas, rango libre y comparativo anterior; **complementar con validación estricta de entrada para exportación** |
-| `services/Finance/FinanzasNegocio.php` | Agregados y `resumen()` financieros por negocio; distinguir métricas históricas de foto actual |
-| `services/Finance/ConsolidadoFinanciero.php` | Contrato futuro de Global |
-| `services/Analytics/AnalisisNegocio.php`, `Analiticas.php` | Desempeño y diagnóstico comercial local |
-| `services/Analytics/AnalisisConsolidado.php` | Contrato futuro de Global |
-| `models/Reservacion.php`, `services/Reservations/*` | Hechos y estados operativos; crear lectura agregada **sin efectos colaterales** |
-| `services/Inventory/ConsultasAlmacen.php`, `Almacenes.php` | Existencias, almacenes y movimientos con alcance de unidad |
-| `services/Pos/HistorialTickets.php` | Conteos, ventas, tendencias y tickets por periodo; **no exportar clientes ni paginación como resumen del periodo** |
-| `services/Security/ContextoNegocio.php`, `PermisosUsuario.php` | Contexto y autorización reales de usuario, no confiados al query string |
-| `public/index.php`, `services/Security/Permisos.php` | Rutas y clasificación explícitas de permisos |
-| `services/Configuration/ReporteSistemaService.php` | **No reutilizar**: gestiona incidentes/problemas, no informes de gestión |
+| Componente vigente                                             | Uso permitido                                                                                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `composer.json` (`dompdf/dompdf:^3.1`)                         | Renderizar HTML en PDF sin nueva dependencia                                                                                                            |
+| `services/Menu/MenuPdf.php`                                    | Referencia de configuración segura de Dompdf, fuentes, márgenes y folios; **no usarlo como generador de informes**, pues pertenece a cartas comerciales |
+| `services/Shared/RangoPeriodo.php`                             | Ventanas retrospectivas, rango libre y comparativo anterior; **complementar con validación estricta de entrada para exportación**                       |
+| `services/Finance/FinanzasNegocio.php`                         | Agregados y `resumen()` financieros por negocio; distinguir métricas históricas de foto actual                                                          |
+| `services/Finance/ConsolidadoFinanciero.php`                   | Contrato futuro de Global                                                                                                                               |
+| `services/Analytics/AnalisisNegocio.php`, `Analiticas.php`     | Desempeño y diagnóstico comercial local                                                                                                                 |
+| `services/Analytics/AnalisisConsolidado.php`                   | Contrato futuro de Global                                                                                                                               |
+| `models/Reservacion.php`, `services/Reservations/*`            | Hechos y estados operativos; crear lectura agregada **sin efectos colaterales**                                                                         |
+| `services/Inventory/ConsultasAlmacen.php`, `Almacenes.php`     | Existencias, almacenes y movimientos con alcance de unidad                                                                                              |
+| `services/Pos/HistorialTickets.php`                            | Conteos, ventas, tendencias y tickets por periodo; **no exportar clientes ni paginación como resumen del periodo**                                      |
+| `services/Security/ContextoNegocio.php`, `PermisosUsuario.php` | Contexto y autorización reales de usuario, no confiados al query string                                                                                 |
+| `public/index.php`, `services/Security/Permisos.php`           | Rutas y clasificación explícitas de permisos                                                                                                            |
+| `services/Configuration/ReporteSistemaService.php`             | **No reutilizar**: gestiona incidentes/problemas, no informes de gestión                                                                                |
 
 **Nota sobre diferencias de dominios:** no asumir que los KPIs de Finanzas, Analíticas y Tickets son matemáticamente idénticos sin verificar filtros de `ticket_items`, `estado`, fecha efectiva, propinas y anulaciones. Cuando se desee mostrar el mismo indicador, reutilizar una autoridad de cálculo o demostrar equivalencia mediante pruebas; documentar expresamente cualquier definición distinta.
 
@@ -107,7 +107,9 @@ $documento = [
 ];
 ```
 
-Reglas: números reales se pasan **sin formatear** (la vista aplica formato visual); porcentajes nulos significan «no comparable» y **nunca** `+∞ %`; valores ausentes ≠ cero (mostrar «No disponible» cuando corresponde); no introducir HTML arbitrario ni consultas SQL en los campos. `secciones` acepta inicialmente `tabla`, `indicadores`, `texto` y, si aporta información, `serie` con datos limitados. No crear un motor de gráficas complejo; pequeños gráficos SVG estáticos y seguros solo cuando Dompdf los renderice consistentemente. Secciones específicas pueden optar por una plantilla interna fija.
+Reglas: números reales se pasan **sin formatear** (la vista aplica formato visual); porcentajes nulos significan «no comparable» y **nunca** `+∞ %`; valores ausentes ≠ cero (mostrar «No disponible» cuando corresponde); no introducir HTML arbitrario ni consultas SQL en los campos. `secciones` acepta `tabla`, `indicadores`, `texto` y, si aporta información, `serie` con datos limitados. Las series numéricas de dos columnas se presentan mediante el parcial fijo `views/admin/reportes/_serie.php`: tabla con barras horizontales HTML/CSS estáticas compatibles con Dompdf, sin bibliotecas ni imágenes remotas. No se incorporó un motor de gráficas ni SVG.
+
+El parcial conserva etiquetas, valores exactos, orden cronológico y filas de cero. La escala visual compara magnitudes absolutas desde cero respecto al máximo del mismo cuadro; el signo escrito y una tinta diferenciada identifican valores negativos. Cero y ausencia no dibujan barras; una ausencia sigue diciendo «No disponible». La anchura se calcula como proporción antes de multiplicar por 100 y se acota a 0–100, evitando desbordamientos incluso con números finitos extremos. Las series sin formato numérico mantienen su tabla. Los totales por semana o mes no son tasas diarias: se advierte que los tramos extremos pueden cubrir menos días.
 
 ### 4.3 Salida
 
@@ -118,6 +120,8 @@ Reglas: números reales se pasan **sin formatear** (la vista aplica formato visu
 - Respuesta `application/pdf`; `Content-Disposition: inline` inicialmente (descarga opcional vía acción explícita); nombre de archivo fijo/saneado (`informe-finanzas-restaurante-2026-10-01_2026-10-31.pdf`). `Cache-Control: private, no-store` y encabezados anti-caché apropiados.
 - Generación en memoria o temporal estrictamente efímero. **No almacenar** PDF o datos personales en `public/`, BD o carpetas versionadas.
 - Si la consulta no devuelve registros, emitir un documento válido con «Sin actividad en el periodo», KPIs cero únicamente donde sea correcto, y notas explícitas. Si falla una fuente imprescindible, devolver error controlado y **no PDF parcial presentado como completo**.
+
+**Presentación institucional vigente (11 de noviembre de 2026).** La plantilla compartida utiliza verde `#214F36`, oro `#D1AB66`, beige `#E3D5BB` y crema `#F5F1E8`, derivados de `src/scss/layout/_reset.scss`: títulos y cabeceras verdes, texto crema en cabeceras, separadores oro y superficies claras imprimibles. Se conservan las fuentes TTF locales compatibles con Dompdf, Montserrat y Playfair, la repetición de cabeceras y los folios. Análisis conserva sus siete indicadores existentes para distinguir tickets con y sin consumo sin eliminar comensales ni piezas; la meta de 3–6 no justifica perder información esencial.
 
 ## 5. Seguridad y consistencia obligatorias
 
@@ -140,17 +144,31 @@ Colocar una **única acción secundaria «Generar informe»** junto al selector 
 
 ### 6.2 Rutas registradas
 
-| Informe | Ruta GET Restaurante | Permiso | Fuente actual de pantalla |
-|---|---|---|---|
-| Finanzas | `/admin/finanzas/informe.pdf` | `finanzas:ver` | `/admin/finanzas` |
-| Análisis | `/admin/analytics/informe.pdf` | `analytics:ver` | `/admin/analytics` |
-| Reservaciones | `/admin/reservaciones/informe.pdf` | `reservations:ver` | `/admin/reservaciones` |
-| Inventario | `/admin/almacenes/informe.pdf` | `inventario:ver` | `/admin/almacenes` (interfaz multinegocio) |
-| Tickets | `/admin/tickets/informe.pdf` | `tickets:ver` | `/admin/tickets` |
+| Informe       | Ruta GET Restaurante               | Permiso            | Fuente actual de pantalla                  |
+| ------------- | ---------------------------------- | ------------------ | ------------------------------------------ |
+| Finanzas      | `/admin/finanzas/informe.pdf`      | `finanzas:ver`     | `/admin/finanzas`                          |
+| Análisis      | `/admin/analytics/informe.pdf`     | `analytics:ver`    | `/admin/analytics`                         |
+| Reservaciones | `/admin/reservaciones/informe.pdf` | `reservations:ver` | `/admin/reservaciones`                     |
+| Inventario    | `/admin/almacenes/informe.pdf`     | `inventario:ver`   | `/admin/almacenes` (interfaz multinegocio) |
+| Tickets       | `/admin/tickets/informe.pdf`       | `tickets:ver`      | `/admin/tickets`                           |
 
 No cambiar la semántica de rutas antiguas ni aceptar un slug de negocio como sustituto de autorización. Si la aplicación distingue rutas exactas de prefijos, registrar las cinco explícitamente y probar su clasificación. El patrón conceptual futuro será `/admin/panaderia/<modulo>/informe.pdf` y `/admin/global/<modulo>/informe.pdf` **solo donde ya exista módulo y permiso autorizados**; no registrar esos endpoints ahora.
 
 Las cinco rutas anteriores están registradas para Restaurante. `/admin/inventario` no expone una ruta adicional de informe.
+
+### 6.3 Reportes dentro del Asistente IA
+
+«Reportes» es un **rubro del catálogo existente**, no un módulo lateral ni una pantalla nueva. `AdminIaController` añade una píldora por informe autorizado, con el mismo borrador/compositor y los mismos huecos y menús de `ConsultasRapidas.elegir`: «Generar informe de [Finanzas] · [Mes pasado]». El hueco de informe permite cambiar entre los disponibles sin ejecutar la consulta; el botón de enviar vigente abre el PDF en una nueva pestaña. Las consultas convencionales conservan su recorrido y sus respuestas.
+
+El catálogo se filtra en servidor con el perfil efectivo recién cargado: requiere `ia:ver` y lectura del módulo del informe, en Restaurante. Una cuenta con IA sin permisos PDF no ve el rubro; una con permiso PDF pero sin IA puede usar el módulo conforme a sus guardias, pero no resolver informes mediante el asistente. Panadería y Global no reciben píldoras ni resolución de informes.
+
+Las intenciones documentales `informe_finanzas`, `informe_analytics`, `informe_reservaciones`, `informe_inventario` e `informe_tickets` se interceptan exclusivamente en `AdminConsultasController::consultar`, sobre **GET `/admin/api/consultas`**, antes del motor convencional. `AdminIaController::resolverInforme` valida y devuelve `{ok:true,informe:{url:…}}` con una ruta PDF de la lista fija anterior. No consulta hechos de negocio ni genera el documento: la nueva pestaña solicita el endpoint PDF original, que vuelve a comprobar autenticación, permiso, contexto y rango.
+
+Los nueve periodos predefinidos son los de `ConsultasRapidas::PERIODOS` y sus fechas se resuelven al enviar mediante `ConsultasRapidas::periodo`, con el reloj/zona horaria del servidor. Se transmiten al PDF como `desde`/`hasta`; sus comparadores documentales mantienen el periodo anterior de igual duración definido por `RangoPeriodo`, sin adoptar los comparadores particulares de las consultas convencionales.
+
+Solo los borradores de informes añaden **Personalizado** al menú. Al elegirlo aparecen «Fecha de inicio» y «Fecha de fin» dentro del mismo compositor, sin otro formulario. Ambas son inclusivas y `RangoPeriodo::resolverInforme` exige fechas reales, ordenadas, dentro de sus límites y hasta 366 días naturales. Fechas incompletas, arrays, campos ajenos, intenciones desconocidas, rutas/negocios del cliente o fechas junto a un preset se rechazan; no hay fallback silencioso. La resolución responde 400 ante rango/entrada inválidos y 403 ante acceso denegado. `ConsultasRapidas::INTENCIONES`, `PERIODOS` y capacidades convencionales no incorporan estas opciones.
+
+El navegador reserva la pestaña durante el gesto de enviar para evitar bloqueos del popup, elimina su `opener` y solo navega a enlaces locales de los cinco endpoints permitidos. Un error de resolución o timeout cierra la pestaña vacía, muestra el aviso existente y conserva el borrador; si el navegador bloquea el popup, informa cómo reintentar. Una revocación posterior a la resolución sigue siendo responsabilidad del endpoint PDF. No se guardan PDFs ni se crea un histórico documental en el chat.
 
 ## 7. Componente PDF compartido y archivos esperados
 
@@ -194,6 +212,7 @@ Los siguientes campos y reglas son **obligatorios para la aceptación**. El agen
 **Secciones:** balance resumido de ingresos − costos − merma − gastos fijos; comparación actual/anterior; notas metodológicas.
 
 **Reglas críticas:**
+
 - Gastos fijos registrados como importe **mensual sin fecha**, **prorrateados** por días según el contrato vigente; nunca presentarlos como egresos históricos efectivamente ocurridos en cada día.
 - Valor del inventario, si se incluye, es **foto al generar**, no saldo histórico al `hasta` elegido; rotularlo claramente o excluirlo del PDF inicial.
 - `costo_unitario` nulo ≠ costo cero conocido. Mostrar advertencia/importe de ventas sin costo cuando proceda.
@@ -211,6 +230,7 @@ Los siguientes campos y reglas son **obligatorios para la aceptación**. El agen
 **Secciones:** tendencia de ventas por día (serie acotada); hasta **7** productos más vendidos por piezas e importe; hasta una sección diagnóstica adicional (hora/categoría) si reproduce la definición vigente.
 
 **Reglas críticas:**
+
 - Excluir `ticket_items.estado='cancelado'`; respetar unidad y `tickets.estado='cerrado'`.
 - Producto vendido usa nombre/snapshot de la partida cuando el servicio ya lo hace; no reatribuir retrospectivamente a una identidad actual diferente.
 - No considerar el contador genérico de `reservaciones` del dashboard equivalente a «reservas atendidas»: el informe de Reservaciones tiene otra población y exclusiones.
@@ -229,6 +249,7 @@ Los siguientes campos y reglas son **obligatorios para la aceptación**. El agen
 **Secciones:** distribución de estados, reservas por día, días de mayor demanda (conteos, no nombres de personas).
 
 **Reglas críticas:**
+
 - No llamar `ReservacionAusenciaAutomaticaService::procesarEnLectura` ni alterar estados/tolerancias por generar el documento.
 - No incluir cliente, contacto, notas, motivos personalizados o tokens.
 - Si un periodo concluyó pero todavía contiene confirmadas/en curso, informar **estados pendientes de cierre** y evitar llamar «tasa definitiva» a los resultados.
@@ -249,6 +270,7 @@ El informe cubre todos los almacenes de Restaurante, sin aplicar selección de a
 **Secciones:** resumen por tipo de movimiento; hasta **10** alertas relevantes; desglose por almacén sin sumar unidades incompatibles (`kg` + `pza` nunca como «total de stock»).
 
 **Reglas críticas:**
+
 - Stock real reside en asociaciones físicas `almacen_articulos`, no en una tabla global virtual. No duplicar saldo al recorrer almacenes ni contar múltiples veces el mismo artículo como identidad única.
 - Respetar el dueño de cada almacén y asociaciones activas; saldos negativos y productos sin costo no se convierten silenciosamente en cero.
 - Si la consulta actual devuelve páginas, **no** generar un resumen solo con la primera página: consulta agregada específica o paginación completa acotada.
@@ -263,6 +285,7 @@ El informe cubre todos los almacenes de Restaurante, sin aplicar selección de a
 **Secciones:** cerrados vs cancelados, ventas por día, opcional medios de pago si están completos y conciliados. No incluir el listado de tickets con nombre de comensales.
 
 **Reglas críticas:**
+
 - El historial utiliza `COALESCE(hora_cierre, hora_apertura)` para un periodo en algunas métricas. Confirmar consistencia con Finanzas antes de llamar a ambos importes «ventas», y conservar sus decisiones de exclusión.
 - `HistorialTickets::resumen()['abierto']` es una **foto de tickets abiertos ahora**, no un recuento histórico del periodo. **Excluir del reporte retrospectivo** o presentarlo como indicador independiente rotulado «Abiertos al generar».
 - La tasa de cancelación, si se muestra, debe usar un denominador **declarado**, por ejemplo `cerrados + cancelados`, nunca dividir por tickets que incluyen abiertos del momento sin explicarlo.
@@ -270,6 +293,18 @@ El informe cubre todos los almacenes de Restaurante, sin aplicar selección de a
 - No incluir el detalle de clientes, mesas identificables, personal, métodos de pago sensibles o referencias privadas.
 
 ## 9. Reglas documentales comunes
+
+### Decisiones de síntesis por módulo
+
+| Informe       | Información ejecutiva y elección visual                                                                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Finanzas      | Resume ingresos, utilidad neta, variación y costos desconocidos; avisa si los egresos definidos superan ingresos. Balance y comparación siguen tabulares: permiten leer gastos prorrateados y resultados negativos sin imponer un Sankey. No cambia la definición de utilidad bruta ni el prorrateo vigente. |
+| Análisis      | Añade variación de ventas al resumen y mantiene el producto líder por piezas. Barras temporales permiten localizar concentración o tramos sin venta, junto a todos los valores exactos; el top de productos sigue tabular para distinguir piezas e importe.                                                  |
+| Reservaciones | Añade fecha y cantidad de mayor demanda programada, conservando provisionalidad y pendientes sin inferir ausencias. Barras temporales muestran concentración de reservas; estados y días de mayor demanda permanecen como tablas.                                                                            |
+| Inventario    | Aclara desde el resumen si las diez alertas son una muestra y que describen el estado actual. Mantiene tablas de movimientos, almacenes y alertas: no suma unidades incompatibles ni convierte existencias actuales en saldos históricos.                                                                    |
+| Tickets       | Añade variación de ventas y distingue cancelaciones de tickets completos frente a partidas. Barras de ventas muestran actividad del periodo; estados y comparación mantienen cifras exactas. Los abiertos actuales siguen fuera.                                                                             |
+
+Los textos son deterministas y usan agregados existentes; no se añadieron consultas, métricas de negocio, predicciones ni recomendaciones generadas por IA.
 
 - **Resumen ejecutivo:** 2–4 oraciones deterministas a partir de métricas verificadas. Ej.: «Las ventas aumentaron X% respecto al periodo anterior» **solo si** existe comparador positivo, periodo equivalente y resultado calculado. Nada de IA generativa ni recomendaciones inventadas.
 - **Comparativas:** mismo número de días o una base explícita comparable. `null` se representa como «Sin base comparable», no `0 %`.
@@ -318,13 +353,13 @@ Antes de ejecutar suites SQL, verificar que **crean su propia BD de pruebas, ide
 
 **Pruebas específicas mínimas:**
 
-| Informe | Casos críticos |
-|---|---|
-| FIN | propinas, partidas canceladas, costo nulo/cero, gastos mensuales prorrateados, comparativo sin base |
-| ANA | series con días cero, top productos y snapshots, ventas sin partidas canceladas, período anterior |
-| RES | estados técnicos y reemplazos, periodos históricos/futuros, pendientes sin inferir no-show, lectura sin escrituras |
-| INV | más de una página, varios almacenes y unidades, bajo mínimo, mermas/cancelación de consumos, foto vs movimiento |
-| TIC | cerrados/cancelados/abiertos, ítems cancelados, promedio, propinas separadas, periodos limítrofes |
+| Informe | Casos críticos                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------ |
+| FIN     | propinas, partidas canceladas, costo nulo/cero, gastos mensuales prorrateados, comparativo sin base                |
+| ANA     | series con días cero, top productos y snapshots, ventas sin partidas canceladas, período anterior                  |
+| RES     | estados técnicos y reemplazos, periodos históricos/futuros, pendientes sin inferir no-show, lectura sin escrituras |
+| INV     | más de una página, varios almacenes y unidades, bajo mínimo, mermas/cancelación de consumos, foto vs movimiento    |
+| TIC     | cerrados/cancelados/abiertos, ítems cancelados, promedio, propinas separadas, periodos limítrofes                  |
 
 ### 11.3 Definición de terminado
 
@@ -346,16 +381,16 @@ El documento es normativo para la funcionalidad; lo siguiente es un **procedimie
 
 ### Orden secuencial recomendado
 
-| Etapa | Ejecución | Puerta de salida |
-|---|---|---|
-| **I0** | Preflight, confirmar HEAD/estado, rutas y servicios; identificar pruebas DB seguras; congelar reglas de KPI | Invariantes/métricas sin ambigüedad |
-| **I1** | Crear generador PDF y plantilla base + botón reutilizable, una prueba de render seguro | PDF sintético, autorización y visual PASS |
-| **I2** | Implementar **FIN** (Finanzas Restaurante) sobre servicios existentes | Paridad financiera y seguridad PASS |
-| **I3** | Implementar **ANA** (Análisis Restaurante) | Totales, series y top PASS |
-| **I4** | Implementar **RES** (Reservaciones Restaurante) con nuevo agregado puro de lectura | Sin doble conteo ni escritura; estados PASS |
-| **I5** | Implementar **INV** (Inventario Restaurante) | Foto vs movimientos, almacenes y paginación PASS |
-| **I6** | Implementar **TIC** (Tickets Restaurante) | Cierres/cancelaciones, ventas y exclusiones PASS |
-| **I7** | Cierre integral: visual, seguridad, rendimiento, docs y coherencia de extensibilidad | Cinco informes activos; Panadería/Global inactivos; aprobación independiente |
+| Etapa  | Ejecución                                                                                                   | Puerta de salida                                                             |
+| ------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **I0** | Preflight, confirmar HEAD/estado, rutas y servicios; identificar pruebas DB seguras; congelar reglas de KPI | Invariantes/métricas sin ambigüedad                                          |
+| **I1** | Crear generador PDF y plantilla base + botón reutilizable, una prueba de render seguro                      | PDF sintético, autorización y visual PASS                                    |
+| **I2** | Implementar **FIN** (Finanzas Restaurante) sobre servicios existentes                                       | Paridad financiera y seguridad PASS                                          |
+| **I3** | Implementar **ANA** (Análisis Restaurante)                                                                  | Totales, series y top PASS                                                   |
+| **I4** | Implementar **RES** (Reservaciones Restaurante) con nuevo agregado puro de lectura                          | Sin doble conteo ni escritura; estados PASS                                  |
+| **I5** | Implementar **INV** (Inventario Restaurante)                                                                | Foto vs movimientos, almacenes y paginación PASS                             |
+| **I6** | Implementar **TIC** (Tickets Restaurante)                                                                   | Cierres/cancelaciones, ventas y exclusiones PASS                             |
+| **I7** | Cierre integral: visual, seguridad, rendimiento, docs y coherencia de extensibilidad                        | Cinco informes activos; Panadería/Global inactivos; aprobación independiente |
 
 Un mismo ejecutor puede completar etapas contiguas; **no crear un subagente nuevo por archivo**. Cada etapa corrige su propia regresión antes de avanzar. Si un KPI no puede calcularse de forma fiable, no falsificarlo: documentar el bloqueo y conservar la función sin publicarla hasta la decisión del orquestador.
 

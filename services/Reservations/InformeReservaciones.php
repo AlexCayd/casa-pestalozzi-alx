@@ -50,6 +50,7 @@ final class InformeReservaciones
         foreach (array_slice($ordenados, 0, 7, true) as $fecha => $cantidad) {
             if ($cantidad > 0) $demanda[] = [$fecha, $cantidad];
         }
+        if ($demanda) $resumen .= ' La mayor demanda programada fue de ' . $demanda[0][1] . ' reservaciones el ' . $demanda[0][0] . '.';
         $instante = $ahora->format('Y-m-d H:i:s');
         return [
             'titulo' => 'Informe de reservaciones' . ($provisional ? ' · Provisional' : ''), 'contexto' => 'Restaurante',

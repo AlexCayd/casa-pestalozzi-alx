@@ -30,6 +30,9 @@ namespace Controllers;
 use MVC\Router;
 use Services\Analytics\ConsultasRapidas;
 use Services\Security\Contextos;
+use Services\Security\ContextoNegocio;
+use Services\Security\PermisosUsuario;
+use Services\Shared\RangoPeriodo;
 
 class AdminIaController
 {
@@ -48,6 +51,15 @@ class AdminIaController
      * del historial, para que el número que se dice sea el que se aplica.
      */
     private const MAX_CONVERSACIONES = 10;
+
+    /** Solo rutas PDF implementadas; no concede acceso a ningún módulo. */
+    private const INFORMES = [
+        'informe_finanzas' => ['Finanzas', 'financiero', 'finanzas', '/admin/finanzas/informe.pdf'],
+        'informe_analytics' => ['Análisis', 'de análisis', 'analytics', '/admin/analytics/informe.pdf'],
+        'informe_reservaciones' => ['Reservaciones', 'de reservaciones', 'reservations', '/admin/reservaciones/informe.pdf'],
+        'informe_inventario' => ['Inventario', 'de inventario', 'inventario', '/admin/almacenes/informe.pdf'],
+        'informe_tickets' => ['Tickets', 'de tickets', 'tickets', '/admin/tickets/informe.pdf'],
+    ];
 
     /**
      * Cómo se agrupan en pantalla las intenciones del motor, y en qué orden:
@@ -213,7 +225,75 @@ class AdminIaController
             $grupos[] = ['tema' => 'Más preguntas', 'consultas' => array_map($fila, array_values($porIntencion))];
         }
 
+        if ($ctx === 'restaurante') {
+            $perfil = ContextoNegocio::exigir('ia', 'ver', $ctx);
+            $informes = self::informesPermitidos($ctx, $perfil);
+            if ($informes) {
+                $opcionesInforme = [];
+                foreach ($informes as $clave => $informe) {
+                    $opcionesInforme[] = ['valor' => $clave, 'etiqueta' => $informe[0], 'consulta' => ['intencion' => $clave]];
+                }
+                $periodosInforme = array_merge($opcionesPeriodo, [[
+                    'valor' => 'personalizado', 'etiqueta' => 'Personalizado', 'grupo' => 'Fechas',
+                    'consulta' => ['periodo' => 'personalizado'],
+                ]]);
+                $consultas = [];
+                foreach ($informes as $clave => $informe) {
+                    $borrador = ['consulta' => ['intencion' => $clave, 'periodo' => 'mes_pasado'], 'partes' => [
+                        ['tipo' => 'texto', 'texto' => 'Generar informe de'],
+                        ['tipo' => 'hueco', 'campo' => 'informe', 'rotulo' => 'Informe', 'valor' => $clave,
+                            'etiqueta' => $informe[0], 'opciones' => $opcionesInforme],
+                        ['tipo' => 'texto', 'texto' => '·'],
+                        ['tipo' => 'hueco', 'campo' => 'periodo', 'rotulo' => 'Periodo', 'valor' => 'mes_pasado',
+                            'etiqueta' => 'Mes pasado', 'opciones' => $periodosInforme],
+                    ]];
+                    $consultas[] = ['intencion' => $clave, 'titulo' => 'Generar informe ' . $informe[1],
+                        'descripcion' => 'Abre el PDF de ' . $informe[0] . ' en una nueva pestaña. Fechas inclusivas, hasta 366 días.',
+                        'icono' => 'descargar', 'borrador' => $borrador, 'borradores' => [$borrador]];
+                }
+                $grupos[] = ['tema' => 'Reportes', 'consultas' => $consultas];
+            }
+        }
+
         return ['grupos' => $grupos, 'opcionesPeriodo' => $opcionesPeriodo];
+    }
+
+    private static function informesPermitidos(string $ctx, array $perfil): array
+    {
+        if ($ctx !== 'restaurante') return [];
+        return array_filter(self::INFORMES, static fn (array $informe): bool =>
+            PermisosUsuario::permitido($perfil, $ctx, $informe[2], 'ver'));
+    }
+
+    /** Resuelve únicamente el enlace; el PDF conserva sus guardias y su motor. */
+    public static function resolverInforme(array $query): array
+    {
+        if (!ContextoNegocio::nuevo() || ContextoNegocio::slug() !== 'restaurante') {
+            throw new \Services\Inventory\InventarioError('AMBITO_DENEGADO', 'Los informes están disponibles solo en Restaurante.');
+        }
+        $perfil = ContextoNegocio::exigir('ia', 'ver', 'restaurante');
+        if (array_diff(array_keys($query), ['intencion', 'periodo', 'desde', 'hasta', 'ambito'])) {
+            throw new \InvalidArgumentException('La solicitud del informe contiene campos no admitidos.');
+        }
+        foreach ($query as $valor) {
+            if (!is_string($valor)) throw new \InvalidArgumentException('Los campos del informe deben ser texto.');
+        }
+        if (isset($query['ambito']) && $query['ambito'] !== 'todo') throw new \InvalidArgumentException('El ámbito de consulta no es válido.');
+        $intencion = $query['intencion'] ?? '';
+        if (!isset(self::INFORMES[$intencion])) throw new \InvalidArgumentException('Elige un informe disponible.');
+        $informe = self::informesPermitidos('restaurante', $perfil)[$intencion] ?? null;
+        if ($informe === null) throw new \Services\Inventory\InventarioError('PERMISO_DENEGADO', 'No tienes permiso para este informe.');
+        $periodo = $query['periodo'] ?? '';
+        if ($periodo === 'personalizado') {
+            $rango = RangoPeriodo::resolverInforme(['desde' => $query['desde'] ?? null, 'hasta' => $query['hasta'] ?? null]);
+        } else {
+            if (!isset(ConsultasRapidas::PERIODOS[$periodo]) || isset($query['desde']) || isset($query['hasta'])) {
+                throw new \InvalidArgumentException('Elige un periodo válido para el informe.');
+            }
+            $resuelto = ConsultasRapidas::periodo($periodo);
+            $rango = RangoPeriodo::resolverInforme(['desde' => $resuelto['desde'], 'hasta' => $resuelto['hasta']]);
+        }
+        return ['url' => $informe[3] . '?' . http_build_query(['desde' => $rango['start'], 'hasta' => $rango['end']])];
     }
 
     /**

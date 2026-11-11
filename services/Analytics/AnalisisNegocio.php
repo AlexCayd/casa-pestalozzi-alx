@@ -113,6 +113,10 @@ final class AnalisisNegocio
             ? 'No hubo tickets cerrados en el periodo.'
             : 'Se cerraron ' . $actual['tickets'] . ' tickets; ' . $actual['conConsumo'] . ' tenían partidas no canceladas y ' . ($actual['tickets'] - $actual['conConsumo']) . ' no tenían.';
         if ($productos) $resumen .= ' El producto con más piezas fue ' . $productos[0]['nombre'] . ' (' . $productos[0]['piezas'] . ').';
+        $variacion = RangoPeriodo::delta($actual['ventas'], $previo['ventas']);
+        $resumen .= $variacion === null
+            ? ' Las ventas no tienen base comparable en el periodo anterior.'
+            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.';
         return [
             'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],

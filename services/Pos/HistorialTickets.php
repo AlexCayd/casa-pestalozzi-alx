@@ -70,6 +70,11 @@ final class HistorialTickets
             ? 'No hubo tickets cerrados ni cancelados en el periodo.'
             : 'En el periodo hubo ' . $actual['tickets'] . ' tickets cerrados y ' . $cancelados . ' cancelados.';
         if ($actual['tickets'] > 0) $resumen .= ' Con partidas vigentes: ' . $consumo['conConsumo'] . '; sin partidas vigentes: ' . ($actual['tickets'] - $consumo['conConsumo']) . '.';
+        if ($cancelados > 0) $resumen .= ' Las cancelaciones son de tickets completos; no equivalen a partidas canceladas.';
+        $variacion = RangoPeriodo::delta($actual['ingresos'], $previo['ingresos']);
+        $resumen .= $variacion === null
+            ? ' Las ventas no tienen base comparable en el periodo anterior.'
+            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.';
         return [
             'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'], 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],

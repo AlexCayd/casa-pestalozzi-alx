@@ -15,7 +15,7 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [classes/Impresion/README.md](../../classes/Impresion/README.md) | Referencia técnica | Módulo de impresión térmica ESC/POS |
 | [database/ANALITICAS.md](../../database/ANALITICAS.md) | Referencia técnica | Analíticas de Restaurante |
 | [docs/arquitectura.md](../arquitectura.md) | Vigente, rector | Única fuente normativa de arquitectura y alcance |
-| [docs/arquitectura-informes-pdf.md](../arquitectura-informes-pdf.md) | Vigente, subordinado | Contrato específico de informes PDF de Restaurante |
+| [docs/arquitectura-informes-pdf.md](../arquitectura-informes-pdf.md) | Vigente, subordinado | Contrato de informes PDF de Restaurante, presentación ejecutiva y acceso desde el catálogo del Asistente IA |
 | [docs/auditoria-retiro-productos-casa.md](../auditoria-retiro-productos-casa.md) | Histórico requerido por prueba | Contexto de retirada A4, no procedimiento vigente |
 | [docs/modulos/catalogo-comercial.md](../modulos/catalogo-comercial.md) | Referencia técnica | Menú local y retirada A4 |
 | [docs/backlog.md](../backlog.md) | Vigente | Pendientes, mejoras y deuda conocida |

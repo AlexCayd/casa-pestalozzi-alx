@@ -143,6 +143,10 @@ final class ConsultasAlmacen
         $resumen = 'Al generar el informe hay ' . (int)$foto['alertas'] . ' relaciones bajo mínimo en ' . count($almacenes) . ' almacenes activos.';
         $resumen .= ' En el periodo se registraron ' . $totalMovimientos . ' movimientos.';
         if ($sinCosto > 0) $resumen .= ' Hay ' . $sinCosto . ' movimientos de merma sin costo conocido.';
+        $resumen .= (int)$foto['alertas'] > count($alertas)
+            ? ' Se muestran 10 alertas actuales; el indicador incluye todas las relaciones bajo mínimo.'
+            : ' El detalle de alertas cubre todas las relaciones actualmente bajo mínimo.';
+        $resumen .= ' Las alertas describen el estado actual, no el cierre del periodo seleccionado.';
         return [
             'titulo' => 'Informe de inventario y movimientos', 'contexto' => ucfirst($ctx),
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],

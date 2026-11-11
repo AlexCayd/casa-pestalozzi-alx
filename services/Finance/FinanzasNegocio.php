@@ -274,6 +274,10 @@ final class FinanzasNegocio
             ? 'No hubo tickets cerrados en el periodo.'
             : 'Se cerraron ' . $r['tickets'] . ' tickets con ingresos de $' . number_format($r['ingresos'], 2) . '.';
         $resumen .= ' La utilidad neta fue $' . number_format($r['utilidadNeta'], 2) . '.';
+        $resumen .= $deltaIngresos === null
+            ? ' Los ingresos no tienen base comparable en el periodo anterior.'
+            : ' Frente al periodo anterior, los ingresos variaron ' . number_format($deltaIngresos, 1) . ' %.';
+        if ($r['utilidadNeta'] < 0) $resumen .= ' Los costos, la merma conocida y los gastos prorrateados superan los ingresos.';
         if ($r['sinCosto'] > 0) {
             $resumen .= ' Hay ventas sin costo conocido; las utilidades no incluyen ese costo faltante.';
         }

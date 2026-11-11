@@ -48,6 +48,27 @@ comprobar(str_starts_with($pdf->output(), '%PDF-'), 'No se generó PDF');
 comprobar($pdf->getCanvas()->get_page_count() > 1, 'No se probó paginación');
 comprobar($pdf->getOptions()->getIsRemoteEnabled() === false && $pdf->getOptions()->getIsPhpEnabled() === false && $pdf->getOptions()->getIsJavascriptEnabled() === false, 'Opciones inseguras');
 rechazar(static fn () => GeneradorPdf::emitir($doc, '../informe.pdf'));
+$serieDoc = $doc;
+$serieDoc['secciones'] = [['titulo' => 'Serie segura', 'tipo' => 'serie',
+    'columnas' => ['Tramo', 'Importe'], 'formatos' => ['texto', 'moneda'],
+    'filas' => [['<img src="https://example.com/hostil">', -10.0], ['Cero', 0], ['Ausente', null], ['Positivo', 20.0]]]];
+$htmlSerie = static function (array $documento): string {
+    $fontsDir = str_replace('\\', '/', realpath(dirname(__DIR__, 2) . '/public/build/fonts'));
+    ob_start();
+    require dirname(__DIR__, 2) . '/views/admin/reportes/base.php';
+    return ob_get_clean();
+};
+$html = $htmlSerie($serieDoc);
+comprobar(!str_contains($html, '<img src="https://example.com/hostil">') && str_contains($html, '&lt;img'), 'Etiqueta de serie no escapada');
+comprobar(substr_count($html, 'style="width:') === 2 && str_contains($html, 'width: 50.000%') && str_contains($html, 'width: 100.000%'), 'Escala de barras, cero o ausencia incorrectos');
+comprobar(str_contains($html, 'barra barra-negativa') && str_contains($html, '$-10.00 MXN') && str_contains($html, 'No disponible'), 'Negativo o ausencia ocultados');
+$serieDoc['secciones'][0]['filas'] = [['Extremo', 1.0e308], ['Mitad', -5.0e307]];
+$html = $htmlSerie($serieDoc);
+comprobar(str_contains($html, 'width: 100.000%') && str_contains($html, 'width: 50.000%') && !preg_match('/width: (?:inf|nan)/i', $html), 'Escala no finita para datos finitos');
+$serieDoc['secciones'][0]['filas'] = [['Sin actividad', 0], ['Sin fuente', null]];
+$html = $htmlSerie($serieDoc);
+comprobar(!str_contains($html, 'style="width:') && str_contains($html, 'Sin magnitudes distintas de cero disponibles'), 'Barras artificiales en serie vacía');
+comprobar(str_starts_with(GeneradorPdf::documento($serieDoc)->output(), '%PDF-'), 'Serie sin actividad no renderizada');
 $doc['kpis'][0]['valor'] = '<b>1</b>';
 rechazar(static fn () => GeneradorPdf::documento($doc));
-echo "PASS fundación informes: periodos, validación y PDF multipágina seguro\n";
+echo "PASS fundación informes: periodos, validación, barras seguras y PDF multipágina seguro\n";

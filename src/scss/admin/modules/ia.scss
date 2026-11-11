@@ -1876,6 +1876,45 @@
   padding: 14px 18px 4px;
 }
 
+/* Rango libre del informe, dentro del compositor y sin formulario adicional. */
+.ia .ia-fechas {
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ia .ia-fechas__campo {
+  display: flex;
+  flex: 1 1 160px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.ia .ia-fechas__entrada {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 14px;
+  color-scheme: inherit;
+}
+
+.ia .ia-fechas__entrada:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 3px;
+}
+
 .ia .ia-constructor__rotulo {
   @include rotulo;
   color: var(--ia-tenue);

@@ -306,3 +306,42 @@ En el ensayo representativo de 366 días se cargaron 1000 tickets, 2000 partidas
 El detector visual Impeccable emitió dos advertencias `overused-font` sobre Montserrat en la plantilla y salió con código 1. Son observaciones estéticas sobre una fuente frecuente, no errores de carga o diseño: se conservó la identidad institucional compartida con MenuPdf; el renderizador carga las fuentes locales de `public/build/fonts` bajo su `chroot`. Los PDF y capturas se revisaron independientemente.
 
 Panadería y Global siguen sin informes PDF habilitados. La suite no certifica MariaDB, credenciales o servicios externos en vivo, ni reinicio y restauración del despliegue.
+
+### Revisión ejecutiva e integración IA — 11 de noviembre de 2026
+
+Validación **local**, sobre `branch-leo`, de la presentación ejecutiva y del acceso
+desde el catálogo del asistente. Las decisiones funcionales están en el
+[contrato específico](../arquitectura-informes-pdf.md#63-reportes-dentro-del-asistente-ia);
+este registro describe evidencia y no amplía el alcance de la arquitectura.
+
+| Comprobación | Resultado y evidencia |
+|---|---|
+| Fundación (`npm run test:informes`) | PASS: periodos, validación, escape de etiquetas, PDF multipágina seguro; barras con signo, cero, ausencia y números finitos extremos (`1e308`) sin anchuras infinitas. |
+| Aceptación aislada (`npm run test:informes:db`) | PASS: cinco dominios, paridad de cifras, 13 comprobaciones de consistencia, 105 casos HTTP y las 78 comprobaciones nuevas de IA. Las bases propias se eliminaron verificando propiedad. |
+| IA (`scripts/tests/informes-aceptacion/ia-reportes-independent.php`, dentro del runner) | PASS: cinco informes por nueve presets resueltos en servidor, personalizados de 366 días inclusivos, entradas manipuladas/arrays, fecha imposible, rango invertido y superior al límite, permisos efectivos y revocación después del catálogo. IA sin permisos de informes no ve el rubro; permisos PDF sin IA no resuelven enlaces. Panadería, Global, NIP y anónimo no obtienen resolución. |
+| Consultas anteriores | PASS: una consulta convencional real sigue respondiendo; capacidades y periodos del motor no incorporan `personalizado` ni intenciones documentales. Suites completas `npm run test:php` y `npm run test:js`: PASS. |
+| Navegador real | PASS en Chrome con viewport 1440×1000 y 390×844: píldora, hueco de informe y periodo, personalizado, cambio de módulo conservando fechas, enviar y PDF real en pestaña nueva. Rango inválido cierra la pestaña vacía y conserva borrador; popup bloqueado muestra aviso y permite reintentar. La consulta convencional retira fechas y conserva sus menús/respuestas. Sin errores JavaScript ni desbordamiento horizontal; inputs de fecha con alto táctil de 44 px. |
+| Render PDF real | PASS: Dompdf seguido de Poppler y revisión visual de todas las páginas de los cinco informes normales, los cinco periodos sin actividad histórica, los cinco rangos de 366 días y Reservaciones futuras rotuladas «Provisional». Se revisaron también presentación sintética de signos/ausencia y una serie de 13 tramos mensuales. Tablas, barras, ceros, notas, cabeceras repetidas, contraste, folios y saltos de página legibles; no se aceptó el mero hecho de generar `%PDF-`. |
+| Compilación y alcance | PASS: Gulp `adminIaJs` y `adminModuleCss`; se conservaron únicamente los bundles IA afectados, sin deriva de otros módulos. `git diff --check`: PASS. Sin cambios de DDL, dependencias nuevas, rutas PDF adicionales ni almacenamiento documental. |
+
+Los periodos sin actividad mantienen distinciones del dominio: Finanzas puede
+mostrar gastos mensuales vigentes prorrateados aunque no haya ventas; Inventario
+puede mostrar alertas actuales aunque no haya movimientos en el rango. No se
+convirtieron esas fotografías actuales en ceros ni saldos históricos.
+
+Se corrigieron dos **aserciones preexistentes de fixtures**, verificadas durante
+la supervisión: el año de Análisis incluye los $100 del 14/01/2002 usados como
+comparador de su rango corto, de modo que su serie anual suma $550 y no $450;
+el año de Tickets incluye los $10 del 14/01/2001 y suma $135, no $125. Se
+conservan $450 y $125 en los rangos cortos originales y se añadió paridad del
+total anual con las autoridades de Análisis/Finanzas. No se alteraron consultas
+ni cálculos de negocio para hacer pasar estas pruebas.
+
+Los logs exactos de fundación, aceptación DB/HTTP/consistencia/IA, PHP, JS y
+navegador, junto con PDF y PNG de evidencia, se conservaron fuera del repositorio
+y de `public/` para revisión del supervisor. El navegador utilizó sesiones de
+fixture local, no credenciales de producción; los screenshots móviles verifican
+el viewport, no un dispositivo físico. Las mediciones de carga de la aceptación
+del 7 de noviembre son históricas y no se presentan como un nuevo ensayo de
+capacidad. Este cierre no certifica despliegue, servicios externos en vivo,
+MariaDB, reinicio o restauración; no habilita informes de Panadería/Global.

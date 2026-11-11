@@ -27,7 +27,10 @@ try{
     $empty=A::informe($db,$u,R::resolverInforme(['desde'=>'1990-01-01','hasta'=>'1990-01-02']),'2026-11-06 12:00:00');pdfTestAssert($empty['kpis'][0]['valor']===0.0&&$empty['kpis'][0]['comparacion']===null&&$empty['kpis'][2]['valor']===null,'ANA empty/null');
     $year=R::resolverInforme(['desde'=>'2002-01-01','hasta'=>'2003-01-01']);$start=microtime(true);$large=A::informe($db,$u,$year,'2026-11-06 12:00:00');$p=G::documento($large);file_put_contents(pdfTestTemp().'/ana-366.pdf',$p->output());
     pdfTestAssert(count(A::ventasPorDia($db,$u,$year['start'],$year['end']))===366,'Serie366 incompleta');
-    pdfTestAssert(count($large['secciones'][0]['filas'])===13 && abs(array_sum(array_column($large['secciones'][0]['filas'],1))-450)<0.01,'Agrupación mensual ANA');
+    // El año incluye también los $100 del 14/01 usados como comparador del rango corto.
+    $totalAnual = array_sum(array_column($large['secciones'][0]['filas'], 1));
+    pdfTestAssert(count($large['secciones'][0]['filas'])===13 && abs($totalAnual-550)<0.01,'Agrupación mensual ANA');
+    pdfTestNear($totalAnual, A::totales($db,$u,$year['start'],$year['end'])['ventas'], 'Paridad serie anual ANA');
     $pdf=G::documento($doc);file_put_contents(pdfTestTemp().'/ana-independent.pdf',$pdf->output());pdfTestAssert($before===pdfTestSnapshot($db),'ANA mutaBD');
     echo 'ANA independiente PASS5KPIs/top7de9/snapshot/cancelados/ceros/prev/FINDIF0/empty/sololectura; 366dias pages='.$p->getCanvas()->get_page_count().' elapsed='.round(microtime(true)-$start,3).' peakMB='.round(memory_get_peak_usage(true)/1048576,1).PHP_EOL;
 }finally{$db->rollback();$db->close();}
