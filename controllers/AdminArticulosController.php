@@ -37,6 +37,9 @@ final class AdminArticulosController
             try{$sub=filter_var($_POST['subreceta_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$art=filter_var($_POST['articulo_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$sub||!$art)throw new InventarioError('REFERENCIA_INVALIDA','Elige la preparación y el artículo.');$r=A::vincularPreparacion($ctx,$sub,$art,($_POST['confirmar']??'')==='1');self::resultado($r);$_SESSION['_m2_resultado'][A::base($ctx).'/editar:'.$r['articulo_id']]='Preparación vinculada correctamente.';header('Location: '.self::conRetorno(A::base($ctx).'/editar?id='.$r['articulo_id'].'&guardado=1'),true,303);return;}catch(\Throwable $e){http_response_code(422);$alertas['error'][]= $e instanceof InventarioError?self::mensaje($e):'No se pudo asociar la preparación. Revisa las identidades.';}
         }
         $creado=($_SERVER['REQUEST_METHOD']??'GET')==='GET'?($_SESSION['_m6_alta'][$ctx]??null):null;unset($_SESSION['_m6_alta'][$ctx]);
+        // El catálogo de Almacenes redirige aquí (§18): el resultado que dejó una operación
+        // de Almacenes (alta por la ruta anterior) se muestra en la lista en vez de perderse.
+        if(($_SERVER['REQUEST_METHOD']??'GET')==='GET'&&!empty($_SESSION['_almacenes_flash'][$ctx])){foreach((array)$_SESSION['_almacenes_flash'][$ctx] as $nivelAviso=>$mensajes)foreach((array)$mensajes as $m)$alertas[$nivelAviso][]=$m;unset($_SESSION['_almacenes_flash'][$ctx]);}
         self::render('articulos',A::catalogo($ctx,$q,$pagina,$estado,$tipo)+['q'=>$q,'estado'=>$estado,'pendientes'=>A::preparacionesPendientes($ctx),'alertas'=>$alertas,'articuloCreado'=>$creado]+self::opcionesPendientes($ctx)+self::alta($ctx));
     }
     /**

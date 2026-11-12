@@ -42,7 +42,7 @@ try {
 
  $phase='catálogo y almacenes físicos';$suffix=bin2hex(random_bytes(4));$articleName='HTTP3E-articulo-'.$suffix;
  $r=$admin->operation($bases['global'],'crear_articulo',['nombre'=>$articleName,'unidad'=>'g','costo'=>'0.1250','activo'=>'1'],'catalogo');$assert($confirmed($r),'Global crea identidad maestra compartida');
- $catalog=$admin->request('GET',$bases['global'].'/catalogo?q='.$articleName);$article=ClienteInstalacion3E::article($catalog['body'],$articleName);$assert($article>0,'El artículo creado tiene identidad visible');
+ $catalog=$admin->request('GET',$bases['global'].'/catalogo?q='.$articleName);if(in_array($catalog['status'],[302,303],true))$catalog=$admin->request('GET',$catalog['location']);$article=ClienteInstalacion3E::article($catalog['body'],$articleName);$assert($article>0,'El artículo creado tiene identidad visible');
  $warehouses=[];
  // El conteo físico se retiró (auditoría A-4): el saldo se lee del formulario de merma, que lo lleva en data-stock-saldo.
  $saldoDe=static function(string $body,int $wh,int $art):string{$x=ClienteInstalacion3E::dom($body);$f=$x->query('//form[@data-stock-operation="merma"][.//input[@name="almacen_id" and @value="'.$wh.'"]][.//input[@name="articulo_id" and @value="'.$art.'"]]')->item(0);return $f instanceof DOMElement?$f->getAttribute('data-stock-saldo'):'';};
