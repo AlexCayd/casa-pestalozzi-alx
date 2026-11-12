@@ -6,12 +6,21 @@ use Services\Security\Contextos;
  * La pregunta que contesta es «¿de dónde salió?»; por eso cada faltante muestra
  * cuánto queda por declarar, de qué venta viene y los almacenes que pueden cubrirlo.
  * Sólo los almacenes propios traen saldo: el de otro negocio nunca se expone.
+ *
+ * En Global el superadministrador ve la bandeja de todos los negocios que venden.
+ * Cada faltante se lee con las reglas de su negocio («propio» es de ese negocio) y
+ * su administrador sigue siendo el responsable: aquí sólo se puede ayudar.
  */
 $faltantes=$faltantes??[];
+$consolidado=!empty($faltantesConsolidado);
 $estadosFaltante=['pendiente'=>['Pendiente','warning'],'en_confirmacion'=>['En confirmación','info']];
 $estadosAsignacion=['aplicada'=>['Aplicada','success'],'en_confirmacion'=>['En confirmación','info'],'rechazada'=>['Rechazada','danger'],'anulada'=>['Anulada','neutral']];
 ?>
+<?php if($consolidado): ?>
+<p class="almacen-modal__intro">Faltantes de Restaurante y Panadería: ventas que salieron sin saldo suficiente. Los concilia el administrador de cada negocio. Si declaras tú el origen, se aplican las mismas reglas que a él: los almacenes de ese negocio se aplican al confirmar y los de otro quedan en confirmación hasta que su dueño la acepta.</p>
+<?php else: ?>
 <p class="almacen-modal__intro">Cuando una venta no encuentra saldo suficiente, la comanda sale igual: se descuenta lo que había y el resto queda aquí. Declara de qué almacén salió. Los almacenes de <?php echo $esc($nombreContexto); ?> se aplican al confirmar; los de otro negocio quedan en confirmación hasta que su dueño la acepta.</p>
+<?php endif; ?>
 <?php include __DIR__.'/../partials/alertas.php'; ?>
 <?php if(!$faltantes): ?>
 <div class="admin-empty"><strong>No hay faltantes por conciliar</strong><p>Si una venta sale sin saldo suficiente, aparecerá aquí para declarar su origen.</p></div>
@@ -22,6 +31,8 @@ $estadosAsignacion=['aplicada'=>['Aplicada','success'],'en_confirmacion'=>['En c
     $contenido=isset($f['contenido_pieza'])&&$f['contenido_pieza']!==null&&$f['contenido_pieza']!==''?(string)$f['contenido_pieza']:null;
     $restantePiezas=$contenido!==null?DecimalInventario::enPiezas((string)$f['restante'],$contenido,$unidad):null;
     $esMigracion=($f['origen']??'venta')==='migracion';
+    // Negocio dueño del faltante: en un negocio es el propio; en Global, el que vendió.
+    $negocioFaltante=Contextos::NOMBRES[$f['contexto']??'']??$nombreContexto;
     [$estadoTexto,$estadoTono]=$estadosFaltante[$estado]??[$estado,'neutral'];
     // Nombres propios del parcial: index.php comparte ámbito y ya usa $propios.
     $origenes=$f['origenes']??[]; $origenesPropios=array_values(array_filter($origenes,static fn($o)=>!empty($o['propio']))); $origenesAjenos=array_values(array_filter($origenes,static fn($o)=>empty($o['propio'])));
@@ -32,7 +43,7 @@ $estadosAsignacion=['aplicada'=>['Aplicada','success'],'en_confirmacion'=>['En c
       <strong><?php echo $esc($f['articulo_nombre']); ?></strong>
       <span class="admin-status admin-status--<?php echo $estadoTono; ?>"><?php echo $esc($estadoTexto); ?></span>
     </span>
-    <span class="almacen-faltante__resumen"><?php echo $esc($f['almacen_nombre']); ?> · <?php if($restanteMil>0): ?>por conciliar <strong class="admin-num"><?php echo $esc($f['restante'].' '.$unidad); ?></strong><?php else: ?>todo declarado, en confirmación<?php endif; ?></span>
+    <span class="almacen-faltante__resumen"><?php echo $esc($f['almacen_nombre'].($consolidado?' · '.$negocioFaltante:'')); ?> · <?php if($restanteMil>0): ?>por conciliar <strong class="admin-num"><?php echo $esc($f['restante'].' '.$unidad); ?></strong><?php else: ?>todo declarado, en confirmación<?php endif; ?></span>
   </summary>
   <div class="almacen-faltante__body">
     <p class="almacen-faltante__origen"><?php if($esMigracion): ?>Saldo negativo convertido al retirar existencias negativas.<?php else: ?>Venta: <?php echo $esc(($f['item_nombre']??'Item vendido').' · Ticket #'.(int)$f['ticket_id'].' · '.($f['item_fecha']??$f['creado_at'])); ?><?php endif; ?></p>
@@ -56,30 +67,30 @@ $estadosAsignacion=['aplicada'=>['Aplicada','success'],'en_confirmacion'=>['En c
     </ul>
     <?php endif; ?>
     <?php if($restanteMil>0&&empty($f['cubierto_por_propios'])): ?>
-    <p class="almacen-faltante__nota"><?php echo admin_icon('alerta',16); ?><span><strong>Ningún almacén propio cubre este faltante.</strong> Entre los almacenes de <?php echo $esc($nombreContexto); ?> hay <?php echo $esc($f['disponible_propio'].' '.$unidad); ?>.<?php echo $origenesAjenos?' Puedes pedir el resto a otro negocio, que lo confirma.':' Queda pendiente hasta registrar una entrada de este artículo.'; ?></span></p>
+    <p class="almacen-faltante__nota"><?php echo admin_icon('alerta',16); ?><span><strong>Ningún almacén <?php echo $consolidado?'de '.$esc($negocioFaltante):'propio'; ?> cubre este faltante.</strong> Entre los almacenes de <?php echo $esc($negocioFaltante); ?> hay <?php echo $esc($f['disponible_propio'].' '.$unidad); ?>.<?php echo $origenesAjenos?' Puedes pedir el resto a otro negocio, que lo confirma.':' Queda pendiente hasta registrar una entrada de este artículo.'; ?></span></p>
     <?php endif; ?>
 
     <?php if($estado==='en_confirmacion'||$restanteMil<=0): ?>
     <p class="admin-field__hint">Todo lo pendiente ya tiene origen. Se concilia cuando el dueño de cada almacén confirme su parte; si la rechaza, vuelve aquí como pendiente.</p>
     <?php elseif(!$puedeEditar): ?>
-    <p class="admin-field__hint">Conciliar requiere permiso de edición de Almacenes en <?php echo $esc($nombreContexto); ?>.</p>
+    <p class="admin-field__hint">Conciliar requiere permiso de edición de Almacenes en <?php echo $esc($negocioFaltante); ?>.</p>
     <?php elseif(!$origenes): ?>
     <p class="admin-field__hint">Ningún almacén activo tiene este artículo asociado. Asócialo y registra una entrada para conciliarlo.</p>
     <?php else: ?>
     <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="almacen-faltante__form" data-faltante-form data-faltante-restante="<?php echo $esc($f['restante']); ?>" data-faltante-unidad="<?php echo $esc($unidad); ?>"
-      data-confirm-delete data-confirm-variant="warning" data-confirm-eyebrow="Conciliar faltante" data-confirm-title="<?php echo $esc('Origen de '.$f['articulo_nombre']); ?>" data-confirm-description="<?php echo $esc('Por conciliar '.$f['restante'].' '.$unidad.' en '.$f['almacen_nombre']); ?>" data-confirm-primary="Conciliar" data-confirm-consequence="Lo de almacenes propios se descuenta al confirmar. Lo de otro negocio queda en confirmación hasta que su dueño lo acepte.">
+      data-confirm-delete data-confirm-variant="warning" data-confirm-eyebrow="Conciliar faltante" data-confirm-title="<?php echo $esc('Origen de '.$f['articulo_nombre']); ?>" data-confirm-description="<?php echo $esc('Por conciliar '.$f['restante'].' '.$unidad.' en '.$f['almacen_nombre'].($consolidado?' ('.$negocioFaltante.'). Lo declaras en lugar de su administrador.':'')); ?>" data-confirm-primary="Conciliar" data-confirm-consequence="Lo de almacenes propios se descuenta al confirmar. Lo de otro negocio queda en confirmación hasta que su dueño lo acepte.">
       <?php $campos('conciliar_faltante',['volver_vista'=>'faltantes','faltante_id'=>$fid,'version'=>$f['version'],'clave'=>bin2hex(random_bytes(16))]); ?>
       <fieldset class="almacen-faltante__origenes" aria-describedby="faltante-<?php echo $fid; ?>-ayuda">
         <legend>¿De dónde salió?</legend>
         <p class="admin-field__hint" id="faltante-<?php echo $fid; ?>-ayuda">Reparte <?php echo $esc($f['restante'].' '.$unidad); ?> entre uno o varios almacenes. La suma debe ser exacta; deja vacíos los que no usas.</p>
-        <?php $n=0; foreach([['Almacenes de '.$nombreContexto.' · se aplican al confirmar',$origenesPropios],['Otros negocios · su dueño confirma',$origenesAjenos]] as [$grupoTitulo,$grupo]): if(!$grupo)continue; ?>
+        <?php $n=0; foreach([['Almacenes de '.$negocioFaltante.' · se aplican al confirmar',$origenesPropios],['Otros negocios · su dueño confirma',$origenesAjenos]] as [$grupoTitulo,$grupo]): if(!$grupo)continue; ?>
         <p class="admin-eyebrow almacen-faltante__grupo"><?php echo $esc($grupoTitulo); ?></p>
         <?php foreach($grupo as $o): $oid=(int)$o['almacen_id']; $campo='faltante-'.$fid.'-origen-'.$n; $propio=!empty($o['propio']);
           $saldoMil=$propio&&isset($o['saldo'])?DecimalInventario::leer((string)$o['saldo'],3,true):null; $sinSaldo=$propio&&$saldoMil!==null&&$saldoMil<=0; ?>
         <div class="almacen-origen<?php echo $sinSaldo?' is-empty':''; ?>">
           <<?php echo $sinSaldo?'span':'label for="'.$campo.'"'; ?>><span class="almacen-origen__nombre"><?php echo $esc($o['nombre']); ?></span><small><?php
             echo $esc(Contextos::NOMBRES[$o['contexto']]??$o['contexto']).' · ';
-            echo $propio?($sinSaldo?'Sin saldo disponible':$esc('Saldo '.$o['saldo'].' '.$unidad)):'Requiere su confirmación'; ?></small></<?php echo $sinSaldo?'span':'label'; ?>>
+            echo $propio?($sinSaldo?'Sin saldo disponible':$esc('Saldo '.$o['saldo'].' '.$unidad)):($consolidado&&isset($o['saldo'])?$esc('Saldo '.$o['saldo'].' '.$unidad.' · requiere su confirmación'):'Requiere su confirmación'); ?></small></<?php echo $sinSaldo?'span':'label'; ?>>
           <?php if($sinSaldo): /* Sin campos: un almacen_id sin cantidad llegaría al servidor como fila y se rechazaría. */ ?>
           <span class="almacen-origen__vacio">No disponible</span>
           <?php else: ?>

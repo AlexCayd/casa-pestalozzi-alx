@@ -85,4 +85,46 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     // 5. Crear y configurar almacén desde la vista ya no envía la política de negativos.
     $x=$xp($render('global','almacenes'));
     foreach($x->query('//form') as $f){$c=$campos($x,$f);if(in_array($c['accion']??'',['crear_almacen','configurar_almacen'],true))$a(!array_key_exists('permitir_negativos',$c),'El formulario '.$c['accion'].' no envía negativos');}
+
+    // 6. Global no vende: el superadministrador ve allí los faltantes de los negocios y
+    //    puede declarar su origen con las reglas del negocio dueño; la responsabilidad
+    //    (y el aviso del buzón) sigue en ese negocio. Otro perfil de Global no ve ninguno.
+    $motor->registrarEntrada('restaurante',['clave'=>'vista-ent-g','referencia'=>'vista-ent-g','motivo'=>'compra','lineas'=>[['almacen_id'=>1006,'articulo_id'=>$lim,'cantidad'=>'1.000']]]);
+    $pres=(int)$db->query("SELECT id FROM oferta_presentaciones WHERE oferta_id=$of ORDER BY id LIMIT 1")->fetch_row()[0];
+    $db->query("INSERT INTO tickets(unidad_id,comensales,nombre,estado) VALUES(2,1,'Vista M3 Global','abierto')");$ticket2=(int)$db->insert_id;
+    $r=Comercial::enviarComanda($ticket2,[['oferta_id'=>$of,'presentacion_id'=>$pres,'cantidad'=>4]],'vista-comanda-m3-0002','restaurante');$a(!empty($r['ok']),'Segunda venta con faltante');
+    $fid2=(int)$db->query("SELECT id FROM faltantes_inventario WHERE articulo_id=$lim AND estado='pendiente' ORDER BY id DESC LIMIT 1")->fetch_row()[0];$a($fid2>$fid,'Nace un faltante pendiente de 4');
+
+    $html=$render('global','existencias',['q'=>'Limón vista M3']);
+    $a(str_contains($html,'−4.000 pza') && str_contains($html,'sin conciliar'),'Existencias muestra la deuda con signo menos sin bajar el saldo de cero');
+    $a($saldo(1005,$lim)==='0.000','El saldo de Barra sigue en cero');
+    $a(str_contains($html,'Almacén de Restaurante'),'El globo presenta el nombre como almacén y su negocio');
+    $a(str_contains($html,'almacen-faltantes-aviso--consulta')&&str_contains($html,'Las concilia el administrador de cada negocio'),'En Global el aviso informa y deja la responsabilidad al negocio');
+
+    // Perfil de Global que no es superadministrador: nada cambia para él.
+    $global=FixtureAutorizacion3B::usuario($db,'global_inventario',['global'=>['permisos'=>['inventario'=>'editar']]]);
+    $otro=new AdministracionAlmacenes($db,(int)$global['id'],$nivel);
+    $datos=$otro->consultar('global',[],'faltantes');
+    $a(($datos['faltantes']??null)===[]&&(int)($datos['faltantesPendientes']??-1)===0&&empty($datos['faltantesConsolidado']),'Otro perfil de Global no ve faltantes de los negocios');
+    $r=$otro->guardar('global','conciliar_faltante',['faltante_id'=>$fid2,'version'=>'1','clave'=>bin2hex(random_bytes(16)),'asignaciones'=>[['almacen_id'=>1001,'cantidad'=>'4']]]);
+    $a(empty($r['confirmado'])&&$db->query("SELECT estado FROM faltantes_inventario WHERE id=$fid2")->fetch_row()[0]==='pendiente','Otro perfil de Global no concilia un faltante de Restaurante');
+
+    // Superadministrador desde Global: la bandeja consolidada y el formulario real.
+    $html=$render('global','faltantes');$x=$xp($html);
+    $form=null;foreach($x->query('//form') as $f){$c=$campos($x,$f);if(($c['accion']??'')==='conciliar_faltante'&&(int)($c['faltante_id']??0)===$fid2)$form=$f;}
+    $a($form!==null,'Global pinta el faltante de Restaurante');
+    $a(str_contains($html,'Los concilia el administrador de cada negocio')&&str_contains($html,'Almacenes de Restaurante · se aplican al confirmar'),'Se leen las reglas del negocio dueño');
+    $payload=$campos($x,$form);
+    foreach($payload['asignaciones'] as $i=>$fila){$w=(int)$fila['almacen_id'];$payload['asignaciones'][$i]['cantidad']=$w===1006?'1':($w===1001?'3':'');}
+    $r=$admin->guardar('global','conciliar_faltante',$payload);
+    $a(!empty($r['confirmado'])&&$r['estado']==='en_confirmacion','El superadministrador declara el origen desde Global: '.json_encode($r));
+    $a($saldo(1006,$lim)==='0.000','Refrigeración (de Restaurante) se aplica directo, como para su administrador');
+    $t=$db->query("SELECT t.estado,t.origen_unidad_id,t.destino_unidad_id FROM faltante_asignaciones s JOIN transferencias t ON t.id=s.transferencia_id WHERE s.faltante_id=$fid2 AND s.almacen_origen_id=1001")->fetch_assoc();
+    $a($t&&$t['estado']==='solicitada'&&(int)$t['destino_unidad_id']===2,'El Almacén Central queda en confirmación de su dueño, como para el administrador del negocio');
+    $antes=(int)$db->query("SELECT COUNT(*) FROM faltante_asignaciones WHERE faltante_id=$fid2")->fetch_row()[0];
+    $admin->guardar('global','conciliar_faltante',$payload);
+    $a((int)$db->query("SELECT COUNT(*) FROM faltante_asignaciones WHERE faltante_id=$fid2")->fetch_row()[0]===$antes,'Reenviar el mismo formulario no duplica asignaciones');
+    $a((int)$db->query("SELECT COUNT(*) FROM buzon_notificaciones WHERE tipo='inventario.faltante' AND unidad_id=(SELECT id FROM unidades WHERE slug='global')")->fetch_row()[0]===0,'El aviso del buzón no se mueve a Global');
+    $a((int)$db->query("SELECT COUNT(*) FROM buzon_notificaciones WHERE tipo='inventario.faltante' AND unidad_id=2 AND cerrada_at IS NULL AND dedup_key LIKE 'inventario.faltante:1005:$lim:%'")->fetch_row()[0]===0,'Sin pendientes, el aviso de Restaurante se cierra igual que si conciliara su administrador');
+    $a((int)$db->query("SELECT COUNT(*) FROM almacen_articulos WHERE saldo<0")->fetch_row()[0]===0,'Ningún saldo queda negativo');
 },'M3 faltantes vista',true);

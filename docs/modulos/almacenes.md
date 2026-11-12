@@ -273,6 +273,14 @@ Contrato en [arquitectura §16](../arquitectura.md#16-m3-tipo-de-venta-y-faltant
   en confirmación hasta que su dueño la confirma o la rechaza en Transferencias.
   Ningún origen queda negativo: sin saldo suficiente, el reparto se rechaza
   completo y el faltante sigue pendiente.
+- **Existencias.** El saldo no baja de 0; la parte sin conciliar se lee junto a él
+  como deuda («−30.000 g sin conciliar») en el artículo, en cada almacén y en su
+  globo. El globo presenta el nombre como almacén («Almacén de Panadería») para que
+  un nombre como «Producto Terminado» no se lea como estado del producto.
+- **Global.** Sólo el superadministrador ve en Global el aviso y la bandeja de
+  Restaurante y Panadería. Puede conciliar con las reglas del negocio dueño, pero la
+  responsabilidad y el aviso del buzón siguen en ese negocio; el aviso de Global es
+  de consulta.
 - **Costo.** El consumo conciliado guarda el costo del origen; el ticket y
   Finanzas conservan el costo congelado al enviar la comanda.
 - **Cancelación.** Cancelar el item anula lo pendiente y la parte en

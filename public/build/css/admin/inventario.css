@@ -3167,6 +3167,31 @@
   font-weight: 700;
 }
 
+/* En Global el superadministrador sólo consulta y, si hace falta, ayuda: la
+   responsabilidad es de cada negocio, así que el aviso informa sin alarmar. */
+.almacen-faltantes-aviso--consulta {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+}
+.almacen-faltantes-aviso--consulta .almacen-faltantes-aviso__icono {
+  color: var(--admin-muted);
+}
+
+/* Faltante sin conciliar (§16): el saldo no baja de cero; lo que una venta usó sin
+   saldo se muestra aparte, con signo menos, como deuda del almacén. Lleva palabra
+   («sin conciliar»), no sólo color. */
+.admin-body .almacen-faltante-marca {
+  display: block;
+  color: var(--admin-warning-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-body .almacen-tooltip .almacen-tooltip__faltante {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
+
 /* Bandeja de faltantes, dentro del modal compartido. Cada faltante es un documento
    como las transferencias: resumen en la línea del summary y, abierto, de dónde viene,
    las cifras y el reparto. */

@@ -84,12 +84,24 @@ final class Faltantes
 
     // ── Consulta ─────────────────────────────────────────────────────────
 
+    /**
+     * Global no vende, así que nunca tiene faltantes propios. El superadministrador
+     * los consulta desde Global consolidados de los negocios que venden; los demás
+     * perfiles de Global no ven ninguno. La responsabilidad de conciliar sigue en
+     * cada negocio: su aviso del buzón no se mueve a Global.
+     */
+    public static function consolidado(string $ctx, array $alcance): bool
+    {
+        return $ctx === 'global' && !empty($alcance['super']);
+    }
+
     /** Faltantes por conciliar del negocio (para el aviso «N faltantes por conciliar»). */
     public function contar(string $ctx): int
     {
         $r = TransaccionInventario::ejecutar($this->db, function () use ($ctx): array {
-            $u = $this->alcance->autorizar($ctx, 'ver')['unidad_id'];
-            return ['n'=>(int)$this->uno("SELECT COUNT(*) n FROM faltantes_inventario WHERE unidad_id=? AND estado='pendiente'", [$u])['n']];
+            $a = $this->alcance->autorizar($ctx, 'ver');
+            if (self::consolidado($ctx, $a)) return ['n'=>(int)$this->uno("SELECT COUNT(*) n FROM faltantes_inventario f JOIN unidades us ON us.id=f.unidad_id WHERE us.slug IN('restaurante','panaderia') AND f.estado='pendiente'", [])['n']];
+            return ['n'=>(int)$this->uno("SELECT COUNT(*) n FROM faltantes_inventario WHERE unidad_id=? AND estado='pendiente'", [$a['unidad_id']])['n']];
         }, 'REPEATABLE READ');
         return (int)($r['n'] ?? 0);
     }
@@ -99,16 +111,24 @@ final class Faltantes
      * almacén, cantidades, ticket de origen y orígenes posibles. El saldo sólo se
      * muestra en almacenes propios; un almacén de otro propietario aparece por
      * identidad y su dueño confirma (nunca se expone su saldo).
+     *
+     * En Global, para el superadministrador, la bandeja es la de todos los negocios
+     * que venden. «Propio» se mide contra el negocio del faltante, así que las reglas
+     * de conciliación son las mismas que aplica su administrador; como el
+     * superadministrador ya ve todos los saldos, aquí no se ocultan.
      */
     public function bandeja(string $ctx): array
     {
         return TransaccionInventario::ejecutar($this->db, function () use ($ctx): array {
-            $u = $this->alcance->autorizar($ctx, 'ver', null, true)['unidad_id'];
-            $filas = $this->sql("SELECT f.*,i.nombre articulo_nombre,i.unidad,i.contenido_pieza,a.nombre almacen_nombre,ti.ticket_id,ti.nombre item_nombre,ti.created_at item_fecha
-                FROM faltantes_inventario f JOIN ingredientes i ON i.id=f.articulo_id JOIN almacenes a ON a.id=f.almacen_id AND a.unidad_id=f.unidad_id
+            $alcance = $this->alcance->autorizar($ctx, 'ver', null, true);
+            $consolidado = self::consolidado($ctx, $alcance);
+            $filtro = $consolidado ? "us.slug IN('restaurante','panaderia')" : 'f.unidad_id=?';
+            $filas = $this->sql("SELECT f.*,us.slug contexto,i.nombre articulo_nombre,i.unidad,i.contenido_pieza,a.nombre almacen_nombre,ti.ticket_id,ti.nombre item_nombre,ti.created_at item_fecha
+                FROM faltantes_inventario f JOIN unidades us ON us.id=f.unidad_id JOIN ingredientes i ON i.id=f.articulo_id JOIN almacenes a ON a.id=f.almacen_id AND a.unidad_id=f.unidad_id
                 LEFT JOIN ticket_items ti ON ti.id=f.ticket_item_id AND ti.unidad_id=f.unidad_id
-                WHERE f.unidad_id=? AND f.estado IN('pendiente','en_confirmacion') ORDER BY f.estado='pendiente' DESC,f.creado_at,f.id LIMIT 200", [$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+                WHERE $filtro AND f.estado IN('pendiente','en_confirmacion') ORDER BY f.estado='pendiente' DESC,f.creado_at,f.id LIMIT 200", $consolidado ? [] : [$alcance['unidad_id']])->get_result()->fetch_all(MYSQLI_ASSOC);
             foreach ($filas as &$f) {
+                $u = (int)$f['unidad_id'];
                 $restante = self::restante($f);
                 $f['restante'] = DecimalInventario::cantidad($restante);
                 $f['asignaciones'] = $this->sql('SELECT s.id,s.almacen_origen_id,a.nombre almacen_nombre,us.slug contexto,s.cantidad,s.estado,s.motivo,s.transferencia_id,s.creado_at,s.resuelto_at FROM faltante_asignaciones s JOIN almacenes a ON a.id=s.almacen_origen_id JOIN unidades us ON us.id=a.unidad_id WHERE s.faltante_id=? ORDER BY s.id', [$f['id']])->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -120,7 +140,7 @@ final class Faltantes
                     $o['propio'] = $propio;
                     $o['requiere_confirmacion'] = !$propio;
                     if ($propio) { $cubrePropio = DecimalInventario::sumar($cubrePropio, max(0, DecimalInventario::leer($o['saldo'], 3, true))); }
-                    else unset($o['saldo']);
+                    elseif (!$consolidado) unset($o['saldo']);
                     unset($o['unidad_id']);
                 }
                 unset($o);
@@ -130,7 +150,7 @@ final class Faltantes
                 $f['cubierto_por_propios'] = $restante > 0 && $cubrePropio >= $restante;
             }
             unset($f);
-            return ['codigo'=>'FALTANTES_CONSULTADOS', 'faltantes'=>$filas];
+            return ['codigo'=>'FALTANTES_CONSULTADOS', 'faltantes'=>$filas, 'consolidado'=>$consolidado];
         }, 'REPEATABLE READ');
     }
 
@@ -144,6 +164,13 @@ final class Faltantes
     {
         return TransaccionInventario::ejecutar($this->db, function () use ($ctx, $datos): array {
             if (array_diff(array_keys($datos), ['faltante_id','version','clave','asignaciones'])) throw new InventarioError('DATOS_INVALIDOS', 'Campos de conciliación no permitidos.');
+            // Desde Global, el superadministrador concilia con las reglas del negocio
+            // dueño del faltante, como lo haría su administrador; a Global no le pertenece.
+            if (self::consolidado($ctx, $this->alcance->autorizar($ctx, 'editar', null, true))) {
+                $negocio = $this->uno("SELECT us.slug FROM faltantes_inventario f JOIN unidades us ON us.id=f.unidad_id WHERE f.id=? AND us.slug IN('restaurante','panaderia')", [self::id($datos['faltante_id'] ?? null)]);
+                if (!$negocio) throw new InventarioError('RECURSO_NO_ENCONTRADO', 'No se encontró el faltante autorizado.');
+                $ctx = $negocio['slug'];
+            }
             $u = $this->alcance->autorizar($ctx, 'editar', null, true)['unidad_id'];
             $clave = self::clave($datos['clave'] ?? null);
             $id = self::id($datos['faltante_id'] ?? null);

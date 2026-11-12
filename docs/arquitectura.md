@@ -468,6 +468,22 @@ cancelan su transferencia de regularización y se anulan; lo ya descontado o
 conciliado se compensa al almacén de consumo como cualquier venta. La
 transferencia aplicada no se revierte.
 
+**Lectura en Existencias.** Lo que una venta usó sin saldo no es un saldo negativo:
+el saldo queda en 0 y la parte sin conciliar (`cantidad − cantidad_conciliada` de los
+faltantes `pendiente` y `en_confirmacion`) se muestra aparte, con signo menos y la
+palabra «sin conciliar», bajo el saldo del artículo, del almacén y en su globo. Sólo
+se adjunta a asociaciones visibles en el alcance consultado.
+
+**Global y el superadministrador** (decisión del 11 de noviembre de 2026). Global no
+vende y no tiene faltantes propios. Para el superadministrador, Global muestra el aviso
+y la bandeja consolidados de Restaurante y Panadería, con el negocio de cada faltante
+rotulado. Puede declarar el origen, pero no es su responsabilidad: la tiene el
+administrador del negocio dueño del almacén de consumo, y el aviso del buzón sigue en
+ese negocio (no se crea en Global). Al conciliar desde Global, `Faltantes::conciliar()`
+resuelve el negocio del faltante y aplica exactamente sus reglas: lo de ese negocio se
+aplica al confirmar y lo de otro propietario queda en confirmación de su dueño. Los
+demás perfiles de Global no ven ni concilian faltantes.
+
 **Retiro de negativos.** `m4-faltantes.sql`, en este orden: por cada saldo
 negativo, un ajuste a 0 con motivo `migracion_faltantes` y un faltante pendiente
 por esa cantidad (`ticket_item_id` nulo, origen `migracion`); después
