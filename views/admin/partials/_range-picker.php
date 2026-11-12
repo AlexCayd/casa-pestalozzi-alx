@@ -15,6 +15,7 @@
  * - $rangeAllowFuture: permite navegar y elegir fechas posteriores a hoy.
  * - $rangeShowPresets: oculta presets cuando sólo interesa un periodo libre.
  * - $rangePreserveQuery: conserva filtros ajenos al rango al aplicar.
+ * - $rangeMaxDays: máximo inclusivo opcional; cero conserva el comportamiento sin límite UI.
  *
  * Cierra con unset() de sus parámetros: puede incluirse más de una vez por
  * página y el segundo include heredaría lo que dejó el primero.
@@ -26,6 +27,7 @@ $rangeEndParam = (string) ($rangeEndParam ?? 'hasta');
 $rangeAllowFuture = (bool) ($rangeAllowFuture ?? false);
 $rangeShowPresets = (bool) ($rangeShowPresets ?? true);
 $rangePreserveQuery = (bool) ($rangePreserveQuery ?? false);
+$rangeMaxDays = max(0, (int) ($rangeMaxDays ?? 0));
 
 $rangeEscape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $rangeStart = (string) ($rango['start'] ?? date('Y-m-d', strtotime('-29 days')));
@@ -40,8 +42,9 @@ $rangeBonita = static function (string $iso) use ($rangeMesesCortos): string {
     $ts = strtotime($iso);
     return $ts ? ((int) date('j', $ts) . ' ' . $rangeMesesCortos[(int) date('n', $ts)]) : $iso;
 };
-$rangeResumen = $rangeBonita($rangeStart) . ' – ' . $rangeBonita($rangeEnd)
-    . ' ' . date('Y', strtotime($rangeEnd));
+$rangeResumen = $rangeStart !== '' && $rangeEnd !== ''
+    ? $rangeBonita($rangeStart) . ' – ' . $rangeBonita($rangeEnd) . ' ' . date('Y', strtotime($rangeEnd))
+    : 'Sin seleccionar';
 
 $rangePresets = [];
 foreach (\Services\Shared\RangoPeriodo::PRESETS as $dias) {
@@ -58,6 +61,7 @@ foreach (\Services\Shared\RangoPeriodo::PRESETS as $dias) {
      data-end-param="<?php echo $rangeEscape($rangeEndParam); ?>"
      data-allow-future="<?php echo $rangeAllowFuture ? '1' : '0'; ?>"
      data-show-presets="<?php echo $rangeShowPresets ? '1' : '0'; ?>"
+     data-max-days="<?php echo $rangeMaxDays; ?>"
      data-preserve-query="<?php echo $rangePreserveQuery ? '1' : '0'; ?>">
 
     <span class="admin-range__caption"><?php echo $rangeEscape($rangeCaption); ?></span>
@@ -129,7 +133,7 @@ foreach (\Services\Shared\RangoPeriodo::PRESETS as $dias) {
 <?php
 unset(
     $rangeCaption, $rangeStartParam, $rangeEndParam, $rangeAllowFuture,
-    $rangeShowPresets, $rangePreserveQuery, $rangeEscape, $rangeStart, $rangeEnd, $rangePreset,
+    $rangeShowPresets, $rangePreserveQuery, $rangeMaxDays, $rangeEscape, $rangeStart, $rangeEnd, $rangePreset,
     $rangeLabel, $rangeComparar, $rangeEsCustom, $rangeMesesCortos, $rangeBonita,
     $rangeResumen, $rangePresets
 );

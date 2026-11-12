@@ -40,7 +40,8 @@
     "test:articulos:m2": "php scripts/tests/run-resolucion-articulos-m2.php && node scripts/tests/run-articulos-m2-ui.cjs && node scripts/tests/run-articulos-capacidades-ux.cjs",
     "test:articulos:m2:db": "php scripts/tests/run-articulos-m2.php",
     "test:articulos:m2:http": "php scripts/tests/pruebas-http-m2.php",
-    "test:menu:a4:db": "php scripts/tests/run-menu-a4.php"
+    "test:menu:a4:db": "php scripts/tests/run-menu-a4.php",
+    "test:range-picker": "node scripts/tests/run-range-picker.cjs"
   },
   "author": "",
   "license": "ISC",

@@ -14,6 +14,19 @@ final class GeneradorPdf
             throw new \RuntimeException('No se encontraron las fuentes del documento.');
         }
         $fontsDir = str_replace('\\', '/', $fuentes);
+        $opciones = new \Dompdf\Options();
+        $opciones->set('isRemoteEnabled', false);
+        $opciones->set('isPhpEnabled', false);
+        $opciones->set('isJavascriptEnabled', false);
+        $opciones->set('defaultFont', 'Montserrat');
+        $opciones->setChroot([$fuentes]);
+        $pdf = new \Dompdf\Dompdf($opciones);
+        // El adaptador SVG de Dompdf necesita el archivo de métricas, no el alias CSS.
+        $fontUrl = 'file://' . $fontsDir . '/Montserrat-Regular.ttf';
+        if (!$pdf->getFontMetrics()->registerFont(['family' => 'Montserrat', 'style' => 'normal', 'weight' => 'normal'], $fontUrl)) {
+            throw new \RuntimeException('No se pudo cargar la fuente institucional de las gráficas.');
+        }
+        $fuenteGrafica = str_replace('\\', '/', (string) $pdf->getFontMetrics()->getFont('Montserrat', 'normal'));
         ob_start();
         try {
             require $raiz . '/views/admin/reportes/base.php';
@@ -22,19 +35,12 @@ final class GeneradorPdf
             ob_end_clean();
             throw $e;
         }
-        $opciones = new \Dompdf\Options();
-        $opciones->set('isRemoteEnabled', false);
-        $opciones->set('isPhpEnabled', false);
-        $opciones->set('isJavascriptEnabled', false);
-        $opciones->set('defaultFont', 'Montserrat');
-        $opciones->setChroot([$fuentes]);
-        $pdf = new \Dompdf\Dompdf($opciones);
         $pdf->loadHtml($html, 'UTF-8');
         $pdf->setPaper('A4', 'portrait');
         $pdf->render();
         $fuente = $pdf->getFontMetrics()->getFont('Montserrat', 'normal');
         if ($fuente !== null) {
-            $pdf->getCanvas()->page_text(500, 817, '{PAGE_NUM} / {PAGE_COUNT}', $fuente, 8, [0.25, 0.30, 0.25]);
+            $pdf->getCanvas()->page_text(500, 817, '{PAGE_NUM} / {PAGE_COUNT}', $fuente, 8, [0.38, 0.40, 0.43]);
         }
         return $pdf;
     }
@@ -96,6 +102,14 @@ final class GeneradorPdf
                         if ($tipo === 'texto' ? (!is_string($celda) && !self::numeroONulo($celda)) : !self::numeroONulo($celda)) throw new \InvalidArgumentException('Celda inválida.');
                     }
                 }
+                if (isset($seccion['grafica'])) GraficaPdf::validar($seccion);
+                if (isset($seccion['anchos'])) {
+                    if (!is_array($seccion['anchos']) || count($seccion['anchos']) !== count($seccion['columnas'])) throw new \InvalidArgumentException('Anchos de tabla inválidos.');
+                    foreach ($seccion['anchos'] as $ancho) if (!is_int($ancho) || $ancho < 1) throw new \InvalidArgumentException('Ancho de tabla inválido.');
+                    if (array_sum($seccion['anchos']) !== 100) throw new \InvalidArgumentException('Anchos de tabla inválidos.');
+                }
+                if (isset($seccion['resaltadas']) && !is_array($seccion['resaltadas'])) throw new \InvalidArgumentException('Filas destacadas inválidas.');
+                foreach ($seccion['resaltadas'] ?? [] as $fila) if (!is_int($fila) || $fila < 0 || $fila >= count($seccion['filas'])) throw new \InvalidArgumentException('Fila destacada inválida.');
             } else {
                 throw new \InvalidArgumentException('Tipo de sección inválido.');
             }

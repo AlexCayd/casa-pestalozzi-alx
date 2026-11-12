@@ -161,8 +161,8 @@ final class ConsultasAlmacen
             ],
             'secciones' => [
                 ['titulo' => 'Movimientos por tipo en el periodo', 'tipo' => 'tabla', 'columnas' => ['Tipo', 'Movimientos'], 'formatos' => ['texto', 'entero'], 'filas' => $filasTipos],
-                ['titulo' => 'Almacenes activos al generar', 'tipo' => 'tabla', 'columnas' => ['Almacén', 'Relaciones activas', 'Bajo mínimo'], 'formatos' => ['texto', 'entero', 'entero'], 'filas' => $filasAlmacenes, 'vacio' => 'No hay almacenes activos al generar.'],
-                ['titulo' => 'Hasta 10 alertas actuales', 'tipo' => 'tabla', 'columnas' => ['Almacén', 'Artículo', 'Unidad', 'Saldo', 'Mínimo'], 'formatos' => ['texto', 'texto', 'texto', 'cantidad', 'cantidad'], 'filas' => $filasAlertas, 'vacio' => 'Sin alertas actuales al generar.'],
+                ['titulo' => 'Almacenes activos al generar', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Relaciones almacén/artículo', 'series' => [1, 2]], 'columnas' => ['Almacén', 'Relaciones activas', 'Bajo mínimo'], 'formatos' => ['texto', 'entero', 'entero'], 'filas' => $filasAlmacenes, 'vacio' => 'No hay almacenes activos al generar.'],
+                ['titulo' => 'Hasta 10 alertas actuales', 'tipo' => 'tabla', 'anchos' => [34, 26, 10, 15, 15], 'columnas' => ['Almacén', 'Artículo', 'Unidad', 'Saldo', 'Mínimo'], 'formatos' => ['texto', 'texto', 'texto', 'cantidad', 'cantidad'], 'filas' => $filasAlertas, 'vacio' => 'Sin alertas actuales al generar.'],
             ],
             'notas' => [
                 'El informe cubre todos los almacenes del negocio; no aplica selección de almacenes, búsqueda ni filtros de artículo o tipo de la pantalla.',

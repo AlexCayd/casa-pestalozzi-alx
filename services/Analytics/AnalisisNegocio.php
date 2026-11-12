@@ -111,12 +111,13 @@ final class AnalisisNegocio
         foreach ($productos as $producto) $top[] = [$producto['nombre'], $producto['piezas'], $producto['ventas']];
         $resumen = $actual['tickets'] === 0
             ? 'No hubo tickets cerrados en el periodo.'
-            : 'Se cerraron ' . $actual['tickets'] . ' tickets; ' . $actual['conConsumo'] . ' tenían partidas no canceladas y ' . ($actual['tickets'] - $actual['conConsumo']) . ' no tenían.';
-        if ($productos) $resumen .= ' El producto con más piezas fue ' . $productos[0]['nombre'] . ' (' . $productos[0]['piezas'] . ').';
+            : 'Tickets cerrados: ' . $actual['tickets'] . '; con partidas vigentes: ' . $actual['conConsumo'] . '; sin ellas: ' . ($actual['tickets'] - $actual['conConsumo']) . '.';
         $variacion = RangoPeriodo::delta($actual['ventas'], $previo['ventas']);
-        $resumen .= $variacion === null
+        $resumen .= $rango['end'] >= substr($generadoEn, 0, 10)
+            ? ' La comparación aritmética es provisional: incluye días no transcurridos o una jornada abierta.'
+            : ($variacion === null
             ? ' Las ventas no tienen base comparable en el periodo anterior.'
-            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.';
+            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.');
         return [
             'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
@@ -133,19 +134,19 @@ final class AnalisisNegocio
                 ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $actual['conConsumo'], 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
-                ['titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
+                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Piezas', 'series' => [1], 'detalle' => [2]], 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
                 ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
                     'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'],
                     'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ventas'], $actual['ventas'], $actual['ventas'] - $previo['ventas'], RangoPeriodo::delta($actual['ventas'], $previo['ventas'])]]],
             ],
             'notas' => [
-                'Ventas y piezas excluyen partidas canceladas y se atribuyen a tickets cerrados por fecha de cierre o apertura si falta el cierre; las propinas quedan fuera de ventas.',
-                'Los comensales son los asociados a tickets cerrados; no representan reservas atendidas.',
-                'Con consumo significa al menos una partida no cancelada, incluso de importe cero; sin consumo incluye tickets sin partidas vigentes.',
-                'Las semanas son tramos consecutivos de hasta siete días desde el inicio del periodo; los meses siguen el calendario.',
-                'Los productos se agrupan por el nombre guardado en la partida. No se incluye ocupación ni RevPASH.',
-                'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
+                'Ventas y piezas: partidas no canceladas de tickets cerrados, por cierre o apertura si falta; excluyen propinas.',
+                'Comensales: asociados a tickets cerrados, no reservas atendidas.',
+                'Con consumo: al menos una partida no cancelada, incluso de importe cero. Sin consumo: sin partidas vigentes.',
+                'Semanas: tramos consecutivos de hasta siete días desde el inicio. Meses: calendario.',
+                'Productos agrupados por el nombre de la partida; sin ocupación ni RevPASH.',
+                'Instantánea al generar, sujeta a cambios en los hechos de origen.',
             ],
         ];
     }

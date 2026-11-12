@@ -11,7 +11,7 @@ $fallo=null;
 try {
     pdfTestSetup();
     $env=array_merge(getenv(),pdfTestEnv(),['PDF_TEST_TEMP'=>$dir]);
-    $tests=['informes-fixture-seed.php','fin-independent.php','ana-independent.php','res-independent.php','inv-independent.php','tic-independent.php','consistencia-independent.php','ia-reportes-independent.php'];
+    $tests=['informes-fixture-seed.php','fin-independent.php','ana-independent.php','res-independent.php','inv-independent.php','tic-independent.php','consistencia-independent.php','graficas-representativas.php','ia-reportes-independent.php'];
     foreach (['finanzas','analytics','reservaciones','inventario','tickets'] as $mod) $tests[]=['informes-http-independent.php',$mod];
     foreach ($tests as $test) {
         $args=is_array($test)?$test:[$test]; $script=array_shift($args);
@@ -28,6 +28,7 @@ try {
             'tic-independent.php'=>'TIC independiente PASS',
             'consistencia-independent.php'=>'PASS consistencia independiente: 13 comprobaciones',
             'ia-reportes-independent.php'=>'IA Reportes independiente PASS',
+            'graficas-representativas.php'=>'GRÁFICAS representativas PASS',
             'informes-http-independent.php'=>strtoupper($args[0] ?? '').' HTTP independiente PASS 21 casos:',
         ];
         if ($code!==0 || preg_match('/\b(?:FAIL|SKIP)\b/i',$log) || !isset($markers[$script]) || !str_contains($log,$markers[$script])) {

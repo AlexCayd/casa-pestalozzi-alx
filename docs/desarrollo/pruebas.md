@@ -277,7 +277,7 @@ de recetas, presentaciones, variantes y snapshots.
 El ejecutor crea una base de nombre aleatorio mediante `Instalacion`, comprueba su marca de propiedad antes de eliminarla y guarda los artefactos en un directorio temporal por ejecución. El servidor HTTP y su router de sesiones de prueba se inician solo para esta suite en loopback, fuera de `public/`. Un fallo o una prueba omitida detiene la suite con código distinto de cero. Si no se verifica la propiedad durante la limpieza, se conserva el directorio temporal para recuperación manual. La validación siguiente corresponde a una ejecución local aislada, no certifica el entorno de producción.
 
 
-La aceptación independiente del 7 de noviembre de 2026 usó MySQL 9.7.1 y PHP 8.2.12 en un servidor de prueba, con bases temporales verificadas y eliminadas por propietario. **PASS** indica evidencia local; **FAIL_NUEVO** indica defecto introducido y **BLOQUEADO_ENTORNO** una condición del entorno. No se infiere compatibilidad con MariaDB ni comportamiento de producción.
+**Evidencia histórica del 7 de noviembre de 2026, anterior al diseño neutral del 12 de noviembre.** La aceptación independiente de esa fecha usó MySQL 9.7.1 y PHP 8.2.12 en un servidor de prueba, con bases temporales verificadas y eliminadas por propietario. **PASS** indica evidencia local; **FAIL_NUEVO** indica defecto introducido y **BLOQUEADO_ENTORNO** una condición del entorno. No se infiere compatibilidad con MariaDB ni comportamiento de producción.
 
 | Criterio | Estado | Evidencia |
 |---|---|---|
@@ -303,45 +303,52 @@ La primera ejecución de Analytics quedó **BLOQUEADA_ENTORNO** por una credenci
 
 En el ensayo representativo de 366 días se cargaron 1000 tickets, 2000 partidas, 1000 reservas, 1000 movimientos, tres almacenes y 30 relaciones. Las ventas FIN/ANA/TIC fueron 17,470, sin diferencia, y el hash de 12 tablas permaneció igual. La preparación tardó 5.06–22.42 ms y el render 198.41–957.47 ms; el pico de memoria informado durante la ejecución fue 24–50 MB. Páginas: FIN 2, ANA 16, RES 16, INV 2 y TIC 15. Son mediciones de esta muestra local, no garantías de capacidad o latencia.
 
-El detector visual Impeccable emitió dos advertencias `overused-font` sobre Montserrat en la plantilla y salió con código 1. Son observaciones estéticas sobre una fuente frecuente, no errores de carga o diseño: se conservó la identidad institucional compartida con MenuPdf; el renderizador carga las fuentes locales de `public/build/fonts` bajo su `chroot`. Los PDF y capturas se revisaron independientemente.
+En aquella revisión histórica, el detector visual Impeccable emitió dos advertencias `overused-font` sobre Montserrat en la plantilla y salió con código 1. Son observaciones estéticas sobre una fuente frecuente, no errores de carga o diseño: en esa versión se conservó la identidad institucional compartida con MenuPdf (sustituida para informes por el diseño neutral del 12 de noviembre); el renderizador carga las fuentes locales de `public/build/fonts` bajo su `chroot`. Los PDF y capturas se revisaron independientemente.
 
 Panadería y Global siguen sin informes PDF habilitados. La suite no certifica MariaDB, credenciales o servicios externos en vivo, ni reinicio y restauración del despliegue.
 
-### Revisión ejecutiva e integración IA — 11 de noviembre de 2026
+### Evidencia histórica: informes y calendario IA — 11 de noviembre de 2026
 
-Validación **local**, sobre `branch-leo`, de la presentación ejecutiva y del acceso
-desde el catálogo del asistente. Las decisiones funcionales están en el
-[contrato específico](../arquitectura-informes-pdf.md#63-reportes-dentro-del-asistente-ia);
-este registro describe evidencia y no amplía el alcance de la arquitectura.
+Registro **histórico local** del 11 de noviembre, sobre `branch-leo`: su presentación Montserrat/Playfair precede al rediseño neutral del día 12; no describe la tipografía vigente. El [contrato específico](../arquitectura-informes-pdf.md) describe las decisiones vigentes; este registro conserva resultados y límites, sin ampliar la arquitectura normativa.
 
-| Comprobación | Resultado y evidencia |
+| Comprobación | Resultado real |
 |---|---|
-| Fundación (`npm run test:informes`) | PASS: periodos, validación, escape de etiquetas, PDF multipágina seguro; barras con signo, cero, ausencia y números finitos extremos (`1e308`) sin anchuras infinitas. |
-| Aceptación aislada (`npm run test:informes:db`) | PASS: cinco dominios, paridad de cifras, 13 comprobaciones de consistencia, 105 casos HTTP y las 78 comprobaciones nuevas de IA. Las bases propias se eliminaron verificando propiedad. |
-| IA (`scripts/tests/informes-aceptacion/ia-reportes-independent.php`, dentro del runner) | PASS: cinco informes por nueve presets resueltos en servidor, personalizados de 366 días inclusivos, entradas manipuladas/arrays, fecha imposible, rango invertido y superior al límite, permisos efectivos y revocación después del catálogo. IA sin permisos de informes no ve el rubro; permisos PDF sin IA no resuelven enlaces. Panadería, Global, NIP y anónimo no obtienen resolución. |
-| Consultas anteriores | PASS: una consulta convencional real sigue respondiendo; capacidades y periodos del motor no incorporan `personalizado` ni intenciones documentales. Suites completas `npm run test:php` y `npm run test:js`: PASS. |
-| Navegador real | PASS en Chrome con viewport 1440×1000 y 390×844: píldora, hueco de informe y periodo, personalizado, cambio de módulo conservando fechas, enviar y PDF real en pestaña nueva. Rango inválido cierra la pestaña vacía y conserva borrador; popup bloqueado muestra aviso y permite reintentar. La consulta convencional retira fechas y conserva sus menús/respuestas. Sin errores JavaScript ni desbordamiento horizontal; inputs de fecha con alto táctil de 44 px. |
-| Render PDF real | PASS: Dompdf seguido de Poppler y revisión visual de todas las páginas de los cinco informes normales, los cinco periodos sin actividad histórica, los cinco rangos de 366 días y Reservaciones futuras rotuladas «Provisional». Se revisaron también presentación sintética de signos/ausencia y una serie de 13 tramos mensuales. Tablas, barras, ceros, notas, cabeceras repetidas, contraste, folios y saltos de página legibles; no se aceptó el mero hecho de generar `%PDF-`. |
-| Compilación y alcance | PASS: Gulp `adminIaJs` y `adminModuleCss`; se conservaron únicamente los bundles IA afectados, sin deriva de otros módulos. `git diff --check`: PASS. Sin cambios de DDL, dependencias nuevas, rutas PDF adicionales ni almacenamiento documental. |
+| Enrutamiento HTTP real | PASS: login con CSRF y segundo factor de fixture bajo `scripts/dev-router.php`; las cinco rutas de octubre de 2026 responden 200 PDF/no-store. Anónimo y sesión pendiente de segundo factor no acceden. Sin router se reproduce 404 de Finanzas; el router existente no requirió cambios. Véase el comando y la salvedad histórica en el contrato. |
+| Diagnóstico de cifras locales | Lectura consistente sin escrituras: 58 tickets cerrados sin partidas, ventas cero y gastos prorrateados explican la utilidad negativa. No se modificaron datos ni definiciones; no se puede reconstruir el importe histórico ausente. |
+| Fundación (`npm run test:informes`) | PASS: rangos, escape, SVG interno sin recursos externos, origen común y signos, ceros/ausencias, fallback ante extremos, precisión de centavos, 14 tramos y validación controlada de metadatos. |
+| Aceptación aislada (`npm run test:informes:db`) | PASS: cinco dominios y paridad, 13 comprobaciones de consistencia y 105 casos HTTP. La revisión gráfica añade 17 PDF representativos con actividad: cinco normales, cinco vacíos, cinco extensos de 366 días, Análisis con 14 tramos semanales y Reservaciones futuras provisionales. Hash de datos sin cambios tras generar. |
+| Gráficas y paginación | PASS: Dompdf, render Poppler e inspección de todas las páginas; importes/centavos exactos, ejes comunes, negativos, etiquetas largas, unidades mixtas sin sumarlas, cabeceras y folios. Auditoría de fuentes de los 17 PDF confirma Montserrat/Playfair locales sin fallback Times/Helvetica. Tras corregir dos huérfanos se rerenderizaron Análisis vacío y Tickets extenso: PASS, sin comprimir texto. |
+| IA HTTP actualizada | PASS: 80 comprobaciones documentales y nuevamente 105 HTTP. Una píldora/base, cinco tipos filtrados por permisos efectivos, nueve presets más Personalizado, revocación tras catálogo, IA sin módulos, módulos sin IA, otros contextos, NIP/2FA, entradas manipuladas y 366/367 días. Los endpoints originales vuelven a autorizar. |
+| Calendario compartido (`npm run test:range-picker`) | PASS: parcial PHP real y jsdom ya disponible; inicialización idempotente, evento cancelable frente a navegación por defecto, 366/367 inclusivos, fecha imposible, cancelar sin aplicar y teclado de rejilla frente a botones Aplicar/Cancelar/navegación mensual. Sin dependencias nuevas. |
+| Navegador real | PASS en Chrome, escritorio 1440×1000 y móvil 390×844: una píldora y una opción Ctrl+K; abrir Personalizado y mantenerlo abierto, seleccionar/aplicar sin recarga, teclado nativo, cancelar sin aplicar, cambiar cinco tipos y conversaciones conservando fechas; enviar los cinco PDF reales en nuevas pestañas. Dos meses/escritorio y uno/móvil, Aplicar visible y sin overflow. 366 aceptado y 367 bloqueado; consulta convencional vigente y selector de Finanzas navegando con comparador. Cero errores JavaScript. |
+| Regresión y compilación | PASS: suites completas `npm run test:php` y `npm run test:js`, sintaxis PHP y `git diff --check`. Gulp `adminJs`, `adminIaJs` y CSS del módulo IA; se restauró la deriva generada ajena. Sin DDL, nuevos paquetes, endpoints adicionales ni archivos PDF en `public/`. |
 
-Los periodos sin actividad mantienen distinciones del dominio: Finanzas puede
-mostrar gastos mensuales vigentes prorrateados aunque no haya ventas; Inventario
-puede mostrar alertas actuales aunque no haya movimientos en el rango. No se
-convirtieron esas fotografías actuales en ceros ni saldos históricos.
+Los periodos sin actividad conservan la semántica: Finanzas puede tener gastos mensuales prorrateados sin ventas; Inventario conserva la foto actual aunque no existan movimientos históricos. No se sustituyeron por ceros. Los controles de error/popup bloqueado y conservación del borrador ya contaban con verificación de navegador en la integración precedente; el nuevo lote se concentró en el calendario compartido y sus regresiones.
 
-Se corrigieron dos **aserciones preexistentes de fixtures**, verificadas durante
-la supervisión: el año de Análisis incluye los $100 del 14/01/2002 usados como
-comparador de su rango corto, de modo que su serie anual suma $550 y no $450;
-el año de Tickets incluye los $10 del 14/01/2001 y suma $135, no $125. Se
-conservan $450 y $125 en los rangos cortos originales y se añadió paridad del
-total anual con las autoridades de Análisis/Finanzas. No se alteraron consultas
-ni cálculos de negocio para hacer pasar estas pruebas.
+El primer intento del test Ctrl+K esperaba un nombre accesible exacto que excluía la descripción del elemento. Se corrigió el selector a prefijo manteniendo la aserción de una sola opción; el lote completo posterior pasó. No fue un cambio funcional para esconder una duplicación.
 
-Los logs exactos de fundación, aceptación DB/HTTP/consistencia/IA, PHP, JS y
-navegador, junto con PDF y PNG de evidencia, se conservaron fuera del repositorio
-y de `public/` para revisión del supervisor. El navegador utilizó sesiones de
-fixture local, no credenciales de producción; los screenshots móviles verifican
-el viewport, no un dispositivo físico. Las mediciones de carga de la aceptación
-del 7 de noviembre son históricas y no se presentan como un nuevo ensayo de
-capacidad. Este cierre no certifica despliegue, servicios externos en vivo,
-MariaDB, reinicio o restauración; no habilita informes de Panadería/Global.
+Se mantienen las correcciones verificadas de **aserciones preexistentes de fixtures**: Análisis anual suma $550 al incluir los $100 del 14/01/2002; Tickets anual suma $135 al incluir los $10 del 14/01/2001. Los rangos cortos conservan $450 y $125 respectivamente y la paridad con sus autoridades. No se alteraron cálculos para hacer pasar pruebas.
+
+Los logs exactos y evidencia no secreta se conservan fuera del repositorio y de `public/`, bajo la raíz privada de visualizaciones de esta sesión, en `correccion-etapa1`, `correccion-etapa2` y `correccion-etapa3`. Incluyen `http-real.log`, `diagnostico-local.json`, `test-informes.log`, `test-informes-db.log`, `test-pagefix.log`, `auditoria-fuentes.json`, `test-ia-http.log`, `test-range-picker.log`, `browser-flow.log`, logs PHP/JS y capturas finales `calendario-desktop-rango.png` y `calendario-mobile-rango.png`. Se detuvieron servidores propios, eliminaron bases aisladas comprobando token de propiedad y retiraron temporales con credenciales sintéticas; `cleanup.log` conserva la confirmación.
+
+Las sesiones y el segundo factor eran de fixture local; no certifican servicios externos, credenciales reales ni despliegue. Móvil significa viewport, no dispositivo físico. Las mediciones del 7 de noviembre son históricas y no un ensayo nuevo de capacidad. No se certifican MariaDB, reinicio o restauración, ni se habilitan informes de Panadería/Global.
+
+
+### Rediseño documental neutral — 12 de noviembre de 2026
+
+Validación **local** del diseño vigente de los cinco PDF de Restaurante, sin cambiar SQL, filtros, métricas, prorrateo, permisos ni endpoints. No se rediseñaron el panel, el asistente o el calendario. El [contrato de informes](../arquitectura-informes-pdf.md#decisiones-de-síntesis-por-módulo) conserva las decisiones funcionales; esta sección registra sus comprobaciones.
+
+| Comprobación | Resultado real |
+|---|---|
+| Finanzas prioritario | PASS: seis casos (normal, negativo, vacío, extenso, cruzado al futuro y futuro con actividad registrada), todos de una página en ese fixture. Tabla de cuatro columnas, cuerpo 10 pt y notas 8.5 pt, seis KPI contra su autoridad, documento sin mutación y hash DB idéntico. Auditoría: solo Montserrat. |
+| Lote representativo de cinco módulos | PASS: **32 PDF**: seis condiciones por cada módulo (normal, vacío, 366 días, cruzado, futuro con actividad y futuro sin actividad), más Análisis de 14 tramos variados y Reservaciones provisionales. Fixture con 93 ventas y centavos, tres almacenes de nombre amplio además del sembrado, saldos negativos y unidades mixtas. Paridad FIN/ANA/TIC de $227,783.75 en el extenso y datos sin mutación. |
+| Render y fuentes | PASS: Dompdf, Poppler color y gris, inspección de páginas y hojas completas. **44 PDF auditados**, que incluyen los 32 representativos, cinco independientes de dominio, cinco HTTP, Análisis de 366 días y una prueba tipográfica sintética de KPI amplios. Recursos de fuente exclusivamente Montserrat regular/negrita, incluidos SVG y folios; sin rutas internas visibles. La prueba tipográfica no representa cifras de negocio. |
+| Composición específica | PASS por supervisión: anchos efectivos de Inventario en celdas y alertas prioritarias; estados Tickets en KPI; Reservaciones diario sin tabla duplicada; importes y MXN separados de Alcance en el original futuro. Análisis puede conservar dos páginas lógicas; no se forzó una página reduciendo letra. |
+| Fundación y regresión PHP | PASS: `npm run test:informes`, `npm run test:php` y sintaxis de archivos PHP afectados. Fundación añadió conservación de filas/importes/null/ceros en clasificación temporal y fallback de serie completa ante un lote vacío. |
+| Aceptación aislada | PASS: cinco dominios, paridad, **13** comprobaciones de consistencia, **105 HTTP** y **80 IA** incluidas por el runner existente. Guardias y lectura sin mutación verificadas; las bases propias se eliminaron tras comprobar propiedad. |
+| Última corrección dirigida | Tras la batería completa se detectó que los extensos podían producir un segundo lote gráfico íntegramente cero. Se corrigió solo la presentación y se ejecutaron fundación y render real dirigido de ANA/RES/TIC extensos: PASS, documentos inalterados, tabla completa de 12 tramos, ceros y cabeceras repetidas, sin panel vacío. Los 14 tramos variados conservan su gráfica y precisión. Se repitió la auditoría de fuentes de 44 PDF y `diff --check`, sin repetir toda la batería ni los normales ya aceptados. |
+| JS, navegador y compilación | **NO_EJECUTADO en este encargo:** no hubo cambios JavaScript, SCSS del panel, bundles ni nuevo flujo de navegador IA. El PASS de JS y navegador del 11 de noviembre es evidencia previa, en `correccion-etapa3/test-js.log` y `browser-flow.log`; no un rerun del 12 de noviembre. |
+
+La evidencia del nuevo encargo se conserva fuera del repositorio y de `public/`, bajo la raíz privada de visualizaciones de la sesión: `redisenio-etapa1` contiene los seis FIN, baseline y paridad; `redisenio-etapa2` contiene los 32 representativos y 12 comprobaciones PDF adicionales, PNG color/gris, `test-lote.log`, `test-informes-db.log`, `test-php.log`, `test-informes.log`, `php-lint.log`, `confirmacion-extensos.log`, `test-fuentes.log`, `auditoria-fuentes.json`, `cleanup.log` y `delta-nuevo.patch`. Este último compara los archivos propios contra el baseline del inicio del encargo, preservando cambios anteriores sin commit. `redisenio-etapa3` conserva comprobación documental y delta final.
+
+Los scripts de evidencia de esta sesión reutilizaron el bootstrap aislado; la configuración local se trasladó en memoria a `TEST_DB_*`, sin imprimir credenciales ni cambiar la BD de aplicación. No quedaron servidores o navegadores propios activos. La legibilidad en gris se verificó con render digital: **no se realizó impresión física**. No hay nueva prueba de capacidad, despliegue, servicios externos, MariaDB, reinicio o restauración; Panadería y Global siguen inactivos para informes.

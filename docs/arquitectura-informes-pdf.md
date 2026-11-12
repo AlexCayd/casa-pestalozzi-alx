@@ -1,6 +1,6 @@
 # Casa Pestalozzi — Arquitectura de informes documentales PDF
 
-**Estado:** VALIDADO localmente para los cinco informes de Restaurante. Resultados y límites en [Pruebas](desarrollo/pruebas.md#informes-pdf-validación-local).
+**Estado:** VALIDADO localmente para los cinco informes de Restaurante; diseño documental neutral revisado el 12 de noviembre de 2026. Resultados y límites en [Pruebas](desarrollo/pruebas.md#informes-pdf-validación-local).
 **Destino en el repositorio:** `docs/arquitectura-informes-pdf.md`
 **Alcance de la primera entrega:** cinco informes de **Restaurante**: Finanzas, Análisis de datos, Reservaciones, Inventario y Tickets.
 **Extensión prevista:** Panadería y Global, **sin habilitarlos** en esta entrega.
@@ -107,21 +107,32 @@ $documento = [
 ];
 ```
 
-Reglas: números reales se pasan **sin formatear** (la vista aplica formato visual); porcentajes nulos significan «no comparable» y **nunca** `+∞ %`; valores ausentes ≠ cero (mostrar «No disponible» cuando corresponde); no introducir HTML arbitrario ni consultas SQL en los campos. `secciones` acepta `tabla`, `indicadores`, `texto` y, si aporta información, `serie` con datos limitados. Las series numéricas de dos columnas se presentan mediante el parcial fijo `views/admin/reportes/_serie.php`: tabla con barras horizontales HTML/CSS estáticas compatibles con Dompdf, sin bibliotecas ni imágenes remotas. No se incorporó un motor de gráficas ni SVG.
+Reglas: números reales se pasan **sin formatear**; porcentajes nulos significan «Sin base comparable», nunca infinito; ausencias no equivalen a cero. No introducir HTML arbitrario ni SQL. Las secciones conservan columnas y filas exactas y pueden declarar metadatos gráficos numéricos, validados por `GeneradorPdf`.
 
-El parcial conserva etiquetas, valores exactos, orden cronológico y filas de cero. La escala visual compara magnitudes absolutas desde cero respecto al máximo del mismo cuadro; el signo escrito y una tinta diferenciada identifican valores negativos. Cero y ausencia no dibujan barras; una ausencia sigue diciendo «No disponible». La anchura se calcula como proporción antes de multiplicar por 100 y se acota a 0–100, evitando desbordamientos incluso con números finitos extremos. Las series sin formato numérico mantienen su tabla. Los totales por semana o mes no son tasas diarias: se advierte que los tramos extremos pueden cubrir menos días.
+`services/Shared/GraficaPdf.php` construye SVG estático interno: barras horizontales, columnas y líneas, con ejes, origen cero, unidades y leyendas cuando corresponden. Las comparaciones usan un eje común; los negativos se extienden al lado negativo, sin transformar sus magnitudes en ventas positivas. Los ejes pueden abreviar cifras, pero las etiquetas y anotaciones conservan importes completos y centavos. Los conteos tienen marcas enteras. Las líneas requieren al menos dos puntos observados; no conectan ausencias. Los totales semanales/mensuales usan columnas y explican los tramos parciales de duración desigual: no son promedios diarios.
+
+La salida divide series extensas en grupos legibles con escala común y conserva valores exactos sin duplicar una tabla debajo de cada gráfica. Etiquetas largas se envuelven; magnitudes o rótulos que no pueden representarse con claridad vuelven a tabla. Una serie sin magnitudes, de todos ceros o temporal con un solo punto muestra un mensaje honesto y sus valores, sin inventar barras o tendencia. Si la división de una serie temporal produciría un lote completo sin magnitudes distintas de cero, toda la serie pasa a tabla compacta, conservando sus tramos, ceros y ausencias; no se reserva otra imagen de ejes vacíos. Las comparaciones categóricas breves de una sola serie, de hasta cinco filas, se presentan como tablas. La geometría se ajusta al contenido; las etiquetas SVG de 12–13 px mantienen un tamaño efectivo legible en A4, sin reducirlas para compactar. No hay recursos externos, markup del cliente ni bibliotecas gráficas nuevas. El antiguo parcial `_serie.php` fue retirado.
+
+Las tablas fijan anchos validados directamente en `th` y `td` además del `colgroup`, pues Dompdf no aplica este último de forma suficiente en estos casos; alinean números, muestran negativos monetarios como `-$…` y destacan totales pertinentes. Una sección tabular corta mantiene juntos título, cabecera y filas; las largas repiten cabeceras. El título y las notas de una gráfica permanecen con su primera imagen, sin agrupar todas sus continuaciones ni reducir la letra para forzar páginas.
 
 ### 4.3 Salida
 
 - A4 vertical, tipografía local del proyecto, márgenes uniformes; orientación horizontal **solo** si un reporte concreto la requiere y se prueba.
 - Encabezado: Casa Pestalozzi, módulo, contexto y periodo exacto.
 - Contenido: resumen ejecutivo **determinista**, 3–6 KPIs clave, hasta 2–3 secciones con tablas/series resumidas; notas sobre alcance y fuentes.
-- Pie: fecha/hora de generación, folios y carácter informativo del documento. Meta inicial: **2–4 páginas**, no truncar datos para cumplir un número arbitrario de páginas.
+- Pie: fecha/hora de generación, folios y carácter informativo del documento. Extensión según los datos: buscar brevedad sin truncar contenido ni imponer un número objetivo de páginas.
 - Respuesta `application/pdf`; `Content-Disposition: inline` inicialmente (descarga opcional vía acción explícita); nombre de archivo fijo/saneado (`informe-finanzas-restaurante-2026-10-01_2026-10-31.pdf`). `Cache-Control: private, no-store` y encabezados anti-caché apropiados.
 - Generación en memoria o temporal estrictamente efímero. **No almacenar** PDF o datos personales en `public/`, BD o carpetas versionadas.
 - Si la consulta no devuelve registros, emitir un documento válido con «Sin actividad en el periodo», KPIs cero únicamente donde sea correcto, y notas explícitas. Si falla una fuente imprescindible, devolver error controlado y **no PDF parcial presentado como completo**.
 
-**Presentación institucional vigente (11 de noviembre de 2026).** La plantilla compartida utiliza verde `#214F36`, oro `#D1AB66`, beige `#E3D5BB` y crema `#F5F1E8`, derivados de `src/scss/layout/_reset.scss`: títulos y cabeceras verdes, texto crema en cabeceras, separadores oro y superficies claras imprimibles. Se conservan las fuentes TTF locales compatibles con Dompdf, Montserrat y Playfair, la repetición de cabeceras y los folios. Análisis conserva sus siete indicadores existentes para distinguir tickets con y sin consumo sin eliminar comensales ni piezas; la meta de 3–6 no justifica perder información esencial.
+**Diseño documental vigente (12 de noviembre de 2026).** Sistema corporativo neutral, independiente de la paleta de la landing y de las cartas comerciales: fondo blanco, texto gris oscuro, secundarios grises, separadores finos y acento limitado a series de datos. Las cifras, leyendas y etiquetas permiten leer las series también en escala de grises; el color no sustituye su significado. No se emplean fuentes serif en títulos, tablas, gráficas ni folios. La familia local es Montserrat regular y negrita, con cuerpo de 10 pt, notas de al menos 8.5 pt y jerarquía sans-serif compartida. Los KPI son compactos y abiertos, sin tarjetas decorativas; Análisis conserva sus siete indicadores, en cuatro más tres cuando los importes caben con comodidad, o tres columnas para cifras amplias. La meta de 3–6 indicadores no justifica perder comensales, piezas o la distinción con/sin consumo.
+
+Para SVG, `GeneradorPdf` registra Montserrat local mediante `FontMetrics` y proporciona su prefijo interno al constructor: la resolución real de métricas evita fallback de fuente. No admite rutas del cliente ni imprime rutas internas; recursos remotos siguen desactivados y el `chroot` restringido a fuentes. La auditoría de los PDF finales confirmó exclusivamente Montserrat. Se mantienen A4, márgenes de impresión, cabeceras repetidas y folios. Se busca brevedad mediante composición y eliminación de duplicaciones, no mediante letra pequeña ni un límite artificial de páginas; el último bloque breve puede permanecer junto a las notas para evitar una página de notas aisladas. Las notas se preparan en el dominio: la vista no duplica definiciones financieras como una segunda autoridad.
+
+**Alcance temporal de presentación.** El corte procede de `corteDatos`. En Finanzas, Análisis y Tickets, un rango que alcanza el día del corte es provisional; uno que empieza después es futuro. Las variaciones se conservan como diferencias aritméticas registradas, sin concluir mejora o caída de un periodo aún no transcurrido. En las series de ventas, si hay algún tramo parcial o futuro se muestra la serie completa en una tabla con Alcance, sin dividir ni recalcular sus totales: «Observado», «Parcial al corte; total registrado del tramo», «Sin actividad registrada; no observado» para futuro cero, o «Registrado futuro; no observado» para futuro con importe. Ausencia sigue siendo no disponible, no cero. Ninguna fila ni actividad registrada futura se oculta.
+
+Finanzas conserva el prorrateo sobre **todo** el rango seleccionado, incluido su tramo futuro, y advierte que no equivale a egresos ya ocurridos; no se recortan consultas ni se generan proyecciones. Reservaciones mantiene su demanda programada futura y provisionalidad, sin tratarla como ventas no observadas. Inventario mantiene separadas la fotografía actual y los movimientos del rango.
+
 
 ## 5. Seguridad y consistencia obligatorias
 
@@ -158,7 +169,7 @@ Las cinco rutas anteriores están registradas para Restaurante. `/admin/inventar
 
 ### 6.3 Reportes dentro del Asistente IA
 
-«Reportes» es un **rubro del catálogo existente**, no un módulo lateral ni una pantalla nueva. `AdminIaController` añade una píldora por informe autorizado, con el mismo borrador/compositor y los mismos huecos y menús de `ConsultasRapidas.elegir`: «Generar informe de [Finanzas] · [Mes pasado]». El hueco de informe permite cambiar entre los disponibles sin ejecutar la consulta; el botón de enviar vigente abre el PDF en una nueva pestaña. Las consultas convencionales conservan su recorrido y sus respuestas.
+«Reportes» es un **rubro del catálogo existente**, no un módulo lateral ni una pantalla nueva. `AdminIaController` añade exactamente una píldora «Generar informe» cuando existe algún tipo autorizado, con el mismo borrador/compositor y los mismos huecos y menús de `ConsultasRapidas.elegir`: «Generar informe de [Finanzas] · [Mes pasado]». La píldora y el listado Ctrl+K representan una sola consulta; el hueco de tipo permite cambiar entre los cinco informes disponibles según permisos sin ejecutar la consulta; el botón de enviar vigente abre el PDF en una nueva pestaña. Las consultas convencionales conservan su recorrido y sus respuestas.
 
 El catálogo se filtra en servidor con el perfil efectivo recién cargado: requiere `ia:ver` y lectura del módulo del informe, en Restaurante. Una cuenta con IA sin permisos PDF no ve el rubro; una con permiso PDF pero sin IA puede usar el módulo conforme a sus guardias, pero no resolver informes mediante el asistente. Panadería y Global no reciben píldoras ni resolución de informes.
 
@@ -166,7 +177,11 @@ Las intenciones documentales `informe_finanzas`, `informe_analytics`, `informe_r
 
 Los nueve periodos predefinidos son los de `ConsultasRapidas::PERIODOS` y sus fechas se resuelven al enviar mediante `ConsultasRapidas::periodo`, con el reloj/zona horaria del servidor. Se transmiten al PDF como `desde`/`hasta`; sus comparadores documentales mantienen el periodo anterior de igual duración definido por `RangoPeriodo`, sin adoptar los comparadores particulares de las consultas convencionales.
 
-Solo los borradores de informes añaden **Personalizado** al menú. Al elegirlo aparecen «Fecha de inicio» y «Fecha de fin» dentro del mismo compositor, sin otro formulario. Ambas son inclusivas y `RangoPeriodo::resolverInforme` exige fechas reales, ordenadas, dentro de sus límites y hasta 366 días naturales. Fechas incompletas, arrays, campos ajenos, intenciones desconocidas, rutas/negocios del cliente o fechas junto a un preset se rechazan; no hay fallback silencioso. La resolución responde 400 ante rango/entrada inválidos y 403 ante acceso denegado. `ConsultasRapidas::INTENCIONES`, `PERIODOS` y capacidades convencionales no incorporan estas opciones.
+Solo los borradores de informes añaden **Personalizado** a los nueve periodos. Se incluye una única vez el parcial compartido `views/admin/partials/_range-picker.php`, con su JavaScript y estilos compartidos, dentro del compositor: no hay `input type="date"`, calendario clonado, formulario adicional ni modal. El calendario muestra dos meses en escritorio y uno en móvil. Aplicar actualiza la consulta estructurada sin recargar; cambiar tipo o conversación conserva las fechas. Salir de Personalizado cierra el calendario; Cancelar no aplica cambios.
+
+`range-picker.js` expone una inicialización idempotente y las operaciones `establecer`, `abrir` y `cerrar`. Antes de navegar emite `admin-range:aplicar`, cancelable. IA lo cancela y lee el estado actual del borrador; los módulos existentes que no lo cancelan conservan su navegación, incluido el comparador. Enter/Espacio seleccionan fechas solamente en la rejilla; Aplicar, Cancelar y navegación mensual mantienen su activación nativa y el cierre devuelve foco a un disparador visible.
+
+El límite visual opcional de 366 días inclusivos se configura únicamente para IA, sin imponerlo a los selectores de los módulos. La autoridad sigue siendo `RangoPeriodo::resolverInforme`: fechas reales, ordenadas y hasta 366 días naturales. Fechas incompletas, arrays, campos ajenos, intenciones desconocidas, rutas/negocios del cliente o fechas junto a un preset se rechazan sin fallback silencioso: 400 para entrada inválida y 403 para acceso denegado. `ConsultasRapidas::INTENCIONES`, `PERIODOS` y las consultas convencionales no incorporan Personalizado ni un motor documental nuevo.
 
 El navegador reserva la pestaña durante el gesto de enviar para evitar bloqueos del popup, elimina su `opener` y solo navega a enlaces locales de los cinco endpoints permitidos. Un error de resolución o timeout cierra la pestaña vacía, muestra el aviso existente y conserva el borrador; si el navegador bloquea el popup, informa cómo reintentar. Una revocación posterior a la resolución sigue siendo responsabilidad del endpoint PDF. No se guardan PDFs ni se crea un histórico documental en el chat.
 
@@ -176,6 +191,7 @@ El navegador reserva la pestaña durante el gesto de enviar para evitar bloqueos
 
 ```text
 services/Shared/GeneradorPdf.php              # SOLO PDF/HTML/folios/seguridad
+services/Shared/GraficaPdf.php                 # SVG estático interno; sin consultas de negocio
 services/Shared/LecturaConsistente.php         # transacción breve de lectura; sin SQL de negocio ni proveedores
 views/admin/reportes/base.php                 # plantilla visual única
 views/admin/partials/_generar-informe.php     # botón compartido, si realmente evita duplicar UI
@@ -298,15 +314,15 @@ El informe cubre todos los almacenes de Restaurante, sin aplicar selección de a
 
 | Informe       | Información ejecutiva y elección visual                                                                                                                                                                                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Finanzas      | Resume ingresos, utilidad neta, variación y costos desconocidos; avisa si los egresos definidos superan ingresos. Balance y comparación siguen tabulares: permiten leer gastos prorrateados y resultados negativos sin imponer un Sankey. No cambia la definición de utilidad bruta ni el prorrateo vigente. |
-| Análisis      | Añade variación de ventas al resumen y mantiene el producto líder por piezas. Barras temporales permiten localizar concentración o tramos sin venta, junto a todos los valores exactos; el top de productos sigue tabular para distinguir piezas e importe.                                                  |
-| Reservaciones | Añade fecha y cantidad de mayor demanda programada, conservando provisionalidad y pendientes sin inferir ausencias. Barras temporales muestran concentración de reservas; estados y días de mayor demanda permanecen como tablas.                                                                            |
-| Inventario    | Aclara desde el resumen si las diez alertas son una muestra y que describen el estado actual. Mantiene tablas de movimientos, almacenes y alertas: no suma unidades incompatibles ni convierte existencias actuales en saldos históricos.                                                                    |
-| Tickets       | Añade variación de ventas y distingue cancelaciones de tickets completos frente a partidas. Barras de ventas muestran actividad del periodo; estados y comparación mantienen cifras exactas. Los abiertos actuales siguen fuera.                                                                             |
+| Finanzas | Balance con utilidad neta destacada y tabla ejecutiva **Indicador · Anterior · Actual · Diferencia**, sin gráfica financiera. La diferencia monetaria es exacta; el porcentaje es secundario solo con base comparable positiva según la autoridad, o «Sin base comparable». Sin semántica de éxito/fracaso para diferencias provisionales. |
+| Análisis | Tendencia diaria o columnas por tramos cuando aportan una lectura real; top breve en tabla exacta y barras para comparaciones más extensas que resulten legibles. Siete KPI intactos y copia de resumen/notas sintetizada sin eliminar definiciones ni exclusiones. |
+| Reservaciones | Estados tabulares y evolución de demanda programada; provisionalidad y pendientes explícitos, sin inferir ausencias. La tabla de mayor demanda se omite solo cuando sus fechas y valores están íntegros en la serie diaria de hasta siete días; el Top 7 de rangos extensos se conserva. |
+| Inventario | Alertas primero, con todas las filas seleccionadas por la autoridad y sin nuevo ranking. Anchos efectivos 34/26/10/15/15 para almacén/artículo/unidad/saldo/mínimo; comparación compacta de relaciones activas y bajo mínimo por almacén, con leyendas y cifras. Movimientos y notas permanecen legibles; no se suman unidades incompatibles. |
+| Tickets | Cerrados y cancelados en KPI, sin repetirlos en otra gráfica/tabla; se conserva su fecha efectiva y la distinción entre tickets completos y partidas. Serie de ventas compacta o tabla cuando hay hasta dos tramos con actividad, alcance parcial/futuro o un lote gráfico vacío; todos los valores se conservan. |
 
 Los textos son deterministas y usan agregados existentes; no se añadieron consultas, métricas de negocio, predicciones ni recomendaciones generadas por IA.
 
-- **Resumen ejecutivo:** 2–4 oraciones deterministas a partir de métricas verificadas. Ej.: «Las ventas aumentaron X% respecto al periodo anterior» **solo si** existe comparador positivo, periodo equivalente y resultado calculado. Nada de IA generativa ni recomendaciones inventadas.
+- **Resumen ejecutivo:** texto breve determinista a partir de métricas verificadas. Ej.: «Las ventas aumentaron X% respecto al periodo anterior» **solo si** existe comparador positivo, periodo equivalente y resultado calculado. Nada de IA generativa ni recomendaciones inventadas.
 - **Comparativas:** mismo número de días o una base explícita comparable. `null` se representa como «Sin base comparable», no `0 %`.
 - **Presentación de números:** moneda MXN con dos decimales cuando sea relevante, unidades enteras/milésimas según el dominio, porcentajes con precisión coherente. Cálculo decimal sensible en el servicio, nunca en CSS/HTML.
 - **Periodo vacío:** distinguir no hubo operaciones (cero válido) de fuente ausente/fallo (error o N/D).
@@ -412,3 +428,16 @@ Un mismo ejecutor puede completar etapas contiguas; **no crear un subagente nuev
 ---
 
 **Resultado esperado al aprobar este contrato:** una única especificación que habilita la implementación secuencial de cinco informes de Restaurante, con presentación compartida y arquitectura extensible, **sin activar ni prometer reportes incompletos de Panadería o Global**.
+
+
+## Evidencia local de enrutamiento y cifras — 11 de noviembre de 2026
+
+Desde la raíz del repositorio, el servidor de desarrollo debe lanzarse con el router:
+
+```powershell
+php -d variables_order=EGPCS -S 127.0.0.1:8080 -t public scripts/dev-router.php
+```
+
+La prueba HTTP real con login, CSRF y segundo factor de fixture obtuvo 200 PDF en las cinco rutas de octubre de 2026. El mismo servidor sin `scripts/dev-router.php` devolvió 404 para Finanzas: el servidor integrado no aplica las reglas de Apache y busca un archivo físico `.pdf`. El router vigente ya reenvía esa ruta a `public/index.php`; no fue necesario cambiar rutas ni controladores. Se reprodujo esta causa, pero no se conserva el comando del incidente original para certificar que fuera exactamente su lanzamiento.
+
+Una lectura consistente, sin escrituras, de los datos locales encontró 58 tickets cerrados de Restaurante en octubre de 2026, todos sin partidas de ningún estado/unidad. Por ello Análisis registra 58 tickets, cero con consumo, piezas y ventas cero; Finanzas conserva ingresos cero y gastos mensuales vigentes de $20,050 prorrateados por 31/30: $20,718.33 y utilidad neta -$20,718.33. Las propinas ($1,547) no son ventas. Es una conciliación de autoridades y datos locales, no una corrección de históricos: no permite reconstruir ventas ausentes ni determinar por qué faltan partidas. El informe advierte la coexistencia de tickets e ingresos cero sin redefinir KPIs.

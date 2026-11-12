@@ -39,7 +39,16 @@ try {
     $check(in_array($request($api . http_build_query($q), true)['code'], [302, 401, 403], true), 'IA informe anónimo');
     $request('/__fixture/session?actor=reader', true);
     $page = $request('/admin/ia');
-    $check($page['code'] === 200 && substr_count($page['body'], 'data-ia-base="informe_') === 5, 'Cinco píldoras Reportes');
+    $borradorInforme = static function (string $html): array {
+        $dom = new DOMDocument(); $prev = libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html); libxml_clear_errors(); libxml_use_internal_errors($prev);
+        $boton = (new DOMXPath($dom))->query('//button[@data-ia-base="generar_informe"]')->item(0);
+        return $boton ? json_decode($boton->getAttribute('data-ia-borrador'), true, 512, JSON_THROW_ON_ERROR) : [];
+    };
+    $check($page['code'] === 200 && substr_count($page['body'], 'data-ia-base="generar_informe"') === 1, 'Una sola píldora Generar informe');
+    $borrador = $borradorInforme($page['body']);
+    $check(count($borrador['partes'][1]['opciones'] ?? []) === 5 && count($borrador['partes'][3]['opciones'] ?? []) === 10, 'Cinco tipos y nueve periodos más Personalizado');
+    $check(substr_count($page['body'], 'data-analytics-range-picker') === 1 && str_contains($page['body'], 'data-max-days="366"') && str_contains($page['body'], 'data-show-presets="0"') && !preg_match('/<input[^>]+type="date"/i', $page['body']), 'Calendario compartido único sin inputs date ni presets adicionales');
     file_put_contents(pdfTestTemp() . '/ia-reportes-page.html', $page['body']);
     $paths = ['finanzas' => 'finanzas', 'analytics' => 'analytics', 'reservaciones' => 'reservaciones', 'inventario' => 'almacenes', 'tickets' => 'tickets'];
     pdfTestLoadApp();
@@ -73,14 +82,16 @@ try {
     $db->execute_query("DELETE FROM usuario_unidad_permisos WHERE usuario_id=? AND unidad_id=? AND modulo='finanzas'", [$reader, $restaurante]);
     $check($request($api . http_build_query($q))['code'] === 403, 'Revocación después de catálogo');
     $page = $request('/admin/ia');
-    $check(!str_contains($page['body'], 'data-ia-base="informe_finanzas"') && substr_count($page['body'], 'data-ia-base="informe_') === 4, 'Catálogo refresca permisos');
+    $borrador = $borradorInforme($page['body']);
+    $tipos = array_column($borrador['partes'][1]['opciones'] ?? [], 'valor');
+    $check(substr_count($page['body'], 'data-ia-base="generar_informe"') === 1 && count($tipos) === 4 && !in_array('informe_finanzas', $tipos, true), 'Catálogo único refresca tipos según permisos');
     $db->execute_query("INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES(?,?,'finanzas','ver')", [$reader, $restaurante]);
     $db->execute_query("DELETE FROM usuario_unidad_permisos WHERE usuario_id=? AND unidad_id=? AND modulo='ia'", [$reader, $restaurante]);
     $check($request($api . http_build_query($q))['code'] === 403, 'Módulo PDF sin permiso IA');
     foreach (['wrong' => '/admin', 'bakery' => '/admin/panaderia', 'global' => '/admin/global'] as $actor => $base) {
         $request('/__fixture/session?actor=' . $actor, true);
         $page = $request($base . '/ia');
-        $check($page['code'] === 200 && !str_contains($page['body'], 'data-ia-base="informe_'), 'Sin reportes en contexto/permiso ' . $actor);
+        $check($page['code'] === 200 && !str_contains($page['body'], 'data-ia-base="generar_informe"'), 'Sin reportes en contexto/permiso ' . $actor);
         $check($request($base . '/api/consultas?' . http_build_query($q))['code'] === 403, 'API deniega ' . $actor);
     }
     $request('/__fixture/session?actor=nip', true);

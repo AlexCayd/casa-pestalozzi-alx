@@ -237,21 +237,20 @@ class AdminIaController
                     'valor' => 'personalizado', 'etiqueta' => 'Personalizado', 'grupo' => 'Fechas',
                     'consulta' => ['periodo' => 'personalizado'],
                 ]]);
-                $consultas = [];
-                foreach ($informes as $clave => $informe) {
-                    $borrador = ['consulta' => ['intencion' => $clave, 'periodo' => 'mes_pasado'], 'partes' => [
-                        ['tipo' => 'texto', 'texto' => 'Generar informe de'],
-                        ['tipo' => 'hueco', 'campo' => 'informe', 'rotulo' => 'Informe', 'valor' => $clave,
-                            'etiqueta' => $informe[0], 'opciones' => $opcionesInforme],
-                        ['tipo' => 'texto', 'texto' => '·'],
-                        ['tipo' => 'hueco', 'campo' => 'periodo', 'rotulo' => 'Periodo', 'valor' => 'mes_pasado',
-                            'etiqueta' => 'Mes pasado', 'opciones' => $periodosInforme],
-                    ]];
-                    $consultas[] = ['intencion' => $clave, 'titulo' => 'Generar informe ' . $informe[1],
-                        'descripcion' => 'Abre el PDF de ' . $informe[0] . ' en una nueva pestaña. Fechas inclusivas, hasta 366 días.',
-                        'icono' => 'descargar', 'borrador' => $borrador, 'borradores' => [$borrador]];
-                }
-                $grupos[] = ['tema' => 'Reportes', 'consultas' => $consultas];
+                $clave = array_key_first($informes);
+                $informe = $informes[$clave];
+                $borrador = ['consulta' => ['intencion' => $clave, 'periodo' => 'mes_pasado'], 'partes' => [
+                    ['tipo' => 'texto', 'texto' => 'Generar informe de'],
+                    ['tipo' => 'hueco', 'campo' => 'informe', 'rotulo' => 'Informe', 'valor' => $clave,
+                        'etiqueta' => $informe[0], 'opciones' => $opcionesInforme],
+                    ['tipo' => 'texto', 'texto' => '·'],
+                    ['tipo' => 'hueco', 'campo' => 'periodo', 'rotulo' => 'Periodo', 'valor' => 'mes_pasado',
+                        'etiqueta' => 'Mes pasado', 'opciones' => $periodosInforme],
+                ]];
+                $consulta = ['intencion' => 'generar_informe', 'titulo' => 'Generar informe',
+                    'descripcion' => 'Elige el tipo y el periodo. Abre el PDF en una nueva pestaña; fechas inclusivas, hasta 366 días.',
+                    'icono' => 'descargar', 'borrador' => $borrador, 'borradores' => [$borrador]];
+                $grupos[] = ['tema' => 'Reportes', 'consultas' => [$consulta]];
             }
         }
 

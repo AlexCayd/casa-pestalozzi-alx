@@ -65,8 +65,8 @@ final class InformeReservaciones
                 ['etiqueta' => 'Pendientes de cierre', 'valor' => $pendientes, 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Distribución de estados', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $distribucion],
-                ['titulo' => 'Reservaciones por ' . $serie['modo'], 'tipo' => 'serie', 'columnas' => ['Periodo', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie['filas']],
+                ['titulo' => 'Distribución de estados', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Estado', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $distribucion],
+                ['titulo' => 'Reservaciones por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Periodo', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie['filas']],
                 ['titulo' => 'Días de mayor demanda', 'tipo' => 'tabla', 'columnas' => ['Fecha', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $demanda],
             ],
             'notas' => [

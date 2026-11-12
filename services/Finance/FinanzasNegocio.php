@@ -270,23 +270,15 @@ final class FinanzasNegocio
         $anterior = $r['previo'];
         $deltaIngresos = RangoPeriodo::delta($r['ingresos'], $anterior['ingresos']);
         $deltaNeta = RangoPeriodo::delta($r['utilidadNeta'], $anterior['utilidadNeta']);
-        $resumen = $r['tickets'] === 0
-            ? 'No hubo tickets cerrados en el periodo.'
-            : 'Se cerraron ' . $r['tickets'] . ' tickets con ingresos de $' . number_format($r['ingresos'], 2) . '.';
-        $resumen .= ' La utilidad neta fue $' . number_format($r['utilidadNeta'], 2) . '.';
-        $resumen .= $deltaIngresos === null
-            ? ' Los ingresos no tienen base comparable en el periodo anterior.'
-            : ' Frente al periodo anterior, los ingresos variaron ' . number_format($deltaIngresos, 1) . ' %.';
-        if ($r['utilidadNeta'] < 0) $resumen .= ' Los costos, la merma conocida y los gastos prorrateados superan los ingresos.';
-        if ($r['sinCosto'] > 0) {
-            $resumen .= ' Hay ventas sin costo conocido; las utilidades no incluyen ese costo faltante.';
-        }
+        $resumen = 'Resultados registrados para el rango seleccionado.';
+        if ($r['tickets'] > 0 && $r['ingresos'] == 0) $resumen .= ' El conteo de tickets no acredita ventas por sí solo: las partidas vigentes suman $0.00.';
+        if ($r['sinCosto'] > 0) $resumen .= ' Hay ventas sin costo conocido; las utilidades no incluyen ese costo faltante.';
         $notas = [
-            'Las ventas corresponden a partidas no canceladas de tickets cerrados, por fecha de cierre o apertura si falta el cierre. Las propinas quedan fuera de los ingresos.',
-            'La utilidad bruta resta de los ingresos el costo de insumos y la merma con costo conocido; la utilidad neta resta además los gastos fijos.',
-            'Los gastos fijos son importes mensuales vigentes sin fecha, prorrateados por días del periodo entre 30; no son egresos históricos diarios y el mismo prorrateo se aplica al periodo anterior.',
-            'El costo de insumos usa el costo congelado en la venta; las partidas sin costo no se consideran costo cero conocido. La merma sin costo queda fuera de su importe.',
-            'Las cifras son una instantánea al generar el documento y pueden cambiar si se actualizan los hechos de origen.',
+            'Ventas: partidas no canceladas de tickets cerrados, por cierre o apertura si falta cierre; excluyen propinas.',
+            'Utilidad bruta = ingresos − costo de insumos − merma con costo conocido. Utilidad neta = utilidad bruta − gastos fijos.',
+            'Gastos fijos: montos mensuales vigentes sin fecha × días seleccionados / 30, también en el periodo anterior; no son egresos históricos diarios.',
+            'El costo se congela al vender. Costo ausente no equivale a cero conocido; la merma sin costo no integra su importe.',
+            'Instantánea al generar, sujeta a cambios en los hechos de origen.',
         ];
         return [
             'titulo' => 'Informe de Finanzas', 'contexto' => 'Restaurante',
@@ -302,13 +294,14 @@ final class FinanzasNegocio
                 ['etiqueta' => 'Utilidad neta', 'valor' => $r['utilidadNeta'], 'formato' => 'moneda', 'comparacion' => $deltaNeta],
             ],
             'secciones' => [
-                ['titulo' => 'Balance del periodo', 'tipo' => 'tabla', 'columnas' => ['Concepto', 'Importe'],
+                ['titulo' => 'Balance del periodo', 'tipo' => 'tabla', 'columnas' => ['Concepto', 'Importe'], 'anchos' => [64, 36], 'resaltadas' => [4],
                     'formatos' => ['texto', 'moneda'], 'filas' => [
                         ['Ingresos por ventas', $r['ingresos']], ['Costo de insumos', $r['cogs']],
                         ['Merma con costo conocido', $r['merma']], ['Gastos fijos prorrateados', $r['gastos']],
                         ['Utilidad neta', $r['utilidadNeta']], ['Ventas sin costo conocido', $r['sinCosto']],
                     ]],
                 ['titulo' => 'Comparación con el periodo anterior', 'tipo' => 'tabla',
+                    'grafica' => ['tipo' => 'barras', 'unidad' => 'MXN', 'series' => [1, 2], 'detalle' => [3, 4]],
                     'columnas' => ['Concepto', 'Anterior', 'Actual', 'Diferencia', 'Variación'],
                     'formatos' => ['texto', 'moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [
                         ['Ingresos por ventas', $anterior['ingresos'], $r['ingresos'], $r['ingresos'] - $anterior['ingresos'], $deltaIngresos],

@@ -50,6 +50,7 @@ comprobar($pdf->getOptions()->getIsRemoteEnabled() === false && $pdf->getOptions
 rechazar(static fn () => GeneradorPdf::emitir($doc, '../informe.pdf'));
 $serieDoc = $doc;
 $serieDoc['secciones'] = [['titulo' => 'Serie segura', 'tipo' => 'serie',
+    'grafica' => ['tipo' => 'barras', 'unidad' => 'MXN', 'series' => [1]],
     'columnas' => ['Tramo', 'Importe'], 'formatos' => ['texto', 'moneda'],
     'filas' => [['<img src="https://example.com/hostil">', -10.0], ['Cero', 0], ['Ausente', null], ['Positivo', 20.0]]]];
 $htmlSerie = static function (array $documento): string {
@@ -59,16 +60,50 @@ $htmlSerie = static function (array $documento): string {
     return ob_get_clean();
 };
 $html = $htmlSerie($serieDoc);
-comprobar(!str_contains($html, '<img src="https://example.com/hostil">') && str_contains($html, '&lt;img'), 'Etiqueta de serie no escapada');
-comprobar(substr_count($html, 'style="width:') === 2 && str_contains($html, 'width: 50.000%') && str_contains($html, 'width: 100.000%'), 'Escala de barras, cero o ausencia incorrectos');
-comprobar(str_contains($html, 'barra barra-negativa') && str_contains($html, '$-10.00 MXN') && str_contains($html, 'No disponible'), 'Negativo o ausencia ocultados');
+$formatear = static fn ($v, $t): string => $v === null ? 'No disponible' : ($v < 0 ? '-' : '') . '$' . number_format(abs($v), 2, '.', ',') . ' MXN';
+$resultado = \Services\Shared\GraficaPdf::preparar($serieDoc['secciones'][0], $formatear);
+$svg = base64_decode(substr($resultado['imagenes'][0], strpos($resultado['imagenes'][0], ',') + 1));
+comprobar(!str_contains($svg, '<img') && str_contains($svg, '&lt;img') && !str_contains($svg, 'href='), 'Etiqueta de gráfica no escapada o recurso externo');
+comprobar(str_contains($svg, '-$10.00 MXN') && str_contains($svg, 'No disponible'), 'Negativo o ausencia ocultados');
+$xml = new DOMDocument(); comprobar($xml->loadXML($svg), 'SVG inválido');
+$xp = new DOMXPath($xml); $xp->registerNamespace('s', 'http://www.w3.org/2000/svg');
+$origen = (float) $xp->query('//s:line[@stroke-width="2"]')->item(0)->getAttribute('x1');
+$barras = $xp->query('//s:rect[@height="9"]');
+comprobar($barras->length === 2, 'Cero o ausencia generan barras artificiales');
+comprobar((float)$barras->item(0)->getAttribute('x') < $origen && abs((float)$barras->item(1)->getAttribute('x') - $origen) < .01, 'El negativo no queda a la izquierda del cero común');
 $serieDoc['secciones'][0]['filas'] = [['Extremo', 1.0e308], ['Mitad', -5.0e307]];
 $html = $htmlSerie($serieDoc);
-comprobar(str_contains($html, 'width: 100.000%') && str_contains($html, 'width: 50.000%') && !preg_match('/width: (?:inf|nan)/i', $html), 'Escala no finita para datos finitos');
+comprobar(!str_contains($html, 'data:image/svg') && str_contains($html, 'preservar la legibilidad'), 'Datos extremos deben conservar tabla sin geometría infinita');
 $serieDoc['secciones'][0]['filas'] = [['Sin actividad', 0], ['Sin fuente', null]];
 $html = $htmlSerie($serieDoc);
-comprobar(!str_contains($html, 'style="width:') && str_contains($html, 'Sin magnitudes distintas de cero disponibles'), 'Barras artificiales en serie vacía');
+comprobar(!str_contains($html, 'data:image/svg') && str_contains($html, 'Sin actividad distinta de cero'), 'Gráfica artificial en serie vacía');
 comprobar(str_starts_with(GeneradorPdf::documento($serieDoc)->output(), '%PDF-'), 'Serie sin actividad no renderizada');
+$serieDoc['secciones'][0]['grafica']['tipo'] = 'lineas';
+$serieDoc['secciones'][0]['filas'] = [['2026-01-01', 1234.56]];
+comprobar(\Services\Shared\GraficaPdf::preparar($serieDoc['secciones'][0], $formatear)['tabla'], 'Un punto no permite inferir tendencia');
+$serieDoc['secciones'][0]['filas'] = [];
+for ($i = 1; $i <= 14; $i++) $serieDoc['secciones'][0]['filas'][] = ['2026-01-' . str_pad((string)$i,2,'0',STR_PAD_LEFT), $i * 1234.56];
+$graficas = \Services\Shared\GraficaPdf::preparar($serieDoc['secciones'][0], $formatear);
+$todos = implode('', array_map(static fn ($uri) => base64_decode(substr($uri, strpos($uri, ',') + 1)), $graficas['imagenes']));
+comprobar(str_contains($todos, '1,234.56') && str_contains($todos, '17,283.84'), 'Las etiquetas pierden centavos o valores exactos');
+comprobar(substr_count($todos, '<circle ') === 14 && count($graficas['imagenes']) > 1, 'Faltan puntos o no se separan rótulos extensos');
+$serieConLoteCero = $serieDoc['secciones'][0];
+for ($i = 7; $i < 14; $i++) $serieConLoteCero['filas'][$i][1] = 0;
+$originalConLoteCero = $serieConLoteCero;
+$sinPanelVacio = \Services\Shared\GraficaPdf::preparar($serieConLoteCero, $formatear);
+comprobar($sinPanelVacio['tabla'] && !$sinPanelVacio['imagenes'] && $serieConLoteCero === $originalConLoteCero, 'Un lote temporal entero cero debe conservar la serie íntegra en tabla, sin mutar tramos/importes');
+$serieTemporal = ['tipo'=>'serie', 'titulo'=>'Ventas', 'columnas'=>['Periodo','Ventas'], 'formatos'=>['texto','moneda'],
+    'grafica'=>['tipo'=>'columnas','unidad'=>'MXN','series'=>[1]],
+    'filas'=>[['2026-11-10', 1.25], ['2026-11-11 a 2026-11-17', 22.78], ['2026-11-18', 0], ['2026-11-19', -5.67], ['2026-11-20', null]]];
+$originalTemporal = $serieTemporal;
+$presentada = \Services\Shared\GraficaPdf::alcanceTemporal($serieTemporal, '2026-11-12');
+comprobar($serieTemporal === $originalTemporal && !isset($presentada['grafica']), 'La presentación temporal muta fuente o grafica futuro como observado');
+comprobar(array_column($presentada['filas'], 1) === array_column($serieTemporal['filas'], 1), 'La clasificación temporal cambia importes/null/ceros');
+comprobar(array_column($presentada['filas'], 0) === array_column($serieTemporal['filas'], 0), 'La clasificación temporal parte o elimina tramos');
+comprobar(array_column($presentada['filas'], 2) === ['Observado', 'Parcial al corte; total registrado del tramo', 'Sin actividad registrada; no observado', 'Registrado futuro; no observado', 'No disponible; no observado'], 'Alcances temporales incorrectos');
+comprobar(\Services\Shared\GraficaPdf::alcanceTemporal($serieTemporal, '2026-11-21') === $serieTemporal, 'Se altera una serie enteramente observada');
+$serieDoc['secciones'][0]['grafica']['series'] = [0];
+rechazar(static fn () => GeneradorPdf::documento($serieDoc));
 $doc['kpis'][0]['valor'] = '<b>1</b>';
 rechazar(static fn () => GeneradorPdf::documento($doc));
-echo "PASS fundación informes: periodos, validación, barras seguras y PDF multipágina seguro\n";
+echo "PASS fundación informes: periodos, validación, gráficas seguras/exactas y PDF multipágina seguro\n";

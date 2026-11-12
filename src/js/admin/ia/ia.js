@@ -202,6 +202,7 @@
         nuevaHistorial: raiz.querySelector('.ia-historial [data-ia-nueva]'),
         caja: raiz.querySelector('[data-ia-caja]'),
         armadoFrase: raiz.querySelector('[data-ia-constructor-frase]'),
+        rango: raiz.querySelector('[data-ia-rango]'),
         ayuda: raiz.querySelector('[data-ia-constructor-ayuda]'),
         bases: raiz.querySelector('[data-ia-bases]'),
         basesTexto: raiz.querySelector('[data-ia-bases-texto]'),
@@ -1245,6 +1246,7 @@
     var catalogo = leerCatalogo();
 
     function basePorIntencion(intencion) {
+        if (/^informe_/.test(intencion || '')) intencion = 'generar_informe';
         for (var i = 0; i < catalogo.length; i++) {
             if (catalogo[i].intencion === intencion) return catalogo[i];
         }
@@ -2012,26 +2014,18 @@
                 destino.appendChild(crear('span', 'ia-constructor__texto', p.texto));
             }
         });
-        if (esInforme(c) && c.consulta.periodo === 'personalizado') {
-            var fechas = crear('div', 'ia-fechas');
-            ['desde', 'hasta'].forEach(function (campo) {
-                var etiqueta = crear('label', 'ia-fechas__campo', campo === 'desde' ? 'Fecha de inicio' : 'Fecha de fin');
-                var entrada = crear('input', 'ia-fechas__entrada');
-                entrada.type = 'date';
-                entrada.required = true;
-                entrada.min = '1000-01-01';
-                entrada.max = '9998-12-31';
-                entrada.setAttribute('data-ia-fecha', campo);
-                entrada.value = c.consulta[campo] || '';
-                entrada.addEventListener('input', function () {
-                    c.consulta[campo] = entrada.value;
-                    estado.armadaTocada = true;
-                });
-                etiqueta.appendChild(entrada);
-                fechas.appendChild(etiqueta);
-            });
-            frase.appendChild(fechas);
-        }
+        pintarRangoInforme();
+    }
+
+    var rangoInforme = null;
+    function pintarRangoInforme() {
+        if (!el.rango || !window.AdminRangePicker) return;
+        rangoInforme = window.AdminRangePicker.iniciar(el.rango.querySelector('[data-analytics-range-picker]'));
+        var c = estado.armada;
+        var visible = esInforme(c) && c.consulta.periodo === 'personalizado';
+        if (!visible && rangoInforme) rangoInforme.cerrar(false);
+        el.rango.hidden = !visible;
+        if (visible && rangoInforme) rangoInforme.establecer(c.consulta.desde || '', c.consulta.hasta || '');
     }
 
     /**
@@ -2053,7 +2047,7 @@
         if (el.catalogo) {
             var pildoras = el.catalogo.querySelectorAll('[data-ia-base]');
             for (var i = 0; i < pildoras.length; i++) {
-                pildoras[i].setAttribute('aria-pressed', pildoras[i].getAttribute('data-ia-base') === intencion ? 'true' : 'false');
+                pildoras[i].setAttribute('aria-pressed', pildoras[i].getAttribute('data-ia-base') === (base ? base.intencion : intencion) ? 'true' : 'false');
             }
         }
     }
@@ -2227,6 +2221,13 @@
         sincronizarBase();
         actualizarCompositor();
         enfocarHueco(p.campo);
+        if (esInforme(c) && p.campo === 'periodo' && c.consulta.periodo === 'personalizado') {
+            // El click del selector todavía burbujea fuera del calendario. Abrir tras
+            // ese despacho evita que el cierre exterior lo oculte inmediatamente.
+            window.requestAnimationFrame(function () {
+                if (estado.armada === c && c.consulta.periodo === 'personalizado' && rangoInforme) rangoInforme.abrir();
+            });
+        }
     }
 
     function quitarHuecoOpcion(c) {
@@ -2266,13 +2267,10 @@
     /** La API resuelve fechas y autorización; el endpoint original produce el PDF. */
     function enviarInforme(borrador) {
         if (informePendiente || AMBITO !== 'restaurante') return;
-        var entradas = el.armadoFrase.querySelectorAll('[data-ia-fecha]');
-        for (var i = 0; i < entradas.length; i++) {
-            if (!entradas[i].reportValidity()) return;
-        }
         var consulta = borrador.consulta;
         if (consulta.periodo === 'personalizado' && (!consulta.desde || !consulta.hasta)) {
-            anunciar('Indica las dos fechas del informe.');
+            avisoInforme('Elige y aplica las fechas del informe en el calendario.');
+            if (rangoInforme) rangoInforme.abrir();
             return;
         }
         var pestana = window.open('about:blank', '_blank');
@@ -2331,7 +2329,7 @@
         if (!api || !el.bases || el.bases.hidden || !catalogo.length) return;
         api.elegir(el.bases, {
             rotulo: 'Pregunta',
-            valor: estado.armada && estado.armada.consulta ? estado.armada.consulta.intencion : null,
+            valor: estado.armada && estado.armada.consulta ? (basePorIntencion(estado.armada.consulta.intencion) || {}).intencion : null,
             buscar: false,
             ancho: 400,
             opciones: catalogo.map(function (c) {
@@ -2896,6 +2894,17 @@
     });
 
     /* ── Eventos ────────────────────────────────────────────────── */
+
+    if (el.rango) el.rango.addEventListener('admin-range:aplicar', function (evento) {
+        evento.preventDefault();
+        var c = estado.armada;
+        if (!esInforme(c) || c.consulta.periodo !== 'personalizado') return;
+        c.consulta.desde = evento.detail.desde;
+        c.consulta.hasta = evento.detail.hasta;
+        estado.armadaTocada = true;
+        anunciar('Rango del informe actualizado: ' + c.consulta.desde + ' a ' + c.consulta.hasta + '. Envía la consulta para abrir el PDF.');
+        actualizarCompositor();
+    });
 
     el.form.addEventListener('submit', function (evento) {
         evento.preventDefault();
