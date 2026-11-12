@@ -9,6 +9,9 @@ $modalId='articulo-'.(int)$i['articulo_id'].'-'.$tipoOperacion;
 $variosAlmacenes=count($almacenesOperacion)>1;
 // Un almacén de otro negocio (sólo en entradas) se nombra con su dueño.
 $rotuloAlmacen=static fn(array $a): string=>$a['nombre'].(isset($a['slug'])&&$a['slug']!==$ctx?' · '.(\Services\Security\Contextos::NOMBRES[$a['slug']]??$a['slug']):'');
+// El rótulo del almacén dice hacia dónde va la operación: es lo que se confirma de un
+// vistazo antes de capturar, junto con el saldo que hay ahí.
+$rotuloDestino=['entrada'=>'Entra en','merma'=>'Sale de'][$tipoOperacion]??'Almacén';
 $modalInicio($modalId,$tituloOperacion.' · '.$i['nombre'],false,'almacen-modal--operacion'); ?>
     <p class="almacen-modal__intro"><?php echo $esc(sprintf($introOperacion,$nombreContexto)); ?><?php if(!(int)$i['activo']): ?> Artículo inactivo: Global debe reactivarlo para registrar operaciones físicas.<?php endif; ?></p>
     <?php if($variosAlmacenes): ?>
@@ -16,7 +19,10 @@ $modalInicio($modalId,$tituloOperacion.' · '.$i['nombre'],false,'almacen-modal-
     <?php endif; ?>
     <?php foreach($almacenesOperacion as $asociacion): ?>
     <div class="almacen-modal__panel" data-warehouse-panel="<?php echo (int)$asociacion['almacen_id']; ?>" <?php echo $variosAlmacenes?'hidden':''; ?>>
-        <p class="almacen-modal__balance"><?php echo $esc($rotuloAlmacen($asociacion).' · Saldo '.$asociacion['saldo'].' '.$i['unidad'].(!empty($asociacion['saldo_piezas'])?' · '.$asociacion['saldo_piezas']:'')); ?></p>
+        <?php /* Destino y saldo en dos datos con su rótulo, no una cadena en mono: se leía
+           como código. El texto sigue diciendo «Saldo 2.375 g» de corrido para lectores. */ ?>
+        <p class="almacen-modal__balance"><span class="almacen-modal__dato"><span class="admin-eyebrow"><?php echo $esc($rotuloDestino); ?></span> <strong class="almacen-modal__almacen"><?php echo $esc($rotuloAlmacen($asociacion)); ?></strong></span> <span class="almacen-modal__dato almacen-modal__dato--saldo"><span class="admin-eyebrow">Saldo</span> <strong class="almacen-modal__saldo"><?php echo $esc($asociacion['saldo'].' '.$i['unidad']); ?></strong><?php // Sin piezas completas la lectura en piezas repite la cifra: no se pinta dos veces.
+        if(!empty($asociacion['saldo_piezas'])&&$asociacion['saldo_piezas']!==$asociacion['saldo'].' '.$i['unidad']): ?> <small><?php echo $esc($asociacion['saldo_piezas']); ?></small><?php endif; ?></span></p>
         <?php include __DIR__.'/_asociacion.php'; ?>
     </div>
     <?php endforeach; ?>

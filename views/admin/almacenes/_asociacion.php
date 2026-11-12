@@ -23,6 +23,9 @@ $contenidoTexto=$contenidoPieza!==null?rtrim(rtrim($contenidoPieza,'0'),'.').' '
 $saldoPiezas=$asociacion['saldo_piezas']??null;
 $saldoLectura=$asociacion['saldo'].' '.$i['unidad'].($saldoPiezas?' ('.$saldoPiezas.')':'');
 $opPrefijo=$prefijo.'-'.$tipoOperacion;
+// La previsión es la consecuencia de la cantidad: vive bajo ella, no al pie del
+// formulario, y el campo la cita como su descripción.
+$prevision='<p class="admin-field__hint almacen-prevision" id="'.$opPrefijo.'-prevision" data-stock-preview data-state="vacio" aria-live="polite">Escribe una cantidad para consultar el resultado estimado.</p>';
 ?>
 <form method="POST" action="<?php echo $esc($base.'/operacion'); ?>" class="admin-form-grid" data-stock-operation="<?php echo $tipoOperacion; ?>" data-stock-saldo="<?php echo $esc($asociacion['saldo']); ?>" data-stock-unidad="<?php echo $esc($i['unidad']); ?>"<?php if($contenidoPieza!==null): ?> data-stock-contenido="<?php echo $esc($contenidoPieza); ?>"<?php endif; ?> data-confirm-delete data-confirm-eyebrow="Operación física" data-confirm-title="<?php echo $esc($tituloOperacion.' · '.$i['nombre']); ?>" data-confirm-description="<?php echo $esc($asociacion['nombre'].' · Saldo actual '.$saldoLectura); ?>" data-confirm-primary="Confirmar operación" data-confirm-consequence="Se registrará un movimiento trazable en este almacén. El servidor volverá a verificar permisos y saldo.">
     <?php $campos($tipoOperacion,['almacen_id'=>$asocId,'articulo_id'=>$artId,'version'=>$asociacion['version'],'clave'=>'ui-'.bin2hex(random_bytes(16))]); ?>
@@ -34,9 +37,13 @@ $opPrefijo=$prefijo.'-'.$tipoOperacion;
             <div class="admin-field"><label for="<?php echo $opPrefijo; ?>-cantidad">Más suelto (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" min="0" step="0.001" inputmode="decimal"></div>
         </div>
         <p class="admin-field__hint">Se registra en <?php echo $esc($i['unidad']); ?>: piezas por <?php echo $esc($contenidoTexto); ?> más lo suelto. Sin piezas, lo suelto es el total.</p>
+        <?php echo $prevision; ?>
     </fieldset>
-    <?php else: ?>
-    <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-cantidad">Cantidad (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" step="0.001" min="0.001" required inputmode="decimal"><p class="admin-field__hint">Se registra una operación trazable; el saldo no se edita directamente.</p></div>
+    <?php else:
+        /* La cantidad ocupa su renglón: es el dato que manda. La ayuda «se registra una
+           operación trazable» se retiró; la confirmación ya lo dice, y su sitio lo ocupa
+           la previsión del saldo. */ ?>
+    <div class="admin-field admin-form-grid__full almacen-cantidad"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-cantidad">Cantidad (<?php echo $esc($i['unidad']); ?>)</label><input id="<?php echo $opPrefijo; ?>-cantidad" name="cantidad" type="number" step="0.001" min="0.001" required inputmode="decimal" aria-describedby="<?php echo $opPrefijo; ?>-prevision"><?php echo $prevision; ?></div>
     <?php endif; ?>
     <?php if($tipoOperacion==='entrada'):
         // Proveedor opcional: liga la entrada a su historial. Los que surten este
@@ -47,20 +54,29 @@ $opPrefijo=$prefijo.'-'.$tipoOperacion;
         if($provDisponibles):
             $surten=[];foreach(($provEntrada['porArticulo'][$artId]??[]) as $fila)$surten[(int)$fila['proveedor_id']]=$fila;
             usort($provDisponibles,static fn($x,$y)=>[isset($surten[(int)$y['id']])?(int)$surten[(int)$y['id']]['preferente']+1:0] <=> [isset($surten[(int)$x['id']])?(int)$surten[(int)$x['id']]['preferente']+1:0] ?: strcmp($x['nombre'],$y['nombre'])); ?>
-    <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-proveedor">Proveedor (opcional)</label><select id="<?php echo $opPrefijo; ?>-proveedor" name="proveedor_id" data-entrada-proveedor><option value="">Sin proveedor</option><?php foreach($provDisponibles as $prov): $ref=$surten[(int)$prov['id']]??null; ?><option value="<?php echo (int)$prov['id']; ?>"<?php if($ref): ?> data-costo="<?php echo $esc($ref['costo']); ?>"<?php endif; ?>><?php echo $esc($prov['nombre'].($ref?((int)$ref['preferente']?' · preferente':' · surte este artículo'):'')); ?></option><?php endforeach; ?></select><p class="admin-field__hint">Queda en el historial del proveedor. Con proveedor, el costo es obligatorio.</p></div>
+    <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-proveedor">Proveedor (opcional)</label><select id="<?php echo $opPrefijo; ?>-proveedor" name="proveedor_id" data-entrada-proveedor><option value="">Sin proveedor</option><?php foreach($provDisponibles as $prov): $ref=$surten[(int)$prov['id']]??null; ?><option value="<?php echo (int)$prov['id']; ?>"<?php if($ref): ?> data-costo="<?php echo $esc($ref['costo']); ?>"<?php endif; ?>><?php echo $esc($prov['nombre'].($ref?((int)$ref['preferente']?' · preferente':' · surte este artículo'):'')); ?></option><?php endforeach; ?></select><p class="admin-field__hint">Queda en el historial del proveedor. Con proveedor, el precio es obligatorio.</p></div>
     <?php endif; ?>
-    <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-costo">Costo de esta entrada<span data-costo-opcional> (opcional)</span></label><input id="<?php echo $opPrefijo; ?>-costo" name="costo_unitario" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="Costo maestro: <?php echo $esc($i['costo'].' por '.$i['unidad']); ?>"><p class="admin-field__hint">Queda guardado en el movimiento; no cambia el costo maestro.</p></div>
+    <?php /* «Costo de esta entrada» se leía como el total de la compra; lo que se guarda
+       es el precio por unidad (o por pieza, si se elige abajo). Sin capturarlo, el
+       servidor usa el costo de referencia del artículo, que este precio no cambia. */ ?>
+    <?php /* Con contenido por pieza, «El precio es» va dentro del campo, bajo el número:
+       dice en qué unidad está lo que se acaba de escribir. Suelto en su propio renglón se
+       leía como un dato más del formulario. */ ?>
+    <div class="admin-field almacen-precio"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-costo">Precio de compra<?php echo $contenidoPieza===null?' por '.$esc($i['unidad']):''; ?><span data-costo-opcional> (opcional)</span></label><input id="<?php echo $opPrefijo; ?>-costo" name="costo_unitario" type="number" min="0" step="0.0001" inputmode="decimal" aria-describedby="<?php echo $opPrefijo; ?>-costo-ayuda">
     <?php if($contenidoPieza!==null): ?>
-    <fieldset class="admin-pills almacen-costo-por">
-        <legend class="admin-pills__legend">El costo es</legend>
-        <div class="admin-pills__group">
-            <label class="admin-pill"><input type="radio" name="costo_por" value="unidad" checked><span class="admin-pill__body"><span class="admin-pill__title">Por <?php echo $esc($i['unidad']); ?></span></span></label>
-            <label class="admin-pill"><input type="radio" name="costo_por" value="pieza"><span class="admin-pill__body"><span class="admin-pill__title">Por pieza de <?php echo $esc($contenidoTexto); ?></span></span></label>
-        </div>
-    </fieldset>
-    <?php endif; endif; ?>
+        <fieldset class="admin-pills almacen-costo-por">
+            <legend class="admin-pills__legend">El precio es</legend>
+            <div class="admin-pills__group">
+                <label class="admin-pill"><input type="radio" name="costo_por" value="unidad" checked><span class="admin-pill__body"><span class="admin-pill__title">Por <?php echo $esc($i['unidad']); ?></span></span></label>
+                <label class="admin-pill"><input type="radio" name="costo_por" value="pieza"><span class="admin-pill__body"><span class="admin-pill__title">Por pieza de <?php echo $esc($contenidoTexto); ?></span></span></label>
+            </div>
+        </fieldset>
+    <?php endif; ?>
+        <p class="admin-field__hint" id="<?php echo $opPrefijo; ?>-costo-ayuda">Lo que pagaste en esta compra. Si lo dejas vacío se usa el costo de referencia: <?php echo $esc($i['costo'].' por '.$i['unidad']); ?>.</p></div>
+    <?php endif; ?>
     <?php if($tipoOperacion==='merma'): ?><div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-motivo">Motivo de merma</label><select id="<?php echo $opPrefijo; ?>-motivo" name="motivo" required><?php foreach(\Services\Inventory\Inventario::MOTIVOS_MERMA as $motivo=>$nombreMotivo): ?><option value="<?php echo $esc($motivo); ?>"><?php echo $esc($nombreMotivo); ?></option><?php endforeach; ?></select></div><?php endif; ?>
-    <div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-nota">Nota o referencia del documento (opcional)</label><input id="<?php echo $opPrefijo; ?>-nota" name="nota" type="text" maxlength="255"></div>
-    <p class="admin-field__hint admin-form-grid__full" data-stock-preview aria-live="polite">Escribe una cantidad para consultar el resultado estimado.</p>
+    <?php /* La entrada ya no pide nota: se identifica por proveedor, cantidad y precio.
+       La merma la conserva para explicar una diferencia de inventario. */ ?>
+    <?php if($tipoOperacion==='merma'): ?><div class="admin-field"><label class="admin-field__label" for="<?php echo $opPrefijo; ?>-nota">Nota o referencia del documento (opcional)</label><input id="<?php echo $opPrefijo; ?>-nota" name="nota" type="text" maxlength="255"></div><?php endif; ?>
     <?php echo $accionesOperacion($tituloOperacion); ?>
 </form>

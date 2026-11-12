@@ -888,12 +888,58 @@
 // de capturar: va justo encima del formulario, sin el aire de una sección aparte.
 .almacen-modal--operacion {
   .admin-modal__dialog { max-width: 680px; }
-  .almacen-modal__intro { margin-bottom: 16px; }
-  .almacen-modal__picker { margin-bottom: 20px; }
-  .almacen-modal__balance { margin: 0; padding-block: 12px; border-top: 1px solid var(--admin-border); }
-  .admin-form-grid { margin-block: 12px 0; }
+  .almacen-modal__intro { margin-bottom: 14px; }
+  .almacen-modal__picker { margin-bottom: 16px; }
+  // Tres o cuatro campos: el aire entre renglones de la rejilla compartida (26 px) está
+  // pensado para formularios largos con notas; aquí alargaba el diálogo sin separar nada.
+  .admin-form-grid { gap: 20px 18px; margin-block: 18px 0; }
   // La rejilla ya separa la fila de acciones con su hueco.
-  .admin-modal__actions { margin-top: 0; }
+  .admin-modal__actions { margin-top: 4px; }
+}
+/* Destino y saldo: el dato que se lee antes de capturar. Rótulo mono (`admin-eyebrow`)
+   sobre el dato en sans, el par de la casa; el saldo es una cifra aislada, así que va en
+   la cara de indicadores. Una caja tenue sin canto ni sombra: se lee como contexto, no
+   como un campo más. Rejilla y no flex con salto: un nombre largo se parte en su columna
+   y el saldo no baja a otro renglón. Los dos rótulos comparten la línea de arriba y el
+   nombre lleva el mismo alto de renglón que la cifra (24 px), así los datos también
+   quedan a la par. El `.almacen-modal__balance` de «Asociar artículo» (sólo nombre y
+   unidad) no cambia. */
+.admin-body .almacen-modal--operacion .almacen-modal__balance { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; margin: 0; padding: 12px 16px; border: 1px solid var(--admin-border-soft); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft); color: var(--admin-text); font-family: var(--admin-font-sans); font-size: 14px; }
+.almacen-modal__dato { display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  &--saldo { align-items: flex-end; text-align: right; }
+  small { color: var(--admin-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+}
+.admin-body .almacen-modal__almacen { font-size: 16px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.admin-body .almacen-modal__saldo { font-family: var(--admin-font-cifra); font-size: 22px; font-weight: 600; line-height: 24px; white-space: nowrap; }
+/* Rótulos en frase y en tinta: en versalitas abiertas, cuatro rótulos seguidos pesaban más
+   que los datos. Es el mismo rótulo que ya llevan «Asociar artículo» y el resto de
+   formularios de Almacenes (`.almacen-workspace .admin-field label`); aquí faltaba porque
+   `.admin-field__label` imponía las versalitas. Las ayudas, pegadas a su campo. */
+.almacen-modal--operacion {
+  :is(.admin-field, .almacen-piezas) .admin-field__label { margin-bottom: 6px; color: var(--admin-text); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .admin-field .admin-field__hint, .almacen-piezas > .admin-field__hint { margin-top: 6px; font-size: 12px; line-height: 1.45; max-width: none; }
+  // «Cantidad» es el rótulo del grupo; «Piezas de 750 ml» y «Más suelto» son sus partes y
+  // pesan un escalón menos para que el grupo se lea como un solo dato.
+  .almacen-piezas__campos .admin-field label { margin-bottom: 6px; color: var(--admin-muted); font-weight: 500; }
+}
+/* Previsión del saldo, bajo la cantidad que la produce. La cifra resultante va en negrita
+   (`inventario.js` la pinta en <strong>); el tono sale de `data-state`: invitación tenue con
+   el campo vacío, ámbar si la cifra no es válida y rojo si la merma dejaría saldo negativo.
+   El texto dice siempre lo mismo que el color. */
+.almacen-modal--operacion .admin-field__hint.almacen-prevision { margin-top: 8px; color: var(--admin-text); font-size: 13px; font-variant-numeric: tabular-nums; transition: color var(--admin-t-fast) var(--admin-ease-out);
+  strong { font-weight: 700; }
+  &[data-state="vacio"] { color: var(--admin-muted); }
+  &[data-state="invalido"] { color: var(--admin-warning-text); font-weight: 600; }
+  &[data-state="negativo"] { color: var(--admin-danger-text); font-weight: 600; }
+}
+/* «El precio es» vive dentro del campo de precio, bajo el número. `.almacen-workspace
+   .admin-field label` (0,2,1) convertía cada pill en bloque con margen; aquí recupera la
+   fila flex del componente. */
+.almacen-modal--operacion .almacen-costo-por { margin-top: 10px;
+  .admin-pills__legend { color: var(--admin-muted); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .admin-pills__group { margin-top: 6px; }
+  label.admin-pill { display: flex; margin: 0; font-weight: 400; }
+  @media (pointer: coarse) { label.admin-pill { min-height: 44px; align-items: center; } }
 }
 @media(max-width: 760px) {
   .almacen-workspace .admin-page__header, .almacen-section-head { flex-direction: column; align-items: stretch; }

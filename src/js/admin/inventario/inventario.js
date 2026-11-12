@@ -601,11 +601,30 @@
                 const total = bruto / 1000n + suelto;
                 return {total: total, texto: piezas.value + (piezas.value === '1' ? ' pieza' : ' piezas') + ' + ' + decimal(suelto) + ' ' + unidad + ' (' + decimal(total) + ' ' + unidad + ')'};
             }
+            // Lo que pinta el servidor es la invitación del campo vacío; no se lee como un
+            // error antes de que la persona escriba nada.
+            const invitacion = output ? output.textContent.trim() : '';
+            // El estado (`data-state`) le da el tono; la cifra resultante va en <strong>
+            // para que se lea primero. Se construye con nodos, nunca con innerHTML.
+            function decir(estado, antes, cifra, despues) {
+                output.dataset.state = estado;
+                output.textContent = antes;
+                if (cifra === undefined) return;
+                const fuerte = document.createElement('strong');
+                fuerte.textContent = cifra;
+                output.append(fuerte, despues);
+            }
             function pintar() {
                 const saldo = mil(form.dataset.stockSaldo || '');
                 const cantidad = capturado();
+                const vacio = input.value === '' && (!piezas || piezas.value === '');
+                if (vacio && invitacion !== '') {
+                    decir('vacio', invitacion);
+                    form.dataset.confirmDescription = originalDescription;
+                    return;
+                }
                 if (saldo === null || cantidad === null || cantidad.total <= 0n) {
-                    output.textContent = 'Escribe una cantidad válida con hasta tres decimales.';
+                    decir('invalido', 'Escribe una cantidad válida con hasta tres decimales.');
                     form.dataset.confirmDescription = originalDescription;
                     return;
                 }
@@ -613,9 +632,8 @@
                 const texto = decimal(resultado) + ' ' + unidad;
                 // Ningún almacén admite saldo negativo: se avisa antes de enviar, sin
                 // bloquear; el servidor es quien rechaza.
-                output.textContent = resultado < 0n
-                    ? 'Quedaría en ' + texto + '. El saldo no puede ser negativo: el servidor rechazará la operación.'
-                    : 'Resultado estimado: ' + texto + '. Se confirma en el servidor.';
+                if (resultado < 0n) decir('negativo', 'Quedaría en ', texto, '. El saldo no puede ser negativo: el servidor rechazará la operación.');
+                else decir('ok', 'Resultado estimado: ', texto, '. Se confirma en el servidor.');
                 const proveedor = form.querySelector('[data-entrada-proveedor]');
                 const deQuien = proveedor && proveedor.value !== '' ? ' · Proveedor: ' + proveedor.options[proveedor.selectedIndex].text.split(' · ')[0] : '';
                 form.dataset.confirmDescription = originalDescription + ' · Cantidad: ' + cantidad.texto + deQuien + ' · Resultado estimado: ' + texto;
