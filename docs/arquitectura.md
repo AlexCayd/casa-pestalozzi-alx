@@ -512,3 +512,100 @@ agregan en enteros exactos; sólo la variación y el intervalo son de lectura.
 desactiva, deja de ofrecerse en las entradas y conserva su historial. Sin entradas se
 elimina junto con sus asignaciones. Migración para bases existentes:
 `database/actualizaciones/m5-proveedores.sql`, aditiva y repetible.
+
+## 18. M6: alta en un paso y clasificación de artículos
+
+Decisión del 11 de noviembre de 2026. Registrar un ingrediente exigía cinco pantallas
+(catálogo maestro, alta de identidad, ficha de identidad, capacidades y asociación en
+Almacenes). M6 no cambia el contrato de datos de M2: cambia quién lo captura y cómo.
+
+### Capacidades: se conserva el contrato, se reemplaza la captura
+
+`articulo_configuraciones` sigue siendo el contrato del motor (§15) y no cambia de
+forma: lo leen `ResolucionArticulos`, la publicación de elaboraciones, la asociación a
+almacenes y los snapshots. Auditoría de consumidores de cada bandera:
+
+| Capacidad | Quién la lee | Efecto real |
+|---|---|---|
+| `componente` | `ResolucionArticulos` | Sin ella el artículo no entra a ninguna composición (`COMPONENTE_DENEGADO`) |
+| `almacenable` | `ResolucionArticulos`, asociación en Almacenes | Sin ella no se asocia ni descuenta existencias |
+| `elaborable` | `Articulos::publicar` | Habilita publicar una elaboración propia |
+| `costo_conocido` | lector efectivo | Distingue costo cero de costo desconocido |
+| `comprable` | nadie | Informativa |
+| `produccion_previa` | sólo la validación de `configurar` | Informativa desde M3 (§16): la venta ya no exige existencias terminadas |
+
+Sin fila de configuración, el lector efectivo ya entrega `componente=1` y
+`almacenable=1` (`COALESCE(propia, Global, 1)`). Un insumo recién creado sirve en
+recetas y en almacenes sin configurar nada; lo único que una persona debe decidir es
+si el artículo **se compra** o **se prepara en casa**. Por eso:
+
+- La captura es una sola pregunta, «¿Cómo se obtiene?»: `insumo` (se compra) o
+  `preparacion` (`elaborable=1`), más «Activo en este negocio». No es una columna ni un
+  discriminador: `Articulos::clasificar()` traduce la respuesta a las mismas siete
+  capacidades y las guarda con `Articulos::configurar()`, que conserva sus reglas
+  (permisos, revisión optimista, `ARTICULO_ASOCIADO`).
+- `clasificar()` parte del **estado efectivo**, no de los valores por omisión de
+  `configurar()`: materializar la primera fila nunca apaga `almacenable` ni
+  `costo_conocido`. `comprable` se deriva del tipo y `produccion_previa` se conserva
+  mientras siga siendo válida.
+- Las tres banderas con efecto que no son la pregunta principal (`componente`,
+  `almacenable`, `costo_conocido`) quedan en «Opciones avanzadas», plegadas en la misma
+  ficha. `comprable` y `produccion_previa` dejan de capturarse.
+- Subrecetas y recetas no cambian: una preparación sigue siendo un artículo con
+  elaboración versionada, y la vinculación de preparaciones anteriores sigue llamando
+  a `configurar()` + `publicar()`.
+
+### Reventa: se deriva de la oferta
+
+La regla de §16 se mantiene: reventa es una decisión de la oferta
+(`ofertas_producto.tipo_venta`), no del artículo, y un mismo artículo puede ser
+ingrediente y reventa. El módulo la **muestra**: la lista y la ficha indican qué
+artículos descuenta un producto de reventa (cada venta resta el artículo del almacén,
+sin receta intermedia) y la lista se filtra por «Reventa». Un artículo que sólo se
+revende se da de alta como insumo y no pide elaboración.
+
+### Pantallas
+
+- **Lista** (`/recetas/articulos`): 15 artículos por página; tipo, uso vigente,
+  almacenes y estado. «Nuevo artículo» abre un diálogo con identidad, forma de
+  obtención y almacenes; se envía a `/almacenes/catalogo/nuevo`, único escritor del
+  alta, con los permisos de Almacenes. Un insumo vuelve a la lista listo para usarse;
+  una preparación abre su ficha en la elaboración.
+- **Ficha** (`/recetas/articulos/editar`): datos generales (identidad maestra, que se
+  guarda en `/almacenes/catalogo/editar` con sus permisos), uso en el negocio
+  (clasificación), elaboración sólo si es preparación, «Dónde se usa» y almacenes.
+- `/almacenes/catalogo` y `/almacenes/catalogo/editar` redirigen (303) a la lista y la
+  ficha cuando la persona puede ver Artículos y preparaciones, conservando búsqueda,
+  estado, página y regreso. Quien sólo tiene Almacenes conserva el catálogo como
+  pantalla propia: la misma lista sin lectura de recetas, el alta en un paso limitada a
+  insumos y la identidad con sus almacenes. No hay rutas nuevas.
+- `/almacenes/catalogo/nuevo` queda como página de respaldo del diálogo: atiende a
+  quien llega sin JavaScript o vuelve de un rechazo (422) con lo capturado.
+
+Reglas de navegación y resultado:
+
+- El alta no escribe `articulo_configuraciones` para un insumo: nace con el estado
+  efectivo por omisión y, sin costo capturado, con costo desconocido. Una preparación
+  se clasifica en el negocio donde se creó, en una segunda transacción; si esa
+  clasificación falla, el artículo queda como insumo y el aviso lo dice.
+- El aviso de alta lo pinta la lista (`_m6_alta`, de un solo uso). Si el alta se abrió
+  desde otra pantalla (Almacenes), aterriza en la ficha del artículo nuevo, que conserva
+  el regreso al origen.
+- Un rechazo al guardar los datos generales vuelve a la ficha por PRG (`_m6_identidad`)
+  con el motivo y lo capturado; nada se guarda.
+- Las opciones físicas («Lleva existencias», «Su costo es conocido») sólo se leen de
+  quien edita Almacenes en el negocio. Sin ese permiso, un artículo que aún usa la
+  configuración general no puede materializar una propia: la ficha lo explica y el
+  servidor lo rechaza.
+- El filtro de estado de la lista usa el mismo estado efectivo que la columna: activo
+  en la casa y no apagado en el negocio.
+
+### «Dónde se usa»
+
+`Articulos::dondeSeUsa()` lee sólo composición **vigente**: última versión publicada
+de cada presentación, receta activa de la oferta cuando no tiene presentaciones,
+última elaboración publicada, preparaciones anteriores activas y ajustes de variantes.
+Cada producto lleva su tipo de venta. En Global la lectura es consolidada de
+Restaurante y Panadería, con el negocio rotulado, bajo la regla de §3: consulta, nunca
+escritura; el enlace a la receta sólo aparece si la persona tiene acceso en ese
+negocio. El historial de versiones sigue en la consulta de versiones del artículo.

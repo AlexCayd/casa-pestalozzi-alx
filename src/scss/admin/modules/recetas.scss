@@ -433,21 +433,10 @@
 .m2-disclosure:not([open]) { padding-top: 12px; padding-bottom: 12px; }
 .m2-disclosure[open] > summary { margin-bottom: 12px; }
 .m2-capacidades { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 20px; }
-.m2-capacidad-grupos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; }
-.m2-capacidad-grupo { min-width: 0; }
-.m2-capacidad-grupo + .m2-capacidad-grupo { border-top: 1px solid var(--admin-border); padding-top: 12px; }
-.m2-capacidad-grupo h3 { margin: 0 0 4px; font-size: 1rem; }
-.m2-capacidad-grupo > p { margin: 0 0 6px; color: var(--admin-muted); font-size: .875rem; }
-.m2-capacidad-grupo .m2-capacidades { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.m2-articulo .m2-capacidad-grupo .m2-capacidad small { color: var(--admin-muted); font-size: .8125rem; font-weight: 400; line-height: 1.4; }
-.m2-capacidad-dependencia { margin-top: 4px !important; }
-.m2-capacidad-estado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
-.m2-capacidad-estado .m2-capacidad { padding: 0; }
 .m2-configuracion__lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 0; }
 .m2-configuracion__lista > div { min-width: 0; }
 .m2-configuracion__lista dt { color: var(--admin-muted); font-size: .8125rem; }
 .m2-configuracion__lista dd { margin: 2px 0 0; font-weight: 600; }
-.m2-configuracion .admin-actions { margin-bottom: 0; }
 .m2-articulo .m2-capacidad { min-height: 44px; padding: 6px 0; align-items: start; }
 .m2-articulo .m2-capacidad input { margin-top: 3px; }
 .m2-articulo .admin-panel + .admin-panel { margin-top: 16px; }
@@ -456,13 +445,16 @@
 .m2-articulo__estado { margin: 8px 0 0; font-size: .875rem; color: var(--admin-muted); }
 // Alta de artículo: almacenes que lo manejarán, por negocio. Es opcional, así que va
 // tras un filete, debajo de la identidad, con el mismo patrón de casillas de la ficha.
+// Las reglas cuelgan de .admin-body y no de .m2-articulo: el mismo formulario se
+// abre en el diálogo de la lista, que queda fuera de la sección de la ficha, y
+// allí la ayuda caía en una columna y el rótulo del negocio perdía su voz.
 .m2-alta-almacenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; align-items: start; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--admin-border); }
 .m2-alta-almacenes > legend { float: left; width: 100%; padding: 0; font-size: 1rem; font-weight: 700; }
-.m2-alta-almacenes > legend, .m2-articulo .m2-alta-almacenes > .admin-field__hint { grid-column: 1 / -1; margin: 0; }
+.m2-alta-almacenes > legend, .admin-body .m2-alta-almacenes > .admin-field__hint { grid-column: 1 / -1; margin: 0; }
 .m2-alta-almacenes__grupo { min-width: 0; padding: 6px 12px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-sm); }
-.m2-articulo p.m2-alta-almacenes__negocio { margin: 0; padding: 6px 0 2px; color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
-.m2-articulo .m2-alta-almacenes .m2-capacidad { align-items: center; font-weight: 600; overflow-wrap: anywhere; cursor: pointer; }
-.m2-articulo .m2-alta-almacenes .m2-capacidad input { margin-top: 0; accent-color: var(--admin-text); cursor: inherit; }
+.admin-body p.m2-alta-almacenes__negocio { margin: 0; padding: 6px 0 2px; color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.admin-body .m2-alta-almacenes .m2-capacidad { min-height: 44px; padding: 6px 0; align-items: center; font-size: 14px; line-height: 1.3; font-weight: 600; overflow-wrap: anywhere; cursor: pointer; }
+.admin-body .m2-alta-almacenes .m2-capacidad input { margin-top: 0; accent-color: var(--admin-text); cursor: inherit; }
 .m2-articulo .m2-fieldset:disabled .m2-alta-almacenes .m2-capacidad { cursor: default; }
 .m2-catalogo .admin-actions { flex-wrap: wrap; gap: 8px; }
 .m2-catalogo__filtros { margin-bottom: 20px; align-items: end; }
@@ -471,9 +463,7 @@
 .m2-catalogo .admin-table td { vertical-align: middle; }
 @media (max-width: 900px) { .m2-capacidades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
- .m2-capacidades, .m2-capacidad-grupos, .m2-configuracion__lista { grid-template-columns: minmax(0, 1fr); gap: 0; }
- .m2-capacidad-grupo + .m2-capacidad-grupo { margin-top: 12px; }
- .m2-capacidad-estado { align-items: flex-start; flex-direction: column; }
+ .m2-capacidades, .m2-configuracion__lista { grid-template-columns: minmax(0, 1fr); gap: 0; }
  .m2-catalogo__filtros { grid-template-columns: minmax(0, 1fr); }
  .m2-articulo .admin-page__header .admin-actions { width: 100%; }
  .m2-catalogo .admin-page__title { overflow-wrap: anywhere; }
@@ -487,4 +477,761 @@
   @media (max-width: 560px) {
     grid-template-columns: minmax(0, 1fr) 110px;
   }
+}
+
+// ── M6 · Artículos y preparaciones (arquitectura §18) ─────────────
+//
+// Lista única, alta en un paso y ficha única. Todo cuelga de `.admin-body`
+// porque las reglas por etiqueta del panel (`.admin-body h2`, `p`, `small`,
+// `button`) suman (0,1,1) y le ganan a una clase sola: sin ese prefijo el
+// título de cada panel salía a 35 px, del tamaño del titular de la página.
+
+// Apila una tabla en fichas cuando no cabe: la primera celda es el nombre y
+// encabeza; el resto son pares «rótulo — valor» tomados de `data-label`.
+// Mismo recurso que Inventario, para que el panel colapse igual en todos lados.
+@mixin m6-tabla-apilada {
+  display: block;
+  min-width: 0;
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: block;
+  }
+
+  tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    padding-block: 12px;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+
+  td {
+    display: flex;
+    grid-column: 1 / -1;
+    // El rótulo empuja a la derecha todo lo demás: una celda con dos piezas
+    // (etiqueta y «por confirmar») las mantiene juntas en vez de repartirlas.
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 4px 8px;
+    padding: 5px 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+
+    &::before {
+      flex: 0 0 auto;
+      margin-right: auto;
+      padding-right: 4px;
+      color: var(--admin-muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+      content: attr(data-label);
+    }
+  }
+
+  // El nombre no necesita rótulo: es el título de la ficha.
+  td:first-child {
+    display: block;
+    grid-column: 1;
+    padding-bottom: 6px;
+    text-align: left;
+
+    &::before {
+      content: none;
+    }
+  }
+}
+
+// Título de panel: es un <h2> por estructura, pero a la escala del h3 del
+// sistema, la misma de las tarjetas de «Recetas de productos». El titular de
+// la página es el único que va en grande.
+.admin-body .m6-lista .admin-card > h2,
+.admin-body .m6-ficha .admin-card > h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 14px;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: -0.014em;
+
+  // Recuento junto al título: dato de apoyo, no parte del titular.
+  .admin-field__hint {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// La ayuda que explica el panel va pegada a su título, no al contenido.
+.admin-body .m6-ficha .admin-card > h2 + p {
+  margin: -8px 0 16px;
+  max-width: 68ch;
+}
+
+// ── Estado ────────────────────────────────────────────────────────
+// Igual que en Almacenes: «Activo» es lo normal y no pide caja, sólo un punto
+// y la palabra en tenue; lo que se sale de lo normal sí lleva caja, con borde
+// discontinuo para que no dependa del color.
+.admin-body .admin-status.m6-estado,
+.admin-body .admin-status.m6-pendiente,
+.admin-body .admin-status.m6-venta {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.admin-body .admin-status.m6-estado--activo {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--admin-muted);
+  font-weight: 600;
+
+  &::before {
+    width: 6px;
+    height: 6px;
+    background: var(--admin-success-text);
+  }
+}
+
+.admin-body .admin-status.m6-estado--inactivo {
+  border-style: dashed;
+  border-color: var(--admin-border-strong);
+}
+
+// ── Lista ─────────────────────────────────────────────────────────
+// Los tres filtros y su botón caben en un renglón: la tabla empieza antes y
+// quince filas entran casi enteras en una pantalla de escritorio.
+.admin-body .m6-lista__filtros {
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+  gap: 14px;
+
+  .admin-actions {
+    flex-wrap: nowrap;
+  }
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .admin-field:first-of-type,
+    .admin-actions {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+
+    .admin-actions {
+      flex-wrap: wrap;
+    }
+  }
+}
+
+// Aviso de alta: el texto dice qué pasó y el botón ofrece el siguiente paso.
+.admin-body .m6-creado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+
+  // `.admin-body p` lo dejaba en tenue sobre el fondo de éxito.
+  p {
+    flex: 1 1 280px;
+    min-width: 0;
+    color: inherit;
+  }
+
+  .admin-btn {
+    flex: 0 0 auto;
+  }
+}
+
+.admin-body .m6-tabla {
+  th,
+  td {
+    padding: 12px 14px;
+  }
+
+  // El nombre se lleva lo que sobra; las demás columnas, lo que miden.
+  th:first-child {
+    width: 38%;
+  }
+
+  td {
+    font-size: 13.5px;
+  }
+
+  // «Se prepara en casa» iba en negrita y competía con el nombre: en la fila
+  // sólo pesa el artículo.
+  td strong {
+    font-weight: 500;
+  }
+
+  .admin-field__hint {
+    margin-top: 2px;
+  }
+}
+
+.admin-body .m6-tabla__nombre {
+  // Caja propia para que el anillo de foco rodee el nombre y no la línea.
+  display: inline-block;
+  border-radius: 4px;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 3px;
+  }
+}
+
+// Dato ausente («Sin uso todavía», «Sin asociar»): se lee, pero no llama.
+.admin-body .m6-tabla__vacio {
+  color: var(--admin-muted);
+  white-space: nowrap;
+}
+
+.admin-body .m6-tabla__accion {
+  width: 1%;
+  white-space: nowrap;
+
+  // El botón mide 34 px para no engordar la fila; el área que responde al
+  // dedo llega a los 44.
+  .admin-btn {
+    position: relative;
+
+    &::after {
+      position: absolute;
+      inset: -5px -4px;
+      content: "";
+    }
+  }
+}
+
+// Fila inactiva: baja el tono del texto, no la opacidad, que dejaba el nombre
+// por debajo del contraste mínimo. La etiqueta de estado conserva el suyo.
+.admin-body .m6-tabla tr.is-inactive {
+  td,
+  .m6-tabla__nombre {
+    color: var(--admin-muted);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-body .m6-tabla {
+    @include m6-tabla-apilada;
+
+    // Nombre a la izquierda y «Abrir» a su altura: la acción queda donde cae
+    // el pulgar sin gastar un renglón.
+    td.m6-tabla__accion {
+      display: block;
+      grid-column: 2;
+      grid-row: 1;
+      width: auto;
+      padding: 0;
+
+      .admin-btn {
+        min-height: 44px;
+        padding-inline: 16px;
+      }
+    }
+  }
+}
+
+// ── Alta en un paso ───────────────────────────────────────────────
+// Un solo formulario para el diálogo y la página de respaldo: los estilos
+// cuelgan de `.m6-alta`, no de la sección que lo aloja.
+.admin-body .m6-alta,
+.admin-body .m6-alta__cuerpo {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-body .m6-alta {
+
+  // Igual que en el resto del módulo: un <button> heredaba 16 px junto a los
+  // enlaces con la misma clase a 13 (el diálogo queda fuera de .admin-recetas).
+  button.admin-btn {
+    font-size: 13px;
+  }
+
+  // La nota es un <span> dentro del <label>: en línea heredaba el interlineado
+  // de la etiqueta y dos renglones quedaban separados como dos párrafos.
+  .admin-field > .admin-field__hint {
+    display: block;
+    margin-top: 6px;
+  }
+
+  // Mientras se envía, el botón lo dice con forma y cursor; el segundo clic ya
+  // lo detiene el script.
+  &[aria-busy="true"] .m6-alta__acciones .admin-btn--primary {
+    opacity: 0.6;
+    cursor: progress;
+    pointer-events: none;
+  }
+}
+
+.admin-body .m6-alta__datos {
+  gap: 18px;
+}
+
+.admin-body .m6-alta .m2-alta-almacenes {
+  margin-top: 0;
+}
+
+// «¿Cómo se obtiene?»: la pregunta que decide todo lo demás. Dos tarjetas del
+// componente .admin-pill, a partes iguales para que ninguna parezca la buena.
+.admin-body .m6-tipo {
+  > legend {
+    float: left;
+    width: 100%;
+    margin: 0 0 10px;
+    padding: 0;
+    color: var(--admin-text);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+}
+
+.admin-body .m6-tipo__opciones {
+  display: grid;
+  clear: both;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+
+  @media (max-width: 560px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-body .m6-tipo__opcion {
+  min-width: 0;
+  min-height: 44px;
+  padding: 14px 16px;
+
+  .admin-pill__title {
+    font-size: 15px;
+  }
+
+  // `.admin-body small` (0,1,1) lo subía a 14 px, igual que el título.
+  .admin-pill__hint {
+    font-size: 12px;
+  }
+
+  // La elegida suma un segundo filete por dentro: se distingue por grosor y
+  // por el punto, no sólo por el tinte del fondo.
+  &:has(input:checked) {
+    box-shadow: inset 0 0 0 1px var(--admin-accent);
+  }
+
+  // Sin permiso (o en solo consulta) la opción no responde: borde discontinuo
+  // y texto tenue. La elegida conserva su marca para que se siga leyendo.
+  &:has(input:disabled) {
+    cursor: not-allowed;
+
+    &:hover {
+      border-color: var(--admin-border-soft);
+    }
+  }
+
+  &:has(input:disabled):not(:has(input:checked)) {
+    border-style: dashed;
+    background: transparent;
+
+    .admin-pill__title {
+      color: var(--admin-muted);
+    }
+  }
+
+  &:has(input:disabled:checked):hover {
+    border-color: var(--admin-accent);
+  }
+}
+
+// Plegables secundarios («Se compra por pieza», «Opciones avanzadas»): un
+// renglón discreto de 44 px que no compite con la pregunta ni con el botón.
+.admin-body .m6-alta__pieza,
+.admin-body .m6-avanzadas {
+  > summary {
+    display: list-item;
+    align-content: center;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 44px;
+    border-radius: 6px;
+    color: var(--admin-muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--admin-text);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--admin-accent);
+      outline-offset: 2px;
+    }
+  }
+
+  &[open] > summary {
+    color: var(--admin-text);
+  }
+}
+
+// Va pegado a las tarjetas: es un detalle de «Se compra», no un paso más.
+.admin-body .m6-alta__pieza {
+  margin-top: -12px;
+
+  .admin-field {
+    max-width: 320px;
+    margin-bottom: 4px;
+  }
+}
+
+.admin-body .m6-alta__acciones {
+  justify-content: flex-end;
+}
+
+// En el diálogo los botones no se van con el scroll: con tres negocios y sus
+// almacenes el formulario pasa del alto disponible y «Crear artículo» quedaba
+// bajo el pliegue. Se desplaza el cuerpo y no el diálogo —igual que en
+// .admin-modal__dialog--xwide—, así la barra de acciones es parte del mismo
+// vidrio y no un parche opaco encima.
+.admin-body .m6-alta-modal {
+  // Mismo relleno horizontal que .admin-modal__dialog en cada ancho: el cuerpo
+  // sangra hasta el borde para que la barra de scroll no quede flotando dentro.
+  --m6-alta-relleno: 28px;
+
+  .admin-modal__dialog {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .admin-modal__head {
+    flex: none;
+  }
+
+  .m6-alta {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .m6-alta__cuerpo {
+    min-height: 0;
+    flex: 1 1 auto;
+    margin-inline: calc(-1 * var(--m6-alta-relleno));
+    // 4 px arriba y 20 abajo: el anillo de foco del primer campo y la última
+    // casilla no quedan recortados por el borde de la zona que se desplaza.
+    padding: 4px var(--m6-alta-relleno) 20px;
+    overflow-y: auto;
+    // Llegar al final no arrastra la lista que hay detrás.
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .m6-alta__acciones {
+    // `.admin-actions` fija width: 100% en móvil y la barra no llegaba al borde.
+    width: auto;
+    flex: none;
+    margin-inline: calc(-1 * var(--m6-alta-relleno));
+    padding: 14px var(--m6-alta-relleno) 0;
+    border-top: 1px solid var(--admin-border-soft);
+  }
+
+  @media (max-width: 576px) {
+    --m6-alta-relleno: 16px;
+
+    // En la hoja inferior los dos botones se reparten el ancho: quedan a mano
+    // del pulgar y con 44 px de alto.
+    .m6-alta__acciones .admin-btn {
+      min-height: 44px;
+      flex: 1 1 0;
+    }
+  }
+}
+
+// Página de respaldo: la misma medida del diálogo, para que el formulario no
+// se estire a lo ancho de la pantalla y se lea igual en los dos sitios.
+.admin-body .m6-alta-pagina {
+  max-width: 736px;
+}
+
+// ── Ficha ─────────────────────────────────────────────────────────
+// Resumen bajo el nombre: unidad, cómo se obtiene y estado, separados por un
+// filete en vez de un signo.
+.admin-body .m6-ficha__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+
+  > span:not(.admin-status) + span:not(.admin-status) {
+    padding-left: 10px;
+    border-left: 1px solid var(--admin-border);
+  }
+}
+
+// Aviso de receta pendiente: es lo único que pide atención en la ficha.
+.admin-body .m6-ficha__aviso {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  font-size: 14px;
+  line-height: 1.45;
+
+  a {
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+}
+
+.admin-body .m6-ficha > .admin-field__hint {
+  margin-bottom: 14px;
+}
+
+.admin-body .m6-ficha {
+  // Casillas con explicación: el título pesa, la nota acompaña.
+  .m2-capacidad > span {
+    min-width: 0;
+    font-weight: 600;
+  }
+
+  .m2-capacidad small {
+    margin-top: 2px;
+    color: var(--admin-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .m2-capacidad input[type="checkbox"] {
+    accent-color: var(--admin-text);
+  }
+
+  .m2-capacidad:has(input:disabled) {
+    cursor: not-allowed;
+
+    > span {
+      color: var(--admin-muted);
+    }
+  }
+
+  .admin-field > .admin-field__hint {
+    display: block;
+    margin-top: 6px;
+  }
+}
+
+.admin-body .m6-ficha__datos .admin-form-grid {
+  margin-bottom: 10px;
+}
+
+// Datos en solo consulta: tres pares en un renglón, sin cajas de formulario.
+.admin-body .m6-ficha__lectura {
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  // Explícito: la regla móvil de .m2-configuracion__lista lo deja en 0 y los
+  // pares quedaban pegados uno encima de otro.
+  gap: 10px 24px;
+  margin-bottom: 12px;
+}
+
+.admin-body .m6-clasificacion {
+  .m6-tipo {
+    margin-bottom: 12px;
+  }
+
+  .m6-tipo + .admin-field__hint {
+    margin-bottom: 8px;
+  }
+}
+
+// Opciones avanzadas: casi nunca se tocan. Abiertas, quedan en una caja tenue
+// que las separa de lo que sí se decide a diario.
+.admin-body .m6-avanzadas {
+  margin-top: 2px;
+
+  &[open] {
+    margin-block: 6px 4px;
+    padding: 0 14px 8px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+  }
+
+  > .admin-field__hint {
+    margin-bottom: 4px;
+  }
+}
+
+// ── Dónde se usa ──────────────────────────────────────────────────
+// Módulo de consulta: cifras, una tabla y listas. Nada lleva caja de campo ni
+// fondo de control, para que no se confunda con algo editable.
+.admin-body .m6-uso {
+  h3 {
+    margin: 22px 0 8px;
+    font-size: 1.05rem;
+    letter-spacing: -0.008em;
+  }
+
+  h3 + .admin-field__hint {
+    margin: -4px 0 10px;
+  }
+
+  h3 + p:not(.admin-field__hint) {
+    max-width: 68ch;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .admin-empty {
+    margin-top: 14px;
+
+    strong {
+      display: block;
+      color: var(--admin-text);
+    }
+  }
+
+  .admin-actions {
+    margin-top: 14px;
+  }
+}
+
+.admin-body .m6-uso__resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 10px;
+  margin: 0;
+
+  > div {
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+  }
+
+  dt {
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  // Las cifras se alinean por dígito aunque cambien de una ficha a otra.
+  dd {
+    margin: 4px 0 0;
+    color: var(--admin-text);
+    font-family: var(--admin-font-mono);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.admin-body .m6-uso__tabla {
+  td a {
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+
+  .admin-field__hint {
+    margin-top: 2px;
+  }
+
+  @media (max-width: 640px) {
+    @include m6-tabla-apilada;
+  }
+}
+
+// Reventa y «se prepara al momento» no se distinguen sólo por el tinte: la
+// reventa va rellena con punto macizo; lo preparado, en contorno con aro vacío.
+.admin-body .admin-status.m6-venta--preparado {
+  background: transparent;
+
+  &::before {
+    width: 5px;
+    height: 5px;
+    border: 1.5px solid currentColor;
+    background: transparent;
+  }
+}
+
+.admin-body .m6-uso__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    min-height: 44px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--admin-border-soft);
+    font-size: 14px;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  li > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  a {
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+
+  small {
+    margin-left: 6px;
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+}
+
+.admin-body .m6-uso__cantidad {
+  flex: 0 0 auto;
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

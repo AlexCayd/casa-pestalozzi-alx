@@ -204,6 +204,13 @@ mermas y costos congelados. M2 ofrece composición y previsión, sin esos movimi
 
 ## Catálogo persistente UX-4
 
+> Desde M6 ([arquitectura §18](../arquitectura.md#18-m6-alta-en-un-paso-y-clasificacion-de-articulos))
+> estas rutas llevan a la lista y la ficha únicas de Artículos y preparaciones cuando
+> la persona tiene `productos/ver`, la lista pagina de 15 en 15 y el alta es un diálogo
+> en un paso que también asocia almacenes. Quien sólo tiene `inventario` conserva el
+> catálogo como pantalla propia. El escritor, los permisos y las protecciones del motor
+> descritos abajo no cambian.
+
 `/admin[/global|/panaderia]/almacenes/catalogo` reutiliza el listado de Artículos
 con búsqueda, filtro de actividad y paginación de 30 filas. `/nuevo` y
 `/editar?id=…` presentan la identidad compartida fuera de un modal. El permiso de

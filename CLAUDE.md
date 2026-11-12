@@ -25,6 +25,10 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
 - **M3 (refactor de Almacenes)**: tipo de venta preparado/reventa, contenido por
   pieza, faltantes de venta con conciliación de origen y regularizaciones; ningún
   saldo es negativo ([arquitectura §16](docs/arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario)).
+- **M6 (Artículos y preparaciones)**: una lista de 15 por página con alta en un
+  diálogo y una ficha única con «¿Cómo se obtiene?» y «Dónde se usa»; las capacidades
+  siguen siendo el contrato del motor, pero se derivan
+  ([arquitectura §18](docs/arquitectura.md#18-m6-alta-en-un-paso-y-clasificacion-de-articulos)).
 - **Pendiente**: POS, tickets y pagos de Panadería; producción y catering
   ([backlog](docs/backlog.md)). Las
   rutas públicas `/panaderia/*` son sólo un andamio de navegación.

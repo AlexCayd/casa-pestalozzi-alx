@@ -12,25 +12,119 @@ final class Articulos
         $s=C::db()->prepare($sql); $s->execute($params); return $s;
     }
     public static function base(string $ctx): string { return ($ctx==='restaurante'?'/admin':'/admin/'.$ctx).'/recetas/articulos'; }
-    public static function catalogo(string $ctx,string $q='',int $pagina=1,string $estado='todos'): array
+    /** Página de la lista: quince artículos caben en una pantalla sin desplazar (§18). */
+    public const POR_PAGINA = 15;
+    /** Respuestas de «¿Cómo se obtiene?». No son un discriminador guardado: se traducen a capacidades. */
+    public const TIPOS = ['insumo','preparacion'];
+    public const ETIQUETAS_TIPO = ['insumo'=>'Se compra','preparacion'=>'Se prepara en casa'];
+
+    public static function catalogo(string $ctx,string $q='',int $pagina=1,string $estado='todos',string $tipo='todos'): array
     {
         C::exigirUno(['productos'=>'ver','inventario'=>'ver'],$ctx);
         if(mb_strlen($q)>120 || $pagina<1 || $pagina>100000)self::error('FILTRO_INVALIDO','Revisa la búsqueda y página.');
         if(!in_array($estado,['todos','activos','inactivos'],true))self::error('FILTRO_INVALIDO','Selecciona un estado válido.');
-        $condicion=match($estado){'activos'=>' AND activo=1','inactivos'=>' AND activo=0',default=>''};
+        $verUso=\Classes\Auth::puede('productos','ver',$ctx);
+        // «Reventa» lee recetas del negocio: sin permiso de Artículos no se filtra por ellas.
+        if(!in_array($tipo,['todos','insumo','preparacion','reventa'],true)||($tipo==='reventa'&&!$verUso))self::error('FILTRO_INVALIDO','Selecciona un tipo válido.');
         $u=C::unidad($ctx);$like='%'.str_replace(['!','%','_'],['!!','!%','!_'],trim($q)).'%';
-        $total=(int)self::sql("SELECT COUNT(*) FROM ingredientes WHERE nombre LIKE ? ESCAPE '!'{$condicion}",[$like])->get_result()->fetch_row()[0];
-        $filtro=match($estado){'activos'=>' AND i.activo=1','inactivos'=>' AND i.activo=0',default=>''};
-        $rows=self::sql("SELECT i.id,i.nombre,i.unidad,i.activo,c.comprable,c.componente,c.elaborable,c.almacenable,c.revision,(SELECT MAX(version) FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND publicada=1) version FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? WHERE i.nombre LIKE ? ESCAPE '!'{$filtro} ORDER BY i.nombre,i.id LIMIT 30 OFFSET ?",[$u,$u,$like,($pagina-1)*30])->get_result()->fetch_all(MYSQLI_ASSOC);
+        // El filtro usa el mismo estado efectivo que la columna (cargarLote): activo en la
+        // casa y no apagado en este negocio, con la configuración general como respaldo.
+        $activoAqui="(i.activo=1 AND COALESCE((SELECT ca.activo FROM articulo_configuraciones ca WHERE ca.articulo_id=i.id AND ca.unidad_id=?),(SELECT cg.activo FROM articulo_configuraciones cg JOIN unidades ug ON ug.id=cg.unidad_id WHERE cg.articulo_id=i.id AND ug.slug='global'),1)=1)";
+        $where="i.nombre LIKE ? ESCAPE '!'";$params=[$like];
+        if($estado!=='todos'){$where.=($estado==='activos'?' AND ':' AND NOT ').$activoAqui;$params[]=$u;}
+        // Preparación: elaboración habilitada aquí o una versión publicada utilizable (propia o de la casa).
+        $preparacion="(EXISTS(SELECT 1 FROM articulo_configuraciones ce WHERE ce.articulo_id=i.id AND ce.unidad_id=? AND ce.elaborable=1) OR EXISTS(SELECT 1 FROM articulo_recetas re JOIN unidades ue ON ue.id=re.unidad_id WHERE re.articulo_id=i.id AND re.publicada=1 AND (re.unidad_id=? OR ue.slug='global')))";
+        if($tipo==='preparacion'){$where.=" AND {$preparacion}";array_push($params,$u,$u);}
+        elseif($tipo==='insumo'){$where.=" AND NOT {$preparacion}";array_push($params,$u,$u);}
+        elseif($tipo==='reventa'){[$vigente,$pv]=self::usoVigente($ctx,null);$where.=" AND i.id IN (SELECT x.articulo_id FROM ({$vigente}) x JOIN ofertas_producto o ON o.id=x.oferta_id AND o.unidad_id=x.unidad_id WHERE o.tipo_venta='reventa')";$params=array_merge($params,$pv);}
+        $total=(int)self::sql("SELECT COUNT(*) FROM ingredientes i WHERE {$where}",$params)->get_result()->fetch_row()[0];
+        $rows=self::sql("SELECT i.id,i.nombre,i.unidad,i.contenido_pieza,i.activo,c.comprable,c.componente,c.elaborable,c.almacenable,c.revision,(SELECT MAX(version) FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND publicada=1) version,(SELECT MAX(rg.version) FROM articulo_recetas rg JOIN unidades ug ON ug.id=rg.unidad_id WHERE rg.articulo_id=i.id AND ug.slug='global' AND rg.publicada=1) version_casa FROM ingredientes i LEFT JOIN articulo_configuraciones c ON c.articulo_id=i.id AND c.unidad_id=? WHERE {$where} ORDER BY i.nombre,i.id LIMIT ".self::POR_PAGINA." OFFSET ?",array_merge([$u,$u],$params,[($pagina-1)*self::POR_PAGINA]))->get_result()->fetch_all(MYSQLI_ASSOC);
         if($rows){
             $ids=array_map('intval',array_column($rows,'id'));$in=implode(',',array_fill(0,count($ids),'?'));
             $efectivos=array_column(self::cargarLote($ids,$u),null,'id');
             $configuraciones=array_column(self::sql("SELECT * FROM articulo_configuraciones WHERE unidad_id=? AND articulo_id IN ($in)",array_merge([$u],$ids))->get_result()->fetch_all(MYSQLI_ASSOC),null,'articulo_id');
             $metadatos=array_column(self::sql("SELECT i.id,EXISTS(SELECT 1 FROM articulo_configuraciones c JOIN unidades u ON u.id=c.unidad_id WHERE c.articulo_id=i.id AND u.slug='global') compartida,EXISTS(SELECT 1 FROM articulo_recetas r WHERE r.articulo_id=i.id AND r.unidad_id=? AND r.publicada=1) elaboracion,EXISTS(SELECT 1 FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id WHERE aa.articulo_id=i.id AND aa.unidad_id=? AND aa.activo=1 AND a.activo=1) asociacion,EXISTS(SELECT 1 FROM almacen_articulos aa WHERE aa.articulo_id=i.id AND aa.unidad_id=? AND aa.saldo<>0) existencia FROM ingredientes i WHERE i.id IN ($in)",array_merge([$u,$u,$u],$ids))->get_result()->fetch_all(MYSQLI_ASSOC),null,'id');
             $verFisico=\Classes\Auth::puede('inventario','ver',$ctx);
-            foreach($rows as &$row)$row['estadoEfectivo']=self::proyectarEstado($efectivos[$row['id']],$configuraciones[$row['id']]??null,$metadatos[$row['id']],$verFisico);unset($row);
+            $usos=$verUso?self::usoLote($ctx,$ids):[];
+            // En Global el conteo de almacenes es el consolidado, igual que la ficha.
+            $almacenes=$verFisico?array_column(self::sql("SELECT aa.articulo_id,COUNT(*) n FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades ua ON ua.id=aa.unidad_id WHERE aa.activo=1 AND a.activo=1 AND aa.articulo_id IN ($in) AND (aa.unidad_id=? OR (?='global' AND ua.slug IN('global','restaurante','panaderia'))) GROUP BY aa.articulo_id",array_merge($ids,[$u,$ctx]))->get_result()->fetch_all(MYSQLI_ASSOC),'n','articulo_id'):[];
+            foreach($rows as &$row){
+                $row['estadoEfectivo']=self::proyectarEstado($efectivos[$row['id']],$configuraciones[$row['id']]??null,$metadatos[$row['id']],$verFisico);
+                $propia=!empty($row['elaborable']);
+                $row['tipo']=$propia||$row['version']||$row['version_casa']?'preparacion':'insumo';
+                // «De la casa»: la elabora Global y este negocio sólo la usa.
+                $row['de_casa']=!$propia&&!$row['version']&&$row['version_casa']&&$ctx!=='global';
+                $row['uso']=$verUso?$usos[(int)$row['id']]:null;
+                $row['almacenes']=$verFisico?(int)($almacenes[$row['id']]??0):null;
+            }unset($row);
         }
-        return ['articulos'=>$rows,'total'=>$total,'pagina'=>$pagina,'paginas'=>max(1,(int)ceil($total/30))];
+        return ['articulos'=>$rows,'total'=>$total,'pagina'=>$pagina,'paginas'=>max(1,(int)ceil($total/self::POR_PAGINA)),'tipo'=>$tipo];
+    }
+    /**
+     * Composición vigente por oferta: la última versión publicada de cada presentación
+     * o, si la oferta no tiene presentaciones, su receta activa (la misma regla de
+     * ComposicionComercial). En Global es la lectura consolidada de los negocios (§18).
+     * @return array{0:string,1:list<int>} subconsulta (articulo_id, oferta_id, unidad_id, cantidad, unidad, origen, ref_id, ref_nombre) y sus parámetros
+     */
+    private static function usoVigente(string $ctx,?array $ids): array
+    {
+        $u=C::unidad($ctx);$global=$ctx==='global';$in=$ids?implode(',',array_fill(0,count($ids),'?')):'';$ids=$ids??[];
+        $presentaciones="SELECT pc.articulo_id,p.oferta_id,p.unidad_id,pc.cantidad,pc.unidad,'presentacion' origen,p.id ref_id,p.nombre ref_nombre FROM presentacion_componentes pc JOIN presentacion_versiones v ON v.id=pc.version_id AND v.publicada=1 JOIN oferta_presentaciones p ON p.id=v.presentacion_id AND p.unidad_id=v.unidad_id WHERE v.version=(SELECT MAX(v2.version) FROM presentacion_versiones v2 WHERE v2.presentacion_id=p.id AND v2.publicada=1)".($global?'':' AND p.unidad_id=?').($ids?" AND pc.articulo_id IN ($in)":'');
+        $recetas="SELECT ia.id articulo_id,r.oferta_id,r.unidad_id,rc.cantidad,ia.unidad,'receta' origen,r.id ref_id,NULL ref_nombre FROM recetas r JOIN receta_componentes rc ON rc.receta_id=r.id AND rc.unidad_id=r.unidad_id LEFT JOIN receta_componentes_articulos ca ON ca.componente_id=rc.id JOIN ingredientes ia ON ia.id=COALESCE(ca.articulo_id,rc.articulo_id) WHERE r.activo=1 AND NOT EXISTS(SELECT 1 FROM oferta_presentaciones p2 JOIN presentacion_versiones v3 ON v3.presentacion_id=p2.id AND v3.publicada=1 WHERE p2.oferta_id=r.oferta_id AND p2.unidad_id=r.unidad_id)".($global?'':' AND r.unidad_id=?').($ids?" AND ia.id IN ($in)":'');
+        $alcance=$global?[]:[$u];
+        return ["{$presentaciones} UNION ALL {$recetas}",array_merge($alcance,$ids,$alcance,$ids)];
+    }
+    /** Conteos de uso vigente para una página de la lista: tres consultas, sin importar cuántas filas. */
+    private static function usoLote(string $ctx,array $ids): array
+    {
+        $u=C::unidad($ctx);$global=$ctx==='global';$in=implode(',',array_fill(0,count($ids),'?'));
+        $out=array_fill_keys($ids,['recetas'=>0,'reventa'=>0,'preparaciones'=>0]);
+        [$vigente,$pv]=self::usoVigente($ctx,$ids);
+        foreach(self::sql("SELECT x.articulo_id,o.tipo_venta,COUNT(DISTINCT o.id) n FROM ({$vigente}) x JOIN ofertas_producto o ON o.id=x.oferta_id AND o.unidad_id=x.unidad_id GROUP BY x.articulo_id,o.tipo_venta",$pv)->get_result()->fetch_all(MYSQLI_ASSOC) as $r)$out[(int)$r['articulo_id']][$r['tipo_venta']==='reventa'?'reventa':'recetas']=(int)$r['n'];
+        foreach(self::sql("SELECT c.articulo_id,COUNT(DISTINCT r.articulo_id,r.unidad_id) n FROM articulo_receta_componentes c JOIN articulo_recetas r ON r.id=c.receta_id AND r.publicada=1 JOIN unidades u ON u.id=r.unidad_id WHERE c.articulo_id IN ($in) AND r.version=(SELECT MAX(r2.version) FROM articulo_recetas r2 WHERE r2.articulo_id=r.articulo_id AND r2.unidad_id=r.unidad_id AND r2.publicada=1)".($global?'':" AND (r.unidad_id=? OR u.slug='global')")." GROUP BY c.articulo_id",array_merge($ids,$global?[]:[$u]))->get_result()->fetch_all(MYSQLI_ASSOC) as $r)$out[(int)$r['articulo_id']]['preparaciones']+=(int)$r['n'];
+        // Una preparación anterior ya vinculada se cuenta por su elaboración, no dos veces.
+        foreach(self::sql("SELECT si.articulo_id,COUNT(DISTINCT s.id) n FROM subreceta_ingredientes si JOIN subrecetas s ON s.id=si.subreceta_id AND s.unidad_id=si.unidad_id WHERE s.activo=1 AND si.articulo_id IN ($in) AND NOT EXISTS(SELECT 1 FROM articulo_correspondencias k WHERE k.subreceta_id=s.id AND k.unidad_id=s.unidad_id)".($global?'':' AND s.unidad_id=?')." GROUP BY si.articulo_id",array_merge($ids,$global?[]:[$u]))->get_result()->fetch_all(MYSQLI_ASSOC) as $r)$out[(int)$r['articulo_id']]['preparaciones']+=(int)$r['n'];
+        return $out;
+    }
+    /**
+     * Módulo informativo «Dónde se usa»: sólo composición vigente, con el tipo de venta
+     * de cada producto. No resuelve consumo ni escribe. En Global consolida Restaurante
+     * y Panadería (consulta, nunca escritura); el enlace sólo existe donde hay acceso.
+     */
+    public static function dondeSeUsa(string $ctx,int $id): array
+    {
+        C::exigirUno(['productos'=>'ver','inventario'=>'ver'],$ctx);$u=C::unidad($ctx);$global=$ctx==='global';
+        $puede=static fn(string $modulo,string $slug):bool=>\Classes\Auth::puede($modulo,'ver',$slug);
+        $raiz=static fn(string $slug):string=>$slug==='restaurante'?'/admin':'/admin/'.$slug;
+        $out=['consolidado'=>$global,'visible'=>false,'productos'=>[],'preparaciones'=>[],'variantes'=>[],'almacenes'=>null,'recortado'=>false,'resumen'=>['recetas'=>0,'reventa'=>0,'preparaciones'=>0,'variantes'=>0]];
+        $limite=60;
+        if($puede('productos',$ctx)){
+            $out['visible']=true;
+            [$vigente,$pv]=self::usoVigente($ctx,[$id]);
+            $productos=self::sql("SELECT x.oferta_id,x.cantidad,x.unidad,x.origen,x.ref_id,x.ref_nombre,o.tipo_venta,o.tipo_venta_estado,po.nombre producto,u.slug FROM ({$vigente}) x JOIN ofertas_producto o ON o.id=x.oferta_id AND o.unidad_id=x.unidad_id JOIN productos_oferta po ON po.oferta_id=o.id JOIN unidades u ON u.id=o.unidad_id ORDER BY u.slug,po.nombre,x.ref_nombre,x.ref_id LIMIT ".($limite+1),$pv)->get_result()->fetch_all(MYSQLI_ASSOC);
+            foreach($productos as &$p){
+                $p['url']=$p['origen']==='presentacion'
+                    ?($puede('menu',$p['slug'])&&$puede('productos',$p['slug'])?$raiz($p['slug']).'/menu/presentaciones?'.http_build_query(['id'=>$p['oferta_id'],'presentacion'=>$p['ref_id']]):null)
+                    :($puede('productos',$p['slug'])?$raiz($p['slug']).'/recetas/editar?'.http_build_query(['id'=>$p['oferta_id']]):null);
+            }unset($p);
+            $elaboraciones=self::sql("SELECT r.id version_id,r.articulo_id,r.version,i.nombre,u.slug,c.cantidad,c.unidad,0 anterior FROM articulo_receta_componentes c JOIN articulo_recetas r ON r.id=c.receta_id AND r.publicada=1 JOIN ingredientes i ON i.id=r.articulo_id JOIN unidades u ON u.id=r.unidad_id WHERE c.articulo_id=? AND r.version=(SELECT MAX(r2.version) FROM articulo_recetas r2 WHERE r2.articulo_id=r.articulo_id AND r2.unidad_id=r.unidad_id AND r2.publicada=1)".($global?'':" AND (r.unidad_id=? OR u.slug='global')")." ORDER BY i.nombre,r.id LIMIT ".($limite+1),$global?[$id]:[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            foreach($elaboraciones as &$e){
+                // Una elaboración de la casa se consulta desde el negocio como versión de sólo lectura.
+                $propia=$e['slug']===$ctx;
+                $e['url']=$propia?self::base($ctx).'/editar?'.http_build_query(['id'=>$e['articulo_id']]).'#elaboracion'
+                    :($e['slug']==='global'?self::base($ctx).'/editar?'.http_build_query(['id'=>$e['articulo_id'],'version'=>$e['version_id']])
+                    :($puede('productos',$e['slug'])?self::base($e['slug']).'/editar?'.http_build_query(['id'=>$e['articulo_id']]).'#elaboracion':null));
+            }unset($e);
+            $anteriores=self::sql("SELECT s.id version_id,NULL articulo_id,s.version,s.nombre,u.slug,si.cantidad,i.unidad,1 anterior FROM subreceta_ingredientes si JOIN subrecetas s ON s.id=si.subreceta_id AND s.unidad_id=si.unidad_id JOIN ingredientes i ON i.id=si.articulo_id JOIN unidades u ON u.id=s.unidad_id WHERE si.articulo_id=? AND s.activo=1 AND NOT EXISTS(SELECT 1 FROM articulo_correspondencias k WHERE k.subreceta_id=s.id AND k.unidad_id=s.unidad_id)".($global?'':' AND s.unidad_id=?')." ORDER BY s.nombre,s.id LIMIT ".($limite+1),$global?[$id]:[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            foreach($anteriores as &$e)$e['url']=$puede('productos',$e['slug'])?$raiz($e['slug']).'/recetas/subrecetas/edit?'.http_build_query(['id'=>$e['version_id']]):null;unset($e);
+            $variantes=self::sql("SELECT v.id,v.oferta_id,v.nombre,a.accion,a.cantidad,a.nueva_cantidad,a.articulo_id,a.articulo_nuevo_id,i.unidad,po.nombre producto,u.slug FROM variante_ajustes a JOIN producto_variantes v ON v.id=a.variante_id AND v.unidad_id=a.unidad_id JOIN productos_oferta po ON po.oferta_id=v.oferta_id JOIN ingredientes i ON i.id=? JOIN unidades u ON u.id=a.unidad_id WHERE (a.articulo_id=? OR a.articulo_nuevo_id=?)".($global?'':' AND a.unidad_id=?')." ORDER BY u.slug,po.nombre,v.nombre,a.id LIMIT ".($limite+1),$global?[$id,$id,$id]:[$id,$id,$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
+            foreach($variantes as &$v)$v['url']=$puede('menu',$v['slug'])?$raiz($v['slug']).'/menu/variantes?'.http_build_query(['id'=>$v['oferta_id']]):null;unset($v);
+            foreach(['productos'=>$productos,'preparaciones'=>array_merge($elaboraciones,$anteriores),'variantes'=>$variantes] as $k=>$lista){if(count($lista)>$limite){$out['recortado']=true;$lista=array_slice($lista,0,$limite);}$out[$k]=$lista;}
+            $vistos=['recetas'=>[],'reventa'=>[]];foreach($out['productos'] as $p)$vistos[$p['tipo_venta']==='reventa'?'reventa':'recetas'][$p['slug'].':'.$p['oferta_id']]=true;
+            $out['resumen']=['recetas'=>count($vistos['recetas']),'reventa'=>count($vistos['reventa']),'preparaciones'=>count($out['preparaciones']),'variantes'=>count($out['variantes'])];
+        }
+        if($puede('inventario',$ctx))$out['almacenes']=self::sql("SELECT a.id,a.nombre,aa.activo,u.slug FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id JOIN unidades u ON u.id=aa.unidad_id WHERE aa.articulo_id=? AND (aa.unidad_id=? OR (?='global' AND u.slug IN('global','restaurante','panaderia'))) ORDER BY u.slug,a.nombre,a.id LIMIT 61",[$id,$u,$ctx])->get_result()->fetch_all(MYSQLI_ASSOC);
+        return $out;
     }
     /** Relaciones guardadas, acotadas y autorizadas; no resuelve ni modifica consumo. */
     public static function usos(string $ctx,int $id): array
@@ -51,11 +145,14 @@ final class Articulos
     public static function ficha(string $ctx,int $id): array
     {
         C::exigir('productos','ver',$ctx);$u=C::unidad($ctx);
-        $a=self::sql('SELECT id,nombre,unidad,activo FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();
+        // El costo maestro sólo se muestra en Global, igual que en el catálogo.
+        $a=self::sql('SELECT id,nombre,unidad,contenido_pieza,activo'.($ctx==='global'?',costo':'').' FROM ingredientes WHERE id=?',[$id])->get_result()->fetch_assoc();
         if(!$a)self::error('ARTICULO_INVALIDO','El artículo no existe.');
         $versiones=self::sql('SELECT id,version,rendimiento,unidad,procedencia,created_at FROM articulo_recetas WHERE articulo_id=? AND unidad_id=? AND publicada=1 ORDER BY version DESC',[$id,$u])->get_result()->fetch_all(MYSQLI_ASSOC);
         $estado=self::estadoAdministrativo($ctx,$id);
-        return ['articulo'=>$a,'configuracion'=>$estado['configuracion'],'estadoEfectivo'=>$estado,'versiones'=>$versiones];
+        // Receta de la casa: la publica Global y un negocio la usa sin tener la suya (§18).
+        $casa=$ctx==='global'?null:(self::sql("SELECT r.id,r.version FROM articulo_recetas r JOIN unidades u ON u.id=r.unidad_id WHERE r.articulo_id=? AND u.slug='global' AND r.publicada=1 ORDER BY r.version DESC LIMIT 1",[$id])->get_result()->fetch_assoc()?:null);
+        return ['articulo'=>$a,'configuracion'=>$estado['configuracion'],'estadoEfectivo'=>$estado,'versiones'=>$versiones,'versionCasa'=>$casa];
     }
     /** Proyección administrativa del mismo lector efectivo que usa el motor.
      * No materializa compatibilidad ni infiere capacidades por nombre o saldo. */
@@ -72,12 +169,14 @@ final class Articulos
         $configuracion=$c?:['revision'=>0,'comprable'=>0,'componente'=>(int)$efectivo['componente'],'elaborable'=>0,'almacenable'=>(int)$efectivo['almacenable'],'produccion_previa'=>(int)$efectivo['produccion_previa'],'costo_conocido'=>$efectivo['costo']!==null?1:0,'activo'=>(int)$efectivo['activo']];
         $origen=$c?'explicita':($m['compartida']?'compartida':'heredada');
         $estado=$origen;$etiqueta=match($origen){'explicita'=>'Configuración explícita','compartida'=>'Configuración compartida efectiva',default=>'Configuración heredada efectiva'};
-        $detalle=$c?'Capacidades propias de este negocio.':'Se muestran las capacidades que reconoce el consumo. Guardar capacidades creará una configuración propia; consultar no modifica el artículo.';
-        if(!$efectivo['activo']||($efectivo['produccion_previa']&&!$efectivo['almacenable'])){$estado='incompatible';$etiqueta='Configuración incompatible';$detalle='El artículo está inactivo o sus capacidades impiden el consumo. Revisa la configuración antes de utilizarlo.';}
-        elseif(!empty($configuracion['elaborable'])&&!$m['elaboracion']){$estado='incompleta';$etiqueta='Elaboración pendiente de publicar';$detalle='Habilitar elaboración no publica una receta. Configura y revisa su composición antes de usarla para preparar.';}
-        elseif(!$efectivo['componente']&&!$efectivo['almacenable']){$estado='incompleta';$etiqueta='Configuración incompleta';$detalle='No hay una capacidad de consumo habilitada. Revisa los usos que necesita este artículo.';}
+        $detalle=$c?'Configuración propia de este negocio.':'Usa la configuración general de la casa. Al guardar un cambio aquí, este negocio tendrá la suya; consultar no modifica el artículo.';
+        if(!$efectivo['activo']||($efectivo['produccion_previa']&&!$efectivo['almacenable'])){$estado='incompatible';$etiqueta='Configuración incompatible';$detalle='El artículo está inactivo o su configuración impide el consumo. Revísala antes de utilizarlo.';}
+        elseif(!empty($configuracion['elaborable'])&&!$m['elaboracion']){$estado='incompleta';$etiqueta='Elaboración pendiente de publicar';$detalle='Es una preparación sin receta publicada. Captura y publica su receta para poder elaborarla.';}
+        elseif(!$efectivo['componente']&&!$efectivo['almacenable']){$estado='incompleta';$etiqueta='Configuración incompleta';$detalle='No se puede usar en recetas ni lleva existencias. Revisa sus opciones avanzadas.';}
         $fisico=null;if($verFisico)$fisico=$m['asociacion']?($m['existencia']?'Con asociación y existencias registradas.':'Con asociación física, sin existencias registradas.'):'Sin asociación física activa en este negocio.';
-        return compact('configuracion','efectivo','origen','estado','etiqueta','detalle','fisico');
+        // Lectura de «¿Cómo se obtiene?»: se deriva de `elaborable`, no se guarda (§18).
+        $tipo=!empty($configuracion['elaborable'])?'preparacion':'insumo';
+        return compact('configuracion','efectivo','origen','estado','etiqueta','detalle','fisico','tipo');
     }
     /** La consulta no resuelve ingredientes actuales ni escribe versiones. */
     public static function consultarVersion(string $ctx,int $articulo,int $version): array
@@ -103,6 +202,25 @@ final class Articulos
             self::sql('INSERT INTO articulo_configuraciones(articulo_id,unidad_id,comprable,componente,elaborable,almacenable,produccion_previa,costo_conocido,activo,revision) VALUES(?,?,?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE comprable=VALUES(comprable),componente=VALUES(componente),elaborable=VALUES(elaborable),almacenable=VALUES(almacenable),produccion_previa=VALUES(produccion_previa),costo_conocido=VALUES(costo_conocido),activo=VALUES(activo),revision=revision+1',array_merge([$id,$u],array_values($datos)));
             return ['ok'=>true,'revision'=>$revision+1];
         });
+    }
+    /**
+     * Captura simple de la ficha y del alta (§18): «¿Cómo se obtiene?» y las opciones
+     * avanzadas se traducen a las siete capacidades y se guardan con `configurar()`,
+     * que conserva permisos, revisión y reglas. Parte del estado efectivo, no de los
+     * valores por omisión: crear la primera fila nunca apaga almacenamiento ni costo.
+     */
+    public static function clasificar(string $ctx,int $id,array $raw,int $revision): array
+    {
+        if(array_diff(array_keys($raw),['tipo','activo','componente','almacenable','costo_conocido']))self::error('CAMPO_INVALIDO','La configuración contiene campos no admitidos.');
+        if(!in_array($raw['tipo']??null,self::TIPOS,true))self::error('TIPO_INVALIDO','Elige si el artículo se compra o se prepara en casa.');
+        $actual=self::estadoAdministrativo($ctx,$id)['configuracion'];
+        $datos=[];foreach(['comprable','componente','elaborable','almacenable','produccion_previa','costo_conocido','activo'] as $k)$datos[$k]=(int)($actual[$k]??0);
+        foreach(['activo','componente','almacenable','costo_conocido'] as $k)if(array_key_exists($k,$raw)){if(!in_array($raw[$k],[0,1,'0','1'],true))self::error('CAPACIDAD_INVALIDA','Las opciones deben estar activadas o desactivadas.');$datos[$k]=(int)$raw[$k];}
+        $datos['elaborable']=$raw['tipo']==='preparacion'?1:0;
+        // `comprable` es informativa y pide permiso de Almacenes: sólo se deriva cuando lo hay.
+        if($raw['tipo']==='insumo'&&\Classes\Auth::puede('inventario','editar',$ctx))$datos['comprable']=1;
+        if(!$datos['elaborable']||!$datos['almacenable'])$datos['produccion_previa']=0;
+        return self::configurar($ctx,$id,$datos,$revision);
     }
     /** Lectores internos no autorizan al cliente: los invoca un servicio que ya
      * comprobó actor/negocio, y limitan a configuración propia o compartida. */

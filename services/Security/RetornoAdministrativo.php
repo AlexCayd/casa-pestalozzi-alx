@@ -31,6 +31,8 @@ final class RetornoAdministrativo
                 foreach($v as $ref)if(!is_string($ref)||!filter_var($ref,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]))return null;
                 continue;
             }
+            // Filtro «Tipo» de la lista de artículos (§18); en Almacenes `tipo` es el de movimientos.
+            if($key==='tipo'&&$path===$base.'/recetas/articulos'){if(!is_string($v)||!in_array($v,['todos','insumo','preparacion','reventa'],true))return null;continue;}
             if(in_array($key,['vista','seleccion','solo_alertas','negocio','almacen_id','articulo_id','desde','hasta','tipo','transferencia_pagina'],true)){
                 if(!$almacen||!is_string($v))return null;
                 if(in_array($key,['seleccion','solo_alertas'],true)&&$v!=='1')return null;

@@ -7,9 +7,10 @@ El cierre encadenado de modales finaliza la limpieza del anterior y conserva
 el disparador visible de origen. El selector de ingredientes mantiene el fondo
 inerte y contiene Tab/Shift+Tab desde el inicio de apertura; Escape restaura foco.
 
-Guardar capacidades advierte antes de descartar cambios de elaboración, incluida
+Guardar los datos generales o el uso de un artículo (formularios con
+`data-m6-descarta-borrador`) advierte antes de descartar cambios de elaboración, incluida
 una previsión todavía no publicada. Cancelar conserva los campos; confirmar
-guarda exclusivamente capacidades. No hay persistencia adicional de recetas.
+guarda exclusivamente ese formulario. No hay persistencia adicional de recetas.
 Los resultados M2 usan un flash de sesión consumible por ruta/recurso: el parámetro
 `guardado` por sí solo no acredita éxito. Los rechazos conservan los campos de
 capacidades enviados y muestran el error sin éxito simultáneo.
