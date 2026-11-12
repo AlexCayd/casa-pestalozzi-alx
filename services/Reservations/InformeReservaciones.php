@@ -53,7 +53,7 @@ final class InformeReservaciones
         if ($demanda) $resumen .= ' La mayor demanda programada fue de ' . $demanda[0][1] . ' reservaciones el ' . $demanda[0][0] . '.';
         $instante = $ahora->format('Y-m-d H:i:s');
         return [
-            'titulo' => 'Informe de reservaciones' . ($provisional ? ' · Provisional' : ''), 'contexto' => 'Restaurante',
+            'id' => 'reservaciones', 'titulo' => 'Informe de reservaciones', 'provisional' => $provisional, 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],
             'generadoEn' => $instante, 'corteDatos' => $instante, 'resumen' => $resumen,
             'kpis' => [
@@ -65,9 +65,9 @@ final class InformeReservaciones
                 ['etiqueta' => 'Pendientes de cierre', 'valor' => $pendientes, 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Distribución de estados', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Estado', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $distribucion],
-                ['titulo' => 'Reservaciones por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Periodo', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie['filas']],
-                ['titulo' => 'Días de mayor demanda', 'tipo' => 'tabla', 'columnas' => ['Fecha', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $demanda],
+                ['id' => 'reservaciones_estados', 'orden' => 10, 'titulo' => 'Distribución de estados', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Estado', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $distribucion],
+                ['id' => 'serie_demanda', 'orden' => 30, 'titulo' => 'Reservaciones por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'Reservaciones', 'series' => [1]], 'columnas' => ['Periodo', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $serie['filas']],
+                ['id' => 'demanda_top', 'orden' => 20, 'titulo' => 'Días de mayor demanda', 'tipo' => 'tabla', 'columnas' => ['Fecha', 'Reservaciones'], 'formatos' => ['texto', 'entero'], 'filas' => $demanda],
             ],
             'notas' => [
                 'El periodo corresponde a la fecha programada de servicio, no a la fecha de registro ni de cancelación.',

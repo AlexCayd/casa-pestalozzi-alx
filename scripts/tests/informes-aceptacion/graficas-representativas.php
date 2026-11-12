@@ -66,7 +66,7 @@ try {
     pdfTestNear(array_sum(array_column($doc['secciones'][0]['filas'],1)), $ventasEsperadas, 'Paridad de los 14 tramos');
     file_put_contents(pdfTestTemp() . '/grafica-analisis-14tramos.pdf', G::documento($doc)->output()); $cantidadPdf++;
     $provisional = Reservas::documento($db,$u,R::resolverInforme(['desde'=>'2099-01-01','hasta'=>'2099-01-07']),$ahora);
-    pdfTestAssert(str_contains($provisional['titulo'],'Provisional'), 'Provisionalidad perdida');
+    pdfTestAssert($provisional['titulo']==='Informe de reservaciones'&&$provisional['provisional']===true, 'Provisionalidad perdida');
     file_put_contents(pdfTestTemp() . '/grafica-reservaciones-provisional.pdf', G::documento($provisional)->output()); $cantidadPdf++;
     pdfTestAssert($antes === pdfTestSnapshot($db), 'La generación representativa altera hechos');
     echo 'GRÁFICAS representativas PASS ' . $cantidadPdf . ' PDF: 93 ventas con centavos,14 tramos,5 normales/vacíos/366d,3 almacenes amplios,negativos,PII sintética,paridad FIN/ANA/TIC y no mutación.' . PHP_EOL;

@@ -148,7 +148,7 @@ final class ConsultasAlmacen
             : ' El detalle de alertas cubre todas las relaciones actualmente bajo mínimo.';
         $resumen .= ' Las alertas describen el estado actual, no el cierre del periodo seleccionado.';
         return [
-            'titulo' => 'Informe de inventario y movimientos', 'contexto' => ucfirst($ctx),
+            'id' => 'inventario', 'titulo' => 'Informe de inventario y movimientos', 'contexto' => ucfirst($ctx),
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end']],
             'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
             'kpis' => [
@@ -160,9 +160,9 @@ final class ConsultasAlmacen
                 ['etiqueta' => 'Merma con costo conocido', 'valor' => $merma, 'formato' => 'moneda'],
             ],
             'secciones' => [
-                ['titulo' => 'Movimientos por tipo en el periodo', 'tipo' => 'tabla', 'columnas' => ['Tipo', 'Movimientos'], 'formatos' => ['texto', 'entero'], 'filas' => $filasTipos],
-                ['titulo' => 'Almacenes activos al generar', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Relaciones almacén/artículo', 'series' => [1, 2]], 'columnas' => ['Almacén', 'Relaciones activas', 'Bajo mínimo'], 'formatos' => ['texto', 'entero', 'entero'], 'filas' => $filasAlmacenes, 'vacio' => 'No hay almacenes activos al generar.'],
-                ['titulo' => 'Hasta 10 alertas actuales', 'tipo' => 'tabla', 'anchos' => [34, 26, 10, 15, 15], 'columnas' => ['Almacén', 'Artículo', 'Unidad', 'Saldo', 'Mínimo'], 'formatos' => ['texto', 'texto', 'texto', 'cantidad', 'cantidad'], 'filas' => $filasAlertas, 'vacio' => 'Sin alertas actuales al generar.'],
+                ['id' => 'movimientos_tipos', 'orden' => 30, 'titulo' => 'Movimientos por tipo en el periodo', 'tipo' => 'tabla', 'columnas' => ['Tipo', 'Movimientos'], 'formatos' => ['texto', 'entero'], 'filas' => $filasTipos],
+                ['id' => 'almacenes_actuales', 'orden' => 20, 'titulo' => 'Almacenes activos al generar', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Relaciones almacén/artículo', 'series' => [1, 2]], 'columnas' => ['Almacén', 'Relaciones activas', 'Bajo mínimo'], 'formatos' => ['texto', 'entero', 'entero'], 'filas' => $filasAlmacenes, 'vacio' => 'No hay almacenes activos al generar.'],
+                ['id' => 'alertas_actuales', 'orden' => 10, 'titulo' => 'Hasta 10 alertas actuales', 'tipo' => 'tabla', 'anchos' => [34, 26, 10, 15, 15], 'columnas' => ['Almacén', 'Artículo', 'Unidad', 'Saldo', 'Mínimo'], 'formatos' => ['texto', 'texto', 'texto', 'cantidad', 'cantidad'], 'filas' => $filasAlertas, 'vacio' => 'Sin alertas actuales al generar.'],
             ],
             'notas' => [
                 'El informe cubre todos los almacenes del negocio; no aplica selección de almacenes, búsqueda ni filtros de artículo o tipo de la pantalla.',

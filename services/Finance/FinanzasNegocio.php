@@ -281,7 +281,7 @@ final class FinanzasNegocio
             'Instantánea al generar, sujeta a cambios en los hechos de origen.',
         ];
         return [
-            'titulo' => 'Informe de Finanzas', 'contexto' => 'Restaurante',
+            'id' => 'finanzas', 'titulo' => 'Informe de finanzas', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
                 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
             'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
@@ -294,14 +294,14 @@ final class FinanzasNegocio
                 ['etiqueta' => 'Utilidad neta', 'valor' => $r['utilidadNeta'], 'formato' => 'moneda', 'comparacion' => $deltaNeta],
             ],
             'secciones' => [
-                ['titulo' => 'Balance del periodo', 'tipo' => 'tabla', 'columnas' => ['Concepto', 'Importe'], 'anchos' => [64, 36], 'resaltadas' => [4],
+                ['id' => 'balance', 'orden' => 10, 'titulo' => 'Balance del periodo', 'tipo' => 'tabla', 'columnas' => ['Concepto', 'Importe'], 'anchos' => [64, 36], 'resaltadas' => [4],
                     'formatos' => ['texto', 'moneda'], 'filas' => [
                         ['Ingresos por ventas', $r['ingresos']], ['Costo de insumos', $r['cogs']],
                         ['Merma con costo conocido', $r['merma']], ['Gastos fijos prorrateados', $r['gastos']],
                         ['Utilidad neta', $r['utilidadNeta']], ['Ventas sin costo conocido', $r['sinCosto']],
                     ]],
-                ['titulo' => 'Comparación con el periodo anterior', 'tipo' => 'tabla',
-                    'grafica' => ['tipo' => 'barras', 'unidad' => 'MXN', 'series' => [1, 2], 'detalle' => [3, 4]],
+                ['id' => 'comparacion_financiera', 'orden' => 20, 'titulo' => 'Comparación con el periodo anterior', 'tipo' => 'tabla',
+                    'resaltadas' => [2], 'conSigno' => [3, 4],
                     'columnas' => ['Concepto', 'Anterior', 'Actual', 'Diferencia', 'Variación'],
                     'formatos' => ['texto', 'moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [
                         ['Ingresos por ventas', $anterior['ingresos'], $r['ingresos'], $r['ingresos'] - $anterior['ingresos'], $deltaIngresos],

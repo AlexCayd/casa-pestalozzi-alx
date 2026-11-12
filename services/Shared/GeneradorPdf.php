@@ -64,6 +64,8 @@ final class GeneradorPdf
                 throw new \InvalidArgumentException('Documento incompleto: ' . $clave);
             }
         }
+        if (isset($doc['id']) && (!is_string($doc['id']) || !in_array($doc['id'], ['finanzas','analisis','reservaciones','inventario','tickets'], true))) throw new \InvalidArgumentException('Identificador documental inválido.');
+        if (isset($doc['provisional']) && !is_bool($doc['provisional'])) throw new \InvalidArgumentException('Estado documental inválido.');
         if (!isset($doc['periodo']) || !is_array($doc['periodo'])) {
             throw new \InvalidArgumentException('Periodo documental inválido.');
         }
@@ -81,10 +83,16 @@ final class GeneradorPdf
                 throw new \InvalidArgumentException('Indicador inválido.');
             }
         }
+        $idsSeccion = [];
         foreach ($doc['secciones'] as $seccion) {
             if (!is_array($seccion) || !isset($seccion['titulo'], $seccion['tipo']) || !is_string($seccion['titulo'])) {
                 throw new \InvalidArgumentException('Sección inválida.');
             }
+            if (isset($seccion['id'])) {
+                if (!is_string($seccion['id']) || !preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $seccion['id']) || in_array($seccion['id'], $idsSeccion, true)) throw new \InvalidArgumentException('Identificador de sección inválido.');
+                $idsSeccion[] = $seccion['id'];
+            }
+            if (isset($seccion['orden']) && (!is_int($seccion['orden']) || $seccion['orden'] < 0 || $seccion['orden'] > 1000)) throw new \InvalidArgumentException('Orden de sección inválido.');
             if (isset($seccion['vacio']) && !is_string($seccion['vacio'])) throw new \InvalidArgumentException('Aviso de vacío inválido.');
             if ($seccion['tipo'] === 'texto') {
                 if (!isset($seccion['contenido']) || !is_string($seccion['contenido'])) throw new \InvalidArgumentException('Texto inválido.');
@@ -101,6 +109,10 @@ final class GeneradorPdf
                         $tipo = array_values($seccion['formatos'] ?? array_fill(0, count($fila), 'texto'))[$indice];
                         if ($tipo === 'texto' ? (!is_string($celda) && !self::numeroONulo($celda)) : !self::numeroONulo($celda)) throw new \InvalidArgumentException('Celda inválida.');
                     }
+                }
+                if (isset($seccion['conSigno'])) {
+                    if (!is_array($seccion['conSigno']) || !array_is_list($seccion['conSigno'])) throw new \InvalidArgumentException('Formato de signo inválido.');
+                    foreach ($seccion['conSigno'] as $indice) if (!is_int($indice) || !isset($seccion['formatos'][$indice]) || $seccion['formatos'][$indice] === 'texto') throw new \InvalidArgumentException('Columna con signo inválida.');
                 }
                 if (isset($seccion['grafica'])) GraficaPdf::validar($seccion);
                 if (isset($seccion['anchos'])) {

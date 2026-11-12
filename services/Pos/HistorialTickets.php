@@ -78,7 +78,7 @@ final class HistorialTickets
             ? ' Las ventas no tienen base comparable en el periodo anterior.'
             : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.');
         return [
-            'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
+            'id' => 'tickets', 'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'], 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
             'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn,
             'resumen' => $resumen,
@@ -91,9 +91,9 @@ final class HistorialTickets
                 ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $consumo['conConsumo'], 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Tickets por estado en el periodo', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Tickets'], 'formatos' => ['texto', 'entero'], 'filas' => [['Cerrados', $actual['tickets']], ['Cancelados', $cancelados]]],
-                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
-                ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla', 'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'], 'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ingresos'], $actual['ingresos'], $actual['ingresos'] - $previo['ingresos'], RangoPeriodo::delta($actual['ingresos'], $previo['ingresos'])]]],
+                ['id' => 'tickets_estados', 'orden' => 0, 'titulo' => 'Tickets por estado en el periodo', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Tickets'], 'formatos' => ['texto', 'entero'], 'filas' => [['Cerrados', $actual['tickets']], ['Cancelados', $cancelados]]],
+                ['id' => 'serie_ventas', 'orden' => 10, 'titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['id' => 'comparacion_ventas', 'orden' => 20, 'conSigno' => [2, 3], 'titulo' => 'Comparación de ventas', 'tipo' => 'tabla', 'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'], 'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ingresos'], $actual['ingresos'], $actual['ingresos'] - $previo['ingresos'], RangoPeriodo::delta($actual['ingresos'], $previo['ingresos'])]]],
             ],
             'notas' => [
                 'Las ventas corresponden a partidas no canceladas de tickets cerrados; las propinas quedan fuera.',

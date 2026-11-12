@@ -33,32 +33,37 @@ final class GraficaPdf
         }
     }
 
-    /** Alcance visual de una serie de ventas: conserva importes y tramos completos. */
+    /** Partición visual: nunca divide ni recalcula el total de un tramo. */
     public static function alcanceTemporal(array $seccion, string $corteDia): array
     {
-        $alcances = []; $tieneNoObservado = false;
+        $observadas = []; $restantes = []; $completas = [];
         foreach ($seccion['filas'] as $fila) {
             $fila = array_values($fila);
-            if (!preg_match('/\A(\d{4}-\d{2}-\d{2})(?: a (\d{4}-\d{2}-\d{2}))?\z/', (string) $fila[0], $fechas)) return $seccion;
-            $inicio = $fechas[1]; $fin = $fechas[2] ?? $inicio;
-            if ($inicio > $corteDia) {
+            $conFecha = preg_match('/\A(\d{4}-\d{2}-\d{2})(?: a (\d{4}-\d{2}-\d{2}))?\z/', (string) $fila[0], $fechas);
+            $inicio = $conFecha ? $fechas[1] : null;
+            $fin = $conFecha ? ($fechas[2] ?? $inicio) : null;
+            if ($fin !== null && $fin < $corteDia) {
+                $alcance = 'Observado'; $observadas[] = $fila;
+            } elseif ($inicio !== null && $inicio > $corteDia) {
                 $alcance = $fila[1] === null ? 'No disponible; no observado'
                     : ($fila[1] == 0 ? 'Sin actividad registrada; no observado' : 'Registrado futuro; no observado');
-            } elseif ($fin >= $corteDia) {
+            } elseif ($inicio !== null) {
                 $alcance = 'Parcial al corte; total registrado del tramo';
-            } else { $alcance = 'Observado'; }
-            $tieneNoObservado = $tieneNoObservado || $alcance !== 'Observado';
-            $alcances[] = $alcance;
+            } else { $alcance = 'Alcance temporal no determinado'; }
+            $completa = [$fila[0], $fila[1], $alcance];
+            $completas[] = $completa;
+            if ($alcance !== 'Observado') $restantes[] = $completa;
         }
-        if (!$tieneNoObservado) return $seccion;
-        unset($seccion['grafica']);
-        $seccion['columnas'] = ['Periodo', 'Ventas registradas', 'Alcance'];
-        $seccion['formatos'] = ['texto', 'moneda', 'texto'];
-        $seccion['anchos'] = [28, 24, 48];
-        $filas = [];
-        foreach (array_values($seccion['filas']) as $i => $fila) $filas[] = [array_values($fila)[0], array_values($fila)[1], $alcances[$i]];
-        $seccion['filas'] = $filas;
-        return $seccion;
+        $observada = $seccion; $observada['filas'] = $observadas;
+        $tabla = $seccion; unset($tabla['grafica']);
+        if (!$restantes) return ['observada' => $observada, 'tabla' => $tabla, 'restante' => null];
+        $tabla['columnas'] = ['Periodo', 'Ventas registradas', 'Alcance'];
+        $tabla['formatos'] = ['texto', 'moneda', 'texto'];
+        $tabla['anchos'] = [28, 24, 48];
+        $tabla['filas'] = $completas;
+        $restante = $tabla; $restante['filas'] = $restantes;
+        $restante['titulo'] = 'Tramos parciales y futuros';
+        return ['observada' => $observada, 'tabla' => $tabla, 'restante' => $restante];
     }
 
     /** @return array{imagenes:list<string>,mensaje:string,tabla:bool} */

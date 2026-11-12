@@ -119,7 +119,7 @@ final class AnalisisNegocio
             ? ' Las ventas no tienen base comparable en el periodo anterior.'
             : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.');
         return [
-            'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
+            'id' => 'analisis', 'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
             'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
                 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
             'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
@@ -134,9 +134,9 @@ final class AnalisisNegocio
                 ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $actual['conConsumo'], 'formato' => 'entero'],
             ],
             'secciones' => [
-                ['titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
-                ['titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Piezas', 'series' => [1], 'detalle' => [2]], 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
-                ['titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
+                ['id' => 'serie_ventas', 'orden' => 10, 'titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['id' => 'productos_top', 'orden' => 30, 'titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Piezas', 'series' => [1], 'detalle' => [2]], 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
+                ['id' => 'comparacion_ventas', 'orden' => 20, 'conSigno' => [2, 3], 'titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
                     'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'],
                     'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ventas'], $actual['ventas'], $actual['ventas'] - $previo['ventas'], RangoPeriodo::delta($actual['ventas'], $previo['ventas'])]]],
             ],
