@@ -147,6 +147,9 @@ el editor de elaboración, las versiones y los permisos no cambian.
 - **Alta en un paso**: «Nuevo artículo» abre un diálogo en la misma lista con nombre,
   unidad, costo opcional, «¿Cómo se obtiene?» y almacenes opcionales. Un insumo vuelve
   a la lista listo para usarse en recetas; una preparación abre su ficha en la receta.
+- **Contenido por pieza**: en el alta y en los datos generales se habilita sólo con
+  «Se compra por pieza (botella, lata, paquete)»; bloqueado en `pza`
+  ([§16](../arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario)).
 - **Una ficha** (`/recetas/articulos/editar`): datos generales (editables sólo en
   Global con la facultad de catálogo), «Uso en {negocio}» —la pregunta «¿Cómo se
   obtiene?», «Activo en {negocio}» y tres opciones avanzadas plegadas—, la receta de

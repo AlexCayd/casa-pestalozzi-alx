@@ -870,9 +870,8 @@
   }
 }
 
-// Plegables secundarios («Se compra por pieza», «Opciones avanzadas»): un
-// renglón discreto de 44 px que no compite con la pregunta ni con el botón.
-.admin-body .m6-alta__pieza,
+// Plegable secundario («Opciones avanzadas»): un renglón discreto de 44 px que
+// no compite con la pregunta ni con el botón.
 .admin-body .m6-avanzadas {
   > summary {
     display: list-item;
@@ -901,13 +900,116 @@
   }
 }
 
-// Va pegado a las tarjetas: es un detalle de «Se compra», no un paso más.
-.admin-body .m6-alta__pieza {
-  margin-top: -12px;
+// «Se compra por pieza» (_articulo-pieza.php): la casilla gobierna al campo.
+// Se leen como una unidad por cercanía y sangría —el campo cuelga del texto de la
+// casilla, no del borde de la rejilla— y no por un filete lateral, que el panel
+// no usa. Las reglas cuelgan de .admin-body porque el mismo parcial vive en la
+// ficha y en el diálogo de alta, que queda fuera de .m6-ficha.
+.admin-body .m6-pieza {
+  // Ancho de la casilla más su separación: alinea el campo con el texto.
+  --m6-pieza-sangria: calc(1.15rem + 0.65rem);
 
-  .admin-field {
-    max-width: 320px;
-    margin-bottom: 4px;
+  display: grid;
+  // Las mismas dos columnas que .admin-form-grid: el campo no se estira más que
+  // «Costo por unidad» y conserva el ritmo de la rejilla en la que se incluye.
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+  row-gap: 4px;
+
+  .m2-capacidad {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    padding: 6px 0;
+    align-items: start;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: var(--admin-text);
+      cursor: inherit;
+    }
+
+    > span {
+      min-width: 0;
+      font-weight: 600;
+    }
+
+    small {
+      margin-top: 2px;
+      color: var(--admin-muted);
+      font-size: 0.8125rem;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    // En `pza` la casilla no aplica: se dice con el texto tenue y el cursor,
+    // y la nota sigue explicando por qué.
+    &:has(input:disabled) {
+      cursor: not-allowed;
+
+      > span {
+        color: var(--admin-muted);
+      }
+    }
+  }
+
+  .m6-pieza__campo {
+    grid-column: 1;
+    min-width: 0;
+    margin-left: var(--m6-pieza-sangria);
+
+    > .admin-field__hint {
+      display: block;
+      margin-top: 6px;
+    }
+  }
+
+  // Bloqueado no es un error ni un dato vacío por capturar: sin relleno, con
+  // borde discontinuo —el mismo recurso de la opción sin permiso de «¿Cómo se
+  // obtiene?»— y etiqueta tenue. Su ayuda explica cómo llenarlo, así que espera
+  // a que la casilla lo habilite; aria-describedby la sigue leyendo.
+  .m6-pieza__campo:has(input:disabled) {
+    color: var(--admin-muted);
+    cursor: not-allowed;
+
+    // El atributo sube la especificidad sobre el campo global de _forms.scss
+    // (cinco :not() y su :hover), que si no devolvía el borde sólido y el tinte.
+    input[data-m6-pieza-campo]:disabled,
+    input[data-m6-pieza-campo]:disabled:hover {
+      border-color: var(--admin-border-strong);
+      border-style: dashed;
+      background: transparent;
+      box-shadow: none;
+      color: var(--admin-muted);
+      cursor: not-allowed;
+    }
+
+    > .admin-field__hint {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// En el alta va pegado a las tarjetas de «¿Cómo se obtiene?»: es un detalle de
+// cómo se compra, no un paso más. Bloqueado se queda en el renglón de la casilla,
+// como el plegable al que sustituye, para no alargar el diálogo; al marcarla
+// aparece el campo y recibe el foco.
+.admin-body .m6-alta .m6-pieza {
+  margin-top: -8px;
+
+  // A 16 px igualaba a la pregunta «¿Cómo se obtiene?» y competía con ella; a
+  // 14 px habla con la misma voz que las casillas de almacenes del mismo diálogo.
+  .m2-capacidad > span {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .m6-pieza__campo:has(input:disabled) {
+    display: none;
   }
 }
 

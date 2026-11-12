@@ -403,7 +403,11 @@ presentación. El POS de los 112 productos originales no cambia de modo.
 artículo puede ser ingrediente y reventa.
 
 `ingredientes.contenido_pieza DECIMAL(12,3) NULL` declara cuánto contiene una
-pieza comercial (750 ml en una botella). Sólo aplica a `g`, `kg`, `ml` y `l`. El
+pieza comercial (750 ml en una botella). Sólo aplica a `g`, `kg`, `ml` y `l`. En el
+panel se captura únicamente con «Se compra por pieza» marcado (12 nov 2026): el campo
+nace bloqueado, en `pza` la casilla también, y desmarcarla lo borra. El servidor aplica
+la misma regla con `por_pieza_control`, de modo que un valor olvidado en un artículo
+en kg no convierte mal sus entradas. El
 saldo y el ledger siempre están en la unidad base; las entradas y mermas
 pueden capturarse en piezas y el servidor convierte con aritmética exacta. La
 lectura muestra «8 botellas + 450 ml». La unidad sigue siendo inmutable con

@@ -39,6 +39,15 @@ try{
     $a($x->query('//details[contains(@class,"m6-avanzadas") and not(@open)]//input[@name="componente" or @name="almacenable" or @name="costo_conocido"]')->length===3,'Las tres opciones restantes quedan plegadas como avanzadas.');
     $a(str_contains($page['body'],'Todavía no está en ninguna receta')&&str_contains($page['body'],'Todavía no está asociado a ningún almacén'),'«Dónde se usa» explica el estado vacío de recetas y almacenes.');
 
+    // «Se compra por pieza»: sin la casilla el campo está bloqueado y el servidor no guarda contenido.
+    $fichaG='/admin/global/recetas/articulos/editar?id='.$id;$pg=$admin->request('GET',$fichaG);$xg=ClienteInstalacion3E::dom($pg['body']);
+    $a($xg->query('//input[@name="contenido_pieza" and @type="number" and @value="" and not(@placeholder)]')->length===1&&$xg->query('//input[@name="por_pieza" and not(@checked)]')->length===1&&$xg->query('//input[@name="contenido_pieza" and @type="hidden"]/following::input[@name="contenido_pieza" and @type="number"]')->length===1,'Sin «Se compra por pieza» el contenido viaja vacío y sin ejemplo que parezca valor.');
+    $identidadG=['m2_csrf'=>ClienteInstalacion3E::token($pg['body'],'m2_csrf'),'nombre'=>$name,'unidad'=>'g','costo'=>'0.0000','activo'=>'1','por_pieza_control'=>'1'];$pieza=static fn()=>$db->execute_query('SELECT contenido_pieza FROM ingredientes WHERE id=?',[$id])->fetch_row()[0];
+    $r=$admin->request('POST','/admin/global/almacenes/catalogo/editar?id='.$id,$identidadG+['contenido_pieza'=>'500']);$a($r['status']===303&&$pieza()===null,'Un contenido enviado sin la casilla no se guarda.');
+    $r=$admin->request('POST','/admin/global/almacenes/catalogo/editar?id='.$id,$identidadG+['por_pieza'=>'1','contenido_pieza'=>'500']);$a($r['status']===303&&$pieza()==='500.000','Con la casilla se guarda el contenido por pieza.');
+    $xg=ClienteInstalacion3E::dom($admin->request('GET',$fichaG)['body']);$a($xg->query('//input[@name="por_pieza" and @checked]')->length===1&&$xg->query('//input[@name="contenido_pieza" and @type="number" and @value="500"]')->length===1,'La ficha relee la casilla marcada y el valor.');
+    $r=$admin->request('POST','/admin/global/almacenes/catalogo/editar?id='.$id,$identidadG+['contenido_pieza'=>'']);$a($r['status']===303&&$pieza()===null,'Desmarcar la casilla borra el contenido por pieza.');
+
     // 3. Clasificar como preparación: PRG y aterrizaje en su receta.
     $config=['tipo'=>'preparacion','componente'=>'1','almacenable'=>'1','costo_conocido'=>'1']+ClienteInstalacion3E::form($page['body'],'clasificar');$a($config['revision']==='0'&&$config['avanzadas']==='1','El formulario viaja con revisión y marca de opciones avanzadas.');
     $a($admin->request('POST',$article,array_replace($config,['m2_csrf'=>'invalido']))['status']===403&&$conf($id)===null,'CSRF inválido no guarda el uso.');

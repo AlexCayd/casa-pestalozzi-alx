@@ -36,7 +36,7 @@ $tipoTexto=$preparacion?'Se prepara en casa':($versionCasa?'Preparación de la c
 <label class="admin-field">Nombre<input name="nombre" maxlength="120" required autocomplete="off" value="<?= $esc($identidad['nombre']??'') ?>"></label>
 <label class="admin-field">Unidad de medida<select name="unidad"><?php foreach(['g','kg','ml','l','pza'] as $u): ?><option <?= ($identidad['unidad']??'g')===$u?'selected':'' ?>><?= $u ?></option><?php endforeach; ?></select><span class="admin-field__hint">No cambia si ya tiene movimientos o recetas que lo usan.</span></label>
 <label class="admin-field">Costo por unidad<input name="costo" type="number" min="0" step="0.0001" inputmode="decimal" required value="<?= $esc($identidad['costo']??'0.0000') ?>"></label>
-<label class="admin-field">Contenido por pieza (opcional)<input name="contenido_pieza" type="number" min="0.001" max="999999999.999" step="0.001" inputmode="decimal" value="<?= $esc($pieza) ?>" placeholder="750" aria-describedby="contenido-pieza-ayuda"><span class="admin-field__hint" id="contenido-pieza-ayuda">Cuánto contiene una pieza, en la unidad del artículo: 750 si es un vino en ml que se compra por botella. Vacío si no se maneja por pieza.</span></label>
+<?php $piezaValor=$pieza;$piezaUnidad=(string)($identidad['unidad']??'g');$piezaPrefijo='datos';include __DIR__.'/_articulo-pieza.php'; ?>
 </div>
 <label class="m2-capacidad"><input name="activo" type="checkbox" value="1" <?= !empty($identidad['activo'])?'checked':'' ?>><span>Disponible en toda la casa <small>Apagado, deja de ofrecerse en Restaurante, Panadería y Global.</small></span></label>
 <div class="admin-actions"><button class="admin-btn admin-btn--secondary">Guardar datos generales</button></div>

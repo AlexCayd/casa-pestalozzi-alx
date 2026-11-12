@@ -28,9 +28,7 @@ $altaPorNegocio=[];foreach($almacenesAlta??[] as $a)$altaPorNegocio[$a['slug']][
 <label class="admin-pill m6-tipo__opcion"><input type="radio" name="tipo" value="insumo" data-m6-tipo <?= $altaTipo==='insumo'?'checked':'' ?>><span class="admin-pill__body"><strong class="admin-pill__title">Se compra</strong><small class="admin-pill__hint">Insumo o producto de reventa. Entra al almacén y se descuenta directo, sin receta propia.</small></span></label>
 <label class="admin-pill m6-tipo__opcion"><input type="radio" name="tipo" value="preparacion" data-m6-tipo <?= $altaTipo==='preparacion'?'checked':'' ?> <?= $puedePrepararAlta?'':'disabled' ?>><span class="admin-pill__body"><strong class="admin-pill__title">Se prepara en casa</strong><small class="admin-pill__hint"><?= $puedePrepararAlta?'Tiene receta propia: una salsa, una masa, una base. Al crearlo se abre su receta.':'Requiere edición de Artículos y preparaciones en este negocio.' ?></small></span></label>
 </div></fieldset>
-<details class="m6-alta__pieza" <?= $altaPieza!==''?'open':'' ?>><summary>Se compra por pieza (botella, lata, paquete)</summary>
-<label class="admin-field">Contenido por pieza<input name="contenido_pieza" type="number" min="0.001" max="999999999.999" step="0.001" inputmode="decimal" value="<?= $esc($altaPieza) ?>" placeholder="750" aria-describedby="<?= $esc($altaPrefijo) ?>-pieza-ayuda"><span class="admin-field__hint" id="<?= $esc($altaPrefijo) ?>-pieza-ayuda">Cuánto contiene una pieza, en la unidad del artículo: 750 si es un vino en ml que se compra por botella. Sólo para g, kg, ml o l.</span></label>
-</details>
+<?php $piezaValor=$altaPieza;$piezaUnidad=(string)($altaDatos['unidad']??'g');$piezaPrefijo=$altaPrefijo;include __DIR__.'/_articulo-pieza.php'; ?>
 <?php if($altaPorNegocio): ?>
 <fieldset class="m2-fieldset m2-alta-almacenes"><legend>¿En qué almacenes se guarda? (opcional)</legend>
 <p class="admin-field__hint">Queda asociado a cada almacén marcado, sin existencias. También puedes asociarlo después.</p>

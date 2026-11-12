@@ -89,4 +89,40 @@ assert.equal(enviar(identidad).defaultPrevented, true, 'la previsión pendiente 
 assert.equal(confirmaciones.length, 3);
 
 dom.window.close();
-console.log('Artículos UX: alta en un paso, doble envío y conservación de borradores OK.');
+
+// «Se compra por pieza»: el campo sólo se captura con la casilla y nunca en pza.
+const piezaHtml = `<form id="datos"><select name="unidad"><option>g</option><option>kg</option><option>ml</option><option>l</option><option>pza</option></select>
+<div data-m6-pieza><input type="hidden" name="por_pieza_control" value="1">
+<label><input type="checkbox" name="por_pieza" value="1" data-m6-pieza-activar></label>
+<input type="hidden" name="contenido_pieza" value="">
+<input name="contenido_pieza" type="number" data-m6-pieza-campo></div></form>`;
+const domPieza = new JSDOM(piezaHtml, {runScripts:'outside-only'});
+domPieza.window.eval(fs.readFileSync('src/js/admin/recetas/articulos.js', 'utf8'));
+const dp = domPieza.window.document, fp = dp.getElementById('datos');
+const unidadSel = fp.querySelector('[name="unidad"]'), casilla = fp.querySelector('[data-m6-pieza-activar]'), cont = fp.querySelector('[data-m6-pieza-campo]');
+const enviado = () => new domPieza.window.FormData(fp).getAll('contenido_pieza');
+const cambiar = el => el.dispatchEvent(new domPieza.window.Event('change', {bubbles:true}));
+assert.equal(cont.disabled, true, 'sin la casilla el contenido por pieza está bloqueado (lo bloquea el JS al cargar)');
+assert.deepEqual(enviado(), [''], 'bloqueado, sólo viaja el contenido vacío');
+unidadSel.value = 'l'; cambiar(unidadSel);
+casilla.checked = true; cambiar(casilla);
+assert.equal(cont.disabled, false, 'la casilla habilita el campo');
+assert.equal(cont.required, true, 'marcada, el contenido es obligatorio');
+cont.value = '1';
+assert.deepEqual(enviado(), ['', '1'], 'habilitado, el valor capturado es el último y gana en el servidor');
+casilla.checked = false; cambiar(casilla);
+assert.equal(cont.value, '', 'desmarcarla vacía el campo');
+assert.deepEqual(enviado(), [''], 'desmarcada, viaja vacío');
+casilla.checked = true; cambiar(casilla);
+assert.equal(cont.value, '1', 'volver a marcar antes de guardar devuelve el valor');
+cont.value = '25';
+unidadSel.value = 'pza'; cambiar(unidadSel);
+assert.equal(casilla.checked, false, 'en pza la casilla se desmarca');
+assert.equal(casilla.disabled, true, 'en pza la casilla se bloquea');
+assert.equal(cont.disabled, true, 'en pza el contenido se bloquea');
+assert.deepEqual(enviado(), [''], 'en pza no viaja contenido por pieza');
+unidadSel.value = 'kg'; cambiar(unidadSel);
+assert.equal(casilla.disabled, false, 'al salir de pza la casilla vuelve a estar disponible');
+assert.equal(cont.disabled, true, 'pero el campo sigue bloqueado hasta marcarla');
+domPieza.window.close();
+console.log('Artículos UX: alta en un paso, doble envío, conservación de borradores y contenido por pieza OK.');

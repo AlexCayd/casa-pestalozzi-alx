@@ -97,6 +97,9 @@ final class AdminArticulosController
             $payload=array_intersect_key($_POST,$campos);if($id)$payload['articulo_id']=$id;
             // Un artículo nace activo: el alta no pregunta lo que casi nunca se cambia.
             if($nuevo)$payload['activo']='1';
+            // «Se compra por pieza» desmarcado borra el contenido por pieza (§16): un valor
+            // olvidado en un artículo en kg convertiría mal sus entradas.
+            if(isset($_POST['por_pieza_control'])&&!isset($_POST['por_pieza'])){$payload['contenido_pieza']='';$datos['contenido_pieza']='';}
             // Sin costo capturado el artículo nace con costo desconocido (cero), no con un error.
             if($nuevo&&trim((string)($payload['costo']??''))==='')$payload['costo']='0';
             $tipoAlta=$nuevo&&is_string($_POST['tipo']??null)?$_POST['tipo']:'insumo';$datos['tipo']=$tipoAlta;

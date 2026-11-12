@@ -73,6 +73,32 @@
         var form = bloque.closest('form');
         if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
     });
+    // «Se compra por pieza»: el contenido por pieza sólo se captura con la casilla
+    // marcada y nunca en `pza`. Desmarcarla vacía el campo; deshabilitado, viaja el
+    // oculto vacío del parcial y el servidor borra el valor guardado.
+    document.querySelectorAll('[data-m6-pieza]').forEach(function (bloque) {
+        var form = bloque.closest('form');
+        var activar = bloque.querySelector('[data-m6-pieza-activar]');
+        var campo = bloque.querySelector('[data-m6-pieza-campo]');
+        if (!form || !activar || !campo) return;
+        // Desmarcar por error no pierde el valor mientras no se guarde: volver a marcar lo devuelve.
+        var recordado = campo.value;
+        function sincronizar() {
+            var unidad = form.querySelector('[name="unidad"]');
+            var enPiezas = !!unidad && unidad.value === 'pza';
+            if (enPiezas) activar.checked = false;
+            activar.disabled = enPiezas;
+            if (!activar.checked && campo.value !== '') recordado = campo.value;
+            campo.disabled = !activar.checked;
+            campo.required = activar.checked;
+            if (!activar.checked) campo.value = '';
+            else if (campo.value === '' && recordado !== '') campo.value = recordado;
+        }
+        activar.addEventListener('change', function () { sincronizar(); if (activar.checked) campo.focus(); });
+        // El selector de unidad puede ser el realzado del panel: se escucha el cambio en el formulario.
+        form.addEventListener('change', function (event) { if (event.target.name === 'unidad') sincronizar(); });
+        sincronizar();
+    });
     // Alta en un paso: el enlace «Nuevo artículo» lleva a la página de respaldo si no
     // hay JavaScript; con él, se queda en la lista y abre el diálogo.
     document.querySelectorAll('a[data-m6-abrir-alta]').forEach(function (enlace) {
