@@ -168,13 +168,17 @@ $crearArticulo = static function (ClienteM3 $c, array $datos) use ($campos, $cue
     $pares = $campos($pag['body'], '//form[.//input[@name="m2_csrf"] and .//input[@name="nombre"]]');
     return $c->postCrudo('/admin/global/almacenes/catalogo/nuevo', $cuerpo($pares, $datos));
 };
-/** Capacidades M2 del artículo en un ámbito (accion=configurar). */
+/**
+ * Uso del artículo en un ámbito (accion=clasificar, arquitectura §18): `elaborable` elige
+ * «Se prepara en casa»; componente, almacenable, costo_conocido y activo son las opciones
+ * de la ficha. `comprable` y `produccion_previa` ya no se capturan: se derivan.
+ */
 $capacidades = static function (ClienteM3 $c, string $ctx, int $id, array $activas) use ($baseArt, $campos, $cuerpo, $alertas): array {
     $url = $baseArt($ctx) . '/editar?id=' . $id;
     $pag = $c->get($url);
-    $pares = $campos($pag['body'], '//form[.//input[@name="accion" and @value="configurar"]]');
-    $sobre = ['accion' => 'configurar'];
-    foreach (['comprable', 'componente', 'elaborable', 'almacenable', 'produccion_previa', 'costo_conocido', 'activo'] as $k) $sobre[$k] = in_array($k, $activas, true) ? '1' : null;
+    $pares = $campos($pag['body'], '//form[.//input[@name="accion" and @value="clasificar"]]');
+    $sobre = ['accion' => 'clasificar', 'avanzadas' => '1', 'tipo' => in_array('elaborable', $activas, true) ? 'preparacion' : 'insumo'];
+    foreach (['componente', 'almacenable', 'costo_conocido', 'activo'] as $k) $sobre[$k] = in_array($k, $activas, true) ? '1' : null;
     $r = $c->postCrudo($url, $cuerpo($pares, $sobre));
     return [$r, $alertas($c->seguir($r)['body'])];
 };
@@ -211,7 +215,7 @@ if (in_array(1, $solo, true)) $seccion('Prueba 1 · Alta y datos de prueba', fun
     // 1.2 Capacidades y asociación
     [$rc, $al] = $capacidades($R, 'restaurante', $vino, ['componente', 'almacenable', 'comprable', 'activo']);
     $c2 = $conf($vino, 2);
-    $ok('1.2a', 'Restaurante activa «Se usa como ingrediente» y «Mantiene existencias» del vino', $rc['status'] === 303 && (int)($c2['componente'] ?? 0) === 1 && (int)($c2['almacenable'] ?? 0) === 1, 'HTTP ' . $rc['status'] . ' ' . mb_substr($al, 0, 80));
+    $ok('1.2a', 'Restaurante guarda el vino como artículo que se compra, usable en recetas y con existencias', $rc['status'] === 303 && (int)($c2['componente'] ?? 0) === 1 && (int)($c2['almacenable'] ?? 0) === 1, 'HTTP ' . $rc['status'] . ' ' . mb_substr($al, 0, 80));
     foreach ([$fresa, $pasta, $tomate] as $a) $capacidades($R, 'restaurante', $a, ['componente', 'almacenable', 'comprable', 'activo']);
     $capacidades($R, 'restaurante', $salsa, ['componente', 'elaborable', 'almacenable', 'activo']);
     foreach ([$vino, $fresa] as $a) $capacidades($G, 'global', $a, ['componente', 'almacenable', 'comprable', 'activo']);
@@ -356,9 +360,9 @@ if (array_intersect([1, 11], $solo)) $seccion('Prueba 1 · Ofertas, reventa e in
     $fichaHtml = $R->get($baseArt('restaurante') . '/editar?id=' . $vino)['body'];
     $enlaces = static fn(int $o) => ClienteInstalacion3E::dom($fichaHtml)->query('//a[contains(@href,"presentaciones?id=' . $o . '")]')->length;
     $usos = ['copa' => $enlaces($copa), 'botella' => $enlaces($botella), 'pasta' => $enlaces($pastaO), 'salsa' => (int)str_contains($texto($fichaHtml), 'QA M3 Salsa al vino')];
-    $ok('1.5c', '«Dónde se utiliza» del vino enlaza copa, botella, pasta y la salsa', !in_array(0, $usos, true), json_encode($usos));
-    $sec = $texto($fichaHtml); $i = mb_strpos($sec, 'Presentaciones');
-    $obs('1.5e', '«Dónde se utiliza» rotula cada presentación sólo con su nombre y repite cada versión', 'Se lee: ' . mb_substr($sec, $i, 150) . ' — sin el nombre del producto, dos «Copa» de productos distintos no se distinguen.');
+    $ok('1.5c', '«Dónde se usa» del vino enlaza copa, botella, pasta y la salsa', !in_array(0, $usos, true), json_encode($usos));
+    $filasUso = array_map(static fn($n) => trim(preg_replace('/\s+/u', ' ', $n->textContent)), iterator_to_array(ClienteInstalacion3E::dom($fichaHtml)->query('//section[@id="usos"]//table/tbody/tr')));
+    $ok('1.5e', '«Dónde se usa» nombra el producto y dice cómo se vende cada uno', count(array_filter($filasUso, static fn($f) => str_contains($f, 'QA M3') && (str_contains($f, 'Reventa') || str_contains($f, 'Se prepara al momento')))) >= 3, implode(' | ', array_map(static fn($f) => mb_substr($f, 0, 70), $filasUso)));
     [$rf, $copaFresas] = $crearOferta($R, 'QA M3 Copa de fresas', 'preparado', '60.00');
     [$pFresas] = $presentarCompleta($R, $copaFresas, 'copa', 'Copa', '60.00', [[$fresa, '5', 'pza', 'almacenado']], [$fresa => BARRA]);
     $ok('1.5d', 'Copa de fresas: fresas 5 pza con origen Barra', $pFresas > 0 && (int)$v('SELECT almacen_id FROM oferta_consumos WHERE oferta_id=? AND articulo_id=?', [$copaFresas, $fresa]) === BARRA, "presentación $pFresas");
@@ -500,11 +504,13 @@ if (in_array(2, $solo, true)) $seccion('Prueba 2 · Preparado y faltantes', func
     $ok('2.3e', 'AP-1: el aviso de faltante aparece en el buzón del topbar', str_contains($topbar, 'faltante') || str_contains($topbar, 'inventario'), 'operador_restaurante: HTTP ' . $buzonR['status'] . ' ' . ($buzonR['json']['codigo'] ?? '') . ' · admin_demo: HTTP ' . $buzon['status'] . ' · ' . mb_substr($topbar, 0, 200));
     $datosQA['faltante23'] = (int)($f[0]['id'] ?? 0); $datosQA['item23'] = $item;
 
-    // 2.5 (preparación) salsa con producción previa usada como almacenada
-    [$rc] = $capacidades($R, 'restaurante', $salsa, ['componente', 'elaborable', 'almacenable', 'produccion_previa', 'activo']);
+    // 2.5 (preparación) salsa con existencias usada como almacenada. La producción
+    // previa ya no se captura (§18): servir lo ya preparado sólo pide existencias.
+    [$rc] = $capacidades($R, 'restaurante', $salsa, ['componente', 'elaborable', 'almacenable', 'activo']);
     [, $salsaServ] = $crearOferta($R, 'QA M3 Salsa servida', 'preparado', '40.00');
     [$pSalsa, $evs] = $presentarCompleta($R, $salsaServ, 'porcion', 'Porción', '40.00', [[$salsa, '100', 'g', 'almacenado']], [$salsa => COCINA]);
-    $ok('2.5a', 'Salsa marcada «Se elabora antes de vender» y servida como almacenada desde Cocina', (int)($q('SELECT produccion_previa FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=2', [$salsa])[0]['produccion_previa'] ?? 0) === 1 && $pSalsa > 0, "presentación $pSalsa · $evs · saldo salsa " . $saldo(COCINA, $salsa));
+    $cs = $q('SELECT elaborable,almacenable FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=2', [$salsa])[0] ?? [];
+    $ok('2.5a', 'Salsa «Se prepara en casa» con existencias, servida como almacenada desde Cocina', (int)($cs['elaborable'] ?? 0) === 1 && (int)($cs['almacenable'] ?? 0) === 1 && $pSalsa > 0, "presentación $pSalsa · $evs · saldo salsa " . $saldo(COCINA, $salsa));
 
     // 2.4 Dos productos con faltante en una comanda y replay
     $k24 = $clave('doble-faltante');
@@ -832,37 +838,44 @@ if (in_array(6, $solo, true)) $seccion('Prueba 6 · Catálogo compartido', funct
     ['vino' => $vino, 'fresa' => $fresa, 'salsa' => $salsa] = $datosQA;
     // 6.1 Dos entradas al mismo catálogo
     $a = $R->get('/admin/almacenes/catalogo'); $b = $R->get('/admin/recetas/articulos');
+    $ok('6.1a', 'Una sola lista: el catálogo de Almacenes lleva a Artículos y preparaciones', $a['status'] === 303 && $a['location'] === '/admin/recetas/articulos' && $b['status'] === 200, 'HTTP ' . $a['status'] . ' → ' . $a['location']);
+    $a = $R->seguir($a);
     $rasgos = static function (string $html) use ($texto): array { $x = ClienteInstalacion3E::dom($html); $t = $texto($html); return ['catalogo_compartido' => str_contains($t, 'Catálogo compartido'), 'alta' => $x->query('//a[contains(@href,"/catalogo/nuevo")]')->length > 0, 'ficha' => $x->query('//a[contains(@href,"/editar?id=")]')->length > 0, 'vincular' => str_contains($t, 'Preparaciones anteriores por vincular') || $x->query('//*[@name="subreceta_id"]')->length > 0]; };
     $ra = $rasgos($a['body']); $rb = $rasgos($b['body']);
-    $obs('6.1', 'Dos entradas al catálogo (AP-10)', 'Almacenes /admin/almacenes/catalogo (HTTP ' . $a['status'] . '): ' . json_encode($ra) . ' · Recetas /admin/recetas/articulos (HTTP ' . $b['status'] . '): ' . json_encode($rb));
-    // 6.2 Lista: búsqueda con comodines escapados, filtro de estado, páginas de 30 y filtros conservados.
+    $obs('6.1', 'Dos entradas, una pantalla (AP-10)', 'Almacenes /admin/almacenes/catalogo (HTTP ' . $a['status'] . '): ' . json_encode($ra) . ' · Recetas /admin/recetas/articulos (HTTP ' . $b['status'] . '): ' . json_encode($rb));
+    // 6.2 Lista: búsqueda con comodines escapados, filtro de estado, páginas de 15 y filtros conservados.
     $crearArticulo($G, ['nombre' => 'QA M3 100% natural', 'unidad' => 'g', 'contenido_pieza' => '', 'costo' => '0', 'activo' => '1']);
     $crearArticulo($G, ['nombre' => 'QA M3 sal_fina!', 'unidad' => 'g', 'contenido_pieza' => '', 'costo' => '0', 'activo' => '1']);
     $filas = static fn(string $u) => array_values(array_unique(array_map(static fn($n) => trim($n->textContent), iterator_to_array(ClienteInstalacion3E::dom($R->get($u)['body'])->query('//table//tbody//tr//*[self::strong or self::a][contains(.,"QA M3") or contains(.,"")][1]')))));
-    $busca = static fn(string $q) => array_map(static fn($n) => trim(preg_replace('/\s+/', ' ', $n->textContent)), iterator_to_array(ClienteInstalacion3E::dom($R->get('/admin/almacenes/catalogo?q=' . rawurlencode($q))['body'])->query('//tbody/tr/td[1]')));
+    $busca = static fn(string $q) => array_map(static fn($n) => trim(preg_replace('/\s+/', ' ', $n->textContent)), iterator_to_array(ClienteInstalacion3E::dom($R->get('/admin/recetas/articulos?q=' . rawurlencode($q))['body'])->query('//table[contains(@class,"m6-tabla")]/tbody/tr/td[1]')));
     $pct = $busca('%'); $und = $busca('_'); $exc = $busca('!');
     $soloCon = static fn(array $r, string $c) => $r !== [] && count(array_filter($r, static fn($x) => !str_contains($x, $c))) === 0;
     $ok('6.2a', 'La búsqueda escapa % _ y ! (cada una sólo encuentra nombres que la contienen)', $soloCon($pct, '%') && $soloCon($und, '_') && $soloCon($exc, '!'), '% → ' . count($pct) . ' · _ → ' . count($und) . ' · ! → ' . count($exc));
     $total = (int)$v('SELECT COUNT(*) FROM ingredientes');
     $p1 = count($busca(''));
-    $ok('6.2b', 'Paginación de 30 y Restaurante ve todo el maestro (incluidos artículos sin asociación propia)', $p1 === min(30, $total) && str_contains($texto($R->get('/admin/almacenes/catalogo?q=' . rawurlencode('QA M3 100%'))['body']), 'QA M3 100% natural'), "maestro $total · primera página $p1");
-    $inact = $R->get('/admin/almacenes/catalogo?estado=inactivos');
-    $ok('6.2c', 'Filtro por estado', $inact['status'] === 200, 'HTTP ' . $inact['status'] . ' · ' . count(ClienteInstalacion3E::dom($inact['body'])->query('//tbody/tr')) . ' filas inactivas');
-    $volver = ClienteInstalacion3E::dom($R->get('/admin/almacenes/catalogo?q=QA&pagina=1')['body'])->query('//a[contains(@href,"editar?id=") and contains(@href,"volver=")]')->length;
+    $ok('6.2b', 'Paginación de 15 y Restaurante ve todo el maestro (incluidos artículos sin asociación propia)', $p1 === min(15, $total) && str_contains($texto($R->get('/admin/recetas/articulos?q=' . rawurlencode('QA M3 100%'))['body']), 'QA M3 100% natural'), "maestro $total · primera página $p1");
+    $p2 = ClienteInstalacion3E::dom($R->get('/admin/recetas/articulos?pagina=2')['body'])->query('//table[contains(@class,"m6-tabla")]/tbody/tr')->length;
+    $ok('6.2e', 'La segunda página continúa la lista', $p2 === min(15, max(0, $total - 15)), "segunda página $p2");
+    $inact = $R->get('/admin/recetas/articulos?estado=inactivos');
+    $ok('6.2c', 'Filtro por estado', $inact['status'] === 200, 'HTTP ' . $inact['status'] . ' · ' . count(ClienteInstalacion3E::dom($inact['body'])->query('//table[contains(@class,"m6-tabla")]/tbody/tr')) . ' filas inactivas');
+    $volver = ClienteInstalacion3E::dom($R->get('/admin/recetas/articulos?q=QA&pagina=1')['body'])->query('//a[contains(@href,"editar?id=") and contains(@href,"volver=")]')->length;
     $ok('6.2d', 'La ficha conserva los filtros para volver', $volver > 0, "$volver enlaces con volver=");
     // 6.3 Alta y edición
-    $ficha = static fn(ClienteM3 $c, string $base, int $id) => $c->get($base . '/catalogo/editar?id=' . $id);
+    // La ficha única: la identidad del catálogo redirige a ella y sólo Global pinta el formulario de datos generales.
+    $ficha = static fn(ClienteM3 $c, string $base, int $id) => $c->seguir($c->get($base . '/catalogo/editar?id=' . $id));
     $fr = $ficha($R, '/admin/almacenes', $vino);
-    $postR = $R->postCrudo('/admin/almacenes/catalogo/editar?id=' . $vino, $cuerpo($campos($fr['body'], '//form[.//input[@name="m2_csrf"]]') ?: [], ['nombre' => 'QA M3 Vino renombrado']));
+    $ok('6.3f', 'Restaurante ve los datos generales en solo consulta', $fr['status'] === 200 && !str_contains($fr['body'], '>Guardar datos generales<') && !str_contains($fr['body'], 'name="costo"'), 'HTTP ' . $fr['status']);
+    $postR = $R->postCrudo('/admin/almacenes/catalogo/editar?id=' . $vino, $cuerpo($campos($fr['body'], '//form[.//input[@name="m2_csrf"]]') ?: [], ['accion' => null, 'revision' => null, 'avanzadas' => null, 'tipo' => null, 'nombre' => 'QA M3 Vino renombrado', 'unidad' => 'ml', 'costo' => '0.4000', 'activo' => '1']));
     $ok('6.3a', 'La identidad sólo se edita desde Global: Restaurante recibe 403', in_array($postR['status'], [403, 405], true) && (string)$v('SELECT nombre FROM ingredientes WHERE id=?', [$vino]) === 'QA M3 Vino tinto', 'HTTP ' . $postR['status']);
-    $editarG = static function (array $sobre, int $id) use ($G, $campos, $cuerpo) { $p = $G->get('/admin/global/almacenes/catalogo/editar?id=' . $id); return $G->postCrudo('/admin/global/almacenes/catalogo/editar?id=' . $id, $cuerpo($campos($p['body'], '//form[.//input[@name="m2_csrf"] and .//input[@name="nombre"]]'), $sobre)); };
+    // Global edita los datos generales en la ficha; el rechazo vuelve a ella (PRG) con su motivo.
+    $editarG = static function (array $sobre, int $id) use ($G, $campos, $cuerpo, $alertas) { $p = $G->seguir($G->get('/admin/global/almacenes/catalogo/editar?id=' . $id)); $r = $G->postCrudo('/admin/global/almacenes/catalogo/editar?id=' . $id, $cuerpo($campos($p['body'], '//form[.//input[@name="m2_csrf"] and .//input[@name="nombre"]]'), $sobre)); $r['aviso'] = $alertas($G->seguir($r)['body']); return $r; };
     $u = $editarG(['unidad' => 'g', 'contenido_pieza' => ''], $vino);
-    $ok('6.3b', 'No se cambia la unidad de un artículo con historial', $u['status'] === 422 && (string)$v('SELECT unidad FROM ingredientes WHERE id=?', [$vino]) === 'ml', 'HTTP ' . $u['status'] . ' · ' . mb_substr($alertas($u['body']), 0, 140));
+    $ok('6.3b', 'No se cambia la unidad de un artículo con historial', $u['status'] === 303 && str_contains($u['aviso'], 'unidad no puede cambiar') && (string)$v('SELECT unidad FROM ingredientes WHERE id=?', [$vino]) === 'ml', 'HTTP ' . $u['status'] . ' · ' . mb_substr($u['aviso'], 0, 140));
     $i = $editarG(['activo' => null], $vino);
-    $ok('6.3c', 'No se inactiva un artículo con saldo', $i['status'] === 422 && (int)$v('SELECT activo FROM ingredientes WHERE id=?', [$vino]) === 1, 'HTTP ' . $i['status'] . ' · ' . mb_substr($alertas($i['body']), 0, 140));
+    $ok('6.3c', 'No se inactiva un artículo con saldo', $i['status'] === 303 && $i['aviso'] !== '' && !str_contains($i['aviso'], 'Datos generales guardados') && (int)$v('SELECT activo FROM ingredientes WHERE id=?', [$vino]) === 1, 'HTTP ' . $i['status'] . ' · ' . mb_substr($i['aviso'], 0, 140));
     [, $tAb] = $solicitar($R, 'restaurante', REFRI, BARRA, $fresa, '1');
     $operar($R, 'restaurante', 'merma', ['almacen_id' => BARRA, 'articulo_id' => $fresa, 'cantidad' => $saldo(BARRA, $fresa), 'motivo' => 'otro', 'clave' => 'qa-63-vaciar-b']);
-    $obs('6.3d', 'Inactivar con transferencias abiertas', 'Con la transferencia ' . $tAb . ' abierta (fresas, que conserva saldo en otros almacenes) la inactivación ' . (($ii = $editarG(['activo' => null], $fresa))['status'] === 422 ? 'se rechaza: ' . mb_substr($alertas($ii['body']), 0, 120) : 'no se rechazó (HTTP ' . $ii['status'] . ')') . '. No se aisló la causa entre saldo y transferencia.');
+    $obs('6.3d', 'Inactivar con transferencias abiertas', 'Con la transferencia ' . $tAb . ' abierta (fresas, que conserva saldo en otros almacenes) la inactivación ' . ((int)$v('SELECT activo FROM ingredientes WHERE id=?', [$fresa]) === 1 && ($ii = $editarG(['activo' => null], $fresa)) && (int)$v('SELECT activo FROM ingredientes WHERE id=?', [$fresa]) === 1 ? 'se rechaza: ' . mb_substr($ii['aviso'], 0, 120) : 'no se rechazó') . '. No se aisló la causa entre saldo y transferencia.');
     $transferencia($R, 'restaurante', 'cancelar', $tAb);
     $s = $saldo(BARRA, $vino); $n = $movs(BARRA, $vino);
     $cp = $editarG(['contenido_pieza' => '700'], $vino);
@@ -870,12 +883,13 @@ if (in_array(6, $solo, true)) $seccion('Prueba 6 · Catálogo compartido', funct
     $editarG(['contenido_pieza' => '750'], $vino);
     // 6.4 Etiqueta de producción previa
     $t = $texto($R->get('/admin/recetas/articulos?q=' . rawurlencode('QA M3 Salsa'))['body']);
-    $obs('6.4', 'AP-8: etiqueta de producción previa en «Configuración del negocio»', str_contains($t, 'Existencias previas requeridas') ? 'Sigue diciendo «Existencias previas requeridas», aunque desde M3 la venta no exige existencias previas.' : 'No aparece la etiqueta: ' . mb_substr($t, (int)mb_strpos($t, 'QA M3 Salsa'), 160));
-    // 6.5 Ficha: dependencia de producción previa, versiones y comparación
+    $ok('6.4', 'AP-8: la lista ya no anuncia «Existencias previas requeridas»', !str_contains($t, 'Existencias previas requeridas') && str_contains($t, 'Se prepara en casa'), mb_substr($t, (int)mb_strpos($t, 'QA M3 Salsa'), 160));
+    // 6.5 Ficha: la captura de siete capacidades se retiró; versiones y comparación
     $art = $crearArticulo($G, ['nombre' => 'QA M3 Sin elaboración', 'unidad' => 'g', 'contenido_pieza' => '', 'costo' => '0', 'activo' => '1']);
     $sinE = (int)$v('SELECT id FROM ingredientes WHERE nombre=?', ['QA M3 Sin elaboración']);
-    [$rc, $al] = $capacidades($R, 'restaurante', $sinE, ['componente', 'produccion_previa', 'activo']);
-    $ok('6.5a', 'Producción previa exige elaboración y almacenamiento', $rc['status'] === 422 && (int)($q('SELECT produccion_previa FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=2', [$sinE])[0]['produccion_previa'] ?? 0) === 0, 'HTTP ' . $rc['status'] . ' · ' . mb_substr($al ?: $alertas($rc['body']), 0, 140));
+    $urlSinE = $baseArt('restaurante') . '/editar?id=' . $sinE;
+    $rc = $R->postCrudo($urlSinE, $cuerpo($campos($R->get($urlSinE)['body'], '//form[.//input[@name="accion" and @value="clasificar"]]'), ['accion' => 'configurar', 'avanzadas' => null, 'tipo' => null, 'componente' => '1', 'produccion_previa' => '1', 'activo' => '1']));
+    $ok('6.5a', 'El formulario anterior de capacidades (producción previa) ya no se acepta', $rc['status'] === 422 && $q('SELECT 1 FROM articulo_configuraciones WHERE articulo_id=? AND unidad_id=2', [$sinE]) === [], 'HTTP ' . $rc['status'] . ' · ' . mb_substr($alertas($rc['body']), 0, 140));
     $vs = (int)$v('SELECT id FROM articulo_recetas WHERE articulo_id=? AND unidad_id=2 ORDER BY version LIMIT 1', [$salsa]);
     $verV = $R->get($baseArt('restaurante') . '/editar?id=' . $salsa . '&version=' . $vs);
     $cmp = $R->get($baseArt('restaurante') . '/editar?id=' . $salsa . '&version=' . $vs . '&comparar=' . $vs);
