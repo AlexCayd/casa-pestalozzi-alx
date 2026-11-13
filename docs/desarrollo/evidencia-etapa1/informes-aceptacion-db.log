@@ -1,0 +1,15 @@
+
+> devwebcamp-php-mvc-mysql@1.0.0 test:informes:db
+> php scripts/tests/informes-aceptacion/run.php
+
+
+Fatal error: Uncaught RuntimeException: Falta configuración explícita de prueba: TEST_DB_HOST in C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\informes-db-bootstrap.php:10
+Stack trace:
+#0 C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\run.php(5): pdfTestConfig()
+#1 {main}
+  thrown in C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\informes-db-bootstrap.php on line 10
+PHP Fatal error:  Uncaught RuntimeException: Falta configuración explícita de prueba: TEST_DB_HOST in C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\informes-db-bootstrap.php:10
+Stack trace:
+#0 C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\run.php(5): pdfTestConfig()
+#1 {main}
+  thrown in C:\xampp\htdocs\casa-pestalozzi\scripts\tests\informes-aceptacion\informes-db-bootstrap.php on line 10

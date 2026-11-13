@@ -546,10 +546,54 @@ artículo, recepciones, total, promedio por recepción, último costo, mínimo, 
 variación del primer al último costo y los últimos doce costos. Cantidades y costos se
 agregan en enteros exactos; sólo la variación y el intervalo son de lectura.
 
-**Retiro.** Un proveedor con entradas no se elimina (`PROVEEDOR_CON_HISTORIAL`): se
-desactiva, deja de ofrecerse en las entradas y conserva su historial. Sin entradas se
-elimina junto con sus asignaciones. Migración para bases existentes:
+**Retiro.** Un proveedor con entradas o historial de precios no se elimina
+(`PROVEEDOR_CON_HISTORIAL`): se desactiva, deja de ofrecerse en las entradas y conserva
+su trazabilidad. Solo se elimina junto con sus asignaciones si nunca generó ninguno de
+los dos historiales. Migración M5 para bases existentes:
 `database/actualizaciones/m5-proveedores.sql`, aditiva y repetible.
+
+### 17.1. Historial del precio de referencia
+
+`ingrediente_proveedores.costo` es el precio vigente de referencia que ofrece el
+proveedor para el artículo. No es el costo real de compra: `movimientos_inventario` y
+las entradas conservan el costo unitario capturado al recibir, y los informes
+financieros no se recalculan a partir de referencias posteriores.
+
+`historial_precios_proveedores` registra las líneas base y los cambios en su propia
+tabla. No se reutiliza `historial_precios`, que corresponde a precios de ofertas del
+menú. La fila histórica conserva ámbito, proveedor y artículo, precio anterior/nuevo,
+tipo, fecha, responsable y snapshots legibles del nombre de proveedor, artículo,
+unidad base y usuario. Las FK de proveedor y artículo son `RESTRICT`; la FK del usuario
+es `SET NULL`, con nombre snapshot para mantener la atribución legible.
+
+La actualización vigente y sus eventos se escriben en una única transacción. El
+servicio bloquea la fila del proveedor y reconcilia sus asociaciones; los escritores
+concurrentes leen el último precio confirmado antes de añadir el siguiente cambio.
+Cambios de código o preferencia no crean eventos. Retirar una asociación no borra su
+historial; al reasignarla se compara contra el último precio registrado. El precio de
+referencia y el costo de cada entrada siguen siendo independientes.
+
+Las asociaciones previas a esta etapa no se rellenan desde precios actuales ni desde
+movimientos: no hay evidencia suficiente para atribuir fecha o responsable pasados.
+Al primer guardado se registra una `base_observada` con el precio que estaba guardado
+en ese momento y el actor/fecha actuales. Si el usuario envía otro precio en ese mismo
+guardado, se agrega además el cambio desde la observación. Una asociación creada bajo
+esta etapa inicia con tipo `inicial`. “Base observada” nunca afirma ser la fecha en que
+el proveedor ofreció originalmente el importe.
+
+Los precios solo se comparan dentro de la unidad base observada; si cambia la unidad
+del artículo, se abre una nueva base y no se calcula variación porcentual entre
+unidades distintas. Para anterior cero se conserva la diferencia absoluta y el
+porcentaje queda nulo. La ficha M5 pagina todo el historial, identifica anterior,
+nuevo, vigente, fecha, responsable y variaciones; puede mostrar evolución solo con al
+menos tres eventos del mismo tramo/unidad. Global consulta proveedores de otros
+ámbitos sin editar sus precios; la comparación se limita al ámbito del proveedor
+abierto.
+
+Migración para instalaciones existentes: aplicar
+`database/actualizaciones/etapa1-precios-proveedores.sql` después de M5 y antes de
+desplegar el servicio/UI de esta etapa. Es aditiva, repetible y no hace backfill.
+`database/ddl.sql` contiene la misma tabla para instalaciones nuevas.
 
 ## 18. M6: alta en un paso y clasificación de artículos
 

@@ -1,0 +1,15 @@
+Base temporal verificada y eliminada: cp_multinegocio_test_41603e850feb8112fce0
+{
+    "ok": true,
+    "comprobaciones": 17,
+    "escenarios": [
+        "salidas concurrentes",
+        "replay idempotente",
+        "conflicto de payload",
+        "reversión concurrente",
+        "espera InnoDB",
+        "permiso revocado antes de escritura",
+        "orden de bloqueo"
+    ],
+    "base_temporal": "cp_multinegocio_test_41603e850feb8112fce0"
+}

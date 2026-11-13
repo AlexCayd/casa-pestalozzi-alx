@@ -1,0 +1,10 @@
+
+> devwebcamp-php-mvc-mysql@1.0.0 test:almacenes:3c
+> php scripts/tests/run-almacenes-3c.php
+
+{
+    "ok": false,
+    "fase": "argumentos/configuración",
+    "comprobaciones": 0,
+    "error": "Falta --host."
+}

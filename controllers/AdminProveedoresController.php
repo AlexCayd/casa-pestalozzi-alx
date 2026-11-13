@@ -62,11 +62,23 @@ final class AdminProveedoresController
             $proveedor = ($_SESSION['_proveedores_datos'][$ctx] ?? []) + $proveedor;
             unset($_SESSION['_proveedores_datos'][$ctx]);
             $editar = $proveedor['editable'] && Auth::puede('inventario', 'editar', $ctx);
+            $paginaPrecios = filter_var($_GET['historial_pagina'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+            $articuloPrecio = filter_var($_GET['historial_articulo'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $articuloPrecio = $articuloPrecio === false ? null : $articuloPrecio;
+            $historialPrecios = $servicio->historialPrecios($ctx, $id, $paginaPrecios, $articuloPrecio);
+            $totalHistorialPrecios = $articuloPrecio ? $servicio->historialPrecios($ctx, $id)['total'] : $historialPrecios['total'];
+            $comparacionPrecios = $articuloPrecio ? $servicio->compararPrecios($ctx, $id, $articuloPrecio) : [];
             self::render('almacenes/proveedor', $ctx, [
                 'title' => (string)$proveedor['nombre'], 'proveedor' => $proveedor, 'puedeEditarFicha' => $editar,
                 'asignaciones' => $servicio->asignaciones($ctx, $id),
                 'asignables' => $editar ? $servicio->articulosAsignables($ctx) : [],
-                'historial' => $servicio->historial($ctx, $id), 'alertas' => $alertas,
+                'historial' => $servicio->historial($ctx, $id), 'historialPrecios' => $historialPrecios,
+                'totalHistorialPrecios' => $totalHistorialPrecios, 'tieneHistorialPrecios' => $totalHistorialPrecios > 0,
+                'totalHistorialPrecios' => $totalHistorialPrecios,
+                'articulosHistorialPrecios' => $servicio->articulosHistorialPrecios($ctx, $id),
+                'graficaPrecio' => $articuloPrecio ? $servicio->graficaPrecio($ctx, $id, $articuloPrecio) : null,
+                'comparacionPrecios' => $comparacionPrecios, 'filtroHistorialArticulo' => $articuloPrecio,
+                'alertas' => $alertas,
             ]);
         } catch (\Throwable $e) {
             http_response_code(self::estado($e));

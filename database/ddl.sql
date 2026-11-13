@@ -7,7 +7,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS faltante_asignaciones, faltantes_inventario, entradas_proveedor, ticket_anulaciones, vitrina_piezas_variante, vitrina_piezas, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_avisos, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS historial_precios_proveedores, faltante_asignaciones, faltantes_inventario, entradas_proveedor, ticket_anulaciones, vitrina_piezas_variante, vitrina_piezas, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_avisos, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -431,6 +431,25 @@ CREATE TABLE historial_precios (
  FOREIGN KEY(oferta_id,unidad_id) REFERENCES ofertas_producto(id,unidad_id) ON DELETE RESTRICT, FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
  FOREIGN KEY(proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL, FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
  CHECK((oferta_id IS NULL) <> (articulo_id IS NULL)), CHECK(precio_nuevo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Precio de referencia ofrecido por proveedor. Es independiente del costo unitario
+-- congelado en movimientos de inventario y de historial_precios (catálogo de venta).
+CREATE TABLE historial_precios_proveedores (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL,
+ proveedor_id INT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL,
+ proveedor_nombre_snapshot VARCHAR(120) NOT NULL, articulo_nombre_snapshot VARCHAR(120) NOT NULL,
+ unidad_base_snapshot VARCHAR(40) NOT NULL,
+ precio_anterior DECIMAL(10,4) NULL, precio_nuevo DECIMAL(10,4) NOT NULL,
+ tipo ENUM('inicial','base_observada','cambio') NOT NULL,
+ usuario_id INT NULL, usuario_nombre_snapshot VARCHAR(120) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_hist_prov_art_fecha(unidad_id,proveedor_id,articulo_id,created_at,id),
+ FOREIGN KEY(unidad_id) REFERENCES unidades(id) ON DELETE RESTRICT,
+ FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(articulo_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
+ FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+ CHECK(precio_nuevo>=0), CHECK(precio_anterior IS NULL OR precio_anterior>=0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE reservaciones (

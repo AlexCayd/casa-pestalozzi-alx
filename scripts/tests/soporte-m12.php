@@ -32,8 +32,8 @@ function m12Carrera(mysqli $db,string $accion,array $args): array {
     try{
         for($i=0;$i<2;$i++){
             $proc=proc_open([PHP_BINARY,__DIR__.'/worker-m12.php'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,dirname(__DIR__,2));if(!is_resource($proc))throw new RuntimeException('No se inició el worker M1.2.');
-            $a=$args;if($accion==='receta')$a[3].='_'.$i;
-            fwrite($pipes[0],json_encode(['base'=>$base,'token'=>$token,'actor'=>$_SESSION['id'],'accion'=>$accion,'args'=>$a],JSON_THROW_ON_ERROR)."\n");fflush($pipes[0]);
+            $a=$args;$accionWorker=$accion;if($accion==='receta')$a[3].='_'.$i;if($accion==='precios_proveedor_race'){$accionWorker='precios_proveedor';$a[2]=[$args[2][$i]];}
+            fwrite($pipes[0],json_encode(['base'=>$base,'token'=>$token,'actor'=>$_SESSION['id'],'accion'=>$accionWorker,'args'=>$a],JSON_THROW_ON_ERROR)."\n");fflush($pipes[0]);
             if(trim((string)fgets($pipes[1]))!=='READY')throw new RuntimeException('Worker M1.2 no listo.');$jobs[]=[$proc,$pipes];
         }
         foreach($jobs as [$proc,$pipes]){fwrite($pipes[0],"GO\n");fflush($pipes[0]);}

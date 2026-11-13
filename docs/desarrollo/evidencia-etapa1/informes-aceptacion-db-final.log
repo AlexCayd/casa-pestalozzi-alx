@@ -1,0 +1,16 @@
+PASS fixture FIN/ANA/TIC y actores sembrados en base propia.
+FIN independiente PASS SQL-origen ventas=125.00 COGS=24.0000 venta_sin_costo=25.00 tickets=3; paridad6KPIs <=0.01, costoNULL/cero/cancelados/propinas/dividido/unidad/fallback/empty/readonly; paginas=2, segundos=0.51
+ANA independiente PASS SQL-origen ventas=450.00 tickets=2 piezas=45 comensales=7 con_consumo=1; 5KPIs/top7de9/snapshot/cancelados/ceros/prev/FINDIF0/empty/sololectura; 366dias pages=3 elapsed=0.669 peakMB=24
+RES independiente PASS SQL-origen reservas=7 comensales=29 estados=[{"estado":"confirmada","total":2,"personas":"9"},{"estado":"en_curso","total":1,"personas":"3"},{"estado":"completada","total":2,"personas":"6"},{"estado":"cancelada","total":1,"personas":"6"},{"estado":"no_show","total":1,"personas":"5"}]; 6KPIs,3pendientes,no_show1,tecnicos3/reemplazo/unidad excluidos,fecha_programada,ceros,provisional,historia/PII/sololectura; pages=2
+INV independiente PASS SQL-origen relaciones=28 bajo_minimo=27 almacenes=2 movimientos=11 merma_conocida=10.0000000 merma_sin_costo=1; artículos=27; unidades kg/pza,ceros/milésimas,no-negativos M4,sololectura; páginas=3
+TIC independiente PASS SQL-origen ventas=125.00 cerrados=3 cancelados=1 promedio=41.6667; 4KPIs,paridadFINANA0,serie[115,10,0],abiertos/partidas canceladas/propina fuera,empty,366d,PIIfuera,hash12tablasigual; paginas=2
+PASS consistencia independiente: 13 comprobaciones; dos conexiones KPI100/serie100, después150; escritor=0.0026s; DML prohibido, errores limpian sólo TX propia, outer TX/autocommit0 preservados.
+Base de prueba de consistencia propia eliminada.
+GRÁFICAS representativas PASS 22 PDF: 93 ventas con centavos,14 tramos,5 normales/vacíos/366d,5 cortes parciales,3 almacenes amplios,ceros/milésimas M4,PII sintética,paridad FIN/ANA/TIC y no mutación.
+IA Reportes independiente PASS 80 comprobaciones: 5x9 presets, 366d, rangos, catálogo, permisos, revocación, aislamiento y consultas previas.
+FINANZAS HTTP independiente PASS 21 casos: autorizado/anonymous/permisos/negocios/NIP/revocacion/rangos/manipulacion/empty/read-only/boton
+ANALYTICS HTTP independiente PASS 21 casos: autorizado/anonymous/permisos/negocios/NIP/revocacion/rangos/manipulacion/empty/read-only/boton
+RESERVACIONES HTTP independiente PASS 21 casos: autorizado/anonymous/permisos/negocios/NIP/revocacion/rangos/manipulacion/empty/read-only/boton
+INVENTARIO HTTP independiente PASS 21 casos: autorizado/anonymous/permisos/negocios/NIP/revocacion/rangos/manipulacion/empty/read-only/boton
+TICKETS HTTP independiente PASS 21 casos: autorizado/anonymous/permisos/negocios/NIP/revocacion/rangos/manipulacion/empty/read-only/boton
+PASS aceptación de informes completa

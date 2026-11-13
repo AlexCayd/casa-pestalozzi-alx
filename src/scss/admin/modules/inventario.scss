@@ -1424,6 +1424,7 @@
    los almacenes se lee con el mismo lenguaje que sus existencias. */
 .almacen-proveedores {
   min-width: 0;
+  overflow-x: clip;
   .admin-page__header { align-items: flex-start; margin-bottom: 30px; }
   .admin-page__subtitle { max-width: 66ch; }
   .admin-table td { vertical-align: top; }
@@ -1447,6 +1448,29 @@
   a[aria-current="page"] { border-bottom-color: var(--admin-text); color: var(--admin-text); }
 }
 .admin-body .proveedor-evolucion { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font-size: 13px; }
+.proveedor-precios__filtros { display: flex; align-items: end; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 16px;
+  label { color: var(--admin-muted); font-size: 12px; font-weight: 600; }
+  select { min-width: min(100%, 280px); min-height: 42px; }
+  .admin-btn { min-height: 42px; }
+}
+.proveedor-precios__grafica { margin: 0 0 18px; padding: 14px 16px 10px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface-soft);
+  figcaption { margin-bottom: 10px; color: var(--admin-muted); font-size: 12px; line-height: 1.5; }
+  svg { display: block; width: 100%; height: 116px; overflow: visible; }
+  line { stroke: var(--admin-border); stroke-width: .7; vector-effect: non-scaling-stroke; }
+  polyline { fill: none; stroke: var(--admin-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+}
+.proveedor-precios__tabla { font-variant-numeric: tabular-nums; }
+.proveedor-precios__articulo { color: var(--admin-text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--admin-border); text-underline-offset: 3px; }
+.proveedor-precios__articulo:hover { text-decoration-color: currentColor; }
+.proveedor-precios__sube { color: var(--admin-warning-text); }
+.proveedor-precios__baja { color: var(--admin-success-text); }
+.proveedor-precios__comparacion { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--admin-border-soft);
+  h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+  > p { color: var(--admin-muted); font-size: 13px; }
+}
+.proveedor-precios__paginacion { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; color: var(--admin-muted); font-size: 12px;
+  .admin-btn { min-height: 40px; }
+}
 // Subir de precio es lo que hay que vigilar: tinta de advertencia y flecha; bajar,
 // tinta de éxito. La palabra (signo y porcentaje) dice lo mismo sin el color.
 .proveedor-variacion { display: inline-flex; align-items: center; gap: 3px; color: var(--admin-muted); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -1460,6 +1484,8 @@
   li { display: flex; justify-content: space-between; gap: 12px; }
 }
 .proveedor-asignaciones {
+  min-width: 0;
+  .admin-table-wrap { min-width: 0; }
   // Campos de 46 px y casillas de 36: al centro de la fila quedan en una línea.
   .admin-table td { vertical-align: middle; }
   // Los rótulos ocultos (posición absoluta) de las celdas tomaban como bloque
@@ -1481,8 +1507,11 @@
 }
 .proveedor-retiro .almacen-section-head { margin-bottom: 0; }
 @media (pointer: coarse) {
-  .proveedor-check, .proveedores-vistas a, .proveedor-serie summary { min-height: 44px; }
+  .proveedor-check, .proveedores-vistas a, .proveedor-serie summary, .proveedor-precios__paginacion .admin-btn { min-height: 44px; }
 }
 @media (max-width: 760px) {
   .almacen-proveedores .admin-page__header { flex-direction: column; align-items: stretch; }
+  .proveedor-precios__filtros { align-items: stretch; flex-direction: column; }
+  .proveedor-precios__filtros select, .proveedor-precios__filtros .admin-btn { width: 100%; }
+  .proveedor-precios__paginacion { flex-wrap: wrap; justify-content: center; }
 }

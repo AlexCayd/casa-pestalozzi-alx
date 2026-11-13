@@ -1,0 +1,169 @@
+
+> devwebcamp-php-mvc-mysql@1.0.0 build
+> gulp build
+
+[15:16:39] Using gulpfile C:\xampp\htdocs\casa-pestalozzi\gulpfile.js
+[15:16:39] Starting 'build'...
+[15:16:39] Starting 'css'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+(node:6324) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[15:16:40] Finished 'css' after 641 ms
+[15:16:40] Starting 'panaderiaCss'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+[15:16:40] Finished 'panaderiaCss' after 189 ms
+[15:16:40] Starting 'adminCss'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+[15:16:40] Finished 'adminCss' after 386 ms
+[15:16:40] Starting 'adminModuleCss'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+[15:16:41] Finished 'adminModuleCss' after 837 ms
+[15:16:41] Starting 'operationAppCss'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+[15:16:42] Finished 'operationAppCss' after 618 ms
+[15:16:42] Starting 'cajaCss'...
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+[15:16:42] Finished 'cajaCss' after 89 ms
+[15:16:42] Starting 'imagenes'...
+[15:16:42] gulp-imagemin: Minified 0 images
+[15:16:42] Finished 'imagenes' after 4.11 ms
+[15:16:42] Starting 'versionWebp'...
+[15:16:42] Finished 'versionWebp' after 2.71 ms
+[15:16:42] Starting 'versionAvif'...
+[15:16:42] Finished 'versionAvif' after 4.25 ms
+[15:16:42] Starting 'javascript'...
+[15:16:43] Finished 'javascript' after 957 ms
+[15:16:43] Starting 'panaderiaJavascript'...
+[15:16:43] Finished 'panaderiaJavascript' after 190 ms
+[15:16:43] Starting 'adminJavascript'...
+[15:16:44] Finished 'adminJavascript' after 469 ms
+[15:16:44] Starting 'cajaJavascript'...
+[15:16:44] Finished 'cajaJavascript' after 305 ms
+[15:16:44] Starting 'adminMapJavascript'...
+[15:16:45] Finished 'adminMapJavascript' after 832 ms
+[15:16:45] Starting 'adminAreaJavascript'...
+[15:16:45] Finished 'adminAreaJavascript' after 44 ms
+[15:16:45] Starting 'adminAnalyticsJavascript'...
+[15:16:45] Finished 'adminAnalyticsJavascript' after 107 ms
+[15:16:45] Starting 'adminFinanzasJavascript'...
+[15:16:45] Finished 'adminFinanzasJavascript' after 69 ms
+[15:16:45] Starting 'adminRecetasJavascript'...
+[15:16:45] Finished 'adminRecetasJavascript' after 59 ms
+[15:16:45] Starting 'adminInventarioJavascript'...
+[15:16:45] Finished 'adminInventarioJavascript' after 98 ms
+[15:16:45] Starting 'adminReservationListJavascript'...
+[15:16:45] Finished 'adminReservationListJavascript' after 14 ms
+[15:16:45] Starting 'adminReservationEstrategiaJavascript'...
+[15:16:45] Finished 'adminReservationEstrategiaJavascript' after 16 ms
+[15:16:45] Starting 'adminUsersJavascript'...
+[15:16:45] Finished 'adminUsersJavascript' after 22 ms
+[15:16:45] Starting 'adminUsersDirectosJavascript'...
+[15:16:45] Finished 'adminUsersDirectosJavascript' after 30 ms
+[15:16:45] Starting 'adminCatasJavascript'...
+[15:16:45] Finished 'adminCatasJavascript' after 10 ms
+[15:16:45] Starting 'adminReservationFormJavascript'...
+[15:16:45] Finished 'adminReservationFormJavascript' after 210 ms
+[15:16:45] Starting 'adminConfigurationJavascript'...
+[15:16:46] Finished 'adminConfigurationJavascript' after 248 ms
+[15:16:46] Starting 'adminIaJavascript'...
+[15:16:46] Finished 'adminIaJavascript' after 183 ms
+[15:16:46] Starting 'adminVariantesJavascript'...
+[15:16:46] Finished 'adminVariantesJavascript' after 132 ms
+[15:16:46] Starting 'adminVitrinaJavascript'...
+[15:16:46] Finished 'adminVitrinaJavascript' after 48 ms
+[15:16:46] Starting 'adminTicketsJavascript'...
+[15:16:46] Finished 'adminTicketsJavascript' after 17 ms
+[15:16:46] Starting 'adminImpresorasJavascript'...
+[15:16:46] Finished 'adminImpresorasJavascript' after 17 ms
+[15:16:46] Starting 'copyChartJs'...
+[15:16:46] Finished 'copyChartJs' after 3.38 ms
+[15:16:46] Starting 'copyVendorJs'...
+[15:16:46] Finished 'copyVendorJs' after 5.52 ms
+[15:16:46] Starting 'copyVendorFonts'...
+[15:16:46] Finished 'copyVendorFonts' after 5.91 ms
+[15:16:46] Starting 'copyFonts'...
+[15:16:46] 'copyFonts' errored after 8.08 ms
+[15:16:46] Error: UNKNOWN: unknown error, open 'C:\xampp\htdocs\casa-pestalozzi\public\build\fonts\KudosKapsOneNF.otf'
+[15:16:46] 'build' errored after 6.88 s

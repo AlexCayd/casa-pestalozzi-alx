@@ -23,6 +23,20 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $dir=new DirectorioProveedores($db,$actor,$nivel);$adm=new AdministracionAlmacenes($db,$actor,$nivel);
     $uno=static fn(string $sql,array $p=[])=>$db->execute_query($sql,$p)->fetch_row()[0]??null;
 
+    // Migración en un esquema preexistente con asociaciones M5; repetible y sin
+    // atribuir precios/fechas anteriores que el sistema nunca registró.
+    $db->query('DROP TABLE historial_precios_proveedores');
+    $db->execute_query("DELETE FROM esquema_versiones WHERE version='etapa1-precios-proveedores'");
+    Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/etapa1-precios-proveedores.sql');
+    Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/etapa1-precios-proveedores.sql');
+    $a((int)$uno("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='historial_precios_proveedores'")===1,'La migración repetida crea la tabla histórica');
+    $a((int)$uno("SELECT COUNT(*) FROM esquema_versiones WHERE version='etapa1-precios-proveedores'")===1,'La migración registra su versión una sola vez');
+    $a((int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===0&&(int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores')>0,'La migración no inventa historial para asociaciones antiguas');
+    $db->query('DROP TABLE historial_precios_proveedores');
+    $pendiente=$dir->guardarAsignaciones('restaurante',1001,[]);
+    $a(($pendiente['codigo']??'')==='MIGRACION_PENDIENTE'&&str_contains((string)($pendiente['mensaje']??''),'etapa1-precios-proveedores.sql'),'La escritura avisa con claridad si falta instalar la migración');
+    Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/etapa1-precios-proveedores.sql');
+
     // 0. Esquema y fixture: cada ámbito con su proveedor y su apertura ligada.
     $a((int)$uno("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='entradas_proveedor'")===1,'La instalación crea entradas_proveedor');
     $a((int)$uno('SELECT COUNT(*) FROM entradas_proveedor e JOIN proveedores p ON p.id=e.proveedor_id AND p.unidad_id=e.unidad_id')===3,'Las tres aperturas ligadas a un proveedor de su ámbito');
@@ -62,11 +76,15 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $lector=FixtureAutorizacion3B::usuario($db,'prov_lector_pan',['panaderia'=>['permisos'=>['inventario'=>'ver']]]);
     $dl=new DirectorioProveedores($db,(int)$lector['id'],$nivel);
     $a(count($dl->listar('panaderia'))===2,'El lector de Panadería consulta su directorio');
+    $a($dl->historialPrecios('panaderia',1002)['total']===0,'El permiso de lectura también permite abrir la sección de precios');
+    $a(is_array($dl->compararPrecios('panaderia',1002,1002)),'El permiso de lectura permite consultar comparación dentro del ámbito');
     $no($dl->guardar('panaderia',null,['nombre'=>'Sin permiso']),'Sólo consulta no da de alta');
     $no($dl->guardarAsignaciones('panaderia',1002,[]),'Sólo consulta no asigna');
     $no($dl->eliminar('panaderia',1002),'Sólo consulta no elimina');
     try{$dl->listar('restaurante');$denegado=false;}catch(Services\Inventory\InventarioError $e){$denegado=true;}
     $a($denegado,'Sin membresía en Restaurante no hay directorio');
+    $lanza(fn()=>$dl->historialPrecios('restaurante',1001),'Sin membresía en Restaurante no lee el historial de precios','AMBITO_DENEGADO');
+    $lanza(fn()=>$dl->compararPrecios('restaurante',1001,1002),'Sin membresía en Restaurante no compara precios','AMBITO_DENEGADO');
     $a((int)$uno('SELECT COUNT(*) FROM proveedores WHERE nombre=?',['Sin permiso'])===0,'Nada se creó sin permiso');
 
     // 5. Asignaciones: sólo artículos del ámbito, un preferente por artículo.
@@ -84,10 +102,85 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a(!empty($r['ok'])&&$r['articulos']===2,'Se asignan dos artículos');
     $a((int)$uno('SELECT preferente FROM ingrediente_proveedores WHERE proveedor_id=1001 AND ingrediente_id=1002')===0&&(int)$uno('SELECT preferente FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac])===1,'El nuevo preferente desmarca al anterior');
     $a($uno('SELECT costo FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac])==='0.0180','El costo de referencia se guarda exacto');
+    $baselines=(int)$uno("SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=? AND tipo='inicial'",[$lac]);
+    $a($baselines===2,'Cada asociación nueva registra precio inicial');
+    $snapshot=$db->execute_query('SELECT h.usuario_nombre_snapshot,h.articulo_nombre_snapshot,h.unidad_base_snapshot,i.nombre,i.unidad FROM historial_precios_proveedores h JOIN ingredientes i ON i.id=h.articulo_id WHERE h.proveedor_id=? AND h.articulo_id=1002 ORDER BY h.id LIMIT 1',[$lac])->fetch_assoc();
+    $a($snapshot!==null&&$snapshot['usuario_nombre_snapshot']!==''&&$snapshot['articulo_nombre_snapshot']===$snapshot['nombre']&&$snapshot['unidad_base_snapshot']===$snapshot['unidad'],'El historial conserva actor y snapshots legibles de artículo/unidad');
     $asig=$dir->asignaciones('restaurante',$lac);$a(array_column($asig,'codigo','articulo_id')===[1001=>null,1002=>'LEC-1']||count($asig)===2,'La ficha lista lo asignado');
     $pe=$dir->paraEntradas('restaurante');$a((int)$pe['porArticulo'][1002][0]['proveedor_id']===$lac,'La entrada propone primero al preferente');
     $a(!in_array(1002,array_map('intval',array_column($pe['proveedores'],'id')),true),'La entrada no ofrece proveedores de otro ámbito');
     $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0180','codigo'=>'LEC-1','preferente'=>'1']])['ok'])&&(int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores WHERE proveedor_id=?',[$lac])===1,'Reemplazo en bloque: quitar una fila la quita');
+    $h0=(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=?',[$lac]);
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0180','codigo'=>'LEC-UPDATED','preferente'=>'1']])['ok'])&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=?',[$lac])===$h0,'Editar código sin cambiar precio no agrega eventos');
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0190','codigo'=>'LEC-1','preferente'=>'1']])['ok']),'El cambio real de referencia se guarda');
+    $ev=$db->execute_query("SELECT precio_anterior,precio_nuevo,tipo FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 ORDER BY id DESC LIMIT 1",[$lac])->fetch_assoc();
+    $a($ev['precio_anterior']==='0.0180'&&$ev['precio_nuevo']==='0.0190'&&$ev['tipo']==='cambio','Cambio exacto enlaza el último precio registrado');
+    // Asociación legada sin historial observada a la fecha actual; si cambia en el
+    // mismo envío se registran baseline observado y cambio, sin fecha retroactiva.
+    $legacyArticle=(int)$uno('SELECT DISTINCT aa.articulo_id FROM almacen_articulos aa WHERE aa.unidad_id=2 AND aa.articulo_id NOT IN (1001,1002) ORDER BY aa.articulo_id LIMIT 1');
+    $a($legacyArticle>0,'Hay un artículo para probar una asociación M5 sin historial');
+    $db->execute_query("INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (2,?,?,0.0200)",[$legacyArticle,$lac]);
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0190'],['articulo_id'=>(string)$legacyArticle,'costo'=>'0.0210']])['ok']),'La asociación legada se actualiza con historial');
+    $tipos=$db->execute_query('SELECT tipo,precio_anterior,precio_nuevo FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=? ORDER BY id',[$lac,$legacyArticle])->fetch_all(MYSQLI_ASSOC);
+    $a(count($tipos)===2&&$tipos[0]['tipo']==='base_observada'&&$tipos[0]['precio_anterior']===null&&$tipos[0]['precio_nuevo']==='0.0200'&&$tipos[1]['tipo']==='cambio'&&$tipos[1]['precio_anterior']==='0.0200'&&$tipos[1]['precio_nuevo']==='0.0210','Primer guardado de asociación antigua observa base y cambio sin inventar pasado');
+    // Fallo posterior al INSERT histórico debe revertir también el evento.
+    $antesRollback=(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=?',[$lac]);
+    $db->query("CREATE TRIGGER qa_precios_forzar_rollback BEFORE UPDATE ON ingrediente_proveedores FOR EACH ROW BEGIN IF NEW.costo='0.0999' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='rollback fixture'; END IF; END");
+    $fallo=$dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0999']]);
+    $db->query('DROP TRIGGER qa_precios_forzar_rollback');
+    $a(empty($fallo['ok'])&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=?',[$lac])===$antesRollback&&$uno('SELECT costo FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac])==='0.0190','Rollback revierte evento y precio vigente ante fallo transaccional');
+    // Retirar y reasignar no reinicia la serie: el nuevo precio se enlaza al último evento.
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0190']])['ok']),'Retirar otra asociación conserva su historia');
+    $conteoReasig=(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1001',[$lac]);
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1001','costo'=>'0.0220']])['ok']),'Reasignar artículo conserva su trayectoria previa');
+    $re=$db->execute_query('SELECT precio_anterior,precio_nuevo FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1001 ORDER BY id DESC LIMIT 1',[$lac])->fetch_assoc();
+    $a($re['precio_anterior']==='0.0210'&&$re['precio_nuevo']==='0.0220'&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1001',[$lac])===$conteoReasig+1,'Reasignación compara contra el último precio y no crea baseline falsa');
+    $hp=$dir->historialPrecios('restaurante',$lac,1,1001);
+    $a($hp['total']===2&&count($hp['filas'])===2&&$hp['filas'][0]['precio_actual']==='0.0220'&&$hp['filas'][0]['diferencia']==='0.0010','Historial completo paginado incluye precio actual y diferencia exacta');
+    $a($hp['filas'][0]['variacion_pct']!==null,'La variación porcentual se calcula con base positiva');
+    $articuloComun=(int)$uno('SELECT a2.articulo_id FROM almacen_articulos a2 JOIN almacen_articulos a3 ON a3.articulo_id=a2.articulo_id WHERE a2.unidad_id=2 AND a3.unidad_id=3 ORDER BY a2.articulo_id LIMIT 1');
+    $a($articuloComun>0,'Hay artículo almacenado en Restaurante y Panadería para validar comparación acotada');
+    $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (2,?,?,0.0300) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun,$lac]);
+    $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (3,?,1002,0.0280) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun]);
+    $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (1,?,1003,0.0270) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun]);
+    $cmp=$dir->compararPrecios('restaurante',$lac,$articuloComun);
+    $a(count($cmp)>=1&&array_reduce($cmp,static fn($ok,$x)=>$ok&&(int)$x['unidad_id']===2,true),'Comparación excluye ofertas de Panadería y Global aunque compartan artículo');
+    $cmpGlobal=$dir->compararPrecios('global',$lac,$articuloComun);
+    $a(count($cmpGlobal)>=1&&array_reduce($cmpGlobal,static fn($ok,$x)=>$ok&&(int)$x['unidad_id']===2,true),'Global consulta proveedores del ámbito del proveedor abierto sin mezclar negocios');
+    $no($dir->guardarAsignaciones('global',$lac,[['articulo_id'=>(string)$articuloComun,'costo'=>'1']]),'Global no edita precio de referencia de Restaurante','RECURSO_NO_ENCONTRADO');
+    $carrera=m12Carrera($db,'precios_proveedor_race',['restaurante',$lac,[['articulo_id'=>'1002','costo'=>'0.0310'],['articulo_id'=>'1002','costo'=>'0.0320']]]);
+    $a(count($carrera)===2&&!empty($carrera[0]['ok'])&&!empty($carrera[1]['ok']),'Las escrituras concurrentes terminan en procesos independientes');
+    $cadena=$db->execute_query("SELECT precio_anterior,precio_nuevo FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 AND tipo='cambio' ORDER BY id",[$lac])->fetch_all(MYSQLI_ASSOC);
+    $continua=true;
+    for($i=1;$i<count($cadena);$i++)if($cadena[$i]['precio_anterior']!==$cadena[$i-1]['precio_nuevo'])$continua=false;
+    $final=(string)$uno('SELECT costo FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac]);
+    $a($continua&&$cadena[count($cadena)-1]['precio_nuevo']===$final&&in_array($final,['0.0310','0.0320'],true),'Las escrituras concurrentes encadenan precios sin anterior obsoleto');
+    $unidadAntes=(string)$uno('SELECT unidad FROM ingredientes WHERE id=1002');
+    $db->execute_query("UPDATE ingredientes SET unidad='kg' WHERE id=1002");
+    $precioUnidad=(string)$uno('SELECT costo FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac]);
+    $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>$precioUnidad]])['ok']),'El cambio de unidad abre una base comparable nueva');
+    $baseUnidad=$db->execute_query("SELECT tipo,unidad_base_snapshot,precio_anterior FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 ORDER BY id DESC LIMIT 1",[$lac])->fetch_assoc();
+    $a($baseUnidad['tipo']==='base_observada'&&$baseUnidad['unidad_base_snapshot']==='kg'&&$baseUnidad['precio_anterior']===null,'El cambio de unidad no calcula variación contra la unidad anterior');
+    $precioFilas=$dir->historialPrecios('restaurante',$lac,1,1002)['filas'];
+    $a($precioFilas[0]['unidad']==='kg'&&$precioFilas[0]['unidad_actual']==='kg','La lectura muestra unidad histórica y unidad actual');
+    $db->execute_query('UPDATE ingredientes SET unidad=? WHERE id=1002',[$unidadAntes]);
+
+    // Precio anterior cero: variación absoluta válida y porcentual indefinida.
+    $cero=(int)$dir->guardar('restaurante',null,['nombre'=>'Proveedor precio cero','activo'=>'1'])['proveedor_id'];
+    $dir->guardarAsignaciones('restaurante',$cero,[['articulo_id'=>'1001','costo'=>'0.0000']]);
+    $dir->guardarAsignaciones('restaurante',$cero,[['articulo_id'=>'1001','costo'=>'0.0001']]);
+    $hCero=$dir->historialPrecios('restaurante',$cero,1,1001)['filas'];
+    $a($hCero[0]['diferencia']==='0.0001'&&$hCero[0]['variacion_pct']===null,'Desde precio cero calcula diferencia absoluta y deja porcentaje nulo');
+    $no($dir->eliminar('restaurante',$cero),'Un proveedor solo con historial de precios tampoco se borra','PROVEEDOR_CON_HISTORIAL');
+    $a(!empty($dir->guardar('restaurante',$cero,['nombre'=>'Proveedor precio cero','activo'=>'0'])['ok'])&&$dir->historialPrecios('restaurante',$cero,1,1001)['total']===2,'La baja lógica conserva historial sin entradas');
+
+    // Más de una página, sin truncar el historial de consulta.
+    $bulk=(int)$dir->guardar('restaurante',null,['nombre'=>'Proveedor paginado','activo'=>'1'])['proveedor_id'];
+    $dir->guardarAsignaciones('restaurante',$bulk,[['articulo_id'=>'1001','costo'=>'0.0100']]);
+    for($i=1;$i<=26;$i++)$dir->guardarAsignaciones('restaurante',$bulk,[['articulo_id'=>'1001','costo'=>($i%2?'0.0101':'0.0100')]]);
+    $pagina1=$dir->historialPrecios('restaurante',$bulk,1,1001);$pagina2=$dir->historialPrecios('restaurante',$bulk,2,1001);
+    $a($pagina1['total']===27&&$pagina1['paginas']===2&&count($pagina1['filas'])===25&&count($pagina2['filas'])===2,'El historial paginado conserva todos los eventos posteriores al límite');
+    $a($dir->historialPrecios('restaurante',$bulk,PHP_INT_MAX,1001)['pagina']===2,'La página excesiva se limita al último bloque sin overflow');
 
     // 6. Entrada con proveedor: atómica, idempotente y validada.
     $saldo=static fn()=>(string)$uno('SELECT saldo FROM almacen_articulos WHERE almacen_id=1002 AND articulo_id=1002');
@@ -143,6 +236,14 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $hg=$dir->historial('global',$lac);$a($hg['resumen']['recepciones']===3,'Global consulta el mismo histórico');
 
     // 8. Retiro: con historial se desactiva; sin historial se elimina con sus asignaciones.
+    $dir->guardarAsignaciones('restaurante',$lac,[]);
+    $traceRows=$db->execute_query('SELECT tipo,precio_anterior,precio_nuevo,unidad_base_snapshot,created_at,usuario_nombre_snapshot FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 ORDER BY id',[$lac])->fetch_all(MYSQLI_ASSOC);
+    $a((int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac])===0&&count($traceRows)>=4,'Retirar la asociación conserva la secuencia de precios');
+    file_put_contents($root.'/docs/desarrollo/evidencia-etapa1/traza-precios-sintetica.json',json_encode([
+        'fixture_sintetica'=>true,'aviso'=>'Datos generados por prueba aislada; no son precios reales.',
+        'ambito'=>'restaurante','proveedor'=>'Lácteos del Valle','articulo_id'=>1002,
+        'asociacion_vigente'=>false,'eventos'=>$traceRows,
+    ],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR).PHP_EOL);
     $no($dir->eliminar('restaurante',$lac),'Con historial no se elimina','PROVEEDOR_CON_HISTORIAL');
     $a((int)$uno('SELECT COUNT(*) FROM proveedores WHERE id=?',[$lac])===1,'Sigue existiendo');
     $a(!empty($dir->guardar('restaurante',$lac,['nombre'=>'Lácteos del Valle'])['ok'])&&(int)$uno('SELECT activo FROM proveedores WHERE id=?',[$lac])===0,'Desactivar conserva su historial');
@@ -150,7 +251,20 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $no($entrada(['clave'=>'prov-tras-baja','proveedor_id'=>(string)$lac,'costo_unitario'=>'1']),'Desactivado ya no recibe entradas','PROVEEDOR_INACTIVO');
     $no($dir->eliminar('global',1001),'Global no elimina proveedores de un negocio','RECURSO_NO_ENCONTRADO');
     $dir->guardarAsignaciones('restaurante',$otro,[['articulo_id'=>'1001','costo'=>'0.0200']]);
-    $a(!empty($dir->eliminar('restaurante',$otro)['ok'])&&(int)$uno('SELECT COUNT(*) FROM proveedores WHERE id=?',[$otro])===0&&(int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores WHERE proveedor_id=?',[$otro])===0,'Sin historial se elimina con sus asignaciones');
+    $no($dir->eliminar('restaurante',$otro),'Sin entradas pero con historial de precios no se borra','PROVEEDOR_CON_HISTORIAL');
+    $a(!empty($dir->guardar('restaurante',$otro,['nombre'=>'Otro proveedor','activo'=>'0'])['ok'])&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=?',[$otro])===1,'Proveedor inactivo y sin entradas conserva historial de precios');
+    $sinHist=(int)$dir->guardar('restaurante',null,['nombre'=>'Proveedor sin trazabilidad','activo'=>'1'])['proveedor_id'];
+    $a(!empty($dir->eliminar('restaurante',$sinHist)['ok'])&&(int)$uno('SELECT COUNT(*) FROM proveedores WHERE id=?',[$sinHist])===0,'Sin entradas ni precios todavía puede eliminarse');
+    // El usuario puede borrarse conservando su nombre auditado en el evento.
+    $actorSnap=FixtureAutorizacion3B::usuario($db,'prov_actor_snap',['restaurante'=>['permisos'=>['inventario'=>'editar']]]);
+    $dirSnap=new DirectorioProveedores($db,(int)$actorSnap['id'],$nivel);
+    $provSnap=(int)$dir->guardar('restaurante',null,['nombre'=>'Proveedor snapshot','activo'=>'1'])['proveedor_id'];
+    $dirSnap->guardarAsignaciones('restaurante',$provSnap,[['articulo_id'=>'1001','costo'=>'0.0130']]);
+    $actorName=(string)$uno('SELECT nombre FROM usuarios WHERE id=?',[$actorSnap['id']]);
+    $db->execute_query('DELETE FROM usuario_unidad_permisos WHERE usuario_id=?',[$actorSnap['id']]);
+    $db->execute_query('DELETE FROM usuario_unidades WHERE usuario_id=?',[$actorSnap['id']]);
+    $db->execute_query('DELETE FROM usuarios WHERE id=?',[$actorSnap['id']]);
+    $a((int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores WHERE proveedor_id=? AND usuario_id IS NULL AND usuario_nombre_snapshot=?',[$provSnap,$actorName])===1,'El borrado de usuario nulifica FK y conserva snapshot legible');
 },"Proveedores");
 
 /** Suma de cadenas decimales exactas para comparar saldos sin floats. */

@@ -1,0 +1,43 @@
+{
+  "desktop": "1440x1000",
+  "mobile": "390x844",
+  "mobileDocumentWidth": 390,
+  "title": "Lácteos del Valle",
+  "pageErrors": 0,
+  "tableWraps": [
+    {
+      "rect": 360,
+      "width": 330,
+      "scroll": 802,
+      "overflowX": "auto"
+    },
+    {
+      "rect": 360,
+      "width": 330,
+      "scroll": 680,
+      "overflowX": "auto"
+    },
+    {
+      "rect": 360,
+      "width": 330,
+      "scroll": 832,
+      "overflowX": "auto"
+    },
+    {
+      "rect": 360,
+      "width": 330,
+      "scroll": 680,
+      "overflowX": "auto"
+    },
+    {
+      "rect": 360,
+      "width": 330,
+      "scroll": 680,
+      "overflowX": "auto"
+    }
+  ],
+  "priceTableScroll": {
+    "maxScroll": 472,
+    "scrollLeft": 472
+  }
+}

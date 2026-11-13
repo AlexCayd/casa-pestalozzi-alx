@@ -13,6 +13,11 @@ $historial=$historial??null;$asignaciones=$asignaciones??[];$asignables=$asignab
 $campoCsrf='<input type="hidden" name="admin_csrf" value="'.$esc($csrf).'">';
 $dueno=Contextos::NOMBRES[$p['slug']??$ctx]??'';
 $res=$historial['resumen']??null;
+$historialPrecios=$historialPrecios??['filas'=>[],'pagina'=>1,'paginas'=>1,'total'=>0,'limite'=>25];
+$articulosHistorialPrecios=$articulosHistorialPrecios??[];$comparacionPrecios=$comparacionPrecios??[];
+$filtroHistorialArticulo=$filtroHistorialArticulo??null;$graficaPrecio=$graficaPrecio??null;
+$tieneHistorialPrecios=$tieneHistorialPrecios??false;
+$urlFicha=$base.'/ficha?id='.(int)($p['id']??0);
 $hoy=date('Y-m-d');
 ?>
 <section class="admin-inventario admin-page almacen-proveedores">
@@ -42,6 +47,53 @@ $hoy=date('Y-m-d');
       <?php else: ?><span>Hacen falta dos recepciones para estimar cada cuánto se le pide.</span><?php endif; ?>
     </p>
   </div>
+
+  <section class="admin-panel almacen-list proveedor-precios" aria-labelledby="proveedor-precios-titulo">
+    <div class="almacen-section-head"><div><h3 id="proveedor-precios-titulo">Historial de precios</h3><p>Precio de referencia ofrecido por este proveedor. El costo de cada entrada de inventario queda congelado por separado. “Base observada” registra hoy el precio que ya estaba guardado; no afirma cuándo se ofreció originalmente.</p></div></div>
+    <form method="GET" action="<?php echo $esc($base.'/ficha'); ?>" class="proveedor-precios__filtros">
+      <input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
+      <label for="historial-articulo">Artículo</label>
+      <select id="historial-articulo" name="historial_articulo">
+        <option value="">Todos los artículos</option>
+        <?php foreach($articulosHistorialPrecios as $op): ?><option value="<?php echo (int)$op['articulo_id']; ?>" <?php echo (int)$filtroHistorialArticulo===(int)$op['articulo_id']?'selected':''; ?>><?php echo $esc($op['nombre'].' · '.$op['unidad']); ?></option><?php endforeach; ?>
+      </select>
+      <button type="submit" class="admin-btn admin-btn--secondary">Consultar</button>
+    </form>
+    <?php if($graficaPrecio!==null): ?>
+      <figure class="proveedor-precios__grafica">
+        <figcaption>Evolución de <?php echo (int)$graficaPrecio['eventos']; ?> registros entre <?php echo $esc($fecha($graficaPrecio['desde'])); ?> y <?php echo $esc($fecha($graficaPrecio['hasta'])); ?> · precios por <?php echo $esc($graficaPrecio['unidad']); ?> · $<?php echo $esc($graficaPrecio['minimo']); ?> a $<?php echo $esc($graficaPrecio['maximo']); ?></figcaption>
+        <svg viewBox="0 0 100 56" role="img" aria-label="Gráfica de la evolución del precio de referencia" preserveAspectRatio="none"><desc>Del <?php echo $esc($fecha($graficaPrecio['desde'])); ?> al <?php echo $esc($fecha($graficaPrecio['hasta'])); ?>.</desc><line x1="8" y1="48" x2="92" y2="48"/><polyline points="<?php echo $esc($graficaPrecio['puntos']); ?>"/></svg>
+      </figure>
+    <?php endif; ?>
+    <?php if(!$historialPrecios['filas']): ?>
+      <div class="admin-empty"><strong>Aún no hay cambios registrados</strong><p>Al guardar por primera vez el precio de un artículo, quedará una línea base con la fecha y la persona que hizo el registro.</p></div>
+    <?php else: ?>
+      <div class="admin-table-wrap" data-scrollable><table class="admin-table proveedor-precios__tabla">
+        <thead><tr><th>Fecha</th><th>Artículo y unidad</th><th class="admin-table__num">Precio anterior</th><th class="admin-table__num">Precio nuevo</th><th class="admin-table__num">Variación</th><th>Registró</th><th>Precio actual</th></tr></thead>
+        <tbody><?php foreach($historialPrecios['filas'] as $h):
+          $tipo=match($h['tipo']){'inicial'=>'Precio inicial','base_observada'=>'Base observada','cambio'=>'Cambio',default=>'Registro'};
+          $dif=$h['diferencia'];$pct=$h['variacion_pct'];$difFmt=$dif===null?'':(((float)$dif>0?'+$':((float)$dif<0?'-$':'$')).ltrim($dif,'-'));
+          $artLink=$urlFicha.'&historial_articulo='.(int)$h['articulo_id'];
+        ?><tr>
+          <td><time datetime="<?php echo $esc(date(DATE_ATOM,strtotime($h['created_at']))); ?>"><?php echo $esc(date('d/m/Y H:i',strtotime($h['created_at']))); ?></time><span class="admin-table__cell-sub"><?php echo $esc($tipo); ?></span></td>
+          <td><a class="proveedor-precios__articulo" href="<?php echo $esc($artLink); ?>"><?php echo $esc($h['articulo']); ?></a><span class="admin-table__cell-sub">por <?php echo $esc($h['unidad']); ?></span></td>
+          <td class="admin-table__num"><?php echo $h['precio_anterior']===null?'—':'$'.$esc($h['precio_anterior']); ?></td>
+          <td class="admin-table__num"><span class="admin-num">$<?php echo $esc($h['precio_nuevo']); ?></span></td>
+          <td class="admin-table__num"><?php if($dif===null): ?>—<?php else: ?><span class="admin-num <?php echo (float)$dif>0?'proveedor-precios__sube':((float)$dif<0?'proveedor-precios__baja':''); ?>"><?php echo $esc($difFmt); ?></span><?php if($pct!==null): ?><span class="admin-table__cell-sub"><?php echo $pct>0?'+':''; ?><?php echo $esc(number_format((float)$pct,2,'.','')); ?> %</span><?php endif; ?><?php endif; ?></td>
+          <td><?php echo $esc($h['responsable']); ?></td>
+          <td><?php if($h['precio_actual']!==null): ?><span class="admin-num">$<?php echo $esc($h['precio_actual']); ?></span><span class="admin-table__cell-sub">por <?php echo $esc($h['unidad_actual']); ?></span><?php else: ?><span class="almacen-unassociated">Sin oferta vigente</span><?php endif; ?></td>
+        </tr><?php endforeach; ?></tbody>
+      </table></div>
+      <?php if($historialPrecios['paginas']>1): ?><nav class="proveedor-precios__paginacion" aria-label="Páginas del historial de precios">
+        <?php if($historialPrecios['pagina']>1): ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($urlFicha.'&historial_pagina='.($historialPrecios['pagina']-1).($filtroHistorialArticulo?'&historial_articulo='.$filtroHistorialArticulo:'')); ?>">Anterior</a><?php endif; ?>
+        <span>Página <?php echo (int)$historialPrecios['pagina']; ?> de <?php echo (int)$historialPrecios['paginas']; ?> · <?php echo (int)$historialPrecios['total']; ?> registros</span>
+        <?php if($historialPrecios['pagina']<$historialPrecios['paginas']): ?><a class="admin-btn admin-btn--secondary" href="<?php echo $esc($urlFicha.'&historial_pagina='.($historialPrecios['pagina']+1).($filtroHistorialArticulo?'&historial_articulo='.$filtroHistorialArticulo:'')); ?>">Siguiente</a><?php endif; ?>
+      </nav><?php endif; ?>
+    <?php endif; ?>
+    <?php if($filtroHistorialArticulo): ?><section class="proveedor-precios__comparacion" aria-labelledby="proveedor-comparacion-titulo"><h4 id="proveedor-comparacion-titulo">Comparación de precios en <?php echo $esc($dueno); ?></h4>
+      <?php if(!$comparacionPrecios): ?><p>No hay precios de referencia vigentes para este artículo en el ámbito consultado.</p><?php else: ?><div class="admin-table-wrap" data-scrollable><table class="admin-table"><thead><tr><th>Proveedor</th><th class="admin-table__num">Precio de referencia</th><th>Estado</th></tr></thead><tbody><?php foreach($comparacionPrecios as $c): ?><tr><td><?php echo $esc($c['nombre']); ?><?php if((int)$c['proveedor_id']===(int)$p['id']): ?> <span class="admin-table__cell-sub">Este proveedor</span><?php endif; ?></td><td class="admin-table__num"><span class="admin-num">$<?php echo $esc($c['precio_referencia']); ?></span><span class="admin-table__cell-sub">por <?php echo $esc($c['unidad']); ?></span></td><td><?php echo (int)$c['activo']===1?'<span class="admin-badge admin-badge--success">Activo</span>':'<span class="admin-badge admin-badge--neutral">Inactivo</span>'; ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
+    </section><?php endif; ?>
+  </section>
 
   <section class="admin-panel almacen-list" aria-labelledby="proveedor-pedidos">
     <div class="almacen-section-head"><div><h3 id="proveedor-pedidos">Lo que se le suele pedir</h3><p>De lo que llegó a los almacenes con este proveedor. Costos en la unidad base del artículo.</p></div></div>
@@ -155,9 +207,9 @@ $hoy=date('Y-m-d');
   <?php if(!$nuevo&&$editar): ?>
   <section class="admin-panel almacen-list proveedor-retiro" aria-labelledby="proveedor-retiro">
     <div class="almacen-section-head"><div><h3 id="proveedor-retiro">Retirar proveedor</h3>
-    <?php if((int)($res['recepciones']??0)>0): ?><p>Tiene entradas registradas: no se elimina. Desactívalo en sus datos para que deje de ofrecerse sin perder su historial.</p></div></div>
-    <?php else: ?><p>Sin entradas registradas. Eliminarlo quita también sus artículos asignados.</p></div>
-      <form method="POST" action="<?php echo $esc($base.'/eliminar'); ?>" data-confirm-delete data-confirm-eyebrow="Eliminar proveedor" data-confirm-title="¿Eliminar «<?php echo $esc($p['nombre']); ?>»?" data-confirm-require="<?php echo $esc($p['nombre']); ?>" data-confirm-description="Se quitarán sus <?php echo count($asignaciones); ?> artículos asignados." data-confirm-consequence="No tiene entradas registradas. Esta acción no se puede deshacer.">
+    <?php if((int)($res['recepciones']??0)>0||$tieneHistorialPrecios): ?><p><?php echo (int)($res['recepciones']??0)>0?'Tiene entradas registradas. ':'Tiene historial de precios. '; ?>No se elimina: desactívalo para conservar su trazabilidad.</p></div></div>
+    <?php else: ?><p>Sin entradas ni historial de precios. Eliminarlo quita también sus artículos asignados.</p></div>
+      <form method="POST" action="<?php echo $esc($base.'/eliminar'); ?>" data-confirm-delete data-confirm-eyebrow="Eliminar proveedor" data-confirm-title="¿Eliminar «<?php echo $esc($p['nombre']); ?>»?" data-confirm-require="<?php echo $esc($p['nombre']); ?>" data-confirm-description="Se quitarán sus <?php echo count($asignaciones); ?> artículos asignados." data-confirm-consequence="No tiene entradas ni historial de precios. Esta acción no se puede deshacer.">
         <?php echo $campoCsrf; ?><input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
         <button type="submit" class="admin-btn admin-btn--danger"><?php echo admin_icon('basura',16); ?> Eliminar proveedor</button>
       </form>

@@ -1,0 +1,13 @@
+Base temporal verificada y eliminada: cp_multinegocio_test_297affd4501e720f4e36
+{
+    "ok": true,
+    "comprobaciones": 159,
+    "fase": "3C.1 y 3C.2",
+    "base_temporal": "cp_multinegocio_test_297affd4501e720f4e36",
+    "almacenes": {
+        "global": 1,
+        "restaurante": 2,
+        "panaderia": 3
+    },
+    "articulo_id": 1
+}

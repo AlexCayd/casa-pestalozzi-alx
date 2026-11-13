@@ -10,5 +10,9 @@ if(!hash_equals($p['token'],(string)$db->query('SELECT token FROM _cp_multinegoc
 Model\ActiveRecord::setDB($db);session_start();$_SESSION=['id'=>$p['actor'],'auth_nivel'=>'contrasena','_auth3b'=>true,'login'=>true];
 echo "READY\n";fflush(STDOUT);if(trim((string)fgets(STDIN))!=='GO')exit(4);
 if($p['accion']==='articulo_race')$p['args'][4].='_'.getmypid();
-$r=match($p['accion']){'articulo','articulo_race'=>Services\Inventory\Articulos::publicar(...$p['args']),default=>['ok'=>false]};
+$r=match($p['accion']){
+    'articulo','articulo_race'=>Services\Inventory\Articulos::publicar(...$p['args']),
+    'precios_proveedor','precios_proveedor_race'=>(new Services\Inventory\DirectorioProveedores($db,(int)$p['actor'],(string)($_SESSION['auth_nivel']??'contrasena')))->guardarAsignaciones(...$p['args']),
+    default=>['ok'=>false]
+};
 echo json_encode($r,JSON_THROW_ON_ERROR);session_destroy();$db->close();
