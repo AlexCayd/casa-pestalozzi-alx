@@ -49,6 +49,51 @@
   cursor: not-allowed;
 }
 
+/* ── Lenguaje sólido del POS ──────────────────────────────────
+ *
+ * Decisión del producto: en el POS todo lo que se pulsa o dice un estado
+ * (botones, pestañas, chips, contadores, etiquetas, pines del mapa) lleva
+ * relleno SÓLIDO. Nada de tintes translúcidos (color-mix con `transparent`) ni
+ * de botones que son sólo un contorno: en una tablet de piso, a un brazo y con
+ * reflejos, un tinte al 10 % no se lee como botón.
+ *
+ * Cada relleno trae su tinta, medida por contraste WCAG (texto ≥ 4.5:1):
+ *
+ *   neutro   gris-5 con papel (≈ 9.7:1)       secundario, utilidad, cerrar
+ *   activo   papel con tinta                   elegido: pestaña, chip, filtro
+ *   ok       verde al 75 % con papel (≈ 4.7:1) libre, listo, confirmado
+ *   peligro  rojo con papel (4.58:1)           ocupada, cancelar, destructivo
+ *   info     azul al 78 % con tinta, + papel (≈ 5:1; puro daría 3.4)
+ *   aviso    ámbar con tinta (10.7:1)
+ *   naranja  naranja con tinta (6.6:1)         liberar
+ *
+ * El hover OSCURECE (mezcla con la tinta): aclarar bajaría el contraste del
+ * texto en papel. Siguen translúcidos a propósito lo que no es un control: el
+ * realce de una fila al pasar, velos, sombras, barras de desplazamiento y
+ * gráficas.
+ */
+.mapa-page {
+  --pos-solido-neutro: var(--admin-gris-5);
+  --pos-solido-neutro-hover: var(--admin-gris-6);
+  --pos-solido-neutro-tinta: var(--admin-text);
+  --pos-solido-activo: var(--admin-accent);
+  --pos-solido-activo-tinta: var(--admin-on-accent);
+  // Texto BLANCO sobre el verde, por decisión del producto (como el rojo, el
+  // azul y el gris: en el mapa todos los pines llevan papel). El verde puro con
+  // papel da 2.9:1 y «Mesa 11» no se leía a distancia; oscurecido al 75 % con
+  // la tinta sube a ≈ 4.7:1 y sigue siendo el verde de «libre».
+  --pos-solido-ok: color-mix(in srgb, var(--admin-c-verde) 75%, var(--admin-ink));
+  --pos-solido-ok-tinta: var(--admin-paper);
+  --pos-solido-peligro: var(--admin-c-rojo);
+  --pos-solido-peligro-tinta: var(--admin-on-danger);
+  --pos-solido-info: color-mix(in srgb, var(--admin-c-azul) 78%, var(--admin-ink));
+  --pos-solido-info-tinta: var(--admin-paper);
+  --pos-solido-aviso: var(--admin-c-ambar);
+  --pos-solido-aviso-tinta: var(--admin-ink);
+  --pos-solido-naranja: var(--admin-c-naranja);
+  --pos-solido-naranja-tinta: var(--admin-ink);
+}
+
 // ── Shell ─────────────────────────────────────────────────────
 .pdv-shell {
   display: flex;
@@ -164,11 +209,14 @@
   color: var(--txt-mute);
 }
 
+// Lenguaje sólido del POS: el paso de mes es un botón de utilidad, así que va
+// en el neutro con su tinta y oscurece al pasar. El borde queda transparente
+// para conservar la caja de 26 px.
 .pdv-cal__nav-btn {
-  background: none;
-  border: 1px solid var(--line-soft);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 5px;
-  color: var(--txt-mute);
+  color: var(--pos-solido-neutro-tinta);
   font-size: 1rem;
   width: 26px;
   height: 26px;
@@ -176,9 +224,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition: background .15s;
 
-  &:hover { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 }
 
 .pdv-cal__weekdays {
@@ -202,6 +250,10 @@
   gap: 2px;
 }
 
+// Cada día es un botón: neutro sólido, y el elegido en el relleno «activo».
+// Hoy ya no puede distinguirse por el color del texto —sobre el neutro todo va
+// en su tinta—, así que lo dice un anillo interior de esa misma tinta además
+// del peso. Las celdas vacías no son controles y siguen sin relleno.
 .pdv-cal__day {
   aspect-ratio: 1;
   display: flex;
@@ -209,22 +261,28 @@
   justify-content: center;
   border-radius: 5px;
   border: none;
-  background: none;
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: .75rem;
   cursor: pointer;
   transition: background .12s, color .12s;
   font-family: var(--admin-font-sans);
 
-  &:hover:not(&--empty) { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--txt); }
+  &:hover:not(&--empty) { background: var(--pos-solido-neutro-hover); }
 
-  &--empty { pointer-events: none; }
+  &--empty {
+    background: transparent;
+    pointer-events: none;
+  }
 
-  &--today { color: var(--accent-text); font-weight: 700; }
+  &--today {
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--pos-solido-neutro-tinta);
+  }
 
   &--selected {
-    background: var(--gold) !important;
-    color: var(--on-accent) !important;
+    background: var(--pos-solido-activo) !important;
+    color: var(--pos-solido-activo-tinta) !important;
     font-weight: 700;
   }
 }
@@ -241,17 +299,19 @@
   font-size: .7rem;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--txt-faint);
-  border: 1px solid var(--line-soft);
+  // Neutro sólido en reposo; al pasar se rellena del rojo de lo destructivo
+  // (salir cierra la sesión del piso), con su tinta.
+  color: var(--pos-solido-neutro-tinta);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: .25rem .75rem;
-  background: transparent;
+  background: var(--pos-solido-neutro);
   cursor: pointer;
-  transition: color .3s, border-color .3s;
+  transition: color .3s, background .3s;
 
   &:hover {
-    color: var(--feedback-danger);
-    border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
+    color: var(--pos-solido-peligro-tinta);
+    background: var(--pos-solido-peligro);
   }
 
   span {
@@ -296,12 +356,13 @@
   font-weight: 600;
 }
 
+// Contador: relleno neutro sólido con su tinta (lenguaje sólido del POS).
 .pdv-reserva-count {
   font-size: .75rem;
   font-weight: 700;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: .1rem .55rem;
   min-width: 24px;
@@ -539,23 +600,22 @@
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--txt-mute);
-  background: var(--surface-2);
-  border: 1px solid var(--line-soft);
+  // Neutro sólido; en tiempo real («activo») pasa al verde de lo que está bien,
+  // también sólido. El punto hereda `currentColor`, así que sigue a la tinta.
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: .35rem .85rem;
-  transition: color .2s, border-color .2s, background .2s;
+  transition: color .2s, background .2s;
 
-  &:hover {
-    color: var(--txt);
-    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-    background: color-mix(in srgb, var(--accent) 7%, transparent);
-  }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 
   &--active {
-    color: var(--feedback-ok);
-    border-color: color-mix(in srgb, var(--feedback-ok) 30%, transparent);
-    background: color-mix(in srgb, var(--feedback-ok) 7%, transparent);
+    color: var(--pos-solido-ok-tinta);
+    background: var(--pos-solido-ok);
+
+    &:hover { background: color-mix(in srgb, var(--pos-solido-ok) 84%, var(--admin-ink)); }
   }
 }
 
@@ -733,24 +793,13 @@
    * escritorio del `1.5rem` a secas. Coinciden, así que es un solo valor y no
    * hacen falta dos medias queries para colocarla.
    *
-   * Son DOS huecos y no uno, a propósito:
-   *
-   * - `--mmodal-corner-gap` es el interno del grupo (chip de estado + cancelar
-   *   mesa), que sí son una unidad: el chip anuncia el ticket y el botón actúa
-   *   sobre él.
-   * - `--mmodal-corner-sep` es lo que separa ese grupo de la ×, que NO es del
-   *   grupo: cierra el modal. Con los dos huecos iguales, un círculo rojo
-   *   destructivo y un círculo neutro de descarte quedaban a 6px, del mismo
-   *   tamaño y de la misma receta — la pareja más confundible del modal, en la
-   *   esquina que más se pulsa y en una tablet. Separado, se leen como «un
-   *   grupo» + «salir». Además deja fuera de la × el área pulsable de 44px de
-   *   cancelar, que con 6px de hueco invadía un par de píxeles de su costado
-   *   izquierdo y se los robaba (gana por orden de pintado: es un positioned
-   *   posterior en el árbol).
+   * `--mmodal-corner-sep` es lo que separa de la × lo que vaya a su lado (el
+   * chip de una reserva o de la mesa múltiple): la × no es del grupo, cierra
+   * el modal. Hubo además un hueco interno para «chip + cancelar mesa», que se
+   * fue con esa pareja (el chip «Ticket abierto» también se quitó).
    */
   --mmodal-corner-size: 28px;
   --mmodal-corner-icon: 14px;
-  --mmodal-corner-gap: .4rem;
   --mmodal-corner-sep: .85rem;
   --mmodal-corner-inset: 1.5rem;
 
@@ -812,6 +861,16 @@
 @media (min-width: 640px) {
   .mesa-modal__panel:has(.mmodal-reserva-preview) {
     width: min(620px, calc(100vw - 24px));
+  }
+
+  /*
+   * El corte de caja, más ancho que el modal base de 400 px: a esa medida el
+   * título se cortaba («Corte de …»), la fecha también y los platillos más
+   * pedidos perdían el final del nombre. 680 deja respirar las cuatro
+   * tarjetas y la lista sin cambiar su reparto.
+   */
+  .mesa-modal__panel:has(.mmodal-caja) {
+    width: min(680px, calc(100vw - 32px));
   }
 
   /*
@@ -939,22 +998,27 @@
     margin-top: .55rem;
   }
 
+  // Opciones excluyentes del reparto: neutro sólido, y la elegida en el relleno
+  // «activo». El borde se queda transparente para no cambiar la caja de 44.
   &__btn {
     flex: 1 1 auto;
     min-height: 44px;
     padding: 0 .6rem;
-    border: 1px solid var(--line);
+    border: 1px solid transparent;
     border-radius: 8px;
-    background: transparent;
-    color: inherit;
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     cursor: pointer;
+    transition: background .15s, color .15s;
 
     // (0,2,0) por la trampa de `.admin-body button`.
     .admin-body & { @include control(var(--operational-text-sm)); }
 
+    &:hover { background: var(--pos-solido-neutro-hover); }
+
     &.is-on {
-      border-color: var(--accent);
-      color: var(--accent-text);
+      background: var(--pos-solido-activo);
+      color: var(--pos-solido-activo-tinta);
     }
   }
 
@@ -1062,10 +1126,11 @@
 .mesa-modal__close {
   @extend %mmodal-corner;
 
-  // El cierre es el neutro de la terna. Misma receta que el de cancelar, sólo
-  // cambia el tono: antes era el único de los tres con relleno SÓLIDO y filete
-  // neutro, y por eso se leía como de otra familia.
-  --mmodal-corner-tono: var(--txt-mute);
+  // El cierre es el neutro de la esquina: misma receta que el chip de estado,
+  // sólo cambia el relleno. Sólido por el lenguaje del POS —un tinte al 14 %
+  // sobre el cristal no se leía como botón—, en el gris de las utilidades.
+  --mmodal-corner-fondo: var(--pos-solido-neutro);
+  --mmodal-corner-tinta: var(--pos-solido-neutro-tinta);
 
   position: absolute;
   top: var(--mmodal-corner-inset);
@@ -1106,10 +1171,10 @@
     content: "";
   }
 
+  // Oscurece al pasar, como todo sólido del POS: aclarar le restaría contraste
+  // al aspa.
   &:hover {
-    background: color-mix(in srgb, var(--mmodal-corner-tono) 24%, transparent);
-    border-color: color-mix(in srgb, var(--mmodal-corner-tono) 68%, transparent);
-    color: var(--txt);
+    --mmodal-corner-fondo: var(--pos-solido-neutro-hover);
   }
 }
 
@@ -1129,8 +1194,7 @@
  *   caja, así que el hueco se reserva aquí en el relleno y no con un margen
  *   distinto en cada grupo de la derecha (había dos, `calc(28px + .4rem)` en
  *   el de estado y `1.9rem` en el del cobro, que no eran la misma medida).
- *   Va con `--mmodal-corner-sep` y no con el hueco interno del grupo: ver el
- *   bloque de tokens de .mesa-modal__panel.
+ *   Va con `--mmodal-corner-sep`: ver el bloque de tokens de .mesa-modal__panel.
  * - El título encoge. Iba a `flex-shrink: 0`, así que un nombre largo de
  *   reservación empujaba el chip y la acción fuera de la caja.
  */
@@ -1299,19 +1363,6 @@
   color: var(--txt-faint);
 }
 
-// Chip de estado + acciones sobre el ticket, agrupados a la derecha del
-// encabezado para que se lean como una sola unidad.
-//
-// El hueco de la × lo reserva .mmodal-header con `--mmodal-corner-sep`, que es
-// MAYOR que este: aquí dentro van el chip y su acción, que son una unidad, y la
-// × queda fuera del grupo porque no actúa sobre el ticket sino sobre el modal.
-.mmodal-header-estado {
-  display: flex;
-  align-items: center;
-  gap: var(--mmodal-corner-gap);
-  flex-shrink: 0;
-}
-
 /*
  * LA ESQUINA DEL MODAL ES UNA SOLA RECETA.
  *
@@ -1322,11 +1373,17 @@
  *
  * Hoy quedan dos —el chip informa, la × cierra el modal— porque «cancelar mesa»
  * se fundió con «cerrar ticket» en el único botón de salida de la pestaña
- * Ticket (ver actualizarCierreEstado en punto-de-venta.js). El placeholder
- * sobrevive a ese recorte: describe la CAJA de la esquina —tamaño, radio y la
- * fórmula del tinte— y el único que cambia es el hue, que es lo que de verdad
- * distingue a sus consumidores. --mmodal-corner-tono es lo que cada uno
- * declara.
+ * Ticket (ver actualizarCierreEstado en punto-de-venta.js). Y el chip sólo sale
+ * en una reserva o en la mesa múltiple: con ticket abierto la esquina es sólo
+ * la ×, por decisión del producto. El placeholder
+ * sobrevive a ese recorte: describe la CAJA de la esquina —tamaño y radio— y
+ * lo único que cambia entre consumidores es el relleno y su tinta.
+ *
+ * Ya no es una fórmula de tinte: por decisión del producto todo control del
+ * POS lleva relleno SÓLIDO (bloque «Lenguaje sólido del POS»), así que cada
+ * consumidor declara --mmodal-corner-fondo y --mmodal-corner-tinta con un par
+ * de tokens --pos-solido-*. El filete se queda transparente: con relleno pleno
+ * sobra, pero conserva su píxel para que la caja no cambie de tamaño.
  */
 /* ⚠️ Este bloque se emite AQUÍ, y .mesa-modal__close está doscientas líneas más
  * arriba: el `@extend` no copia declaraciones al consumidor, añade su selector
@@ -1343,10 +1400,10 @@
   width: var(--mmodal-corner-size);
   height: var(--mmodal-corner-size);
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
-  color: var(--mmodal-corner-tono);
+  background: var(--mmodal-corner-fondo);
+  color: var(--mmodal-corner-tinta);
 }
 
 /* `inline-flex` con altura fija, no `inline-block` con padding.
@@ -1376,50 +1433,55 @@
   padding: 0 .7rem;
   border-radius: 999px;
   margin: 0;
+  // Relleno sólido por omisión (lenguaje sólido del POS): una etiqueta de
+  // estado nunca es texto suelto. Si llega un estado sin variante propia, se
+  // lee como etiqueta neutra en vez de desaparecer. El filete va transparente
+  // y con su píxel, el mismo que llevan todas las variantes.
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 
   &__texto {
     display: block;
     transform: translateY(.5px);
   }
 
+  // Cada estado en el sólido de su familia, con su tinta. Las variantes ya
+  // no traen filete de color: con el relleno pleno sobraba.
   &--bloqueada, &--ocupada {
-    background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
-    color: var(--feedback-danger);
-    border: 1px solid color-mix(in srgb, var(--feedback-danger) 30%, transparent);
+    background: var(--pos-solido-peligro);
+    color: var(--pos-solido-peligro-tinta);
   }
   &--proxima {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent-text);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
   }
+  // Aviso de reserva cercana: ámbar sólido con tinta oscura. Conserva el
+  // filete discontinuo —en la tinta— porque «todavía no» se distinguía por la
+  // forma y no sólo por el color.
   &--warning {
-    /* Los dos porcentajes tienen que sumar 100: en color-mix, si suman menos,
-       el resultado se multiplica por la suma. Con 72+8 el chip salía al 80% de
-       alfa —transparente— sin que nadie lo hubiera pedido. */
-    background: color-mix(in srgb, var(--map-table-available-bg) 92%, var(--gold) 8%);
-    color: var(--gold-soft);
-    border: 1px dashed var(--map-table-reservation-border);
+    background: var(--pos-solido-aviso);
+    color: var(--pos-solido-aviso-tinta);
+    border: 1px dashed var(--pos-solido-aviso-tinta);
   }
   &--service_window, &--tolerance {
-    background: var(--map-table-reservation-bg);
-    color: var(--map-table-reservation-text);
-    border: 1px solid var(--map-table-reservation-border);
+    background: var(--pos-solido-info);
+    color: var(--pos-solido-info-tinta);
   }
+  // Ya era opaco (azul hondo con papel): se queda en el azul de la paleta del
+  // plano, que distingue «vencida» de la ventana de servicio. Sólo pierde el
+  // filete claro, que con el relleno pleno sobraba.
   &--overdue {
     background: var(--map-table-reservation-overdue-bg);
     color: var(--map-table-reservation-overdue-text);
-    border: 1px solid var(--map-table-reservation-overdue-border);
   }
-  // Misma receta que sus dos vecinos de la esquina (%mmodal-corner): mismo
-  // tinte, mismo filete, y el tono como única variable. Iba al 18/30 frente al
-  // 12/34 del de cancelar —dos parejas de porcentajes sin motivo— y salía como
-  // un bloque verde macizo al lado de dos círculos tenues.
+  // «TICKET ABIERTO»: verde sólido con su tinta. Fue un tinte al 14 % para
+  // emparejar con los círculos tenues de la esquina; hoy la esquina entera es
+  // sólida y el chip va a juego con la × (misma caja, mismo filete
+  // transparente), sólo con otro relleno.
   &--ticket {
-    --mmodal-corner-tono: var(--feedback-ok);
-
-    border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
-    background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
-    color: var(--mmodal-corner-tono);
+    background: var(--pos-solido-ok);
+    color: var(--pos-solido-ok-tinta);
   }
 }
 
@@ -1768,15 +1830,16 @@
   flex-shrink: 0;
   padding: .38rem .7rem;
   border-radius: 6px;
-  border: 1px solid var(--gold-soft);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent-text);
+  // Botón secundario junto al campo: neutro sólido (lenguaje sólido del POS).
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
 
   .admin-body & { @include control(var(--operational-text-base)); }
   transition: background .15s;
   line-height: 1;
-  &:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 }
 
 // ── Pedidos para llevar ───────────────────────────────────────
@@ -1785,22 +1848,23 @@
 // que abre el pin) y la TIRA que va encima del ticket de un pedido para
 // saltar a otro sin volver al mapa. El folio es el id del ticket y va en mono
 // porque es una cifra que se busca de un vistazo entre varias.
+// El contador va en relleno neutro sólido con su tinta (lenguaje sólido del
+// POS); el filete transparente conserva la caja.
 .mmodal-llevar-count {
   @include rotulo(10.5px);
   font-weight: 600;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: .18rem .6rem;
   white-space: nowrap;
 
-  // Barra en su tope: el mismo rojo del pin que la abrió. La cifra («4 de 4»)
-  // sigue diciendo lo mismo sin el color.
+  // Barra en su tope: el mismo rojo del pin que la abrió, ahora sólido. La
+  // cifra («4 de 4») sigue diciendo lo mismo sin el color.
   &--lleno {
-    color: var(--admin-danger-text);
-    background: var(--admin-danger-bg);
-    border-color: var(--admin-danger-border);
+    color: var(--pos-solido-peligro-tinta);
+    background: var(--pos-solido-peligro);
   }
 }
 
@@ -1923,10 +1987,12 @@
   // tickets de la misma barra, con el modal sobre el mapa.
   min-height: 44px;
   padding: 0 .8rem;
-  border: 1px solid var(--line-soft);
+  // Lenguaje sólido del POS: los pedidos no elegidos van en el neutro con su
+  // tinta, no en contorno. El filete transparente conserva la caja.
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
-  color: var(--txt-mute);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   white-space: nowrap;
   cursor: pointer;
   transition: border-color .15s, background .15s, color .15s;
@@ -1934,21 +2000,23 @@
   // (0,2,0): `.admin-body button` (0,1,1) le quitaba cuerpo y peso.
   .admin-body & { @include control(var(--operational-text-sm)); }
 
-  &:hover { border-color: var(--line-strong); color: var(--txt); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 }
 
-// El regreso al tablero es navegación, no un pedido más: se separa de los
-// chips con un filete.
+// El regreso al tablero es navegación, no un pedido más. Fue un filete más
+// marcado; en sólido lo separa su contador, que va invertido (abajo).
 .mmodal-llevar-switch__todos {
-  color: var(--txt);
-  border-color: var(--line);
+  color: var(--pos-solido-neutro-tinta);
 }
 
+// El total de pedidos dentro de «Todos»: contador sólido en el relleno
+// «activo» (papel con tinta), que sobre el botón neutro se lee de un vistazo.
 .mmodal-llevar-switch__total {
   min-width: 1.4rem;
   padding: .05rem .35rem;
   border-radius: 999px;
-  background: var(--line-soft);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   @include cifra-columna;
   font-size: .7rem;
   text-align: center;
@@ -1965,28 +2033,31 @@
   text-overflow: ellipsis;
 }
 
-// El pedido en pantalla va en el relleno primario: es «dónde estoy».
+// El pedido en pantalla va en el relleno «activo»: es «dónde estoy».
 .mmodal-llevar-chip.is-active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   cursor: default;
 }
 
+// El alta de pedido conserva su filete discontinuo —es la forma, no el color,
+// lo que dice «hueco para uno nuevo»—, ahora en la tinta mezclada con el
+// relleno (≈ 4.2:1 contra el gris), sobre el neutro sólido.
 .mmodal-llevar-chip--nuevo {
   border-style: dashed;
-  color: var(--txt);
+  border-color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 55%, var(--pos-solido-neutro));
+  color: var(--pos-solido-neutro-tinta);
 
   // Barra llena: el alta sigue a la vista para que se sepa que existe, pero
-  // apagada. Va con aria-disabled (no `disabled`) para que el toque llegue y
-  // el JS explique el motivo; el `:disabled` queda por si algún día se emite.
+  // apagada: el mismo neutro a media opacidad. Va con aria-disabled (no
+  // `disabled`) para que el toque llegue y el JS explique el motivo; el
+  // `:disabled` queda por si algún día se emite.
   &:disabled,
   &[aria-disabled="true"] {
-    color: var(--txt-faint);
-    border-color: var(--line-soft);
+    opacity: .5;
     cursor: not-allowed;
 
-    &:hover { color: var(--txt-faint); border-color: var(--line-soft); }
+    &:hover { background: var(--pos-solido-neutro); }
   }
 }
 
@@ -2017,15 +2088,18 @@
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
-  color: var(--txt-mute);
-  background: none;
+  // − / + en el neutro sólido del POS, con su tinta; la cifra del centro queda
+  // sobre la caja del contador, que es lo que separa los dos botones.
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
   border: none;
   cursor: pointer;
   transition: background .15s, color .15s;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover { background: var(--surface); color: var(--txt); }
-  &:active { background: var(--line); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
+  // Hundido: un escalón más oscuro que el hover, nunca más claro.
+  &:active { background: color-mix(in srgb, var(--pos-solido-neutro-hover) 84%, var(--admin-ink)); }
 }
 
 // Los comensales que se van a sentar: una cifra sola, de cartel, que se lee
@@ -2059,12 +2133,12 @@
  * "Cerrar ticket" —que es la acción irreversible de la pantalla— pasaba por un
  * botón apagado más.
  *
- * Ahora cada variante lleva su propio color a un nivel visible: relleno sólido
- * en el primario, tinte al 24 % con borde SÓLIDO del color en el destructivo
- * (el borde es lo que lo hace inequívocamente rojo sin darle el peso de la
- * acción principal) y contornos con contraste real en los neutros. El hover del
- * destructivo escala a relleno macizo: si se va a cerrar la cuenta, que el
- * último gesto lo diga.
+ * Ahora TODAS las variantes son sólidas, por decisión del producto (bloque
+ * «Lenguaje sólido del POS»): el primario en el acento, el destructivo en rojo
+ * pleno, liberar en naranja y los secundarios —ghost, secondary, outline— en el
+ * neutro gris con su tinta. Ninguno es ya un tinte ni un contorno: en la tablet
+ * del piso, a un brazo y con reflejos, sólo un relleno se lee como botón. La
+ * jerarquía la dice el color del relleno, no su opacidad.
  */
 .mmodal-btn {
   display: inline-flex;
@@ -2116,10 +2190,13 @@
   /*
    * Deshabilitado: UNA sola declaración, y va aquí.
    *
-   * No basta con bajar la opacidad —sobre el cristal el botón se volvía un
-   * fantasma sin forma—. Se apaga a un neutro macizo con contorno propio: sigue
-   * leyéndose como botón y no se parece a ninguna variante viva, que es la
-   * condición para que el destructivo no pase por apagado.
+   * Apagado al neutro sólido del POS a media opacidad, CON contorno propio: el
+   * relleno lo sigue haciendo leerse como botón, la opacidad lo apaga y el
+   * filete —que ninguna variante viva lleva— es lo que impide confundirlo con
+   * un secundario en reposo. Cualquier variante (también el destructivo y el
+   * primario) se apaga al mismo gris: «Cerrar ticket» nace bloqueado, y vivo y
+   * apagado no se parecen en nada. El filete es la tinta mezclada con el
+   * relleno, opaco, porque también lo pinta el discontinuo de --pending.
    *
    * El archivo tenía otras dos reglas de deshabilitado más abajo, una de ellas
    * con `opacity: .42`, que ganaban por orden y devolvían el botón al fantasma
@@ -2128,13 +2205,13 @@
    */
   &:disabled,
   &[aria-disabled="true"] {
-    background: color-mix(in srgb, var(--txt) 9%, transparent);
-    border-color: var(--line);
-    color: var(--txt-faint);
+    background: var(--pos-solido-neutro);
+    border-color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 45%, var(--pos-solido-neutro));
+    color: var(--pos-solido-neutro-tinta);
     box-shadow: none;
     cursor: not-allowed;
     pointer-events: none;
-    opacity: 1;
+    opacity: .5;
     transform: none;
   }
 
@@ -2187,32 +2264,35 @@
     }
   }
 
+  // Los secundarios, en el neutro sólido con su tinta. El filete se queda
+  // transparente (lo hereda de la base): con relleno pleno sobraba, y su
+  // 1.5 px sigue reservado para que nada salte de tamaño.
   &--ghost {
-    background: color-mix(in srgb, var(--txt) 6%, transparent);
-    color: var(--txt);
-    border-color: var(--line);
-    &:hover:not(:disabled) { color: var(--txt); border-color: var(--line-strong); background: color-mix(in srgb, var(--txt) 12%, transparent); }
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
+    &:hover:not(:disabled) { background: var(--pos-solido-neutro-hover); color: var(--pos-solido-neutro-tinta); }
   }
 
   &--secondary {
     justify-content: space-between;
-    background: color-mix(in srgb, var(--txt) 6%, transparent);
-    color: var(--txt);
-    border-color: var(--line);
-    &:hover:not(:disabled) { background: color-mix(in srgb, var(--txt) 12%, transparent); border-color: var(--gold-soft); color: var(--txt); }
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
+    &:hover:not(:disabled) { background: var(--pos-solido-neutro-hover); color: var(--pos-solido-neutro-tinta); }
   }
 
+  // Fue un botón de sólo contorno («Siguiente» en la hoja de opciones, «Abrir
+  // ticket de todas formas» en la ficha). Por decisión del producto ya no hay
+  // contornos en el POS: es un secundario más, en el neutro sólido. La
+  // jerarquía frente a --primary la da el relleno de acento de éste.
   &--outline {
-    background: transparent;
-    color: var(--accent-text);
-    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     text-align: center;
     text-decoration: none;
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      border-color: var(--accent);
-      color: var(--accent-text);
+      background: var(--pos-solido-neutro-hover);
+      color: var(--pos-solido-neutro-tinta);
     }
   }
 
@@ -2234,14 +2314,16 @@
    * de este componente se pierde por un bloque repetido: hay UNA definición por
    * variante, y va aquí.
    */
+  // Naranja SÓLIDO con tinta oscura (6.6:1): el naranja es claro y no admite
+  // papel encima. Al pasar oscurece con la tinta del sistema (4.9:1).
   &--release {
-    background: color-mix(in srgb, var(--c-naranja) 20%, transparent);
-    color: color-mix(in srgb, var(--c-naranja) 70%, var(--txt));
-    border-color: var(--c-naranja);
+    background: var(--pos-solido-naranja);
+    color: var(--pos-solido-naranja-tinta);
+    border-color: transparent;
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--c-naranja) 32%, transparent);
-      color: var(--txt);
+      background: color-mix(in srgb, var(--pos-solido-naranja) 84%, var(--admin-ink));
+      color: var(--pos-solido-naranja-tinta);
     }
   }
 
@@ -2357,9 +2439,12 @@
   text-align: center;
   line-height: 1.2;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface-2);
-  color: var(--txt-mute);
+  // Lenguaje sólido del POS: neutro con su tinta, y la categoría elegida en el
+  // relleno «activo». El filete de 1.5 px queda transparente para que la caja
+  // no cambie al elegir.
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background .15s, color .15s, border-color .15s;
   -webkit-tap-highlight-color: transparent;
@@ -2370,12 +2455,12 @@
   // renglón donde en versalitas ocupaba dos.
   .admin-body & { @include control(var(--operational-text-base)); }
 
-  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--txt); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 
-  &--active {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    border-color: var(--gold);
-    color: var(--accent-text);
+  &--active,
+  &--active:hover {
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 }
 
@@ -2636,9 +2721,11 @@
     height: 32px;
     padding: 0;
     border-radius: 50%;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--txt-mute);
+    // Neutro sólido con su tinta (lenguaje sólido del POS); el filete
+    // transparente conserva los 32 px.
+    border: 1px solid transparent;
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     line-height: 1;
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s, transform .1s;
@@ -2652,7 +2739,7 @@
       border-radius: 50%;
     }
 
-    &:hover { color: var(--txt); border-color: var(--line-strong); }
+    &:hover { background: var(--pos-solido-neutro-hover); }
     &:active { transform: scale(.92); }
   }
 }
@@ -2707,37 +2794,51 @@
   margin-bottom: .6rem;
 }
 
+// Pestañas en sólido (decisión del producto): las no elegidas en el neutro con
+// su tinta y la elegida en el relleno «activo». Juntas, sin hueco, se leen como
+// un control segmentado. El filete inferior de 2 px se conserva transparente
+// para que la altura no cambie: ya no subraya, lo dice el relleno.
 .mmodal-tab {
   flex: 1;
   min-height: 44px;
   padding: .55rem 0;
-  background: none;
+  background: var(--pos-solido-neutro);
   border: none;
-  color: var(--txt-faint);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color .18s, border-color .18s;
+  transition: color .18s, background .18s;
   position: relative;
 
   // (0,2,0) por la trampa de `.admin-body button`, como el resto de controles.
   .admin-body & { @include control(var(--operational-text-base)); }
 
-  &--active {
-    color: var(--accent-text);
-    border-bottom-color: var(--gold);
+  &:hover { background: var(--pos-solido-neutro-hover); }
+
+  &--active,
+  &--active:hover {
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 }
 
+// El contador va invertido respecto de su pestaña: papel sobre la neutra y
+// gris sobre la elegida, para que se separe del relleno en los dos casos.
 .mmodal-tab-badge {
   @include cifra-columna;
   display: inline-block;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent-text);
+  background: var(--pos-solido-activo);
+  color: var(--pos-solido-activo-tinta);
   border-radius: 999px;
   font-size: .7rem;
   padding: .05rem .4rem;
   margin-left: .28rem;
   vertical-align: middle;
+
+  .mmodal-tab--active & {
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
+  }
 }
 
 .mmodal-tab-panel {
@@ -2759,21 +2860,22 @@
   justify-content: center;
   height: 48px;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface-2);
-  color: var(--txt-mute);
+  // Igual que las categorías: neutro sólido y el comensal elegido en «activo».
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background .14s, color .14s, border-color .14s;
   -webkit-tap-highlight-color: transparent;
 
   .admin-body & { @include control(var(--operational-text-base)); }
 
-  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--txt); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 
-  &--active {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    color: var(--accent-text);
-    border-color: var(--gold);
+  &--active,
+  &--active:hover {
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 }
 
@@ -2790,12 +2892,14 @@
 
 // ── Chip de comensal en filas del carrito ─────────────────────
 // Rótulo en mono: «G», «C.2» no son palabras sino a quién va el plato.
+// Etiqueta en el neutro sólido con su tinta: sobre el gris, el texto atenuado
+// de antes bajaba de 4.5:1.
 .mmodal-cart-comensal {
   @include rotulo(10px);
   display: inline-block;
-  color: var(--txt-mute);
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 4px;
   padding: .12rem .36rem;
   flex-shrink: 0;
@@ -2858,14 +2962,15 @@
  * «Entregar»— y en la columna de 210 px de una tablet a 1024 el nombre se
  * partía en tres renglones y «Entregar» se salía por la derecha, recortado
  * contra el canto de la columna. Ahora las acciones bajan a su propio piso,
- * alineadas a la derecha, y el nombre tiene el ancho que le queda a la cifra.
+ * a todo lo ancho de la línea, y el nombre tiene el ancho que le queda a la
+ * cifra.
  */
 .mmodal-confirm-item {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "punto nombre cantidad precio"
-    ".     acciones acciones acciones";
+    "punto    nombre   cantidad precio"
+    "acciones acciones acciones acciones";
   align-items: baseline;
   gap: .3rem .5rem;
   padding: .5rem 0;
@@ -2906,12 +3011,22 @@
   text-align: right;
 }
 
+// Cancelar pegado a la izquierda y Entregar a la derecha, en los dos cantos de
+// la línea. Juntos a la derecha, el aspa quedaba a un dedo de «Entregar», que
+// es la acción que se repite con cada plato: separarlos a los extremos evita
+// cancelar por error lo que se iba a entregar.
+//
+// El canto lo fija el MARGEN de «Entregar» y no `space-between`: con un solo
+// hijo, `space-between` lo manda al inicio, y el día que una línea lleve sólo
+// «Entregar» (cancelar sin permiso, por ejemplo) saltaría a la izquierda, al
+// sitio del aspa. Con el margen, cada botón tiene su canto haya uno o dos.
 .mmodal-confirm-item-acciones {
   grid-area: acciones;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: .5rem;
+
+  > .mmodal-entregar-btn { margin-inline-start: auto; }
 }
 
 // ── Dot de estado en resumen ──────────────────────────────────
@@ -2973,17 +3088,23 @@
   flex-shrink: 0;
 }
 
-// Botón "✓ Entregar" en resumen. 32 px de alto (medía 18): es la acción que
-// el mesero repite con cada plato que sale. Sigue en tinte y no en relleno a
-// propósito: va una por línea, y una columna de rellenos azules competiría con
-// «Cerrar ticket», que es el único relleno de esa columna.
+/*
+ * Botón «✓ Entregar» en resumen. 32 px de alto (medía 18): es la acción que el
+ * mesero repite con cada plato que sale.
+ *
+ * Relleno SÓLIDO, por decisión del producto: estuvo en tinte para no competir
+ * con «Cerrar ticket», pero en tinte no se leía como botón. El azul es el del
+ * estado «entregado» y sale del token --pos-solido-info (azul al 78 % con la
+ * tinta): puro, el papel encima da 3.4:1 y el texto es de 12 px; así, 5:1.
+ */
 .mmodal-entregar-btn {
+  position: relative;
   min-height: 32px;
-  padding: 0 .65rem;
+  padding: 0 .75rem;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--feedback-info) 55%, transparent);
-  background: color-mix(in srgb, var(--feedback-info) 14%, transparent);
-  color: var(--feedback-info);
+  border: 1px solid transparent;
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
   cursor: pointer;
   flex-shrink: 0;
   transition: background .14s, transform .1s;
@@ -2991,8 +3112,24 @@
 
   .admin-body & { @include control(var(--operational-text-xs)); }
 
-  &:hover { background: color-mix(in srgb, var(--feedback-info) 24%, transparent); }
+  // Objetivo táctil de 44 px —el mínimo del piso— sin cambiar lo que se ve:
+  // la caja dibujada se queda en 32 para no alargar cada línea del ticket, y
+  // el toque se recoge 6 px arriba, abajo y hacia el centro de la línea. Abajo
+  // cae en el padding de la línea; arriba roza el renglón del nombre, que no es
+  // pulsable. Por la derecha NO crece: el botón está en el canto de la columna
+  // y, como ésta desplaza, sobresalir 6 px abría una barra horizontal.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -6px 0 -6px -6px;
+  }
+
+  // Más oscuro al pasar, no más claro: aclararlo bajaría el contraste del texto.
+  // El 84 % del token (la regla de hover del POS) deja el azul al 65.5 %, a
+  // medio punto del 66 % que tenía: el mismo escalón a la vista.
+  &:hover { background: color-mix(in srgb, var(--pos-solido-info) 84%, var(--admin-ink)); }
   &:active { transform: scale(.96); }
+  &:disabled { cursor: default; opacity: .55; }
 }
 
 // ── Empty state de columnas (más visible que mmodal-cart-empty) ─
@@ -3184,13 +3321,37 @@
     margin-bottom: 0;
     padding: .45rem .4rem;
     border-bottom: none;
-    border: 1px solid var(--line-soft);
+    // Tesela SÓLIDA (lenguaje sólido del POS): es el control que más se pulsa
+    // y en un tinte al 45 % sobre el vidrio se leía como hueco, no como botón.
+    // El borde queda transparente con su grosor para no mover la rejilla.
+    border: 1px solid transparent;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--surface) 45%, transparent);
+    background: var(--pos-solido-neutro);
+
+    // El precio en la tinta del relleno, un punto atrás por opacidad (≈ 6.6:1):
+    // el --txt-mute de la lista no llega a 4.5:1 sobre el gris.
+    .mmodal-dish-price {
+      color: var(--pos-solido-neutro-tinta);
+      opacity: .78;
+    }
+
+    // Hover y pulsación propios de la cuadrícula: esta regla (0,3,0) le ganaba
+    // a los de .mmodal-dish-row (0,2,0) y la tesela no respondía al toque.
+    @media (hover: hover) and (pointer: fine) {
+      &:hover { background: var(--pos-solido-neutro-hover); }
+    }
+
+    &:active { background: var(--pos-solido-neutro-hover); }
 
     &.is-active {
       border-color: var(--gold);
       background: var(--gold);
+
+      // La regla del precio de arriba (0,4,0) le gana a la del dorado de
+      // .mmodal-dish-row.is-active: aquí se repite su tinta.
+      .mmodal-dish-price { color: var(--on-accent); }
+
+      &:hover { background: var(--gold-soft); }
     }
   }
 
@@ -3284,22 +3445,26 @@
 
   // `& &__x` (0,2,0): con la clase sola, `.admin-body button` (0,1,1) le
   // devolvía el cuerpo y el peso del texto corriente.
+  // Cada opción del segmentado, sólida: neutro con su tinta y la elegida en
+  // «activo». El riel de alrededor (__opts) es el fondo del grupo, no un
+  // control, y se queda como está.
   & &__opt {
     @include control(var(--operational-text-xs));
     min-height: 32px;
     padding: 0 .6rem;
     border: 0;
     border-radius: 6px;
-    background: transparent;
-    color: var(--muted);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     white-space: nowrap;
     cursor: pointer;
 
-    &:hover { color: var(--text); }
+    &:hover { background: var(--pos-solido-neutro-hover); }
 
-    &.is-active {
-      background: var(--admin-gold);
-      color: var(--on-accent);
+    &.is-active,
+    &.is-active:hover {
+      background: var(--pos-solido-activo);
+      color: var(--pos-solido-activo-tinta);
     }
   }
 
@@ -3322,17 +3487,19 @@
     font-weight: 600;
   }
 
+  // Subir / bajar columna: utilidades en el neutro sólido. El apagado conserva
+  // su patrón (sólo opacidad), ahora sobre el relleno.
   &__orden-btns button {
     width: 24px;
     height: 24px;
-    border: 1px solid var(--line-soft);
+    border: 1px solid transparent;
     border-radius: 5px;
-    background: transparent;
-    color: var(--muted);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     font: inherit;
     cursor: pointer;
 
-    &:hover:not(:disabled) { color: var(--text); }
+    &:hover:not(:disabled) { background: var(--pos-solido-neutro-hover); }
     &:disabled { opacity: .35; cursor: not-allowed; }
   }
 
@@ -3368,21 +3535,28 @@
 // ── Notas en carrito staging ──────────────────────────────────
 // 32 px de alto, como los − / + de su fila: medía 18 y era el blanco más
 // pequeño del pedido.
+// En el neutro sólido con su tinta; cuando la línea ya lleva nota pasa al
+// relleno «activo», que es el «sí» de cualquier conmutador del POS.
 .mmodal-cart-nota-btn {
   min-height: 32px;
-  color: var(--txt-mute);
-  background: none;
-  border: 1px solid var(--line);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0 .55rem;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color .14s, border-color .14s;
+  transition: color .14s, background .14s;
 
   .admin-body & { @include control(var(--operational-text-xs)); }
 
-  &:hover { color: var(--txt); border-color: var(--line-strong); }
-  &--active { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  &:hover { background: var(--pos-solido-neutro-hover); }
+
+  &--active,
+  &--active:hover {
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
+  }
 }
 
 .mmodal-cart-nota-wrap {
@@ -3429,25 +3603,40 @@
 }
 
 // ── Botón × cancelar ítem ─────────────────────────────────────
-// Un aspa SVG (era el carácter «×») en un círculo de 28 px —medía 20—; abre
+// Un aspa SVG (era el carácter «×») en un círculo de 32 px —medía 20—; abre
 // la confirmación con motivo, así que el toque de más no destruye nada.
+// Cancelar un platillo ya enviado: rojo SÓLIDO con el aspa en papel, la regla
+// de lo destructivo (--pos-solido-peligro con su tinta, 4.58:1). 32 px, la
+// misma altura que «Entregar», para que los dos cantos de la línea cuadren.
 .mmodal-cancel-btn {
-  width: 28px;
-  height: 28px;
+  position: relative;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
-  color: var(--feedback-danger);
+  border: 1px solid transparent;
+  background: var(--pos-solido-peligro);
+  color: var(--pos-solido-peligro-tinta);
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background .14s;
+  transition: background .14s, transform .1s;
 
-  &:hover { background: color-mix(in srgb, var(--feedback-danger) 22%, transparent); }
+  // El 82 % de siempre, ahora sobre el token: mismo rojo al pasar.
+  &:hover { background: color-mix(in srgb, var(--pos-solido-peligro) 82%, var(--admin-ink)); }
+  &:active { transform: scale(.96); }
+
+  // 44 de alto de toque alrededor del círculo de 32, como «Entregar», y 38 de
+  // ancho: crece hacia el centro de la línea pero no por la izquierda, que es
+  // el canto de la columna (sobresalir abría una barra horizontal).
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -6px -6px -6px 0;
+  }
 }
 
 // ── Overlay confirmación de cancelación ───────────────────────
@@ -3514,10 +3703,11 @@
       display: grid;
       place-items: center;
       margin: 0 auto .1rem;
-      border: 1px solid color-mix(in srgb, var(--feedback-danger) 46%, transparent);
+      // Distintivo de estado: rojo sólido con su tinta (lenguaje sólido).
+      border: 1px solid transparent;
       border-radius: 50%;
-      background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
-      color: var(--feedback-danger);
+      background: var(--pos-solido-peligro);
+      color: var(--pos-solido-peligro-tinta);
       font-size: 1.05rem;
       font-weight: 800;
     }
@@ -3656,13 +3846,14 @@
   line-height: 1.25;
 }
 
+// El precio va en etiqueta neutra sólida con su tinta (lenguaje sólido).
 .mmodal-sug-price {
   @include cifra-columna;
   font-size: .8rem;
   font-weight: 600;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1px solid transparent;
   border-radius: 4px;
   padding: .15rem .5rem;
   flex-shrink: 0;
@@ -3674,16 +3865,21 @@
   margin-bottom: .85rem;
 }
 
-// Etapa de la comida que detecta n8n (ENTRADAS / DESARROLLO / CIERRE)
+// Etapa de la comida que detecta n8n (ENTRADAS / DESARROLLO / CIERRE).
+// Era sólo un contorno del color; ahora cada etapa es una etiqueta sólida de
+// su familia con su tinta: entradas azul, desarrollo neutro, cierre ámbar. El
+// filete queda transparente y conserva su píxel.
 .mmodal-etapa {
   @include rotulo(10px);
   border-radius: 4px;
   padding: .15rem .5rem;
-  border: 1px solid currentColor;
+  border: 1px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
 
-  &--entradas   { color: var(--feedback-info); }
-  &--desarrollo { color: var(--accent-text); }
-  &--cierre     { color: var(--feedback-warn); }
+  &--entradas   { background: var(--pos-solido-info);   color: var(--pos-solido-info-tinta); }
+  &--desarrollo { background: var(--pos-solido-neutro); color: var(--pos-solido-neutro-tinta); }
+  &--cierre     { background: var(--pos-solido-aviso);  color: var(--pos-solido-aviso-tinta); }
 }
 
 // Acción del panel vacío: pedir otra tanda a n8n o reintentar tras un error
@@ -3731,9 +3927,11 @@
   justify-content: center;
   height: 52px;
   border-radius: 8px;
-  border: 1.5px solid var(--line-soft);
-  background: var(--surface);
-  color: var(--txt-mute);
+  // Imita a .mmodal-comensal-block también en el relleno: neutro sólido y el
+  // elegido en «activo», con el filete transparente para no cambiar la caja.
+  border: 1.5px solid transparent;
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   cursor: pointer;
   transition: background .14s, color .14s, border-color .14s;
   -webkit-tap-highlight-color: transparent;
@@ -3742,14 +3940,12 @@
   .admin-body & { @include control(var(--operational-text-base)); }
 
   &:hover:not(.mmodal-sug-chip--on) {
-    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-    color: var(--txt);
+    background: var(--pos-solido-neutro-hover);
   }
 
   &--on {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    color: var(--accent-text);
-    border-color: var(--gold);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 }
 
@@ -3768,9 +3964,10 @@
   width: 100%;
   min-height: 44px;
   padding: .75rem 1rem;
-  color: var(--txt-mute);
-  background: var(--surface);
-  border: 1.5px solid var(--line);
+  // Secundario: neutro sólido con su tinta; oscurece al pasar.
+  color: var(--pos-solido-neutro-tinta);
+  background: var(--pos-solido-neutro);
+  border: 1.5px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   text-align: center;
@@ -3778,11 +3975,7 @@
 
   .admin-body & { @include control(var(--operational-text-sm)); }
 
-  &:hover {
-    color: var(--txt);
-    border-color: var(--line-soft);
-    background: color-mix(in srgb, var(--txt) 4%, transparent);
-  }
+  &:hover { background: var(--pos-solido-neutro-hover); }
 }
 
 // Shell operativo compartido (mapa + reservaciones)
@@ -3874,12 +4067,12 @@
 
 
 // ── Alertas de impresión: disparador en el header ──────────────
-// Es el único elemento del header del POS con relleno sólido, y por eso se
-// ve desde lejos: sólo existe mientras hay algo que no se imprimió. Ámbar y
-// no rojo porque el servicio sigue —la comanda está en el tablero del área—;
-// la tinta encima es --admin-ink en los dos temas, porque el ámbar tiene
-// luminancia alta y no admite texto claro (igual que el aviso del topbar del
-// panel). Icono y cifra: la cifra en mono, como toda cifra del sistema.
+// Sólo existe mientras hay algo que no se imprimió, y entre los sólidos del
+// header es el único de COLOR: por eso se ve desde lejos. Ámbar y no rojo
+// porque el servicio sigue —la comanda está en el tablero del área—; la tinta
+// encima es la del token de aviso, oscura en los dos temas, porque el ámbar
+// tiene luminancia alta y no admite texto claro (igual que el aviso del topbar
+// del panel). Icono y cifra: la cifra en mono, como toda cifra del sistema.
 .mapa-page .pos-header__print-alerts {
   display: inline-flex;
   align-items: center;
@@ -3887,10 +4080,10 @@
   flex: 0 0 auto;
   height: 42px;
   padding: 0 14px 0 12px;
-  border: 1px solid var(--admin-c-ambar);
+  border: 1px solid var(--pos-solido-aviso);
   border-radius: 999px;
-  background: var(--admin-c-ambar);
-  color: var(--admin-ink);
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
   cursor: pointer;
   transition: background 150ms ease, box-shadow 150ms ease;
 
@@ -3906,9 +4099,10 @@
     stroke-linejoin: round;
   }
 
+  // Oscurece con la regla de hover del POS (84 %); la tinta sigue a 7.7:1.
   &:hover,
   &[aria-expanded="true"] {
-    background: color-mix(in srgb, var(--admin-c-ambar) 86%, var(--admin-ink));
+    background: color-mix(in srgb, var(--pos-solido-aviso) 84%, var(--admin-ink));
   }
 
   &:focus-visible {
@@ -3981,8 +4175,11 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
+  // El distintivo de la alerta, en el ámbar sólido del disparador del header
+  // y del filete de la tarjeta, con su tinta. Era el tinte naranja de
+  // --admin-warning-bg, que además no casaba con ese ámbar.
+  background: var(--pos-solido-aviso);
+  color: var(--pos-solido-aviso-tinta);
 }
 
 .pos-print-alert__body {
@@ -4139,12 +4336,15 @@
     width: 44px;
     height: 44px;
     place-items: center;
-    border: 1px solid var(--line-soft);
+    // Cerrar es una utilidad: neutro sólido con su tinta, que oscurece al
+    // pasar. Filete transparente para conservar los 44 px.
+    border: 1px solid transparent;
     border-radius: 10px;
-    background: transparent;
-    color: var(--muted);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     line-height: 1;
     cursor: pointer;
+    transition: background .15s;
 
     svg {
       width: 16px;
@@ -4155,10 +4355,7 @@
       stroke-linecap: round;
     }
 
-    &:hover {
-      color: var(--text);
-      border-color: var(--admin-gold);
-    }
+    &:hover { background: var(--pos-solido-neutro-hover); }
   }
 
   &__body {
@@ -4389,8 +4586,9 @@
 
 /* Selector de turno del corte (Configuración → POS). Reparten el ancho por
    igual —base cero, como los destinos del cajón— para que el largo del nombre
-   no haga pesar más un turno que otro. El elegido va en el relleno sólido del
-   acento: es el único estado de la fila y tiene que leerse desde un brazo. */
+   no haga pesar más un turno que otro. Lenguaje sólido del POS: los turnos van
+   en el neutro y el elegido en el relleno «activo», que es el único estado de
+   la fila y tiene que leerse desde un brazo. */
 .mmodal-caja-turnos {
   display: flex;
   flex-wrap: wrap;
@@ -4414,23 +4612,29 @@
   justify-content: center;
   gap: .15rem;
   padding: .45rem .8rem;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--txt);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   touch-action: manipulation;
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 
-  &[aria-pressed="true"] {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--on-accent);
+  // Las horas son el dato secundario del botón: su tinta mezclada con el
+  // relleno, opaca. Sobre el gris queda a 6.6:1 (el atenuado de antes daba
+  // 2.6) y sobre el papel del elegido, a 8:1.
+  .mmodal-caja-turno__horas {
+    color: color-mix(in srgb, var(--pos-solido-neutro-tinta) 78%, var(--pos-solido-neutro));
+  }
 
-    .mmodal-caja-turno__horas { color: color-mix(in srgb, var(--on-accent) 72%, transparent); }
+  &[aria-pressed="true"] {
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
+
+    .mmodal-caja-turno__horas { color: color-mix(in srgb, var(--pos-solido-activo-tinta) 72%, var(--pos-solido-activo)); }
   }
 
   @media (hover: hover) {
-    &[aria-pressed="false"]:hover { border-color: var(--line-strong); }
+    &[aria-pressed="false"]:hover { background: var(--pos-solido-neutro-hover); }
   }
 }
 
@@ -4525,8 +4729,17 @@
   overflow: hidden;
   background: var(--surface-2);
 
-  &__ef  { background: var(--feedback-ok-bg); }
-  &__tar { background: var(--gold); }
+  /*
+   * Efectivo en ámbar y tarjeta en azul, puros de la paleta funcional: son las
+   * dos series de una gráfica, no rellenos con texto, así que no se oscurecen.
+   * Antes eran un oliva casi negro (--feedback-ok-bg, < 2:1 contra el panel) y
+   * el papel del acento: el efectivo no se veía y la tarjeta parecía una barra
+   * vacía. Ámbar y azul se separan entre sí y del fondo (≈ 10:1 y ≈ 4.9:1) y
+   * siguen distinguiéndose con daltonismo rojo-verde. El punto de la leyenda
+   * repite cada color (ver .mmodal-caja-method__dot).
+   */
+  &__ef  { background: var(--admin-c-ambar); }
+  &__tar { background: var(--admin-c-azul); }
 }
 
 .mmodal-caja-methods {
@@ -4556,8 +4769,8 @@
     border-radius: 50%;
     flex-shrink: 0;
 
-    &--ef  { background: var(--feedback-ok-bg); }
-    &--tar { background: var(--gold); }
+    &--ef  { background: var(--admin-c-ambar); }
+    &--tar { background: var(--admin-c-azul); }
   }
 }
 
@@ -4633,19 +4846,20 @@
     height: 20px;
     margin-top: .05rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    color: var(--accent-text);
+    // Insignia de posición en el neutro sólido con su tinta.
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     font-family: var(--admin-font-mono);
     font-size: .68rem;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
   }
 
-  /* El primer puesto es el único que se marca: si los cinco llevaran énfasis,
-     ninguno lo tendría. */
+  /* El primer puesto es el único que se marca —en el relleno «activo»—: si los
+     cinco llevaran énfasis, ninguno lo tendría. */
   &:first-child &__pos {
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 
   &__body {

@@ -120,7 +120,9 @@
 
                 <div class="admin-field admin-form-grid__full">
                     <span class="admin-field__label">Categoría</span>
-                    <div class="admin-tabs" role="radiogroup" aria-label="Categoría">
+                    <?php /* data-filas-equilibradas: core/filas-equilibradas.js las
+                             reparte en filas del mismo número de pestañas. */ ?>
+                    <div class="admin-tabs admin-menu__categorias" role="radiogroup" aria-label="Categoría" data-filas-equilibradas>
                         <?php foreach ($categorias as $cat) : $cid = (int) $cat->id; ?>
                             <label class="admin-tabs__tab">
                                 <?php /* data-foto: la foto por defecto que tomaría el producto
@@ -296,6 +298,13 @@
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
                     <span class="admin-switch__label"><?php echo $menuContexto === 'panaderia' ? 'Oferta disponible en Panadería' : 'Producto activo (visible en la carta y vendible en el punto de venta)'; ?></span>
                 </label>
+
+                <?php /* Variantes. El botón abre el editor en #variantes-modal,
+                         que vive FUERA del <form>: sus campos no viajan con el
+                         producto y Enter no lo envía. */ ?>
+                <?php if (is_array($variantesFormulario ?? null)) : ?>
+                    <?php include __DIR__ . '/_variantes-resumen.php'; ?>
+                <?php endif; ?>
             </div>
         </section></fieldset>
 
@@ -307,4 +316,57 @@
     </form>
 
     <?php include __DIR__ . '/../partials/_historial-precios-modal.php'; ?>
+
+    <?php if (($variantesFormulario['estado'] ?? '') === 'ok' && !empty($variantesFormulario['puedeEditar'])) :
+        $editorVariantes = $variantesFormulario['editor'];
+        $variantesModo = 'modal'; ?>
+        <?php /* El mismo editor que /admin/menu/variantes, en un panel encima del
+                 formulario. Guarda por su cuenta (JSON) y al cerrar con cambios
+                 sin guardar pregunta antes (admin:modal-before-close).
+
+                 data-lenis-prevent en el diálogo, escrito aquí y no deducido:
+                 con el modal abierto Lenis está parado y se come la rueda que
+                 no lleve la marca. motion.js sólo mide el contenedor con scroll
+                 más cercano al puntero, y en una columna (≤1200 px) ése es el
+                 principal, que no desborda — quien desplaza es el cuerpo, y la
+                 rueda se perdía. Todo lo que desplaza aquí dentro es nativo. */ ?>
+        <div class="admin-modal admin-modal--variantes" id="variantes-modal" data-admin-modal hidden>
+            <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
+            <div class="admin-modal__dialog admin-modal__dialog--variantes" role="dialog" aria-modal="true"
+                 aria-labelledby="variantes-modal-titulo" aria-describedby="variantes-modal-texto" tabindex="-1" data-admin-modal-dialog data-lenis-prevent>
+                <div class="admin-modal__head">
+                    <div>
+                        <span class="admin-modal__eyebrow">Variantes</span>
+                        <h2 class="admin-modal__title" id="variantes-modal-titulo"><?php echo htmlspecialchars((string) ($platillo->nombre ?? ''), ENT_QUOTES, 'UTF-8'); ?></h2>
+                        <p class="admin-modal__text" id="variantes-modal-texto">
+                            Precio base <strong class="admin-num">$<?php echo number_format((float) ($platillo->precio ?? 0), 2); ?></strong><span class="admin-variantes__modal-ayuda"> · <?php echo !empty($variantesFormulario['editor']['solo_precio'])
+                                ? 'producto de reventa: cada opción sólo cambia el nombre y el precio, y el artículo que se descuenta es siempre el mismo.'
+                                : 'cada opción puede moverlo y ajustar la receta, y el inventario se descuenta con la que resulta.'; ?></span>
+                        </p>
+                    </div>
+                    <button class="admin-modal__close" type="button" aria-label="Cerrar variantes" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
+                </div>
+
+                <section class="admin-variantes admin-variantes--modal" data-variantes-editor data-variantes-modo="modal"
+                         data-variantes-url="<?php echo $menuContexto === 'panaderia' ? '/admin/panaderia/api/menu/variantes' : '/admin/api/menu/variantes'; ?>"
+                         data-admin-csrf="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <div class="admin-variantes__cuerpo" data-scrollable>
+                        <?php include __DIR__ . '/_variantes-editor.php'; ?>
+                    </div>
+
+                    <div class="admin-variantes__barra" data-variantes-barra>
+                        <p class="admin-variantes__estado" data-variantes-estado aria-live="polite">Sin cambios</p>
+                        <div class="admin-variantes__barra-acciones">
+                            <button type="button" class="admin-btn admin-btn--ghost" data-variantes-descartar disabled>Descartar</button>
+                            <button type="button" class="admin-btn admin-btn--primary" data-variantes-guardar disabled>
+                                Guardar variantes
+                                <kbd class="admin-variantes__kbd" aria-hidden="true">Ctrl S</kbd>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <?php unset($editorVariantes, $variantesModo); ?>
+    <?php endif; ?>
 </section>

@@ -51,7 +51,7 @@ Rama `codex/m11-refinamiento-menus-ux`; HEAD inicial
 `Completa Home Restaurante y selección compacta de M1.1-E` (hash/HEAD final en
 `git log -1 --oneline`). Sin push ni merge; árbol limpio al cierre.
 
-`/admin` muestra Inicio · Restaurante y el selector de contexto lleva a esa ruta.
+`/admin` muestra el inicio de Restaurante y el selector de ámbito lleva a esa ruta.
 `/admin/analytics` conserva el dashboard, sus métricas y recursos. El inicio usa
 `InicioAdministrativo` y los parciales contextos existentes; quince accesos posibles
 en el orden del catálogo, filtrados por autorización vigente. Usuarios exige su
@@ -121,9 +121,12 @@ El servidor, sesiones y base temporal se limpian al terminar. M1.2 no se inicia.
 
 ## Componentes M1.1
 
-Los inicios Global y Panadería comparten `contextos/_accesos.php`: tarjetas con SVG
-del repertorio administrativo, título, explicación y enlace autorizado. El inicio
-Restaurante comparte este inicio desde M1.1-E y mantiene el dashboard en Analíticas.
+Los inicios de Global, Restaurante y Panadería comparten `contextos/inicio.php` y
+`contextos/_modulos.php`: el ámbito como titular, grupos con rótulo mono, cuenta y
+filete (`InicioAdministrativo::GRUPOS`; Global no se agrupa) y teselas con icono y
+título, sin descripción; el primer grupo con módulos en teselas grandes con icono
+relleno, el resto compactas. La biblioteca PDF conserva `contextos/_accesos.php`.
+El inicio Restaurante mantiene el dashboard en Analíticas.
 Se proyectan únicamente módulos operativos;
 transferencias enlaza al espacio de Almacenes. El catálogo Global utiliza tabla
 compacta, filtros y paginación; la ficha conserva confirmación de impacto maestro.
@@ -189,7 +192,8 @@ serie o disparador de acción. Botones tinted usan relleno sólido y tinta calcu
 por contraste; acción principal conserva jerarquía, icono y posición final.
 Paleta funcional compartida: ámbar, naranja, rojo, azul, lima, índigo, rosa,
 magenta, turquesa y verde. Platillos: preparación ámbar, listo verde, entregado
-azul, cancelado gris. El KDS tiene su excepción visual descrita abajo.
+azul, cancelado gris. El KDS tiene su excepción visual descrita abajo (enviado
+en rojo).
 PaletaLanding emite los cuatro colores editables después de app.css en cada
 página de marca. Mantener su espejo y comprobaciones de contraste sincronizados.
 
@@ -235,7 +239,17 @@ admin-pagination, admin-field, admin-switch, admin-tabs y admin-pills.
   Sincronizar ambos catálogos; grosor por CSS. No emoji/glifos como icono.
   POS usa SVG_PATHS/svgIcon y btnLabel. Mantener separación con inline-flex/gap.
 - admin-pills sustituye select para pocas opciones excluyentes: radios reales
-  recortados, teclado y respaldo sin :has. No ocultar con display:none.
+  recortados, teclado y respaldo sin :has. No ocultar con display:none. El radio
+  va centrado en la pill; `admin-pills--columnas` las pone en dos columnas
+  iguales (una en ≤640 px) cuando cada opción lleva ayuda, como la carta de una
+  categoría.
+- Foto de platillo o categoría: `.admin-foto` + `core/foto-platillo.js`. En el
+  formulario de categoría va con `data-foto-modo="categoria"` (sin foto
+  prestada ni «Quitar») y `.admin-foto--grande` (vista previa de hasta 420 px,
+  se apila bajo 620 px de contenedor). Su texto de estado depende de la carta
+  marcada: cada pill lleva `data-foto-con`/`data-foto-sin`.
+- Pestañas de categoría del formulario de platillo: `data-filas-equilibradas`
+  (`core/filas-equilibradas.js`) las reparte en filas parejas, centradas.
 - Select mejorado: core/select.js, combobox etiquetado y lista portada al body.
   AdminSelect.init tras insertar contenido. Piso excluido salvo data-enhance;
   data-native conserva nativo. Revisar z-index al portarlo desde modal.
@@ -250,7 +264,16 @@ admin-pagination, admin-field, admin-switch, admin-tabs y admin-pills.
 - Filtros/tareas: _filtros-estado.php y _tareas-completas.php. Filtro en URL,
   selección aria-current; tareas cuentan lo hecho y métricas independientes de
   búsqueda. Enlace estirado sin position/overflow/transform que reduzca su área.
-- Modales alternan hidden e is-open. Prohibidos alert/confirm/prompt nativos.
+- Variantes en «Editar platillo»: resumen por grupo (_variantes-resumen.php) y el
+  editor completo en `#variantes-modal`, fuera del `<form>` (mismo
+  _variantes-editor.php que la página propia). En el panel Ctrl+S sólo guarda
+  abierto, guardar cierra y repinta el resumen, y cerrar con cambios pregunta.
+  Icono de opción: borde punteado automático, pleno elegido; selector portado
+  al body con búsqueda y rejilla (aria-activedescendant, flechas 2D).
+- Modales alternan hidden e is-open. `admin:modal-before-close` es cancelable
+  (quien tiene cambios pendientes pregunta y cierra con `admin:close-modal`
+  `{id, forzar}`); un Escape ya atendido dentro (preventDefault) no cierra el
+  modal. Prohibidos alert/confirm/prompt nativos.
   ConfirmationModal.get().open devuelve promesa de acción; customContent muestra
   dependencias y requireText exige leer el elemento (data-confirm-require en form).
   Diálogo especializado captura en document antes del genérico, preservando respaldo.
@@ -270,16 +293,17 @@ no concatenar la misma lista obtenida desde dos modelos.
 
 ## Selector de contexto y Almacenes
 
-`views/admin/partials/_contexto.php` muestra icono, nombre y chevron con el sidebar
-expandido; en escritorio contraído conserva solo el icono centrado. El popover
-usa la capa superior para evitar recortes del sidebar. Sus enlaces proceden de
+`views/admin/partials/_contexto.php` vive al inicio del header (`_topbar.php`),
+una sola vez: el sidebar ya no lo lleva. Es una píldora de 40 px —círculo relleno
+con el icono del ámbito, rótulo mono «Ámbito», nombre y chevron— que hace pareja
+con la del usuario al otro extremo; con un solo ámbito autorizado es una etiqueta
+fija, sin botón. Cuando la celda del header no deja sitio al nombre (container
+query `ambito`, 150 px) queda icono y chevron; el nombre sigue en la etiqueta
+accesible y en el menú. El popover usa la capa superior. Sus enlaces proceden de
 `contextosDisponibles` del servidor y conservan `/admin/contexto` y la autorización
 existente; el selector no concede acceso por sí mismo. `src/js/admin/core/contextos.js`
 gestiona ArrowUp/ArrowDown, Home/End y Escape con devolución de foco al disparador.
-Escape en el selector no cierra el drawer móvil. En móvil, incluido un viewport
-de 320 px y una preferencia previa de escritorio contraído, el control recupera
-nombre y chevron y el popover conserva margen respecto al viewport. El respaldo
-`noscript` usa un select nativo etiquetado y botón de envío.
+El respaldo `noscript` usa un select nativo etiquetado y botón de envío.
 
 Almacenes reutiliza tokens, tipografías, iconos y modales administrativos sin una
 biblioteca visual nueva. La pantalla única agrupa tarjetas de almacén por
@@ -470,11 +494,33 @@ Cada pantalla conecta data-confirm-logout; no ofrecer regreso admin al piso.
 Centro del header POS: Ahora/proyección, libres y próxima llegada; opciones
 ocasionales en menú de usuario.
 
-KDS: color de estación solo en filete superior de tres columnas. Todo lo demás
-neutro, incluidos avances. Hora ámbar a 5 minutos, roja a 10; entregados atenuados
-al 62%; notas hundidas sin ámbar. Mono cifras, sans palabras, pesos 400/600/700.
-Columnas surface-soft sin borde, gap 16px; comanda surface-strong. No llevar color
-de estación a la tarjeta donde compita con urgencia.
+KDS: tres bandas apiladas (Enviados, En preparación, Listos) sin scroll propio;
+comandas en mampostería que recuerdan su columna (`empaquetar()` en
+`modules/area.js`); sólo desplaza el tablero. Dos colores con dos trabajos:
+la **estación** es el marco —barra superior llena de su color con la tinta de
+`AreasProduccion::tintaSobre` (reloj, salir y foco en esa tinta; «Sin conexión»
+sobre pastilla del fondo), fondo teñido desde arriba y `theme-color`—; el
+**estado** es el lomo de cada banda (columna de ancho fijo a toda su altura;
+en vertical, pestaña de 248 px arriba a la izquierda, para que no se lea
+como continuación de la barra), lleno de rojo en Enviados, ámbar en En
+preparación y verde en Listos (`AreasProduccion::DE_ESTADO`); título del
+estado en blanco en los tres: excepción explícita del producto (1.8:1 sobre
+ámbar y 2.9:1 sobre verde, bajo el 3:1 de texto grande; el estado lo dicen
+también posición y color). No es precedente para otros textos. Rótulo de 19 px bold. El contador va en
+pastilla blanca en los tres, con la cifra del color del estado legible sobre
+papel (rojo tal cual; ámbar y verde mezclados con tinta, `--banda-cifra`).
+Una banda vacía deja el lomo neutro (el color mide
+trabajo) y el contador en contorno del color del estado. Bandas rectas, sin
+radio ni filete. Estilos de barra acotados a `.area-tablero` (el selector de
+estación comparte `.area-page`). Comandas y avances neutros. Hora ámbar a 5
+minutos, roja a 10; entregados atenuados al 62%; notas hundidas sin ámbar.
+Mono cifras, sans palabras, pesos 400/600/700. Rejilla de comandas
+surface-soft sin borde; comanda surface-strong. No llevar color de estación a
+la tarjeta donde compita con urgencia. El color de cada estación del
+Restaurante se elige en Configuración → Colores de las áreas (`AreasProduccion`:
+sólo los diez de la paleta funcional, sin repetir; el espejo PHP lo vigila
+`run-areas-produccion.php`); rojo, ámbar y verde se pueden elegir, pero la
+pantalla avisa de que coinciden con un estado.
 
 Cajón: módulos flex base cero; fecha española separada de data-iso. Sincronizar
 tablas de nombres en pos-workspace.php y shell.js. Calendario abierto en flujo
@@ -482,6 +528,21 @@ para evitar recorte. Agenda administrativa: libreta diaria, hora una vez por
 franja, estado con forma y palabra. Solo ausencia elegible es urgencia. Búsqueda
 conserva periodo/estado; sincronizar nombres entre presenter y pos-reserva-vista.js.
 
+Opciones de platillo por pasos: un grupo por paso, fila de pasos con lo elegido
+(en sólido: actual en papel con el número invertido, visto con palomita,
+obligatorio pendiente en ámbar con «Elige una») y salto a cualquiera; al agregar abre en el primer obligatorio que
+falte, al editar en el 1. Tocar una opción avanza a los 180 ms (se descarta un
+segundo toque inmediato); flechas eligen sin avanzar, 1–9 eligen y avanzan como
+un toque (el número se ve en la tesela sólo con puntero fino), Enter avanza y
+agrega en el último, Retroceso vuelve. Sin nada pendiente, «Agregar» es la única
+principal desde el primer paso y «Siguiente» va en neutro sólido. Hoja de 880 px;
+teselas a todo el ancho (`columnasOpciones`: hasta 4 en una fila, luego 3 o 4 y
+la última fila estirada; 2 en móvil), verticales: icono op-* de 56 px con el
+ajuste al otro extremo, «Como en la carta» y el nombre al pie. Si ninguna opción
+del paso tiene icono, teselas de sólo texto; si algunas sí, la inicial en el
+mismo hueco. La hoja mide su paso más alto y no cambia de alto; movimiento
+reducido funde. En Menú, las variantes se editan desde «Editar platillo» (el
+listado ya no tiene botón; «N opciones» abre `edit?id=…#variantes`).
 Modal POS: título solo nombre; número adicional si no está incluido como palabra.
 Cancelar mesa se oculta desde primera fila enviada, incluso cancelada. Cerrar se
 deshabilita sin filas o con pendientes; backend revalida. Barras/Llevar: tablero,
@@ -490,6 +551,21 @@ descartar vuelve al tablero si quedan pedidos. Vidrio --pos-glass-* local,
 panel 78%, columnas 64%; prima legibilidad. _voz.scss: mono rótulo/columna, sans
 control, Expose titular/total. Danger sólido, release naranja, pending disabled
 con borde discontinuo; una definición por variante.
+
+**POS en sólido** (decisión del producto, nov 2026): todo control del POS
+—botones, pestañas, chips, contadores, etiquetas de estado y pines del mapa—
+lleva relleno opaco, sin tintes `color-mix(... transparent)` ni botones de
+sólo contorno. Se pinta con los tokens `--pos-solido-*` de `.mapa-page`
+(`_punto-de-venta.scss`, bloque «Lenguaje sólido del POS»): neutro gris-5 con
+papel, activo papel con tinta, ok verde al 75 % con tinta y papel encima (texto
+blanco en los pines, como rojo, azul y gris; NO es el verde puro del lomo
+«Listos» del KDS, y unificarlos exige recalcular sus tintas), peligro rojo, info azul al 78 % con
+tinta y papel encima, aviso ámbar y naranja, cada uno con su `-tinta` (≥ 4.5:1).
+En el corte de caja, efectivo va en ámbar y tarjeta en azul, puros de la paleta
+(series de gráfica sin texto encima); ahí el ámbar es «efectivo», no el estado
+«en preparación» del KDS. El hover oscurece. Siguen translúcidos los realces de fila, velos, sombras,
+barras de desplazamiento y gráficas. En `operation/*` se acota a `.mapa-page`
+para no tocar KDS, selector ni login.
 
 Topbar: notificación roja por tarjetas pendientes, papel/punto azul si seguimiento;
 reportar ámbar, salir neutro/rojo al hover. Contar tarjetas con
@@ -500,7 +576,19 @@ Impresoras usa área y tinta por contraste, columna Imprime y prueba JSON en fil
 Corte de caja es consulta, no arqueo persistido: [operación](../operacion.md).
 Asistente estructurado: [configuración](../config.md#asistente-ia).
 
+Caja de Panadería: mismo shell, header y tema oscuro del piso; hoja propia
+`caja.css` cargada después de `operation.css` y todo bajo `.caja-page` para
+ganar a `.admin-body button/h2/input` (los campos repiten la cadena `:not()` de
+`_forms.scss`). Sin colores nuevos: la caja se distingue por la tecla partida
+en gajos, el filete de vitrina y la tecla que crece ocupando su fila. Íconos
+del catálogo PHP vía `<template data-caja-icono>`. Detalle de comportamiento en
+[caja](../modulos/caja-panaderia.md#pantalla).
+
 ## Landing, feedback y medios
+
+- Dos landings, restaurante (`/`) y panadería (`/panaderia`), sobre una capa de
+  marca común (nav, pie, visor, ubicación…) que recibe sus datos por parámetro:
+  reglas y archivos en [landing de la Panadería](../panaderia/landing.md).
 
 - Hero editorial: isologo h1 accesible, texto centrado e ilustración SVG con
   --hero-*; escala contra columna/svh. Despejar botón de menú en móvil. Entrada

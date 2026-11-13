@@ -35,12 +35,17 @@ esta retirada.
 El menú administrativo existe solo en los contextos locales habilitados. Global
 no tiene el módulo `menu`; conserva `productos` para Artículos y preparaciones.
 `productos` no representa un permiso para crear o compartir productos comerciales.
-Los PDF administrativos Global se leen bajo el permiso de Menú del negocio dueño;
-no habilitan escritura ni requieren conservar el antiguo módulo comercial.
+Los PDF administrativos requieren lectura de Menú del negocio dueño. La biblioteca
+y las rutas PDF `/admin/global/menus/*` requieren además lectura de Inventario,
+Usuarios o Productos en Global; no habilitan escritura ni el antiguo módulo
+comercial.
 
 Las rutas antiguas de Productos de la casa y publicaciones oficiales ya no están
 registradas y responden de forma segura. Las rutas locales de menú, recetas,
 presentaciones y variantes siguen usando el contexto y autorización del negocio.
+En Panadería, `/admin/panaderia/menu/vitrina` (`menu/ver`; escribir con
+`menu/editar`) define las opciones de cada pan y la pieza de vitrina que descuenta
+la [caja](caja-panaderia.md).
 
 ## Regresión A4
 

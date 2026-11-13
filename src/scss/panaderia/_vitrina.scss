@@ -1,0 +1,264 @@
+// ── Panadería · La vitrina ────────────────────────────────────
+//
+// views/panaderia/_vitrina.php. El vocabulario de la carta de la casa —pestañas
+// en píldora, nombre en The Seasons, puntos guía hasta el precio— y una foto
+// por familia. Sin JS cada familia lleva su título y se leen todas seguidas;
+// con pestañas (.is-pestanas) el título ya es la pestaña.
+
+.pan-vitrina { position: relative; }
+
+// Por encima del papel de envoltura.
+.pan-vitrina > .wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.pan-vitrina__pestanas {
+  position: relative; // el indicador se mide contra la fila
+  display: flex;
+  gap: 0.4rem;
+  // La fila desplaza en horizontal, así que recorta todo lo que sale de su
+  // caja, y el anillo de foco (2 px a 3 px de distancia) sale: se cortaba por
+  // arriba en todas las pestañas y por la izquierda en la primera. El colchón
+  // de 6 px le hace sitio y el margen negativo devuelve las pestañas a la
+  // columna. El filete va de fondo y no de borde para seguir midiendo lo que
+  // la columna, sin asomar el colchón por los lados (un fondo no se desplaza
+  // con el contenido de la fila: se queda quieto, como el borde).
+  margin: -6px -6px 0.4rem;
+  padding: 6px 6px calc(0.9rem + 1px);
+  background: linear-gradient(var(--line-soft), var(--line-soft)) 50% 100% / calc(100% - 12px) 1px no-repeat;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+
+  // Nace `hidden` y la enseña initPestanasImpresas(). El `display: flex` de
+  // arriba le ganaba al [hidden] del normalize (misma especificidad, después):
+  // sin JS salía una fila de botones que no hacían nada encima de las familias.
+  &[hidden] { display: none; }
+}
+
+.pan-vitrina__pestana {
+  flex: none;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+
+  &:hover { border-color: var(--line-strong); }
+
+  &[aria-selected="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+}
+
+// ── La píldora que viaja (src/js/panaderia/vitrina.js) ────────
+// Sin JS no existe y la pestaña activa se pinta sola, como arriba. Con ella,
+// la pestaña activa se vuelve transparente y el relleno lo pone el
+// indicador, que se estira hacia la pestaña nueva: el borde que va delante
+// sale primero y el de atrás lo alcanza 70 ms después.
+.pan-vitrina__indicador {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 100%;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+
+  &.is-listo {
+    transition: left 0.46s var(--ease), right 0.46s var(--ease);
+  }
+
+  // Hacia la derecha: primero el borde derecho, luego el izquierdo.
+  &.is-listo[data-dir="1"] { transition-delay: 0.07s, 0s; }
+  &.is-listo[data-dir="-1"] { transition-delay: 0s, 0.07s; }
+}
+
+.pan-vitrina__pestanas.tiene-indicador .pan-vitrina__pestana {
+  // Posicionada para pintarse encima del indicador, que va antes en el DOM.
+  position: relative;
+  transition: color 0.2s var(--ease-out), border-color 0.25s;
+
+  &[aria-selected="true"] {
+    border-color: transparent;
+    background: transparent;
+    // La tinta de la pestaña elegida espera a que llegue el relleno. Con la
+    // paleta de la casa apenas cambia (verde hondo sobre lino, verde más hondo
+    // sobre oro), pero la paleta es editable: si --on-accent fuera clara, sin
+    // el retardo la etiqueta quedaría un instante clara sobre el lino.
+    transition-delay: 0.14s, 0s;
+  }
+}
+
+// La regla global de movimiento reducido deja las duraciones en nada pero no
+// los retardos: la píldora se quedaba 70 ms estirada sobre todas las pestañas
+// del camino, y la etiqueta elegida, 140 ms con la tinta de antes.
+@media (prefers-reduced-motion: reduce) {
+  .pan-vitrina__indicador.is-listo,
+  .pan-vitrina__pestanas.tiene-indicador .pan-vitrina__pestana { transition: none; }
+}
+
+// Alto contraste: el sistema repinta fondos y bordes, la píldora desaparece y
+// la pestaña elegida (relleno sin borde) quedaba igual que las demás. Se marca
+// con los colores de selección del sistema.
+@media (forced-colors: active) {
+  .pan-vitrina__indicador { display: none; }
+
+  .pan-vitrina__pestana[aria-selected="true"],
+  .pan-vitrina__pestanas.tiene-indicador .pan-vitrina__pestana[aria-selected="true"] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+.pan-vitrina__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+  padding-top: clamp(1.2rem, 3vh, 2rem);
+
+  & + & { margin-top: 2.4rem; }
+
+  // initPestanasImpresas() oculta con el atributo, y el `display: grid` de
+  // arriba le ganaba: salían las tres familias a la vez.
+  &[hidden] { display: none; }
+}
+
+.is-pestanas .pan-vitrina__panel + .pan-vitrina__panel { margin-top: 0; }
+
+.pan-vitrina__familia {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: var(--txt-strong);
+}
+
+.is-pestanas .pan-vitrina__familia {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pan-vitrina__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pan-pieza {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.pan-pieza__fila {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.pan-pieza__nombre {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  line-height: 1.2;
+  color: var(--txt-strong);
+}
+
+.pan-pieza__puntos {
+  flex: 1;
+  min-width: 1rem;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-0.25em);
+}
+
+.pan-pieza__precio {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--txt-strong);
+}
+
+.pan-pieza__desc {
+  max-width: 46ch;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--txt-mute);
+}
+
+.pan-vitrina__foto {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+
+  img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  // La foto de la familia anterior, debajo de la nueva mientras corre la
+  // persiana. Vive sólo durante el cambio (vitrina.js la quita al terminar).
+  .pan-vitrina__foto-previa {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+}
+
+.pan-vitrina__apartar {
+  margin-top: clamp(1.8rem, 4vh, 2.6rem);
+  color: var(--txt-mute);
+
+  a {
+    color: var(--accent-text);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-underline-offset: 4px;
+  }
+}
+
+.pan-vitrina__vacia {
+  display: grid;
+  justify-items: start;
+  gap: 1.4rem;
+  max-width: 40rem;
+}
+
+@media (max-width: 880px) {
+  .pan-vitrina__panel { grid-template-columns: minmax(0, 1fr); }
+
+  // En una columna la foto va arriba y apaisada, como la de la carta.
+  .pan-vitrina__foto {
+    order: -1;
+    aspect-ratio: 16 / 10;
+  }
+}

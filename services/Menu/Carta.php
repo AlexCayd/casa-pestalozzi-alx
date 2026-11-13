@@ -39,6 +39,19 @@ class Carta
      * recibiendo lo mismo. Pasar null trae las dos — nadie lo hace hoy, pero
      * es lo que evita que un consumidor futuro invente su propio SQL.
      */
+    /**
+     * La carta pública de un negocio por su slug de `unidades` (la Panadería
+     * lee así su vitrina). Va por aquí y no directo a CartaMultinegocio porque
+     * esa clase vive en este archivo: el autoload sólo la encuentra si Carta ya
+     * se cargó. El esquema legado sólo tiene la carta del Restaurante, así que
+     * para cualquier otro negocio sale vacía.
+     */
+    public static function publicaDe(string $negocio, ?string $carta = CategoriasMenu::CARTA_COMIDA): array
+    {
+        if (ContextoNegocio::nuevo()) return CartaMultinegocio::publicaDe($negocio, $carta);
+        return $negocio === 'restaurante' ? self::publica($carta) : [];
+    }
+
     public static function publica(?string $carta = CategoriasMenu::CARTA_COMIDA): array
     {
         if (ContextoNegocio::nuevo()) return CartaMultinegocio::publica($carta);
@@ -244,7 +257,18 @@ class CartaMultinegocio
     /** Público: siempre Restaurante, sin depender de sesión ni del contexto de ruta. */
     public static function publica(?string $carta = CategoriasMenu::CARTA_COMIDA): array
     {
-        $unidad = self::unidadRestaurante();
+        return self::publicaDe('restaurante', $carta);
+    }
+
+    /**
+     * La carta pública de un negocio, por su slug de `unidades`. La landing de
+     * la panadería lee así la suya (Services\Panaderia\PanaderiaCatalogo); la
+     * portada sigue en publica(), que es la del Restaurante. Un slug que no
+     * existe da 0 y, con él, una carta vacía.
+     */
+    public static function publicaDe(string $negocio, ?string $carta = CategoriasMenu::CARTA_COMIDA): array
+    {
+        $unidad = self::unidadDe($negocio);
         $db = Producto::getDB(); $filtro = '';
         if ($carta !== null) $filtro = " AND c.carta='" . Producto::escaparString(CategoriasMenu::normalizarCarta($carta)) . "'";
         $res = $db->query("SELECT c.id cat_id,c.nombre cat_nombre,c.img cat_img,o.id oferta_id,o.producto_id,p.nombre,p.descripcion,o.precio,p.img FROM ofertas_producto o JOIN productos_oferta p ON p.oferta_id=o.id JOIN categorias c ON c.id=o.categoria_id AND c.unidad_id=o.unidad_id WHERE o.unidad_id={$unidad} AND o.activo=1 AND c.activo=1{$filtro} ORDER BY c.orden,c.id,o.orden,o.id");
@@ -299,10 +323,11 @@ class CartaMultinegocio
         $res->free(); return $out;
     }
 
-    private static function unidadRestaurante(): int
+    private static function unidadDe(string $negocio): int
     {
-        $db=Producto::getDB(); $stmt=$db->prepare("SELECT id FROM unidades WHERE slug='restaurante' LIMIT 1");
+        $db=Producto::getDB(); $stmt=$db->prepare('SELECT id FROM unidades WHERE slug=? LIMIT 1');
         if (!$stmt) return 0;
+        $stmt->bind_param('s', $negocio);
         $stmt->execute(); $row=$stmt->get_result()->fetch_row(); $stmt->close();
         return $row ? (int)$row[0] : 0;
     }

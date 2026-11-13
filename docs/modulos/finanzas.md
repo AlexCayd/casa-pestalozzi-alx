@@ -32,10 +32,12 @@ negocio en la suya.
 
 ## Panadería
 
-Vende en caja (café y pan para llevar), sin mesas ni propinas: la pantalla no
-pinta propinas y el diagnóstico no ofrece Tickets, que Panadería no tiene. Su
-caja todavía no registra tickets, así que las ventas salen en cero hasta que
-exista el POS de caja; merma, inventario y gastos fijos ya son reales.
+Vende en caja de mostrador ([caja](caja-panaderia.md)), sin mesas ni propinas:
+la pantalla no pinta propinas y el diagnóstico no ofrece Tickets, que
+Panadería no tiene. Las ventas salen de los tickets que la caja cierra; una
+anulación del día deja de sumar porque su ticket pasa a `cancelado`. El costo
+de lo vendido es el de la pieza de vitrina; merma, inventario y gastos fijos
+son reales.
 
 `DiagnosticoFinanciero::GIROS` da a cada giro sus referencias, textos y enlaces.
 Las de Panadería (constantes `PANADERIA_*`) son orientativas y están para que el

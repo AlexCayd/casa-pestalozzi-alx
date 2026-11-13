@@ -33,6 +33,7 @@ $esAdmin = \Classes\Auth::tienePanel();
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
 <body class="admin-body area-page area-select-page operational-page" data-page="area-seleccion" data-operation-module="area">

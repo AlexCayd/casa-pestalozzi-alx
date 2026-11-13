@@ -1,0 +1,618 @@
+@charset "UTF-8";
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+/*
+ * Vitrina de la caja (Panadería · Menú → vitrina.css).
+ *
+ * Una tarjeta por pan con lo que descuenta en la caja; «Editar» la abre en su
+ * sitio. Panel en blanco y negro: sin color salvo el de estado (error). Todo
+ * bajo `.admin-body` por la misma razón que variantes.scss: el reset del panel
+ * gana a una clase sola en botones, párrafos y títulos.
+ *
+ * La tarjeta es contenedor (`vitrina-tarjeta`): la rejilla de opciones cambia
+ * por el ancho que le queda, no por el del viewport. Con el sidebar abierto,
+ * a 1000 px de ventana la tarjeta mide ~560 y la rejilla de seis columnas no
+ * cabía: el `overflow: hidden` de .admin-card recortaba el botón de quitar.
+ * La base es la versión apilada; sin container queries se queda en ella.
+ *
+ * Los <input>/<select> los viste la regla global de _forms.scss (0,6,1). Aquí
+ * se dimensionan por su celda, se pide la cifra en mono y se reparan dos cosas
+ * que la regla global no da: el foco visible de los campos de texto (su
+ * :focus pesa 0,5,1 y pierde contra la base) y un aspecto de deshabilitado.
+ */
+.admin-body .admin-vitrina {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 48px;
+}
+.admin-body .admin-vitrina__aviso svg, .admin-body .admin-vitrina__buscar-icono svg, .admin-body .admin-vitrina__protegido svg, .admin-body .admin-vitrina__editar svg, .admin-body .admin-vitrina__quitar svg, .admin-body .admin-vitrina__quitar-grupo svg, .admin-body .admin-vitrina__agregar svg, .admin-body .admin-vitrina__def svg {
+  flex: none;
+  stroke-width: 1.8;
+}
+.admin-body .admin-vitrina button.admin-btn {
+  font-size: 13px;
+  line-height: 1;
+}
+.admin-body .admin-vitrina button.admin-btn--small {
+  font-size: 12px;
+}
+@media (pointer: coarse) {
+  .admin-body .admin-vitrina .admin-btn--small {
+    min-height: 44px;
+  }
+}
+.admin-body .admin-vitrina__aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.admin-body .admin-vitrina__buscar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 320px;
+  min-width: min(100%, 240px);
+  max-width: 420px;
+}
+.admin-body .admin-vitrina__buscar input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]) {
+  padding-left: 40px;
+}
+.admin-body .admin-vitrina__buscar-icono {
+  position: absolute;
+  left: 14px;
+  z-index: 1;
+  display: flex;
+  color: var(--admin-faint);
+  pointer-events: none;
+}
+.admin-body .admin-vitrina__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.admin-body .admin-vitrina__conteo {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__conteo .admin-num {
+  color: var(--admin-text);
+}
+.admin-body .admin-vitrina__filtro-sin[hidden] {
+  display: none;
+}
+.admin-body .admin-vitrina__filtro-sin .admin-num {
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 11px;
+  text-align: center;
+}
+.admin-body .admin-vitrina__filtro-sin[aria-pressed=true] {
+  border-color: var(--admin-border-strong);
+  background-color: var(--admin-surface-strong);
+  color: var(--admin-text);
+}
+.admin-body .admin-vitrina__lista {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-body .admin-vitrina__item {
+  container: vitrina-tarjeta/inline-size;
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px;
+}
+.admin-body .admin-vitrina__item.is-retirado .admin-vitrina__nombre {
+  color: var(--admin-muted);
+}
+.admin-body .admin-vitrina__item.is-editando {
+  box-shadow: inset 0 0 0 1px var(--admin-border-strong), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-lg);
+}
+.admin-body .admin-vitrina__item.is-editando:hover {
+  transform: none;
+}
+.admin-body .admin-vitrina__item.is-guardado::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--admin-accent);
+  pointer-events: none;
+  opacity: 0;
+  animation: vitrina-guardado 1.1s var(--admin-ease-out);
+}
+.admin-body .admin-vitrina__cabeza {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "titulo accion" "estado estado";
+  align-items: center;
+  gap: 10px 16px;
+}
+.admin-body .admin-vitrina__titulo {
+  grid-area: titulo;
+  min-width: 0;
+}
+.admin-body .admin-vitrina__editar {
+  grid-area: accion;
+}
+.admin-body .admin-vitrina__nombre {
+  margin: 0;
+  font-family: var(--admin-font-sans);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0;
+  color: var(--admin-text);
+}
+.admin-body .admin-vitrina__meta {
+  margin: 3px 0 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__retirado {
+  padding: 1px 8px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 999px;
+  color: var(--admin-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.admin-body .admin-vitrina__estado {
+  grid-area: estado;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.admin-body .admin-vitrina__estado-rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-faint);
+}
+.admin-body .admin-vitrina__pieza {
+  color: var(--admin-text);
+  overflow-wrap: anywhere;
+}
+.admin-body .admin-vitrina__almacen {
+  color: var(--admin-muted);
+}
+.admin-body .admin-vitrina__sin {
+  padding: 2px 10px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+@container vitrina-tarjeta (min-width: 600px) {
+  .admin-body .admin-vitrina__cabeza {
+    grid-template-columns: minmax(12rem, 1fr) minmax(0, 1.4fr) auto;
+    grid-template-areas: "titulo estado accion";
+  }
+}
+.admin-body .admin-vitrina__grupos-resumen {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__grupos-resumen li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+}
+.admin-body .admin-vitrina__grupo-nombre {
+  font-family: var(--admin-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-faint);
+}
+.admin-body .admin-vitrina__opcion {
+  padding: 3px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+}
+.admin-body .admin-vitrina__opcion em {
+  font-style: normal;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vitrina__opcion.is-def {
+  border-color: var(--admin-border-strong);
+  font-weight: 600;
+}
+.admin-body .admin-vitrina__opcion.is-apagada {
+  color: var(--admin-faint);
+  text-decoration: line-through;
+}
+.admin-body .admin-vitrina__vacio {
+  padding: 28px;
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  color: var(--admin-muted);
+  text-align: center;
+}
+.admin-body .admin-vitrina__editor {
+  display: grid;
+  gap: 22px;
+  margin-top: 2px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-body .admin-vitrina__editor[aria-busy=true] {
+  cursor: progress;
+}
+.admin-body .admin-vitrina__bloque {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-body .admin-vitrina__rotulo {
+  margin-bottom: 4px;
+  padding: 0;
+  font-family: var(--admin-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-faint);
+}
+.admin-body .admin-vitrina__fila-pieza {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@container vitrina-tarjeta (min-width: 440px) {
+  .admin-body .admin-vitrina__fila-pieza {
+    grid-template-columns: minmax(0, 30rem) 9rem;
+    justify-content: start;
+    align-items: end;
+  }
+}
+.admin-body .admin-vitrina__campo {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+.admin-body .admin-vitrina__mini, .admin-body .admin-vitrina__etq {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.admin-body .admin-vitrina input[type=number]:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]) {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.admin-body .admin-vitrina input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]):focus {
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-focus-ring);
+}
+.admin-body .admin-vitrina input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]):disabled,
+.admin-body .admin-vitrina select:disabled {
+  border-style: dashed;
+  border-color: var(--admin-border);
+  box-shadow: none;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin-body .admin-vitrina__con-signo {
+  position: relative;
+  display: block;
+}
+.admin-body .admin-vitrina__con-signo input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]) {
+  padding-left: 26px;
+}
+.admin-body .admin-vitrina__signo {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 13px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.admin-body .admin-vitrina__ayuda {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.admin-body .admin-vitrina__ayuda[hidden] {
+  display: none;
+}
+.admin-body .admin-vitrina__ayuda--pendiente {
+  color: var(--admin-text);
+}
+.admin-body .admin-vitrina__protegido {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 72ch;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-body .admin-vitrina__protegido svg {
+  margin-top: 1px;
+  color: var(--admin-muted);
+}
+.admin-body .admin-vitrina__grupo {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+}
+.admin-body .admin-vitrina__grupo > .admin-vitrina__agregar {
+  justify-self: start;
+}
+.admin-body .admin-vitrina__grupo-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-body .admin-vitrina__campo--grupo {
+  flex: 1 1 14rem;
+  max-width: 24rem;
+}
+.admin-body .admin-vitrina__grupo-fijo {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+.admin-body .admin-vitrina__opciones {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.admin-body .admin-vitrina__opcion-cabeza {
+  display: none;
+}
+.admin-body .admin-vitrina__opcion-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem;
+  grid-template-areas: "nombre precio" "sale   cant" "def    quitar";
+  align-items: end;
+  gap: 8px 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+.admin-body .admin-vitrina__opcion-fila:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.admin-body .admin-vitrina__campo--nombre {
+  grid-area: nombre;
+}
+.admin-body .admin-vitrina__campo--precio {
+  grid-area: precio;
+}
+.admin-body .admin-vitrina__campo--sale {
+  grid-area: sale;
+}
+.admin-body .admin-vitrina__campo--cant {
+  grid-area: cant;
+}
+.admin-body .admin-vitrina__fijo {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+}
+.admin-body .admin-vitrina__fijo > :last-child {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+}
+.admin-body .admin-vitrina__def {
+  grid-area: def;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0;
+  color: var(--admin-text);
+  cursor: pointer;
+}
+.admin-body .admin-vitrina__def input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--admin-accent);
+  cursor: pointer;
+}
+.admin-body .admin-vitrina__def .admin-vitrina__etq {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__quitar {
+  grid-area: quitar;
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-vitrina__quitar:hover {
+  background: var(--admin-surface-soft);
+  color: var(--admin-danger-text);
+}
+.admin-body .admin-vitrina__opcion-fila.is-apagada .admin-vitrina__campo--nombre input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]),
+.admin-body .admin-vitrina__opcion-fila.is-apagada .admin-vitrina__campo--precio input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]),
+.admin-body .admin-vitrina__opcion-fila.is-apagada .admin-vitrina__fijo > :last-child {
+  color: var(--admin-muted);
+}
+.admin-body .admin-vitrina__apagada {
+  padding: 2px 8px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: default;
+}
+@container vitrina-tarjeta (min-width: 500px) {
+  .admin-body .admin-vitrina__opcion-fila {
+    grid-template-columns: minmax(0, 1fr) 6rem 5.5rem 44px;
+    grid-template-areas: "nombre precio def quitar" "sale   cant   def quitar";
+  }
+  .admin-body .admin-vitrina__def, .admin-body .admin-vitrina__quitar {
+    align-self: center;
+  }
+  .admin-body .admin-vitrina__def {
+    justify-content: center;
+  }
+}
+.admin-body .admin-vitrina__agregar {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-body .admin-vitrina__agregar:hover {
+  border-style: solid;
+  background: var(--admin-surface-soft);
+}
+@container vitrina-tarjeta (min-width: 700px) {
+  .admin-body .admin-vitrina__opciones {
+    gap: 8px;
+  }
+  .admin-body .admin-vitrina__opcion-cabeza, .admin-body .admin-vitrina__opcion-fila {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1.2fr) 6.5rem minmax(10rem, 1.6fr) 5.5rem 4.5rem 44px;
+    gap: 8px;
+  }
+  .admin-body .admin-vitrina__opcion-cabeza {
+    padding: 0 2px;
+    color: var(--admin-faint);
+    font-family: var(--admin-font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .admin-body .admin-vitrina__opcion-cabeza span:nth-child(5) {
+    text-align: center;
+  }
+  .admin-body .admin-vitrina__opcion-fila {
+    grid-template-areas: "nombre precio sale cant def quitar";
+    align-items: center;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .admin-body .admin-vitrina__opcion-fila .admin-vitrina__etq {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .admin-body .admin-vitrina__def {
+    justify-content: center;
+  }
+}
+.admin-body .admin-vitrina__error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  font-size: 13px;
+}
+.admin-body .admin-vitrina__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.admin-body .admin-vitrina__kbd {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 6px;
+  font-size: 10px;
+  opacity: 0.8;
+}
+@media (pointer: coarse) {
+  .admin-body .admin-vitrina__kbd {
+    display: none;
+  }
+}
+
+@keyframes vitrina-guardado {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

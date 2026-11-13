@@ -358,8 +358,18 @@
             });
         }
 
-        function closeModal(restoreFocus) {
+        // `forzar` salta el aviso previo: lo usan quien ya preguntó (el editor
+        // de variantes tras «Descartar cambios») y el relevo por otro modal.
+        function closeModal(restoreFocus, forzar) {
             if (!activeModal) {
+                return;
+            }
+
+            // Un contenido con cambios sin guardar puede detener el cierre
+            // (preventDefault) y preguntar antes; después cierra con
+            // `admin:close-modal` y `forzar`. Nadie más lo escucha: los modales
+            // existentes cierran igual que siempre.
+            if (!forzar && !activeModal.dispatchEvent(new CustomEvent('admin:modal-before-close', { cancelable: true }))) {
                 return;
             }
 
@@ -390,7 +400,9 @@
             if (activeModal && activeModal !== modal) {
                 // El disparador intermedio desaparecerá con el diálogo anterior.
                 trigger = lastFocused;
-                closeModal(false);
+                // `forzar`: el relevo por otro modal no pasa por el aviso de
+                // cambios sin guardar (ver closeModal).
+                closeModal(false, true);
             }
 
             window.clearTimeout(closeTimer);
@@ -442,8 +454,24 @@
             openModal(modalId ? document.getElementById(modalId) : null, event.detail ? event.detail.trigger : null);
         });
 
+        // Cierre desde código: { id?, forzar? }. Sin id cierra el que esté abierto.
+        document.addEventListener('admin:close-modal', function (event) {
+            const detalle = event.detail || {};
+            if (!activeModal || (detalle.id && activeModal.id !== detalle.id)) {
+                return;
+            }
+            closeModal(true, !!detalle.forzar);
+        });
+
         document.addEventListener('keydown', function (event) {
             if (!activeModal) {
+                return;
+            }
+
+            // Un Escape que ya atendió algo de dentro (una lista desplegada,
+            // el diálogo de confirmación encima) no cierra además el modal:
+            // antes se iban los dos de un solo golpe.
+            if (event.key === 'Escape' && event.defaultPrevented) {
                 return;
             }
 
@@ -529,7 +557,9 @@
         function prepareContext() {
             routeInput.value = window.location.pathname;
             if (moduleInput.value.trim() === '' && !moduloEnBlanco) {
-                const moduleTitle = document.querySelector('.admin-topbar__module');
+                // El módulo es el enlace activo del sidebar. El header ya no
+                // lleva un título: muestra el ámbito, que no es el módulo.
+                const moduleTitle = document.querySelector('.admin-sidebar__link.is-active .admin-sidebar__link-text');
                 moduleInput.value = moduleTitle ? moduleTitle.textContent.trim() : '';
             }
             status.textContent = '';

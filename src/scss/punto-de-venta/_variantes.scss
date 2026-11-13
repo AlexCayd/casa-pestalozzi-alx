@@ -7,6 +7,17 @@
 // columnas la pastilla era lo que más ancho pedía. Lo mismo el «Cambiar» de la
 // fila del pedido: ahora la fila entera abre la hoja (ver _punto-de-venta).
 //
+// La hoja va por PASOS, uno por grupo (punto-de-venta.js, «Opciones de un
+// platillo»): cabecera con «Paso 2 de 3», la fila de pasos con lo elegido en
+// cada uno, el paso visible con sus opciones en teselas con icono, y el pie
+// con Atrás / Siguiente / Agregar.
+//
+// Jerarquía, de más a menos: el platillo (titular), la pregunta del paso, las
+// teselas —el icono primero, después el nombre—, y el pie con UNA acción
+// principal. Lo demás (rótulos, número de paso, ajuste de precio, atajo de
+// teclado) va un escalón por debajo en tamaño, peso o tono. Antes todo
+// rondaba los 15 px a 600 y la hoja se leía plana.
+//
 // Escrito, como el resto del POS, contra los nombres públicos que traduce
 // `puente-tokens-publicos` (--txt, --accent, --line…). La hoja va en
 // #mesa-modal —position: fixed, inset 0—, así que su `inset: 0` cubre la
@@ -16,18 +27,32 @@
 // panel: `.admin-body button { font: inherit }` y `.admin-body h3` / `p`, las
 // tres con (0,1,1). Le ganan a una clase sola, y por eso las piezas que son
 // <button>, <h3> o <p> van con el bloque delante (`& &__x`, 0,2,0): sin él las
-// pastillas salían en 400 en vez de 600 —en una tablet a un brazo de
-// distancia, el peso es lo que las hace legibles— y el titular a 25 px.
+// teselas salían en 400 en vez de 700 y el titular a 25 px.
 //
-// Tipografía: la voz del piso (_voz.scss). Rótulo y grupo en mono, el platillo
-// en Satoshi a 700 —es el encabezado de una pieza, no un titular: Expose se
-// queda en el nombre de la mesa—, las opciones en sans a 600 y los importes en
-// mono.
+// Tipografía: la voz del piso (_voz.scss). Rótulos en mono, el platillo en
+// Satoshi a 700 —es el encabezado de una pieza, no un titular: Expose se
+// queda en el nombre de la mesa—, la pregunta del paso y las opciones en sans
+// a 700, y los importes, el número de paso y el atajo en mono.
+//
+// Color: el lenguaje sólido del POS (`--pos-solido-*`, _punto-de-venta.scss).
+// Decisión del producto: cerrar, pasos, teselas y etiquetas llevan relleno
+// opaco —neutro en reposo, papel lo actual o elegido, ámbar lo obligatorio
+// que falta— y todo lo que va encima (rótulos, notas, ajuste, atajo) en la
+// tinta de ese relleno, no en gris tenue: sobre el neutro el tenue no llega a
+// 4.5:1. Las piezas de dentro de una tesela o de un paso (caja del icono,
+// ajuste, atajo, marca) se derivan del relleno de su padre con color-mix de
+// tokens, nunca con `transparent`, y lo siguen al pasar el puntero.
 @use 'voz' as *;
 
 // ── La hoja ───────────────────────────────────────────────────
 
 .mmodal-opts {
+  // Medidas compartidas por el cuerpo y los moldes (tienen que medir igual)
+  // y por las teselas.
+  --opts-pad-x: 1.75rem;
+  --opts-gap: .75rem;
+  --opts-cols-max: 4;
+
   position: absolute;
   inset: 0;
   z-index: 40;
@@ -48,18 +73,22 @@
 
   &.is-open &__bd { opacity: 1; }
 
+  // 880 px: con cuatro opciones en una fila, cada tesela ronda los 190 px,
+  // lo justo para un icono de 32 y un nombre de dos palabras a 18 px. Era
+  // de 560 y con tres teselas el nombre ya se partía.
   &__card {
     position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 520px;
-    max-height: min(640px, calc(100vh - 2.5rem));
+    max-width: 880px;
+    max-height: min(820px, calc(100vh - 2.5rem));
+    max-height: min(820px, calc(100dvh - 2.5rem));
     overflow: hidden;
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: 20px;
     background: var(--surface);
-    box-shadow: 0 24px 64px color-mix(in srgb, var(--sombra) 45%, transparent);
+    box-shadow: 0 32px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
     opacity: 0;
     transform: translateY(12px) scale(.98);
     transition: opacity .2s ease, transform .24s cubic-bezier(.22, .61, .36, 1);
@@ -72,29 +101,35 @@
 
   &__head {
     display: flex;
+    flex: 0 0 auto;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1.1rem 1.1rem .6rem 1.25rem;
+    padding: 1.4rem 1.4rem .9rem var(--opts-pad-x);
   }
 
+  // «Paso 2 de 3»: el número cambia en cada paso; tabular para que no baile.
   & &__eyebrow {
-    @include rotulo(10.5px);
-    margin: 0 0 .3rem;
+    @include rotulo(11px);
+    margin: 0 0 .45rem;
     color: var(--txt-faint);
+    font-variant-numeric: tabular-nums;
   }
 
+  // 32 px: un escalón claro sobre la pregunta (22) y el nombre de la opción
+  // (18). A 26 los tres iban a 700 y no se separaban.
   & &__titulo {
     margin: 0;
     color: var(--txt);
     font-family: var(--admin-font-sans);
-    font-size: 1.2rem;
+    font-size: 2rem;
     font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1.2;
+    letter-spacing: -.015em;
+    line-height: 1.1;
   }
 
-  // 48 px, como las pastillas: es el otro objetivo que se toca con el pulgar.
+  // 48 px, como los pasos: es el otro objetivo que se toca con el pulgar.
+  // Neutro sólido: un aspa gris sobre la nada no se leía como botón.
   & &__cerrar {
     display: inline-flex;
     flex: 0 0 48px;
@@ -102,11 +137,12 @@
     justify-content: center;
     width: 48px;
     height: 48px;
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--pos-solido-neutro);
     border-radius: 50%;
-    background: transparent;
-    color: var(--txt-mute);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     cursor: pointer;
+    transition: color .14s, border-color .14s, background .14s;
 
     svg {
       width: 18px;
@@ -117,7 +153,10 @@
       stroke-linecap: round;
     }
 
-    &:hover { color: var(--txt); }
+    &:hover {
+      border-color: var(--pos-solido-neutro-hover);
+      background: var(--pos-solido-neutro-hover);
+    }
 
     &:focus-visible {
       outline: 2px solid var(--focus, var(--txt));
@@ -125,37 +164,258 @@
     }
   }
 
-  &__cuerpo {
+  // ── La fila de pasos ────────────────────────────────────────
+  // Un carril propio con scroll horizontal (en móvil desborda); el paso
+  // actual se trae a la vista desde el JS. Sin barra: el corte del último
+  // paso ya dice que hay más.
+  //
+  // El margen lateral es PADDING del carril y no margen: con margen, el
+  // carril recortaba el anillo de foco del primer paso, y su filete inferior
+  // quedaba más corto que el del pie. Los dos filetes van a sangre.
+  &__pasos {
+    position: relative;
+    flex: 0 0 auto;
+    padding: .3rem var(--opts-pad-x) 1rem;
+    border-bottom: 1px solid var(--line-soft);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--opts-pad-x);
+    scrollbar-width: none;
+  }
+
+  // Los pasos van unidos por un filete: se leen como un recorrido y no como
+  // una fila de filtros.
+  &__pasos-lista {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    > li {
+      display: flex;
+      align-items: center;
+    }
+
+    > li + li::before {
+      content: '';
+      flex: 0 0 auto;
+      width: 1.25rem;
+      height: 1.5px;
+      margin: 0 .35rem;
+      border-radius: 1px;
+      background: var(--line);
+    }
+  }
+
+  // El estado se lee por forma y texto, no sólo por color: el actual va en
+  // papel con su número invertido, uno visto lleva palomita sobre un disco,
+  // uno pendiente lleva el número en un aro, y uno obligatorio sin elegir dice
+  // «Elige una».
+  //
+  // Decisión del producto (fondos sólidos): el actual va RELLENO de papel,
+  // como lo elegido. Antes se quedaba en contorno para no ganarle al título;
+  // el título conserva su escalón por tamaño (32 px contra los 15 del paso).
+  // Lo que falta va en ámbar macizo: es lo único con color de estado en la
+  // hoja (ver __req), y ya no necesita el borde discontinuo para verse.
+  //
+  // El relleno vive en --paso-fondo para que la marca de dentro lo siga al
+  // pasar el puntero (ver __paso-marca). El borde, del mismo color: conserva
+  // el grosor y el paso no cambia de tamaño entre estados.
+  & &__paso {
+    --paso-fondo: var(--pos-solido-neutro);
+    --paso-tinta: var(--pos-solido-neutro-tinta);
+
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    min-height: 52px;
+    padding: .35rem 1rem .35rem .4rem;
+    border: 1.5px solid var(--paso-fondo);
+    border-radius: 999px;
+    background: var(--paso-fondo);
+    color: var(--paso-tinta);
+    font-family: var(--admin-font-sans);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .14s, background .14s, color .14s;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover { --paso-fondo: var(--pos-solido-neutro-hover); }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--txt));
+      outline-offset: 2px;
+    }
+
+    // Los estados son excluyentes (pasosOpcionesHtml pone uno solo), y van
+    // después del :hover para ganarle por orden: el actual no se apaga bajo
+    // el dedo.
+    &.is-actual {
+      --paso-fondo: var(--pos-solido-activo);
+      --paso-tinta: var(--pos-solido-activo-tinta);
+    }
+
+    &.is-falta {
+      --paso-fondo: var(--pos-solido-aviso);
+      --paso-tinta: var(--pos-solido-aviso-tinta);
+    }
+
+    // Un sólido de color oscurece al pasar: aclararlo bajaría la tinta.
+    &.is-falta:hover {
+      --paso-fondo: color-mix(in srgb, var(--pos-solido-aviso) 84%, var(--admin-ink));
+    }
+  }
+
+  &__paso-marca {
+    @include cifra-columna;
+    display: inline-grid;
+    flex: 0 0 30px;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 1;
+
+    svg { stroke-width: 2.4; }
+  }
+
+  // Sobre el paso en papel, el número va invertido: disco de tinta y cifra en
+  // papel. Es la misma señal de «número relleno» que tenía, vuelta del revés.
+  &__paso.is-actual &__paso-marca {
+    border-color: var(--pos-solido-activo-tinta);
+    background: var(--pos-solido-activo-tinta);
+    color: var(--pos-solido-activo);
+  }
+
+  // Visto: la palomita sobre un disco un escalón más claro (en oscuro) o más
+  // hondo (en claro) que el paso, mezclado desde su relleno —no con
+  // `transparent`— para que siga al paso cuando éste cambia al pasar.
+  &__paso.is-hecho &__paso-marca {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--paso-tinta) 16%, var(--paso-fondo));
+    color: inherit;
+  }
+
+  &__paso-texto {
     display: grid;
-    gap: 1rem;
-    padding: .4rem 1.25rem 1rem;
+    gap: .1rem;
+    min-width: 0;
+  }
+
+  // 11 px, el suelo del rótulo en el piso (_voz.scss): a 10 una versalita mono
+  // ya no se lee a un brazo de la tablet. En la tinta del paso, no en tenue:
+  // el rótulo ya baja un escalón por cuerpo y versalitas, y el tenue sobre el
+  // neutro se quedaba bajo 4.5:1.
+  &__paso-grupo {
+    @include rotulo;
+    color: inherit;
+  }
+
+  &__paso-valor {
+    max-width: 14ch;
+    overflow: hidden;
+    font-size: var(--operational-text-sm);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // ── El paso ─────────────────────────────────────────────────
+
+  /*
+   * El escenario: el cuerpo (con scroll) y los moldes (una copia invisible de
+   * cada paso, punto-de-venta.js) en la MISMA celda. La fila mide lo que el
+   * más alto de los dos, así que la hoja tiene el alto del paso más alto y no
+   * cambia al pasar de uno a otro; si no cabe, la fila se encoge con la hoja
+   * (flex, min-height 0) y sólo hace scroll el paso que de verdad desborda.
+   * Con los moldes DENTRO del cuerpo, un paso corto haría scroll hasta un
+   * hueco en blanco cada vez que otro fuera más alto que la pantalla.
+   */
+  &__escenario {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    min-height: 0;
+
+    > * { grid-area: 1 / 1; }
+  }
+
+  &__cuerpo {
+    min-height: 0;
+    padding: 1.4rem var(--opts-pad-x) 1.6rem;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
   }
 
+  // El mismo padding que el cuerpo: es lo que hace que midan igual.
+  &__moldes {
+    display: grid;
+    min-height: 0;
+    padding: 1.4rem var(--opts-pad-x) 1.6rem;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+
+    > * { grid-area: 1 / 1; }
+  }
+
+  // La vista sostiene el paso que entra y, durante el cambio, el que sale
+  // (absoluto, encima). Llena el cuerpo para que el que sale, si era más alto
+  // que el que entra, no se recorte de golpe. Recorta sólo mientras cambia: en
+  // reposo el anillo de foco de las teselas del borde no se corta.
+  &__vista {
+    position: relative;
+    min-height: 100%;
+  }
+
+  &__vista.is-cambiando { overflow: hidden; }
+
+  // `align-content: start`: dentro de una celda más alta que él (los moldes
+  // la estiran), el paso no reparte el sobrante entre sus filas.
   &__grupo {
     display: grid;
-    gap: .5rem;
+    align-content: start;
+    gap: 1.1rem;
+
+    &.is-saliendo {
+      position: absolute;
+      inset: 0 0 auto;
+      pointer-events: none;
+    }
   }
 
+  // La pregunta del paso: lo único que se pregunta en pantalla, el segundo
+  // escalón después del platillo.
   & &__grupo-nombre {
-    @include rotulo;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: .5rem;
+    gap: .6rem;
     margin: 0;
-    color: var(--txt-mute);
+    color: var(--txt);
+    font-family: var(--admin-font-sans);
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    line-height: 1.2;
   }
 
-  // Lo obligatorio que falta es lo único con color de estado en la hoja: es lo
-  // que impide agregar, y tiene que verse sin leer. Vuelve a la sans: vive
-  // dentro del rótulo mono del grupo, pero es una frase («Elige una»).
+  // Lo obligatorio que falta es lo único con color de estado en el paso: es
+  // lo que impide avanzar, y tiene que verse sin leer. «Obligatorio» ya
+  // elegido, etiqueta neutra sólida; «Elige una», ámbar macizo, el mismo del
+  // paso que falta.
   &__req {
-    padding: .12rem .5rem;
+    padding: .18rem .6rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--txt) 8%, transparent);
-    color: var(--txt-mute);
+    background: var(--pos-solido-neutro);
+    color: var(--pos-solido-neutro-tinta);
     font-family: var(--admin-font-sans);
     font-size: var(--operational-text-xs);
     font-weight: 600;
@@ -164,67 +424,260 @@
   }
 
   &__grupo.is-falta &__req {
-    background: var(--feedback-warn-bg);
-    color: var(--feedback-warn);
+    background: var(--pos-solido-aviso);
+    color: var(--pos-solido-aviso-tinta);
   }
 
+  /*
+   * Las teselas llenan el ancho. `--opts-cols` lo pone el JS según cuántas
+   * opciones trae el paso (columnasOpciones); aquí sólo se tope por pantalla
+   * (`--opts-cols-max`). Flex y no rejilla: la base de cada tesela es una
+   * columna exacta y `flex-grow` estira las de la última fila, así que 5
+   * opciones son 3 + 2 y no 3 + 2 + un hueco. El medio píxel absorbe el
+   * redondeo, que si no manda la última tesela de cada fila a la siguiente.
+   */
   &__pills {
+    --opts-cols-ef: min(var(--opts-cols, 3), var(--opts-cols-max));
+
     display: flex;
     flex-wrap: wrap;
-    gap: .45rem;
+    gap: var(--opts-gap);
   }
 
-  // 48px: la hoja se usa con el pulgar, con la tablet en la otra mano.
+  // Vertical: el icono arriba —la referencia, lo que se reconoce sin leer—,
+  // el nombre abajo, y la nota y el atajo en las esquinas. 132 px de alto:
+  // la hoja se usa con el pulgar, con la tablet en la otra mano.
+  //
+  // Neutro sólido sin elegir y papel elegida. El relleno y la tinta viven en
+  // --pill-fondo / --pill-tinta: la caja del icono, el ajuste y el atajo se
+  // mezclan desde ahí, así que acompañan a la tesela al pasar y al elegirla
+  // sin una regla aparte por estado.
   & &__pill {
-    display: inline-flex;
-    align-items: center;
-    gap: .45rem;
-    min-height: 48px;
-    padding: 0 1rem;
-    border: 1.5px solid var(--line);
-    border-radius: 12px;
-    background: transparent;
-    color: var(--txt);
+    --pill-fondo: var(--pos-solido-neutro);
+    --pill-tinta: var(--pos-solido-neutro-tinta);
+    // El escalón de las piezas interiores sobre el relleno de la tesela.
+    --pill-realce: color-mix(in srgb, var(--pill-tinta) 12%, var(--pill-fondo));
+
+    position: relative;
+    display: flex;
+    flex: 1 1 calc((100% - (var(--opts-cols-ef) - 1) * var(--opts-gap)) / var(--opts-cols-ef) - .5px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .35rem;
+    min-width: 0;
+    min-height: 132px;
+    padding: 1rem 1rem 1rem 1.05rem;
+    border: 1.5px solid var(--pill-fondo);
+    border-radius: 16px;
+    background: var(--pill-fondo);
+    color: var(--pill-tinta);
     font-family: var(--admin-font-sans);
-    font-size: var(--operational-text-base);
-    font-weight: 600;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
     cursor: pointer;
-    transition: background .14s, border-color .14s, color .14s, transform .1s;
+    transition: background .14s, border-color .14s, color .14s, box-shadow .18s, transform .1s;
     -webkit-tap-highlight-color: transparent;
 
-    &:hover { border-color: var(--line-strong); }
+    &:hover { --pill-fondo: var(--pos-solido-neutro-hover); }
+
     &:active { transform: scale(.98); }
 
     &:focus-visible {
       outline: 2px solid var(--focus, var(--txt));
-      outline-offset: 2px;
+      outline-offset: 3px;
     }
 
+    // Después del :hover: la elegida no se apaga bajo el dedo.
     &.is-on {
-      border-color: var(--accent);
-      background: var(--accent);
-      color: var(--on-accent);
+      --pill-fondo: var(--pos-solido-activo);
+      --pill-tinta: var(--pos-solido-activo-tinta);
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--sombra) 38%, transparent);
     }
   }
 
+  // Sin iconos en el paso: la tesela es sólo texto, más baja y centrada.
+  &__pills--sin-iconos &__pill {
+    justify-content: center;
+    min-height: 96px;
+    padding-right: 2.5rem;
+  }
+
+  // El icono arriba a la izquierda y, al otro extremo, lo que la opción le
+  // suma al precio.
+  &__pill-cabeza {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .5rem;
+    width: 100%;
+    margin-bottom: auto;
+    padding-bottom: .6rem;
+  }
+
+  // 56 px de caja para un trazo de 32: lo bastante grande para distinguir un
+  // vaso chico de uno grande o el término de la carne de un vistazo. Sin
+  // icono propio (y con otros que sí) va la inicial en mono en el mismo
+  // hueco, para que la fila no cojee.
+  &__pill-icono {
+    position: relative;
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: var(--pill-realce);
+    color: inherit;
+    transition: background .14s, color .14s;
+
+    // Hijo directo: la palomita, que va dentro de esta caja, lleva su propio
+    // trazo y tamaño.
+    > svg {
+      width: 32px;
+      height: 32px;
+      stroke-width: 1.6;
+    }
+  }
+
+  // La inicial ya baja un escalón por peso (600) y por ser mono; en gris no
+  // llegaba a 4.5:1 sobre el realce.
+  &__pill-icono--inicial {
+    @include cifra-columna;
+    color: inherit;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  // Silabeo antes que cortar en cualquier letra: es la lección de
+  // .mmodal-dish-name (_punto-de-venta.scss), donde `overflow-wrap: anywhere`
+  // partía «Cappucc|ino» sin guion. El documento es `lang="es"`;
+  // `break-word` queda de red para lo que el diccionario no sepa partir.
+  &__pill-nombre {
+    max-width: 100%;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    overflow-wrap: break-word;
+  }
+
+  // El ajuste, en ficha: es lo que cambia el precio y se compara entre
+  // teselas. Mono tabular, los mismos dígitos que el precio de «Agregar».
   &__pill-delta {
     @include cifra-columna;
-    font-size: .75rem;
-    font-weight: 500;
-    opacity: .8;
+    flex: 0 0 auto;
+    padding: .2rem .55rem;
+    border-radius: 999px;
+    background: var(--pill-realce);
+    font-size: .875rem;
+    font-weight: 600;
+    line-height: 1.3;
   }
+
+  // «Como en la carta»: un rótulo, el escalón más bajo de la tesela. En la
+  // tinta de la tesela: sobre el neutro sólido ni el gris medio ni el tenue
+  // llegan a 4.5:1. El escalón lo hacen el cuerpo de 11 px y las versalitas.
+  &__pill-nota {
+    @include rotulo(11px);
+    color: inherit;
+  }
+
+  // El atajo de teclado (1–9). Sólo con ratón: en la tablet sería ruido.
+  // Con el bloque delante, como las demás piezas: `.admin-body kbd` (0,1,1).
+  // Una tecla rellena del realce de la tesela, como el ajuste de precio, y
+  // no un contorno: el borde va del mismo color para conservar los 22 px.
+  & &__pill-tecla {
+    @include cifra-columna;
+    position: absolute;
+    right: .75rem;
+    bottom: .75rem;
+    display: none;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 .3rem;
+    place-items: center;
+    border: 1px solid var(--pill-realce);
+    border-radius: 6px;
+    background: var(--pill-realce);
+    color: inherit;
+    font-size: .72rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  // Con el atajo a la vista, el nombre le deja su esquina.
+  @media (hover: hover) and (pointer: fine) {
+    & &__pill-tecla { display: inline-grid; }
+    &__pill-nombre { max-width: calc(100% - 1.75rem); }
+  }
+
+  // La palomita: la elección se reconoce por forma, no sólo por el relleno.
+  // Cuelga de la esquina de la caja del icono —«esta opción, marcada»—. El
+  // aro es del relleno de la tesela elegida: la recorta contra la caja.
+  &__pill-marca {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--pos-solido-activo-tinta);
+    box-shadow: 0 0 0 2px var(--pos-solido-activo);
+    color: var(--pos-solido-activo);
+    opacity: 0;
+    transform: scale(.6);
+    transition: opacity .14s, transform .18s cubic-bezier(.22, .61, .36, 1);
+
+    svg { stroke-width: 2.6; }
+  }
+
+  // Sin icono, a la esquina de la tesela.
+  &__pills--sin-iconos &__pill-marca {
+    top: .75rem;
+    right: .75rem;
+  }
+
+  &__pill.is-on &__pill-marca {
+    opacity: 1;
+    transform: none;
+  }
+
+  // ── El pie ──────────────────────────────────────────────────
 
   &__pie {
     display: grid;
-    gap: .6rem;
-    padding: .9rem 1.25rem 1.1rem;
+    flex: 0 0 auto;
+    gap: .75rem;
+    padding: 1rem var(--opts-pad-x) 1.4rem;
     border-top: 1px solid var(--line-soft);
   }
 
+  // Lo que lleva la línea, como se leerá en la comanda.
   & &__resumen {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+    min-width: 0;
     margin: 0;
-    color: var(--txt-mute);
-    font-size: .78rem;
+    color: var(--txt);
+    font-size: var(--operational-text-sm);
+    font-weight: 600;
+  }
+
+  &__resumen-rotulo {
+    @include rotulo;
+    flex: 0 0 auto;
+    color: var(--txt-faint);
+  }
+
+  &__resumen-texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__acciones {
@@ -234,8 +687,14 @@
 
     .mmodal-btn {
       width: 100%;
-      min-height: 48px;
+      min-height: 56px;
     }
+  }
+
+  // Atrás · Siguiente · Agregar. La principal queda al final, donde vive en
+  // todo el POS, y es la más ancha.
+  &__acciones--tres {
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.5fr);
   }
 
   /*
@@ -245,14 +704,14 @@
    * un vistazo porque siempre está en el mismo sitio: a la derecha, en mono
    * tabular —los mismos dígitos que el «+$15» de cada opción, que es de donde
    * sale la suma—. Cambia en vivo con cada opción que se toca; el servidor lo
-   * vuelve a calcular al enviar. Mientras falta un grupo obligatorio el botón
-   * se apaga, pero el precio se queda («desde $X» si la opción que falta
-   * mueve el importe).
+   * vuelve a calcular al enviar. Mientras falta el grupo obligatorio del paso
+   * visible el botón se apaga, pero el precio se queda («desde $X» si la
+   * opción que falta mueve el importe).
    */
   & &__confirmar {
     justify-content: space-between;
     gap: .75rem;
-    padding-inline: 1.1rem;
+    padding-inline: 1.25rem;
   }
 
   &__verbo {
@@ -265,30 +724,95 @@
   &__precio {
     @include cifra-columna;
     flex-shrink: 0;
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     font-weight: 600;
   }
 }
 
-// En móvil la hoja sube desde abajo, como el propio modal de mesa.
+// Tablet en vertical y ventanas angostas: menos aire a los lados.
+@media (max-width: 900px) {
+  .mmodal-opts {
+    --opts-pad-x: 1.25rem;
+  }
+}
+
+// En móvil la hoja sube desde abajo, como el propio modal de mesa, y las
+// teselas van de dos en dos (la última fila, a lo ancho si queda sola).
 @media (max-width: 639px) {
   .mmodal-opts {
+    --opts-pad-x: 1rem;
+    --opts-gap: .5rem;
+    --opts-cols-max: 2;
+
     align-items: flex-end;
     padding: 0;
 
     &__card {
       max-width: none;
-      max-height: 88vh;
+      max-height: 90vh;
+      max-height: 90dvh;
       border-radius: 20px 20px 0 0;
       transform: translateY(24px);
       padding-bottom: env(safe-area-inset-bottom);
     }
+
+    & &__titulo { font-size: 1.625rem; }
+    & &__grupo-nombre { font-size: 1.2rem; }
+
+    & &__pill {
+      min-height: 100px;
+      padding: .75rem;
+      font-size: 1rem;
+    }
+
+    &__pills--sin-iconos &__pill { min-height: 76px; }
+
+    &__pill-cabeza { padding-bottom: .45rem; }
+
+    &__pill-icono {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+
+      > svg {
+        width: 26px;
+        height: 26px;
+      }
+    }
   }
 }
 
+// En un teléfono los tres botones no caben con su precio: agregar sube a su
+// propia fila, a todo lo ancho, y Atrás / Siguiente quedan abajo, al alcance
+// del pulgar. El corte va en 520 y no en 420: medido con la voz del botón
+// (Satoshi 600 a 15 px), «Siguiente →» pide ~133 px y «Guardar 2 × $63»
+// ~180, y por debajo de ~490 px de pantalla sus columnas ya no los
+// contienen: el texto se salía del botón.
+@media (max-width: 520px) {
+  .mmodal-opts__acciones--tres {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    .mmodal-opts__confirmar {
+      grid-column: 1 / -1;
+      order: -1;
+    }
+  }
+}
+
+// Movimiento reducido no es quieto: la hoja entra con un fundido corto, sin
+// desplazarse ni escalar (de golpe no se sabía de dónde salía). Lo demás,
+// en seco.
 @media (prefers-reduced-motion: reduce) {
-  .mmodal-opts__bd,
+  .mmodal-opts__bd { transition: opacity .16s ease; }
+
   .mmodal-opts__card {
+    transform: none;
+    transition: opacity .16s ease;
+  }
+
+  .mmodal-opts__pill,
+  .mmodal-opts__pill-marca,
+  .mmodal-opts__pill-icono {
     transition: none;
   }
 }

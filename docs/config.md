@@ -27,7 +27,8 @@ protege los secretos fuera del repositorio.
 | `JWT_N8N_ENTRADA_SECRET` | Llave HS256 (≥ 32 bytes aleatorios) con la que n8n firma el JWT de toda llamada a `/api/integraciones/*`. Obligatoria: sin ella esas rutas responden 500. Distinta de cualquier otro secreto. |
 | `RESERVATION_PUBLIC_BASE_URL` | Base pública HTTPS que se incluye en enlaces de reservación. |
 | `N8N_WEBHOOK_SUGERENCIAS_URL`, `N8N_WEBHOOK_AREAS_MEJORA_URL`, `N8N_SECRET` | Webhooks y autenticación que conservan sugerencias, analíticas/áreas y feedback. |
-| `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. |
+| `SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`, `SITIO_INSTAGRAM`, `SITIO_WHATSAPP_EVENTOS` | Datos públicos del sitio y contacto para eventos. Son los del **restaurante**. |
+| `PANADERIA_DIRECCION`, `PANADERIA_DIRECCION_CORTA`, `PANADERIA_TELEFONO`, `PANADERIA_MAPS_URL`, `PANADERIA_WHATSAPP` | Datos de la **panadería** (`/panaderia`, `Services\Panaderia\PanaderiaConfig`). Respaldo: Calle San Borja 1026, 55 1229 9648, una búsqueda de Google Maps por nombre y dirección, y el WhatsApp igual al teléfono. Cuando haya enlace corto de su ficha de Maps, va en `PANADERIA_MAPS_URL`. |
 | `RESERVAS_TELEFONO_VISIBLE`, `RESERVAS_TELEFONO_TEL` | Teléfono público del restaurante, tal como se lee y para `tel:`. |
 | `RESERVAS_WHATSAPP` | Respaldo del WhatsApp de reservaciones y catas: sólo se usa si el panel no tiene número guardado. |
 
@@ -115,11 +116,12 @@ Restaurante; cambia el catálogo. Las abre el módulo **Asistente IA** del ámbi
 | Global | Almacenes de la organización | Existencia, lo que está por agotarse, consumo, entradas, mermas | **consolidado** de todos los almacenes, desglosado por negocio |
 | | Entre negocios | Transferencias en curso | transferencias abiertas de la organización |
 
-- **La caja de Panadería todavía no registra tickets**: sus preguntas de
-  ventas ya consultan lo correcto y contestan en cero hasta que exista el POS
-  de caja. No enlazan a Análisis, que Panadería no tiene.
+- **Ventas en caja de Panadería**: sus preguntas leen los tickets que cierra
+  la caja de mostrador ([caja](modulos/caja-panaderia.md)); las anulaciones
+  quedan fuera porque el ticket anulado deja de estar `cerrado`. El cajero
+  queda en `mesero_id`, así que «ventas por cajero» ya tiene de dónde leer.
 - **Global no vende desde el Asistente**: no tiene preguntas de ventas ni suma las de los
-  negocios. Su lectura de
+  negocios (consolidado financiero pendiente, arquitectura §3). Su lectura de
   almacenes es la misma que Almacenes concede con permiso de ver, y no abre la
   escritura de ningún almacén ajeno.
 - **Entradas** cuenta sólo movimientos `entrada`: una transferencia interna es
@@ -162,6 +164,17 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   público. Al bajar el máximo, la pantalla avisa cuántas reservas futuras
   quedan por encima; no se tocan.
 - Horario efectivo y excepciones: sección de configuración de horarios.
+- `/admin/configuracion/areas`: el **color de cada estación de producción**
+  del **Restaurante** (Barra de Café, Barra de Jugos, Cocina y Horno
+  Napolitano), en la columna `areas_produccion.color`: no hace falta migración.
+  Con el esquema multinegocio sólo lee y guarda las de la unidad
+  `restaurante` (el slug sólo es único dentro de su negocio). Se elige
+  sólo entre los diez colores de la paleta funcional y dos estaciones no pueden
+  repetirlo (`Services\Configuration\AreasProduccion::validar()`); se guarda el
+  hex. Lo leen el tablero KDS de piso (`/area/*`), las tarjetas de Producción
+  del panel (`/admin/area`, que enlazan a ese tablero; `/admin/area/<slug>`
+  redirige ahí), el selector de estación, Impresoras y el encabezado de área
+  al confirmar una comanda en el POS. Un tablero abierto lo toma al recargarse.
 - `/admin/configuracion/paleta`: los **cuatro colores de marca de la landing**
   (verde musgo, oro, beige y crema, los del manual de identidad; tabla
   `configuracion_paleta`, fila única). Son la capa 1 de
@@ -174,9 +187,36 @@ Los parámetros funcionales se guardan en la base de datos, no en `.env`:
   `NULL`, para que siga al manual si la capa 1 cambia. Si alguna comprobación
   de contraste (el texto más tenue de cada sección a 4.5:1, y los botones)
   queda por debajo, el guardado pide confirmación explícita.
+- `/admin/configuracion/avisos`: los **avisos del restaurante en las cartas
+  PDF** (tabla `configuracion_avisos`, varias filas por unidad; hasta 12). Cada
+  aviso lleva título (80 caracteres), contenido (1 500), en qué carta se
+  imprime (Menú, Maridaje o las dos), orden y si está activo. Todos se
+  imprimen al final de la carta, entre la última sección y la despedida;
+  ninguno va entre la portada y la primera sección, y no hay lugar que
+  elegir. Van en dos columnas, como los platillos, en el orden de la lista
+  (izquierda, derecha); si sobra uno, va solo y centrado a lo ancho. El contenido se guarda como marcado ligero, nunca HTML: `## ` al
+  inicio de un renglón es subtítulo, `**texto**` va en negritas y un renglón en
+  blanco abre párrafo; todo lo demás se escapa
+  (`Services\Configuration\AvisosCarta::html()`, la única traducción, que usan
+  el PDF y la vista previa). Lo imprimen `/menu/pdf`, `/maridaje/pdf` y los PDF
+  administrativos de Restaurante; la Panadería no. Sin la tabla, la carta sale
+  igual y sin avisos. Permiso: el módulo `configuration` (ver para consultar,
+  editar para cambiar; las escrituras lo releen en su transacción). El editor
+  tiene barra de formato con Ctrl/⌘+B (negritas), Ctrl/⌘+Mayús+2 (subtítulo)
+  y Ctrl/⌘+Enter (guardar), vista previa en vivo y aviso de cambios sin
+  guardar; sin JS funciona como formulario. La tabla está en `database/ddl.sql`.
 
 - **Variantes por platillo**: opciones de precio y receta de la oferta local;
-  administración en Menú. Identidad de oferta, componentes y snapshots se rigen
+  administración en Menú desde «Editar platillo», que las resume y abre el
+  editor en un panel (el listado ya no tiene botón propio: «N opciones» junto
+  al nombre abre `edit?id=…#variantes`; la página `/admin/menu/variantes`
+  sigue existiendo). Cada
+  opción lleva un icono (`producto_variantes.icono`): uno de la familia `op-*`
+  (`Variantes::ICONOS`) o NULL, automático, que se deduce del nombre de la
+  opción y de su grupo (`Variantes::ICONO_REGLAS`, las mismas reglas en el
+  editor y en el servidor); sin regla que case, el POS pinta la inicial, y si
+  ninguna opción del grupo tiene icono, teselas de sólo texto. En el POS cada
+  grupo es un paso. Identidad de oferta, componentes y snapshots se rigen
   por [Arquitectura](arquitectura.md#6-catalogo-productos-cartas-ofertas-y-menu-preservado).
 - **Foto por platillo**: ImagenUploader valida y publica la imagen; sin foto propia
   la carta utiliza la de categoría. No retirar imágenes preservadas del menú.

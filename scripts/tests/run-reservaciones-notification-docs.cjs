@@ -38,12 +38,16 @@ const expectedDocs = [
   'desarrollo',
   'config.md',
   'correcciones_pendientes_arquitectura.md',
+  'modelo-datos.md',
   'modulos',
   'operacion.md',
   'panaderia',
   'privacidad',
+  // Informes funcionales de Almacenes y Recetas (M3), con su revisión y límites.
+  'pruebas',
   'reservaciones',
-  'usuarios'
+  'usuarios',
+  'WORK_PLAN.MD'
 ].sort();
 assert.deepEqual(names('docs'), expectedDocs, 'docs contiene sólo fuentes vigentes y pendientes verificados');
 assert.deepEqual(names('docs/reservaciones'), ['notificaciones.md', 'reservaciones.md']);
@@ -131,7 +135,7 @@ for (const file of markdownFiles) {
     if (fragment && fs.statSync(target).isFile() && target.toLowerCase().endsWith('.md')) {
       const targetText = path.relative(root, target).replaceAll('\\', '/');
       const targetHeadings = new Set(Array.from(source(targetText).matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm), (heading) => slug(heading[1])));
-      assert.ok(targetHeadings.has(fragment.toLowerCase()), `${file}: encabezado local roto ${href}`);
+      assert.ok(targetHeadings.has(slug(fragment)), `${file}: encabezado local roto ${href}`);
     }
     linkCount += 1;
   }

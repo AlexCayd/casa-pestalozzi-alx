@@ -1,0 +1,169 @@
+// ── Panadería · De temporada ──────────────────────────────────
+//
+// views/panaderia/_temporada.php, en la banda verde. A la izquierda la pieza
+// de ahora; a la derecha el año: una fila por pieza, con nombre y fechas en
+// palabras y su ventana en una regla de doce meses. La regla es dibujo; lo que
+// se lee está en el texto.
+
+.pan-temporada__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+}
+
+.pan-ahora {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  border: 1px solid var(--line);
+  background: var(--bg-alt);
+}
+
+.pan-ahora__rotulo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.pan-ahora__nombre {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+  line-height: 1;
+  color: var(--txt-strong);
+}
+
+.pan-ahora__desc {
+  max-width: 34ch;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  color: var(--txt);
+}
+
+.pan-ahora__nota {
+  margin-bottom: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--txt-mute);
+}
+
+// ── El año ────────────────────────────────────────────────────
+// --et es el ancho de la columna de nombres; la cabecera de meses, cada fila y
+// la marca de hoy lo leen para alinearse con la regla.
+.pan-calendario {
+  --et: 13rem;
+
+  position: relative;
+  padding-bottom: 1.8rem;
+}
+
+.pan-calendario__meses {
+  display: grid;
+  grid-template-columns: var(--et) repeat(12, minmax(0, 1fr));
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--txt-mute);
+}
+
+.pan-calendario__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pan-calendario__fila {
+  display: grid;
+  grid-template-columns: var(--et) minmax(0, 1fr);
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.pan-calendario__pan {
+  display: grid;
+  gap: 0.15rem;
+  padding-right: 1rem;
+}
+
+.pan-calendario__nombre {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  line-height: 1.2;
+  color: var(--txt-strong);
+}
+
+.pan-calendario__fechas {
+  font-size: 0.8rem;
+  color: var(--txt-mute);
+}
+
+.pan-calendario__pista {
+  position: relative;
+  height: 10px;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--line-soft);
+  }
+
+  i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 6px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
+// La de ahora: la barra en oro pleno con halo y el nombre en el acento. La
+// palabra «ahora» va además en el texto para el lector de pantalla.
+.pan-calendario__fila.is-ahora {
+  .pan-calendario__nombre { color: var(--accent-text); }
+
+  .pan-calendario__pista i {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+}
+
+.pan-calendario__hoy {
+  position: absolute;
+  top: 0;
+  bottom: 1.8rem;
+  left: calc(var(--et) + (100% - var(--et)) * var(--hoy) / 100);
+  border-left: 1.5px dashed var(--txt);
+  pointer-events: none;
+
+  span {
+    position: absolute;
+    bottom: -1.5rem;
+    left: 0;
+    transform: translateX(-50%);
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--txt);
+  }
+}
+
+@media (max-width: 980px) {
+  .pan-temporada__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .pan-calendario { --et: 8.5rem; }
+  .pan-calendario__nombre { font-size: 1rem; }
+  .pan-calendario__meses { font-size: 0.6rem; letter-spacing: 0.04em; }
+}

@@ -94,7 +94,9 @@ final class AdminContextosController
         $clave = $seccion === $contexto ? 'inicio' : ($seccion === 'recetas' ? 'productos' : $seccion);
         $modulos = self::navegacion($contexto, []);
         $demo = $contexto === 'panaderia' && Contextos::demoHabilitada();
-        $fixture = $demo ? require __DIR__ . '/../database/fixtures/panaderia.php' : null;
+        // Datos ilustrativos sólo para development/test (demoHabilitada); viven
+        // con los fixtures de pruebas, fuera de database/.
+        $fixture = $demo ? require __DIR__ . '/../scripts/tests/fixtures/panaderia.php' : null;
         $q = trim(is_string($_GET['q'] ?? '') ? ($_GET['q'] ?? '') : '');
         if ($fixture && $q !== '') {
             $coleccion = $clave === 'menu' ? 'productos' : ($clave === 'productos' ? 'recetas' : 'articulos');

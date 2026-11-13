@@ -1,0 +1,185 @@
+// ── Panadería · Portada ───────────────────────────────────────
+//
+// views/panaderia/_portada.php. El isologo se mide contra SU columna, como el
+// del hero del restaurante: PESTALOZZI mide 7.86 em con su tracking (medido
+// sobre el .otf), así que 12.6cqi lo deja a ras de la columna.
+
+.pan-portada {
+  // Aire arriba para el botón de menú fijo y la marca.
+  padding-top: clamp(7rem, 16vh, 10rem);
+}
+
+.pan-portada__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr);
+  gap: clamp(2.5rem, 6vw, 6rem);
+  align-items: center;
+}
+
+// La columna entera va centrada bajo el isologo, que es simétrico.
+.pan-portada__texto {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+// `.pan-portada .pan-portada__isologo` y no la clase sola: h1..h4 en
+// _reset.scss declara la serif y con (0,1,0) ganaría la familia.
+// KudosKaps tiene UNA sola cara, de peso 400: va explícito.
+.pan-portada .pan-portada__isologo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  color: var(--txt-strong);
+  font-family: var(--logo);
+  font-size: clamp(2.4rem, 12.6cqi, 6.6rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1.02;
+}
+
+// El tracking deja un hueco a la derecha de cada línea: se devuelve para que
+// CASA quede centrada de verdad sobre PESTALOZZI.
+.pan-portada__casa,
+.pan-portada__nombre {
+  display: block;
+  margin-right: -0.03em;
+}
+
+.pan-portada__casa { text-align: center; }
+
+.pan-portada__filete {
+  display: flex;
+  align-items: center;
+  gap: 0.16em;
+  margin-top: 0.2em;
+}
+
+.pan-portada__linea {
+  flex: 1;
+  height: 1px;
+  background: var(--accent);
+}
+
+.pan-portada__medallon {
+  display: block;
+  width: 0.5em;
+  height: 0.625em;
+}
+
+// La corona punteada gira despacio, como en el hero del restaurante: es lo
+// único que se mueve después de la entrada. Está en las tres listas de la
+// casa: movimiento reducido (abajo), .no-anim y fuera de pantalla
+// (.pan-portada--quieta, que pone panaderia.js).
+.pan-portada__medallon-puntos {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pan-puntos 16s linear 2s infinite;
+}
+
+@keyframes pan-puntos {
+  to { transform: rotate(360deg); }
+}
+
+// La firma de la fachada: «panadería» bajo el isologo. En The Seasons y no en
+// la manuscrita del rótulo, que no está en el manual.
+.pan-portada__unidad {
+  margin-top: 0.26em;
+  font-family: var(--serif);
+  font-size: 0.42em;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+  color: var(--accent-text);
+}
+
+.pan-portada__frase {
+  max-width: 17em;
+  margin: 1.8rem auto 0;
+  font-family: var(--serif);
+  font-size: clamp(1.35rem, 1rem + 1.4vw, 2rem);
+  line-height: 1.18;
+  color: var(--txt-strong);
+  text-wrap: balance;
+}
+
+.pan-portada__hoy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--txt-mute);
+}
+
+.pan-portada__sep {
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  transform: rotate(45deg);
+}
+
+.pan-portada__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 2rem;
+}
+
+.pan-portada__foto {
+  width: 100%;
+  max-height: min(78vh, 680px);
+  aspect-ratio: 4 / 5;
+  margin: 0;
+  border: 1px solid var(--line);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+// La entrada la hace CSS, no GSAP: la portada se ve completa aunque las libs
+// de movimiento no lleguen. Sube el texto y después la foto.
+.pan-portada__texto > *,
+.pan-portada__foto {
+  animation: pan-sube 0.9s var(--ease) both;
+}
+.pan-portada__frase { animation-delay: 0.12s; }
+.pan-portada__hoy { animation-delay: 0.2s; }
+.pan-portada__cta { animation-delay: 0.28s; }
+.pan-portada__foto { animation-delay: 0.18s; }
+
+@keyframes pan-sube {
+  from { opacity: 0; transform: translateY(18px); }
+}
+
+.no-anim .pan-portada__texto > *,
+.no-anim .pan-portada__foto,
+.no-anim .pan-portada__medallon-puntos {
+  animation: none;
+}
+
+.pan-portada--quieta .pan-portada__medallon-puntos {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pan-portada__medallon-puntos { animation: none; }
+}
+
+@media (max-width: 880px) {
+  .pan-portada__grid { grid-template-columns: minmax(0, 1fr); }
+  .pan-portada__foto {
+    max-width: 380px;
+    justify-self: center;
+  }
+}

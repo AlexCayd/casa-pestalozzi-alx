@@ -15,6 +15,8 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [classes/Impresion/README.md](../../classes/Impresion/README.md) | Referencia técnica | Módulo de impresión térmica ESC/POS |
 | [database/ANALITICAS.md](../../database/ANALITICAS.md) | Referencia técnica | Analíticas de Restaurante |
 | [docs/arquitectura.md](../arquitectura.md) | Vigente, rector | Única fuente normativa de arquitectura y alcance |
+| [docs/auditoria-retiro-productos-casa.md](../auditoria-retiro-productos-casa.md) | Histórico requerido por prueba | Contexto de retirada A4, no procedimiento vigente |
+| [docs/modulos/catalogo-comercial.md](../modulos/catalogo-comercial.md) | Referencia técnica | Menú local y retirada A4 |
 | [docs/backlog.md](../backlog.md) | Vigente | Pendientes, mejoras y deuda conocida |
 | [docs/config.md](../config.md) | Vigente | Configuración |
 | [docs/correcciones_pendientes_arquitectura.md](../correcciones_pendientes_arquitectura.md) | Referencia técnica | Hallazgos técnicos con identificadores persistentes |
@@ -22,11 +24,16 @@ su existencia. README orienta y CLAUDE resume las reglas de trabajo.
 | [docs/desarrollo/desarrollo.md](desarrollo.md) | Vigente | Guía de desarrollo |
 | [docs/desarrollo/instalacion.md](instalacion.md) | Vigente | Instalación de desarrollo |
 | [docs/desarrollo/interfaz.md](interfaz.md) | Vigente | Tokens, componentes y contratos visuales compartidos |
+| [docs/desarrollo/rendimiento.md](rendimiento.md) | Referencia técnica | Método, línea base y límites de medición |
 | [docs/desarrollo/pruebas.md](pruebas.md) | Vigente | Pruebas y criterios de aceptación |
+| [docs/modelo-datos.md](../modelo-datos.md) | Referencia técnica | Inventario estático del esquema y dependencias |
+| [docs/WORK_PLAN.MD](../WORK_PLAN.MD) | Control operativo temporal | Plan de intervención R0–R3; no es fuente normativa |
 | [docs/modulos/almacenes.md](../modulos/almacenes.md) | Referencia técnica | Almacenes |
+| [docs/modulos/caja-panaderia.md](../modulos/caja-panaderia.md) | Referencia técnica | Caja de mostrador de Panadería |
 | [docs/modulos/finanzas.md](../modulos/finanzas.md) | Referencia técnica | Finanzas por ámbito y consolidado de Global |
 | [docs/operacion.md](../operacion.md) | Vigente | Operación POS e impresión |
 | [docs/panaderia/README.md](../panaderia/README.md) | Vigente | Estado y referencias actuales de Panadería |
+| [docs/panaderia/landing.md](../panaderia/landing.md) | Referencia técnica | Landing y páginas públicas de Panadería |
 | [docs/privacidad/privacidad.md](../privacidad/privacidad.md) | Vigente | Privacidad |
 | [docs/reservaciones/notificaciones.md](../reservaciones/notificaciones.md) | Referencia técnica | Notificaciones de reservaciones |
 | [docs/reservaciones/reservaciones.md](../reservaciones/reservaciones.md) | Referencia técnica | Reservaciones |

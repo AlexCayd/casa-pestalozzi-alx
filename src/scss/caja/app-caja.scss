@@ -1,0 +1,1889 @@
+// ── Caja de mostrador de Panadería → public/build/css/caja.css ──────────
+//
+// Se carga DESPUÉS de operation.css: hereda de ahí los tokens del sistema
+// administrativo (tema oscuro forzado), el shell y el header de piso. Esta
+// hoja sólo trae las piezas propias del mostrador. Ningún color nuevo: el
+// sistema es blanco y negro a propósito, y el color sólo dice estado (ámbar:
+// quedan pocas; rojo: quitar o anular). La caja se distingue del POS de
+// Restaurante por su forma —teclas partidas en gajos, el filete de vitrina,
+// la tecla que crece en su sitio— no por una paleta.
+//
+// Voz tipográfica: la del piso (_voz.scss). Satoshi para palabras, Geist Mono
+// para rótulos y cifras en columna, Expose sólo para los carteles (total,
+// cambio, ventas del corte).
+
+@use '../punto-de-venta/voz' as *;
+
+$compacto: 959px;
+// Los campos del panel (_forms.scss) se declaran con cinco :not() y pesan
+// 0,6,1: un campo propio de la caja repite la cadena para poder ganarles.
+$campo: ':not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"])';
+$telefono: 560px;
+
+// Todo cuelga de .caja-page (la clase del <body>): .admin-body button, p,
+// input y h1…h3 del sistema pesan más que una clase sola, y aquí cada pieza
+// tiene su propia voz. Con el prefijo, 0,2,0 gana a 0,1,1 sin !important.
+.caja-page {
+  // ── Página ──────────────────────────────────────────────────────
+  & {
+    --caja-gap: clamp(10px, 1vw, 14px);
+    --caja-radio: var(--admin-radius-md);
+    --caja-ticket-ancho: clamp(330px, 29vw, 410px);
+    --caja-tecla-min: 168px;
+    --caja-ease: var(--admin-ease);
+    --caja-t: var(--admin-t-base);
+    background: var(--admin-bg);
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  // El shell de piso pone su propio margen alrededor: la caja ocupa el alto
+  // que queda y nunca hace scroll de documento (sólo la vitrina y el ticket).
+  .caja-shell {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .caja-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .caja {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--caja-ticket-ancho);
+    gap: var(--caja-gap);
+    padding-top: var(--operational-shell-gap);
+  }
+
+  // Un toque sobre una tecla no debe seleccionar texto ni abrir el menú del
+  // sistema al mantener presionado: la presión larga es nuestra.
+  .caja-tecla,
+  .caja-linea,
+  .caja-billete,
+  .caja-teclado__tecla {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  // ── Header: acciones y pulso del día ────────────────────────────
+  .caja-accion {
+    @include control(var(--operational-text-sm));
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px 0 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--admin-text);
+    cursor: pointer;
+    transition: background var(--admin-t-fast) var(--caja-ease), border-color var(--admin-t-fast) var(--caja-ease);
+
+    svg { flex: none; stroke-width: 1.75; }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover { background: var(--admin-surface); border-color: var(--admin-border-strong); }
+    }
+    &:active { background: var(--admin-surface-soft); }
+
+    @media (max-width: 760px) {
+      width: 40px;
+      padding: 0;
+      justify-content: center;
+      span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    }
+  }
+
+  // Teléfono: la barra de piso no cabe con título, tres acciones, avatar y
+  // salida. Se compacta sólo aquí; el header compartido no cambia.
+  @media (max-width: $telefono) {
+    .operational-header .operational-header__module { font-size: 17px; white-space: nowrap; }
+    .operational-header__region--right { gap: 4px; }
+    .caja-accion { width: 36px; min-height: 36px; height: 36px; }
+    .operational-header__user-chevron { display: none; }
+  }
+
+  .caja-pulso {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0;
+    white-space: nowrap;
+
+    &__rotulo { @include rotulo(11px); color: var(--admin-faint); }
+    &__dato { @include cifra-columna; font-size: var(--operational-text-base); color: var(--admin-muted); }
+
+    @media (max-width: 760px) { display: none; }
+  }
+
+  .caja-kbd {
+    @include rotulo(10px);
+    display: none;
+    margin-left: 10px;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    letter-spacing: .06em;
+    // .72 y no .55: a .55 la pista quedaba en 4.3:1 sobre el ticket.
+    opacity: .72;
+
+    @media (hover: hover) and (pointer: fine) { display: inline-block; }
+  }
+
+  // ── Vitrina: búsqueda y familias ────────────────────────────────
+  .caja-vitrina {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .caja-vitrina__barra {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0 12px;
+    min-width: 0;
+  }
+
+  .caja-buscar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 1 260px;
+    min-width: 150px;
+
+    &__icono {
+      position: absolute;
+      left: 14px;
+      display: flex;
+      color: var(--admin-faint);
+      pointer-events: none;
+    }
+
+    & input#{$campo}.caja-buscar__campo,
+    &__campo {
+      @include control;
+      width: 100%;
+      min-height: 44px;
+      padding: 0 40px 0 42px;
+      border: 1px solid var(--admin-border);
+      border-radius: 999px;
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      font-weight: 500;
+
+      box-shadow: none;
+      &::placeholder { color: var(--admin-faint); }
+      &:hover { border-color: var(--admin-border-strong); box-shadow: none; }
+      &:focus { outline: none; border-color: var(--admin-border-strong); background: var(--admin-surface); box-shadow: var(--admin-focus-ring); }
+      &::-webkit-search-cancel-button { display: none; }
+    }
+
+    &__kbd { position: absolute; right: 12px; margin: 0; }
+    &__campo:focus ~ &__kbd,
+    &__campo:not(:placeholder-shown) ~ &__kbd { visibility: hidden; }
+
+    &--hoja { flex: none; margin: 0 0 12px; }
+  }
+
+  .caja-familias {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+    // El desbordamiento recorta también en vertical: 4 px de aire (y el mismo
+    // margen negativo, para no mover la fila) dejan entero el anillo de foco.
+    margin: -4px;
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    // Sin esto el imán alinea la primera familia al borde del padding y la
+    // fila arranca 4 px corrida respecto a la búsqueda.
+    scroll-padding-inline: 4px;
+    mask-image: linear-gradient(to right, var(--admin-ink) calc(100% - 28px), transparent);
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .caja-familia {
+    @include control(var(--operational-text-sm));
+    flex: none;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--admin-muted);
+    cursor: pointer;
+    scroll-snap-align: start;
+    transition: color var(--admin-t-fast), background var(--admin-t-fast), border-color var(--admin-t-fast);
+
+    @media (hover: hover) and (pointer: fine) { &:hover { color: var(--admin-text); border-color: var(--admin-border); } }
+    @media (pointer: coarse) { min-height: 44px; }
+
+    &.is-activa {
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+    }
+  }
+
+  // ── Las teclas ──────────────────────────────────────────────────
+  .caja-teclas {
+    // Posicionada: es el offsetParent de las teclas, y caja.js mide con
+    // offsetTop/offsetLeft (geometría de layout, sin el transform del FLIP).
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--caja-tecla-min), 1fr));
+    // max-content y no minmax(118px, auto): con alto definido, la rejilla
+    // repartía el alto disponible y recortaba los gajos.
+    grid-auto-rows: max-content;
+    // Sin `dense`: subía una vecina al hueco de la tecla extendida y el orden
+    // visual dejaba de ser el del DOM (Tab y las flechas saltaban hacia
+    // arriba). caja.js ya coloca la tecla abierta al final de su fila.
+    grid-auto-flow: row;
+    align-content: start;
+    gap: var(--caja-gap);
+    padding: 2px 2px 96px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border) transparent;
+  }
+
+  .caja-tecla {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--caja-radio);
+    background: var(--admin-surface);
+    box-shadow: inset 0 1px 0 var(--admin-edge);
+    overflow: hidden;
+    transition: border-color var(--admin-t-fast) var(--caja-ease), background var(--admin-t-fast) var(--caja-ease);
+
+    &.is-en-ticket { border-color: var(--admin-border-strong); }
+    // Abierta, la tecla ocupa la fila entera: así no estira a sus vecinas y
+    // las filas de abajo se apartan. A la izquierda queda la tecla de siempre;
+    // a la derecha, sus opciones.
+    &.is-abierta {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      border-color: var(--admin-border-strong);
+      background: var(--admin-surface-soft);
+
+      > .caja-tecla__principal {
+        flex: 0 0 clamp(180px, 22%, 240px);
+        border-right: 1px solid var(--admin-border-soft);
+      }
+
+      > .caja-tecla__cuenta { right: auto; left: calc(clamp(180px, 22%, 240px) - 42px); }
+
+      @media (max-width: 560px) {
+        flex-direction: column;
+        > .caja-tecla__principal { flex: 0 0 auto; min-height: 88px; border-right: 0; border-bottom: 1px solid var(--admin-border-soft); border-radius: calc(var(--caja-radio) - 1px) calc(var(--caja-radio) - 1px) 0 0; }
+        > .caja-tecla__cuenta { left: auto; right: 12px; }
+      }
+    }
+  }
+
+  .caja-tecla__principal {
+    position: relative;
+    // Crece pero no encoge: con min-height explícito el botón podía achicarse
+    // por debajo de su contenido y el precio se montaba en los gajos.
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 118px;
+    padding: 16px 16px 18px;
+    border: 0;
+    background: transparent;
+    color: var(--admin-text);
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--admin-t-fast) var(--caja-ease), transform 120ms ease-out;
+
+    @media (hover: hover) and (pointer: fine) { &:hover { background: color-mix(in srgb, var(--admin-paper) 4%, transparent); } }
+    &:active { background: color-mix(in srgb, var(--admin-paper) 8%, transparent); transform: scale(.985); }
+
+    // El anillo del panel es una sombra POR FUERA, y la tecla recorta
+    // (overflow: hidden, por los gajos y el filete): con teclado la tecla con
+    // el foco no se distinguía de las demás. Aquí va por dentro, a 5 px del
+    // canto y con el radio de la tecla: se ve igual en la primera columna,
+    // en la tecla extendida y con la rejilla desplazada.
+    border-radius: calc(var(--caja-radio) - 1px);
+    &:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: -5px; box-shadow: none; }
+  }
+
+  .caja-tecla__nombre {
+    font-family: var(--admin-font-sans);
+    font-size: clamp(15px, 1.15vw, 17px);
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: -.005em;
+    hyphens: auto;
+    overflow-wrap: break-word;
+    // Espacio para la cuenta de la esquina: el nombre nunca pasa debajo.
+    padding-right: 34px;
+  }
+
+  .caja-tecla__linea {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .caja-tecla__precio {
+    @include cifra-columna;
+    font-size: var(--operational-text-base);
+    color: var(--admin-muted);
+  }
+
+  // Piezas en vitrina: la cifra a la derecha, en mono, sin rótulo (el filete
+  // de abajo dice «vitrina»; el lector de pantalla lo oye en palabras).
+  .caja-piezas {
+    @include cifra-columna;
+    font-size: var(--operational-text-sm);
+    color: var(--admin-faint);
+
+    &.is-agotada .caja-piezas__n { color: var(--admin-warning-text); }
+  }
+
+  // El filete de vitrina: se vacía conforme se vende. Ámbar con pocas; sin
+  // relleno y con «Agotado» en cero.
+  .caja-tecla__medidor {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--admin-border-soft);
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      transform-origin: left;
+      transform: scaleX(var(--nivel, 0));
+      background: color-mix(in srgb, var(--admin-text) 62%, transparent);
+      transition: transform var(--admin-t-slow) var(--caja-ease), background var(--admin-t-base);
+    }
+
+  }
+
+  .caja-tecla.is-agotada .caja-tecla__principal {
+    .caja-tecla__nombre { color: var(--admin-muted); }
+    .caja-tecla__precio::after {
+      @include rotulo(10px);
+      content: 'Agotado';
+      margin-left: 8px;
+      color: var(--admin-warning-text);
+    }
+  }
+
+  // Cuántas lleva el ticket: el disco claro de la esquina. Es lo que la cajera
+  // repasa antes de cobrar, por eso es lo único sólido de la tecla.
+  .caja-tecla__cuenta {
+    @include cifra-columna;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+    transform: scale(.4);
+    opacity: 0;
+    transition: transform 220ms cubic-bezier(.34, 1.56, .64, 1), opacity 140ms;
+
+    &.is-pulso { animation: caja-pulso 260ms cubic-bezier(.34, 1.56, .64, 1); }
+  }
+
+  // Estados de la tecla escritos enteros: dentro de .caja-page, «.x &» se
+  // compilaría como «.x .caja-page …» y no casaría nunca.
+  .is-gajos > .caja-tecla__principal { min-height: 76px; padding-bottom: 14px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .is-gajos > .caja-tecla__principal > .caja-tecla__medidor { display: none; }
+  .is-pocas > .caja-tecla__principal > .caja-tecla__medidor::after { background: var(--admin-warning); }
+  // Con pocas, la cifra también: era ámbar en un gajo y gris en una tecla
+  // entera, y el filete solo no basta (no depender de un trazo de 2 px).
+  .is-pocas > .caja-tecla__principal .caja-piezas { color: var(--admin-warning-text); }
+  // Extendida, la tecla sube a surface-soft y el gris tenue cae a 4:1.
+  .caja-tecla.is-abierta .caja-piezas { color: var(--admin-muted); }
+  .caja-tecla.is-abierta.is-pocas > .caja-tecla__principal .caja-piezas { color: var(--admin-warning-text); }
+  .is-abierta > .caja-tecla__principal { border-radius: calc(var(--caja-radio) - 1px) 0 0 calc(var(--caja-radio) - 1px); }
+  .is-en-ticket > .caja-tecla__cuenta { transform: scale(1); opacity: 1; }
+
+  @keyframes caja-pulso {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+
+  // Una tecla «compleja» (varios grupos) avisa que crece al tocarla.
+  .caja-tecla.is-compleja > .caja-tecla__principal::after {
+    content: '';
+    position: absolute;
+    right: 16px;
+    bottom: 18px;
+    width: 9px;
+    height: 9px;
+    border-right: 1.5px solid var(--admin-faint);
+    border-bottom: 1.5px solid var(--admin-faint);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform var(--admin-t-base) var(--caja-ease);
+  }
+  .caja-tecla.is-abierta > .caja-tecla__principal::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  .caja-tecla.is-compleja .caja-tecla__linea { padding-right: 24px; }
+
+  // ── Gajos: la tecla partida en sus opciones ─────────────────────
+  .caja-gajos {
+    display: grid;
+    grid-template-columns: repeat(var(--gajos, 2), minmax(0, 1fr));
+    border-top: 1px solid var(--admin-border-soft);
+
+    &.is-pulso { animation: caja-sacudir 320ms ease-out; }
+  }
+
+  @keyframes caja-sacudir {
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+  }
+
+  .caja-gajo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 8px 12px 10px;
+    border: 0;
+    border-left: 1px solid var(--admin-border-soft);
+    background: transparent;
+    color: var(--admin-text);
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--admin-t-fast) var(--caja-ease);
+
+    &:first-child { border-left: 0; }
+
+    @media (hover: hover) and (pointer: fine) { &:hover { background: color-mix(in srgb, var(--admin-paper) 5%, transparent); } }
+    &:active { background: color-mix(in srgb, var(--admin-paper) 10%, transparent); }
+
+    // Mismo motivo que la tecla: el anillo exterior quedaba recortado a dos
+    // rayas sueltas. Por dentro y redondeado, en un pseudo para no dar radio
+    // al gajo (su fondo de hover llena la celda hasta el filete).
+    &:focus-visible { outline: none; box-shadow: none; }
+    &:focus-visible::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border: 2px solid var(--admin-accent);
+      border-radius: 10px;
+      pointer-events: none;
+    }
+
+    // La predeterminada es la que agrega el nombre: un filete claro arriba.
+    &.is-def::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--admin-text);
+      opacity: .7;
+    }
+
+    &.is-pocas .caja-piezas { color: var(--admin-warning-text); }
+    &.is-agotada .caja-gajo__nombre { color: var(--admin-muted); }
+
+    // Dos renglones como mucho: «Media docena» se lee entera, no «Media do…».
+    &__nombre {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      font-family: var(--admin-font-sans);
+      font-size: var(--operational-text-sm);
+      font-weight: 600;
+      line-height: 1.15;
+      overflow: hidden;
+      overflow-wrap: break-word;
+    }
+
+    &__dato {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+      min-height: 15px;
+    }
+
+    &__delta {
+      @include cifra-columna;
+      font-size: 12px;
+      color: var(--admin-muted);
+    }
+
+    .caja-piezas { font-size: 12px; margin-left: auto; }
+  }
+
+  // ── La ficha: la tecla extendida en su sitio ────────────────────
+  .caja-ficha {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 18px;
+    padding: 16px 18px;
+    animation: caja-aparecer 220ms var(--caja-ease) both;
+
+    &__foto {
+      width: 112px;
+      height: 112px;
+      border-radius: var(--admin-radius-sm);
+      object-fit: cover;
+      background: var(--admin-surface-strong);
+    }
+
+    &__cuerpo {
+      grid-column: 2;
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    &:not(:has(.caja-ficha__foto)) > .caja-ficha__cuerpo { grid-column: 1 / -1; }
+
+    &__grupo { display: grid; gap: 8px; }
+    // muted y no faint: la ficha vive sobre surface-soft, donde faint da 4:1.
+    &__rotulo { @include rotulo(11px); color: var(--admin-muted); }
+    &__opciones { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    &__acciones {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    &__agregar {
+      @include control;
+      min-height: 52px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      cursor: pointer;
+
+      &:disabled { background: var(--admin-surface-strong); color: var(--admin-faint); cursor: not-allowed; }
+    }
+
+    &__cerrar {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+    }
+
+    &__vitrina {
+      margin: 0;
+      font-size: var(--operational-text-xs);
+      color: var(--admin-muted);
+    }
+
+    @media (max-width: $telefono) {
+      grid-template-columns: minmax(0, 1fr);
+      &__foto { width: 100%; height: 132px; }
+      &__cuerpo { grid-column: 1; }
+    }
+  }
+
+  @keyframes caja-aparecer {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  // Muestras: las opciones de la ficha, los motivos y los turnos. Misma voz
+  // que las pastillas de variantes del POS: invertidas al elegirse.
+  .caja-muestra {
+    @include control(var(--operational-text-sm));
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1.5px solid var(--admin-border);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--admin-text);
+    cursor: pointer;
+    transition: background var(--admin-t-fast), border-color var(--admin-t-fast), color var(--admin-t-fast), transform 100ms;
+
+    @media (hover: hover) and (pointer: fine) { &:hover { border-color: var(--admin-border-strong); } }
+    &:active { transform: scale(.98); }
+
+    &__delta { @include cifra-columna; font-size: 12px; font-weight: 500; opacity: .75; }
+    .caja-piezas { font-size: 12px; }
+
+    &.is-on {
+      border-color: var(--admin-accent);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      .caja-piezas, .caja-piezas__n { color: inherit; opacity: .7; }
+    }
+  }
+
+  // Paso −/+ (ficha, líneas del ticket, horneada).
+  .caja-paso {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+
+    &__btn {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-text);
+      cursor: pointer;
+      touch-action: manipulation;
+
+      svg { stroke-width: 1.75; }
+      &:active { background: var(--admin-surface-strong); }
+      &:disabled { color: var(--admin-faint); cursor: not-allowed; opacity: .5; }
+    }
+
+    &__n,
+    &__campo {
+      @include cifra-columna;
+      min-width: 28px;
+      text-align: center;
+      font-size: var(--operational-text-section);
+      font-weight: 600;
+    }
+
+    & input#{$campo}.caja-paso__campo,
+    &__campo {
+      width: 48px;
+      min-height: 0;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--admin-text);
+      &::placeholder { color: var(--admin-faint); }
+      &:hover, &:focus { outline: none; border: 0; background: transparent; box-shadow: none; }
+    }
+
+    &:focus-within { border-color: var(--admin-border-strong); }
+
+    &--linea {
+      .caja-paso__btn { width: 40px; height: 40px; }
+      // Con el dedo, el −/+ del ticket es lo que más se toca después de las
+      // teclas: 44 px, el estándar táctil de la casa.
+      @media (pointer: coarse) { .caja-paso__btn { width: 44px; height: 44px; } }
+    }
+  }
+
+  // ── El ticket ───────────────────────────────────────────────────
+  .caja-ticket {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    min-height: 0;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-lg);
+    background: var(--admin-surface);
+    box-shadow: inset 0 1px 0 var(--admin-edge);
+    overflow: hidden;
+
+    &__cabeza {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 56px;
+      padding: 8px 12px 8px 20px;
+      border-bottom: 1px solid var(--admin-border-soft);
+    }
+
+    &__titulo {
+      @include rotulo(11px);
+      flex: 1;
+      margin: 0;
+      color: var(--admin-faint);
+    }
+
+    &__vaciar {
+      @include control(var(--operational-text-sm));
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+
+      &:hover { color: var(--admin-danger-text); }
+    }
+
+    &__cerrar-hoja {
+      display: none;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+    }
+
+    &__vacio {
+      grid-row: 3;
+      align-self: center;
+      padding: 24px 28px;
+      text-align: center;
+
+      &[hidden] { display: none; }
+    }
+
+    &__vacio-titulo {
+      margin: 0 0 6px;
+      font-size: var(--operational-text-subtitle);
+      font-weight: 600;
+      color: var(--admin-text);
+    }
+
+    &__vacio-ayuda {
+      margin: 0 auto;
+      max-width: 28ch;
+      font-size: var(--operational-text-sm);
+      line-height: 1.45;
+      color: var(--admin-faint);
+    }
+
+    &__pie {
+      grid-row: 5;
+      display: grid;
+      gap: 14px;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--admin-border-soft);
+      background: color-mix(in srgb, var(--admin-surface-strong) 40%, var(--admin-surface));
+    }
+  }
+
+  .caja-lineas {
+    grid-row: 3;
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    // El «Quitar» que asoma al deslizar vive fuera de la línea: sin esto
+    // aparecía una barra horizontal.
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border) transparent;
+
+    &:empty { display: none; }
+  }
+
+  .caja-linea {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 76px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 10px 20px;
+    border-bottom: 1px solid var(--admin-border-soft);
+    background: var(--admin-surface);
+    touch-action: pan-y;
+    transform: translateX(var(--arrastre, 0));
+    transition: transform 200ms var(--caja-ease), opacity 160ms;
+
+    &.is-arrastre { transition: none; }
+    &.is-saliendo { transform: translateX(-100%); opacity: 0; }
+
+    // Lo que asoma al deslizar: la acción, en palabras y en rojo.
+    &::after {
+      content: 'Quitar';
+      @include rotulo(11px);
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 100%;
+      display: none;
+      align-items: center;
+      padding-left: 18px;
+      width: 140px;
+      background: var(--admin-danger);
+      color: var(--admin-on-danger);
+    }
+
+    &.is-arrastre::after,
+    &.is-saliendo::after { display: flex; }
+
+    &.is-nueva { animation: caja-entrar 240ms var(--caja-ease) both; }
+    &.is-tocada .caja-linea__importe { animation: caja-destello 420ms ease-out; }
+
+    &__info { display: grid; gap: 2px; min-width: 0; }
+
+    &__nombre {
+      font-size: var(--operational-text-section);
+      font-weight: 600;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    &__variante {
+      font-size: var(--operational-text-sm);
+      color: var(--admin-muted);
+    }
+
+    &__unitario {
+      @include cifra-columna;
+      font-size: 12px;
+      color: var(--admin-faint);
+    }
+
+    &__importe {
+      @include cifra-columna;
+      justify-self: end;
+      font-size: var(--operational-text-section);
+      font-weight: 600;
+    }
+  }
+
+  @keyframes caja-entrar {
+    from { opacity: 0; transform: translateX(14px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes caja-destello {
+    0% { color: var(--admin-text); }
+    30% { color: var(--admin-faint); }
+    100% { color: var(--admin-text); }
+  }
+
+  .caja-deshacer {
+    grid-row: 4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 12px 10px;
+    padding: 8px 8px 8px 14px;
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-strong);
+    animation: caja-aparecer 200ms var(--caja-ease) both;
+
+    &__texto {
+      flex: 1;
+      min-width: 0;
+      font-size: var(--operational-text-sm);
+      color: var(--admin-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // 44 px: es la red de seguridad del deslizar para quitar; se toca con prisa.
+    &__btn {
+      @include control(var(--operational-text-sm));
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--admin-border-strong);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-text);
+      cursor: pointer;
+    }
+  }
+
+  .caja-total {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: end;
+    column-gap: 12px;
+
+    &__piezas {
+      @include cifra-columna;
+      grid-column: 1;
+      grid-row: 2;
+      font-size: var(--operational-text-sm);
+      color: var(--admin-muted);
+    }
+
+    // muted: el pie del ticket está un escalón por encima de la superficie y
+    // ahí faint quedaba en 4.07:1.
+    &__rotulo {
+      @include rotulo(11px);
+      grid-column: 1;
+      grid-row: 1;
+      color: var(--admin-muted);
+    }
+
+    &__cifra {
+      @include cifra-total;
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      font-size: clamp(34px, 3.1vw, 44px);
+      line-height: 1;
+      color: var(--admin-text);
+      // Expose no trae tnum: reservar el ancho evita que el total baile.
+      min-width: 6ch;
+      text-align: right;
+    }
+  }
+
+  .caja-cobrar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+
+    &__btn {
+      @include control(var(--operational-text-subtitle));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60px;
+      border-radius: var(--admin-radius-sm);
+      cursor: pointer;
+      transition: background var(--admin-t-fast), transform 100ms, opacity var(--admin-t-fast);
+
+      &:active:not(:disabled) { transform: scale(.98); }
+      &:disabled { opacity: .35; cursor: not-allowed; }
+
+      &--efectivo {
+        border: 0;
+        background: var(--admin-accent);
+        color: var(--admin-on-accent);
+      }
+
+      &--tarjeta {
+        border: 1.5px solid var(--admin-border-strong);
+        background: transparent;
+        color: var(--admin-text);
+      }
+    }
+  }
+
+  // ── Cobro: se superpone al ticket entero ────────────────────────
+  // Tres pisos: cabeza, cuerpo y pie. Sólo el cuerpo (billetes, teclado)
+  // desplaza; el cambio y el botón de cobrar quedan SIEMPRE a la vista. Antes
+  // todo desplazaba junto y, con «Otro monto» abierto en una pantalla de
+  // 640 px de alto, el cambio y el cobro se iban por debajo del borde.
+  .caja-pago {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    background: var(--admin-surface);
+    overflow: hidden;
+    animation: caja-subir 240ms var(--caja-ease) both;
+
+    &[hidden] { display: none; }
+
+    &__cuerpo {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      // Aire para el anillo de foco de los billetes, que el desplazamiento
+      // recortaría; el margen negativo lo devuelve a su sitio.
+      margin: -4px;
+      padding: 4px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--admin-border) transparent;
+    }
+
+    &__pie {
+      flex: none;
+      display: grid;
+      gap: 12px;
+    }
+
+    &__cabeza { display: flex; align-items: center; justify-content: space-between; }
+    &__titulo { @include rotulo(11px); margin: 0; padding-left: 4px; color: var(--admin-faint); }
+
+    &__cerrar {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+      &:disabled { opacity: .4; }
+    }
+
+    &__rotulo { @include rotulo(11px); color: var(--admin-faint); }
+
+    &__total,
+    &__recibido,
+    &__cambio {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 4px;
+    }
+
+    // Lo recibido es lo que se está tecleando: si el cuerpo desplaza para
+    // mostrar el teclado, se queda arriba en vez de irse con el total.
+    &__recibido {
+      position: sticky;
+      top: -4px;
+      z-index: 1;
+      margin: 0 -4px;
+      padding: 4px 8px;
+      background: var(--admin-surface);
+    }
+
+    &__cifra { @include cifra-total; font-size: 30px; }
+
+    &__monto {
+      @include cifra-total;
+      font-size: 30px;
+      &.is-vacio { font-family: var(--admin-font-sans); font-size: var(--operational-text-base); font-weight: 500; color: var(--admin-faint); }
+    }
+
+    &__cambio {
+      padding: 14px 16px;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+
+      &.is-listo { background: var(--admin-surface-strong); }
+      // Sobre surface-soft/strong el rótulo faint caía a 3.4–4:1.
+      .caja-pago__rotulo { color: var(--admin-muted); }
+    }
+
+    &__cifra-cambio {
+      @include cifra-total;
+      font-size: clamp(36px, 3.4vw, 48px);
+      line-height: 1;
+    }
+
+    &__instruccion {
+      margin: 12px 4px auto;
+      font-size: var(--operational-text-subtitle);
+      line-height: 1.5;
+      color: var(--admin-muted);
+      strong { color: var(--admin-text); font-weight: 600; }
+    }
+
+    &__otro {
+      @include control(var(--operational-text-sm));
+      align-self: flex-start;
+      min-height: 40px;
+      padding: 0 4px;
+      border: 0;
+      background: transparent;
+      color: var(--admin-muted);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      cursor: pointer;
+      &:hover { color: var(--admin-text); }
+      @media (pointer: coarse) { min-height: 44px; }
+    }
+
+    &__error {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-danger-bg);
+      color: var(--admin-danger-text);
+      font-size: var(--operational-text-sm);
+      line-height: 1.4;
+      svg { flex: none; margin-top: 1px; }
+    }
+
+    &__confirmar {
+      @include control(var(--operational-text-subtitle));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 62px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      cursor: pointer;
+
+      &:disabled { background: var(--admin-surface-strong); color: var(--admin-faint); cursor: not-allowed; }
+      .caja-kbd { color: inherit; }
+    }
+  }
+
+  @keyframes caja-subir {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .caja-billetes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 8px;
+  }
+
+  .caja-billete {
+    @include cifra-columna;
+    min-height: 52px;
+    border: 1.5px solid var(--admin-border);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--admin-text);
+    font-size: var(--operational-text-section);
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+
+    &:first-child { font-family: var(--admin-font-sans); }
+    &:active { transform: scale(.97); }
+    &.is-on { border-color: var(--admin-accent); background: var(--admin-accent); color: var(--admin-on-accent); }
+  }
+
+  .caja-teclado {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+
+    &__tecla {
+      @include cifra-columna;
+      display: grid;
+      place-items: center;
+      min-height: 48px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font-size: 18px;
+      font-weight: 500;
+      cursor: pointer;
+      touch-action: manipulation;
+
+      &:active { background: var(--admin-surface-strong); }
+      &--borrar { color: var(--admin-muted); }
+    }
+
+    @media (max-height: 760px) and (min-width: $compacto + 1) { &__tecla { min-height: 40px; } }
+  }
+
+  // ── Venta cobrada ───────────────────────────────────────────────
+  .caja-vendido {
+    grid-row: 2 / -1;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 8px;
+    padding: 28px 22px;
+    text-align: center;
+    animation: caja-aparecer 260ms var(--caja-ease) both;
+
+    &__marca {
+      display: grid;
+      place-items: center;
+      width: 56px;
+      height: 56px;
+      margin-bottom: 6px;
+      border-radius: 999px;
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      svg { width: 26px; height: 26px; stroke-width: 2.25; }
+    }
+
+    // Color explícito: son <p> y `.admin-body p` los deja en muted. El cambio
+    // salía gris, y es justo la cifra que la cajera tiene que leer de lejos.
+    &__titulo { margin: 0; font-size: var(--operational-text-customer); font-weight: 650; color: var(--admin-text); }
+    &__dato { @include cifra-columna; margin: 0; font-size: var(--operational-text-sm); color: var(--admin-muted); }
+
+    &__cambio {
+      display: grid;
+      gap: 4px;
+      margin: 14px 0 6px;
+      color: var(--admin-text);
+    }
+
+    &__rotulo { @include rotulo(11px); color: var(--admin-faint); }
+
+    &__cifra {
+      @include cifra-total;
+      font-size: clamp(44px, 4.4vw, 64px);
+      line-height: 1;
+    }
+
+    &__acciones {
+      display: grid;
+      gap: 8px;
+      width: 100%;
+      margin-top: 14px;
+    }
+
+    &__btn {
+      @include control;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      border: 1.5px solid var(--admin-border-strong);
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-text);
+      cursor: pointer;
+
+      &.is-enviando { opacity: .6; }
+      &--nueva { border-color: var(--admin-accent); background: var(--admin-accent); color: var(--admin-on-accent); }
+      .caja-kbd { color: inherit; }
+    }
+  }
+
+  // Cobrada, la venta ocupa todo el ticket: el pie (total en cero, cobrar
+  // deshabilitado) no dice nada hasta la siguiente pieza.
+  .caja.esta-vendido .caja-ticket__pie { display: none; }
+
+  // ── Atajos de presión larga y multiplicador ─────────────────────
+  .caja-atajos {
+    position: fixed;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 18px;
+    background: var(--admin-surface-strong);
+    box-shadow: var(--admin-shadow-lg);
+    opacity: 0;
+    transform: translateY(6px) scale(.96);
+    transition: opacity 140ms, transform 200ms cubic-bezier(.34, 1.56, .64, 1);
+
+    &.is-abierto { opacity: 1; transform: none; }
+
+    &__rotulo {
+      @include rotulo(10px);
+      max-width: 150px;
+      padding: 0 8px 0 10px;
+      color: var(--admin-faint);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__btn {
+      @include cifra-total;
+      width: 56px;
+      height: 56px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font-size: 22px;
+      cursor: pointer;
+
+      &:hover, &:focus-visible { background: var(--admin-accent); color: var(--admin-on-accent); }
+    }
+  }
+
+  .caja-multiplicador {
+    position: fixed;
+    left: calc(var(--operational-shell-pad) + 4px);
+    bottom: calc(var(--operational-shell-pad) + 4px);
+    z-index: 20;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
+    @include cifra-total;
+    font-size: 22px;
+    box-shadow: var(--admin-shadow-lg);
+
+    &[hidden] { display: none; }
+    &__x { font-size: 16px; opacity: .7; }
+    &__ayuda { margin-left: 10px; font-family: var(--admin-font-sans); font-size: 12px; font-weight: 500; opacity: .65; }
+  }
+
+  // ── Hojas laterales ─────────────────────────────────────────────
+  .caja-velo {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--operational-overlay-scrim);
+    animation: caja-velo-in 200ms ease-out both;
+
+    &[hidden] { display: none; }
+  }
+
+  @keyframes caja-velo-in { from { opacity: 0; } }
+
+  .caja-hoja {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(480px, 100vw);
+    border-left: 1px solid var(--admin-border);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow-lg);
+    transform: translateX(100%);
+    transition: transform 260ms var(--caja-ease);
+
+    &[hidden] { display: none; }
+    &.is-abierta { transform: none; }
+
+    &__cabeza {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      padding: 8px 12px 8px 24px;
+      border-bottom: 1px solid var(--admin-border-soft);
+    }
+
+    &__titulo {
+      margin: 0;
+      font-family: var(--admin-font-titular);
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+
+    &__cerrar {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+      &:hover { background: var(--admin-surface-soft); color: var(--admin-text); }
+    }
+
+    &__cuerpo {
+      padding: 18px 24px 24px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    &__pie {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--admin-border-soft);
+
+      &[hidden] { display: none; }
+    }
+
+    &__ayuda { margin: 0 0 16px; font-size: var(--operational-text-sm); line-height: 1.5; color: var(--admin-faint); }
+    &__resumen { @include cifra-columna; font-size: var(--operational-text-sm); color: var(--admin-muted); }
+    &__cargando, &__error { display: flex; align-items: center; gap: 10px; color: var(--admin-muted); }
+    &__error { color: var(--admin-danger-text); }
+
+    &__primario {
+      @include control;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      cursor: pointer;
+
+      &:disabled { background: var(--admin-surface-strong); color: var(--admin-faint); cursor: not-allowed; }
+    }
+
+    @media (max-width: $telefono) {
+      top: auto;
+      width: 100vw;
+      max-height: 92dvh;
+      border-left: 0;
+      border-top: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-lg) var(--admin-radius-lg) 0 0;
+      transform: translateY(100%);
+    }
+  }
+
+  .caja-vacio {
+    margin: 0;
+    padding: 28px 8px;
+    color: var(--admin-faint);
+    text-align: center;
+    list-style: none;
+  }
+
+  // Horneada.
+  .caja-horno {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    &__fila {
+      // Nombre y paso en la primera fila; los atajos de bandeja debajo del
+      // nombre, donde el pulgar los encuentra sin tapar la cifra.
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'info paso' 'rapidos rapidos';
+      align-items: center;
+      gap: 10px 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--admin-border-soft);
+
+      &.is-con .caja-horno__nombre::after {
+        content: '';
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        margin-left: 8px;
+        border-radius: 999px;
+        background: var(--admin-text);
+        vertical-align: middle;
+      }
+      &.is-pocas .caja-horno__saldo { color: var(--admin-warning-text); }
+
+    }
+
+    &__info { grid-area: info; display: grid; gap: 2px; min-width: 0; }
+    &__nombre { font-weight: 600; font-size: var(--operational-text-section); }
+    &__saldo { @include cifra-columna; font-size: 12px; color: var(--admin-faint); }
+    &__rapidos { grid-area: rapidos; display: flex; gap: 6px; }
+    .caja-paso { grid-area: paso; }
+
+    &__rapido {
+      @include cifra-columna;
+      min-width: 48px;
+      min-height: 40px;
+      padding: 0 8px;
+      border: 1px solid var(--admin-border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--admin-muted);
+      font-size: var(--operational-text-sm);
+      cursor: pointer;
+      &:active { background: var(--admin-surface-strong); color: var(--admin-text); }
+      @media (pointer: coarse) { min-height: 44px; }
+    }
+  }
+
+  // Tickets de hoy.
+  .caja-tks { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+  .caja-tk {
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+
+    &__fila {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas: 'hora folio total' 'hora meta estado';
+      align-items: baseline;
+      column-gap: 14px;
+      row-gap: 2px;
+      width: 100%;
+      padding: 12px 16px;
+      border: 0;
+      background: transparent;
+      color: var(--admin-text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &__hora { grid-area: hora; @include cifra-columna; font-size: var(--operational-text-section); }
+    &__folio { grid-area: folio; font-weight: 600; }
+    &__meta { grid-area: meta; font-size: var(--operational-text-sm); color: var(--admin-muted); }
+    &__total { grid-area: total; @include cifra-columna; font-weight: 600; text-align: right; }
+    &__estado { grid-area: estado; @include rotulo(10px); color: var(--admin-danger-text); text-align: right; }
+
+    &.is-anulado .caja-tk__total { text-decoration: line-through; color: var(--admin-muted); }
+
+    // El teclado del NIP vive dentro de la tarjeta (surface-soft): con su
+    // fondo de siempre las teclas se fundían con ella y sólo se veían cifras.
+    .caja-teclado__tecla { background: var(--admin-surface-strong); }
+    .caja-teclado__tecla:active { background: var(--admin-border-strong); }
+
+    &__detalle { padding: 0 16px 14px; border-top: 1px solid var(--admin-border-soft); &[hidden] { display: none; } }
+
+    &__lineas {
+      display: grid;
+      gap: 6px;
+      margin: 12px 0;
+      padding: 0;
+      list-style: none;
+      font-size: var(--operational-text-sm);
+
+      li { display: flex; justify-content: space-between; gap: 12px; }
+      li span:last-child { @include cifra-columna; }
+      em { font-style: normal; color: var(--admin-muted); }
+    }
+
+    // La tarjeta es surface-soft: faint ahí da 4:1. Muted cumple.
+    &__quien, &__anulacion { margin: 0 0 12px; font-size: 12px; color: var(--admin-muted); }
+
+    &__acciones { display: flex; gap: 8px; justify-content: flex-end; &[hidden] { display: none; } }
+
+    &__btn {
+      @include control(var(--operational-text-sm));
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--admin-border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-text);
+      cursor: pointer;
+
+      &--peligro { border-color: var(--admin-danger-border); color: var(--admin-danger-text); }
+      &--peligro-solido { border-color: var(--admin-danger); background: var(--admin-danger); color: var(--admin-on-danger); }
+      &:disabled { opacity: .45; cursor: not-allowed; }
+    }
+  }
+
+  .caja-anular {
+    display: grid;
+    gap: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--admin-border);
+
+    &[hidden] { display: none; }
+    &__titulo { margin: 0; font-weight: 650; color: var(--admin-text); }
+    &__ayuda { margin: 0; font-size: var(--operational-text-sm); line-height: 1.45; color: var(--admin-muted); }
+    &__motivos { display: flex; flex-wrap: wrap; gap: 8px; }
+    &__rotulo { @include rotulo(10px); color: var(--admin-muted); }
+
+    &__nota {
+      display: grid;
+      gap: 6px;
+      input#{$campo} {
+        @include control;
+        min-height: 44px;
+        padding: 0 14px;
+        border: 1px solid var(--admin-border);
+        border-radius: 12px;
+        background: var(--admin-surface);
+        color: var(--admin-text);
+        font-weight: 500;
+        &:focus { outline: none; border-color: var(--admin-border-strong); box-shadow: var(--admin-focus-ring); }
+      }
+    }
+
+    &__acciones { display: flex; justify-content: flex-end; gap: 8px; }
+  }
+
+  .caja-nip {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+
+    &__puntos { display: flex; gap: 14px; }
+
+    &__punto {
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid var(--admin-border-strong);
+      border-radius: 999px;
+      transition: background 120ms, transform 160ms cubic-bezier(.34, 1.56, .64, 1);
+
+      &.is-lleno { background: var(--admin-text); border-color: var(--admin-text); transform: scale(1.1); }
+    }
+
+    .caja-teclado { width: min(280px, 100%); }
+  }
+
+  // Corte.
+  .caja-corte {
+    &__turnos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    &__fecha { margin: 0 0 18px; font-size: var(--operational-text-sm); color: var(--admin-muted); &::first-letter { text-transform: uppercase; } }
+    &__vivo { color: var(--admin-text); }
+
+    &__ventas { display: grid; gap: 4px; margin-bottom: 22px; }
+    &__rotulo { @include rotulo(11px); color: var(--admin-faint); }
+    &__cifra { @include cifra-total; font-size: clamp(44px, 9vw, 60px); line-height: 1; }
+
+    &__datos {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      margin: 0 0 24px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-border-soft);
+      overflow: hidden;
+    }
+
+    &__dato {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      background: var(--admin-surface);
+
+      dt { @include rotulo(10px); color: var(--admin-faint); }
+      dd { @include cifra-columna; margin: 0; font-size: var(--operational-text-subtitle); font-weight: 600; }
+    }
+
+    &__subtitulo { @include rotulo(11px); margin: 0 0 10px; color: var(--admin-faint); }
+
+    &__top {
+      display: grid;
+      gap: 0;
+      margin: 0 0 22px;
+      padding: 0;
+      list-style: none;
+      counter-reset: top;
+
+      li {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr) auto auto;
+        gap: 12px;
+        align-items: baseline;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--admin-border-soft);
+        counter-increment: top;
+
+        &::before { content: counter(top); @include cifra-columna; color: var(--admin-faint); font-size: 12px; }
+      }
+    }
+
+    &__top-n, &__top-importe { @include cifra-columna; font-size: var(--operational-text-sm); }
+    &__top-n { color: var(--admin-muted); }
+  }
+
+  // Atajos de teclado.
+  .caja-atajos-lista {
+    display: grid;
+    gap: 0;
+    margin: 0;
+
+    div { display: grid; grid-template-columns: minmax(130px, auto) 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--admin-border-soft); }
+    dt { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    dd { margin: 0; font-size: var(--operational-text-sm); color: var(--admin-muted); }
+    .caja-kbd { display: inline-block; margin: 0; opacity: .8; }
+  }
+
+  // Sin permiso de venta: la pantalla del horno.
+  .caja-solo-horneada {
+    grid-column: 1 / -1;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 12px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px;
+
+    &__rotulo { @include rotulo(11px); margin: 0; color: var(--admin-faint); }
+    &__titulo { margin: 0; font-family: var(--admin-font-titular); font-size: clamp(30px, 4vw, 44px); font-weight: 600; letter-spacing: -.01em; line-height: 1.1; }
+    &__ayuda { margin: 0 0 12px; color: var(--admin-muted); line-height: 1.5; }
+    &__btn {
+      @include control(var(--operational-text-subtitle));
+      display: inline-flex; align-items: center; gap: 10px;
+      min-height: 60px; padding: 0 26px;
+      border: 0; border-radius: var(--admin-radius-sm);
+      background: var(--admin-accent); color: var(--admin-on-accent); cursor: pointer;
+    }
+  }
+
+  // Indicador de carga: un aro que gira; quieto con movimiento reducido.
+  .caja-giro {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 999px;
+    animation: caja-giro 700ms linear infinite;
+  }
+
+  @keyframes caja-giro { to { transform: rotate(360deg); } }
+
+  // ── Tableta vertical y teléfono: el ticket se vuelve hoja ───────
+  .caja-barra-ticket { display: none; }
+
+  @media (max-width: $compacto) {
+    .caja {
+      grid-template-columns: minmax(0, 1fr);
+      padding-bottom: 0;
+    }
+
+    // `&` y no `.caja-page`: anidado aquí, «.caja-page» compilaba a
+    // «.caja-page .caja-page», que no casa nunca, y la tecla no se achicaba.
+    & { --caja-tecla-min: 150px; }
+
+    .caja-barra-ticket:not([hidden]) {
+      @include control(var(--operational-text-section));
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      z-index: 30;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      min-height: 64px;
+      padding: 0 18px 0 22px;
+      border: 0;
+      border-radius: 18px;
+      background: var(--admin-accent);
+      color: var(--admin-on-accent);
+      box-shadow: var(--admin-shadow-lg);
+      cursor: pointer;
+      animation: caja-subir 220ms var(--caja-ease) both;
+    }
+
+    .caja-barra-ticket__piezas { @include cifra-columna; font-size: var(--operational-text-sm); opacity: .7; }
+    .caja-barra-ticket__total { @include cifra-total; font-size: 24px; justify-self: start; }
+    .caja-barra-ticket__accion { display: inline-flex; align-items: center; gap: 4px; }
+
+    .caja-ticket {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 45;
+      max-height: 90dvh;
+      min-height: min(560px, 90dvh);
+      border-radius: var(--admin-radius-lg) var(--admin-radius-lg) 0 0;
+      border-bottom: 0;
+      box-shadow: var(--admin-shadow-lg);
+      transform: translateY(105%);
+      transition: transform 280ms var(--caja-ease);
+      visibility: hidden;
+    }
+
+    .caja.ticket-abierto .caja-ticket { transform: none; visibility: visible; }
+    .caja-ticket__cerrar-hoja { display: grid; }
+
+    // En teléfono el ticket vive en la barra: tras cobrar, la hoja sigue abierta
+    // con el cambio a la vista hasta «Nueva venta».
+    .caja-teclas { padding-bottom: 104px; }
+  }
+
+  @media (max-width: $telefono) {
+    .caja-vitrina__barra { flex-wrap: wrap; }
+    .caja-buscar { flex: 1 1 100%; }
+    .caja-tecla__principal { min-height: 104px; padding: 14px 14px 16px; }
+    .caja-tecla.is-abierta { grid-column: 1 / -1; }
+  }
+
+  // ── Movimiento reducido ─────────────────────────────────────────
+  // Reducido no es inmóvil: lo que se desplazaba ahora se funde, y el acuse
+  // que era un salto (los gajos que piden elegir) pasa a un destello de
+  // fondo. El destello del importe es color, no movimiento: se queda.
+  @media (prefers-reduced-motion: reduce) {
+    .caja-tecla__cuenta,
+    .caja-linea,
+    .caja-tecla__principal,
+    .caja-tecla__medidor::after { transition: none; }
+
+    .caja-tecla__principal:active { transform: none; }
+    .caja-tecla__cuenta.is-pulso { animation: none; }
+    .caja-gajos.is-pulso { animation: caja-resaltar 420ms ease-out; }
+
+    .caja-linea.is-nueva,
+    .caja-ficha,
+    .caja-pago,
+    .caja-vendido,
+    .caja-deshacer,
+    .caja-velo,
+    .caja-barra-ticket:not([hidden]) { animation: caja-fundido 160ms ease-out both; }
+
+    .caja-hoja { transform: none; opacity: 0; transition: opacity 160ms ease-out; }
+    .caja-hoja.is-abierta { opacity: 1; }
+    .caja-atajos { transform: none; transition: opacity 120ms ease-out; }
+
+    .caja-giro { animation: none; border-right-color: currentColor; opacity: .5; }
+  }
+
+  // La hoja del ticket en teléfono: sin subir, aparece fundiéndose. La
+  // visibilidad espera al fundido para que también se vea irse.
+  @media (prefers-reduced-motion: reduce) and (max-width: $compacto) {
+    .caja-ticket { transform: none; opacity: 0; transition: opacity 160ms ease-out, visibility 0s linear 160ms; }
+    .caja.ticket-abierto .caja-ticket { opacity: 1; transition: opacity 160ms ease-out; }
+  }
+
+  @keyframes caja-fundido { from { opacity: 0; } }
+  @keyframes caja-resaltar {
+    0%, 100% { background: transparent; }
+    35% { background: color-mix(in srgb, var(--admin-paper) 12%, transparent); }
+  }
+
+  // [hidden] gana a cualquier display de componente: va al final del bloque,
+  // con la misma especificidad que las piezas, para que el orden decida.
+  [hidden] { display: none; }
+}

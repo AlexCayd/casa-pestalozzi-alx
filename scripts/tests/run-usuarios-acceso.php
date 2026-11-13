@@ -131,7 +131,8 @@ comprobar(!preg_match('/INSERT\s+INTO\s+usuarios/i', $ddl), 'El DDL contiene reg
 $perfiles = \Services\Users\PerfilesSugeridos::class;
 comprobar($perfiles::inconsistencias() === [], 'Un perfil sugerido usa un módulo o nivel inexistente: ' . implode('; ', $perfiles::inconsistencias()));
 comprobar(array_keys($perfiles::disponibles(['restaurante'])) === ['mesero', 'admin_restaurante'], 'Restaurante no ofrece exactamente mesero y administrador.');
-comprobar(array_keys($perfiles::disponibles(['panaderia'])) === ['admin_panaderia'], 'Panadería ofrece un perfil sin módulos de piso.');
+// Panadería tiene caja de mostrador (arquitectura §7): cajero, encargado y administrador.
+comprobar(array_keys($perfiles::disponibles(['panaderia'])) === ['cajero_panaderia', 'encargado_caja_panaderia', 'admin_panaderia'], 'Panadería no ofrece exactamente cajero, encargado de caja y administrador.');
 comprobar(isset($perfiles::disponibles(['global', 'restaurante', 'panaderia'])['acceso_total']), 'Global completo no ofrece acceso total.');
 comprobar(!str_contains(file_get_contents($root . '/services/Users/PerfilesSugeridos.php'), "'es_superadmin' =>"), 'Un perfil sugerido intenta asignar es_superadmin.');
 

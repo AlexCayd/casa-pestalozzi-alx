@@ -11,13 +11,22 @@ final class AlcanceInventario
 
     public function actorId(): int { return $this->actorId; }
 
-    /** Venta de Restaurante: permiso de piso independiente al módulo Inventario. */
+    /** Venta de un negocio: permiso de piso independiente al módulo Inventario. */
     public function autorizarVenta(string $contexto, bool $bloquear = false): array
     {
-        if ($contexto !== 'restaurante') throw new InventarioError('AMBITO_DENEGADO','El consumo comercial de 3D solo está habilitado en Restaurante.');
+        if (!in_array($contexto, ['restaurante', 'panaderia'], true)) throw new InventarioError('AMBITO_DENEGADO','Solo un negocio vendedor consume inventario por venta.');
+        return $this->autorizarPiso($contexto, 'pdv', $bloquear);
+    }
+
+    /**
+     * Operación de piso acotada a su módulo (`pdv`, `vitrina`). No abre el
+     * módulo Inventario: quien la llama limita qué almacenes y artículos toca.
+     */
+    public function autorizarPiso(string $contexto, string $modulo, bool $bloquear = false): array
+    {
         $perfil = PermisosUsuario::cargar($this->actorId, $this->db, $bloquear);
-        $decision = PermisosUsuario::decidir($perfil, $contexto, 'pdv', 'operar', $this->authNivel);
-        if (!$decision['ok']) throw new InventarioError($decision['codigo'],'No tienes permiso para operar el punto de venta.');
+        $decision = PermisosUsuario::decidir($perfil, $contexto, $modulo, 'operar', $this->authNivel);
+        if (!$decision['ok']) throw new InventarioError($decision['codigo'],'No tienes permiso para esta operación de piso.');
         return ['unidad_id'=>(int)$perfil['ambitos'][$contexto]['id'],'contexto'=>$contexto];
     }
 

@@ -9,8 +9,15 @@
 // con los tokens del pin —azul de mesa reservada, azul hondo de tolerancia
 // vencida— y, en ámbar sólo en la tinta, lo que pide revisar algo («Sin mesa
 // asignada», «Fuera de horario»). Cabeceras, selección y foco van en la tinta
-// del sistema. Y una regla de forma: el contorno de pastilla es de lo que se
-// pulsa; una etiqueta de estado nunca lo lleva.
+// del sistema. Y una regla de forma: la pastilla (radio pleno) es de lo que se
+// pulsa; una etiqueta de estado lleva radio de pin, o ninguna caja.
+//
+// Los controles hablan el lenguaje sólido del POS (`--pos-solido-*`,
+// _punto-de-venta.scss), por decisión del producto: la fecha, «Ahora» y la
+// pastilla «Ver» van en neutro macizo y lo que el mapa está mirando —«Ahora»
+// en vivo o el horario proyectado— en papel. Uno solo en papel a la vez: la
+// lista se lee como un selector. Tarjetas, cabeceras y avisos no son
+// controles y conservan su superficie.
 //
 // Contraste medido sobre la tarjeta: --admin-muted 5.27–6.21:1, --admin-faint
 // 4.04:1. Por eso ningún texto de aquí usa --admin-faint.
@@ -39,21 +46,28 @@
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 10px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 
+  &:hover { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
-  &[aria-expanded="true"] { border-color: var(--admin-border-strong); }
+
+  // Abierto: hundido un escalón, como un interruptor pulsado. No va en papel:
+  // abrir el calendario no es elegir nada, y el papel del cajón es para lo
+  // que el mapa está mirando.
+  &[aria-expanded="true"] { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
 }
 
-.pos-cajon-fecha__rel { color: var(--admin-muted); }
+// «Hoy · », «Mañana · »: dentro del botón, en su tinta. El gris medio se
+// quedaba bajo 4.5:1 sobre el neutro; el punto medio ya lo separa de la fecha.
+.pos-cajon-fecha__rel { color: inherit; }
 
 // El calendario sigue en flujo (CLAUDE.md), sólo deja de estar siempre abierto.
 .mapa-page .pos-drawer-date[hidden] { display: none; }
@@ -73,10 +87,10 @@
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 12px;
-  background: transparent;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font: inherit;
   font-weight: 600;
   text-align: left;
@@ -90,9 +104,14 @@
 
   svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.9; }
 
+  &:hover { border-color: var(--pos-solido-neutro-hover); background: var(--pos-solido-neutro-hover); }
+
+  // El mapa está en vivo: «Ahora» es la opción elegida del cajón, en papel,
+  // como lo es la pastilla del horario proyectado cuando se proyecta.
   &[aria-current="true"] {
-    border-color: var(--admin-border-strong);
-    background: var(--admin-surface-soft);
+    border-color: var(--pos-solido-activo);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
   }
 
   &:focus-visible { outline: 0; box-shadow: var(--admin-focus-ring); }
@@ -113,10 +132,12 @@
 // La cabecera es un TITULAR de agenda, no una caja: la hora grande en mono,
 // el resumen y, a la derecha, la acción. Era un rectángulo con borde —igual
 // que las tarjetas que encabeza— y el proyectado se invertía a blanco macizo:
-// la superficie más ruidosa del cajón compitiendo con «Nueva reservación», que
-// es el único relleno sólido que le toca. Ahora la separa del grupo una regla
-// a todo el ancho, y el proyectado se dice con esa misma regla engrosada en
-// tinta, como la pestaña activa de un índice.
+// una banda a todo el ancho, la superficie más ruidosa del cajón, compitiendo
+// con «Nueva reservación». Ahora la separa del grupo una regla a todo el
+// ancho, y el proyectado se dice con esa misma regla engrosada en tinta, como
+// la pestaña activa de un índice, y con su pastilla en papel (ver
+// .pos-horario__ver): el relleno macizo se queda en la pastilla, no en la
+// banda.
 .mapa-page .pos-horario__boton {
   position: relative;
   display: grid;
@@ -195,35 +216,48 @@
   white-space: nowrap;
 }
 
-// «Ver» tiene la forma de acción de la casa —la pastilla con contorno de
+// «Ver» tiene la forma de acción de la casa —la pastilla neutra sólida de
 // «Cambiar» y «Agregar» en la ficha—; toda la cabecera es el blanco táctil,
-// la pastilla sólo dice dónde. Cuando ese horario ya es el del mapa deja de
-// ser acción y pasa a estado: sin contorno, en tinta.
+// la pastilla sólo dice dónde. Cuando ese horario ya es el del mapa, la
+// pastilla pasa a papel con «En el mapa»: es la opción elegida, y conserva su
+// caja para que la cabecera no salte al proyectar. La de un horario pasado
+// («En vivo») no es un botón: texto en gris, sin caja, para que no parezca
+// que se puede tocar.
 .pos-horario__ver {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--pos-solido-neutro);
   border-radius: 999px;
-  color: var(--admin-text);
+  background: var(--pos-solido-neutro);
+  color: var(--pos-solido-neutro-tinta);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 
   svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.9; }
 
-  .pos-horario__boton:is(button):hover & { background: var(--admin-surface-soft); }
+  // Sin el :not(), este hover (0,3,1) le ganaba al horario actual (0,3,0) y
+  // la pastilla en papel volvía al gris bajo el dedo.
+  .pos-horario__boton:is(button):not([aria-current="true"]):hover & {
+    border-color: var(--pos-solido-neutro-hover);
+    background: var(--pos-solido-neutro-hover);
+  }
 
-  .pos-horario__boton[aria-current="true"] &,
+  .pos-horario__boton[aria-current="true"] & {
+    border-color: var(--pos-solido-activo);
+    background: var(--pos-solido-activo);
+    color: var(--pos-solido-activo-tinta);
+  }
+
   .pos-horario__boton:not(button) & {
     padding: 0;
     border-color: transparent;
     background: transparent;
+    color: var(--admin-muted);
   }
-
-  .pos-horario__boton:not(button) & { color: var(--admin-muted); }
 }
 
 .pos-horario__lista {
@@ -421,10 +455,12 @@
 // grande». Era una pastilla con contorno, la misma silueta que «Cambiar» o
 // «Agregar», y el estado se leía como un botón más.
 //
-// Con color, es un pin en miniatura: relleno, canto y tinta del pin azul del
-// plano, con radio de pin y no de pastilla. La tarjeta, la ficha y la mesa se
-// reconocen así como la misma cosa. El ámbar va sólo en la tinta, sin relleno:
-// no es un estado de la mesa sino algo que revisar.
+// Con color, es un pin en miniatura, con radio de pin y no de pastilla: la
+// tarjeta, la ficha y la mesa se reconocen así como la misma cosa. Las dos
+// van macizas (lenguaje sólido del POS): «reservada» en el azul sólido del
+// POS con papel y «vencida» en el azul hondo del pin, que ya lo era. El ámbar
+// va sólo en la tinta, sin relleno: no es un estado de la mesa sino algo que
+// revisar. Neutra y ámbar no llevan caja, así que no hay tinte que convertir.
 .pos-senal {
   display: inline-flex;
   min-height: 24px;
@@ -452,10 +488,13 @@
   border-radius: 6px;
 }
 
+// Era el tinte del pin (24 % de azul sobre la superficie) con canto y tinta
+// azules. Macizo, el canto sobra: va del color del relleno y conserva el
+// píxel para que la señal no cambie de alto.
 .pos-senal--reservada {
-  border-color: var(--map-table-reservation-border);
-  background: var(--map-table-reservation-bg);
-  color: var(--map-table-reservation-text);
+  border-color: var(--pos-solido-info);
+  background: var(--pos-solido-info);
+  color: var(--pos-solido-info-tinta);
 }
 
 // La receta de `.mmodal-chip--overdue` del modal de mesa: se

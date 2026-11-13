@@ -13,6 +13,7 @@ use Model\Impresora;
 use Model\ConfiguracionPos;
 use Classes\TicketPrinter;
 use MVC\Router;
+use Services\Configuration\AreasProduccion;
 use Services\Security\ContextoNegocio;
 
 class AdminPrintersController
@@ -370,33 +371,12 @@ class AdminPrintersController
     }
 
     /**
-     * 'ink' o 'paper': la de las dos anclas del panel que más contrasta con un
-     * color, por luminancia relativa de WCAG (no por el promedio «percibido»
-     * de AdminAreaController, que se equivoca en los tonos medios). Los dos
-     * valores son los de --admin-ink (#0b0b0c) y --admin-paper (#fbfbfa) en
-     * _globals.scss, ya convertidos a luminancia.
+     * 'ink' o 'paper' sobre el color de un área. Vive en AreasProduccion
+     * porque el contador de Listos del KDS pide la misma tinta.
      */
     private static function tintaSobre(string $hex): string
     {
-        $hex = ltrim($hex, '#');
-        if (strlen($hex) === 3) {
-            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
-        }
-
-        $canal = static function (string $par): float {
-            $c = hexdec($par) / 255;
-            return $c <= 0.04045 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
-        };
-        $l = 0.2126 * $canal(substr($hex, 0, 2))
-            + 0.7152 * $canal(substr($hex, 2, 2))
-            + 0.0722 * $canal(substr($hex, 4, 2));
-
-        $lInk = 0.0037;
-        $lPaper = 0.9640;
-        $contraInk = ($l + 0.05) / ($lInk + 0.05);
-        $contraPaper = ($lPaper + 0.05) / ($l + 0.05);
-
-        return $contraInk >= $contraPaper ? 'ink' : 'paper';
+        return AreasProduccion::tintaSobre($hex);
     }
 
     /** El botón de prueba con JS pide JSON; el formulario sin JS, HTML. */

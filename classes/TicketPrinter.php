@@ -300,6 +300,35 @@ class TicketPrinter {
         }
     }
 
+    /**
+     * Comprobante de la caja de Panadería en su estación de cuentas. El ticket
+     * llega ya resuelto y autorizado por Services\Pos\CajaMostrador; aquí sólo
+     * se respeta el interruptor de impresión de la unidad y se envía. Un fallo
+     * no toca la venta: el cobro ya está confirmado.
+     *
+     * @return array{ok: bool, codigo?: string, mensaje?: string}
+     */
+    public static function imprimirTicketCaja(array $ticket): array
+    {
+        self::$fallos = [];
+        try {
+            $unidad = ContextoNegocio::unidad('panaderia');
+            $db = ContextoNegocio::db();
+            $stmt = $db->prepare('SELECT impresion_activa FROM configuracion_pos WHERE unidad_id=? AND id=1');
+            $stmt->bind_param('i', $unidad); $stmt->execute(); $activa = (int)($stmt->get_result()->fetch_row()[0] ?? 0) === 1; $stmt->close();
+            if (!$activa) return ['ok' => false, 'codigo' => 'SIN_IMPRESORA', 'mensaje' => 'La impresión de la caja está en pausa.'];
+            $stmt = $db->prepare("SELECT * FROM impresoras WHERE unidad_id=? AND rol='cuenta' AND activo=1 ORDER BY id LIMIT 1");
+            $stmt->bind_param('i', $unidad); $stmt->execute(); $fila = $stmt->get_result()->fetch_assoc(); $stmt->close();
+            if (!$fila) return ['ok' => false, 'codigo' => 'SIN_IMPRESORA', 'mensaje' => 'Esta caja no tiene impresora de tickets.'];
+            $impresora = Impresora::deFila($fila);
+            if (self::enviar($impresora, new \Classes\Impresion\TicketCaja($ticket, (int)$impresora->ancho))) return ['ok' => true];
+            return ['ok' => false, 'codigo' => 'IMPRESION_FALLIDA', 'mensaje' => 'La impresora no respondió. La venta sí quedó registrada.'];
+        } catch (\Throwable $e) {
+            error_log('TicketPrinter::imprimirTicketCaja - ' . $e->getMessage());
+            return ['ok' => false, 'codigo' => 'IMPRESION_FALLIDA', 'mensaje' => 'No se pudo imprimir. La venta sí quedó registrada.'];
+        }
+    }
+
     /** Scope comercial nuevo; el cuerpo legacy permanece en imprimirComanda(). */
     private static function imprimirComandaNuevo(array $items,array $meta): array
     {

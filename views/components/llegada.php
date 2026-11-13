@@ -11,14 +11,17 @@
  * Tres piezas, y cada una degrada sola:
  *   1. Este marcado, al principio del <body>: tapa la página desde la primera
  *      pintura, con la misma tinta que el login, así que el cambio de documento
- *      no parpadea.
+ *      no parpadea. Son DOS capas fijas: la cortina (los paños de tinta) y,
+ *      encima, el centro (luz, nombre, filete y saludo). Van separadas porque
+ *      el centro se funde con `difference` contra lo que tenga debajo —tinta o
+ *      panel— y una capa común lo aislaría de la página.
  *   2. CSS (_transitions.scss): el nombre lleva `view-transition-name:
  *      cp-marca`, de modo que la transición de documento cruzado lo trae desde
- *      la marca del login hasta el centro. Si no hay JS, el velo se sostiene y
- *      se retira solo con una animación propia.
- *   3. JS (src/js/components/llegada.js): tras la pausa, el nombre vuela hasta
- *      la marca de la pantalla (`data-llegada-destino`) mientras el velo se
- *      cierra sobre ella. Se salta con cualquier tecla o toque.
+ *      la marca del login hasta el centro. Si no hay JS, la cortina sube sola
+ *      con una animación propia.
+ *   3. JS (src/js/components/llegada.js): tras la pausa, la cortina sube en
+ *      ola desde la marca de la pantalla (`data-llegada-destino`) y el nombre
+ *      vuela en arco hasta ella. Se salta con cualquier tecla o toque.
  *
  * Variables, todas opcionales:
  * - llegadaDestino: selectores CSS de la marca de destino, en orden de
@@ -38,13 +41,34 @@ $llegadaPila = $llegadaNombre !== '' ? (preg_split('/\s+/u', $llegadaNombre)[0] 
 ?>
 <?php
 /* `hidden` a propósito: lo oculta la hoja del NAVEGADOR, y el
-   `display: grid` de .cp-llegada (_transitions.scss) le gana. Si la página
-   trae una hoja vieja de caché —las vistas de área todavía enlazan
-   operation.css con un `?v=` escrito a mano—, el velo no se pinta como un
-   bloque de texto suelto encima de la pantalla: simplemente no aparece. */
+   `display: contents` de .cp-llegada (_transitions.scss) le gana. Si la página
+   llegara sin su hoja, el velo no se pinta como un bloque de texto suelto
+   encima de la pantalla: simplemente no aparece.
+
+   Cinco paños: los que caben en un monitor. llegada.js los remide (el primero
+   con el ancho del sidebar, para que la casa se abra por sus columnas) y en
+   un teléfono la hoja deja tres.
+
+   `aria-hidden` también en las dos capas y no sólo en el contenedor: con
+   `display: contents` el contenedor no genera caja, y no todos los motores
+   propagan el atributo de una caja que no existe. */
 ?>
 <div class="cp-llegada" data-llegada<?php echo $llegadaDestino !== '' ? ' data-llegada-destino="' . $llegadaH($llegadaDestino) . '"' : ''; ?> aria-hidden="true" hidden>
-    <div class="cp-llegada__centro">
+    <div class="cp-llegada__cortina" data-llegada-cortina aria-hidden="true">
+        <span class="cp-llegada__pano"></span>
+        <span class="cp-llegada__pano"></span>
+        <span class="cp-llegada__pano"></span>
+        <span class="cp-llegada__pano"></span>
+        <span class="cp-llegada__pano"></span>
+    </div>
+    <div class="cp-llegada__centro" aria-hidden="true">
+        <?php /* La luz va DENTRO del centro y debajo del nombre, no en la
+                 cortina: bajo un `difference`, una luz en el fondo se RESTA de
+                 la letra —el nombre perdía un 12 % de brillo justo al soltarlo
+                 la transición de documento, y el saludo bajaba a 4.9:1—. Aquí
+                 la letra opaca la tapa dentro del grupo y sólo se funde el
+                 halo. */ ?>
+        <span class="cp-llegada__luz"></span>
         <?php
         /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
            Apilado y centrado: es el isologo del manual, y apilado también es

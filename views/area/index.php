@@ -19,22 +19,38 @@ $usuarioNombre = trim((string) ($_SESSION['nombre'] ?? ''));
 // ofrece a quien entra al panel.
 $usuarioRol = \Classes\Auth::nombreRol() ?: 'Usuario';
 $esAdmin = \Classes\Auth::tienePanel();
+/*
+ * El color de la estación (areas_produccion.color) es dato de negocio, no un
+ * token, y es la IDENTIDAD del tablero: llena la barra superior y tiñe el fondo
+ * (ver src/scss/area/_area.scss). Los estados no lo usan; van en rojo, amarillo
+ * y verde. --area-ink es la tinta sobre la barra llena
+ * (AreasProduccion::tintaSobre), siempre una de las dos anclas del panel.
+ *
+ * Va en el <body> y no en el <main>: el fondo con el tinte de la estación lo
+ * pinta .area-shell, que está por encima del main y no vería la variable.
+ */
+$areaEstilo = '--area-accent: ' . $area['color']
+  . '; --area-ink: var(--admin-' . (($area['tinta'] ?? 'ink') === 'paper' ? 'paper' : 'ink') . ')';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-admin-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b0b0c" />
+  <?php /* La barra del navegador de la tablet sigue a la de la pantalla. */ ?>
+  <meta name="theme-color" content="<?= $h($area['color']) ?>" />
   <title><?= $h($area['nombre']) ?> · Casa Pestalozzi</title>
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
   <link rel="apple-touch-icon" href="/build/images/logo.svg" />
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/satoshi-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <?php include __DIR__ . '/../components/view-transition-opt-in.php'; ?>
   <link rel="stylesheet" href="<?= $h(recursoVersionado('/build/css/operation.css')) ?>">
 </head>
-<body class="admin-body area-page operational-page" data-page="area" data-operation-module="area">
+<?php /* .area-tablero separa el tablero del selector de estación, que
+          comparte .area-page, .area-shell y el header operativo. */ ?>
+<body class="admin-body area-page area-tablero operational-page" data-page="area" data-operation-module="area" style="<?= $h($areaEstilo) ?>">
 
 <?php
 // El indicador de actualización va como acción del header: el partial estándar
@@ -94,45 +110,46 @@ $operationalUsuarioRol = $usuarioRol;
 $operationalShellClass = 'area-shell';
 $operationalMainClass = 'area-main operational-layout';
 $operationalMainId = 'area-main';
-// El color de la estación (areas_produccion.color) es dato de negocio, no un
-// token, y es EL color del tablero: corona las tres columnas por igual. Ya no
-// hay un color por estado con el que pudiera chocar — el estado de cada banda
-// lo dice su rótulo, en palabras.
 $operationalMainAttributes = [
   'aria-label' => 'Tablero de producción',
-  'style' => '--area-accent: ' . $area['color'],
 ];
 
 ob_start();
 ?>
 <div class="area-board" data-operational-workspace>
 
-  <section class="area-col area-col--enviados" aria-labelledby="area-col-enviados-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-enviados-label">Enviados</span>
-      <span class="area-col-count admin-num" id="count-enviados">0</span>
+  <section class="area-banda area-banda--enviados" aria-labelledby="area-banda-enviados-label">
+    <header class="area-banda__lomo">
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-enviados-label">Enviados</span>
+        <span class="area-banda__cuenta admin-num" id="count-enviados">0</span>
+      </div>
     </header>
-    <div class="area-col-items" id="list-enviados" data-scrollable>
+    <div class="area-banda__riel" id="list-enviados">
       <?= $areaVacio ?>
     </div>
   </section>
 
-  <section class="area-col area-col--prep" aria-labelledby="area-col-prep-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-prep-label">En preparación</span>
-      <span class="area-col-count admin-num" id="count-prep">0</span>
+  <section class="area-banda area-banda--prep" aria-labelledby="area-banda-prep-label">
+    <header class="area-banda__lomo">
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-prep-label">En preparación</span>
+        <span class="area-banda__cuenta admin-num" id="count-prep">0</span>
+      </div>
     </header>
-    <div class="area-col-items" id="list-prep" data-scrollable>
+    <div class="area-banda__riel" id="list-prep">
       <?= $areaVacio ?>
     </div>
   </section>
 
-  <section class="area-col area-col--listo" aria-labelledby="area-col-listo-label">
-    <header class="area-col-head">
-      <span class="area-col-label" id="area-col-listo-label">Listos</span>
-      <span class="area-col-count admin-num" id="count-listo">0</span>
+  <section class="area-banda area-banda--listo" aria-labelledby="area-banda-listo-label">
+    <header class="area-banda__lomo">
+      <div class="area-banda__marca">
+        <span class="area-banda__rotulo" id="area-banda-listo-label">Listos</span>
+        <span class="area-banda__cuenta admin-num" id="count-listo">0</span>
+      </div>
     </header>
-    <div class="area-col-items" id="list-listo" data-scrollable>
+    <div class="area-banda__riel" id="list-listo">
       <?= $areaVacio ?>
     </div>
   </section>

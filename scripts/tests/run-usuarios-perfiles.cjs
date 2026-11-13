@@ -61,7 +61,7 @@ async function montar(caso) {
     assert.equal(f.marcado(), null, 'Un alta vacía no debe marcar perfil.');
     assert.deepEqual(
       [...f.doc.querySelectorAll('[data-user-preset]')].map((r) => r.value),
-      ['mesero', 'admin_restaurante', 'admin_panaderia', 'acceso_total']
+      ['mesero', 'cajero_panaderia', 'encargado_caja_panaderia', 'admin_restaurante', 'admin_panaderia', 'acceso_total']
     );
     casos++;
 
@@ -83,6 +83,28 @@ async function montar(caso) {
     assert.equal(envioMesero.password, undefined, 'El acceso por NIP no envía contraseña.');
     casos++;
 
+    for (const [perfil, anular] of [['cajero_panaderia', ''], ['encargado_caja_panaderia', 'operar']]) {
+      f.elegir(perfil);
+      assert.equal(f.activo('panaderia'), true);
+      assert.equal(f.activo('restaurante'), false);
+      assert.equal(f.activo('global'), false);
+      for (const modulo of ['pdv', 'vitrina']) assert.equal(f.nivel('panaderia', modulo), 'operar');
+      assert.equal(f.nivel('panaderia', 'anular'), anular);
+      for (const modulo of ['users', 'inventario', 'configuration']) assert.equal(f.nivel('panaderia', modulo), '');
+      assert.equal(f.form.getAttribute('data-resolved-auth-type'), 'nip');
+      assert.equal(f.marcado(), perfil);
+      const envio = f.envio();
+      assert.equal(envio['ambitos[panaderia][activo]'], '1');
+      assert.equal(envio['ambitos[panaderia][permisos][pdv]'], 'operar');
+      assert.equal(envio['ambitos[panaderia][permisos][vitrina]'], 'operar');
+      assert.equal(envio['ambitos[panaderia][permisos][anular]'] || '', anular);
+      assert.equal(envio['ambitos[panaderia][facultades][]'], undefined);
+      assert.equal(envio['ambitos[global][activo]'], '0');
+      assert.equal(envio['ambitos[restaurante][activo]'], '0');
+      assert.equal(envio.password, undefined);
+      casos++;
+    }
+
     f.elegir('admin_restaurante');
     for (const [m, def] of Object.entries({ pdv: 'operar', area: 'operar', reservations_map: 'operar', menu: 'editar', users: 'editar', configuration: 'editar', finanzas: 'editar' })) {
       assert.equal(f.nivel('restaurante', m), def, 'Admin de Restaurante sin ' + m);
@@ -99,7 +121,9 @@ async function montar(caso) {
     assert.equal(f.activo('panaderia'), true);
     assert.equal(f.nivel('panaderia', 'menu'), 'editar');
     assert.equal(f.nivel('restaurante', 'pdv'), '', 'Cambiar de perfil limpia el ámbito anterior.');
-    assert.equal(f.doc.getElementById('scope-panaderia-pdv'), null, 'Panadería no tiene POS.');
+    // Panadería tiene caja de mostrador (arquitectura §7); Producción y mapa siguen siendo de Restaurante.
+    assert.notEqual(f.doc.getElementById('scope-panaderia-pdv'), null, 'Panadería ofrece su caja.');
+    assert.equal(f.doc.getElementById('scope-panaderia-area'), null, 'Panadería no tiene Producción.');
     casos++;
 
     f.elegir('acceso_total');
@@ -140,6 +164,23 @@ async function montar(caso) {
     assert.match(f.estado(), /menor nivel/);
     assert.equal(f.marcado(), 'admin_restaurante', 'El perfil recortado sigue reconocido.');
     casos++;
+  }
+
+  // ── Los perfiles de caja respetan el techo local de delegación ───────
+  {
+    const f = await montar({ contexto: 'panaderia', ambitos: ['panaderia'], techo: { pdv: 'operar' }, facultades: {} });
+    for (const perfil of ['cajero_panaderia', 'encargado_caja_panaderia']) {
+      f.elegir(perfil);
+      assert.equal(f.nivel('panaderia', 'pdv'), 'operar');
+      assert.equal(f.nivel('panaderia', 'vitrina'), '');
+      assert.equal(f.nivel('panaderia', 'anular'), '');
+      assert.match(f.estado(), /menor nivel/);
+      const envio = f.envio();
+      assert.equal(envio['ambitos[panaderia][permisos][pdv]'], 'operar');
+      assert.notEqual(envio['ambitos[panaderia][permisos][vitrina]'], 'operar');
+      assert.notEqual(envio['ambitos[panaderia][permisos][anular]'], 'operar');
+      casos++;
+    }
   }
 
   // ── Edición: un mesero existente se reconoce al abrir ────────────────

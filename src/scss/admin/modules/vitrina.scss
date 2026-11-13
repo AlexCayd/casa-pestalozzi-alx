@@ -1,0 +1,719 @@
+@use '../shared/abstracts/variables' as vars;
+
+// La cadena de _forms.scss: repetirla es lo que gana a (0,6,1) sin !important.
+$campo: ':not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"])';
+
+@mixin oculto-visual {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Vitrina de la caja (Panadería · Menú → vitrina.css).
+ *
+ * Una tarjeta por pan con lo que descuenta en la caja; «Editar» la abre en su
+ * sitio. Panel en blanco y negro: sin color salvo el de estado (error). Todo
+ * bajo `.admin-body` por la misma razón que variantes.scss: el reset del panel
+ * gana a una clase sola en botones, párrafos y títulos.
+ *
+ * La tarjeta es contenedor (`vitrina-tarjeta`): la rejilla de opciones cambia
+ * por el ancho que le queda, no por el del viewport. Con el sidebar abierto,
+ * a 1000 px de ventana la tarjeta mide ~560 y la rejilla de seis columnas no
+ * cabía: el `overflow: hidden` de .admin-card recortaba el botón de quitar.
+ * La base es la versión apilada; sin container queries se queda en ella.
+ *
+ * Los <input>/<select> los viste la regla global de _forms.scss (0,6,1). Aquí
+ * se dimensionan por su celda, se pide la cifra en mono y se reparan dos cosas
+ * que la regla global no da: el foco visible de los campos de texto (su
+ * :focus pesa 0,5,1 y pierde contra la base) y un aspecto de deshabilitado.
+ */
+.admin-body {
+  .admin-vitrina {
+    display: grid;
+    gap: 18px;
+    padding-bottom: 48px;
+
+    // admin_icon no fija grosor: lo pone cada componente.
+    &__aviso svg,
+    &__buscar-icono svg,
+    &__protegido svg,
+    &__editar svg,
+    &__quitar svg,
+    &__quitar-grupo svg,
+    &__agregar svg,
+    &__def svg {
+      flex: none;
+      stroke-width: 1.8;
+    }
+
+    // `.admin-body button { font: inherit }` (0,1,1) deja los <button
+    // class="admin-btn"> a 16 px junto a los enlaces de la misma clase a 13.
+    // Mismo remedio que menu.scss e inventario.scss, acotado al módulo.
+    button.admin-btn {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    button.admin-btn--small {
+      font-size: 12px;
+    }
+
+    @media (pointer: coarse) {
+      .admin-btn--small {
+        min-height: 44px;
+      }
+    }
+
+    &__aviso {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    // ── Búsqueda y recuento ──────────────────────────────────
+    &__filtros {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 20px;
+    }
+
+    &__buscar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex: 1 1 320px;
+      min-width: min(100%, 240px);
+      max-width: 420px;
+
+      input#{$campo} { padding-left: 40px; }
+    }
+
+    &__buscar-icono {
+      position: absolute;
+      left: 14px;
+      z-index: 1;
+      display: flex;
+      color: var(--admin-faint);
+      pointer-events: none;
+    }
+
+    &__resumen {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+    }
+
+    // Una frase, no un rótulo: en sans, con las cifras en tabular.
+    &__conteo {
+      margin: 0;
+      color: var(--admin-muted);
+      font-size: 13px;
+
+      .admin-num { color: var(--admin-text); }
+    }
+
+    &__filtro-sin {
+      // .admin-btn declara display propio y le ganaría a [hidden] del reset.
+      &[hidden] { display: none; }
+
+      .admin-num {
+        min-width: 22px;
+        padding: 3px 6px;
+        border-radius: 999px;
+        background: var(--admin-surface-soft);
+        color: var(--admin-text);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      &[aria-pressed="true"] {
+        border-color: var(--admin-border-strong);
+        background-color: var(--admin-surface-strong);
+        color: var(--admin-text);
+      }
+    }
+
+    // ── Lista ────────────────────────────────────────────────
+    &__lista {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__item {
+      container: vitrina-tarjeta / inline-size;
+      display: grid;
+      gap: 12px;
+      padding: 16px 20px;
+
+      // Retirado: lo dice la etiqueta de la meta; el nombre baja a tenue sin
+      // opacidad, que dejaba el texto tenue por debajo de 4.5:1.
+      &.is-retirado .admin-vitrina__nombre { color: var(--admin-muted); }
+
+      // La tarjeta en edición queda arriba y quieta: el ascenso de hover de
+      // .admin-card movía los campos 2 px bajo el puntero al entrar y salir.
+      &.is-editando {
+        box-shadow:
+          inset 0 0 0 1px var(--admin-border-strong),
+          inset 0 1px 0 var(--admin-glass-edge),
+          var(--admin-shadow-lg);
+
+        &:hover { transform: none; }
+      }
+
+      // Acuse de guardado: un anillo que se apaga. Sólo opacidad, en un
+      // pseudo propio (::before ya es el foco de cursor de .admin-card).
+      &.is-guardado::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        border-radius: inherit;
+        box-shadow: inset 0 0 0 2px var(--admin-accent);
+        pointer-events: none;
+        opacity: 0;
+        animation: vitrina-guardado 1.1s var(--admin-ease-out);
+      }
+    }
+
+    &__cabeza {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "titulo accion"
+        "estado estado";
+      align-items: center;
+      gap: 10px 16px;
+    }
+
+    &__titulo { grid-area: titulo; min-width: 0; }
+    &__editar { grid-area: accion; }
+
+    &__nombre {
+      margin: 0;
+      font-family: var(--admin-font-sans);
+      font-size: 16px;
+      font-weight: 650;
+      line-height: 1.25;
+      letter-spacing: 0;
+      color: var(--admin-text);
+    }
+
+    &__meta {
+      margin: 3px 0 0;
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    &__retirado {
+      padding: 1px 8px;
+      border: 1px dashed var(--admin-border-strong);
+      border-radius: 999px;
+      color: var(--admin-text);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    // Qué descuenta: rótulo arriba, valor abajo. Sin el rótulo la frase
+    // flotaba en medio de la tarjeta sin decir qué era.
+    &__estado {
+      grid-area: estado;
+      display: grid;
+      justify-items: start;
+      gap: 3px;
+      min-width: 0;
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    &__estado-rotulo {
+      font-family: var(--admin-font-mono);
+      font-size: 10.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--admin-faint);
+    }
+
+    &__pieza {
+      color: var(--admin-text);
+      overflow-wrap: anywhere;
+    }
+
+    &__almacen { color: var(--admin-muted); }
+
+    // El pan que no descuenta se encuentra a simple vista: contorno
+    // discontinuo, que es forma y no color.
+    &__sin {
+      padding: 2px 10px;
+      border: 1px dashed var(--admin-border-strong);
+      border-radius: 999px;
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    @container vitrina-tarjeta (min-width: 600px) {
+      &__cabeza {
+        grid-template-columns: minmax(12rem, 1fr) minmax(0, 1.4fr) auto;
+        grid-template-areas: "titulo estado accion";
+      }
+    }
+
+    &__grupos-resumen {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 13px;
+
+      li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 8px;
+      }
+    }
+
+    &__grupo-nombre {
+      font-family: var(--admin-font-mono);
+      font-size: 10.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--admin-faint);
+    }
+
+    &__opcion {
+      padding: 3px 10px;
+      border: 1px solid var(--admin-border);
+      border-radius: 999px;
+      color: var(--admin-text);
+
+      em { font-style: normal; color: var(--admin-muted); }
+      &.is-def { border-color: var(--admin-border-strong); font-weight: 600; }
+      &.is-apagada { color: var(--admin-faint); text-decoration: line-through; }
+    }
+
+    &__vacio {
+      padding: 28px;
+      border: 1px dashed var(--admin-border);
+      border-radius: var(--admin-radius-md);
+      color: var(--admin-muted);
+      text-align: center;
+    }
+
+    // ── Editor ───────────────────────────────────────────────
+    &__editor {
+      display: grid;
+      gap: 22px;
+      margin-top: 2px;
+      padding-top: 16px;
+      border-top: 1px solid var(--admin-border-soft);
+
+      &[aria-busy="true"] { cursor: progress; }
+    }
+
+    &__bloque {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    &__rotulo {
+      margin-bottom: 4px;
+      padding: 0;
+      font-family: var(--admin-font-mono);
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--admin-faint);
+    }
+
+    // La pieza y su cantidad van juntas: «Concha × 1». A todo el ancho, la
+    // cantidad quedaba a 900 px de la pieza que multiplica.
+    &__fila-pieza {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    @container vitrina-tarjeta (min-width: 440px) {
+      &__fila-pieza {
+        grid-template-columns: minmax(0, 30rem) 9rem;
+        justify-content: start;
+        align-items: end;
+      }
+    }
+
+    &__campo {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      margin: 0;
+    }
+
+    &__mini,
+    &__etq {
+      color: var(--admin-muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    // Cifras en mono tabular: con la cadena :not() para ganar al `font:
+    // inherit` de la regla global.
+    input[type="number"]#{$campo} {
+      font-family: var(--admin-font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input#{$campo}:focus {
+      border-color: var(--admin-accent);
+      background: var(--admin-surface);
+      box-shadow:
+        inset 0 1px 0 var(--admin-glass-edge),
+        var(--admin-focus-ring);
+    }
+
+    // Deshabilitado se lee como tal: contorno discontinuo y atenuado. Sin
+    // esto, la cantidad de una opción sin pieza parecía editable.
+    input#{$campo}:disabled,
+    select:disabled {
+      border-style: dashed;
+      border-color: var(--admin-border);
+      box-shadow: none;
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    &__con-signo {
+      position: relative;
+      display: block;
+
+      input#{$campo} { padding-left: 26px; }
+    }
+
+    &__signo {
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      z-index: 1;
+      color: var(--admin-muted);
+      font-family: var(--admin-font-mono);
+      font-size: 13px;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    &__ayuda {
+      max-width: 72ch;
+      margin: 0;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.5;
+      text-wrap: pretty;
+
+      &[hidden] { display: none; }
+    }
+
+    &__ayuda--pendiente { color: var(--admin-text); }
+
+    &__protegido {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 72ch;
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font-size: 13px;
+      line-height: 1.45;
+
+      svg { margin-top: 1px; color: var(--admin-muted); }
+    }
+
+    // ── Grupos y opciones ────────────────────────────────────
+    &__grupo {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+
+      > .admin-vitrina__agregar { justify-self: start; }
+    }
+
+    &__grupo-cabeza {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    &__campo--grupo {
+      flex: 1 1 14rem;
+      max-width: 24rem;
+    }
+
+    &__grupo-fijo {
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    &__opciones {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    // Base apilada (tarjeta angosta). El orden visual sigue al del DOM, que
+    // es el de tabulación: nombre y precio, de dónde sale y cuántas, base y
+    // quitar. Las cifras caen en la misma columna.
+    &__opcion-cabeza { display: none; }
+
+    &__opcion-fila {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 6rem;
+      grid-template-areas:
+        "nombre precio"
+        "sale   cant"
+        "def    quitar";
+      align-items: end;
+      gap: 8px 10px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--admin-border-soft);
+
+      &:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+    }
+
+    &__campo--nombre { grid-area: nombre; }
+    &__campo--precio { grid-area: precio; }
+    &__campo--sale { grid-area: sale; }
+    &__campo--cant { grid-area: cant; }
+
+    // Celda de sólo lectura (opciones protegidas por Global): el valor ocupa
+    // la altura de un campo para que la fila no se descuadre.
+    &__fijo {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 14px;
+
+      > :last-child {
+        display: flex;
+        align-items: center;
+        min-height: 46px;
+      }
+    }
+
+    &__def {
+      grid-area: def;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      margin: 0;
+      color: var(--admin-text);
+      cursor: pointer;
+
+      input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        accent-color: var(--admin-accent);
+        cursor: pointer;
+      }
+
+      .admin-vitrina__etq {
+        color: var(--admin-text);
+        font-size: 13px;
+      }
+    }
+
+    &__quitar {
+      grid-area: quitar;
+      justify-self: end;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+      transition:
+        background-color var(--admin-t-fast) var(--admin-ease-out),
+        color var(--admin-t-fast) var(--admin-ease-out);
+
+      &:hover {
+        background: var(--admin-surface-soft);
+        color: var(--admin-danger-text);
+      }
+    }
+
+    // Apagada: se sigue editando su pieza, pero se lee fuera de servicio.
+    // Tenue por color y no por opacidad, para no bajar el texto de 4.5:1.
+    &__opcion-fila.is-apagada {
+      .admin-vitrina__campo--nombre input#{$campo},
+      .admin-vitrina__campo--precio input#{$campo},
+      .admin-vitrina__fijo > :last-child {
+        color: var(--admin-muted);
+      }
+    }
+
+    &__apagada {
+      padding: 2px 8px;
+      border: 1px dashed var(--admin-border-strong);
+      border-radius: 999px;
+      color: var(--admin-muted);
+      font-size: 11px;
+      white-space: nowrap;
+      cursor: default;
+    }
+
+    // Tarjeta media (tableta, o ventana de 1000 px con el sidebar abierto):
+    // dos filas por opción. Base y quitar ocupan las dos a la derecha, como
+    // acciones de la fila, y se tabulan al final, que es su orden en el DOM.
+    @container vitrina-tarjeta (min-width: 500px) {
+      &__opcion-fila {
+        grid-template-columns: minmax(0, 1fr) 6rem 5.5rem 44px;
+        grid-template-areas:
+          "nombre precio def quitar"
+          "sale   cant   def quitar";
+      }
+
+      &__def,
+      &__quitar { align-self: center; }
+
+      &__def { justify-content: center; }
+    }
+
+    // Añadir: el contorno discontinuo de «Agregar opción» de Variantes de
+    // Restaurante. El ghost apagado se leía como deshabilitado.
+    &__agregar {
+      display: inline-flex;
+      align-items: center;
+      justify-self: start;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px dashed var(--admin-border-strong);
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-text);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
+      transition:
+        background-color var(--admin-t-fast) var(--admin-ease-out),
+        border-color var(--admin-t-fast) var(--admin-ease-out);
+
+      &:hover {
+        border-style: solid;
+        background: var(--admin-surface-soft);
+      }
+    }
+
+    // Tarjeta ancha: una fila por opción bajo rótulos de columna. Las
+    // etiquetas de cada campo pasan a ser sólo para el lector; el rótulo de
+    // columna las dice a la vista.
+    @container vitrina-tarjeta (min-width: 700px) {
+      &__opciones { gap: 8px; }
+
+      &__opcion-cabeza,
+      &__opcion-fila {
+        display: grid;
+        grid-template-columns: minmax(8rem, 1.2fr) 6.5rem minmax(10rem, 1.6fr) 5.5rem 4.5rem 44px;
+        gap: 8px;
+      }
+
+      &__opcion-cabeza {
+        padding: 0 2px;
+        color: var(--admin-faint);
+        font-family: var(--admin-font-mono);
+        font-size: 10.5px;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+
+        span:nth-child(5) { text-align: center; }
+      }
+
+      &__opcion-fila {
+        grid-template-areas: "nombre precio sale cant def quitar";
+        align-items: center;
+        padding-bottom: 0;
+        border-bottom: 0;
+
+        .admin-vitrina__etq { @include oculto-visual; }
+      }
+
+      &__def { justify-content: center; }
+    }
+
+    &__error {
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-danger-bg);
+      color: var(--admin-danger-text);
+      font-size: 13px;
+    }
+
+    &__acciones {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    &__kbd {
+      margin-left: 8px;
+      padding: 2px 6px;
+      border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+      border-radius: 6px;
+      font-size: 10px;
+      opacity: .8;
+
+      // En tableta no hay Ctrl: la pista sólo ensucia el botón.
+      @media (pointer: coarse) { display: none; }
+    }
+  }
+}
+
+@keyframes vitrina-guardado {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

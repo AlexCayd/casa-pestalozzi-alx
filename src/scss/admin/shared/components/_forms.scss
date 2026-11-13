@@ -686,6 +686,30 @@
     flex-wrap: wrap;
     gap: 8px;
   }
+
+  // Con el rótulo de campo como leyenda (formulario de categoría), el aire lo
+  // pone ya su margin-bottom de 7 px: sumados los dos, el grupo quedaba 6 px
+  // más lejos de su rótulo que el input de «Nombre» del suyo, en la misma
+  // tarjeta.
+  .admin-field__label + &__group {
+    margin-top: 0;
+  }
+
+  // Dos columnas iguales, para un catálogo de opciones con explicación (la
+  // carta de una categoría): en fila, cuatro pills de largo distinto se
+  // repartían el ancho a tirones y cada una partía su ayuda en un número de
+  // renglones diferente. En rejilla todas miden lo mismo y la fila toma el alto
+  // de la más larga. En un teléfono, una debajo de otra.
+  &--columnas &__group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    &--columnas &__group {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 }
 
 .admin-pill {
@@ -697,7 +721,10 @@
   display: flex;
   min-width: 150px;
   flex: 1 1 auto;
-  align-items: flex-start;
+  // El radio va al centro de la pill, no a la altura del título: con título y
+  // ayuda en dos o tres renglones, anclado arriba se veía descolgado del
+  // bloque al que pertenece. Es lo que ya hacían las pills del POS.
+  align-items: center;
   gap: 10px;
   padding: 11px 13px;
   border: 1px solid var(--admin-border-soft);
@@ -723,7 +750,6 @@
     width: 15px;
     height: 15px;
     flex: 0 0 15px;
-    margin-top: 2px;
     border: 1px solid var(--admin-border-strong);
     border-radius: 50%;
     content: "";
@@ -805,7 +831,6 @@
     width: 15px;
     height: 15px;
     flex: 0 0 15px;
-    margin-top: 2px;
     overflow: visible;
     clip-path: none;
     accent-color: var(--admin-accent);

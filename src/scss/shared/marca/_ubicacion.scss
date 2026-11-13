@@ -1,0 +1,228 @@
+// ═══ MARCA — compartido por la landing del restaurante y la de la panadería ═══
+//
+// «Cómo llegar»: la rejilla de datos y mapa, la lámina de papel, la chapa del
+// Metro, el pin y el botón. Pareja de views/components/marca/ubicacion.php.
+// Las CALLES de cada plano no viven aquí: las del restaurante están en
+// components/_ubicacion-plano.scss y las de la panadería en
+// panaderia/_visitanos.scss.
+
+.location { background: var(--bg-alt); }
+
+.loc__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: stretch;
+}
+@media (max-width: 880px) { .loc__grid { grid-template-columns: 1fr; } }
+
+.loc__info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.loc__title {
+  font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+  margin: 1.2rem 0 2rem;
+}
+
+.loc__line {
+  display: flex;
+  gap: 1.2rem;
+  padding: 1.2rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  align-items: flex-start;
+
+  .ic { color: var(--accent-text); flex: 0 0 auto; margin-top: 3px; }
+
+  .ct {
+    b {
+      font-family: var(--serif);
+      color: var(--beige);
+      font-weight: 400;
+      font-size: 1.1rem;
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+    span, a { font-size: 0.85rem; color: var(--txt-mute); }
+  }
+}
+
+.loc__socials {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+
+  a {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--txt-strong);
+    transition: background 0.4s, color 0.4s, border-color 0.4s;
+
+    &:hover,
+    &:focus-visible { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  }
+}
+
+// ── Mapa: plancha de papel ────────────────────────────────────
+//
+// El plano vivía sobre el verde de la sección y no contrastaba con nada: las
+// manzanas eran txt al 4.5%, las calles acento al 13% y la retícula al 40% de
+// opacidad, es decir, tres grises sobre un fondo oscuro.
+//
+// Ahora es una lámina de papel crema apoyada sobre la mesa verde, con la
+// materia del resto de la página. La inversión completa la hace el
+// data-tono="crema" del marcado: dentro de la lámina --txt vuelve a ser verde
+// profundo, --accent vuelve a ser el oro y --line vuelve a cumplir el 3:1 contra
+// crema, así que cada pieza toma su tinta sin una regla de color propia.
+.loc__map {
+  position: relative;
+  min-height: clamp(420px, 50vw, 580px);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 60px color-mix(in srgb, var(--verde-deep) 10%, transparent),
+    0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent);
+
+  // La misma fibra de mantel de las secciones: es lo que separa "papel" de
+  // "rectángulo claro".
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--verde-deep) 4%, transparent) 0 1px,
+        transparent 1px 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--verde-deep) 3%, transparent) 0 1px,
+        transparent 1px 6px
+      );
+  }
+}
+
+// Retícula del papel pautado. Opacidad plena y línea tenue en vez de línea de
+// componente al 40%: el resultado es el mismo peso pero con un borde limpio.
+.map2__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--verde-deep) 9%, transparent) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+// Metro. Va en el acento —oro, con la tinta verde encima—: es el único rótulo del plano que
+// representa un servicio y no una calle, así que se lee como una chapa.
+.map2__metro {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 1px solid var(--accent-deep);
+  padding: 0.4rem 0.7rem;
+  border-radius: 40px;
+
+  .m { width: 0.95rem; height: 0.95rem; flex: none; }
+}
+
+// Pin
+.loc__pin {
+  position: absolute;
+  // Cada plano dice dónde cae su casa; sin variables, donde estuvo siempre el
+  // del restaurante.
+  top: var(--pin-y, 56%);
+  left: var(--pin-x, 60%);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  .ring {
+    width: 70px;
+    height: 70px;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: ping 2.6s var(--ease) infinite;
+  }
+
+  .dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--accent);
+    transform: rotate(-45deg);
+    border: 2px solid var(--bg);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--sombra) 45%, transparent);
+  }
+
+  .tag {
+    margin-top: 14px;
+    white-space: nowrap;
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--on-accent);
+    background: var(--accent);
+    border: 1px solid var(--accent-deep);
+    padding: 0.45rem 0.9rem;
+    border-radius: 3px;
+    text-align: center;
+    line-height: 1.2;
+
+    small {
+      display: block;
+      font-family: var(--sans);
+      font-size: 0.56rem;
+      letter-spacing: 0.1em;
+      color: color-mix(in srgb, var(--on-accent) 78%, transparent);
+      text-transform: uppercase;
+      margin-top: 0.2rem;
+    }
+  }
+}
+
+// Con el pin centrado (lo de siempre) es la columna entera —punto y etiqueta—
+// la que cae en la coordenada, así que el punto queda un poco por encima. Un
+// plano dibujado a escala, donde el punto tiene que caer en la esquina, ancla
+// el punto: el punto mide 16px y su centro está a 8px del canto de la columna.
+.loc__pin--punto { transform: translate(-50%, -8px); }
+
+@keyframes ping {
+  0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+
+.loc__map .map-cta {
+  position: absolute;
+  bottom: 1.2rem;
+  left: 1.2rem;
+  z-index: 4;
+}

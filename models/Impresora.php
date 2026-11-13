@@ -24,6 +24,11 @@ class Impresora extends ActiveRecord {
     public $ancho       = 48;            // columnas de caracteres del papel
     public $activo      = 1;
 
+    /** Estación ya leída y acotada por quien la pide (caja de Panadería). */
+    public static function deFila(array $fila): static {
+        return static::crearObjeto($fila);
+    }
+
     // Validación para el CRUD admin (mismo patrón que Menu/CategoriasMenu).
     public function validar() {
         static::$alertas = [];

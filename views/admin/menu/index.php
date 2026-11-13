@@ -739,7 +739,13 @@
                     </thead>
                     <tbody>
                         <?php foreach ($platillos as $platillo) : ?>
-                            <?php $opcionesVariante = (int) (($variantesPorProducto ?? [])[(int) $platillo->id] ?? 0); ?>
+                            <?php
+                                $opcionesVariante = (int) (($variantesPorProducto ?? [])[(int) $platillo->id] ?? 0);
+                                // Las variantes se editan dentro de «Editar platillo»: la
+                                // etiqueta «N opciones» lleva directo a su panel. Mismas
+                                // reglas que AdminMenuController::variantesDelFormulario().
+                                $variantesEditables = $menuVariantes && $menuPuedeEditar;
+                            ?>
                             <tr data-row-href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>&amp;volver=<?php echo rawurlencode($volverListado); ?>">
                                 <?php
                                     // Lo que la carta enseñará: la foto propia o, si no hay,
@@ -767,7 +773,10 @@
                                         <div class="admin-menu__platillo-texto">
                                             <span class="admin-menu__nombre">
                                                 <span class="admin-menu__nombre-texto"><?php echo $esc($platillo->nombre); ?></span>
-                                                <?php if ($opcionesVariante > 0) : ?>
+                                                <?php if ($opcionesVariante > 0 && $variantesEditables) : ?>
+                                                    <a class="admin-menu__variantes-sub" href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/edit?id=<?php echo (int) $platillo->id; ?>#variantes"
+                                                       title="Editar variantes" aria-label="Editar las <?php echo $opcionesVariante; ?> <?php echo $opcionesVariante === 1 ? 'opción' : 'opciones'; ?> de <?php echo $esc($platillo->nombre); ?>"><?php echo admin_icon('variantes', 13); ?><?php echo $opcionesVariante; ?> <?php echo $opcionesVariante === 1 ? 'opción' : 'opciones'; ?></a>
+                                                <?php elseif ($opcionesVariante > 0) : ?>
                                                     <span class="admin-menu__variantes-sub"><?php echo admin_icon('variantes', 13); ?><?php echo $opcionesVariante; ?> <?php echo $opcionesVariante === 1 ? 'opción' : 'opciones'; ?></span>
                                                 <?php endif; ?>
                                             </span>
@@ -832,22 +841,11 @@
                                     </form>
                                 </td>
                                 <td>
-                                    <?php /* Dos grupos: lo que modifica el producto (variantes,
-                                             editar) y, separado por un filete, lo que lo destruye.
-                                             Pegados, borrar quedaba a 8 px de editar. */ ?>
+                                    <?php /* Editar y, separado por un filete, lo que destruye.
+                                             Pegados, borrar quedaba a 8 px de editar. Las
+                                             variantes ya no tienen botón aquí: se editan en
+                                             «Editar platillo» (o desde «N opciones»). */ ?>
                                     <div class="admin-table-actions admin-menu__acciones">
-                                        <?php /* Las variantes tienen editor propio: ajustan la receta
-                                                 y el precio, y necesitan la vista previa del POS. */ ?>
-                                        <?php if ($menuVariantes) : ?>
-                                        <a
-                                            class="admin-icon-button admin-icon-button--variantes<?php echo $opcionesVariante > 0 ? ' is-set' : ''; ?>"
-                                            href="<?php echo htmlspecialchars($menuBase, ENT_QUOTES); ?>/variantes?id=<?php echo (int) $platillo->id; ?>"
-                                            title="<?php echo $opcionesVariante > 0 ? 'Variantes' : 'Agregar variantes'; ?>"
-                                            aria-label="<?php echo $opcionesVariante > 0 ? 'Variantes de ' : 'Agregar variantes a '; ?><?php echo $esc($platillo->nombre); ?>"
-                                        >
-                                            <?php echo admin_icon('variantes', 18); ?>
-                                        </a>
-                                        <?php endif; ?>
                                         <?php if ($menuPuedeEditar) : ?>
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"

@@ -1892,6 +1892,107 @@
     }
 
     /*
+     * Colores de las áreas (Configuración → Colores de las áreas). Los radios
+     * son reales y el formulario funciona sin esto; aquí sólo se marca, mientras
+     * se elige, qué colores ya tiene otra estación, se avisa en la fila si se
+     * repite uno y se frena el envío hasta que no quede ninguno repetido (el
+     * servidor lo rechazaría igual, pero perdiendo la vista de lo elegido).
+     */
+    function initAreaColors() {
+        const form = document.querySelector('[data-area-colors]');
+        if (!form) return;
+        const filas = Array.from(form.querySelectorAll('[data-area-color]'));
+        if (!filas.length) return;
+
+        function elegido(fila) {
+            const radio = fila.querySelector('input[type="radio"]:checked');
+            return radio ? radio.value : null;
+        }
+
+        function nombre(fila) {
+            const legend = fila.querySelector('legend');
+            return legend ? legend.textContent.trim() : '';
+        }
+
+        function enumerar(lista) {
+            if (lista.length < 2) return lista.join('');
+            return lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+        }
+
+        function nombreDeColor(fila, clave) {
+            const muestra = fila.querySelector('[data-area-swatch="' + clave + '"] .admin-area-swatch__name');
+            return muestra ? muestra.textContent.trim() : clave;
+        }
+
+        // El aviso de «sin color» sólo existe tras intentar guardar: antes de
+        // eso, una fila sin elegir no es un error, es una fila por hacer.
+        let intentoGuardar = false;
+
+        function actualizar() {
+            const duenos = {};
+            filas.forEach(function (fila) {
+                const clave = elegido(fila);
+                if (!clave) return;
+                (duenos[clave] = duenos[clave] || []).push(fila);
+            });
+
+            filas.forEach(function (fila) {
+                const propio = elegido(fila);
+                const actual = fila.querySelector('[data-area-actual]');
+                if (propio) {
+                    if (actual) actual.textContent = nombreDeColor(fila, propio);
+                    // Respaldo de la vista previa para motores sin :has().
+                    fila.style.setProperty('--area-inicial', 'var(--admin-c-' + propio + ')');
+                }
+
+                fila.querySelectorAll('[data-area-swatch]').forEach(function (muestra) {
+                    const otras = (duenos[muestra.getAttribute('data-area-swatch')] || []).filter(function (f) {
+                        return f !== fila;
+                    });
+                    muestra.classList.toggle('is-ocupado', otras.length > 0);
+                    const sr = muestra.querySelector('[data-area-ocupado]');
+                    const texto = otras.length ? ' (ya es de ' + nombre(otras[0]) + ')' : '';
+                    if (sr && sr.textContent !== texto) sr.textContent = texto;
+                });
+
+                // Simétrico: sale igual en las dos filas que chocan, así que
+                // ninguna parece «la culpable» y la salida —cambiar una— vale
+                // para las dos, también cuando se están intercambiando colores.
+                const repetidas = propio ? (duenos[propio] || []).filter(function (f) { return f !== fila; }) : [];
+                const aviso = fila.querySelector('[data-area-aviso]');
+                let textoAviso = '';
+                if (repetidas.length) {
+                    textoAviso = enumerar(repetidas.map(nombre))
+                        + (repetidas.length === 1 ? ' también tiene ' : ' también tienen ')
+                        + nombreDeColor(fila, propio)
+                        + (repetidas.length === 1 ? '. Cambia uno de los dos' : '. Deja ese color en una sola')
+                        + ': cada estación necesita su propio color.';
+                } else if (!propio && intentoGuardar) {
+                    textoAviso = 'Elige un color para esta estación.';
+                }
+                if (aviso && aviso.textContent !== textoAviso) aviso.textContent = textoAviso;
+                fila.classList.toggle('has-error', textoAviso !== '');
+            });
+        }
+
+        form.addEventListener('change', actualizar);
+
+        form.addEventListener('submit', function (event) {
+            intentoGuardar = true;
+            actualizar();
+            const primera = filas.filter(function (fila) {
+                return fila.classList.contains('has-error') || !elegido(fila);
+            })[0];
+            if (!primera) return;
+            event.preventDefault();
+            const radio = primera.querySelector('input[type="radio"]:checked') || primera.querySelector('input[type="radio"]');
+            if (radio) radio.focus();
+        });
+
+        actualizar();
+    }
+
+    /*
      * Tope de tickets por barra (Configuración → POS). El mismo stepper que el
      * máximo de comensales, sin regímenes ni aviso: aquí no hay reservas que
      * cambien de categoría, sólo un número.
@@ -2220,5 +2321,6 @@
         initReservationLimits();
         initBarrasTope();
         initPrintingSwitch();
+        initAreaColors();
     });
 })();
