@@ -17,6 +17,7 @@ use Services\Finance\DiagnosticoFinanciero;
 use Services\Finance\FinanzasNegocio;
 use Services\Inventory\Inventario;
 use Services\Shared\RangoPeriodo;
+use Services\Shared\GeneradorPdf;
 use Services\Security\ContextoNegocio;
 use Services\Security\Contextos;
 
@@ -276,6 +277,18 @@ class AdminFinanzasController
             ],
         ]);
 
+        $informeHref = null;
+        $informeAviso = null;
+        if ($ctx === 'restaurante' && ContextoNegocio::nuevo()) {
+            try {
+                $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
+                $informeHref = self::PATH . '/informe.pdf?' . http_build_query([
+                    'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
+                ], '', '&', PHP_QUERY_RFC3986);
+            } catch (\InvalidArgumentException $e) {
+                $informeAviso = 'Seleccione un periodo válido de hasta 366 días para generar el informe.';
+            }
+        }
         self::render('finanzas/index', [
             'title' => 'Finanzas',
             'topbarSection' => 'Finanzas',
@@ -286,6 +299,8 @@ class AdminFinanzasController
             'finBase' => self::base($ctx),
             'finPropinas' => $ctx === 'restaurante',
             'rango' => $rango,
+            'informeHref' => $informeHref,
+            'informeAviso' => $informeAviso,
             'diagnostico' => $diagnostico,
             'cortes' => $cortesVisibles,
             'totalesCortes' => $totalesCortes,
@@ -345,6 +360,46 @@ class AdminFinanzasController
             'rentabilidad' => $rentabilidad,
             'alertas' => GastoFijo::getAlertas(),
         ]);
+    }
+
+    /** Informe de Restaurante: autorización antes de leer cualquier dato financiero. */
+    public static function informe(Router $router): void
+    {
+        try {
+            if (!\Classes\Auth::check() || ContextoNegocio::nivelAuth() !== 'contrasena') {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+                return;
+            }
+            ContextoNegocio::exigir('finanzas', 'ver', 'restaurante');
+            foreach (['unidad_id', 'negocio', 'slug'] as $parametro) {
+                if (array_key_exists($parametro, $_GET)) throw new \InvalidArgumentException('Parámetro no admitido.');
+            }
+            $rango = RangoPeriodo::resolverInforme($_GET);
+            $unidad = ContextoNegocio::vendedora('restaurante');
+            $ahora = date('Y-m-d H:i:s');
+            $db = ContextoNegocio::db();
+            $documento = \Services\Shared\LecturaConsistente::ejecutar($db, static fn ($db) => FinanzasNegocio::informe($db, $unidad, $rango, $ahora));
+            $archivo = 'informe-finanzas-restaurante-' . $rango['start'] . '_' . $rango['end'] . '.pdf';
+            \Classes\Auth::liberarSesion();
+            GeneradorPdf::emitir($documento, $archivo);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo 'Seleccione un periodo válido de hasta 366 días.';
+        } catch (\Services\Inventory\InventarioError $e) {
+            if (in_array($e->codigo, ['NO_AUTORIZADO', 'NIVEL_AUTH_REQUERIDO', 'AMBITO_DENEGADO', 'PERMISO_DENEGADO'], true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para generar este informe.';
+            } else {
+                http_response_code(500);
+                error_log('No se pudo generar el informe financiero.');
+                echo 'No se pudo generar el informe financiero.';
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            error_log('No se pudo generar el informe financiero.');
+            echo 'No se pudo generar el informe financiero.';
+        }
     }
 
     /**

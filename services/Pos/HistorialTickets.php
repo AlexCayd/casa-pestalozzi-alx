@@ -46,6 +46,65 @@ final class HistorialTickets
 
     private const FECHA = 'COALESCE(t.hora_cierre, t.hora_apertura)';
 
+    /** Prepara el informe agregado sin consultar el listado ni tickets abiertos. */
+    public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
+    {
+        $actual = \Services\Finance\FinanzasNegocio::agregados($db, $unidad, $rango['start'], $rango['end']);
+        $consumo = \Services\Analytics\AnalisisNegocio::totales($db, $unidad, $rango['start'], $rango['end']);
+        $previo = \Services\Finance\FinanzasNegocio::agregados($db, $unidad, $rango['prevStart'], $rango['prevEnd']);
+        $porDia = \Services\Analytics\AnalisisNegocio::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
+        $inicio = $rango['start'] . ' 00:00:00';
+        $fin = (new \DateTimeImmutable($rango['end']))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+        $stmt = $db->prepare("SELECT COUNT(*) AS n FROM tickets t WHERE t.unidad_id = ? AND t.estado = 'cancelado' AND COALESCE(t.hora_cierre, t.hora_apertura) >= ? AND COALESCE(t.hora_cierre, t.hora_apertura) < ?");
+        if (!$stmt) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+        try {
+            if (!$stmt->bind_param('iss', $unidad, $inicio, $fin) || !$stmt->execute()) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+            $resultado = $stmt->get_result();
+            if (!$resultado || !($fila = $resultado->fetch_assoc())) throw new \RuntimeException('No se pudo consultar los tickets cancelados.');
+            $cancelados = (int) $fila['n'];
+        } finally {
+            $stmt->close();
+        }
+        $serie = RangoPeriodo::agruparSerieInforme($porDia);
+        $resumen = $actual['tickets'] === 0 && $cancelados === 0
+            ? 'No hubo tickets cerrados ni cancelados en el periodo.'
+            : 'En el periodo hubo ' . $actual['tickets'] . ' tickets cerrados y ' . $cancelados . ' cancelados.';
+        if ($actual['tickets'] > 0) $resumen .= ' Con partidas vigentes: ' . $consumo['conConsumo'] . '; sin partidas vigentes: ' . ($actual['tickets'] - $consumo['conConsumo']) . '.';
+        if ($cancelados > 0) $resumen .= ' Las cancelaciones son de tickets completos; no equivalen a partidas canceladas.';
+        $variacion = RangoPeriodo::delta($actual['ingresos'], $previo['ingresos']);
+        $resumen .= $rango['end'] >= substr($generadoEn, 0, 10)
+            ? ' La comparación aritmética es provisional: incluye días no transcurridos o una jornada abierta.'
+            : ($variacion === null
+            ? ' Las ventas no tienen base comparable en el periodo anterior.'
+            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.');
+        return [
+            'id' => 'tickets', 'titulo' => 'Informe de tickets', 'contexto' => 'Restaurante',
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'], 'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn,
+            'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Tickets cerrados', 'valor' => $actual['tickets'], 'formato' => 'entero'],
+                ['etiqueta' => 'Tickets cancelados', 'valor' => $cancelados, 'formato' => 'entero'],
+                ['etiqueta' => 'Ventas', 'valor' => $actual['ingresos'], 'formato' => 'moneda'],
+                ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ingresos'] / $actual['tickets'] : null, 'formato' => 'moneda'],
+                ['etiqueta' => 'Con consumo', 'valor' => $consumo['conConsumo'], 'formato' => 'entero'],
+                ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $consumo['conConsumo'], 'formato' => 'entero'],
+            ],
+            'secciones' => [
+                ['id' => 'tickets_estados', 'orden' => 0, 'titulo' => 'Tickets por estado en el periodo', 'tipo' => 'tabla', 'columnas' => ['Estado', 'Tickets'], 'formatos' => ['texto', 'entero'], 'filas' => [['Cerrados', $actual['tickets']], ['Cancelados', $cancelados]]],
+                ['id' => 'serie_ventas', 'orden' => 10, 'titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['id' => 'comparacion_ventas', 'orden' => 20, 'conSigno' => [2, 3], 'titulo' => 'Comparación de ventas', 'tipo' => 'tabla', 'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'], 'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ingresos'], $actual['ingresos'], $actual['ingresos'] - $previo['ingresos'], RangoPeriodo::delta($actual['ingresos'], $previo['ingresos'])]]],
+            ],
+            'notas' => [
+                'Las ventas corresponden a partidas no canceladas de tickets cerrados; las propinas quedan fuera.',
+                'Con consumo significa al menos una partida no cancelada, incluso de importe cero; sin consumo incluye tickets sin partidas vigentes.',
+                'Las semanas son tramos consecutivos de hasta siete días desde el inicio del periodo; los meses siguen el calendario.',
+                'Los tickets se atribuyen a la fecha de cierre o a la apertura si falta el cierre. Los abiertos quedan fuera del informe.',
+                'El documento es una instantánea al generarse y sus cifras pueden cambiar si cambian los hechos de origen.',
+            ],
+        ];
+    }
+
     /** Normaliza el filtro de la URL: cualquier otro valor es «todos». */
     public static function estado($valor): string
     {

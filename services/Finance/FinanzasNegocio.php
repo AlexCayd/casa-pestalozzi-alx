@@ -23,6 +23,7 @@ declare(strict_types=1);
 namespace Services\Finance;
 
 use Services\Inventory\InventarioError;
+use Services\Shared\RangoPeriodo;
 
 final class FinanzasNegocio
 {
@@ -262,6 +263,56 @@ final class FinanzasNegocio
         ];
     }
 
+    /** Documento gerencial construido con la misma autoridad que el panel. */
+    public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
+    {
+        $r = self::resumen($db, 'restaurante', $unidad, $rango);
+        $anterior = $r['previo'];
+        $deltaIngresos = RangoPeriodo::delta($r['ingresos'], $anterior['ingresos']);
+        $deltaNeta = RangoPeriodo::delta($r['utilidadNeta'], $anterior['utilidadNeta']);
+        $resumen = 'Resultados registrados para el rango seleccionado.';
+        if ($r['tickets'] > 0 && $r['ingresos'] == 0) $resumen .= ' El conteo de tickets no acredita ventas por sí solo: las partidas vigentes suman $0.00.';
+        if ($r['sinCosto'] > 0) $resumen .= ' Hay ventas sin costo conocido; las utilidades no incluyen ese costo faltante.';
+        $notas = [
+            'Ventas: partidas no canceladas de tickets cerrados, por cierre o apertura si falta cierre; excluyen propinas.',
+            'Utilidad bruta = ingresos − costo de insumos − merma con costo conocido. Utilidad neta = utilidad bruta − gastos fijos.',
+            'Gastos fijos: montos mensuales vigentes sin fecha × días seleccionados / 30, también en el periodo anterior; no son egresos históricos diarios.',
+            'El costo se congela al vender. Costo ausente no equivale a cero conocido; la merma sin costo no integra su importe.',
+            'Instantánea al generar, sujeta a cambios en los hechos de origen.',
+        ];
+        return [
+            'id' => 'finanzas', 'titulo' => 'Informe de finanzas', 'contexto' => 'Restaurante',
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
+                'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Ingresos por ventas', 'valor' => $r['ingresos'], 'formato' => 'moneda', 'comparacion' => $deltaIngresos],
+                ['etiqueta' => 'Tickets cerrados', 'valor' => $r['tickets'], 'formato' => 'entero'],
+                ['etiqueta' => 'Ticket promedio', 'valor' => $r['ticketPromedio'], 'formato' => 'moneda'],
+                ['etiqueta' => 'Costo de insumos', 'valor' => $r['cogs'], 'formato' => 'moneda'],
+                ['etiqueta' => 'Utilidad bruta', 'valor' => $r['utilidadBruta'], 'formato' => 'moneda'],
+                ['etiqueta' => 'Utilidad neta', 'valor' => $r['utilidadNeta'], 'formato' => 'moneda', 'comparacion' => $deltaNeta],
+            ],
+            'secciones' => [
+                ['id' => 'balance', 'orden' => 10, 'titulo' => 'Balance del periodo', 'tipo' => 'tabla', 'columnas' => ['Concepto', 'Importe'], 'anchos' => [64, 36], 'resaltadas' => [4],
+                    'formatos' => ['texto', 'moneda'], 'filas' => [
+                        ['Ingresos por ventas', $r['ingresos']], ['Costo de insumos', $r['cogs']],
+                        ['Merma con costo conocido', $r['merma']], ['Gastos fijos prorrateados', $r['gastos']],
+                        ['Utilidad neta', $r['utilidadNeta']], ['Ventas sin costo conocido', $r['sinCosto']],
+                    ]],
+                ['id' => 'comparacion_financiera', 'orden' => 20, 'titulo' => 'Comparación con el periodo anterior', 'tipo' => 'tabla',
+                    'resaltadas' => [2], 'conSigno' => [3, 4],
+                    'columnas' => ['Concepto', 'Anterior', 'Actual', 'Diferencia', 'Variación'],
+                    'formatos' => ['texto', 'moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [
+                        ['Ingresos por ventas', $anterior['ingresos'], $r['ingresos'], $r['ingresos'] - $anterior['ingresos'], $deltaIngresos],
+                        ['Utilidad bruta', $anterior['utilidadBruta'], $r['utilidadBruta'], $r['utilidadBruta'] - $anterior['utilidadBruta'], RangoPeriodo::delta($r['utilidadBruta'], $anterior['utilidadBruta'])],
+                        ['Utilidad neta', $anterior['utilidadNeta'], $r['utilidadNeta'], $r['utilidadNeta'] - $anterior['utilidadNeta'], $deltaNeta],
+                    ]],
+            ],
+            'notas' => $notas,
+        ];
+    }
+
     /**
      * El pulso de HOY de un negocio: lo cobrado, los tickets cerrados, las
      * cuentas que siguen abiertas con lo que llevan consumido y lo cobrado el
@@ -309,9 +360,10 @@ final class FinanzasNegocio
     private static function filas(\mysqli $db, string $sql, array $args): array
     {
         $s = $db->prepare($sql);
-        $s->execute($args);
-
-        return $s->get_result()->fetch_all(MYSQLI_ASSOC);
+        if ($s === false || !$s->execute($args)) throw new \RuntimeException('No se pudo consultar Finanzas.');
+        $resultado = $s->get_result();
+        if ($resultado === false) throw new \RuntimeException('No se pudo leer Finanzas.');
+        return $resultado->fetch_all(MYSQLI_ASSOC);
     }
 
     private static function fila(\mysqli $db, string $sql, array $args): ?array

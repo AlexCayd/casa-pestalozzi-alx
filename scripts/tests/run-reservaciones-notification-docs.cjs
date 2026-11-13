@@ -32,6 +32,7 @@ function slug(text) {
 }
 
 const expectedDocs = [
+  'arquitectura-informes-pdf.md',
   'arquitectura.md',
   'auditoria-retiro-productos-casa.md',
   'backlog.md',

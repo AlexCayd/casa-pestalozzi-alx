@@ -105,7 +105,7 @@ m12Pruebas(static function (mysqli $db, string $root, callable $afirmar): void {
     $db->execute_query('UPDATE oferta_datos_comerciales SET nombre=? WHERE oferta_id=?',[$valorLocal,$ofertaDiscrepante]);
     $falloEstricto=false;
     try { Multinegocio\SqlArchivo::ejecutar($db,$migracion); }
-    catch(Throwable $e) { $falloEstricto=str_contains($e->getMessage(),'diferencias locales'); }
+    catch(Throwable $e) { $falloEstricto=str_contains($e->getMessage(),'cp_a3_abortado_diferencias_locales_revisar_preflight'); }
     $afirmar($falloEstricto,'La migración estricta rechaza discrepancias sin decisión de reconciliación.');
     $afirmar(!(bool)$db->query("SELECT 1 FROM esquema_versiones WHERE version='a3-datos-comerciales-local-v1'")->fetch_row(),'La vista no se activa cuando falla la guardia de diferencias.');
     $vieja=$db->execute_query('SELECT nombre FROM productos_oferta WHERE oferta_id=?',[$ofertaDiscrepante])->fetch_row()[0];

@@ -1876,6 +1876,28 @@
   padding: 14px 18px 4px;
 }
 
+/* El calendario compartido se despliega en el flujo del compositor. */
+.ia .ia-rango {
+  margin-top: 12px;
+}
+
+.ia .ia-rango .admin-range__pop {
+  position: static;
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+}
+
+.ia .ia-rango .admin-range__cal {
+  flex: 1;
+}
+
+.ia .ia-rango .admin-range__day {
+  min-height: 44px;
+  padding: 0;
+  font-size: 13px;
+}
+
 .ia .ia-constructor__rotulo {
   @include rotulo;
   color: var(--ia-tenue);

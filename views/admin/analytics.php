@@ -52,7 +52,10 @@ $sinRegistros = $esCaja
             </p>
         </div>
 
-        <?php include __DIR__ . '/partials/_range-picker.php'; ?>
+        <div class="admin-actions">
+            <?php include __DIR__ . '/partials/_range-picker.php'; ?>
+            <?php include __DIR__ . '/partials/_generar-informe.php'; ?>
+        </div>
     </header>
 
 <?php if ($sinRegistros) : ?>

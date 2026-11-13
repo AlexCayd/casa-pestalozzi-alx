@@ -184,10 +184,15 @@ Iniciar el servidor con document root `public/`. Para una comprobación local
 sin Apache, el servidor integrado de PHP puede arrancarse desde la raíz:
 
 ```sh
-php -S 127.0.0.1:8080 -t public
+php -S 127.0.0.1:3000 -t public scripts/dev-router.php
 ```
 
-La configuración de URL y reescritura de un despliegue Apache/Nginx debe enviar
+El router de desarrollo envía las rutas inexistentes (incluidas las que terminan
+en `.pdf`) a `public/index.php` y deja que el servidor entregue los archivos
+estáticos existentes dentro de `public/`, excepto archivos ocultos como
+`.htaccess`. Sin él, PHP 8.2 devuelve su 404 de
+servidor para rutas con punto como los informes PDF. Apache ignora el script y
+continúa con `public/.htaccess`; en Apache/Nginx, la configuración debe enviar
 las rutas de la aplicación a `public/index.php`. No servir scripts de instalación
 ni el archivo de entorno desde HTTP.
 
@@ -263,6 +268,8 @@ En una instalación existente, no desplegar los nuevos consumidores antes de
 completar este corte. Con respaldo verificado, aplicar en este orden las
 migraciones versionadas que falten: `m2-articulos.sql` si aún no tiene M2,
 `a1-datos-comerciales-oferta.sql` y por último `a3-datos-comerciales-local.sql`.
+Ejecutar A3 como archivo completo en una sola sesión SQL; sus sentencias no
+requieren la directiva de cliente `DELIMITER`.
 El archivo separado `m12-estandares.sql` ya no está versionado; una instalación
 que no tenga M1.2 requiere evaluar su ruta de actualización antes de continuar. A1 crea y llena los datos por oferta;
 A3 comprueba la integridad y discrepancias antes de activar la vista. Si A3

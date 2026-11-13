@@ -33,6 +33,24 @@ class AdminConsultasController
 
         try {
             self::exigirConsultaNueva();
+            if (array_key_exists('intencion', $_GET) && !is_string($_GET['intencion'])) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'mensaje' => 'Elige una pregunta válida.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            if (str_starts_with($intencion, 'informe_')) {
+                try {
+                    $informe = AdminIaController::resolverInforme($_GET);
+                    echo json_encode(['ok' => true, 'informe' => $informe], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                } catch (\InvalidArgumentException $e) {
+                    http_response_code(400);
+                    echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+                } catch (\Services\Inventory\InventarioError $e) {
+                    http_response_code(403);
+                    echo json_encode(['ok' => false, 'mensaje' => 'No tienes acceso a este informe en el contexto actual.'], JSON_UNESCAPED_UNICODE);
+                }
+                return;
+            }
             if ($intencion === '' && self::ambitoPropio()) {
                 // Panadería y Global nacieron sin texto libre: sólo preguntas
                 // armadas en el compositor.

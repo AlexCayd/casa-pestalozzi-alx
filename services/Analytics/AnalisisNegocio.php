@@ -40,7 +40,7 @@ final class AnalisisNegocio
     {
         [$desde, $hasta] = self::limites($start, $end);
         $cierre = self::CIERRE;
-        $r = self::fila($db, "SELECT COUNT(*) AS n, COALESCE(SUM(t.comensales), 0) AS comensales, COALESCE(SUM(sub.total), 0) AS ventas
+        $r = self::fila($db, "SELECT COUNT(*) AS n, COUNT(sub.ticket_id) AS con_consumo, COALESCE(SUM(t.comensales), 0) AS comensales, COALESCE(SUM(sub.total), 0) AS ventas
                FROM tickets t
                LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total FROM ticket_items
                            WHERE estado <> 'cancelado' AND unidad_id = ? GROUP BY ticket_id) sub ON sub.ticket_id = t.id
@@ -52,6 +52,7 @@ final class AnalisisNegocio
         return [
             'ventas' => (float) ($r['ventas'] ?? 0),
             'tickets' => (int) ($r['n'] ?? 0),
+            'conConsumo' => (int) ($r['con_consumo'] ?? 0),
             'comensales' => (int) ($r['comensales'] ?? 0),
             'piezas' => (int) ($p['u'] ?? 0),
         ];
@@ -96,6 +97,58 @@ final class AnalisisNegocio
               GROUP BY ti.nombre ORDER BY u DESC LIMIT " . max(1, min(50, $tope)), [$unidad, $desde, $hasta]);
 
         return array_map(static fn (array $r): array => ['nombre' => (string) $r['nombre'], 'piezas' => (int) $r['u'], 'ventas' => (float) $r['v']], $filas);
+    }
+
+    /** Informe documental del negocio a partir de los agregados del tablero. */
+    public static function informe(\mysqli $db, int $unidad, array $rango, string $generadoEn): array
+    {
+        $actual = self::totales($db, $unidad, $rango['start'], $rango['end']);
+        $previo = self::totales($db, $unidad, $rango['prevStart'], $rango['prevEnd']);
+        $porDia = self::ventasPorDia($db, $unidad, $rango['start'], $rango['end']);
+        $productos = self::masVendidos($db, $unidad, $rango['start'], $rango['end'], 7);
+        $serie = RangoPeriodo::agruparSerieInforme($porDia);
+        $top = [];
+        foreach ($productos as $producto) $top[] = [$producto['nombre'], $producto['piezas'], $producto['ventas']];
+        $resumen = $actual['tickets'] === 0
+            ? 'No hubo tickets cerrados en el periodo.'
+            : 'Tickets cerrados: ' . $actual['tickets'] . '; con partidas vigentes: ' . $actual['conConsumo'] . '; sin ellas: ' . ($actual['tickets'] - $actual['conConsumo']) . '.';
+        $variacion = RangoPeriodo::delta($actual['ventas'], $previo['ventas']);
+        $resumen .= $rango['end'] >= substr($generadoEn, 0, 10)
+            ? ' La comparación aritmética es provisional: incluye días no transcurridos o una jornada abierta.'
+            : ($variacion === null
+            ? ' Las ventas no tienen base comparable en el periodo anterior.'
+            : ' Las ventas variaron ' . number_format($variacion, 1) . ' % frente al periodo anterior.');
+        return [
+            'id' => 'analisis', 'titulo' => 'Informe de desempeño comercial', 'contexto' => 'Restaurante',
+            'periodo' => ['inicio' => $rango['start'], 'fin' => $rango['end'],
+                'comparacion' => ['inicio' => $rango['prevStart'], 'fin' => $rango['prevEnd']]],
+            'generadoEn' => $generadoEn, 'corteDatos' => $generadoEn, 'resumen' => $resumen,
+            'kpis' => [
+                ['etiqueta' => 'Ventas', 'valor' => $actual['ventas'], 'formato' => 'moneda',
+                    'comparacion' => RangoPeriodo::delta($actual['ventas'], $previo['ventas'])],
+                ['etiqueta' => 'Tickets cerrados', 'valor' => $actual['tickets'], 'formato' => 'entero'],
+                ['etiqueta' => 'Ticket promedio', 'valor' => $actual['tickets'] > 0 ? $actual['ventas'] / $actual['tickets'] : null, 'formato' => 'moneda'],
+                ['etiqueta' => 'Piezas vendidas', 'valor' => $actual['piezas'], 'formato' => 'entero'],
+                ['etiqueta' => 'Comensales en tickets cerrados', 'valor' => $actual['comensales'], 'formato' => 'entero'],
+                ['etiqueta' => 'Con consumo', 'valor' => $actual['conConsumo'], 'formato' => 'entero'],
+                ['etiqueta' => 'Sin consumo', 'valor' => $actual['tickets'] - $actual['conConsumo'], 'formato' => 'entero'],
+            ],
+            'secciones' => [
+                ['id' => 'serie_ventas', 'orden' => 10, 'titulo' => 'Ventas por ' . $serie['modo'], 'tipo' => 'serie', 'grafica' => ['tipo' => $serie['modo'] === 'día' ? 'lineas' : 'columnas', 'unidad' => 'MXN', 'series' => [1]], 'columnas' => ['Periodo', 'Ventas'], 'formatos' => ['texto', 'moneda'], 'filas' => $serie['filas']],
+                ['id' => 'productos_top', 'orden' => 30, 'titulo' => 'Productos más vendidos por piezas', 'tipo' => 'tabla', 'grafica' => ['tipo' => 'barras', 'unidad' => 'Piezas', 'series' => [1], 'detalle' => [2]], 'columnas' => ['Producto', 'Piezas', 'Ventas'], 'formatos' => ['texto', 'entero', 'moneda'], 'filas' => $top],
+                ['id' => 'comparacion_ventas', 'orden' => 20, 'conSigno' => [2, 3], 'titulo' => 'Comparación de ventas', 'tipo' => 'tabla',
+                    'columnas' => ['Anterior', 'Actual', 'Diferencia', 'Variación'],
+                    'formatos' => ['moneda', 'moneda', 'moneda', 'porcentaje'], 'filas' => [[$previo['ventas'], $actual['ventas'], $actual['ventas'] - $previo['ventas'], RangoPeriodo::delta($actual['ventas'], $previo['ventas'])]]],
+            ],
+            'notas' => [
+                'Ventas y piezas: partidas no canceladas de tickets cerrados, por cierre o apertura si falta; excluyen propinas.',
+                'Comensales: asociados a tickets cerrados, no reservas atendidas.',
+                'Con consumo: al menos una partida no cancelada, incluso de importe cero. Sin consumo: sin partidas vigentes.',
+                'Semanas: tramos consecutivos de hasta siete días desde el inicio. Meses: calendario.',
+                'Productos agrupados por el nombre de la partida; sin ocupación ni RevPASH.',
+                'Instantánea al generar, sujeta a cambios en los hechos de origen.',
+            ],
+        ];
     }
 
     /**
@@ -268,9 +321,10 @@ final class AnalisisNegocio
     private static function filas(\mysqli $db, string $sql, array $args): array
     {
         $s = $db->prepare($sql);
-        $s->execute($args);
-
-        return $s->get_result()->fetch_all(MYSQLI_ASSOC);
+        if ($s === false || !$s->execute($args)) throw new \RuntimeException('No se pudo consultar Análisis.');
+        $resultado = $s->get_result();
+        if ($resultado === false) throw new \RuntimeException('No se pudo leer Análisis.');
+        return $resultado->fetch_all(MYSQLI_ASSOC);
     }
 
     private static function fila(\mysqli $db, string $sql, array $args): ?array

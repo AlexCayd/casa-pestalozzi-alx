@@ -28,7 +28,7 @@
     if (!m) return null;
     var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     d.setHours(0, 0, 0, 0);
-    return isNaN(d.getTime()) ? null : d;
+    return isNaN(d.getTime()) || toISO(d) !== value ? null : d;
   }
 
   function toISO(d) {
@@ -44,6 +44,7 @@
   }
 
   function initRangePicker(root) {
+    if (root._adminRangePicker) return root._adminRangePicker;
     var trigger = root.querySelector("[data-range-trigger]");
     var pop = root.querySelector("[data-range-pop]");
     var gridA = root.querySelector("[data-range-grid-a]");
@@ -64,6 +65,7 @@
     var preserveQuery = root.getAttribute("data-preserve-query") === "1";
     var startParam = root.getAttribute("data-start-param") || "desde";
     var endParam = root.getAttribute("data-end-param") || "hasta";
+    var maxDays = Number(root.getAttribute("data-max-days")) || 0;
 
     var inicioGuardado = parseISO(root.getAttribute("data-start"));
     var finGuardado = parseISO(root.getAttribute("data-end"));
@@ -220,19 +222,22 @@
     }
 
     function pintarResumen() {
+      var e = tramo();
+      var dias = e[0] && e[1] ? Math.round((Date.UTC(e[1].getFullYear(), e[1].getMonth(), e[1].getDate()) - Date.UTC(e[0].getFullYear(), e[0].getMonth(), e[0].getDate())) / 86400000) + 1 : 0;
+      var excedido = maxDays > 0 && dias > maxDays;
       if (summary) {
-        var e = tramo();
-        if (!e[0]) {
+        if (excedido) {
+          summary.textContent = "El rango no puede exceder " + maxDays + " días inclusivos.";
+        } else if (!e[0]) {
           summary.textContent = "Elige la fecha de inicio";
         } else if (eligiendo && !fin) {
           summary.textContent = "Desde " + bonita(e[0]) + " — elige la fecha final";
         } else {
-          var dias = Math.round((e[1] - e[0]) / 86400000) + 1;
           summary.textContent = bonita(e[0]) + " – " + bonita(e[1]) + " · " + dias + " días";
         }
       }
 
-      if (applyBtn) applyBtn.disabled = !inicio || !fin;
+      if (applyBtn) applyBtn.disabled = !inicio || !fin || excedido;
     }
 
     function render() {
@@ -329,6 +334,8 @@
       var k = ev.key;
 
       if (k === "Escape") { ev.stopPropagation(); cerrar(); return; }
+      // Aplicar, Cancelar y navegación conservan su activación nativa de teclado.
+      if (!celdaDe(ev.target)) return;
 
       if (k === "Enter" || k === " " || k === "Spacebar") {
         if (!focoIso || !celdas[focoIso] || celdas[focoIso].disabled) return;
@@ -358,7 +365,7 @@
       if (r.left < 8) pop.classList.add("admin-range__pop--izq");
     }
 
-    function abrir() {
+    function abrir(moverFoco) {
       inicio = inicioGuardado;
       fin = finGuardado;
       eligiendo = false;
@@ -374,18 +381,18 @@
       ajustarPosicion();
 
       var isoFoco = toISO(inicio || hoy);
-      enfocar(celdas[isoFoco] ? isoFoco : toISO(hoy), false);
+      enfocar(celdas[isoFoco] ? isoFoco : toISO(hoy), moverFoco === true);
     }
 
-    function cerrar() {
+    function cerrar(devolverFoco) {
       pop.hidden = true;
       trigger.setAttribute("aria-expanded", "false");
-      trigger.focus();
+      if (devolverFoco !== false) trigger.focus();
     }
 
     trigger.addEventListener("click", function (event) {
       event.stopPropagation();
-      if (pop.hidden) abrir(); else cerrar();
+      if (pop.hidden) abrir(false); else cerrar();
     });
 
     if (prevBtn) prevBtn.addEventListener("click", function () { irAMes(-1); });
@@ -395,7 +402,16 @@
 
     if (applyBtn) {
       applyBtn.addEventListener("click", function () {
-        if (!inicio || !fin) return;
+        if (!inicio || !fin || applyBtn.disabled) return;
+        var desde = toISO(inicio); var hasta = toISO(fin);
+        var evento = new CustomEvent("admin-range:aplicar", {
+          bubbles: true, cancelable: true, detail: { desde: desde, hasta: hasta }
+        });
+        if (!root.dispatchEvent(evento)) {
+          establecer(desde, hasta);
+          cerrar();
+          return;
+        }
         var params = {};
         params[startParam] = toISO(inicio);
         params[endParam] = toISO(fin);
@@ -424,7 +440,27 @@
     // El resumen del disparador se pinta sin montar el calendario: las celdas
     // se construyen la primera vez que se abre.
     pintarResumen();
+
+    function establecer(desde, hasta) {
+      inicioGuardado = parseISO(desde); finGuardado = parseISO(hasta);
+      inicio = inicioGuardado; fin = finGuardado; eligiendo = false; hover = null;
+      root.setAttribute("data-start", inicio ? toISO(inicio) : "");
+      root.setAttribute("data-end", fin ? toISO(fin) : "");
+      var label = root.querySelector("[data-range-label]");
+      var dates = root.querySelector("[data-range-dates]");
+      if (label) label.textContent = inicio && fin ? "Personalizado" : "Elegir fechas";
+      if (dates) dates.textContent = inicio && fin ? bonita(inicio) + (inicio.getFullYear() !== fin.getFullYear() ? " " + inicio.getFullYear() : "") + " – " + bonita(fin) + " " + fin.getFullYear() : "Sin seleccionar";
+      pintarResumen();
+    }
+    root._adminRangePicker = {
+      establecer: establecer,
+      abrir: function () { abrir(true); },
+      cerrar: cerrar
+    };
+    return root._adminRangePicker;
   }
+
+  window.AdminRangePicker = { iniciar: initRangePicker };
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-analytics-range-picker]").forEach(initRangePicker);

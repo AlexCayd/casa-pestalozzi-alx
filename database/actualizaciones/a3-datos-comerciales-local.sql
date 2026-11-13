@@ -1,6 +1,6 @@
 -- A3: cambia productos_oferta para que lea datos propios de cada oferta.
 -- Requiere A1, A2 y el código compatible A3 desplegado antes del corte.
--- Si hay diferencias, la rutina aborta salvo que la persona operadora haya
+-- Si hay diferencias, la guardia aborta salvo que la persona operadora haya
 -- revisado el preflight y ejecute SET @cp_a3_preservar_locales=1.
 
 -- Completa solo ofertas faltantes desde la proyección M1.2. Nunca reemplaza
@@ -19,21 +19,19 @@ LEFT JOIN oferta_personalizaciones pi ON pi.oferta_id=o.id AND pi.campo='img'
 LEFT JOIN oferta_datos_comerciales d ON d.oferta_id=o.id
 WHERE d.oferta_id IS NULL;
 
-DELIMITER //
-DROP PROCEDURE IF EXISTS cp_a3_validar_corte//
-CREATE PROCEDURE cp_a3_validar_corte()
-BEGIN
- DECLARE v_activa INT DEFAULT 0;
- DECLARE v_faltantes INT DEFAULT 0;
- DECLARE v_diferencias INT DEFAULT 0;
- SELECT COUNT(*) INTO v_activa FROM esquema_versiones WHERE version='a3-datos-comerciales-local-v1';
- SELECT COUNT(*) INTO v_faltantes FROM ofertas_producto o
-  LEFT JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE d.oferta_id IS NULL;
- IF v_faltantes>0 THEN
-  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A3 abortado: quedan ofertas sin datos comerciales locales.';
- END IF;
- IF v_activa=0 THEN
-  SELECT COUNT(*) INTO v_diferencias FROM (
+-- Se usan solo sentencias SQL ordinarias para que este archivo completo también
+-- funcione en clientes que envían cada instrucción al servidor sin interpretar
+-- la directiva de cliente DELIMITER. El PREPARE contiene SQL estático; ante un
+-- incumplimiento ejecuta una consulta a una tabla intencionalmente inexistente,
+-- deteniendo el archivo antes de reemplazar la vista y dejando la causa visible
+-- en el nombre de tabla del error.
+SET @cp_a3_activa=(SELECT COUNT(*) FROM esquema_versiones WHERE version='a3-datos-comerciales-local-v1');
+SET @cp_a3_faltantes=(
+ SELECT COUNT(*) FROM ofertas_producto o
+ LEFT JOIN oferta_datos_comerciales d ON d.oferta_id=o.id WHERE d.oferta_id IS NULL
+);
+SET @cp_a3_diferencias=IF(@cp_a3_activa>0,0,(
+ SELECT COUNT(*) FROM (
    SELECT o.id,
     CASE WHEN pn.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.nombre'))='true' THEN JSON_UNQUOTE(pn.valor) ELSE p.nombre END AS nombre_legacy,
     CASE WHEN pd.oferta_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(pp.datos,'$.reglas.descripcion'))='true' THEN JSON_UNQUOTE(pd.valor) ELSE p.descripcion END AS descripcion_legacy,
@@ -49,15 +47,17 @@ BEGIN
   ) legacy
   WHERE NOT (CAST(nombre AS BINARY) <=> CAST(nombre_legacy AS BINARY))
      OR NOT (CAST(descripcion AS BINARY) <=> CAST(descripcion_legacy AS BINARY))
-     OR NOT (CAST(img AS BINARY) <=> CAST(img_legacy AS BINARY));
-  IF v_diferencias>0 AND COALESCE(@cp_a3_preservar_locales,0)<>1 THEN
-   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A3 abortado: hay diferencias locales. Revisa el preflight; usa @cp_a3_preservar_locales=1 para conservarlas explícitamente.';
-  END IF;
- END IF;
-END//
-CALL cp_a3_validar_corte()//
-DROP PROCEDURE cp_a3_validar_corte//
-DELIMITER ;
+     OR NOT (CAST(img AS BINARY) <=> CAST(img_legacy AS BINARY))
+));
+SET @cp_a3_validacion_sql=CASE
+ WHEN @cp_a3_faltantes>0 THEN 'SELECT * FROM cp_a3_abortado_ofertas_sin_datos_comerciales'
+ WHEN @cp_a3_diferencias>0 AND COALESCE(@cp_a3_preservar_locales,0)<>1
+  THEN 'SELECT * FROM cp_a3_abortado_diferencias_locales_revisar_preflight'
+ ELSE 'SELECT 1'
+END;
+PREPARE cp_a3_validar_corte FROM @cp_a3_validacion_sql;
+EXECUTE cp_a3_validar_corte;
+DEALLOCATE PREPARE cp_a3_validar_corte;
 
 -- Mismos nombres, orden y tipos LONGTEXT que M1.2. JSON_EXTRACT/UNQUOTE
 -- conserva el tipo expuesto por el CASE anterior; CASE también preserva NULL.

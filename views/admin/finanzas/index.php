@@ -169,6 +169,7 @@ use Services\Finance\DiagnosticoFinanciero;
                  inventario» bajo la merma y los días de existencias. */ ?>
         <div class="admin-actions">
             <?php include __DIR__ . '/../partials/_range-picker.php'; ?>
+            <?php include __DIR__ . '/../partials/_generar-informe.php'; ?>
         </div>
     </header>
 

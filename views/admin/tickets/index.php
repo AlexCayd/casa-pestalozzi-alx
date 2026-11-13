@@ -189,8 +189,11 @@ if ($resumen !== null) {
             include __DIR__ . '/../partials/_range-picker.php';
             unset($rangePreserveQuery);
             ?>
+            <?php include __DIR__ . '/../partials/_generar-informe.php'; ?>
         </div>
     </header>
+
+    <?php if (!empty($informeHref)): ?><p>El informe incluye todos los tickets cerrados y cancelados del periodo, independientemente del filtro de estado.</p><?php endif; ?>
 
     <?php if ($resumen !== null) : ?>
         <form class="tk-filtros" method="get" action="/admin/tickets" data-tk-filtros data-reveal>

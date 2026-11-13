@@ -209,6 +209,16 @@ $iaInicial = $iaCatalogo[0]['consultas'][0] ?? null;
                                 echo $iaPar ? '</span>' : '';
                             }
                         ?></div>
+                        <div class="ia-rango" data-ia-rango hidden>
+                            <?php (static function (): void {
+                                $rango = ['start' => '', 'end' => '', 'preset' => 0, 'label' => 'Elegir fechas'];
+                                $rangeCaption = 'Fechas del informe';
+                                $rangeShowPresets = false;
+                                $rangeAllowFuture = true;
+                                $rangeMaxDays = 366;
+                                include __DIR__ . '/../partials/_range-picker.php';
+                            })(); ?>
+                        </div>
                         <?php /* Qué contesta la pregunta armada, en una línea:
                                  «Horas pico» no dice por sí sola qué cuenta. Sólo
                                  en la conversación nueva (CSS); el lector la oye
