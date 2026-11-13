@@ -54,6 +54,10 @@ try {
     $db = new mysqli($_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS'], '', (int) ($_ENV['DB_PORT'] ?? 3306));
     $db->set_charset('utf8mb4');
     restaurante3dCrearBase($db, $root, $bases);
+    // Los flujos de recetas consultan la proyección A3 vigente. Esta fixture
+    // parte vacía y ejecuta sus guardias de migración sin habilitar preservación.
+    Multinegocio\SqlArchivo::ejecutar($db, $root . '/database/actualizaciones/a1-datos-comerciales-oferta.sql');
+    Multinegocio\SqlArchivo::ejecutar($db, $root . '/database/actualizaciones/a3-datos-comerciales-local.sql');
     ActiveRecord::setDB($db);
 
     $fase = 'fixture de oferta, artículos y almacenes';
@@ -62,6 +66,7 @@ try {
     $area = variantesInsert($db, "INSERT INTO areas_produccion(unidad_id,nombre,slug,color,orden) VALUES (?,'Barra QA','barra_qa','#aabbcc',0)", [$unidad]);
     $producto = variantesInsert($db, "INSERT INTO productos(nombre) VALUES ('Café con leche QA')", []);
     $oferta = variantesInsert($db, 'INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo,orden) VALUES (?,?,?,45.00,?,1,0)', [$producto, $unidad, $categoria, $area]);
+    $db->execute_query('INSERT INTO oferta_datos_comerciales(oferta_id,nombre,descripcion,img) VALUES(?,?,?,NULL)', [$oferta, 'Café con leche QA', 'Fixture de consumo']);
     $cafe = variantesInsert($db, "INSERT INTO ingredientes(nombre,unidad,costo,activo) VALUES ('Café QA','g',0.5000,1)", []);
     $entera = variantesInsert($db, "INSERT INTO ingredientes(nombre,unidad,costo,activo) VALUES ('Leche entera QA','ml',0.0200,1)", []);
     $deslactosada = variantesInsert($db, "INSERT INTO ingredientes(nombre,unidad,costo,activo) VALUES ('Leche deslactosada QA','ml',0.0300,1)", []);
@@ -114,7 +119,7 @@ try {
     $rechazo = Comercial::enviarComanda($ticket, [$linea], 'qa-variantes-sin-almacen', 'restaurante');
     restaurante3dAssert(($rechazo['ok'] ?? true) === false && ($rechazo['codigo'] ?? '') === 'ALMACEN_ORIGEN_FALTANTE'
         && (int) $db->query('SELECT COUNT(*) FROM ticket_items')->fetch_row()[0] === $antes,
-        'Sin almacén elegido la comanda se rechaza completa y no busca otro origen.', $count);
+        'Sin almacén elegido la comanda se rechaza completa y no busca otro origen: ' . json_encode($rechazo, JSON_UNESCAPED_UNICODE), $count);
     restaurante3dDenegado(fn() => AlmacenesConsumo::guardar('restaurante', $oferta, [$cafe => $barra, $entera => $barra, $deslactosada => $barra]),
         'El mesero sin permiso de Recetas no puede asignar almacenes.', $count);
 

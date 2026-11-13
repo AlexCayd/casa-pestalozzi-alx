@@ -18,7 +18,7 @@ assert.match(form, /se confirmará al guardar/, 'La sugerencia explica que guard
 const index = read('views/admin/menu/index.php');
 assert.match(index, /\$menuBase \. '\/tipo-venta' \. \$sufijoLista/, 'La confirmación en lote va a {menuBase}/tipo-venta conservando el filtro');
 assert.match(index, /name="ofertas\[\]"/, 'Cada fila envía su oferta en ofertas[]');
-assert.match(index, /<input type="hidden" name="menu_csrf" value="<\?php echo \$esc\(\$menuCsrf\); \?>">\n\s*<\?php endif; \?>\n\s*<div class="admin-menu__lote-barra">/, 'El lote lleva menu_csrf');
+assert.match(index, /<input type="hidden" name="menu_csrf" value="<\?php echo \$esc\(\$menuCsrf\); \?>">\r?\n\s*<\?php endif; \?>\r?\n\s*<div class="admin-menu__lote-barra">/, 'El lote lleva menu_csrf');
 assert.match(index, /<input type="hidden" name="tipo" data-reactive-control/, 'La búsqueda reactiva conserva el filtro de tipo');
 assert.match(index, /if \(\$tvEditar\) : \?>\s*<form method="POST"/, 'Sin edición no se pinta el formulario de lote');
 assert.equal((index.match(/data-reactive-page/g) || []).length >= 1, true);
