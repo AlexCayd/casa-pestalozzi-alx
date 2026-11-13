@@ -36,8 +36,11 @@ const legada = read('views/admin/recetas/form.php');
 assert.match(legada, /<\?php if \(!\$recetaReventa\) : \?>\s*<template data-recipe-template>/, 'La receta de reventa no ofrece agregar filas');
 assert.match(legada, /\$subrecetas = \[\];/, 'La receta de reventa no ofrece preparaciones anteriores');
 
-assert.match(read('views/admin/recetas/articulo-identidad.php'), /name="contenido_pieza" type="number" min="0\.001"[^>]*step="0\.001"/, 'La identidad captura el contenido por pieza a milésimas');
-assert.match(read('views/admin/recetas/articulo.php'), /'componente'=>'Se usa como ingrediente'/, 'La capacidad componente se presenta como ingrediente');
+// El campo vive en un parcial que comparten la ficha y el alta («Se compra por pieza»).
+assert.match(read('views/admin/recetas/articulo-identidad.php'), /include __DIR__\.'\/_articulo-pieza\.php'/, 'La identidad incluye el contenido por pieza');
+assert.match(read('views/admin/recetas/_articulo-pieza.php'), /name="contenido_pieza" type="number" min="0\.001"[^>]*step="0\.001"/, 'La identidad captura el contenido por pieza a milésimas');
+// M6 (arquitectura §18): las capacidades se derivan; la ficha pregunta cómo se obtiene.
+assert.match(read('views/admin/recetas/articulo.php'), /¿Cómo se obtiene\?[\s\S]*Se compra<[\s\S]*Se prepara en casa/, 'La ficha clasifica el artículo por cómo se obtiene');
 assert.match(read('views/admin/menu/variantes.php'), /'solo_precio' => \$soloPrecio/, 'Variantes recibe la bandera de reventa confirmada');
 
 // ── Selección en lote (componente real) ─────────────────────────────
