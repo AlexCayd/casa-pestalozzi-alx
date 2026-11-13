@@ -1337,3 +1337,127 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+// ── Almacenes del artículo: pastillas ─────────────────────────────
+// Cada pastilla abre las existencias del artículo en ese almacén. Van redondas y
+// con chevron para no confundirse con las pills de selección (admin-pills: radio
+// y esquina suave) ni con el botón de alta que las sigue: la flecha dice «abre».
+// La que no enlaza (otro negocio sin acceso) va plana y sin flecha.
+.admin-body .m6-almacenes {
+  display: grid;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+// Rótulo de negocio en el consolidado de Global: la misma voz que la leyenda
+// de admin-pills, para que se lea como encabezado de grupo y no como pastilla.
+.admin-body .m6-almacenes__negocio {
+  margin: 0 0 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-body .m6-almacenes__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-body .m6-almacen {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  transition:
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out),
+    box-shadow var(--admin-t-fast) var(--admin-ease-out);
+
+  &__nombre {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__estado {
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  &__icono {
+    flex: 0 0 auto;
+    color: var(--admin-muted);
+    stroke-width: 2;
+    transition:
+      color var(--admin-t-fast) var(--admin-ease-out),
+      transform var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  // Sólo la que enlaza responde al puntero: la flecha avanza un paso. Con
+  // `hover: hover` el estado no se queda pegado después de tocar en táctil.
+  @media (hover: hover) {
+    &:is(a):hover {
+      border-color: var(--admin-border-strong);
+      background: var(--admin-surface-strong);
+
+      .m6-almacen__icono {
+        color: var(--admin-text);
+        transform: translateX(2px);
+      }
+    }
+  }
+
+  // El glow del sistema es tenue sobre un borde de 1 px: el foco toma además el
+  // borde del hover para no quedar por debajo de él.
+  &:is(a):focus-visible {
+    outline: none;
+    border-color: var(--admin-border-strong);
+    box-shadow: var(--admin-glow);
+  }
+
+  &--fijo {
+    padding-right: 16px;
+    border-color: var(--admin-border-soft);
+    background: transparent;
+    font-weight: 500;
+  }
+
+  &--inactivo {
+    border-style: dashed;
+
+    .m6-almacen__nombre {
+      color: var(--admin-muted);
+    }
+  }
+
+  // Área táctil de 44 px también en tabletas, no sólo en teléfono.
+  @media (max-width: 640px), (pointer: coarse) {
+    min-height: 44px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__icono {
+      transition: none;
+    }
+
+    &:is(a):hover .m6-almacen__icono {
+      transform: none;
+    }
+  }
+}

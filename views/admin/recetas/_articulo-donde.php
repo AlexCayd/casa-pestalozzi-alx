@@ -7,6 +7,8 @@
  *
  * Espera $uso (Articulos::dondeSeUsa), $id, $ctx, $esc y las bases de la ficha.
  */
+// Las pastillas de almacén y el botón de asociar llevan iconos del catálogo.
+require_once __DIR__ . '/../partials/_icons.php';
 $uso=$uso??['visible'=>false,'consolidado'=>false,'productos'=>[],'preparaciones'=>[],'variantes'=>[],'almacenes'=>null,'recortado'=>false,'resumen'=>['recetas'=>0,'reventa'=>0,'preparaciones'=>0,'variantes'=>0]];
 $negocio=static fn(string $slug):string=>\Services\Security\Contextos::NOMBRES[$slug]??$slug;
 // DECIMAL exacto: sólo se quitan los ceros de relleno para leerlo (0.150 → 0.15).
@@ -54,7 +56,21 @@ $asociarUrl=$baseAlmacenes.'?'.http_build_query(['articulo_id'=>$id,'asociar'=>$
 <?php if(is_array($almacenesUso)): ?><h3>Almacenes</h3>
 <?php if(!$llevaExistencias): ?><p>No lleva existencias en <?= $esc($negocio($ctx)) ?>: se usa en recetas sin descontar de un almacén.</p>
 <?php elseif(!$almacenesUso): ?><p>Todavía no está asociado a ningún almacén<?= $uso['consolidado']?'':' de '.$esc($negocio($ctx)) ?>. Sin asociación no se pueden registrar sus entradas.</p>
-<?php else: ?><ul class="m6-uso__lista"><?php foreach($almacenesUso as $a): ?><li><span><?php if($a['slug']===$ctx||$uso['consolidado']): ?><a href="<?= $esc($baseAlmacenes.'?'.http_build_query(['almacen_id'=>$a['id'],'articulo_id'=>$id,'volver'=>$origenUso])) ?>"><?= $esc($a['nombre']) ?></a><?php else: ?><?= $esc($a['nombre']) ?><?php endif; ?><?= $uso['consolidado']?' <small>'.$esc($negocio($a['slug'])).'</small>':'' ?></span><?php if(empty($a['activo'])): ?><span class="admin-status admin-status--neutral m6-estado m6-estado--inactivo">Asociación inactiva</span><?php endif; ?></li><?php endforeach; ?></ul><?php endif; ?>
-<?php if($llevaExistencias&&!empty($puedeInventarioEditar)): ?><p class="admin-actions"><a class="admin-btn admin-btn--secondary" href="<?= $esc($asociarUrl) ?>"><?= $almacenesUso?'Asociar a otro almacén':'Asociar a un almacén' ?></a></p><?php elseif($llevaExistencias&&!$almacenesUso): ?><p class="admin-field__hint">Asociarlo requiere edición de Almacenes en <?= $esc($negocio($ctx)) ?>.</p><?php endif; ?>
+<?php else:
+    // Pastillas: cada una abre las existencias del artículo en ese almacén. En el
+    // consolidado se agrupan bajo su negocio (ya vienen ordenadas por negocio y
+    // nombre) en lugar de repetir el negocio junto a cada nombre.
+    $enlaza=static fn(array $a):bool=>$a['slug']===$ctx||$uso['consolidado'];
+    $gruposAlmacen=[];foreach($almacenesUso as $a)$gruposAlmacen[$uso['consolidado']?$a['slug']:$ctx][]=$a; ?>
+<?php if(array_filter($almacenesUso,$enlaza)): ?><p class="admin-field__hint">Abre un almacén para ver las existencias de este artículo.</p><?php endif; ?>
+<div class="m6-almacenes">
+<?php foreach($gruposAlmacen as $slug=>$lista): ?><div class="m6-almacenes__grupo"<?= $uso['consolidado']?' role="group" aria-labelledby="m6-almacenes-'.$esc($slug).'"':'' ?>>
+<?php if($uso['consolidado']): ?><p class="m6-almacenes__negocio" id="m6-almacenes-<?= $esc($slug) ?>"><?= $esc($negocio($slug)) ?></p><?php endif; ?>
+<ul class="m6-almacenes__lista"><?php foreach($lista as $a):$inactivo=empty($a['activo']);$clase='m6-almacen'.($inactivo?' m6-almacen--inactivo':''); ?><li>
+<?php if($enlaza($a)): ?><a class="<?= $clase ?>" href="<?= $esc($baseAlmacenes.'?'.http_build_query(['almacen_id'=>$a['id'],'articulo_id'=>$id,'volver'=>$origenUso])) ?>"><span class="m6-almacen__nombre"><?= $esc($a['nombre']) ?></span><?php if($inactivo): ?><small class="m6-almacen__estado"><span class="admin-visually-hidden">, </span>Asociación inactiva</small><?php endif; ?><span class="admin-visually-hidden">: ver existencias</span><?= admin_icon('chevron-derecha',14,'m6-almacen__icono') ?></a>
+<?php else: ?><span class="<?= $clase ?> m6-almacen--fijo"><span class="m6-almacen__nombre"><?= $esc($a['nombre']) ?></span><?php if($inactivo): ?><small class="m6-almacen__estado">Asociación inactiva</small><?php endif; ?></span><?php endif; ?>
+</li><?php endforeach; ?></ul></div>
+<?php endforeach; ?></div><?php endif; ?>
+<?php if($llevaExistencias&&!empty($puedeInventarioEditar)): ?><p class="admin-actions"><a class="admin-btn admin-btn--secondary" href="<?= $esc($asociarUrl) ?>"><?= admin_icon('mas',16,'admin-btn__icon') ?><?= $almacenesUso?'Asociar a otro almacén':'Asociar a un almacén' ?></a></p><?php elseif($llevaExistencias&&!$almacenesUso): ?><p class="admin-field__hint">Asociarlo requiere edición de Almacenes en <?= $esc($negocio($ctx)) ?>.</p><?php endif; ?>
 <?php endif; ?>
 </section>
