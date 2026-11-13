@@ -19,7 +19,7 @@ La rama temporal se creó desde el `main` remoto actual, integró `branch-leo` y
 El merge produjo cuatro conflictos:
 
 - `controllers/AdminAlmacenesController.php`: se conservaron proveedores por ámbito y almacenes editables de M5, junto con el enlace PDF de Restaurante y la validación del periodo.
-- `package.json`: se conservaron comandos de tipo de venta y faltantes M3/M4, y se unieron los comandos de informes y selector de periodo. Se añadió `test:articulos:m6:db` para la clasificación M6 aislada.
+- `package.json`: se conservaron los comandos de tipo de venta M3 y faltantes M4, y se unieron los comandos de informes y selector de periodo. Se añadió `test:articulos:m6:db` para la clasificación M6 aislada.
 - `public/build/js/admin.js` y `.map`: se regeneraron desde las fuentes ya conciliadas con `npx gulp adminJs`.
 
 La revisión transversal confirmó rutas PDF solo para Restaurante, controles de autenticación, NIP, permisos de módulo y ámbito, filtros/rangos validados y denegaciones HTTP. El controlador de Inventario conserva proveedor M5 y consulta PDF de solo lectura. `database/ddl.sql` y `database/development.sql` no difieren de `main` en esta integración; no se añadió una migración de esquema. Los contratos M4 mantienen `permitir_negativos=0`, cantidades faltantes explícitas y saldo no negativo; M5 conserva vínculo de entrada, ámbito y costo congelado; M6 deriva la clasificación explícita desde las capacidades vigentes.
@@ -67,9 +67,89 @@ PDFs y JSON sintéticos de aceptación están en el mismo directorio. El contact
 
 Se inspeccionaron jerarquía, tipografía neutral, tablas, gráficas, notas, secciones y pies/paginación; no se observaron recortes ni solapamientos. Las muestras con texto HTML sintético aparecen escapadas como texto visible.
 
+El único log de suite persistido en disco es `acceptance-output.log`; guarda la suite PDF y la limpieza final. Las salidas de `npm run test:php`, `npm run test:js`, runners M3–M6, Almacenes, consumo POS, A3, preservación y ámbitos se recibieron en las salidas de herramientas durante esta ejecución, pero no se copiaron a logs persistentes. Los resultados y conteos registrados arriba corresponden a esas salidas; no hay rutas de log adicionales que reportar.
+
 ## Límites de la validación
 
 - `run-restaurante-3d2.php` no se ejecutó: sus assertions legacy esperan habilitar saldo negativo, contrario al contrato M4. Las rutas actuales de consumo, faltantes, costo y compensación sí se validaron en runners compatibles con M4.
 - `run-restaurante-3d3.php` no se ejecutó porque requiere un paquete privado de preservación externo que no está disponible en este entorno. A3 y preservación se cubrieron con sus runners aislados específicos.
 - Las consultas financieras históricas se verificaron con fixtures sintéticas; no certifican datos de producción, MariaDB externa, credenciales de proveedores ni integraciones externas.
 - No se añadió Redis ni historial de precios de proveedores. No hubo push ni merge a `main` o `branch-leo`.
+
+## Anexo: archivos del diff integrado
+
+Salida de `git diff --name-status 5d24701a65697476ff4966188d9aad4c157dab17..HEAD` al cierre (71 archivos; `A` agregado, `M` modificado):
+
+```text
+M controllers/AdminAlmacenesController.php
+M controllers/AdminConsultasController.php
+M controllers/AdminController.php
+M controllers/AdminFinanzasController.php
+M controllers/AdminIaController.php
+M controllers/AdminReservacionController.php
+M database/actualizaciones/a3-datos-comerciales-local.sql
+A docs/arquitectura-informes-pdf.md
+M docs/arquitectura.md
+A docs/desarrollo/auditoria-informes-pdf.md
+M docs/desarrollo/clasificacion-documental.md
+M docs/desarrollo/instalacion.md
+A docs/desarrollo/integracion-etapa0.md
+M docs/desarrollo/pruebas.md
+M package.json
+M public/build/css/admin/ia.css
+M public/build/js/admin.js
+M public/build/js/admin.js.map
+M public/build/js/admin/ia.js
+M public/build/js/admin/ia.js.map
+M public/index.php
+A scripts/dev-router.php
+M scripts/tests/README-a3-datos-comerciales.md
+A scripts/tests/informes-aceptacion/ana-independent.php
+A scripts/tests/informes-aceptacion/consistencia-independent.php
+A scripts/tests/informes-aceptacion/fin-independent.php
+A scripts/tests/informes-aceptacion/graficas-representativas.php
+A scripts/tests/informes-aceptacion/ia-reportes-independent.php
+A scripts/tests/informes-aceptacion/informes-db-bootstrap.php
+A scripts/tests/informes-aceptacion/informes-fixture-seed.php
+A scripts/tests/informes-aceptacion/informes-http-independent.php
+A scripts/tests/informes-aceptacion/informes-http-router.php
+A scripts/tests/informes-aceptacion/inv-independent.php
+A scripts/tests/informes-aceptacion/res-independent.php
+A scripts/tests/informes-aceptacion/run.php
+A scripts/tests/informes-aceptacion/tic-independent.php
+A scripts/tests/informes-analytics-aislado.php
+A scripts/tests/informes-finanzas-aislado.php
+A scripts/tests/informes-fundacion.php
+A scripts/tests/informes-inventario-aislado.php
+A scripts/tests/informes-reservaciones-aislado.php
+A scripts/tests/informes-tickets-aislado.php
+M scripts/tests/run-a3-datos-comerciales.php
+A scripts/tests/run-articulos-m6.php
+M scripts/tests/run-menu-tipo-venta-ui.cjs
+A scripts/tests/run-range-picker.cjs
+M scripts/tests/run-reservaciones-notification-docs.cjs
+M scripts/tests/run-roles-permisos.php
+M scripts/tests/run-variantes-consumo.php
+M services/Analytics/AnalisisNegocio.php
+M services/Finance/FinanzasNegocio.php
+M services/Inventory/ConsultasAlmacen.php
+M services/Pos/HistorialTickets.php
+A services/Reservations/InformeReservaciones.php
+M services/Security/Permisos.php
+A services/Shared/GeneradorPdf.php
+A services/Shared/GraficaPdf.php
+A services/Shared/LecturaConsistente.php
+A services/Shared/RangoPeriodo.php
+M src/js/admin/core/range-picker.js
+M src/js/admin/ia/ia.js
+M src/scss/admin/modules/ia.scss
+M views/admin/almacenes/index.php
+M views/admin/analytics.php
+M views/admin/finanzas/index.php
+M views/admin/ia/index.php
+A views/admin/partials/_generar-informe.php
+M views/admin/partials/_range-picker.php
+A views/admin/reportes/base.php
+M views/admin/reservations/index.php
+M views/admin/tickets/index.php
+```
