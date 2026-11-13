@@ -19,28 +19,6 @@
   .admin-table-wrap {
     margin-top: 4px;
   }
-
-  // Botón "Guardar" del ajuste rápido. 38 px como los botones de icono de la
-  // celda contigua, para que la fila tenga una sola altura.
-  .admin-inventario__save {
-    white-space: nowrap;
-    min-height: 38px;
-    padding-inline: 14px;
-    font-size: 12px;
-  }
-
-  /* El campo del ajuste rápido a la misma altura que su botón. `!important`
-     acotado: la regla global de campos de _forms.scss suma (0,6,1) e impone
-     46 px, ancho completo y su relleno a cualquier input que no sea casilla o
-     radio (ver CLAUDE.md); con una clase sola no se llega. Es lo que dejaba
-     el campo más alto que «Guardar» en cada una de las setenta filas. */
-  .admin-inline-form input[type="number"] {
-    width: 104px !important;
-    min-height: 38px !important;
-    padding-block: 7px !important;
-    font-family: var(--admin-font-mono) !important;
-    font-size: 13px !important;
-  }
 }
 
 /* Un <button class="admin-btn"> salía a 16 px y un <a class="admin-btn"> a
@@ -204,8 +182,9 @@
   align-items: center;
   gap: 6px;
 
-  // Mismo motivo que el ajuste rápido: la regla global de campos (0,6,1)
-  // impone ancho completo y 46 px; aquí el campo mide lo que su cifra.
+  // `!important` acotado: la regla global de campos de _forms.scss (0,6,1)
+  // impone ancho completo y 46 px y con una clase sola no se llega; aquí el
+  // campo mide lo que su cifra.
   input[type="number"] {
     width: 112px !important;
     min-height: 40px !important;
@@ -576,7 +555,6 @@
   .admin-table td { vertical-align: top; }
   small { display: block; color: var(--admin-muted); font-size: 12px; line-height: 1.65; }
   .admin-field label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
-  button, a, input { &:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 3px; } }
 }
 .almacen-actions, .almacen-row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .almacen-actions { justify-content: flex-end; }
@@ -584,28 +562,156 @@
   h3 { margin: 0; font-size: 19px; font-weight: 700; }
   p { margin: 7px 0 0; font-size: 13px; color: var(--admin-muted); max-width: 70ch; }
 }
-.almacen-selection { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--admin-border);
-  > .almacen-section-head, > .almacen-selection__status, > .admin-empty { grid-column: 1 / -1; }
+/* «Almacenes en consulta» es el filtro de la tabla, no contenido. En la página es una
+   sola línea —cuántos almacenes y cómo se reparten por propietario— que no crece con
+   el número de almacenes; las casillas viven en un panel con una columna por
+   propietario. Las existencias de abajo son lo que el operador viene a ver. */
+.almacen-selection { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--admin-border);
+  // Título del filtro un escalón por debajo de «Existencias por artículo» (19 px):
+  // sin esa diferencia, las dos secciones se leen como pares.
+  > .almacen-section-head { gap: 12px 20px; margin-bottom: 12px;
+    h3 { font-size: 15px; line-height: 1.3; letter-spacing: 0; }
+    p { margin-top: 2px; font-size: 12px; }
+  }
 }
-.almacen-owner { grid-column: 1 / -1; border: 0; padding: 0; margin: 12px 0 0; min-width: 0;
-  legend { font-size: 12px; font-weight: 700; color: var(--admin-muted); margin-bottom: 8px; }
+// El resumen es un control, no un rótulo: borde de componente (3:1) y «Cambiar» al
+// final, para que se lea como algo que se pulsa. Mide su contenido, con tope.
+.admin-body .almacen-alcance__trigger { display: inline-flex; align-items: center; gap: 12px; max-width: 100%; min-height: 52px; padding: 8px 12px 8px 14px; border: 1px solid var(--admin-border-strong); border-radius: var(--admin-radius-md); background: var(--admin-surface); color: var(--admin-text); font: inherit; text-align: left; cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+  > svg { flex: none; color: var(--admin-muted); }
+  &:hover, &[aria-expanded="true"] { background: var(--admin-surface-soft); }
 }
-.almacen-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; }
-.almacen-choice { position: relative; display: flex; min-width: min(100%, 210px); min-height: 76px; max-width: 100%; align-items: center; cursor: pointer; padding: 10px 12px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface);
-  transition: background-color .15s ease, border-color .15s ease;
-  input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-  &:has(input:checked) { border-color: var(--admin-text); background: var(--admin-surface-soft); }
-  &:has(input:focus-visible) { outline: 2px solid var(--admin-text); outline-offset: 3px; }
+.almacen-alcance__texto { display: grid; gap: 1px; min-width: 0; }
+.almacen-alcance__cuenta { font-size: 14px; font-weight: 600;
+  strong { font-variant-numeric: tabular-nums; }
+}
+// Un renglón: con nombres largos se recorta; el detalle completo está en el panel.
+.almacen-alcance__resumen { overflow: hidden; color: var(--admin-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.almacen-alcance__cambiar { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 12px; font-weight: 700;
+  svg { transition: transform var(--admin-t-fast) var(--admin-ease-out); }
+  // El chevron gira: dice que el panel está abierto sin depender del color.
+  [aria-expanded="true"] > & svg { transform: rotate(180deg); }
+}
+
+/* Panel de almacenes. Popover nativo en la capa superior: sin JavaScript queda
+   centrado; inventario.js lo ancla bajo el resumen con .is-anclado. Cabecera y pie
+   fijos; en medio, una columna por propietario con su propio desplazamiento. */
+// position/inset/margin explícitos por la misma razón que .almacen-menu: el reset del
+// panel anula el margin:auto con que el navegador centra un popover.
+.almacen-alcance__panel { position: fixed; inset: 0; width: min(880px, calc(100vw - 24px)); height: fit-content; max-height: min(600px, calc(100dvh - 24px)); margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface); color: var(--admin-text); box-shadow: var(--admin-shadow-lg); font: 13px/1.35 var(--admin-font-sans);
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
+  // display sólo abierto: una regla de autor ganaría a la del navegador que oculta
+  // el popover cerrado.
+  &:popover-open { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  &.is-anclado { inset: auto; margin: 0; }
+  @starting-style { &:popover-open { opacity: 0; transform: translateY(-4px); } }
+}
+.almacen-alcance__cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 18px; border-bottom: 1px solid var(--admin-border-soft); }
+.admin-body .almacen-alcance__titulo { margin: 0; font-size: 14px; font-weight: 600; }
+.almacen-alcance__buscar { position: relative; flex: 1 1 220px; max-width: 320px;
+  svg { position: absolute; top: 50%; left: 10px; color: var(--admin-muted); transform: translateY(-50%); pointer-events: none; }
+  // Por id: el campo global del panel (.admin-body input:not(...) ×5) pesa 0,6,1 y su
+  // padding de 14 px dejaba la lupa encima de la primera letra.
+  #almacen-alcance-q { width: 100%; min-height: 36px; padding-left: 32px; font-size: 13px; }
+  &[hidden] { display: none; }
+}
+// Acciones de texto (todos, ninguno): subrayadas y sin caja, para no competir con las
+// casillas ni con «Aplicar».
+.admin-body .almacen-alcance__enlace { min-height: 28px; padding: 0; border: 0; background: transparent; color: var(--admin-muted); font: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; text-decoration-color: var(--admin-border); text-underline-offset: 3px; cursor: pointer;
+  &:hover { color: var(--admin-text); text-decoration-color: currentColor; }
+  &[hidden] { display: none; }
+}
+.almacen-alcance__cabecera > .almacen-alcance__enlace { margin-left: auto; }
+.almacen-alcance__grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+// El legend flota a todo el ancho: deja de ser el legend «dibujado» del fieldset y su
+// margen se respeta igual en todos los motores.
+.almacen-owner { min-width: 0; margin: 0; padding: 14px 10px 12px; border: 0;
+  & + & { border-left: 1px solid var(--admin-border-soft); }
+  legend { float: left; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; margin: 0; padding: 0 8px 4px; }
+}
+.almacen-owner__cuenta { color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 11px; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.admin-body .almacen-owner__atajos { display: flex; gap: 12px; clear: left; margin: 0 0 6px; padding: 0 8px;
+  &[hidden] { display: none; }
+}
+// La lista de cada propietario se desplaza sola: un propietario con veinte almacenes
+// no empuja a los otros dos fuera de la vista.
+.almacen-owner__choices { display: grid; align-content: start; gap: 2px; clear: left; max-height: 320px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.admin-body .almacen-owner__vacio { margin: 4px 8px; color: var(--admin-muted); font-size: 12px; }
+// Fila de lista: casilla, nombre y, debajo, sólo lo excepcional. El borde existe
+// siempre (transparente) y sólo se pinta, discontinuo, en un almacén inactivo: así
+// la forma lo dice además de la palabra y nada se mueve.
+.almacen-choice { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 2px 10px; min-height: 36px; padding: 8px; border: 1px dashed transparent; border-radius: var(--admin-radius-sm); color: var(--admin-muted); font-size: 13px; line-height: 1.3; cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+  // Casilla nativa visible, igual que «Solo bajo mínimo» en esta misma pantalla:
+  // la palomita dice el estado sin depender del color.
+  input { width: 16px; height: 16px; margin: 1px 0 0; accent-color: var(--admin-text); cursor: inherit; }
   &:hover { background: var(--admin-surface-soft); }
-  &__body { display: flex; align-items: center; gap: 12px; min-width: 0; line-height: 1.35; }
-  strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
-  svg { flex-shrink: 0; color: var(--admin-muted); }
+  &:has(input:checked) { color: var(--admin-text); }
+  &__name { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  // Sólo lo excepcional; tabular para que el recuento no mueva el nombre al cambiar.
+  &__meta { grid-column: 2; color: var(--admin-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  &.is-inactive { border-color: var(--admin-border); }
+  &[hidden] { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .almacen-choice { transition: none; } }
-.almacen-selection__status { color: var(--admin-muted); font-size: 12px; margin: 12px 0 0; min-height: 20px; }
-.almacen-summary { display: flex; align-items: center; gap: 14px 26px; flex-wrap: wrap; margin: 0 0 26px; font-size: 13px; color: var(--admin-muted);
+// Con :has() el anillo del panel (_finishes.scss) se traslada de la casilla a toda la
+// fila, que es el objetivo que se pulsa: uno solo, no dos anidados. Va por dentro
+// porque la lista desplazable recortaría uno exterior.
+@supports selector(:has(*)) {
+  .almacen-workspace .almacen-choice input:focus-visible { outline: 0; box-shadow: none; }
+  .almacen-choice:has(input:focus-visible) { box-shadow: inset 0 0 0 2px var(--admin-accent); }
+}
+.almacen-alcance__pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 18px; border-top: 1px solid var(--admin-border-soft); background: var(--admin-surface-soft); }
+.admin-body .almacen-selection__status { flex: 1 1 220px; min-height: 18px; margin: 0; color: var(--admin-muted); font-size: 12px; }
+@media (pointer: coarse) {
+  .almacen-choice, .admin-body .almacen-alcance__enlace { min-height: 44px; }
+  .almacen-alcance__panel .admin-btn--small { min-height: 44px; }
+}
+@include mixins.reduced-motion {
+  .almacen-choice, .admin-body .almacen-alcance__trigger, .almacen-alcance__cambiar svg { transition: none; }
+  .almacen-alcance__panel { transition: opacity var(--admin-t-fast) var(--admin-ease-out); @starting-style { &:popover-open { transform: none; } } }
+}
+
+/* Carga de la consulta. Al aplicar la selección la página se recarga con el GET;
+   mientras llega, inventario.js cambia la tabla por filas fantasma con la misma
+   rejilla, para que nada salte cuando llegan los datos. Un brillo recorre cada barra
+   con un desfase corto por fila; con movimiento reducido las barras quedan quietas. */
+// La leyenda y la paginación declaran su propio display y ganarían al [hidden] del
+// navegador: lo que el esqueleto oculta se apaga aquí, de forma explícita.
+.almacen-list > [data-stock-oculto] { display: none; }
+.almacen-skeleton__filas { border-top: 1px solid var(--admin-border); }
+.almacen-skeleton__fila { display: grid; grid-template-columns: 16% 17% minmax(0, 1fr) 220px; align-items: start; gap: 24px; padding: 18px 12px; border-bottom: 1px solid var(--admin-border-soft); }
+.almacen-skeleton__celda { display: grid; gap: 8px;
+  span { display: block; height: 12px; border-radius: 4px;
+    background: linear-gradient(90deg, var(--admin-surface-soft) 0%, var(--admin-border-soft) 50%, var(--admin-surface-soft) 100%) 0 0 / 300% 100%;
+    animation: almacen-skeleton-brillo 1.4s var(--admin-ease-out) infinite;
+    animation-delay: calc(var(--fila, 0) * 90ms);
+  }
+  &--nombre span:first-child { width: 72%; height: 14px; }
+  &--nombre span:last-child { width: 28%; }
+  &--saldo span:first-child { width: 58%; height: 16px; }
+  &--saldo span:last-child { width: 80%; }
+  &--barra span:first-child { height: 24px; }
+  &--barra span:last-child { width: 38%; }
+  &--acciones span:first-child { height: 34px; border-radius: var(--admin-radius-sm); }
+  &--acciones span:last-child { display: none; }
+}
+@keyframes almacen-skeleton-brillo {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+@include mixins.reduced-motion {
+  .almacen-skeleton__celda span { animation: none; background: var(--admin-surface-soft); }
+}
+// Cifras a la izquierda, herramientas empujadas a la derecha; al envolver, las
+// herramientas bajan juntas como bloque y no de una en una.
+.almacen-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px 26px; flex-wrap: wrap; margin: 0 0 26px; font-size: 13px; color: var(--admin-muted); }
+.admin-body .almacen-summary__cifras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px; margin: 0; color: var(--admin-muted); font-size: 13px;
   strong { color: var(--admin-text); font-size: 20px; font-variant-numeric: tabular-nums; margin-right: 5px; }
 }
+.almacen-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+// El recuento de pendientes es un dato dentro del botón, no otro rótulo: tinta tenue
+// y peso normal para que «Transferencias» siga siendo lo que se lee primero.
+.almacen-tools__meta { color: var(--admin-muted); font-weight: 600; }
 .almacen-pending { font-size: 12px; margin-left: auto; }
 .almacen-list { border: 1px solid var(--admin-border); border-radius: var(--admin-radius-lg); background: var(--admin-surface); padding: 24px; }
 .almacen-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 22px 0;
@@ -615,13 +721,18 @@
 .almacen-alert-filter { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; font-size: 13px; cursor: pointer;
   input { width: 18px; height: 18px; accent-color: var(--admin-text); }
 }
-.almacen-table { overflow-x: auto; overflow-y: visible;
-  .admin-table { width: 100%; min-width: 860px; }
-  th:first-child { width: 19%; }
-  th:nth-child(2) { width: 18%; }
-  th:nth-child(3) { width: 33%; }
-  th:last-child { width: 30%; }
-  td { padding-block: 22px; }
+// Contenedor de consulta: las acciones de la fila deciden su disposición por el ancho
+// real de la tabla (cambia con el sidebar contraído), no por el del viewport.
+.almacen-table { overflow-x: auto; overflow-y: visible; container: almacen-tabla / inline-size;
+  // 820 y no 860: a 1280 con sidebar la tabla mide 856 y el mínimo anterior dejaba un
+  // desplazamiento horizontal de 4 px.
+  .admin-table { width: 100%; min-width: 820px; }
+  th:first-child { width: 16%; }
+  th:nth-child(2) { width: 17%; }
+  // Acciones mide lo que su contenido; la distribución se queda con el resto. Antes
+  // un 30 % fijo apilaba seis controles uno bajo otro.
+  th:last-child { width: 1%; }
+  td { padding-block: 16px; }
 }
 .almacen-quantity { font-family: var(--admin-font-mono); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;
   small { display: inline; font-family: var(--admin-font-sans); }
@@ -638,19 +749,109 @@
 .almacen-tone-5 { --warehouse-color: var(--admin-c-rosa); }
 .almacen-bar { display: flex; align-items: stretch; gap: 2px; min-height: 24px; margin: 2px 0 12px; border-radius: 3px; background: var(--admin-surface-soft); }
 .admin-body .almacen-segment { flex: var(--segment) 1 0; min-width: 0; border: 0; padding: 0; border-radius: 2px; background: var(--warehouse-color); cursor: pointer;
-  &:focus-visible { outline-offset: 3px; }
-  &.is-negative { background: repeating-linear-gradient(135deg, var(--warehouse-color), var(--warehouse-color) 4px, var(--admin-surface) 4px, var(--admin-surface) 7px); border-style: dashed; }
 }
 .almacen-zero { font-size: 10px; color: var(--admin-text); background: var(--admin-surface); padding-inline: 3px; }
 .almacen-balances { list-style: none; padding: 0; margin: 0; font-size: 12px; line-height: 1.65;
   li { display: flex; justify-content: space-between; gap: 12px; }
   li + li { margin-top: 4px; }
-  .admin-num { white-space: nowrap; }
+  .admin-num { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 }
+// Cifra en la unidad base y, debajo, su lectura en piezas, ambas al borde derecho.
+.almacen-balance-value { display: grid; justify-items: end; text-align: right;
+  .almacen-workspace & small { font-size: 11px; line-height: 1.4; }
+}
+// Bajo mínimo: la flecha del catálogo en tinta de estado; la palabra va para lectores.
+.almacen-balance-alert { display: inline-flex; color: var(--admin-warning-text); }
+.almacen-workspace .almacen-piezas-lectura { color: var(--admin-text); font-family: var(--admin-font-mono); font-size: 12px; }
 .almacen-unassociated { color: var(--admin-muted); font-size: 13px; }
+/* Estado en la tabla de existencias. El artículo activo es lo normal en casi todas las
+   filas: punto y palabra en tinta tenue, sin caja, para que veinticinco «Activo» no
+   compitan con el saldo. Lo inactivo cambia de forma, no sólo de color: insignia neutra
+   con borde discontinuo (la misma de «Almacenes físicos») y nombre atenuado. */
+.almacen-articulo__nombre { display: block; }
+.almacen-articulo__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.almacen-articulo.is-inactive .almacen-articulo__nombre { color: var(--admin-muted); }
+.admin-status.almacen-estado { min-height: 22px; padding: 0 8px; font-size: 11px; }
+.admin-status.almacen-estado--activo { min-height: 0; padding: 0; border: 0; background: none; color: var(--admin-muted); font-weight: 600;
+  // El punto conserva el verde de «Activo» del modal: mismo estado, misma señal.
+  &::before { width: 6px; height: 6px; background: var(--admin-success-text); }
+}
+// En el desglose la marca acompaña a un nombre de 12 px: un escalón más pequeña para
+// no ensanchar el renglón; la cifra de la derecha sigue siendo lo que se lee.
+.admin-status.almacen-estado--compacto { min-height: 18px; gap: 4px; padding: 0 6px; line-height: 1;
+  &::before { width: 5px; height: 5px; }
+}
+.almacen-balance-name { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.admin-body .almacen-balances .is-inactive .almacen-balance-label { color: var(--admin-muted); }
+// Por qué la fila no ofrece operaciones físicas: texto de apoyo, no aviso. Alineado al
+// inicio como los botones que sustituye (la celda de Acciones hereda alineación derecha).
+// Ancho propio, cercano al del grupo Entrada · Merma: la columna mide lo que su contenido
+// (width: 1 %) y en solo consulta, con «Más» como único vecino, la nota caía palabra a palabra.
+.admin-body .almacen-row-note { width: 22ch; max-width: 100%; margin: 0; color: var(--admin-muted); font-size: 12px; line-height: 1.45; text-align: start; }
 .admin-body .almacen-balance-label { border: 0; padding: 0; background: transparent; color: var(--admin-text); text-align: left; font: inherit; text-decoration: underline; text-decoration-color: var(--admin-border); text-underline-offset: 3px; cursor: pointer; }
-.almacen-row-actions { gap: 7px; .admin-btn { min-height: 36px; font-size: 12px; } }
-.almacen-text-button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--admin-text); padding: 6px 0; min-height: 36px; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+/* Acciones de la fila: dos niveles. Las operaciones físicas forman un solo grupo de
+   botones con borde de componente (3:1), así se leen como botones y como familia; «Más»
+   es texto con chevron, sin caja, para que no compita con ellas. Sin sombra ni salto
+   al apuntar: veinticinco filas de botones que se levantan son ruido. */
+// «Más» siempre en el mismo sitio de todas las filas: debajo de la acción visible
+// mientras la tabla no da para ambas en un renglón, y a su derecha cuando sí. Un
+// envolvimiento libre lo dejaba debajo en unas filas y al lado en otras.
+.almacen-row-actions { flex-direction: column; align-items: flex-start; gap: 6px; }
+@container almacen-tabla (min-width: 960px) {
+  .almacen-row-actions { flex-direction: row; flex-wrap: nowrap; gap: 8px; }
+}
+.almacen-ops { display: inline-flex; max-width: 100%; border: 1px solid var(--admin-border-strong); border-radius: var(--admin-radius-sm); background: var(--admin-btn-secondary-bg); }
+.admin-body .almacen-op { position: relative; display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 0 10px; border: 0; background: transparent; color: var(--admin-text); font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer;
+  transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+  // Filete interior entre segmentos; el exterior lo pone el grupo.
+  & + & { border-left: 1px solid var(--admin-border); }
+  &:first-child { border-radius: var(--admin-radius-sm) 0 0 var(--admin-radius-sm); }
+  &:last-child { border-radius: 0 var(--admin-radius-sm) var(--admin-radius-sm) 0; }
+  &:hover { background: var(--admin-surface-soft); }
+  // El anillo del panel (_finishes.scss) se pinta por fuera: el segmento enfocado
+  // sube sobre sus vecinos para que no lo tapen.
+  &:focus-visible { z-index: 1; }
+  svg { flex: none; }
+}
+.admin-body .almacen-more { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 6px 0 8px; border: 1px solid transparent; border-radius: var(--admin-radius-sm); background: transparent; color: var(--admin-muted); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: color var(--admin-t-fast) var(--admin-ease-out), background-color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+  svg { transition: transform var(--admin-t-fast) var(--admin-ease-out); }
+  &:hover, &[aria-expanded="true"] { border-color: var(--admin-border); background: var(--admin-surface-soft); color: var(--admin-text); }
+  // El chevron gira: dice que el menú está abierto sin depender del color.
+  &[aria-expanded="true"] svg { transform: rotate(180deg); }
+}
+
+/* Menú «Más» de la fila. Popover nativo en la capa superior. Sin JavaScript conserva
+   la posición por omisión del popover (centrado); inventario.js lo ancla bajo su
+   botón con .is-anclado. Entra con un desplazamiento corto y sale sin animación:
+   cerrar no debe hacer esperar a nadie. */
+// position/inset/margin explícitos: el reset del panel anula el margin:auto con que el
+// navegador centra un popover, y sin JavaScript el menú caía en la esquina superior.
+.almacen-menu { position: fixed; inset: 0; width: 260px; height: fit-content; max-width: calc(100vw - 24px); margin: auto; padding: 6px; text-align: left; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface); color: var(--admin-text); box-shadow: var(--admin-shadow-lg); font: 13px/1.35 var(--admin-font-sans);
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
+  &.is-anclado { inset: auto; margin: 0; }
+  @starting-style { &:popover-open { opacity: 0; transform: translateY(-4px); } }
+}
+.admin-body .almacen-menu__titulo { margin: 6px 10px 4px; overflow: hidden; color: var(--admin-muted); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.almacen-menu__grupo { display: grid; gap: 2px; padding: 4px 0;
+  & + & { border-top: 1px solid var(--admin-border-soft); }
+}
+.admin-body .almacen-menu__item { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-height: 40px; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--admin-text); font-size: 13px; font-weight: 600; line-height: 1.35; text-align: left; text-decoration: none; cursor: pointer;
+  svg { flex: none; margin-top: 1px; color: var(--admin-muted); }
+  > span { min-width: 0; }
+  small { font-weight: 400; }
+  &:hover, &:focus-visible { background: var(--admin-surface-soft); }
+  // Dentro del menú el anillo exterior chocaría con el borde del popover: va por dentro.
+  &:focus-visible { box-shadow: inset 0 0 0 2px var(--admin-accent); }
+}
+@include mixins.reduced-motion {
+  .almacen-menu { transition: opacity var(--admin-t-fast) var(--admin-ease-out); @starting-style { &:popover-open { transform: none; } } }
+  .admin-body .almacen-op, .admin-body .almacen-more, .admin-body .almacen-more svg { transition: none; }
+}
+// Con el dedo (la tablet de la bodega) todo objetivo de la fila sube a 44 px.
+@media (pointer: coarse) {
+  .admin-body .almacen-op, .admin-body .almacen-more, .admin-body .almacen-menu__item, .almacen-workspace .admin-btn--small { min-height: 44px; }
+}
 .almacen-tooltip { position: fixed; margin: 0; inset: auto; max-width: min(320px, calc(100vw - 24px)); padding: 14px 18px; color: var(--admin-text); background: var(--admin-surface); border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); box-shadow: var(--admin-shadow-lg); font: 13px/1.6 var(--admin-font-sans);
   span { display: block; color: var(--admin-muted); }
   p { margin: 7px 0 0; }
@@ -666,10 +867,96 @@
   .admin-card { box-shadow: none; border: 0; }
   input, select { max-width: 100%; }
 }
+// La introducción es un <p>: `.admin-body p` (0,1,1) le quitaba el margen declarado
+// arriba y la acción o el título siguiente quedaban pegados al texto.
+.admin-body .almacen-modal__intro { margin: 0 0 20px; }
+/* Diálogo con cuerpo desplazable (Transferencias). Antes se desplazaba el diálogo
+   entero y el título con «Cerrar» se iba con el historial. Ahora el diálogo es una
+   columna que no desborda: la cabecera queda fija y sólo corre el cuerpo, con la barra
+   de la casa (`.admin-modal__body` en _finishes.scss), hueco reservado para que el
+   texto no salte cuando aparece la barra y `overscroll-behavior: contain` para que el
+   final del historial no arrastre la página. El alto sale de `dvh` (las barras del
+   navegador móvil no tapan el pie), con `vh` de respaldo. Sin :has() el diálogo sigue
+   desplazándose entero, como antes. */
+.almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) { display: flex; flex-direction: column; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); padding: 0; overflow: hidden;
+  > .almacen-modal__header { flex: none; align-items: center; margin: 0; padding: 22px 28px 18px; border-bottom: 1px solid var(--admin-border-soft); }
+}
+.almacen-modal__body { flex: 1 1 auto; min-height: 0; padding: 22px 18px 28px 28px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+// Diálogo de una sola operación de un artículo (entrada, merma o asociación):
+// un formulario corto, así que usa el ancho de diálogo amplio del panel y no los
+// 880 px de las consultas. El saldo del almacén elegido es el dato que se lee antes
+// de capturar: va justo encima del formulario, sin el aire de una sección aparte.
+.almacen-modal--operacion {
+  .admin-modal__dialog { max-width: 680px; }
+  .almacen-modal__intro { margin-bottom: 14px; }
+  .almacen-modal__picker { margin-bottom: 16px; }
+  // Tres o cuatro campos: el aire entre renglones de la rejilla compartida (26 px) está
+  // pensado para formularios largos con notas; aquí alargaba el diálogo sin separar nada.
+  .admin-form-grid { gap: 20px 18px; margin-block: 18px 0; }
+  // La rejilla ya separa la fila de acciones con su hueco.
+  .admin-modal__actions { margin-top: 4px; }
+}
+/* Destino y saldo: el dato que se lee antes de capturar. Rótulo mono (`admin-eyebrow`)
+   sobre el dato en sans, el par de la casa; el saldo es una cifra aislada, así que va en
+   la cara de indicadores. Una caja tenue sin canto ni sombra: se lee como contexto, no
+   como un campo más. Rejilla y no flex con salto: un nombre largo se parte en su columna
+   y el saldo no baja a otro renglón. Los dos rótulos comparten la línea de arriba y el
+   nombre lleva el mismo alto de renglón que la cifra (24 px), así los datos también
+   quedan a la par. El `.almacen-modal__balance` de «Asociar artículo» (sólo nombre y
+   unidad) no cambia. */
+.admin-body .almacen-modal--operacion .almacen-modal__balance { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; margin: 0; padding: 12px 16px; border: 1px solid var(--admin-border-soft); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft); color: var(--admin-text); font-family: var(--admin-font-sans); font-size: 14px; }
+.almacen-modal__dato { display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  &--saldo { align-items: flex-end; text-align: right; }
+  small { color: var(--admin-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+}
+.admin-body .almacen-modal__almacen { font-size: 16px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.admin-body .almacen-modal__saldo { font-family: var(--admin-font-cifra); font-size: 22px; font-weight: 600; line-height: 24px; white-space: nowrap; }
+/* Rótulos en frase y en tinta: en versalitas abiertas, cuatro rótulos seguidos pesaban más
+   que los datos. Es el mismo rótulo que ya llevan «Asociar artículo» y el resto de
+   formularios de Almacenes (`.almacen-workspace .admin-field label`); aquí faltaba porque
+   `.admin-field__label` imponía las versalitas. Las ayudas, pegadas a su campo. */
+.almacen-modal--operacion {
+  :is(.admin-field, .almacen-piezas) .admin-field__label { margin-bottom: 6px; color: var(--admin-text); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .admin-field .admin-field__hint, .almacen-piezas > .admin-field__hint { margin-top: 6px; font-size: 12px; line-height: 1.45; max-width: none; }
+  // «Cantidad» es el rótulo del grupo; «Piezas de 750 ml» y «Más suelto» son sus partes y
+  // pesan un escalón menos para que el grupo se lea como un solo dato.
+  .almacen-piezas__campos .admin-field label { margin-bottom: 6px; color: var(--admin-muted); font-weight: 500; }
+}
+/* Previsión del saldo, bajo la cantidad que la produce. La cifra resultante va en negrita
+   (`inventario.js` la pinta en <strong>); el tono sale de `data-state`: invitación tenue con
+   el campo vacío, ámbar si la cifra no es válida y rojo si la merma dejaría saldo negativo.
+   El texto dice siempre lo mismo que el color. */
+.almacen-modal--operacion .admin-field__hint.almacen-prevision { margin-top: 8px; color: var(--admin-text); font-size: 13px; font-variant-numeric: tabular-nums; transition: color var(--admin-t-fast) var(--admin-ease-out);
+  strong { font-weight: 700; }
+  &[data-state="vacio"] { color: var(--admin-muted); }
+  &[data-state="invalido"] { color: var(--admin-warning-text); font-weight: 600; }
+  &[data-state="negativo"] { color: var(--admin-danger-text); font-weight: 600; }
+}
+/* «El precio es» vive dentro del campo de precio, bajo el número. `.almacen-workspace
+   .admin-field label` (0,2,1) convertía cada pill en bloque con margen; aquí recupera la
+   fila flex del componente. */
+.almacen-modal--operacion .almacen-costo-por { margin-top: 10px;
+  .admin-pills__legend { color: var(--admin-muted); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .admin-pills__group { margin-top: 6px; }
+  label.admin-pill { display: flex; margin: 0; font-weight: 400; }
+  @media (pointer: coarse) { label.admin-pill { min-height: 44px; align-items: center; } }
+}
 @media(max-width: 760px) {
   .almacen-workspace .admin-page__header, .almacen-section-head { flex-direction: column; align-items: stretch; }
   .almacen-actions { justify-content: flex-start; }
-  .almacen-choice { flex: 1 1 200px; }
+  // El resumen ocupa el ancho y el panel se vuelve hoja inferior, como «Más»: las
+  // columnas se apilan y la hoja entera se desplaza, sin listas anidadas.
+  .admin-body .almacen-alcance__trigger { display: flex; width: 100%; }
+  .almacen-alcance__cambiar { margin-left: auto; }
+  .almacen-alcance__panel, .almacen-alcance__panel.is-anclado { inset: auto 12px 12px; width: auto; max-height: calc(100dvh - 24px); margin: 0;
+    @starting-style { &:popover-open { transform: translateY(8px); } }
+  }
+  .almacen-alcance__buscar { flex-basis: 100%; max-width: none; order: 2; }
+  .almacen-alcance__grupos { grid-template-columns: 1fr; }
+  .almacen-owner + .almacen-owner { border-top: 1px solid var(--admin-border-soft); border-left: 0; }
+  .almacen-owner__choices { max-height: none; overflow: visible; }
+  .almacen-alcance__pie .almacen-actions { justify-content: flex-end; width: 100%; }
+  .almacen-skeleton__fila { grid-template-columns: 1fr; gap: 12px; padding-inline: 0; }
   .almacen-pending { margin-left: 0; }
   .almacen-list { padding: 18px 14px; }
   .almacen-table { overflow: visible;
@@ -682,30 +969,317 @@
     td:first-child strong { font-size: 17px; }
   }
   .almacen-balances { max-width: none; }
-  .almacen-row-actions { margin-top: 10px; .admin-btn { min-height: 44px; } }
+  // En la tarjeta apilada las operaciones ocupan el ancho y se reparten por igual;
+  // «Más» cae debajo, a la izquierda, a tamaño táctil.
+  .almacen-row-actions { align-items: stretch; margin-top: 6px; }
+  .almacen-ops { display: flex; }
+  .admin-body .almacen-more, .almacen-row-actions > .admin-btn { align-self: flex-start; }
+  .admin-body .almacen-op, .admin-body .almacen-more, .almacen-row-actions .admin-btn { min-height: 44px; }
+  // El menú se vuelve hoja inferior: al alcance del pulgar y sin depender de dónde
+  // quedó la fila al desplazarse.
+  .almacen-menu, .almacen-menu.is-anclado { inset: auto 12px 12px; width: auto; max-width: none; margin: 0;
+    // La hoja sube desde abajo, de donde aparece.
+    @starting-style { &:popover-open { transform: translateY(8px); } }
+  }
+  .admin-body .almacen-menu__item { min-height: 44px; }
   .almacen-modal { padding: 10px; .admin-modal__dialog { padding: 20px; max-height: calc(100dvh - 20px); } }
+  // Con cuerpo desplazable el aire pasa a cabecera y cuerpo; el pie respeta la zona
+  // segura del teléfono porque en móvil el diálogo es una hoja pegada abajo.
+  .almacen-modal .admin-modal__dialog:has(> .almacen-modal__body) { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); padding: 0;
+    > .almacen-modal__header { padding: 16px 20px 14px; h3 { font-size: 20px; } }
+  }
+  .almacen-modal__body { padding: 18px 12px calc(22px + env(safe-area-inset-bottom, 0px)) 20px; }
   .almacen-summary { gap: 12px 18px; }
 }
 // Documentos de transferencia dentro del modal compartido del panel.
 .almacen-transfer-wide { grid-column: 1 / -1; }
-.almacen-transfer-request,
-.almacen-transfer-document { padding-block: 1rem; border-bottom: 1px solid var(--admin-gris-3); }
-.almacen-transfer-request > summary,
-.almacen-transfer-document > summary,
-.almacen-transfer-action > summary,
-.almacen-transfer-history > summary { cursor: pointer; padding-block: .65rem; }
-.almacen-transfer-document > summary { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
-.almacen-transfer-document > p { margin-block: .75rem; }
-.almacen-transfer-action,
-.almacen-transfer-history { margin-block: .75rem; }
-.almacen-transfer-action form,
+/* «Solicitar transferencia»: la acción principal del modal es un summary con forma de
+   botón primario, por encima del historial. Abierto, pasa a pesar como secundario (los
+   valores de .admin-btn--secondary) y el chevron gira: a la vista queda un solo
+   primario, «Registrar solicitud», al pie del formulario. El selector sube a (0,4,1)
+   porque `.almacen-modal summary` y `.admin-body .admin-btn--primary` pisarían la
+   caja del botón. «Nuevo almacén» (modal Almacenes físicos) es el mismo patrón: una
+   sola regla para que los dos disparadores no se separen con el tiempo. */
+.almacen-modal :is(.almacen-transfer-request, .almacen-config-alta) { margin-bottom: 20px; padding-block: 0 20px; border-top: 0; border-bottom: 1px solid var(--admin-gris-3);
+  > summary.admin-btn { display: inline-flex; gap: 7px; min-height: 44px; padding-block: 0; font-size: 13px; list-style: none;
+    &::-webkit-details-marker { display: none; }
+  }
+  &[open] > summary.admin-btn { border-color: color-mix(in srgb, var(--admin-gold-deep) 36%, transparent); background-color: var(--admin-btn-secondary-bg); color: var(--admin-text);
+    &::before, &::after { display: none; }
+    &:hover { background-color: var(--admin-surface-strong); }
+  }
+  &[open] > form { animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out); }
+}
+.almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron,
+.almacen-transfer-document__chevron, .almacen-transfer-action__chevron, .almacen-transfer-history__chevron { flex: none; transition: transform var(--admin-t-fast) var(--admin-ease-out);
+  [open] > summary > & { transform: rotate(180deg); }
+}
+// El formulario baja desde el botón que lo abrió; salir no se anima (plegar es inmediato).
+@keyframes almacen-transfer-entra { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes almacen-transfer-funde { from { opacity: 0; } }
+@include mixins.reduced-motion {
+  .almacen-transfer-request__chevron, .almacen-config-alta__chevron, .almacen-config__chevron,
+  .almacen-transfer-document__chevron, .almacen-transfer-action__chevron, .almacen-transfer-history__chevron { transition: none; }
+  .almacen-modal :is(.almacen-transfer-request, .almacen-config-alta)[open] > form { animation-name: almacen-transfer-funde; }
+}
+.almacen-modal .almacen-transfer-request-hint { margin: 0 0 20px; }
+// El alta de almacén: el propietario y el nombre a todo el ancho, uno debajo del otro.
+.almacen-modal .almacen-config-alta__form { margin-block: 16px 0; }
+// Sin almacenes no hay lista debajo: el filete que la separa quedaría colgando.
+.almacen-modal .almacen-config-alta:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+// Las tres opciones del mismo ancho: ninguna parece la recomendada. En el teléfono, una
+// por renglón (tres en fila no caben y dos más una se leía como jerarquía).
+.almacen-config-alta .admin-pill { flex: 1 1 0; }
+@media (max-width: 600px) { .almacen-config-alta .admin-pill { flex-basis: 100%; } }
+
+/* Almacenes físicos (modal `almacen-config`). La tabla se agrupa por propietario: el
+   negocio actual primero, con «Propio», y los demás con «Otro negocio» y una sola nota
+   de consulta por grupo en lugar de una por fila. El rótulo del dueño pesa como título
+   de sección (aquí la propiedad es el contenido, no un filtro como en la selección) y
+   las columnas son las mismas en todos los grupos para que el estado se lea en vertical. */
+.almacen-config { margin-top: 4px; }
+.almacen-config__tabla { min-width: 0; table-layout: fixed;
+  thead th:nth-child(1) { width: 36%; }
+  thead th:nth-child(2) { width: 18%; }
+  // La tabla del panel alinea a la derecha su última columna; aquí las acciones y el
+  // panel que abren empiezan a la izquierda, igual que su encabezado.
+  // (0,2,1) como `.admin-table td:last-child`, y después en la cascada.
+  th:last-child, td:last-child { text-align: left; }
+  .almacen-config__dueno > th { padding: 26px 16px 10px; border-bottom: 1px solid var(--admin-border-strong); background: transparent; color: var(--admin-text); font-size: 13px; font-weight: 600; letter-spacing: 0; line-height: 1.4; text-transform: none; white-space: normal; }
+  .almacen-config__grupo:first-of-type .almacen-config__dueno > th { padding-top: 18px; }
+  .almacen-config__fila td { padding-block: 14px; vertical-align: top; }
+  .almacen-config__fila:last-child td { border-bottom: 0; }
+}
+.almacen-config__dueno-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.almacen-config__dueno-nombre { font-size: 16px; font-weight: 700; }
+// Propio: relleno y tinta plena. Otro negocio: contorno y tinta tenue (admin-badge--outline).
+.admin-badge.almacen-config__relacion--propio { border-color: var(--admin-border-strong); background: var(--admin-surface-strong); color: var(--admin-text); }
+.almacen-config__cuenta { margin-left: auto; color: var(--admin-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.almacen-config__nota { display: block; margin-top: 4px; color: var(--admin-muted); font-size: 12px; font-weight: 500; }
+.almacen-config__nombre strong { font-size: 14px; overflow-wrap: anywhere; }
+.almacen-config__fila.is-inactive .almacen-config__nombre strong { color: var(--admin-muted); }
+// Inactivo también por forma, igual que la casilla inactiva de la selección.
+// El filete pasa a la línea de control (3:1) para que el discontinuo se vea de verdad.
+.admin-status.almacen-config__inactivo, .admin-status.almacen-estado--inactivo { border-style: dashed; border-color: var(--admin-border-strong); }
+// «Ver artículos» y «Configurar» en un renglón; el panel de configuración se abre debajo
+// a todo el ancho de la celda. Con ::details-content el <details> cede su caja a la
+// rejilla (display: contents) y el summary no se mueve al abrir. Sin soporte, el
+// <details> queda como bloque bajo el enlace: más alto, igual de operable.
+.almacen-config__acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+@supports selector(::details-content) {
+  .almacen-config__acciones { display: grid; grid-template-columns: auto auto minmax(0, 1fr); row-gap: 0; justify-items: start; }
+  .almacen-config__detalle { display: contents; }
+  .almacen-config__detalle::details-content { grid-column: 1 / -1; justify-self: stretch; }
+}
+// (0,3,1): `.almacen-modal details/summary` le ponían filete, aire y la caja de 44 px de
+// un disclosure de texto; aquí el summary es un botón secundario pequeño.
+.almacen-modal .almacen-config__detalle { border-top: 0; padding-block: 0; }
+.almacen-modal .almacen-config__detalle > summary.admin-btn { display: inline-flex; gap: 7px; min-height: 34px; padding-block: 0; font-size: 12px; font-weight: 800; list-style: none;
+  &::-webkit-details-marker { display: none; }
+}
+// Abierto, el botón queda hundido: dice qué fila se está configurando.
+.almacen-modal .almacen-config__detalle[open] > summary.admin-btn { border-color: var(--admin-border-strong); background-color: var(--admin-surface-strong); }
+.almacen-config__panel { margin-top: 12px; padding: 16px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft); }
+.almacen-modal .almacen-config__detalle[open] .almacen-config__panel { animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out); }
+// Movimiento reducido: el panel aparece sólo con opacidad. Va después de la regla
+// anterior porque tiene su misma especificidad.
+@include mixins.reduced-motion { .almacen-modal .almacen-config__detalle[open] .almacen-config__panel { animation-name: almacen-transfer-funde; } }
+.almacen-modal .almacen-config__panel .admin-form-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-block: 0; }
+.almacen-config__panel .admin-form-grid__actions { margin-top: 2px; }
+.almacen-workspace .admin-field label.almacen-config__activo { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; margin: 0; font-size: 13px; font-weight: 600; cursor: pointer;
+  input { width: 18px; height: 18px; margin: 0; accent-color: var(--admin-text); }
+}
+// Lo que destruye va aparte: tras un filete, con su explicación al lado.
+.almacen-config__baja { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--admin-border); }
+.admin-body .almacen-config__baja p { flex: 1 1 200px; margin: 0; }
+@media (pointer: coarse) {
+  .almacen-config__acciones .admin-btn, .almacen-modal .almacen-config__detalle > summary.admin-btn, .almacen-config__baja .admin-btn { min-height: 44px; }
+}
+// En el teléfono cada almacén es una tarjeta: nombre y estado en un renglón, las
+// acciones debajo a todo el ancho. El rótulo del dueño sigue encabezando su grupo.
+@media (max-width: 600px) {
+  .almacen-config__tabla { table-layout: auto;
+    thead { display: none; }
+    tbody, tr, th, td { display: block; width: 100%; }
+    .almacen-config__dueno > th { padding: 22px 0 8px; }
+    .almacen-config__grupo:first-of-type .almacen-config__dueno > th { padding-top: 6px; }
+    .almacen-config__fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding-block: 14px; border-bottom: 1px solid var(--admin-border-soft); }
+    .almacen-config__fila:last-child { border-bottom: 0; }
+    .almacen-config__fila td { width: auto; padding: 0; border: 0; }
+    .almacen-config__acciones-celda { grid-column: 1 / -1; margin-top: 12px; }
+  }
+}
+.almacen-transfer-pages { margin-top: 20px; }
 .almacen-transfer-request form { padding-block: 1rem; }
 .almacen-transfer-lines { display: grid; gap: 1rem; }
 .almacen-transfer-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 1rem; align-items: end; }
-.almacen-transfer-history ol { padding-inline-start: 1.5rem; }
-.almacen-transfer-history li { margin-block: 1rem; }
-.almacen-transfer-caption { text-align: start; padding-block: .75rem; color: var(--admin-gris-8); }
+/* Pista de «Nueva transferencia»: es lo que dice qué pasará al enviar (un paso, enviada
+   o solicitada), no una nota al pie. Con el gris de 11.5 px de admin-field__hint se
+   perdía bajo los selectores y el botón cambiaba a «Enviar» sin contexto visible. Va
+   en tinta plena, a todo el ancho y en una caja hundida neutra (no es un estado: el
+   panel es blanco y negro). Reserva dos renglones para que cambiar de pareja no
+   empuje artículos, motivo y botón. (0,3,1) para ganar a `.admin-body p` y a la regla
+   de la pista del panel. */
+.admin-body .almacen-transfer-request p.almacen-transfer-hint { max-width: none; min-height: calc(3em + 22px); margin: 0; padding: 10px 14px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft); color: var(--admin-text); font-size: 13px; line-height: 1.5; }
+/* Aviso de asociación (lo escribe inventario.js): comparte la caja de la pista pero no
+   es la pista. No reserva renglones (aparece bajo las líneas y sólo empuja lo que
+   sigue) y lleva el rol de estado: informativo cuando el destino quedará asociado al
+   registrar y de peligro cuando el artículo falta en el origen, que el servidor
+   rechaza. El segundo va además en negrita y pide una acción en el texto: no depende
+   sólo del color. `[hidden]` explícito por si una regla de caja le diera display. */
+.admin-body .almacen-transfer-request p.almacen-transfer-asociacion { min-height: 0; border-color: var(--admin-info-border); background: var(--admin-info-bg); color: var(--admin-info-text); overflow-wrap: anywhere;
+  &[data-tono="error"] { border-color: var(--admin-danger-border); background: var(--admin-danger-bg); color: var(--admin-danger-text); font-weight: 600; }
+  &[hidden] { display: none; }
+}
+
+/* «Asociar artículo»: casillas de almacén agrupadas por negocio. Cada negocio es una
+   caja con su rótulo y cada almacén una fila completa que se pulsa (44 px), con la
+   casilla nativa en tinta como en el selector de alcance de esta pantalla. Las cajas
+   se reparten en columnas mientras quepan 200 px; en móvil quedan una bajo otra. */
+.almacen-asociar-almacenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; align-items: start; min-width: 0; margin: 0; padding: 0; border: 0;
+  // La leyenda es la etiqueta del campo: mismo peso que «Artículo» y «Mínimo físico»
+  // del diálogo, no el rótulo en versales de admin-field__label.
+  > legend { float: left; width: 100%; margin: 0 0 8px; padding: 0; color: var(--admin-text); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  > legend, > p { grid-column: 1 / -1; }
+  &__grupo { min-width: 0; padding: 6px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-sm); transition: border-color var(--admin-t-fast) var(--admin-ease-out); }
+  // --admin-danger-text y no el rojo pleno: en tema oscuro el rojo quedaba en 2.97:1.
+  &.has-error &__grupo { border-color: var(--admin-danger-text); }
+  &__opcion { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px; border-radius: calc(var(--admin-radius-sm) - 4px); color: var(--admin-muted); font-size: 14px; line-height: 1.35; cursor: pointer; transition: background-color var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+    input { width: 18px; height: 18px; margin: 0; accent-color: var(--admin-text); cursor: inherit; }
+    span { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+    &:hover { background: var(--admin-surface-soft); }
+    &:has(input:checked) { color: var(--admin-text); }
+  }
+}
+// (0,3,1)/(0,3,0) para ganar a `.admin-body p`, a la etiqueta de campo del espacio de
+// trabajo y al margen de la pista.
+.admin-body .almacen-asociar-almacenes p.almacen-asociar-almacenes__negocio { margin: 0; padding: 6px 8px 4px; color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.almacen-workspace .almacen-asociar-almacenes label.almacen-asociar-almacenes__opcion { display: grid; margin: 0; font-size: 14px; }
+.admin-body .almacen-asociar-almacenes > p.admin-field__hint { margin: 0; }
+.admin-body .almacen-asociar-almacenes > p.almacen-asociar-almacenes__error { min-height: 0; margin: 0; color: var(--admin-danger-text); font-size: 13px;
+  &[hidden] { display: none; }
+}
+// El anillo va en la fila entera, que es lo que se pulsa (igual que .almacen-choice).
+@supports selector(:has(*)) {
+  .admin-body .almacen-asociar-almacenes__opcion input:focus-visible { outline: 0; box-shadow: none; }
+  .almacen-asociar-almacenes__opcion:has(input:focus-visible) { box-shadow: inset 0 0 0 2px var(--admin-accent); }
+}
+// El botón cierra el formulario en su propio renglón, sin estirarse junto a un campo.
+.almacen-modal .almacen-asociar__enviar { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 600px) { .almacen-modal .almacen-asociar__enviar { justify-self: stretch; } }
+@include mixins.reduced-motion { .almacen-asociar-almacenes__grupo, .almacen-asociar-almacenes__opcion { transition: none; } }
+
+/* Documento de transferencia. Un filete por documento (no uno arriba y otro abajo):
+   `.almacen-modal details` le ponía el de arriba y la regla propia el de abajo. El
+   summary es la cabecera del documento: número, estado (insignia con el rol de estado;
+   la palabra siempre va escrita), ruta y un chevron que dice que se pliega. */
+.almacen-modal .almacen-transfer-document { padding-block: 6px 22px; border-top: 0; border-bottom: 1px solid var(--admin-border); }
+.almacen-modal .almacen-transfer-document > summary { position: relative; flex-wrap: wrap; gap: 8px 12px; margin-inline: -8px; padding: 8px 36px 8px 8px; border-radius: var(--admin-radius-sm); transition: background-color var(--admin-t-fast) var(--admin-ease-out);
+  &::-webkit-details-marker { display: none; }
+  &:hover { background-color: var(--admin-surface-soft); }
+  strong { font-size: 15px; }
+}
+// Arriba a la derecha y fuera del flujo: cuando la ruta baja de renglón (320 px) el
+// chevron no se queda solo en una línea.
+.almacen-transfer-document__chevron { position: absolute; top: 14px; right: 10px; color: var(--admin-muted); }
+// Origen y destino con su negocio, y la fecha en el mismo renglón si cabe: forzada a un
+// renglón propio empezaba con el separador colgando.
+.admin-body .almacen-transfer-document > p.almacen-transfer-route { margin-block: 4px 14px; color: var(--admin-muted); font-size: 14px; }
+.almacen-transfer-caption { text-align: start; padding-block: 0 10px; color: var(--admin-muted); font-size: 13px; }
+// La tabla sólo se desplaza a lo ancho, pero `overflow-x: auto` la vuelve contenedor de
+// scroll en los dos ejes y el `overscroll-behavior: contain` de _finishes.scss cortaba
+// la cadena: con el puntero o el dedo sobre las cantidades, el cuerpo del modal no se
+// movía. El contain se queda en el eje horizontal, que es el que _tables.scss pedía.
+.almacen-modal .almacen-transfer-document .admin-table-wrap { overscroll-behavior-block: auto; overscroll-behavior-inline: contain; }
+
+/* Acciones del documento: una barra de botones bajo la tabla. Cada acción sigue siendo
+   details/summary (el navegador anuncia expandido/contraído y funciona sin JS); su
+   formulario se abre debajo de la barra, a todo el ancho, en un panel hundido. Ningún
+   disparador es primario —el único primario del modal es «Solicitar transferencia»—;
+   la jerarquía va por contorno:
+     · avanza (autorizar, enviar, recibir, retornar, confirmar): contorno en tinta, el
+       más pesado de la barra;
+     · neutra (registrar diferencia): contorno de control (`--admin-border-strong`,
+       3.2:1 en claro y 3.4:1 en oscuro; el secundario de serie no llega a 3:1);
+     · cierra (rechazar, cancelar): el mismo contorno con tinta de peligro, apartado a
+       la derecha para no caer en él por error; su envío, dentro, va en rojo pleno.
+   Abierto, el botón se hunde con un filete inferior del color de su tinta, como una
+   pestaña elegida, y el chevron gira. El selector sube a (0,3,1) porque
+   `.almacen-modal summary` (0,1,1) le imponía letra de 14 px y la caja de un disclosure. */
+.almacen-transfer-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 20px; }
+.almacen-modal .almacen-transfer-action { margin: 0; padding: 0; border-top: 0;
+  > summary.admin-btn { --accion-tinta: var(--admin-text); display: inline-flex; gap: 8px; min-height: 44px; padding: 0 14px; border-color: var(--admin-border-strong); font-size: 13px; list-style: none;
+    &::-webkit-details-marker { display: none; }
+    &:hover { border-color: var(--admin-border-strong); }
+    svg { flex: none; }
+  }
+  &--avanza > summary.admin-btn { &, &:hover { border-color: var(--admin-text); } }
+  &--cierra > summary.admin-btn { --accion-tinta: var(--admin-danger-text); color: var(--admin-danger-text);
+    &:hover { border-color: var(--admin-danger-text); background-color: var(--admin-danger-bg); color: var(--admin-danger-text); }
+  }
+  &[open] > summary.admin-btn { background-color: var(--admin-surface-strong); box-shadow: inset 0 -3px 0 var(--accion-tinta); transform: none;
+    // El anillo de foco del panel (_finishes.scss) convive con el filete de abierto.
+    &:focus-visible { box-shadow: inset 0 -3px 0 var(--accion-tinta), 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent); }
+  }
+  > form.admin-form-grid { margin: 0 0 4px; padding: 18px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft);
+    // Al abrir, inventario.js acerca el formulario; el margen superior deja a la vista
+    // la fila de botones que lo abrió.
+    scroll-margin-block: 72px 16px;
+  }
+  &[open] > form { animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out); }
+}
+// La primera acción que cierra se aparta a la derecha de las que avanzan.
+.almacen-modal .almacen-transfer-action:not(.almacen-transfer-action--cierra) + .almacen-transfer-action--cierra > summary.admin-btn { margin-left: auto; }
+.admin-body .almacen-transfer-action > form > p.almacen-transfer-wide { margin: 0; color: var(--admin-text); font-size: 14px; line-height: 1.5; }
+.almacen-transfer-action > form > .admin-btn { justify-self: start; }
+// Con ::details-content el <details> cede su caja a la barra: los botones quedan en fila
+// y cada formulario abierto baja (order) a un renglón propio. Sin hueco entre renglones,
+// porque un formulario plegado sigue siendo un renglón de alto cero; el aire entre filas
+// de botones lo pone su margen. Sin soporte, el <details> abierto ocupa el ancho y su
+// botón encabeza el formulario: más alto, igual de operable.
+.almacen-modal .almacen-transfer-action[open] { flex-basis: 100%; }
+@supports selector(::details-content) {
+  .almacen-transfer-actions { row-gap: 0; }
+  .almacen-modal .almacen-transfer-action { display: contents; }
+  .almacen-modal .almacen-transfer-action > summary.admin-btn { margin-bottom: 10px; }
+  .almacen-transfer-action::details-content { order: 1; flex: 0 0 100%; min-width: 0; }
+}
+
+/* Historial: consulta, no acción. Un secundario pequeño con reloj y chevron, por debajo
+   de la barra de acciones; abierto, una lista numerada con un filete por evento. */
+.almacen-modal .almacen-transfer-history { margin-top: 16px; padding: 0; border-top: 0;
+  > summary.admin-btn { display: inline-flex; gap: 7px; min-height: 36px; padding: 0 12px; font-size: 12px; list-style: none;
+    &::-webkit-details-marker { display: none; }
+  }
+  &[open] > summary.admin-btn { border-color: var(--admin-border-strong); background-color: var(--admin-surface-strong); transform: none; }
+  &[open] > ol { animation: almacen-transfer-entra var(--admin-t-base) var(--admin-ease-out); }
+}
+.almacen-transfer-history ol { margin: 12px 0 0; padding-inline-start: 2rem; scroll-margin-block: 56px 16px; }
+.almacen-transfer-history li { padding-block: 10px; border-top: 1px solid var(--admin-border-soft); color: var(--admin-text); font-size: 13px; line-height: 1.5;
+  &::marker { color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 12px; }
+  &:first-child { border-top: 0; }
+}
+.admin-body .almacen-transfer-history li p { margin: 2px 0 0; color: var(--admin-text); font-size: 13px; }
+@include mixins.reduced-motion {
+  .almacen-modal .almacen-transfer-action[open] > form,
+  .almacen-modal .almacen-transfer-history[open] > ol { animation-name: almacen-transfer-funde; }
+  .almacen-modal .almacen-transfer-document > summary { transition: none; }
+}
+@media (pointer: coarse) {
+  .almacen-modal .almacen-transfer-history > summary.admin-btn { min-height: 44px; }
+}
 @media (max-width: 600px) {
+    // En el teléfono la barra es un acordeón: una acción por renglón, a todo el ancho y
+    // al alcance del pulgar, y cada formulario se abre justo bajo su botón (apilados, un
+    // formulario al pie de la columna parecía del último). El chevron va al borde para
+    // que la columna de etiquetas se lea pareja.
+    .almacen-modal .almacen-transfer-action { display: block; flex-basis: 100%; }
+    .almacen-transfer-action::details-content { order: 0; }
+    .almacen-modal .almacen-transfer-action > summary.admin-btn { width: 100%; margin: 0 0 10px; justify-content: flex-start; }
+    .almacen-modal .almacen-transfer-action > form.admin-form-grid { margin-bottom: 10px; scroll-margin-block: 16px; }
+    .almacen-transfer-action__chevron { margin-left: auto; }
+    .almacen-modal .almacen-transfer-action > form.admin-form-grid { padding: 14px; }
+    .almacen-transfer-action > form > .admin-btn { justify-self: stretch; }
     .almacen-transfer-line { grid-template-columns: minmax(0, 1fr); }
     .almacen-transfer-document .admin-table {
         display: block;
@@ -714,7 +1288,7 @@
         caption { display: block; white-space: normal; }
         thead { display: none; }
         tbody { display: block; }
-        tr { display: grid; border-bottom: 1px solid var(--admin-gris-3); padding-block: .75rem; }
+        tr { display: grid; border-bottom: 1px solid var(--admin-border-soft); padding-block: .75rem; }
         td {
             display: flex;
             justify-content: space-between;
@@ -723,16 +1297,192 @@
             border: 0;
             white-space: normal;
             padding: .5rem 0;
-            &::before { content: attr(data-label); font-family: var(--admin-font-sans); font-weight: 500; }
+            &::before { content: attr(data-label); color: var(--admin-muted); font-family: var(--admin-font-sans); font-size: 12px; font-weight: 600; }
         }
     }
 }
 
-.almacen-choice__body small { display: block; line-height: 1.4; margin-top: 2px; }
-.almacen-choice__metrics { font-variant-numeric: tabular-nums; color: var(--admin-muted); }
 .almacen-entry-picker { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); }
 .almacen-entry-picker .admin-btn { justify-content: flex-start; text-align: left; white-space: normal; }
 .almacen-actions { flex-wrap: wrap; }
 .almacen-contextual { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .almacen-contextual h3 { margin: 0 0 4px; }
 .almacen-contextual p { margin: 4px 0; }
+
+// alertas.php comparte su marcado con Menú, pero los estilos viven en menu.scss y
+// esta pantalla no lo carga: los avisos flash salían como texto suelto. Conciliar y
+// confirmar responden por aquí, así que se pintan con los roles de estado del panel.
+// Proveedores incluye el mismo parcial («Proveedor creado.», errores de guardado).
+.almacen-workspace,
+.almacen-proveedores {
+  .admin-menu__flash,
+  .admin-menu__alert { margin-bottom: 16px; padding: 14px 16px; border: 1px solid; border-radius: var(--admin-radius-sm); font-size: 14px; line-height: 1.45; }
+  .admin-menu__flash--exito { border-color: var(--admin-success-border); background: var(--admin-success-bg); color: var(--admin-success-text); }
+  .admin-menu__flash--error,
+  .admin-menu__alert { border-color: var(--admin-danger-border); background: var(--admin-danger-bg); color: var(--admin-danger-text); }
+  .admin-menu__alert ul { margin: 8px 0 0 18px; }
+}
+
+/* Aviso de faltantes: lo primero de la pantalla cuando existe. Es un estado que
+   pide acción, así que lleva el ámbar de estado (fondo y borde, sin filete lateral)
+   y el texto en tinta; el botón queda secundario para no competir con la acción
+   principal de la cabecera. */
+.almacen-faltantes-aviso { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 22px; padding: 14px 18px; border: 1px solid var(--admin-warning-border); border-radius: var(--admin-radius-md); background: var(--admin-warning-bg); }
+.almacen-faltantes-aviso__icono { display: inline-flex; flex: none; color: var(--admin-warning-text); }
+.almacen-faltantes-aviso__texto { flex: 1 1 280px; min-width: 0; }
+.admin-body .almacen-faltantes-aviso__texto p { color: var(--admin-text); font-size: 13px; line-height: 1.5; }
+.admin-body .almacen-faltantes-aviso__texto .almacen-faltantes-aviso__titulo { margin-bottom: 2px; font-size: 15px; font-weight: 700; }
+/* En Global el superadministrador sólo consulta y, si hace falta, ayuda: la
+   responsabilidad es de cada negocio, así que el aviso informa sin alarmar. */
+.almacen-faltantes-aviso--consulta { border-color: var(--admin-border); background: var(--admin-surface-soft);
+  .almacen-faltantes-aviso__icono { color: var(--admin-muted); }
+}
+
+/* Faltante sin conciliar (§16): el saldo no baja de cero; lo que una venta usó sin
+   saldo se muestra aparte, con signo menos, como deuda del almacén. Lleva palabra
+   («sin conciliar»), no sólo color. */
+.admin-body .almacen-faltante-marca { display: block; color: var(--admin-warning-text); font-size: 12px; font-weight: 600; }
+.admin-body .almacen-tooltip .almacen-tooltip__faltante { color: var(--admin-warning-text); font-weight: 600; }
+
+/* Bandeja de faltantes, dentro del modal compartido. Cada faltante es un documento
+   como las transferencias: resumen en la línea del summary y, abierto, de dónde viene,
+   las cifras y el reparto. */
+.almacen-faltante > summary { justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; padding-block: 6px; }
+.almacen-faltante__head { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; font-size: 15px; }
+.almacen-faltante__resumen { color: var(--admin-muted); font-size: 13px; font-weight: 400;
+  strong { color: var(--admin-text); font-weight: 600; }
+}
+.almacen-faltante__body { display: grid; gap: 16px; padding: 6px 0 18px; }
+.admin-body .almacen-faltante__origen { color: var(--admin-text); font-size: 13px; }
+.almacen-faltante__cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 18px; margin: 0;
+  dt { color: var(--admin-muted); font-size: 12px; }
+  dd { margin: 2px 0 0; color: var(--admin-text); font-family: var(--admin-font-mono); font-size: 14px; }
+  .is-key dd { font-size: 16px; font-weight: 600; }
+  .almacen-workspace & small { font-family: var(--admin-font-sans); font-size: 12px; }
+}
+.admin-body .almacen-faltante__subtitulo { margin: 0; font-family: var(--admin-font-sans); font-size: 14px; letter-spacing: 0; }
+.almacen-faltante__asignaciones { margin: 0; padding: 0; list-style: none;
+  li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 8px 0; border-top: 1px solid var(--admin-border-soft); font-size: 13px; }
+  .admin-num { white-space: nowrap; }
+}
+.admin-body .almacen-faltante__motivo { grid-column: 1 / -1; color: var(--admin-text); font-size: 13px; }
+.almacen-faltante__nota { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--admin-warning-border); border-radius: var(--admin-radius-sm); background: var(--admin-warning-bg); color: var(--admin-text); font-size: 13px; line-height: 1.5;
+  svg { flex: none; margin-top: 2px; color: var(--admin-warning-text); }
+}
+.almacen-faltante__origenes { min-width: 0; margin: 0; padding: 0; border: 0;
+  legend { padding: 0; color: var(--admin-text); font-size: 14px; font-weight: 600; }
+  > .admin-field__hint { margin: 4px 0 0; }
+}
+.admin-body .almacen-faltante__grupo { margin: 16px 0 2px; }
+// Un renglón por almacén: quién es y cuánto tiene a la izquierda, cuánto se toma a la derecha.
+.almacen-origen { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; padding: 8px 0; border-top: 1px solid var(--admin-border-soft);
+  .almacen-workspace & label { margin: 0; font-weight: 400; cursor: pointer; }
+  &.is-empty .almacen-origen__nombre { color: var(--admin-muted); }
+}
+.almacen-origen__nombre { color: var(--admin-text); font-size: 14px; font-weight: 600; }
+.almacen-origen__campo { display: inline-flex; align-items: center; gap: 8px;
+  // La regla global de campos (0,6,1) impone ancho completo; aquí mide su cifra.
+  input { width: 9.5rem !important; font-family: var(--admin-font-mono) !important; text-align: right; }
+}
+// Sin saldo propio no hay campo que llenar: se dice con texto, no con un control apagado.
+.almacen-origen__vacio { color: var(--admin-muted); font-size: 12px; }
+.almacen-origen__unidad { min-width: 2.2em; color: var(--admin-muted); font-family: var(--admin-font-mono); font-size: 12px; }
+.admin-body .almacen-faltante__suma { min-height: 20px; margin: 4px 0 0; color: var(--admin-text); font-size: 13px; font-variant-numeric: tabular-nums;
+  &[data-state="pendiente"] { color: var(--admin-warning-text); font-weight: 600; }
+  &[data-state="exacto"] { color: var(--admin-success-text); font-weight: 600; }
+}
+.almacen-faltante__acciones { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+// Captura en piezas: «8 piezas» y «450 ml» lado a lado, como se cuentan en bodega.
+.almacen-piezas { min-width: 0; margin: 0; padding: 0; border: 0;
+  > legend { margin-bottom: 8px; padding: 0; font-size: 13px; font-weight: 600; }
+  > .admin-field__hint { margin-top: 8px; }
+}
+.almacen-piezas__campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.almacen-costo-por .admin-pill { min-width: 0; }
+
+// Ruta de una transferencia: la flecha es el SVG del catálogo, la palabra va para lectores.
+.almacen-transfer-route { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; }
+.almacen-transfer-route__sep { display: inline-flex; color: var(--admin-muted); }
+.admin-body .almacen-transfer-note { margin-block: .5rem .75rem; color: var(--admin-text); font-size: 13px; }
+// «Siguiente paso» de un documento entre negocios: cuelga de la ruta, antes de la tabla,
+// para que quien abre el documento lea primero a quién le toca. La ruta ya deja 14 px.
+.admin-body .almacen-transfer-document > p.almacen-transfer-next { margin-block: -6px 14px; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .almacen-faltantes-aviso .admin-btn { width: 100%; justify-content: center; }
+  .almacen-origen { grid-template-columns: minmax(0, 1fr); }
+  .almacen-origen__campo input { width: 100% !important; }
+  .almacen-origen__campo { display: flex; }
+  .almacen-faltante__asignaciones li { grid-template-columns: minmax(0, 1fr) auto; }
+  .almacen-faltante__acciones .admin-btn { width: 100%; justify-content: center; }
+  .almacen-piezas__campos { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Proveedores (arquitectura §17). Comparte la composición de Almacenes —cabecera,
+   secciones en panel, cifras del resumen— porque es una pantalla suya: quien surte
+   los almacenes se lee con el mismo lenguaje que sus existencias. */
+.almacen-proveedores {
+  min-width: 0;
+  .admin-page__header { align-items: flex-start; margin-bottom: 30px; }
+  .admin-page__subtitle { max-width: 66ch; }
+  .admin-table td { vertical-align: top; }
+  .almacen-list + .almacen-list { margin-top: 20px; }
+  .almacen-summary { margin-bottom: 20px; }
+  // Mismo peso que el nombre en Existencias: el 900 compartido, fila tras fila, hace
+  // del nombre una columna de titulares.
+  .admin-table__cell-main { font-weight: 600; }
+  // .admin-table__num pierde contra `.admin-table th, td { text-align: left }` de
+  // _tables.scss; aquí las cifras se comparan en columna y van a la derecha.
+  .admin-table .admin-table__num { text-align: right; }
+}
+// Las fechas del resumen son datos, pero no cifras grandes: el tamaño de 20 px de
+// las cuentas las haría competir con las recepciones.
+.admin-body .almacen-summary__cifras .proveedor-cifra-fecha { font-size: 15px; }
+// Dos lecturas de Global como pestañas de enlace: la actual con trazo inferior, no
+// con color, para que se distinga también en alto contraste.
+.proveedores-vistas { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 18px; border-bottom: 1px solid var(--admin-border);
+  a { display: inline-flex; align-items: center; min-height: 40px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--admin-muted); font-size: 13px; font-weight: 600; text-decoration: none; }
+  a:hover { color: var(--admin-text); }
+  a[aria-current="page"] { border-bottom-color: var(--admin-text); color: var(--admin-text); }
+}
+.admin-body .proveedor-evolucion { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font-size: 13px; }
+// Subir de precio es lo que hay que vigilar: tinta de advertencia y flecha; bajar,
+// tinta de éxito. La palabra (signo y porcentaje) dice lo mismo sin el color.
+.proveedor-variacion { display: inline-flex; align-items: center; gap: 3px; color: var(--admin-muted); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  &.is-sube { color: var(--admin-warning-text); }
+  &.is-baja { color: var(--admin-success-text); }
+}
+.proveedor-serie { margin-top: 6px; font-size: 12px;
+  summary { min-height: 28px; color: var(--admin-muted); font-weight: 600; cursor: pointer; }
+  summary:hover { color: var(--admin-text); }
+  ol { display: grid; gap: 2px; max-width: 220px; margin: 6px 0 0; padding: 0; list-style: none; }
+  li { display: flex; justify-content: space-between; gap: 12px; }
+}
+.proveedor-asignaciones {
+  // Campos de 46 px y casillas de 36: al centro de la fila quedan en una línea.
+  .admin-table td { vertical-align: middle; }
+  // Los rótulos ocultos (posición absoluta) de las celdas tomaban como bloque
+  // contenedor el panel y escapaban del recorte del scroll: a 320 px la página
+  // medía 681 de ancho. Con el contenedor posicionado quedan dentro.
+  .admin-table-wrap { position: relative; }
+  input[type=number] { width: 9rem; }
+  input[type=text] { width: 10rem; }
+  select { min-width: 14rem; }
+  .admin-actions { margin-top: 14px; }
+}
+.proveedor-check { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; cursor: pointer;
+  input { width: 18px; height: 18px; accent-color: var(--admin-text); }
+}
+.proveedor-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 24px; margin: 0;
+  dt { color: var(--admin-muted); font-size: 12px; }
+  dd { margin: 2px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+  &__full { grid-column: 1 / -1; }
+}
+.proveedor-retiro .almacen-section-head { margin-bottom: 0; }
+@media (pointer: coarse) {
+  .proveedor-check, .proveedores-vistas a, .proveedor-serie summary { min-height: 44px; }
+}
+@media (max-width: 760px) {
+  .almacen-proveedores .admin-page__header { flex-direction: column; align-items: stretch; }
+}

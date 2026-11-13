@@ -16,7 +16,7 @@ la identidad compartida: asociarla y registrar entrada son pasos explícitos.
 Los duplicados conservan `ARTICULO_DUPLICADO`; editar el maestro sigue en Global.
 `Registrar entrada` abre un selector de artículos de la página consultada. Para
 otros artículos se utiliza la búsqueda. Si hay varios almacenes operables, el
-operador debe elegir uno. Entrada, merma y conteo presentan una estimación decimal
+operador debe elegir uno. Entrada y merma presentan una estimación decimal
 exacta a milésimas y confirmación con artículo, almacén y resultado; el servidor
 conserva la autoridad sobre permisos, saldo, negativos e idempotencia.
 
@@ -52,9 +52,13 @@ La consulta GET envía `almacen_ids[]`; el servidor valida cada ID, elimina
 duplicados y rechaza mezclas de IDs autorizados y ajenos. Una selección explícita
 vacía se rechaza si existen almacenes autorizados; sin almacenes es válida.
 
-Cambiar casillas requiere confirmar con **Aplicar selección**. El estado anunciado
-indica los cambios pendientes de aplicar. JavaScript protege la última casilla
-seleccionada y el servidor vuelve a validar el límite, incluso sin JavaScript.
+La selección se resume en un control («N de M almacenes» y el reparto por
+propietario) que abre un panel con una columna por propietario. Cambiar casillas
+requiere confirmar con **Aplicar selección**; cerrar el panel sin aplicar descarta
+los cambios. El estado anunciado indica los cambios pendientes de aplicar.
+JavaScript protege la última casilla seleccionada y el servidor vuelve a validar el
+límite, incluso sin JavaScript. Mientras llega la consulta, la tabla muestra filas
+esqueleto ([guía de interfaz](../desarrollo/interfaz.md)).
 
 Global conserva las identidades del catálogo maestro que cumplan la búsqueda,
 incluidas las que no tienen asociación en los almacenes elegidos: muestran saldo
@@ -93,21 +97,38 @@ física ni un saldo editable global.
 - Global autorizado crea almacenes físicos con propietario Global, Restaurante
   o Panadería. Cambiar propietario después de operaciones no equivale a editar
   libremente una columna: requiere un flujo futuro explícito.
-- La configuración controla nombre, estado y negativos por almacén dentro del
-  alcance permitido. La baja física está limitada a almacenes sin existencias,
+- La configuración controla nombre y estado por almacén dentro del alcance
+  permitido. La política «Permitir existencias negativas» se retiró en M3: ningún
+  saldo es negativo (arquitectura §16). La baja física está limitada a almacenes sin existencias,
   operaciones o dependencias que impidan eliminarlo.
 - El maestro de artículos es compartido y solo se modifica desde Global autorizado.
   Los negocios asocian identidades existentes con mínimo y estado propios.
 - Entradas, ajustes y mermas requieren almacén y artículo explícitos. Los ajustes
   envían la versión observada para detectar cambios concurrentes.
 - Los formularios generan una clave idempotente y transmiten cantidades/costos
-  como cadenas decimales. El motor valida precisión, negativos y bloqueos.
+  como cadenas decimales. El motor valida precisión, saldo y bloqueos. Un artículo
+  con `contenido_pieza` (750 ml por botella) admite capturar entradas y mermas
+  en piezas + resto; el servidor convierte exacto a la unidad base y la
+  lectura muestra «8 piezas + 450 ml».
 - Saldos, operación y movimientos se confirman atómicamente. No presentar éxito
   mientras un resultado esté pendiente de una transacción exterior.
 
-Entrada, Merma y Conteo físico se abren por artículo y exigen un único almacén
-propio operable. Asociar, Configurar y Crear conservan facultades, CSRF, versiones
-e idempotencia existentes según la operación. Global solo opera sus almacenes;
+Entrada y Merma se abren por artículo y exigen un único almacén propio operable.
+El conteo físico se retiró (auditoría A-4): una diferencia real se registra como
+merma con motivo, o como entrada. Los ajustes anteriores siguen en Movimientos como
+«ajuste (histórico)». Asociar, Configurar y Crear conservan facultades, CSRF, versiones
+e idempotencia existentes según la operación.
+
+**Asociar y dar entrada entre negocios (9 nov 2026).** «Asociar artículo» muestra
+casillas agrupadas por negocio con los almacenes activos de todo negocio donde el
+usuario edita Almacenes, y asocia a todos los marcados en un envío (todos o
+ninguno). El alta de artículo trae las mismas casillas, opcionales: crea y asocia
+en un paso. «Entrada» ofrece cada almacén asociado de esos negocios, rotulado con
+su dueño, y los proveedores del dueño del almacén. El servidor autoriza cada
+almacén en su negocio: un almacén ajeno forzado se rechaza y no deja asociaciones
+parciales. En la pantalla de un negocio sólo se listan sus existencias, así que la
+entrada entre negocios se ve desde Global. Merma y Configurar asociación siguen
+siendo del contexto actual. Fuera de eso, Global solo opera sus almacenes;
 los de otros propietarios son consulta.
 
 ## Trazabilidad y límites
@@ -170,9 +191,9 @@ orígenes oficiales. El alta de artículos, costo, unidad y operaciones físicas
 mantiene sus permisos y facultades existentes. La unidad maestra no puede
 cambiar cuando existan composiciones históricas que dependan de ella.
 
-Los artículos de producción previa se consumen desde existencias disponibles:
-el POS no fabrica ni permite reemplazar ese requisito con saldo negativo.
-El resto conserva la política del almacén. El snapshot M2 no sustituye el ledger:
+Desde M3 una venta nunca se bloquea por saldo, tampoco con artículos «Se elabora
+antes de vender»: el almacén de consumo descuenta lo disponible, queda en 0 y el
+resto se registra como faltante pendiente de origen (sección «Faltantes»). El snapshot M2 no sustituye el ledger:
 la comanda y su inventario se confirman juntos; las compensaciones vuelven a las
 cantidades y costos de los movimientos originales. `null` expresa costo
 insuficientemente conocido y no se transforma silenciosamente en cero.
@@ -182,6 +203,13 @@ mermas y costos congelados. M2 ofrece composición y previsión, sin esos movimi
 
 
 ## Catálogo persistente UX-4
+
+> Desde M6 ([arquitectura §18](../arquitectura.md#18-m6-alta-en-un-paso-y-clasificacion-de-articulos))
+> estas rutas llevan a la lista y la ficha únicas de Artículos y preparaciones cuando
+> la persona tiene `productos/ver`, la lista pagina de 15 en 15 y el alta es un diálogo
+> en un paso que también asocia almacenes. Quien sólo tiene `inventario` conserva el
+> catálogo como pantalla propia. El escritor, los permisos y las protecciones del motor
+> descritos abajo no cambian.
 
 `/admin[/global|/panaderia]/almacenes/catalogo` reutiliza el listado de Artículos
 con búsqueda, filtro de actividad y paginación de 30 filas. `/nuevo` y
@@ -221,3 +249,62 @@ hay permiso, artículo activo y un almacén elegible. Guardar continúa usando
 `AdministracionAlmacenes::guardar` y el escritor existente; la asociación no crea
 saldo ni movimiento. El resultado permanece dentro del layout y el retorno
 autorizado conduce a la ficha exacta.
+
+## Faltantes por conciliar (M3)
+
+Contrato en [arquitectura §16](../arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario).
+
+- **Origen.** Una comanda con saldo menor al requerido descuenta lo disponible y
+  crea un faltante (`faltantes_inventario`, estado `pendiente`) ligado al item,
+  al almacén de consumo y a la operación. Un replay no duplica ni descuento ni
+  faltante. La migración `m4-faltantes.sql` convierte cada saldo negativo previo
+  en ajuste a 0 + faltante de origen `migracion`.
+- **Aviso.** Prioridad alta en el buzón (`inventario.faltante`, por almacén +
+  artículo + día) y aviso «N faltantes por conciliar» arriba de Almacenes. Una
+  entrada del artículo en cualquier almacén reabre el aviso.
+- **Bandeja** (`?vista=faltantes`, `inventario/editar` del dueño del almacén de
+  consumo): artículo, almacén, cantidad, ticket, fecha y orígenes posibles. El
+  saldo sólo se muestra en almacenes propios; los de otro propietario aparecen por
+  identidad. Se marca cuando ningún almacén propio cubre el faltante.
+- **Conciliar** (`accion=conciliar_faltante`): reparto entre uno o varios
+  almacenes con suma exacta, versión del faltante y clave idempotente. El mismo
+  almacén consume directo; otro almacén del negocio aplica una transferencia de
+  regularización creada, enviada y recibida; un almacén de otro propietario queda
+  en confirmación hasta que su dueño la confirma o la rechaza en Transferencias.
+  Ningún origen queda negativo: sin saldo suficiente, el reparto se rechaza
+  completo y el faltante sigue pendiente.
+- **Existencias.** El saldo no baja de 0; la parte sin conciliar se lee junto a él
+  como deuda («−30.000 g sin conciliar») en el artículo, en cada almacén y en su
+  globo. El globo presenta el nombre como almacén («Almacén de Panadería») para que
+  un nombre como «Producto Terminado» no se lea como estado del producto.
+- **Global.** Sólo el superadministrador ve en Global el aviso y la bandeja de
+  Restaurante y Panadería. Puede conciliar con las reglas del negocio dueño, pero la
+  responsabilidad y el aviso del buzón siguen en ese negocio; el aviso de Global es
+  de consulta.
+- **Costo.** El consumo conciliado guarda el costo del origen; el ticket y
+  Finanzas conservan el costo congelado al enviar la comanda.
+- **Cancelación.** Cancelar el item anula lo pendiente y la parte en
+  confirmación (su transferencia se cancela); lo descontado o conciliado se
+  compensa al almacén de consumo como cualquier venta.
+
+## Proveedores (M5)
+
+Pantalla de Almacenes en los tres ámbitos: `/admin/almacenes/proveedores`,
+`/admin/global/almacenes/proveedores` y `/admin/panaderia/almacenes/proveedores`, con
+entrada propia en el menú lateral después de Almacenes y un acceso en su franja de
+herramientas. Mismo permiso `inventario`. Contrato en
+[arquitectura §17](../arquitectura.md#17-m5-proveedores-por-ámbito-e-histórico-de-lo-recibido).
+
+- **Directorio:** proveedores del ámbito con artículos asignados, recepciones y última
+  entrada. Global alterna entre los suyos y el consolidado de los tres (sólo consulta
+  de los de cada negocio).
+- **Ficha:** primero el histórico (recepciones, cada cuánto, siguiente estimada, lo que
+  se le suele pedir con su evolución de costo y las entradas recientes); después los
+  artículos que surte (costo de referencia, código, preferente) y sus datos de contacto.
+- **Entrada:** el diálogo ofrece «Proveedor (opcional)» con los del ámbito; los que surten
+  el artículo van primero y el preferente se marca. Elegirlo propone su costo de
+  referencia y vuelve obligatorio el costo. El servidor lo exige y rechaza proveedores
+  ajenos o inactivos sin registrar la entrada.
+- **Retiro:** con entradas sólo se desactiva; sin ellas se elimina con confirmación.
+
+Las rutas anteriores `/admin/inventario/proveedores*` redirigen aquí en modo multinegocio.

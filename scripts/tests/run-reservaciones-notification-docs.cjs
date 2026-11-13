@@ -43,6 +43,8 @@ const expectedDocs = [
   'operacion.md',
   'panaderia',
   'privacidad',
+  // Informes funcionales de Almacenes y Recetas (M3), con su revisión y límites.
+  'pruebas',
   'reservaciones',
   'usuarios',
   'WORK_PLAN.MD'

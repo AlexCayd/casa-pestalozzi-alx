@@ -34,7 +34,7 @@ final class AdministracionMenu
             exit('La sesión del formulario venció. Recarga la página.');
         }
         if ($post) {
-            foreach (['nombre','descripcion','precio','categoria_id','area_id','orden','activo','id','producto_id','carta','quitar_imagen','imagen_pendiente','revision','huella','clave','accion','rendimiento','unidad','tipo','receta_version_id'] as $campo) {
+            foreach (['nombre','descripcion','precio','categoria_id','area_id','orden','activo','id','producto_id','carta','quitar_imagen','imagen_pendiente','revision','huella','clave','accion','rendimiento','unidad','tipo','receta_version_id','tipo_venta'] as $campo) {
                 if (isset($_POST[$campo]) && !is_scalar($_POST[$campo])) {
                     http_response_code(422);
                     exit('El formulario contiene un dato con formato inválido.');

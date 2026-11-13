@@ -18,6 +18,18 @@
     $pendientesAlmacen = count(array_filter($almacenesConsumo, static fn(array $f): bool => $f['almacen_id'] === null));
     $volverQuery = $volverUrl !== $recetasBase ? '&volver=' . rawurlencode($volverUrl) : '';
 
+    // Reventa confirmada (arquitectura §16): la receta es un solo artículo de
+    // existencias, sin preparación anterior ni elaboración fijada. El editor se
+    // reduce a eso; la sugerida sigue con el editor de siempre.
+    $recetaReventa = $prod && ($prod->tipo_venta ?? '') === 'reventa' && ($prod->tipo_venta_estado ?? '') === 'confirmado';
+    if ($recetaReventa) {
+        $subrecetas = [];
+        $componentes = array_slice(array_values(array_filter(
+            is_array($componentes) ? $componentes : iterator_to_array($componentes),
+            static fn($h): bool => ($h['tipo'] ?? '') === 'ingrediente'
+        )), 0, 1);
+    }
+
     $referenciasActuales=array_map('intval',array_column(array_filter($componentes,static fn($h)=>$h['tipo']==='ingrediente'),'ref_id'));
     $ingredientes=array_filter(is_array($ingredientes)?$ingredientes:iterator_to_array($ingredientes),static fn($i)=>!in_array((int)$i->id,$preparacionesVersionadas??[],true)||in_array((int)$i->id,$referenciasActuales,true));
     // Catálogo de opciones para el buscador de componentes (ingredientes + subrecetas).
@@ -97,13 +109,20 @@
     <?php endif; ?>
 
     <form method="POST" data-recipe-builder>
+    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <fieldset class="admin-menu__fieldset" <?= empty($configuracionComposicion['edicionCompatible'])||!\Classes\Auth::puede('productos','editar',$recetasContexto)?'disabled':'' ?>>
         <section class="admin-panel admin-card admin-recipe">
             <div class="admin-recipe__head">
                 <div>
-                    <span class="admin-recipe__eyebrow">Receta principal</span>
-                    <h3>Ingredientes de una porción</h3>
-                    <p>Anota cuánto lleva <strong>una sola porción</strong>. Al vender el platillo se descuenta justo esa cantidad del inventario. Una subreceta (una salsa, un shot de espresso) se explota hasta sus propios ingredientes.</p>
+                    <?php if ($recetaReventa) : ?>
+                        <span class="admin-recipe__eyebrow">Reventa</span>
+                        <h3>Artículo que se descuenta</h3>
+                        <p>Cada unidad vendida descuenta <strong>un solo artículo</strong> de existencias, sin preparación. Anota cuánto por unidad: 1 si el artículo se cuenta por pieza, o su contenido, como 750 ml, si se guarda en ml. Para otra composición, cambia el tipo de venta en los datos del producto.</p>
+                    <?php else : ?>
+                        <span class="admin-recipe__eyebrow">Receta principal</span>
+                        <h3>Ingredientes de una porción</h3>
+                        <p>Anota cuánto lleva <strong>una sola porción</strong>. Al vender el platillo se descuenta justo esa cantidad del inventario. Una subreceta (una salsa, un shot de espresso) se explota hasta sus propios ingredientes.</p>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -115,9 +134,25 @@
                 </script>
 
                 <div class="admin-recipe__rows" data-recipe-rows>
+                    <?php if ($recetaReventa && empty($componentes)) : ?>
+                        <?php /* Sin «Agregar» la fila tiene que existir de entrada. */ ?>
+                        <div class="admin-recipe__row admin-recipe__row--reventa" data-recipe-row>
+                            <div class="admin-picker" data-picker>
+                                <button type="button" class="admin-picker__trigger" data-picker-open>
+                                    <span class="admin-picker__label" data-picker-label>Elige el artículo</span>
+                                    <svg class="admin-picker__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                                <input type="hidden" name="comp[]" data-picker-value value="">
+                            </div>
+                            <div class="admin-recipe__qty">
+                                <input type="number" name="comp_cant[]" step="0.001" min="0" placeholder="Cantidad" aria-label="Cantidad por unidad vendida">
+                                <span class="admin-recipe__unit" data-recipe-unit aria-hidden="true"></span>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     <?php foreach ($componentes as $comp) : ?>
                         <?php $sel = $comp['tipo'] . ':' . (int) $comp['ref_id']; ?>
-                        <div class="admin-recipe__row" data-recipe-row>
+                        <div class="admin-recipe__row<?php echo $recetaReventa ? ' admin-recipe__row--reventa' : ''; ?>" data-recipe-row>
                             <div class="admin-picker" data-picker>
                                 <button type="button" class="admin-picker__trigger" data-picker-open>
                                     <span class="admin-picker__label" data-picker-label><?php echo htmlspecialchars($comboLabel($comp), ENT_QUOTES); ?></span>
@@ -128,15 +163,19 @@
                             <div class="admin-recipe__qty">
                                 <input type="number" name="comp_cant[]" step="0.001" min="0" placeholder="Cantidad"
                                        value="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float) $comp['cantidad'], 3, '.', ''), '0'), '.')); ?>"
-                                       aria-label="Cantidad">
+                                       aria-label="<?php echo $recetaReventa ? 'Cantidad por unidad vendida' : 'Cantidad'; ?>">
                                 <span class="admin-recipe__unit" data-recipe-unit aria-hidden="true"></span>
                             </div>
+                            <?php if (!$recetaReventa) : ?>
                             <button type="button" class="admin-icon-button admin-icon-button--danger" data-recipe-remove aria-label="Quitar ingrediente">
                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14"/></svg>
                             </button>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if (!$recetaReventa) : ?>
 
                 <template data-recipe-template>
                     <div class="admin-recipe__row" data-recipe-row>
@@ -161,6 +200,7 @@
                     <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                     Agregar ingrediente
                 </button>
+                <?php endif; ?>
             <?php endif; ?>
         </section>
 

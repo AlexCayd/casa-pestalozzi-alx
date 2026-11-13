@@ -14,4 +14,23 @@ $pintarComponente=static function($i,$c)use($esc,$opcionesArticulos,$opcionesVer
 <?php if(!$esPresentacion): ?><label class="admin-field">Merma prevista (%)<input name="componentes[<?= $esc($i) ?>][merma]" type="number" min="0" max="99.999" step="0.001" inputmode="decimal" value="<?= $esc($c['merma']??'0.000') ?>"></label><?php endif; ?>
 </div><button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-m2-quitar>Quitar componente</button></fieldset>
 <?php }; ?>
+<?php
+// Reventa confirmada (arquitectura §16): un solo artículo de existencias al
+// servir. Se pinta otro editor y no el general con controles ocultos: sin
+// filas que agregar ni modalidad que elegir no hay nada que el servidor vaya a
+// rechazar con REVENTA_COMPOSICION. Modalidad y etapa viajan fijas.
+if(!empty($composicionReventa)):
+$c=is_array($filas[0]??null)?$filas[0]:[];
+?>
+<fieldset class="m2-componente m2-componente--reventa" data-m2-reventa><legend>Artículo que se descuenta</legend>
+<input type="hidden" name="componentes[0][modalidad]" value="almacenado"><input type="hidden" name="componentes[0][etapa]" value="servicio">
+<div class="admin-form-grid">
+<label class="admin-field">Artículo<select name="componentes[0][articulo_id]" required data-m2-reventa-articulo><option value="">Selecciona un artículo</option><?php foreach($opcionesArticulos as $a): ?><option value="<?= (int)$a['id'] ?>" data-unidad="<?= $esc($a['unidad']) ?>" <?= (string)($c['articulo_id']??'')===(string)$a['id']?'selected':'' ?> <?= empty($a['activo'])&&(string)($c['articulo_id']??'')!==(string)$a['id']?'disabled':'' ?>><?= $esc($a['nombre'].' · '.$a['unidad'].(empty($a['activo'])?' · Inactivo':'')) ?></option><?php endforeach; ?></select></label>
+<label class="admin-field">Cantidad por unidad vendida<input name="componentes[0][cantidad]" type="number" min="0.001" max="999999999.999" step="0.001" inputmode="decimal" required value="<?= $esc($c['cantidad']??'') ?>" aria-describedby="m2-reventa-cantidad"><span class="admin-field__hint" id="m2-reventa-cantidad">Por ejemplo, 750 ml de vino por botella, o 1 pza.</span></label>
+<label class="admin-field">Unidad<select name="componentes[0][unidad]" data-m2-reventa-unidad><?php foreach(['g','kg','ml','l','pza'] as $u): ?><option <?= ($c['unidad']??'pza')===$u?'selected':'' ?>><?= $u ?></option><?php endforeach; ?></select></label>
+</div>
+<p class="admin-field__hint">Se descuenta de existencias al servir, sin elaboración ni otros componentes. Para otra composición, cambia el tipo de venta en la ficha del producto.</p>
+</fieldset>
+<?php else: ?>
 <div data-m2-builder><div data-m2-rows><?php foreach($filas as $i=>$c)$pintarComponente($i,$c); ?></div><template data-m2-template><?php $pintarComponente('__INDEX__',[]); ?></template><button type="button" class="admin-btn admin-btn--secondary" data-m2-agregar>Agregar componente</button><p class="admin-field__hint" data-m2-status role="status" aria-live="polite"><?= $esPresentacion ? 'Cantidades por presentación vendida.' : 'Las cantidades corresponden al rendimiento completo indicado.' ?></p><noscript><p>Para agregar más componentes activa JavaScript. Puedes revisar y guardar las filas existentes.</p></noscript></div>
+<?php endif; ?>

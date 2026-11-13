@@ -612,6 +612,11 @@ final class Variantes
                 return ContextoNegocio::transaccion(static function () use ($db, $productoId, $unidadId, $limpios, $ctx): array {
                     ContextoNegocio::exigir('menu', 'editar', $ctx, true);
                     self::exigirOferta($db, $productoId, $unidadId, true);
+                    // Reventa confirmada (§16): sólo variantes de precio, sin ajustes de artículos.
+                    if (TipoVenta::reventaConfirmada($productoId, $unidadId)) {
+                        $conAjustes=false;foreach($limpios as $g)foreach($g['opciones'] as $op)if($op['ajustes']!==[])$conAjustes=true;
+                        TipoVenta::validarVariantes($conAjustes);
+                    }
                     $antes=self::deProducto($productoId,$ctx);$ajustesAntes=[];$ajustesDespues=[];
                     foreach($antes as $g)foreach($g['opciones'] as $op)if($op['ajustes']!==[])$ajustesAntes[(int)$op['id']]=$op['ajustes'];
                     foreach($limpios as $g)foreach($g['opciones'] as $op){

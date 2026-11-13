@@ -15,6 +15,24 @@ Las recetas mínimas de fixtures requieren fichas culinarias completas antes de
 cualquier uso productivo. No se autoriza comenzar estos trabajos en esta entrega.
 
 
+## M3: refactor de Almacenes (noviembre de 2026)
+
+Implementado en `refactor-almacenes` (arquitectura §16): tipo de venta
+preparado/reventa con sugerencia y confirmación en lote, contenido por pieza,
+faltantes de venta con conciliación de origen y regularizaciones, retiro de
+existencias negativas y selección compacta de almacenes. Queda pendiente:
+
+- Consumo de Panadería: su menú se clasifica igual, pero el consumo y los
+  faltantes se activarán cuando exista su POS.
+- Buzón del topbar: los avisos `inventario.faltante` se registran, pero el cajón
+  del topbar sólo pinta tarjetas de reservaciones; hoy el aviso visible está en
+  Almacenes.
+- Contador de faltantes en Finanzas (mitigación sugerida por el plan).
+- Nombre de la pieza: la lectura dice «piezas»; nombrarla («botellas») requiere
+  un campo propio.
+- Vinos ya registrados en `pza` con historial: se sustituyen manualmente por un
+  artículo en `ml` y se dejan como historia; no hay asistente de migración.
+
 El [contrato rector](arquitectura.md) distingue funciones operativas, contratos
 preparados y módulos pendientes. Este backlog no autoriza implementarlos como
 parte del cierre ni convierte una tabla existente en un módulo terminado.
@@ -81,7 +99,8 @@ Estos runners fallan en la revisión M1.1; no se rebajaron sus aserciones.
 
 | Ámbito / dominio | Pendiente | Dependencias y restricciones |
 |---|---|---|
-| Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora solicitud, autorización, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
+| Almacenes | Conteo físico rediseñado (sólo si el negocio hace conteos periódicos) | Se retiró el 8 nov 2026 (auditoría A-4). Un rediseño exigiría motivo de la diferencia, avisaría o bloquearía ante faltantes pendientes del artículo en ese almacén y se distinguiría de la merma en Movimientos; hasta entonces, merma con motivo o entrada |
+| Almacenes | Resolución de pérdidas definitivas | M0.5-B ya incorpora transferencia en un paso (mismo negocio o superadministrador), solicitud, envío, recepción parcial, rechazo/cancelación y retorno. Una pérdida permanece como incidencia trazable; definir un cierre de pérdida explícito sin inventar retorno, recepción ni cargos financieros |
 | Artículos | Retiro progresivo de adaptadores anteriores | Asociaciones explícitas verificadas, cero escritores anteriores y suites de regresión antes del retiro; conservar tablas históricas |
 | Panadería | Pago mixto, transferencia/QR y propina en caja | La caja v1 cobra efectivo o tarjeta; ampliar `metodo_pago` y Finanzas antes de habilitarlos |
 | Panadería | Encargos y venta por peso | Encargos con fecha y anticipo; `ticket_items.cantidad` sólo admite piezas enteras |

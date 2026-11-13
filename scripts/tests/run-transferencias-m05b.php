@@ -41,21 +41,61 @@ try{
  $act=static function(string $ctx,string $accion,array $t,array $lineas=[])use(&$key,$serv):array{$d=['clave'=>'paso-'.++$key,'transferencia_id'=>$t['transferencia_id'],'version'=>$t['version'],'motivo'=>'Confirmación física con diferencia documentada'];if($lineas)$d['lineas']=$lineas;return $serv[$ctx]->ejecutar($ctx,$accion,$d);};
  $lineas=[['articulo_id'=>1001,'cantidad'=>'12.125'],['articulo_id'=>1002,'cantidad'=>'10.250']];
  $inicioO=$saldo(1002,1001);$inicioD=$saldo(1005,1001);
- $t=$solicitar('restaurante',1002,1005,$lineas);$assert($t['estado']==='solicitada'&&$saldo(1002,1001)===$inicioO&&$saldo(1005,1001)===$inicioD,'Solicitud no mueve saldos.');
- $t=$ok($act('restaurante','autorizar',$t),'Autorizar');$assert($t['estado']==='autorizada'&&$saldo(1002,1001)===$inicioO,'Autorizar no reserva ni descuenta.');
+ $mas=static fn(string $s,int $q):string=>Services\Inventory\DecimalInventario::cantidad(Services\Inventory\DecimalInventario::leer($s)+$q);
+ // Mismo negocio: un solo movimiento, salida y entrada en la misma transacción.
+ $t=$solicitar('restaurante',1002,1005,$lineas);
+ $assert($t['estado']==='recibida'&&(int)$t['version']===1&&$saldo(1002,1001)===$mas($inicioO,-12125)&&$saldo(1005,1001)===$mas($inicioD,12125),'Transferencia interna se aplica en un paso con decimal exacto.');
+ $hist=$db->query('SELECT estado_anterior,estado_nuevo FROM transferencia_historial WHERE transferencia_id='.(int)$t['transferencia_id'])->fetch_all(MYSQLI_ASSOC);
+ $assert(count($hist)===1&&$hist[0]['estado_anterior']===null&&$hist[0]['estado_nuevo']==='recibida','La interna deja un solo registro en el historial.');
+ $antesO=$saldo(1002,1001);$sinSaldo=$serv['restaurante']->ejecutar('restaurante','solicitar',['clave'=>'interna-sin-saldo','origen_id'=>1002,'destino_id'=>1005,'lineas'=>[['articulo_id'=>1001,'cantidad'=>'1.000'],['articulo_id'=>1002,'cantidad'=>'999999.000']],'motivo'=>'Sin saldo']);
+ $assert(($sinSaldo['codigo']??'')==='SALDO_INSUFICIENTE'&&$saldo(1002,1001)===$antesO,'Interna sin saldo en una línea no mueve ninguna.');
+ $assert($serv['restaurante']->ejecutar('restaurante','autorizar',['clave'=>'autorizar-retirado','transferencia_id'=>$t['transferencia_id'],'version'=>$t['version'],'motivo'=>'Paso retirado'])['codigo']==='ACCION_INVALIDA','El paso «autorizar» ya no existe.');
+ // Sin asociación previa en el destino: la transferencia la crea y lo informa.
+ $admin=new AdministracionAlmacenes($db,$super['id'],'contrasena');
+ $nuevoR=(int)$ok($admin->guardar('global','crear_almacen',['propietario'=>'restaurante','nombre'=>'QA destino sin asociar']),'Almacén nuevo de Restaurante')['almacen_id'];
+ $nuevoP=(int)$ok($admin->guardar('global','crear_almacen',['propietario'=>'panaderia','nombre'=>'QA destino panadería']),'Almacén nuevo de Panadería')['almacen_id'];
+ $aso=static fn(int $w,int $a)=>$db->query("SELECT unidad_id,saldo,minimo,activo FROM almacen_articulos WHERE almacen_id=$w AND articulo_id=$a")->fetch_assoc();
+ $assert($aso($nuevoR,1001)===null,'El almacén nuevo no maneja el artículo.');
+ $t=$solicitar('restaurante',1002,$nuevoR,[['articulo_id'=>1001,'cantidad'=>'1.500']]);
+ $assert($t['estado']==='recibida'&&($t['asociados']['articulos']??[])!==[]&&$t['asociados']['almacen']==='QA destino sin asociar','La transferencia interna asocia el destino y lo informa.');
+ $assert($aso($nuevoR,1001)===['unidad_id'=>'2','saldo'=>'1.500','minimo'=>'0.000','activo'=>'1'],'La asociación nueva lleva la unidad dueña, mínimo 0 y sólo el saldo recibido.');
+ $t2=$solicitar('restaurante',1002,$nuevoR,[['articulo_id'=>1001,'cantidad'=>'0.500']]);$assert(!isset($t2['asociados']),'Con la asociación ya creada no se vuelve a avisar.');
+ $r=$serv['restaurante']->ejecutar('restaurante','solicitar',['clave'=>'origen-sin-asociar','origen_id'=>$nuevoR,'destino_id'=>1005,'lineas'=>[['articulo_id'=>1002,'cantidad'=>'1.000']],'motivo'=>'Origen sin artículo']);
+ $assert(($r['codigo']??'')==='ASOCIACION_NO_EXISTE'&&str_contains((string)($r['mensaje']??''),'origen'),'Si falta en el origen se rechaza: no hay existencias que enviar.');
+ $t=$solicitar('panaderia',1001,$nuevoP,[['articulo_id'=>1001,'cantidad'=>'1.000']]);
+ $assert($t['estado']==='solicitada'&&($t['asociados']['articulos']??[])!==[]&&$aso($nuevoP,1001)===['unidad_id'=>'3','saldo'=>'0.000','minimo'=>'0.000','activo'=>'1'],'Entre negocios también asocia el destino, sin saldo hasta recibir.');
+ $ok($act('panaderia','cancelar',$t),'Cancelar la solicitud de prueba');
+ $r=$serv['restaurante']->ejecutar('restaurante','solicitar',['clave'=>'destino-inactivo','origen_id'=>1002,'destino_id'=>$nuevoR,'lineas'=>[['articulo_id'=>1029,'cantidad'=>'1.000']],'motivo'=>'Artículo inactivo']);
+ $assert(($r['ok']??true)===false&&$aso($nuevoR,1029)===null,'Un artículo inactivo o ausente del origen no se asocia al destino.');
+ $inicioO=$saldo(1002,1001);
+ // Entre negocios, pedida por el destino: solicitada → enviada → recibida.
+ $inicioO=$saldo(1002,1001);$inicioD=$saldo(1003,1001);
+ $t=$solicitar('panaderia',1002,1003,$lineas);$assert($t['estado']==='solicitada'&&$saldo(1002,1001)===$inicioO&&$saldo(1003,1001)===$inicioD,'Solicitud entre negocios no mueve saldos.');
+ $vistaO=array_values(array_filter($serv['restaurante']->consultar('restaurante')['transferencias'],static fn($x)=>(int)$x['id']===(int)$t['transferencia_id']))[0];
+ $vistaD=array_values(array_filter($serv['panaderia']->consultar('panaderia')['transferencias'],static fn($x)=>(int)$x['id']===(int)$t['transferencia_id']))[0];
+ $assert($vistaO['acciones']===['enviar','rechazar']&&$vistaD['acciones']===['cancelar'],'El origen envía o rechaza; el destino sólo cancela su pedido.');
+ $assert($act('panaderia','enviar',$t)['ok']===false,'El destino no envía stock ajeno.');
  $assert($act('global','enviar',$t)['ok']===false,'Global consolidado no envía stock de Restaurante.');
- $assert($su->ejecutar('global','enviar',['clave'=>'super-global','transferencia_id'=>$t['transferencia_id'],'version'=>$t['version'],'motivo'=>'Prueba de contexto'])['ok']===false,'Superadministrador respeta propietario físico del contexto.');
- $t=$ok($act('restaurante','enviar',$t),'Enviar');$assert($t['estado']==='enviada'&&$saldo(1005,1001)===$inicioD,'Enviar no acredita destino.');
- $mov=$db->query("SELECT id FROM movimientos_inventario WHERE transferencia_linea_id IS NOT NULL AND tipo='transferencia_salida' LIMIT 1")->fetch_row()[0];
+ $assert($su->ejecutar('global','enviar',['clave'=>'super-global','transferencia_id'=>$t['transferencia_id'],'version'=>$t['version'],'motivo'=>'Prueba de contexto'])['ok']===false,'Superadministrador respeta propietario físico en documentos ajenos.');
+ $t=$ok($act('restaurante','enviar',$t),'Enviar desde solicitada');$assert($t['estado']==='enviada'&&$saldo(1002,1001)===$mas($inicioO,-12125)&&$saldo(1003,1001)===$inicioD,'Enviar descuenta origen y no acredita destino.');
+ $mov=$db->query('SELECT m.id FROM movimientos_inventario m JOIN transferencia_lineas l ON l.id=m.transferencia_linea_id WHERE l.transferencia_id='.(int)$t['transferencia_id']." AND m.tipo='transferencia_salida' LIMIT 1")->fetch_row()[0];
  $r=$motor->revertirMovimientos('restaurante',['clave'=>'reversa-ajena','referencia'=>'reversa-ajena','motivo'=>'No duplicar retorno','lineas'=>[['movimiento_id'=>(int)$mov,'cantidad'=>'1.000']]]);$assert($r['ok']===false,'Reversa genérica no duplica compensación de transferencia.');
  $assert($act('restaurante','cancelar',$t)['ok']===false,'No se cancela stock en tránsito.');
- $stale=$t;$t=$ok($act('restaurante','recibir',$t,$lineas),'Recibir total');$assert($t['estado']==='recibida','Recepción total cierra documento.');
- $assert($act('restaurante','recibir',$stale,$lineas)['codigo']==='VERSION_CONFLICTO','Recepción duplicada con clave nueva rechaza versión.');
- $assert($saldo(1005,1001)===Services\Inventory\DecimalInventario::cantidad(Services\Inventory\DecimalInventario::leer($inicioD)+12125),'Destino recibe decimal exacto.');
- // Dos negocios: origen Global y recepción independiente Panadería.
- $t=$solicitar('panaderia',1001,1003,$lineas);
- $assert($act('panaderia','autorizar',$t)['ok']===false,'Solicitante destino no autoriza origen ajeno.');
- $t=$ok($act('global','autorizar',$t),'Autoriza origen Global');$t=$ok($act('global','enviar',$t),'Envía origen Global');
+ $assert($act('restaurante','recibir',$t,$lineas)['ok']===false,'El origen no recibe por el destino.');
+ $stale=$t;$t=$ok($act('panaderia','recibir',$t,$lineas),'Recibir total');$assert($t['estado']==='recibida','Recepción total cierra documento.');
+ $assert($act('panaderia','recibir',$stale,$lineas)['codigo']==='VERSION_CONFLICTO','Recepción duplicada con clave nueva rechaza versión.');
+ $assert($saldo(1003,1001)===$mas($inicioD,12125),'Destino recibe decimal exacto.');
+ // Superadministrador: un paso entre dos negocios ajenos al contexto desde el que opera.
+ $iG=$saldo(1001,1001);$iP=$saldo(1003,1001);
+ $s=$ok($su->ejecutar('restaurante','solicitar',['clave'=>'super-directa','origen_id'=>1001,'destino_id'=>1003,'lineas'=>[['articulo_id'=>1001,'cantidad'=>'2.500']],'motivo'=>'Reparto del superadministrador']),'Superadministrador transfiere');
+ $assert($s['estado']==='recibida'&&$saldo(1001,1001)===$mas($iG,-2500)&&$saldo(1003,1001)===$mas($iP,2500),'Superadministrador transfiere en un paso entre negocios.');
+ $unidades=$db->query('SELECT m.almacen_id,m.unidad_id FROM movimientos_inventario m JOIN transferencia_lineas l ON l.id=m.transferencia_linea_id WHERE l.transferencia_id='.(int)$s['transferencia_id'].' ORDER BY m.almacen_id')->fetch_all(MYSQLI_ASSOC);
+ $assert(count($unidades)===2&&(int)$unidades[0]['unidad_id']===1&&(int)$unidades[1]['unidad_id']===3,'Cada movimiento queda con la unidad dueña de su almacén.');
+ $assert($ok($su->ejecutar('restaurante','solicitar',['clave'=>'super-directa','origen_id'=>1001,'destino_id'=>1003,'lineas'=>[['articulo_id'=>1001,'cantidad'=>'2.500']],'motivo'=>'Reparto del superadministrador']),'Replay superadministrador')['reintento']===true&&$saldo(1001,1001)===$mas($iG,-2500),'Replay del superadministrador no repite movimientos.');
+ // Entre negocios registrada por el dueño del origen: nace enviada; Panadería recibe.
+ $antesG=$saldo(1001,1001);
+ $t=$ok($serv['global']->ejecutar('global','solicitar',['clave'=>'empuje-global','origen_id'=>1001,'destino_id'=>1003,'lineas'=>$lineas,'motivo'=>'Reposición enviada']),'Origen registra y envía');
+ $assert($t['estado']==='enviada'&&$saldo(1001,1001)===$mas($antesG,-12125),'El origen que registra la transferencia la envía en el mismo paso.');
  $assert($act('global','recibir',$t,$lineas)['ok']===false,'Origen no recibe por destino ajeno.');
  $antes=$saldo(1003,1001);
  $parcial=[['articulo_id'=>1001,'cantidad'=>'7.001'],['articulo_id'=>1002,'cantidad'=>'10.250']];
@@ -66,7 +106,7 @@ try{
  $assert($act('global','retornar',$t,[['articulo_id'=>1001,'cantidad'=>'5.125']])['codigo']==='CANTIDAD_EXCEDIDA','Retorno no supera tránsito.');
  $t=$ok($act('global','retornar',$t,[['articulo_id'=>1001,'cantidad'=>'5.124']]),'Retorno exacto');$assert($t['estado']==='cerrada','Incidencia resuelta conserva cierre con retorno.');
  $assert($act('global','retornar',$t,[['articulo_id'=>1001,'cantidad'=>'5.124']])['ok']===false,'Retorno no se repite con otra clave.');
- foreach(['rechazar','cancelar'] as $accion){$t=$solicitar('restaurante',1002,1005,$lineas);$t=$ok($act('restaurante',$accion,$t),$accion);$assert(in_array($t['estado'],['rechazada','cancelada'],true),'Cierre sin movimiento.');}
+ foreach(['rechazar'=>'restaurante','cancelar'=>'panaderia'] as $accion=>$quien){$antesR=$saldo(1002,1001);$t=$solicitar('panaderia',1002,1003,$lineas);$t=$ok($act($quien,$accion,$t),$accion);$assert(in_array($t['estado'],['rechazada','cancelada'],true)&&$saldo(1002,1001)===$antesR,'Cierre sin movimiento.');}
  $base=['clave'=>'solicitud-exacta','origen_id'=>1001,'destino_id'=>1003,'lineas'=>$lineas,'motivo'=>'Repetición de solicitud'];
  $a=$ok($serv['global']->ejecutar('global','solicitar',$base),'Solicitud idempotente');$b=$ok($serv['global']->ejecutar('global','solicitar',$base),'Repetición solicitud');$assert($a['transferencia_id']===$b['transferencia_id']&&$b['reintento'],'Solicitud repetida no duplica documento.');
  $same=$base;$same['clave']='mismo-almacen';$same['destino_id']=1001;$assert($serv['global']->ejecutar('global','solicitar',$same)['codigo']==='MISMO_ALMACEN','No se transfiere al mismo almacén.');
@@ -76,21 +116,24 @@ try{
  $assert($ro->consultar('restaurante')['ok']===true,'Consulta permitida sin edición.');$assert($ro->ejecutar('restaurante','solicitar',$base)['ok']===false,'Solo lectura no solicita.');
  $assert($serv['restaurante']->consultar('panaderia')['ok']===false,'Contexto ajeno denegado.');
  $nip=new Services\Inventory\Transferencias($db,$super['id'],'nip');$assert($nip->ejecutar('global','solicitar',$base)['ok']===false,'NIP no accede a transferencia administrativa.');
- // Autorización no reserva: al envío se revalida stock de todas las líneas.
- $large=[['articulo_id'=>1001,'cantidad'=>'1.000'],['articulo_id'=>1002,'cantidad'=>'999999.000']];$t=$solicitar('global',1001,1003,$large);$antes=$saldo(1001,1001);$assert($act('global','autorizar',$t)['codigo']==='SALDO_INSUFICIENTE'&&$saldo(1001,1001)===$antes,'Fallo de última línea no modifica saldos.');
+ // El envío inmediato revalida stock de todas las líneas: una que no alcance revierte el documento.
+ $large=[['articulo_id'=>1001,'cantidad'=>'1.000'],['articulo_id'=>1002,'cantidad'=>'999999.000']];$antes=$saldo(1001,1001);$docs=(int)$db->query('SELECT COUNT(*) FROM transferencias')->fetch_row()[0];
+ $r=$serv['global']->ejecutar('global','solicitar',['clave'=>'envio-sin-saldo','origen_id'=>1001,'destino_id'=>1003,'lineas'=>$large,'motivo'=>'Sin saldo']);
+ $assert(($r['codigo']??'')==='SALDO_INSUFICIENTE'&&$saldo(1001,1001)===$antes&&(int)$db->query('SELECT COUNT(*) FROM transferencias')->fetch_row()[0]===$docs,'Fallo de última línea no modifica saldos ni deja documento.');
  // Coordinador externo: nunca publicar éxito antes de commit y rollback integral.
  $db->begin_transaction();$ext=$base;$ext['clave']='externa-pendiente';$r=$serv['global']->ejecutar('global','solicitar',$ext);$assert($r['ok']===null&&$r['pendiente']===true,'Operación exterior queda pendiente.');$extid=$r['transferencia_id'];$db->rollback();$assert((int)$db->query('SELECT COUNT(*) FROM transferencias WHERE id='.$extid)->fetch_row()[0]===0,'Rollback exterior elimina solicitud e idempotencia.');
- $t=$solicitar('panaderia',1001,1003,$lineas);$t=$ok($act('global','autorizar',$t),'Autorizar no recibido');$t=$ok($act('global','enviar',$t),'Enviar no recibido');
+ $t=$solicitar('panaderia',1001,1003,$lineas);$t=$ok($act('global','enviar',$t),'Enviar no recibido');
  $t=$ok($act('panaderia','incidencia',$t),'Registrar no recibido');$t=$ok($act('global','retornar',$t,$lineas),'Retornar envío completo');$assert($t['estado']==='cerrada','Retorno total sin entrada ficticia al destino.');
- $t=$solicitar('panaderia',1001,1003,$lineas);$t=$ok($act('global','autorizar',$t),'Autorizar recepción fraccionada');$t=$ok($act('global','enviar',$t),'Enviar recepción fraccionada');
+ $t=$solicitar('panaderia',1001,1003,$lineas);$t=$ok($act('global','enviar',$t),'Enviar recepción fraccionada');
  $t=$ok($act('panaderia','recibir',$t,[['articulo_id'=>1001,'cantidad'=>'1.001']]),'Primera recepción');
  $assert($motor->configurarAsociacion('panaderia',1003,1002,['activo'=>0])['ok']===false,'No se desactiva asociación con transferencia pendiente.');
  $t=$ok($act('panaderia','recibir',$t,[['articulo_id'=>1001,'cantidad'=>'11.124'],['articulo_id'=>1002,'cantidad'=>'10.250']]),'Segunda recepción');$assert($t['estado']==='recibida','Varias recepciones completan sin retorno.');
- $t=$solicitar('global',1001,1003,[['articulo_id'=>1001,'cantidad'=>'1.000'],['articulo_id'=>1002,'cantidad'=>'1.000']]);$t=$ok($act('global','autorizar',$t),'Autorizar antes de cambio de stock');
+ // La solicitud no reserva: el envío revalida el stock que haya en ese momento.
+ $t=$solicitar('panaderia',1001,1003,[['articulo_id'=>1001,'cantidad'=>'1.000'],['articulo_id'=>1002,'cantidad'=>'1.000']]);
  $before1=$saldo(1001,1001);$milk=$motor->existencia('global',1001,1002)['existencia'];
- $ok($motor->registrarAjuste('global',['clave'=>'bajar-despues-autorizacion','referencia'=>'bajar-despues-autorizacion','motivo'=>'Conteo entre autorización y envío','lineas'=>[['almacen_id'=>1001,'articulo_id'=>1002,'cantidad'=>'0.000','version'=>$milk['version']]]]),'Cambio de stock después de autorizar');
+ $ok($motor->registrarMerma('global',['clave'=>'bajar-despues-solicitud','referencia'=>'bajar-despues-solicitud','motivo'=>'otro','nota'=>'Consumo entre solicitud y envío','lineas'=>[['almacen_id'=>1001,'articulo_id'=>1002,'cantidad'=>$milk['saldo']]]]),'Cambio de stock después de solicitar');
  $assert($act('global','enviar',$t)['codigo']==='SALDO_INSUFICIENTE'&&$saldo(1001,1001)===$before1,'Fallo en última línea revierte salida y operación enteras.');
- $milk=$motor->existencia('global',1001,1002)['existencia'];$ok($motor->registrarAjuste('global',['clave'=>'reponer-conteo','referencia'=>'reponer-conteo','motivo'=>'Restituir conteo de prueba','lineas'=>[['almacen_id'=>1001,'articulo_id'=>1002,'cantidad'=>'5000.000','version'=>$milk['version']]]]),'Restituir stock');
+ $ok($motor->registrarEntrada('global',['clave'=>'reponer-stock','referencia'=>'reponer-stock','motivo'=>'entrada','nota'=>'Restituir stock de prueba','lineas'=>[['almacen_id'=>1001,'articulo_id'=>1002,'cantidad'=>'5000.000']]]),'Restituir stock');
  // Dos procesos vivos esperan la misma versión bloqueada: solo uno confirma.
  $race=static function(string $ctx,string $accion,array $t,array $lineas=[])use($db,$name,$token,$usuarios,$assert):void{
   $workers=[];$db->begin_transaction();$db->query('SELECT id FROM transferencias WHERE id='.(int)$t['transferencia_id'].' FOR UPDATE');
@@ -108,7 +151,7 @@ try{
    $assert(count(array_filter($res,static fn($r)=>($r['codigo']??'')==='VERSION_CONFLICTO'))===1,'La otra acción detecta versión concurrente.');
   }finally{$db->rollback();foreach($workers as [$proc,$pipes])if(is_resource($proc)){foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);proc_terminate($proc);proc_close($proc);}}
  };
- $t=$solicitar('global',1001,1003,$lineas);$t=$ok($act('global','autorizar',$t),'Autorizar carrera');$race('global','enviar',$t);
+ $t=$solicitar('panaderia',1001,1003,$lineas);$race('global','enviar',$t);
  $actual=$db->query('SELECT version,estado FROM transferencias WHERE id='.$t['transferencia_id'])->fetch_assoc();$t['version']=(int)$actual['version'];$assert($actual['estado']==='enviada','Una sola salida concurrente.');
  $race('panaderia','recibir',$t,$lineas);
  $assert((string)$db->query('SELECT estado FROM transferencias WHERE id='.$t['transferencia_id'])->fetch_row()[0]==='recibida','Una sola recepción concurrente.');

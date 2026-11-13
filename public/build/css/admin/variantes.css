@@ -475,6 +475,10 @@
   font-size: 12px;
   line-height: 1.5;
 }
+.admin-body .admin-vopcion__nota--aviso {
+  color: var(--admin-warning-text);
+  font-weight: 600;
+}
 .admin-body .admin-vopcion__atajos {
   display: flex;
   flex-wrap: wrap;

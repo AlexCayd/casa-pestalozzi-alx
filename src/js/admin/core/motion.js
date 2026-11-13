@@ -187,6 +187,10 @@
         // solo sitio.
         '.admin-sidebar',
         '.admin-modal',
+        // Modales cuyo marco tiene alto máximo y desplaza el diálogo, no la capa
+        // (Almacenes, Analíticas…): sin registrarlo, la rueda sólo funcionaba
+        // arrastrando la barra.
+        '.admin-modal__dialog',
         // El diálogo de confirmación se monta en <body> fuera de .admin-modal:
         // sin marcarlo, la rueda encima de él la capturaba Lenis y el diálogo
         // no se movía mientras la página de detrás sí.
@@ -214,30 +218,31 @@
      * desbordar (se filtró la tabla, se agrandó la ventana) y entonces hay que
      * devolverle la rueda a la página.
      */
+    function evaluarScrollable(el) {
+        var propio = el.hasAttribute('data-lenis-auto');
+
+        // Un [data-lenis-prevent] escrito en la vista es una decisión
+        // deliberada del autor de esa pantalla: ni se retira ni se adopta
+        // como propio (adoptarlo lo dejaría expuesto a que un barrido
+        // posterior lo quitara).
+        if (el.hasAttribute('data-lenis-prevent') && !propio) {
+            return;
+        }
+
+        if (el.scrollHeight > el.clientHeight + 1) {
+            el.setAttribute('data-lenis-prevent', '');
+            el.setAttribute('data-lenis-auto', '');
+        } else if (propio) {
+            el.removeAttribute('data-lenis-prevent');
+            el.removeAttribute('data-lenis-auto');
+        }
+    }
+
     function marcarScrollables(raiz) {
         if (!raiz || raiz.nodeType !== 1) {
             raiz = document.body;
         }
-
-        function evaluar(el) {
-            var propio = el.hasAttribute('data-lenis-auto');
-
-            // Un [data-lenis-prevent] escrito en la vista es una decisión
-            // deliberada del autor de esa pantalla: ni se retira ni se adopta
-            // como propio (adoptarlo lo dejaría expuesto a que un barrido
-            // posterior lo quitara).
-            if (el.hasAttribute('data-lenis-prevent') && !propio) {
-                return;
-            }
-
-            if (el.scrollHeight > el.clientHeight + 1) {
-                el.setAttribute('data-lenis-prevent', '');
-                el.setAttribute('data-lenis-auto', '');
-            } else if (propio) {
-                el.removeAttribute('data-lenis-prevent');
-                el.removeAttribute('data-lenis-auto');
-            }
-        }
+        var evaluar = evaluarScrollable;
 
         if (raiz.matches && raiz.matches(SCROLLABLES)) {
             evaluar(raiz);
@@ -391,9 +396,13 @@
             if (!destino || !destino.closest) {
                 return;
             }
+            // Todos los contenedores bajo el puntero, no sólo el más cercano: una
+            // tabla con [data-scrollable] que no desborda en vertical tapaba al
+            // diálogo que sí desborda, y Lenis cancelaba la rueda en todo el modal.
             var candidato = destino.closest(SCROLLABLES);
-            if (candidato) {
-                marcarScrollables(candidato);
+            while (candidato) {
+                evaluarScrollable(candidato);
+                candidato = candidato.parentElement ? candidato.parentElement.closest(SCROLLABLES) : null;
             }
         }, { capture: true, passive: true });
 

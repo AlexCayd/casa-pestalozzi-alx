@@ -130,8 +130,11 @@ try {
     $assert(empty($r['ok']) && $r['codigo'] === 'CONFLICTO_IDEMPOTENCIA', 'Clave reutilizada con otro contenido');
 
     $r = CajaMostrador::vender([['oferta_id' => 1213, 'cantidad' => 1, 'variantes' => [1309, 1311]]], ['metodo' => 'tarjeta'], $clave());
-    $assert(!empty($r['ok']) && $r['ticket']['total'] === '36.00' && $saldo(1316) === '-1.000', 'Vitrina en cero vende y queda en negativo');
-    $assert(($r['avisos'][0]['codigo'] ?? '') === 'VITRINA_NEGATIVA', 'La venta avisa del negativo');
+    // §16: ningún saldo es negativo; la pieza que faltó queda por conciliar.
+    $assert(!empty($r['ok']) && $r['ticket']['total'] === '36.00' && $saldo(1316) === '0.000', 'Vitrina en cero vende y no queda en negativo');
+    $assert(($r['avisos'][0]['codigo'] ?? '') === 'VITRINA_FALTANTE' && ($r['avisos'][0]['faltante'] ?? '') === '1.000', 'La venta avisa del faltante: ' . json_encode($r['avisos'] ?? null, JSON_UNESCAPED_UNICODE));
+    $assert($uno("SELECT CONCAT(f.estado,'|',f.cantidad) FROM faltantes_inventario f JOIN ticket_items ti ON ti.id=f.ticket_item_id WHERE ti.ticket_id=? AND f.articulo_id=1316", [(int)$r['ticket']['id']]) === 'pendiente|1.000', 'Faltante pendiente ligado a la venta');
+    $assert((int)$uno('SELECT COUNT(*) FROM almacen_articulos WHERE saldo<0') === 0, 'Ninguna existencia negativa');
     $r = CajaMostrador::vender([['oferta_id' => 1205, 'cantidad' => 1, 'variantes' => [1306]], ['oferta_id' => 1209, 'cantidad' => 1, 'variantes' => [1313]]], ['metodo' => 'tarjeta'], $clave());
     $assert(!empty($r['ok']) && $r['ticket']['total'] === '215.00' && $saldo(1306) === '5.500' && $saldo(1310) === '24.000', 'Media pieza y media docena exactas');
     foreach ([
@@ -150,9 +153,11 @@ try {
     // ── Horneada ───────────────────────────────────────────────
     $kh = $clave();
     $r = CajaMostrador::hornear([['almacen_id' => 1007, 'articulo_id' => 1316, 'cantidad' => '12']], $kh);
-    $assert(!empty($r['ok']) && $saldo(1316) === '11.000', 'Horneada suma piezas: ' . json_encode($r, JSON_UNESCAPED_UNICODE));
+    // Sin negativos (§16) la horneada no descuenta la pieza vendida de más: sigue
+    // como faltante pendiente hasta que alguien concilie su origen en Almacenes.
+    $assert(!empty($r['ok']) && $saldo(1316) === '12.000', 'Horneada suma piezas: ' . json_encode($r, JSON_UNESCAPED_UNICODE));
     $r = CajaMostrador::hornear([['almacen_id' => 1007, 'articulo_id' => 1316, 'cantidad' => '12']], $kh);
-    $assert(!empty($r['ok']) && !empty($r['reintento']) && $saldo(1316) === '11.000', 'Horneada idempotente');
+    $assert(!empty($r['ok']) && !empty($r['reintento']) && $saldo(1316) === '12.000', 'Horneada idempotente');
     $r = CajaMostrador::hornear([['almacen_id' => 1003, 'articulo_id' => 1001, 'cantidad' => '500']], $clave());
     $assert(empty($r['ok']) && $r['codigo'] === 'PIEZA_NO_VITRINA', 'Horneada solo de piezas de vitrina');
     $assert($uno("SELECT motivo FROM movimientos_inventario WHERE articulo_id=1316 AND tipo='entrada' ORDER BY id DESC LIMIT 1") === 'horneada', 'Horneada trazable');

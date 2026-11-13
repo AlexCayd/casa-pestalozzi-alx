@@ -117,12 +117,12 @@ function test3cCore(mysqli $db, int &$count): array
     $localRest = test3cService($db, (int)$rest['id']);
     $localPan = test3cService($db, (int)$pan['id']);
 
-    $g = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'global', 'Almacén QA Global', false), 'Crear almacén Global.', $count);
-    $r = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'restaurante', 'Almacén QA Restaurante', true), 'Global crea almacén de Restaurante con negativos.', $count);
-    $p = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'panaderia', 'Almacén QA Panadería', false), 'Global crea almacén de Panadería.', $count);
+    $g = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'global', 'Almacén QA Global'), 'Crear almacén Global.', $count);
+    $r = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'restaurante', 'Almacén QA Restaurante'), 'Global crea almacén de Restaurante.', $count);
+    $p = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'panaderia', 'Almacén QA Panadería'), 'Global crea almacén de Panadería.', $count);
     $gid = (int)($g['almacen_id'] ?? 0); $rid = (int)($r['almacen_id'] ?? 0); $pid = (int)($p['almacen_id'] ?? 0);
     test3cAssert($gid > 0 && $rid > 0 && $pid > 0, 'crearAlmacen debe devolver almacen_id.', $count);
-    test3cDenied(fn() => $localRest->crearAlmacen('restaurante', 'restaurante', 'No permitido', false), 'Administrador local no crea almacenes.', $count);
+    test3cDenied(fn() => $localRest->crearAlmacen('restaurante', 'restaurante', 'No permitido'), 'Administrador local no crea almacenes.', $count);
 
     $articleData = ['nombre' => 'Artículo QA 3C', 'unidad' => 'kg', 'costo' => '1.2500', 'activo' => true];
     $article = test3cCall(fn() => $localGlobal->crearArticulo('global', $articleData), 'Crear artículo maestro.', $count);
@@ -148,22 +148,25 @@ function test3cCore(mysqli $db, int &$count): array
     test3cAssert(($entryG['movimientos'][0]['saldo'] ?? '') === '5.125', 'La cantidad decimal se conserva exactamente.', $count);
     test3cAssert((string)$db->query("SELECT costo_unitario FROM movimientos_inventario WHERE operacion_id=" . (int)$entryG['operacion_id'] . ' LIMIT 1')->fetch_row()[0] === '1.2500', 'El costo unitario del movimiento conserva cuatro decimales.', $count);
     $version = (int)$db->query("SELECT version FROM almacen_articulos WHERE almacen_id=$gid AND articulo_id=$articleId")->fetch_row()[0];
-    $adjust = test3cCall(fn() => $localGlobal->registrarAjuste('global', test3cDoc('qa3c-adjust', 'qa3c-adjust', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.500','version'=>$version]], 'conteo')), 'Registrar ajuste con versión.', $count);
-    test3cAssert(($adjust['movimientos'][0]['saldo'] ?? '') === '4.500', 'Ajuste establece el conteo exacto.', $count);
+    // El conteo físico (registrarAjuste) se retiró (auditoría A-4): una diferencia se registra como merma con motivo.
+    test3cAssert(!method_exists($localGlobal, 'registrarAjuste'), 'El motor ya no ofrece sobrescribir un saldo.', $count);
+    $adjust = test3cCall(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-adjust', 'qa3c-adjust', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'0.625']], 'otro')), 'Registrar la diferencia como merma.', $count);
+    test3cAssert(($adjust['movimientos'][0]['saldo'] ?? '') === '4.500', 'La merma deja el saldo exacto.', $count);
     $waste = test3cCall(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-waste', 'qa3c-waste', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'0.500']], 'otro')), 'Registrar merma.', $count);
     test3cAssert(($waste['movimientos'][0]['saldo'] ?? '') === '4.000', 'La merma descuenta el saldo.', $count);
-    $localNegative = test3cCall(fn() => $localRest->registrarMerma('restaurante', test3cDoc('qa3c-negative-ok', 'qa3c-negative-ok', [['almacen_id'=>$rid,'articulo_id'=>$articleId,'cantidad'=>'2.000']], 'otro')), 'Restaurante permite negativos.', $count);
-    test3cAssert(($localNegative['movimientos'][0]['saldo'] ?? '') === '-1.000', 'La política negativa está en el almacén.', $count);
-    test3cDenied(fn() => $localRest->configurarAlmacen('restaurante', $rid, ['permitir_negativos'=>false]), 'No se deshabilitan negativos mientras hay saldo negativo pendiente.', $count);
+    // M3 (§16): ningún almacén admite saldo negativo; la política ya no se configura.
+    $localNegative = test3cDenied(fn() => $localRest->registrarMerma('restaurante', test3cDoc('qa3c-negative-ok', 'qa3c-negative-ok', [['almacen_id'=>$rid,'articulo_id'=>$articleId,'cantidad'=>'2.000']], 'otro')), 'Restaurante tampoco deja saldo negativo.', $count);
+    test3cAssert($localNegative['codigo']==='SALDO_INSUFICIENTE' && (string)$db->query("SELECT saldo FROM almacen_articulos WHERE almacen_id=$rid AND articulo_id=$articleId")->fetch_row()[0]==='1.000', 'El rechazo no cambia el saldo.', $count);
+    test3cDenied(fn() => $localRest->configurarAlmacen('restaurante', $rid, ['permitir_negativos'=>true]), 'La política de negativos ya no se configura.', $count);
     $staleVersion = $version;
     $newVersion = (int)$db->query("SELECT version FROM almacen_articulos WHERE almacen_id=$gid AND articulo_id=$articleId")->fetch_row()[0];
-    test3cDenied(fn() => $localGlobal->registrarAjuste('global', test3cDoc('qa3c-adjust-stale', 'qa3c-adjust-stale', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.000','version'=>$staleVersion]], 'conteo')), 'Rechaza ajuste con versión obsoleta.', $count);
+    test3cDenied(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-adjust-stale', 'qa3c-adjust-stale', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'1.000','version'=>$staleVersion]], 'otro')), 'Una operación no acepta versión: ya no hay conteo que la use.', $count);
     test3cAssert($newVersion > $staleVersion, 'Las operaciones incrementan versión de concurrencia.', $count);
-    $negativo = test3cDenied(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-negative-no', 'qa3c-negative-no', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.001']], 'otro')), 'Almacén con negativos deshabilitados bloquea saldo menor que cero.', $count);
+    $negativo = test3cDenied(fn() => $localGlobal->registrarMerma('global', test3cDoc('qa3c-negative-no', 'qa3c-negative-no', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'4.001']], 'otro')), 'Ningún almacén deja un saldo menor que cero.', $count);
     test3cAssert($negativo['codigo']==='SALDO_INSUFICIENTE','La salida se rechaza por falta de saldo, no por otro error.', $count);
 
     test3cDenied(fn() => $localRest->registrarEntrada('restaurante', test3cDoc('qa3c-cross-scope', 'qa3c-cross-scope', [['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>'1.000']])), 'Rechaza operación sobre almacén ajeno.', $count);
-    $emptyStore = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'global', 'Almacén QA Inactivo', false), 'Crear almacén vacío para probar inactividad.', $count);
+    $emptyStore = test3cCall(fn() => $localGlobal->crearAlmacen('global', 'global', 'Almacén QA Inactivo'), 'Crear almacén vacío para probar inactividad.', $count);
     $inactiveStoreId = (int)($emptyStore['almacen_id'] ?? 0);
     test3cCall(fn() => $localGlobal->asociarArticulo('global', $inactiveStoreId, $articleId), 'Asociar artículo al almacén que se desactivará.', $count);
     test3cCall(fn() => $localGlobal->configurarAlmacen('global', $inactiveStoreId, ['activo'=>false]), 'Desactivar almacén sin existencias ni movimientos.', $count);
@@ -238,8 +241,8 @@ function test3cCore(mysqli $db, int &$count): array
         $badResult=$localGlobal->registrarEntrada('global',test3cDoc('bad-'.$bad,'bad-'.$bad,[['almacen_id'=>$gid,'articulo_id'=>$articleId,'cantidad'=>$bad]]));
         test3cAssert($badResult['ok']===false && in_array($badResult['codigo'],['DECIMAL_INVALIDO','DECIMAL_FUERA_RANGO'],true),'Rechaza precisión, notación o rango inválidos.',$count);
     }
-    $nullAdjustment=test3cCall(fn()=>$localGlobal->registrarAjuste('global',test3cDoc('qa3c-noop','qa3c-noop',[['almacen_id'=>$gid,'articulo_id'=>$secondId,'cantidad'=>'0','version'=>0]],'conteo')),'Ajuste cero trazable sin movimiento.',$count);
-    test3cAssert($nullAdjustment['movimientos']===[],'No se registran deltas cero.',$count);
+    $cero=test3cDenied(fn()=>$localGlobal->registrarEntrada('global',test3cDoc('qa3c-noop','qa3c-noop',[['almacen_id'=>$gid,'articulo_id'=>$secondId,'cantidad'=>'0']])),'Una operación de cantidad cero se rechaza.',$count);
+    test3cAssert($cero['codigo']==='CANTIDAD_INVALIDA','No se registran deltas cero.',$count);
     foreach(["UPDATE movimientos_inventario SET motivo='alterado' WHERE id=$movementId","DELETE FROM movimientos_inventario WHERE id=$movementId"] as $sql) {
         $denegado=false;
         try { $db->query($sql); } catch(mysqli_sql_exception $e) { $denegado=$e->getCode()===1644; }

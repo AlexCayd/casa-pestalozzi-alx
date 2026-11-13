@@ -57,42 +57,92 @@
         var form = builder.closest('form');
         if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
     });
-    var accionCapacidades = document.querySelector('input[name="accion"][value="configurar"]');
-    var composicion = document.querySelector('[data-m2-builder]');
-    if (accionCapacidades && accionCapacidades.form) {
-        var capacidadesForm = accionCapacidades.form;
-        var dependenciaError = document.querySelector('[data-m2-capacidad-error]');
-        capacidadesForm.addEventListener('submit', function (event) {
-            var previa = document.querySelector('[data-m2-capacidad="produccion_previa"]');
-            var elaborable = document.querySelector('[data-m2-capacidad="elaborable"]');
-            var almacenable = document.querySelector('[data-m2-capacidad="almacenable"]');
-            if (!previa || !elaborable || !almacenable || !previa.checked || (elaborable.checked && almacenable.checked)) {
-                if (dependenciaError) dependenciaError.hidden = true;
-                return;
-            }
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            if (dependenciaError) {
-                dependenciaError.textContent = 'Para elaborar antes de vender, activa también elaboración propia y almacenamiento.';
-                dependenciaError.hidden = false;
-            }
-            (elaborable.checked ? almacenable : elaborable).focus();
+    // Editor de reventa (un solo artículo): elegir el artículo propone su
+    // unidad, igual que en el editor general. Se puede cambiar después (750 ml
+    // de un vino guardado en l, por ejemplo); el servidor convierte.
+    document.querySelectorAll('[data-m2-reventa]').forEach(function (bloque) {
+        var articulo = bloque.querySelector('[data-m2-reventa-articulo]');
+        var unidad = bloque.querySelector('[data-m2-reventa-unidad]');
+        if (!articulo || !unidad) return;
+        articulo.addEventListener('change', function () {
+            var op = articulo.selectedOptions[0];
+            if (!op || !op.dataset.unidad) return;
+            unidad.value = op.dataset.unidad;
+            unidad.dispatchEvent(new Event('change', {bubbles:true}));
         });
-    }
-    if (accionCapacidades && composicion) {
-        var capacidades = accionCapacidades.form;
-        var receta = composicion.closest('form');
-        var inicial = JSON.stringify(Array.from(new FormData(receta).entries()));
-        capacidades.addEventListener('submit', function (event) {
-            if (capacidades.dataset.descarteConfirmado === '1' || (!receta.hasAttribute('data-m2-pendiente') && inicial === JSON.stringify(Array.from(new FormData(receta).entries())))) return;
-            event.preventDefault();
-            if (!window.ConfirmationModal) return;
-            window.ConfirmationModal.get().open({
-                variant: 'warning', eyebrow: 'Cambios pendientes', title: 'La elaboración tiene cambios sin publicar',
-                description: 'Guardar capacidades recarga la ficha y descarta los cambios pendientes de elaboración. Cancela para seguir editándolos.',
-                consequence: 'La receta no se guardará ni publicará al cambiar capacidades.',
-                secondaryLabel: 'Seguir editando', primaryLabel: 'Descartar y guardar capacidades',
-                onPrimary: function () { capacidades.dataset.descarteConfirmado = '1'; capacidades.requestSubmit(); }
+        var form = bloque.closest('form');
+        if (form) form.addEventListener('submit', function () { form.setAttribute('aria-busy', 'true'); });
+    });
+    // «Se compra por pieza»: el contenido por pieza sólo se captura con la casilla
+    // marcada y nunca en `pza`. Desmarcarla vacía el campo; deshabilitado, viaja el
+    // oculto vacío del parcial y el servidor borra el valor guardado.
+    document.querySelectorAll('[data-m6-pieza]').forEach(function (bloque) {
+        var form = bloque.closest('form');
+        var activar = bloque.querySelector('[data-m6-pieza-activar]');
+        var campo = bloque.querySelector('[data-m6-pieza-campo]');
+        if (!form || !activar || !campo) return;
+        // Desmarcar por error no pierde el valor mientras no se guarde: volver a marcar lo devuelve.
+        var recordado = campo.value;
+        function sincronizar() {
+            var unidad = form.querySelector('[name="unidad"]');
+            var enPiezas = !!unidad && unidad.value === 'pza';
+            if (enPiezas) activar.checked = false;
+            activar.disabled = enPiezas;
+            if (!activar.checked && campo.value !== '') recordado = campo.value;
+            campo.disabled = !activar.checked;
+            campo.required = activar.checked;
+            if (!activar.checked) campo.value = '';
+            else if (campo.value === '' && recordado !== '') campo.value = recordado;
+        }
+        activar.addEventListener('change', function () { sincronizar(); if (activar.checked) campo.focus(); });
+        // El selector de unidad puede ser el realzado del panel: se escucha el cambio en el formulario.
+        form.addEventListener('change', function (event) { if (event.target.name === 'unidad') sincronizar(); });
+        sincronizar();
+    });
+    // Alta en un paso: el enlace «Nuevo artículo» lleva a la página de respaldo si no
+    // hay JavaScript; con él, se queda en la lista y abre el diálogo.
+    document.querySelectorAll('a[data-m6-abrir-alta]').forEach(function (enlace) {
+        enlace.addEventListener('click', function (event) { event.preventDefault(); });
+    });
+    document.querySelectorAll('[data-m6-alta]').forEach(function (alta) {
+        var enviar = alta.querySelector('[data-m6-alta-enviar]');
+        // El botón dice lo que va a pasar: una preparación abre su receta al crearse.
+        function rotular() {
+            var tipo = alta.querySelector('[data-m6-tipo]:checked');
+            if (enviar && tipo) enviar.textContent = enviar.getAttribute('data-etiqueta-' + tipo.value) || enviar.textContent;
+        }
+        alta.addEventListener('change', function (event) { if (event.target.matches('[data-m6-tipo]')) rotular(); });
+        rotular();
+        alta.addEventListener('submit', function (event) {
+            // Un doble clic no debe crear dos artículos con el mismo nombre.
+            if (alta.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+            alta.setAttribute('aria-busy', 'true');
+        });
+        // Al volver con «Atrás» el navegador restaura la página tal como quedó: sin
+        // esto el formulario seguía marcado como ocupado y ya no dejaba enviar.
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) alta.removeAttribute('aria-busy');
+        });
+    });
+    // Guardar datos generales o el uso recarga la ficha: si la receta de elaboración
+    // tiene cambios sin publicar, se avisa antes de perderlos.
+    var composicion = document.querySelector('[data-m2-builder]');
+    var receta = composicion ? composicion.closest('form') : null;
+    if (receta) {
+        var recetaInicial = JSON.stringify(Array.from(new FormData(receta).entries()));
+        document.querySelectorAll('form[data-m6-descarta-borrador]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (form.dataset.descarteConfirmado === '1' || (!receta.hasAttribute('data-m2-pendiente') && recetaInicial === JSON.stringify(Array.from(new FormData(receta).entries())))) return;
+                event.preventDefault();
+                if (!window.ConfirmationModal) return;
+                var accion = form.getAttribute('data-m6-descarta-borrador');
+                window.ConfirmationModal.get().open({
+                    variant: 'warning', eyebrow: 'Cambios pendientes', title: 'La receta tiene cambios sin publicar',
+                    description: accion + ' recarga la ficha y descarta los cambios pendientes de la receta. Cancela para seguir editándolos.',
+                    consequence: 'La receta no se guardará ni publicará.',
+                    secondaryLabel: 'Seguir editando', primaryLabel: 'Descartar y guardar',
+                    onPrimary: function () { form.dataset.descarteConfirmado = '1'; form.requestSubmit(); }
+                });
             });
         });
     }

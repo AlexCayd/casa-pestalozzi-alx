@@ -7,7 +7,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS instalacion_desarrollo;
 DROP TABLE IF EXISTS usuario_unidad_permisos;
-DROP TABLE IF EXISTS ticket_anulaciones, vitrina_piezas_variante, vitrina_piezas, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_avisos, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
+DROP TABLE IF EXISTS faltante_asignaciones, faltantes_inventario, entradas_proveedor, ticket_anulaciones, vitrina_piezas_variante, vitrina_piezas, transferencia_comandos, importaciones_menu, esquema_versiones, logs_sugerencias, cata_inscripciones, catering_solicitudes, producto_componentes, menu, reportes_sistema, configuracion_avisos, configuracion_reservaciones, configuracion_paleta, configuracion_pos, configuracion_anuncio, buzon_notificaciones, reservacion_recordatorios, horario_impacto_reservaciones, horario_impactos, excepciones_operacion, horarios_operacion, impresion_alertas, impresoras, feedback, feedback_tokens, reservacion_reubicaciones, reservacion_mesas, verificaciones_contacto, catas, ticket_pagos, pos_operaciones, ticket_mesas, ticket_items, operaciones_financieras, gastos_fijos, historial_precios, ingrediente_proveedores, proveedores, movimientos_inventario, transferencia_historial, transferencia_lineas, transferencias, oferta_consumos, variante_ajustes, producto_variantes, receta_componentes, recetas, subreceta_ingredientes, subrecetas, almacen_articulos, almacenes, operaciones_inventario, oferta_producto, ofertas_producto, productos, categorias, cartas, areas_produccion, mesas, tickets, reservaciones, usuario_unidad_facultades, usuario_unidades, rol_permisos, facultades, usuarios, roles, unidades, ingredientes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE unidades (
@@ -414,6 +414,16 @@ CREATE TABLE ingrediente_proveedores (
  UNIQUE KEY uq_ing_prov(unidad_id,ingrediente_id,proveedor_id), INDEX idx_ing_prov_proveedor(unidad_id,proveedor_id),
  FOREIGN KEY(ingrediente_id) REFERENCES ingredientes(id) ON DELETE RESTRICT,
  FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT, CHECK(costo>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- De quién llegó una entrada (arquitectura §17). Una fila por operación del motor:
+-- el proveedor es del documento recibido, no de cada línea. Mismo ámbito por FK
+-- compuesta en ambos lados; un proveedor con entradas no se borra, se desactiva.
+CREATE TABLE entradas_proveedor (
+ operacion_id BIGINT UNSIGNED NOT NULL PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, proveedor_id INT UNSIGNED NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_entrada_proveedor(unidad_id,proveedor_id),
+ FOREIGN KEY(operacion_id,unidad_id) REFERENCES operaciones_inventario(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(proveedor_id,unidad_id) REFERENCES proveedores(id,unidad_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE historial_precios (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL, oferta_id INT UNSIGNED NULL, articulo_id INT UNSIGNED NULL,
@@ -929,3 +939,57 @@ DROP TRIGGER IF EXISTS m2_componente_adoptado_delete//
 CREATE TRIGGER m2_componente_adoptado_delete BEFORE DELETE ON receta_componentes_articulos FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Versión adoptada histórica'; END//
 DELIMITER ;
+
+-- M3 · Fase 1 (docs/arquitectura.md §16): tipo de venta por oferta y contenido
+-- por pieza. Igual a database/actualizaciones/m3-tipo-venta.sql. El estado por
+-- omisión «sugerido» deja el menú original pendiente de revisión humana.
+ALTER TABLE ofertas_producto
+ ADD COLUMN tipo_venta ENUM('preparado','reventa') NOT NULL DEFAULT 'preparado',
+ ADD COLUMN tipo_venta_estado ENUM('sugerido','confirmado') NOT NULL DEFAULT 'sugerido',
+ ADD INDEX idx_oferta_tipo_venta(unidad_id,tipo_venta_estado,tipo_venta);
+ALTER TABLE ingredientes
+ ADD COLUMN contenido_pieza DECIMAL(12,3) NULL AFTER unidad,
+ ADD CONSTRAINT chk_ingrediente_contenido_pieza CHECK(contenido_pieza IS NULL OR (contenido_pieza>0 AND unidad<>'pza'));
+INSERT IGNORE INTO esquema_versiones(version) VALUES ('m3-tipo-venta');
+
+-- M3 · Fase 2 (docs/arquitectura.md §16): faltantes de venta, conciliación y
+-- retiro de negativos. Igual a database/actualizaciones/m4-faltantes.sql, sin la
+-- conversión de saldos (una base nueva no tiene negativos).
+CREATE TABLE faltantes_inventario (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, unidad_id TINYINT UNSIGNED NOT NULL,
+ almacen_id BIGINT UNSIGNED NOT NULL, articulo_id INT UNSIGNED NOT NULL,
+ ticket_item_id INT UNSIGNED NULL, operacion_id BIGINT UNSIGNED NOT NULL,
+ origen ENUM('venta','migracion') NOT NULL,
+ cantidad DECIMAL(12,3) NOT NULL, cantidad_conciliada DECIMAL(12,3) NOT NULL DEFAULT 0,
+ cantidad_en_confirmacion DECIMAL(12,3) NOT NULL DEFAULT 0,
+ estado ENUM('pendiente','en_confirmacion','conciliado','anulado') NOT NULL DEFAULT 'pendiente',
+ version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ creado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, actualizado_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_faltante_item(ticket_item_id,almacen_id,articulo_id), UNIQUE KEY uq_faltante_scope(id,unidad_id),
+ INDEX idx_faltante_estado(unidad_id,estado,creado_at), INDEX idx_faltante_articulo(articulo_id,estado),
+ FOREIGN KEY(almacen_id,articulo_id,unidad_id) REFERENCES almacen_articulos(almacen_id,articulo_id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(ticket_item_id,unidad_id) REFERENCES ticket_items(id,unidad_id) ON DELETE RESTRICT,
+ FOREIGN KEY(operacion_id,unidad_id) REFERENCES operaciones_inventario(id,unidad_id) ON DELETE RESTRICT,
+ CHECK(cantidad>0 AND cantidad_conciliada>=0 AND cantidad_en_confirmacion>=0 AND cantidad_conciliada+cantidad_en_confirmacion<=cantidad),
+ CHECK((origen='venta' AND ticket_item_id IS NOT NULL) OR (origen='migracion' AND ticket_item_id IS NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE transferencias ADD COLUMN tipo ENUM('ordinaria','regularizacion') NOT NULL DEFAULT 'ordinaria' AFTER id;
+CREATE TABLE faltante_asignaciones (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, faltante_id BIGINT UNSIGNED NOT NULL,
+ almacen_origen_id BIGINT UNSIGNED NOT NULL, cantidad DECIMAL(12,3) NOT NULL,
+ transferencia_id BIGINT UNSIGNED NULL,
+ estado ENUM('aplicada','en_confirmacion','rechazada','anulada') NOT NULL,
+ motivo VARCHAR(255) NULL, actor_id INT NOT NULL,
+ creado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, resuelto_at DATETIME NULL,
+ UNIQUE KEY uq_asignacion_transferencia(transferencia_id), INDEX idx_asignacion_faltante(faltante_id,estado),
+ FOREIGN KEY(faltante_id) REFERENCES faltantes_inventario(id) ON DELETE RESTRICT,
+ FOREIGN KEY(almacen_origen_id) REFERENCES almacenes(id) ON DELETE RESTRICT,
+ FOREIGN KEY(transferencia_id) REFERENCES transferencias(id) ON DELETE RESTRICT,
+ FOREIGN KEY(actor_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+ CHECK(cantidad>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE movimientos_inventario ADD COLUMN faltante_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_mov_faltante FOREIGN KEY(faltante_id) REFERENCES faltantes_inventario(id) ON DELETE RESTRICT;
+ALTER TABLE almacenes ADD CONSTRAINT chk_almacen_sin_negativos CHECK(permitir_negativos=0);
+INSERT IGNORE INTO esquema_versiones(version) VALUES ('m4-faltantes');

@@ -40,8 +40,8 @@ de caja» (+ `anular`).
   tablas) y los datos de prueba en `development.sql`; `database/` no lleva
   migraciones sueltas. Una base anterior se reinstala con el instalador sobre
   una base nueva, o se le aplica el ALTER a mano sólo si se autoriza.
-- Fixtures de desarrollo: 17 piezas en «Producto Terminado» (almacén con
-  negativos), variantes de mostrador (concha con nata, brownie con nuez, media
+- Fixtures de desarrollo: 17 piezas en «Producto Terminado» (sin negativos,
+  como todo almacén: §16), variantes de mostrador (concha con nata, brownie con nuez, media
   hogaza, cuernito con dos grupos, media docena de galletas), y las cuentas
   `cajera_panaderia` y `encargada_panaderia` sin NIP (se asigna en Usuarios).
 
@@ -58,8 +58,9 @@ de caja» (+ `anular`).
    cambio) queda en la operación: un reintento con la misma clave lo devuelve
    sin cobrar ni descontar otra vez; la misma clave con otro contenido es
    `CONFLICTO_IDEMPOTENCIA`.
-4. Responde los saldos de las piezas tocadas y `VITRINA_NEGATIVA` si alguna quedó
-   bajo cero.
+4. Responde los saldos de las piezas tocadas y `VITRINA_FALTANTE` si se vendieron
+   más piezas de las que había: el saldo queda en cero y el resto es un faltante
+   por conciliar en Almacenes (arquitectura §16).
 
 ## Anulación
 
@@ -108,7 +109,7 @@ para no cortarse con el sidebar abierto.
 crea su propia base desechable con el DDL y DML versionados y comprueba
 triggers y clasificación de rutas, permisos efectivos por persona, venta
 atómica sin escritura parcial, idempotencia y conflicto de clave, vitrina en
-negativo, media pieza y media docena, horneada acotada e idempotente,
+cero que vende y deja faltante por conciliar, media pieza y media docena, horneada acotada e idempotente,
 anulación con NIP (requerido, inválido, nota obligatoria, idempotente, no
 repetible), tickets de hoy, corte frente al criterio de Finanzas, revocación y
 Restaurante intacto. No certifica impresoras físicas ni hardware táctil.

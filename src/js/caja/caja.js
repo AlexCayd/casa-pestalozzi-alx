@@ -839,8 +839,11 @@
     var v = estado.vendido;
     anunciar('Cobrado. Ticket ' + (v.id || '') + '. ' + (v.metodo === 'efectivo' ? 'Cambio ' + U.dinero(U.centavos(v.cambio)) : 'Con tarjeta') + '.');
     (d.avisos || []).forEach(function (a) {
-      if (a.codigo === 'VITRINA_NEGATIVA' && window.AppNotice) {
-        window.AppNotice.warning(a.pieza + ' quedó en ' + U.textoPiezas(U.piezas(a.saldo)) + ' en la vitrina. Registra la horneada o avisa para ajustar el conteo.', { timeout: 9000 });
+      if (a.codigo === 'VITRINA_FALTANTE' && window.AppNotice) {
+        // Para la cajera, sin jerga de Almacenes: qué pasó y qué le toca hacer.
+        var n = U.piezas(a.faltante);
+        var vendidas = n === 1 ? 'se vendió 1 pieza' : 'se vendieron ' + U.textoPiezas(n) + ' piezas';
+        window.AppNotice.warning(a.pieza + ': ' + vendidas + ' más de las que marcaba la vitrina. Registra la horneada; la diferencia queda pendiente en Almacenes.', { timeout: 9000 });
       }
     });
     actualizarPulso();

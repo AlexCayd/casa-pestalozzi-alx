@@ -59,6 +59,14 @@ foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
         $router->post($baseAlmacenes.'/almacenes/catalogo'.$catalogoRuta,[\Controllers\AdminArticulosController::class,'catalogoMaestro']);
     }
     $router->post($baseAlmacenes.'/almacenes/operacion',[AdminAlmacenesController::class,'guardar']);
+    // Proveedores de cada ámbito (arquitectura §17). Bajo /almacenes heredan la
+    // clasificación `inventario` de Permisos sin una excepción nueva.
+    $router->get($baseAlmacenes.'/almacenes/proveedores',[\Controllers\AdminProveedoresController::class,'index']);
+    $router->get($baseAlmacenes.'/almacenes/proveedores/nuevo',[\Controllers\AdminProveedoresController::class,'nuevo']);
+    $router->get($baseAlmacenes.'/almacenes/proveedores/ficha',[\Controllers\AdminProveedoresController::class,'ficha']);
+    foreach(['guardar','asignaciones','eliminar'] as $accionProveedor){
+        $router->post($baseAlmacenes.'/almacenes/proveedores/'.$accionProveedor,[\Controllers\AdminProveedoresController::class,$accionProveedor]);
+    }
 }
 
 // Home
@@ -115,7 +123,7 @@ $router->get('/admin/panaderia', [\Controllers\AdminContextosController::class, 
 foreach (['index'=>'', 'create'=>'/create', 'edit'=>'/edit', 'categories'=>'/categorias', 'categoryEdit'=>'/categorias/edit'] as $metodo=>$sufijo) {
     $router->get('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
-foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'/delete', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
+foreach (['create'=>'/create', 'edit'=>'/edit', 'toggle'=>'/toggle', 'delete'=>'/delete', 'confirmarTipoVenta'=>'/tipo-venta', 'categoryCreate'=>'/categorias/create', 'categoryEdit'=>'/categorias/edit', 'categoryDelete'=>'/categorias/delete'] as $metodo=>$sufijo) {
     $router->post('/admin/panaderia/menu'.$sufijo, [AdminMenuController::class, $metodo]);
 }
 $router->get('/admin/panaderia/menu/pdf', [AdminMenuController::class,'pdfPanaderia']);
@@ -211,6 +219,7 @@ $router->get('/admin/menu/edit',                [AdminMenuController::class, 'ed
 $router->post('/admin/menu/edit',               [AdminMenuController::class, 'edit']);
 $router->post('/admin/menu/delete',             [AdminMenuController::class, 'delete']);
 $router->post('/admin/menu/toggle',             [AdminMenuController::class, 'toggle']);
+$router->post('/admin/menu/tipo-venta',         [AdminMenuController::class, 'confirmarTipoVenta']);
 $router->get('/admin/menu/variantes',           [AdminMenuController::class, 'variantes']);
 $router->post('/admin/api/menu/variantes',      [AdminMenuController::class, 'guardarVariantes']);
 $router->get('/admin/api/consultas',            [AdminConsultasController::class, 'consultar']);
@@ -271,14 +280,15 @@ $router->post('/admin/inventario/create',   [AdminInventarioController::class, '
 $router->get('/admin/inventario/edit',      [AdminInventarioController::class, 'edit']);
 $router->post('/admin/inventario/edit',     [AdminInventarioController::class, 'edit']);
 $router->post('/admin/inventario/delete',   [AdminInventarioController::class, 'delete']);
-$router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
+// /admin/inventario/ajustar (ajuste rápido) se retiró con el conteo físico: auditoría A-4.
 $router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
 $router->post('/admin/inventario/merma',    [AdminInventarioController::class, 'merma']);
 // Consulta previa al borrado: qué recetas usan el ingrediente. Bajo /admin/api/
 // queda protegida por el prefijo, sin tocar ninguna allowlist.
 $router->get('/admin/api/inventario/uso',   [AdminInventarioController::class, 'uso']);
 // Proveedores: submódulo de inventario. Cuelgan de los ingredientes, que es lo
-// que se compra; un platillo se produce aquí.
+// que se compra; un platillo se produce aquí. En modo multinegocio estas rutas
+// redirigen a /admin/almacenes/proveedores (AdminProveedoresController).
 $router->get('/admin/inventario/proveedores',         [AdminInventarioController::class, 'proveedores']);
 $router->get('/admin/inventario/proveedores/create',  [AdminInventarioController::class, 'proveedorCreate']);
 $router->post('/admin/inventario/proveedores/create', [AdminInventarioController::class, 'proveedorCreate']);

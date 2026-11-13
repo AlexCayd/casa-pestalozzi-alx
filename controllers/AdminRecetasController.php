@@ -172,6 +172,15 @@ class AdminRecetasController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ContextoNegocio::exigir('productos', 'editar', $ctx, true);
             if(!$configuracion['edicionCompatible']){http_response_code(409);AdminController::render('recetas/error',['title'=>'Consulta de receta anterior','activeModule'=>'productos','mensaje'=>ucfirst($configuracion['motivoConsulta']).'. Consúltala sin cambios; configura una presentación nueva para definir otro consumo.','volver'=>self::path($ctx)]);return;}
+            // Sin token propio de la sesión, el POST pudo venir de otro sitio con la
+            // sesión del administrador: no se toca la receta y se vuelve a mostrar.
+            if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string) $_POST['admin_csrf'] : null)) {
+                http_response_code(403);
+                Producto::setAlerta('error', 'La sesión del formulario venció. La receta no se modificó; vuelve a guardarla.');
+                $_SERVER['REQUEST_METHOD'] = 'GET';
+                self::receta($router);
+                return;
+            }
             $guardado = self::guardarComponentes($ctx, (int) $producto->id);
             $componentes = count($guardado['componentes'] ?? []);
             if (empty($guardado['ok'])) {
@@ -185,6 +194,7 @@ class AdminRecetasController
                     'ingredientes' => Ingrediente::paraRecetas($ctx),
                     'subrecetas' => Subreceta::todas($ctx),
                     'componentes' => RecetasOferta::componentes($ctx, (int)$producto->id),
+                    'adminCsrfToken' => AdminCsrfService::token(),
                     'alertas' => Producto::getAlertas(),
                     'accion' => 'Guardar receta',
                     'configuracionComposicion'=>$configuracion,

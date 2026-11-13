@@ -109,6 +109,9 @@ const paths = {
     "src/js/admin/core/foto-platillo.js",
     // Filas equilibradas de las categorías del mismo formulario de platillo.
     "src/js/admin/core/filas-equilibradas.js",
+    // Selección en lote (Menú → tipo de venta por confirmar). Delegada en
+    // document porque el listado llega por recarga parcial.
+    "src/js/admin/core/seleccion-lote.js",
     // Consultas rápidas: la comparten Tickets, Análisis, Menú e Inventario.
     "src/js/admin/core/consultas-rapidas.js",
   ],

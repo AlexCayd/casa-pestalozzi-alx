@@ -35,11 +35,11 @@ final class ConsultasAlmacen
             $alertasCond=($where?implode(' AND ',$where).' AND ':'').$alertaSql;
             $totalAlertas=(int)$this->sql('SELECT COUNT(*) FROM ingredientes i WHERE '.$alertasCond,array_merge($args,$param))->get_result()->fetch_row()[0];
             // Ordenar antes de paginar: solo prioriza alertas del alcance elegido.
-            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
+            $articulos=$this->sql('SELECT i.id AS articulo_id,i.nombre,i.unidad,i.contenido_pieza,i.costo,i.activo FROM ingredientes i'.$cond.' ORDER BY '.$alertaSql.' DESC,i.nombre,i.id LIMIT ? OFFSET ?',array_merge($args,$param,[$f['por_pagina'],($f['pagina']-1)*$f['por_pagina']]))->get_result()->fetch_all(MYSQLI_ASSOC);
             $mapa=[];
             foreach($articulos as $i) {
                 $id=(int)$i['articulo_id']; $i['articulo_id']=$id;
-                $i['saldo_total']='0.000'; $i['minimo_total']='0.000'; $i['alerta']=false; $i['ambitos']=[];
+                $i['saldo_total']='0.000'; $i['minimo_total']='0.000'; $i['faltante_total']='0.000'; $i['alerta']=false; $i['ambitos']=[];
                 $mapa[$id]=$i;
             }
             if($mapa) {
@@ -55,10 +55,30 @@ final class ConsultasAlmacen
                     }
                     $mapa[$id]['alerta']=$mapa[$id]['alerta']||$alerta;
                     $mapa[$id]['ambitos'][$slug]['almacenes'][]=['almacen_id'=>(int)$r['almacen_id'],'nombre'=>$r['almacen_nombre'],'saldo'=>$r['saldo'],'minimo'=>$r['minimo'],
-                        'activo'=>(bool)$r['almacen_activo'],'asociacion_activa'=>(bool)$r['activo'],'version'=>(int)$r['version'],'alerta'=>$alerta];
+                        'activo'=>(bool)$r['almacen_activo'],'asociacion_activa'=>(bool)$r['activo'],'version'=>(int)$r['version'],'alerta'=>$alerta,'faltante'=>'0.000','faltante_en_confirmacion'=>'0.000'];
                 }
+                // El saldo nunca baja de cero (§16): lo que una venta no encontró es un
+                // faltante sin conciliar. Se muestra junto al saldo de su almacén como
+                // deuda; sólo se adjunta a asociaciones ya visibles en este alcance.
+                $deudas=$this->sql("SELECT almacen_id,articulo_id,SUM(cantidad-cantidad_conciliada) sin_conciliar,SUM(cantidad_en_confirmacion) en_confirmacion FROM faltantes_inventario WHERE articulo_id IN (".implode(',',array_fill(0,count($ids),'?')).") AND estado IN('pendiente','en_confirmacion') GROUP BY almacen_id,articulo_id",$ids)->get_result();
+                $porAsociacion=[];
+                while($d=$deudas->fetch_assoc()) $porAsociacion[(int)$d['articulo_id'].':'.(int)$d['almacen_id']]=$d;
+                if($porAsociacion) foreach($mapa as $id=>&$art) foreach($art['ambitos'] as &$amb) foreach($amb['almacenes'] as &$w) {
+                    $d=$porAsociacion[$id.':'.$w['almacen_id']]??null;
+                    if(!$d) continue;
+                    $w['faltante']=DecimalInventario::cantidad(DecimalInventario::leer($d['sin_conciliar']));
+                    $w['faltante_en_confirmacion']=DecimalInventario::cantidad(DecimalInventario::leer($d['en_confirmacion']));
+                    $art['faltante_total']=$this->sumarDecimal($art['faltante_total'],$w['faltante']);
+                }
+                unset($art,$amb,$w);
             }
-            foreach($mapa as &$i) $i['ambitos']=array_values($i['ambitos']);
+            foreach($mapa as &$i) {
+                $i['ambitos']=array_values($i['ambitos']);
+                // Lectura en piezas (§16): el saldo sigue en la unidad base.
+                $i['saldo_piezas']=DecimalInventario::enPiezas($i['saldo_total'],$i['contenido_pieza'],$i['unidad']);
+                foreach($i['ambitos'] as &$amb) foreach($amb['almacenes'] as &$w) $w['saldo_piezas']=DecimalInventario::enPiezas($w['saldo'],$i['contenido_pieza'],$i['unidad']);
+                unset($amb,$w);
+            }
             unset($i);
             return ['codigo'=>'EXISTENCIAS_CONSULTADAS','contexto'=>$ctx,'total'=>$total,'total_alertas'=>$totalAlertas,'pagina'=>$f['pagina'],'por_pagina'=>$f['por_pagina'],'articulos'=>array_values($mapa)];
         });

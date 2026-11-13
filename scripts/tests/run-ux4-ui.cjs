@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const {JSDOM} = require('jsdom');
 const source = fs.readFileSync('src/js/admin/recetas/articulos.js', 'utf8');
 const dom = new JSDOM(`<details id="versiones"><summary>Versiones publicadas</summary></details>
-<form id="capacidades"><input name="accion" value="configurar"><button>Guardar capacidades</button></form>
+<form id="capacidades" data-m6-descarta-borrador="Guardar el uso"><input name="accion" value="clasificar"><button>Guardar uso</button></form>
 <form id="receta"><input name="rendimiento" value="100.000">
 <p data-m2-draft-status>Base de edición: versión 1 publicada.</p>
 <div data-m2-builder><div data-m2-rows><fieldset data-m2-row>
@@ -24,7 +24,7 @@ const input=d.querySelector('[name="rendimiento"]'),status=d.querySelector('[dat
 input.value='110.000';input.dispatchEvent(new w.Event('input',{bubbles:true}));
 assert.match(status.textContent,/Cambios pendientes/);
 event=new w.Event('submit',{cancelable:true});capacities.dispatchEvent(event);
-assert.equal(event.defaultPrevented,true,'Guardar capacidades requiere decidir sobre borrador');
+assert.equal(event.defaultPrevented,true,'Guardar el uso requiere decidir sobre borrador');
 assert.equal(confirmation.secondaryLabel,'Seguir editando');
 assert.equal(input.value,'110.000','Cancelar conserva el valor');
 input.value='100.000';input.dispatchEvent(new w.Event('input',{bubbles:true}));

@@ -23,6 +23,7 @@ try{
   $u=C::unidad($ctx);$o=$db->execute_query('SELECT categoria_id,area_id FROM ofertas_producto WHERE unidad_id=? LIMIT 1',[$u])->fetch_assoc();
   $db->execute_query('INSERT INTO productos(nombre) VALUES(?)',['Producto UX2 '.ucfirst($ctx)]);$producto=(int)$db->insert_id;
   $db->execute_query('INSERT INTO ofertas_producto(producto_id,unidad_id,categoria_id,precio,area_id,activo) VALUES(?,?,?,?,?,0)',[$producto,$u,$o['categoria_id'],'50.00',$o['area_id']]);$oferta=(int)$db->insert_id;
+  $db->execute_query('INSERT INTO oferta_datos_comerciales(oferta_id,nombre,descripcion,img) VALUES(?,?,?,NULL)',[$oferta,'Producto UX2 '.ucfirst($ctx),'Oferta local sintética del recorrido']);
   $ids=[];foreach(['pieza','doble'] as $clave){$r=P::publicar($ctx,$oferta,['clave'=>$clave,'nombre'=>ucfirst($clave),'precio'=>'50.00','activo'=>0,'componentes'=>[['articulo_id'=>1001,'cantidad'=>'10.000','unidad'=>'g','modalidad'=>'almacenado']]],0,'ux2_'.bin2hex(random_bytes(16)),true);$a(!empty($r['ok']),'Preparación sintética fuera de venta');$ids[]=(int)$r['presentacion_id'];}
   $casos[$ctx]=['oferta'=>$oferta,'presentaciones'=>$ids];
  }
@@ -53,14 +54,18 @@ try{
    $r=$c->request('GET',$prefix.'/recetas/articulos');$a($valid($r)&&!str_contains($r['body'],'Alta de artículo en Almacenes'),'Sin alta maestra engañosa');
    $xp=ClienteInstalacion3E::dom($r['body']);$a($xp->query('//a[@aria-current="page" and @href="'.$prefix.'/recetas/articulos"]')->length===1,'Módulo activo coherente');
    $r=$c->request('GET',$prefix.'/recetas/articulos/editar?id=1001');$a($valid($r),'Ficha existente accesible');
-   if($tipo==='lectura'){$data=ClienteInstalacion3E::form($r['body'],'configurar');$a(!str_contains($r['body'],'>Guardar capacidades<'),'Lectura sin acción de edición');$a(in_array($c->request('POST',$prefix.'/recetas/articulos/editar?id=1001',$data)['status'],[403,303],true),'POST de lectura rechazado');}
-   elseif($ctx!=='global'){$data=ClienteInstalacion3E::form($r['body'],'configurar');$a($c->request('POST',$prefix.'/recetas/articulos/editar?id=1001',$data)['status']===303,'Edición local conserva configuración autorizada');$a(in_array($c->request('GET','/admin/global/recetas/articulos')['status'],[403,303],true),'Local sin facultad Global');}
+   if($tipo==='lectura'){$data=['tipo'=>'insumo']+ClienteInstalacion3E::form($r['body'],'clasificar');$a(!str_contains($r['body'],'>Guardar uso<'),'Lectura sin acción de edición');$a(in_array($c->request('POST',$prefix.'/recetas/articulos/editar?id=1001',$data)['status'],[403,303],true),'POST de lectura rechazado');}
+   elseif($ctx!=='global'){$data=['tipo'=>'insumo']+ClienteInstalacion3E::form($r['body'],'clasificar');$a($c->request('POST',$prefix.'/recetas/articulos/editar?id=1001',$data)['status']===303,'Edición local conserva configuración autorizada');$a(in_array($c->request('GET','/admin/global/recetas/articulos')['status'],[403,303],true),'Local sin facultad Global');}
    if($ctx==='restaurante'){$r=$c->request('GET','/admin/recetas/subrecetas');$a($valid($r)&&str_contains($r['body'],'Preparaciones anteriores'),'Compatibilidad del listado anterior');if($tipo==='lectura')$a(!str_contains($r['body'],'admin-create-button')&&!str_contains($r['body'],'data-confirm-delete'),'Lectura anterior sin enlaces de mutación');}
   }
  }
  $partial=new ClienteInstalacion3E();$clients[]=$partial;$partial->login($f['cuentas']['administrador_global']);
- // La cuenta parcial original no recibió productos: se conserva el contraste de acceso.
- $r=$partial->request('GET','/admin/global/recetas/articulos');$a(in_array($r['status'],[403,303],true),'Permiso parcial sin módulo de artículos');
+ // El fixture concede productos a la cuenta parcial: el contraste de acceso lo retira en la sesión abierta y lo devuelve.
+ $a($valid($partial->request('GET','/admin/global/recetas/articulos')),'Permiso parcial con módulo de artículos');
+ $parcial=(int)$f['cuentas']['administrador_global']['id'];$ug=C::unidad('global');$nivelParcial=$db->execute_query('SELECT nivel FROM usuario_unidad_permisos WHERE usuario_id=? AND unidad_id=? AND modulo=?',[$parcial,$ug,'productos'])->fetch_row()[0];
+ $db->execute_query('DELETE FROM usuario_unidad_permisos WHERE usuario_id=? AND unidad_id=? AND modulo=?',[$parcial,$ug,'productos']);
+ try{$r=$partial->request('GET','/admin/global/recetas/articulos');$a(in_array($r['status'],[403,303],true),'Permiso parcial sin módulo de artículos');}
+ finally{$db->execute_query('INSERT INTO usuario_unidad_permisos(usuario_id,unidad_id,modulo,nivel) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE nivel=VALUES(nivel)',[$parcial,$ug,'productos',$nivelParcial]);}
  foreach($casos as $ctx=>$caso){$prefix=$ctx==='restaurante'?'/admin':'/admin/'.$ctx;$a($valid($admin->request('GET',$prefix.'/menu/presentaciones?id='.$caso['oferta'].'&presentacion='.$caso['presentaciones'][0])),'Presentación sigue consultable tras configuración local');}
  $a($saldo===hash('sha256',json_encode($db->query('SELECT * FROM almacen_articulos ORDER BY almacen_id,articulo_id')->fetch_all(MYSQLI_ASSOC)))&&$mov===(int)$db->query('SELECT COUNT(*) FROM movimientos_inventario')->fetch_row()[0],'Sin cambios de saldos ni movimientos');
  echo 'Evidencia sintética: '.json_encode($casos,JSON_UNESCAPED_UNICODE)."\n";

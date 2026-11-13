@@ -99,6 +99,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a)use($extensionM11
     $crear=static function(string $ctx,string $nombre,int $categoria,int $area):array {
         $p=new Model\Producto();
         $p->sincronizar(['nombre'=>$nombre,'descripcion'=>'Producto A4 local','img'=>null,'precio'=>'75.25','categoria_id'=>$categoria,'area_id'=>$area,'activo'=>1,'orden'=>2]);
+        $p->tipo_venta='preparado'; // M3: el alta exige tipo de venta (§16).
         $r=Services\Security\ContextoNegocio::en($ctx,static fn()=>$p->crear());
         return [$p,$r];
     };

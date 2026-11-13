@@ -243,6 +243,7 @@ final class CajaMostrador
 
                 $almacenes = new Almacenes($db, $actor, ContextoNegocio::nivelAuth());
                 $piezas = [];
+                $faltantes = [];
                 $recibo = [];
                 foreach ($resueltas as $l) {
                     $o = $l['oferta'];
@@ -264,6 +265,13 @@ final class CajaMostrador
                         self::sql($db, 'UPDATE ticket_items SET costo_unitario=? WHERE id=? AND unidad_id=?', [(string)$consumo['costo_unitario'], $itemId, $unidad]);
                     }
                     foreach ($consumo['movimientos'] ?? [] as $m) $piezas[(int)$m['almacen_id'] . ':' . (int)$m['articulo_id']] = true;
+                    // §16: sin piezas suficientes la venta sigue; el motor deja la
+                    // pieza en cero y registra lo que faltó como faltante por conciliar.
+                    foreach ($consumo['faltantes'] ?? [] as $f) {
+                        $k = (int)$f['almacen_id'] . ':' . (int)$f['articulo_id'];
+                        $piezas[$k] = true;
+                        $faltantes[$k] = bcadd($faltantes[$k] ?? '0', (string)$f['cantidad'], 3);
+                    }
                     $recibo[] = ['nombre' => (string)$o['nombre'], 'variante' => $l['variante'], 'cantidad' => $l['cantidad'],
                         'precio' => self::dinero($l['precio']), 'importe' => self::dinero($l['precio'] * $l['cantidad'])];
                 }
@@ -275,7 +283,7 @@ final class CajaMostrador
                 $vitrina = self::vitrinaSaldos($db, $unidad, array_keys($piezas));
                 $avisos = [];
                 foreach ($vitrina as $p) {
-                    if (bccomp($p['saldo'], '0', 3) < 0) $avisos[] = ['codigo' => 'VITRINA_NEGATIVA', 'pieza' => $p['nombre'], 'saldo' => $p['saldo']];
+                    if (isset($faltantes[$p['clave']])) $avisos[] = ['codigo' => 'VITRINA_FALTANTE', 'pieza' => $p['nombre'], 'faltante' => $faltantes[$p['clave']]];
                 }
                 $resultado = [
                     'ok' => true,

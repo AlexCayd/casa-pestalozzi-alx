@@ -39,7 +39,9 @@ final class AlcanceInventario
         if ($facultad !== null && !in_array($facultad, $ambito['facultades'], true)) {
             throw new InventarioError('FACULTAD_DENEGADA', 'No tienes la facultad requerida.');
         }
-        return ['unidad_id' => (int)$ambito['id'], 'contexto' => $contexto];
+        // `super` sólo lo usa quien tiene una regla propia para el superadministrador
+        // (Transferencias: un solo paso entre cualquier par de almacenes).
+        return ['unidad_id' => (int)$ambito['id'], 'contexto' => $contexto, 'super' => !empty($perfil['super'])];
     }
 
     public function almacen(string $contexto, int $id, string $nivel = 'ver', bool $bloquear = false, bool $exigirActivo = true): array

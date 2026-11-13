@@ -41,6 +41,8 @@ if (!function_exists('admin_icon_paths')) {
         $iconos = [
             'inicio' => '<path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-8h6v8"/>',
             'transferencias' => '<path d="M3 7h17l-4-4M21 17H4l4 4"/><path d="m20 7-4 4M4 17l4-4"/>',
+            // Camión de reparto: quien surte el almacén, no el almacén mismo.
+            'proveedores' => '<path d="M3 6h11v10H3Z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
             // ── Módulos del panel (los consume el sidebar) ────────────
             'analytics' => '<path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 3-4 3 2 4-6"/>',
             // Destello: el asistente IA. Una estrella de cuatro puntas de lados

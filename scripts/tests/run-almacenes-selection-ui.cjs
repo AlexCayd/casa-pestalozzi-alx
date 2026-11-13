@@ -19,11 +19,13 @@ const workspace = {
     querySelector(selector){return selector === '[data-warehouse-selection]' ? selection : selector === '[data-selection-status]' ? status : null;},
     querySelectorAll(){return [];}
 };
-const modal={id:'almacen-asociar'};const dispatched=[];
+// El modal contextual registra la limpieza de ?asociar= al cancelarse (ver run-almacenes-m11-ui.cjs).
+const escuchas=[];const modal={id:'almacen-asociar',addEventListener(tipo){escuchas.push(tipo);}};const dispatched=[];
 const document={readyState:'complete',querySelector(selector){return selector==='[data-almacenes-workspace]'?workspace:selector==='[data-admin-modal][data-contextual-open="1"]'?modal:null;},dispatchEvent(event){dispatched.push(event);}};
 class CustomEvent { constructor(type,options){this.type=type;this.detail=options&&options.detail;} }
 vm.runInNewContext(source, {window:{setTimeout(){return 1;},clearTimeout(){},addEventListener(){}},document,CustomEvent});
 assert.deepEqual(dispatched.map(event=>[event.type,event.detail.id]),[['admin:open-modal','almacen-asociar']],'La llegada contextual abre el modal compartido una sola vez');
+assert.deepEqual(escuchas,['admin:modal-closed'],'Cancelar el modal contextual limpia la URL');
 boxes[0].checked=false;handlers.change({target:boxes[0]});
 assert.equal(selected().length,2,'Se permite combinar dos almacenes');
 assert.match(status.textContent,/2 seleccionados/,'El cambio pendiente se anuncia sin fingir resultados actualizados');

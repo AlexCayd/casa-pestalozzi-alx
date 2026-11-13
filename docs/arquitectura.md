@@ -70,13 +70,14 @@ Usar consultas preparadas y listas permitidas para identificadores SQL dinámico
 | Módulo | Global | Restaurante | Panadería |
 |---|---|---|---|
 | Usuarios | Funcional: administra ámbitos delegados y privilegios dentro del techo autorizado | Funcional: administración local | Funcional: administración local con UI compartida |
-| Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada y operaciones autorizadas en sus físicos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, negativos y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
+| Almacenes e inventario | Funcional: maestro, almacenes propios, asignación, lectura consolidada, operaciones autorizadas en sus físicos y confirmación de regularizaciones que salen de ellos | Funcional: almacenes propios, artículos, entradas, ajustes, mermas, movimientos, faltantes por conciliar y alertas | Funcional: mismas operaciones locales, aisladas por propietario |
 | Catálogo maestro | Funcional para administrar artículos organizacionales | Consulta/uso autorizado en recetas e inventario | Consulta/uso autorizado en recetas e inventario |
 | Menú y ofertas | Sin módulo comercial; consulta PDF con permisos Global y del dueño (ver §15) | Menú, ofertas y escritura comercial local | Menú, ofertas y escritura comercial local |
 | Recetas y variantes | Preparaciones de artículos compartidos; sin ofertas comerciales | Recetas operativas versionadas y variantes locales | Recetas operativas versionadas y variantes locales; integración de presentaciones a caja pendiente |
 | Reservaciones, mesas y KDS | No aplica | Flujos existentes funcionales | No implementados |
 | POS, tickets y pagos | No vende; consolidación operativa pendiente | Flujos existentes funcionales | Funcional: caja de mostrador sin mesas (`/panaderia/caja`), cobro en efectivo o tarjeta, horneadas, anulación del día y corte de consulta (§7) |
 | Finanzas y analítica | Finanzas y Análisis: comparativos de sólo lectura de los dos negocios (Finanzas: hoy, periodo y total; Análisis: ventas, tickets, indicadores y productos más vendidos por negocio), sin ventas ni gastos propios | Flujos existentes conservados; validar límites en su guía | Finanzas y Análisis funcionales con métricas de caja (mapa de calor de venta en lugar de RevPASH) sobre los tickets de la caja |
+| Proveedores | Funcional: directorio propio para sus almacenes y consulta consolidada de los tres; no edita los de un negocio | Funcional: directorio, artículos que surte, entradas ligadas e histórico | Funcional: mismas operaciones locales, aisladas por propietario |
 | Asistente IA | Funcional: consultas preensambladas del consolidado de almacenes y transferencias; sin ventas | Funcional: consultas preensambladas de ventas, equipo e inventario | Funcional: consultas preensambladas de ventas en caja, almacenes y menú, sobre los tickets de la caja |
 | Transferencias | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia | Motor y UI compartidos M0.5-B; operación física propia |
 | Producción y catering | Pendientes/fuera de 3E | Pendientes/fuera de 3E | Pendientes/fuera de 3E |
@@ -99,19 +100,21 @@ La guía técnica está en [Usuarios](usuarios/usuarios.md), [permisos directos]
 
 ## 5. Almacenes e inventario
 
-`ingredientes` es el catálogo maestro de artículos inventariables, distinto de `productos` comerciales. Un almacén es físico, tiene un único propietario (`unidad_id`), estado y política de negativos. Solo Global con facultad `almacenes.crear` crea almacenes y asigna su propietario a Global, Restaurante o Panadería. `catalogo.editar` controla la administración del catálogo maestro. Cada negocio opera solo almacenes propios y autorizados.
+`ingredientes` es el catálogo maestro de artículos inventariables, distinto de `productos` comerciales. Un almacén es físico, tiene un único propietario (`unidad_id`) y estado. Solo Global con facultad `almacenes.crear` crea almacenes y asigna su propietario a Global, Restaurante o Panadería. `catalogo.editar` controla la administración del catálogo maestro. Cada negocio opera solo almacenes propios y autorizados.
 
-`almacen_articulos` es la única fuente de saldo por almacén/artículo. No existe saldo maestro duplicado ni almacén virtual para consolidación. El saldo consolidado se consulta por artículo compatible y se desglosa por negocio y almacén; cantidades de unidades incompatibles no se suman. Mínimo, estado y versión pertenecen a la asociación física. Los negativos se controlan por almacén.
+`almacen_articulos` es la única fuente de saldo por almacén/artículo. No existe saldo maestro duplicado ni almacén virtual para consolidación. El saldo consolidado se consulta por artículo compatible y se desglosa por negocio y almacén; cantidades de unidades incompatibles no se suman. Mínimo, estado y versión pertenecen a la asociación física. **Ningún saldo es negativo** (M3, §16): la política «Permitir existencias negativas» se retiró; `almacenes.permitir_negativos` se conserva por compatibilidad fijado en 0 por un `CHECK`. Lo que una venta no encuentra en su almacén de consumo se registra como faltante pendiente de origen, nunca como saldo negativo.
 
-`Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, ajustes, conteos, mermas, consumos y compensaciones deben ser trazables. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
+`Almacenes` contiene el motor compartido; `AdministracionAlmacenes` coordina la interfaz, sin duplicar reglas ni saldos. Una operación registra la petición/idempotencia, movimientos inmutables, saldo y documento relacionado de forma atómica. Bloqueos ordenados/versiones evitan carreras y sobreescritura perdida. Entradas, mermas, consumos y compensaciones deben ser trazables. **No existe operación que sobrescriba un saldo** (8 nov 2026, auditoría A-4): el conteo físico y el ajuste rápido se retiraron porque fijaban el saldo con motivo operacion_administrativa y nota vacía, ignoraban los faltantes pendientes y no se distinguían de una merma. Una diferencia real se registra como merma con su motivo, o como entrada. Los movimientos juste ya registrados (conteos anteriores y la conversión de negativos de M3) se conservan como historial de sólo lectura; el ENUM no cambia. No reportar éxito antes del commit coordinador. Identificadores manipulados nunca permiten consultar ni modificar existencias ajenas.
 
-Global consulta el inventario consolidado y opera únicamente sus propios almacenes. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y configuran negativos si tienen permiso. Transferencias incorpora solicitud, autorización, envío, recepción parcial, incidencias y retornos con contexto propietario; véase su [contrato](modulos/transferencias.md). La caja de Panadería registra horneadas como entradas de piso acotadas a sus piezas de vitrina (§7). Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
+Global consulta el inventario consolidado y opera únicamente sus propios almacenes. **Asociar y dar entrada entre negocios (9 nov 2026).** Asociar un artículo y registrar una entrada se autorizan en el negocio dueño del almacén, no en el contexto de la pantalla: quien ya tiene `inventario/editar` en ese negocio puede hacerlo desde cualquier pantalla de Almacenes (el superadministrador, en todos). No concede permisos nuevos, sólo evita cambiar de contexto; el motor recibe el contexto del dueño y vuelve a comprobar el permiso, y cada asociación y movimiento llevan la unidad dueña de su almacén. El alta de un artículo puede asociarlo a varios almacenes en la misma transacción, y «Asociar» acepta varios a la vez: todos o ninguno. Merma y configuración de la asociación siguen siendo del contexto actual. La justificación es de fricción: obligaba a cambiar de negocio para cada almacén de un mismo artículo. Una transferencia ya no exige asociación previa en el destino: recibir implica manejar el artículo, así que la crea con mínimo 0 y sin saldo, con la unidad dueña, y lo informa; en el origen sí se exige, porque sin asociación no hay existencias que enviar. Restaurante y Panadería asocian artículos, registran entradas, ajustes y mermas, consultan movimientos, alertas y totales, y concilian los faltantes de sus almacenes si tienen `inventario/editar`. Transferencias registra con contexto propietario. Dentro del mismo negocio, o cuando la registra el superadministrador, se aplica en un solo paso: salida y entrada en la misma transacción. Entre negocios distintos (Global, Restaurante y Panadería lo son entre sí) pasa por solicitada, enviada y recibida; si la registra el dueño del origen, nace enviada. Recepción parcial, incidencia y retorno son excepciones, no fases. El paso «autorizar» se retiró (8 nov 2026) porque no tenía efecto físico: comprobaba saldo sin reservarlo y el envío lo vuelve a comprobar. Detalle en su [contrato](modulos/transferencias.md). La caja de Panadería registra horneadas como entradas de piso acotadas a sus piezas de vitrina (§7); su venta descuenta la pieza con el mismo motor, así que tampoco deja saldo negativo: lo que falte queda como faltante. Producción y variantes avanzadas siguen pendientes. Referencia de pantalla: [Almacenes](modulos/almacenes.md).
 
 ## 6. Catálogo, productos, cartas, ofertas y menú preservado
 
 `productos` contiene identidad descriptiva que puede compartirse. `ofertas_producto` representa una decisión comercial propia del negocio: precio, categoría, disponibilidad, orden y área de producción. Cartas, categorías, áreas, ofertas, recetas y variantes se validan en el ámbito correcto. No fusionar productos solo por nombre ni clonar una oferta de Restaurante en Panadería sin una decisión comercial explícita.
 
-Las recetas/versiones, subrecetas y variantes pertenecen a la oferta. Los ajustes de variante identifican componentes concretos. Consultar una receta no permite acceder al inventario de otra unidad. Las ventas y el consumo resuelven el origen de stock del negocio vendedor sin fallback a otros almacenes. Ese origen (`oferta_consumos`) se elige a mano en la receta, con `productos/editar`, para cada artículo que la receta activa, sus subrecetas o las variantes que agregan o sustituyen pueden descontar, entre almacenes activos del negocio donde el artículo está asociado. Sin él, la comanda se rechaza completa.
+Las recetas/versiones, subrecetas y variantes pertenecen a la oferta. Los ajustes de variante identifican componentes concretos. Consultar una receta no permite acceder al inventario de otra unidad. Las ventas y el consumo resuelven el origen de stock del negocio vendedor sin fallback a otros almacenes. Ese origen (`oferta_consumos`) se elige a mano en la receta, con `productos/editar`, para cada artículo que la receta activa, sus subrecetas o las variantes que agregan o sustituyen pueden descontar, entre almacenes activos del negocio donde el artículo está asociado. Sin él, la comanda se rechaza completa: la falta de **origen configurado** sigue bloqueando; la falta de **saldo** ya no (§16).
+
+Cada oferta declara un tipo de venta (`ofertas_producto.tipo_venta`): **preparado al momento** (receta o presentación, como copa de 150 ml o pasta) o **reventa** (una sola pieza o porción almacenada por unidad vendida, como una botella). El tipo es una regla de validación sobre composiciones que el motor ya entiende, no otro motor; su contrato está en §16.
 
 El DML preserva el menú original de Restaurante: 112 productos y sus 112 ofertas, IDs y relaciones, 15 categorías, 3 cartas, 4 áreas de producción y disponibilidad/orden/precios/descripciones originales. Las 13 imágenes propias están versionadas y se sirven desde los assets de aplicación; el fallback de categoría continúa disponible. Los productos y ofertas sintéticos (IDs desde 1000, sin prefijos visibles) son adiciones independientes para escenarios de prueba y no alteran esos 112 registros. Panadería usa una oferta sintética propia en desarrollo, no una copia del menú real.
 
@@ -123,7 +126,7 @@ El DML preserva el menú original de Restaurante: 112 productos y sus 112 oferta
 
 Todo ticket pertenece a una unidad vendedora. Global nunca es vendedor. Restaurante conserva mesas, mapa, reservas, toma y envío de comandas, KDS, impresión, entrega, cobro y cancelación. Los snapshots guardan oferta, negocio, nombres, precio, categoría, área, variante, receta/costo conocido y cantidad; el cliente no determina el precio ni resuelve el producto por nombre.
 
-La comanda usa una clave idempotente y el consumo se realiza al enviarla, no al abrir una mesa, preparar un carrito ni reintentar el cobro. El consumo y el documento de ticket se confirman en una transacción; errores parciales no dejan escritura huérfana. Una cancelación compensa los movimientos originales una sola vez, con almacén/costo congelados, sin recalcular la receta vigente. Una receta inventariable sin origen completo falla sin mutación parcial. Una venta sin consumo permitido queda explícita en su snapshot y no inventa costo conocido.
+La comanda usa una clave idempotente y el consumo se realiza al enviarla, no al abrir una mesa, preparar un carrito ni reintentar el cobro. El consumo y el documento de ticket se confirman en una transacción; errores parciales no dejan escritura huérfana. Una cancelación compensa los movimientos originales una sola vez, con almacén/costo congelados, sin recalcular la receta vigente. Una receta inventariable sin origen completo falla sin mutación parcial. Una venta sin consumo permitido queda explícita en su snapshot y no inventa costo conocido. Una venta con saldo menor al requerido no falla: descuenta lo disponible y registra el resto como faltante en la misma transacción (§16).
 
 La [guía de operación](operacion.md) detalla impresión e idempotencia; la [guía de reservaciones](reservaciones/reservaciones.md) describe el mapa y sus estados.
 
@@ -134,7 +137,7 @@ Decisión (noviembre 2026, a petición expresa del propietario): Panadería vend
 - **Superficie y ámbito.** `/panaderia/caja` y `/api/panaderia/caja/*` viven fuera de `/admin` porque se entra con NIP; `Contextos::deRuta` fija `panaderia` por la ruta, nunca por un dato del navegador. El resto de `/panaderia` es la landing pública y no cambia de ámbito.
 - **Permisos de piso.** Panadería admite `operar` en `pdv` (vender, cobrar, imprimir, corte), `vitrina` (horneadas) y `anular` (anular cobros del día y autorizar con NIP la anulación de otra persona). El CHECK de `usuario_unidad_permisos` y sus triggers lo limitan por ámbito: Restaurante sigue con `pdv`, `area` y `reservations_map`; Panadería no admite Producción ni mapa. Cada API está en `Permisos::APIS`; una ruta de caja desconocida se deniega.
 - **Venta.** `Services\Pos\CajaMostrador::vender` crea ticket, líneas, consumo y cobro en una sola transacción idempotente (`pos_operaciones` tipo `venta_caja`, clave del cliente y huella de la solicitud): no existe un ticket de caja abierto a medias. El servidor resuelve oferta, opciones (`Variantes::resolver`), precio y pieza; el cliente sólo manda ofertas, cantidades y opciones. El ticket queda `cerrado` con `hora_cierre`, cajero en `mesero_id`, `propina` 0 y líneas `entregado`: es lo que ya leen Finanzas, Análisis y el Asistente. Efectivo exige lo recibido ≥ total y el cambio se guarda en el resultado de la operación para reimprimir; tarjeta sólo se registra (terminal externa). Sin pago mixto, transferencia ni propina en esta entrega.
-- **Vitrina.** En Panadería el pan se hornea antes de venderse: la venta descuenta la **pieza terminada** (`vitrina_piezas`, y `vitrina_piezas_variante` cuando una opción cambia la pieza), no la receta, que queda para Producción. `ConsumoOferta::preparar` resuelve primero la pieza; una oferta sin pieza conserva el camino de receta u origen (venta sin consumo explícita si no lo tiene). Las opciones que cambian pieza pertenecen a un solo grupo. El almacén de vitrina decide los negativos: con negativos permitidos la venta procede y avisa (`VITRINA_NEGATIVA`), sin ellos se rechaza completa. La pieza se configura en «Vitrina de la caja» con `menu/editar` de Panadería y sólo admite artículos asociados a un almacén activo del negocio; no crea artículos, asociaciones ni existencias.
+- **Vitrina.** En Panadería el pan se hornea antes de venderse: la venta descuenta la **pieza terminada** (`vitrina_piezas`, y `vitrina_piezas_variante` cuando una opción cambia la pieza), no la receta, que queda para Producción. `ConsumoOferta::preparar` resuelve primero la pieza; una oferta sin pieza conserva el camino de receta u origen (venta sin consumo explícita si no lo tiene). Las opciones que cambian pieza pertenecen a un solo grupo. Como toda venta (§16), la de vitrina no se bloquea por saldo ni lo deja negativo: descuenta las piezas que hay, registra el resto como faltante pendiente de origen y la caja lo avisa (`VITRINA_FALTANTE`). Al integrar la caja con M3 se retiró el almacén de vitrina con negativos. La pieza se configura en «Vitrina de la caja» con `menu/editar` de Panadería y sólo admite artículos asociados a un almacén activo del negocio; no crea artículos, asociaciones ni existencias.
 - **Horneada.** `Almacenes::registrarHorneada` registra una entrada (`origen` `caja_vitrina`, motivo `horneada`) con el permiso de piso `vitrina`, sin abrir el módulo Inventario, acotada a las piezas de vitrina del negocio. No descuenta insumos: eso será Producción. Idempotente por clave.
 - **Anulación.** Sólo cobros de hoy y vigentes. Con `anular` propio o el NIP de quien lo tenga (límite de intentos igual al acceso por NIP), el ticket pasa a `cancelado` (deja de contar en ventas y corte), sus líneas a `cancelado` y sus movimientos se compensan una sola vez con almacén y costo congelados. `ticket_anulaciones` guarda solicitante, autorizador, motivo, nota, total y método. Es la única excepción al ticket abierto en `ConsumoOferta::ticketItem`, y exige la fila de anulación en la misma transacción. No es una devolución parcial ni toca días anteriores.
 - **Corte.** Consulta, no arqueo: `CorteCaja::resumen` con la unidad de Panadería y sus turnos de `configuracion_pos`, más piezas vendidas y anulaciones de la ventana.
@@ -194,7 +197,7 @@ Las clases se alojan en un nivel por dominio bajo `services/<Dominio>/Clase.php`
 
 ## 12. Pruebas y aceptación
 
-Para una modificación multinegocio, probar permisos de servidor y niveles, contexto, estado de cuenta, delegación/revocación, IDs ajenos y datos cruzados. Para stock, probar balances contra ledger, negativos, precisión, idempotencia, concurrencia y rollback sin escritura parcial. Para comercio, verificar unidad vendedora, snapshots, menú original, consumo/compensación, estados KDS, pagos y ausencia de doble conteo.
+Para una modificación multinegocio, probar permisos de servidor y niveles, contexto, estado de cuenta, delegación/revocación, IDs ajenos y datos cruzados. Para stock, probar balances contra ledger, ausencia de saldos negativos, faltantes y su conciliación, precisión, idempotencia, concurrencia y rollback sin escritura parcial. Para comercio, verificar unidad vendedora, snapshots, menú original, consumo/compensación, estados KDS, pagos y ausencia de doble conteo.
 
 La puerta de regresión se define en [pruebas](desarrollo/pruebas.md): preservación del menú, esquema 3A, permisos 3B, Almacenes 3C, comercio/Restaurante 3D, Usuarios/Almacenes 3E, suites PHP/JS, DML, dos instalaciones independientes, HTTP y recorrido real de navegador en contextos/responsive. Un `200` o una tabla no bastan para afirmar funcionalidad. Informar resultados y limitaciones: los ensayos simulados no certifican impresoras, hardware, SMTP, WhatsApp/Meta, credenciales de proveedor ni n8n externo.
 
@@ -269,8 +272,10 @@ previas se conservan incluso al publicar una nueva. Publicar no produce stock.
 Las presentaciones dependen de una oferta. Su versión describe uno o varios
 artículos operativos y la modalidad explícita de cada uno: `almacenado` detiene el
 desglose, `desglosar` exige receta fijada. La etapa distingue elaboración y servicio.
-Botella sellada y vino abierto son artículos distintos relacionados por una receta
-de transformación prevista; vender una copa no abre una botella automáticamente.
+Desde M3 (§16) un vino se guarda como un solo artículo en `ml` con
+`contenido_pieza` (750 para una botella): la botella de reventa descuenta 750 ml y
+la copa 150 ml del mismo saldo. Los artículos «botella sellada» y «vino abierto»
+que ya existan con historial se conservan como historia; no se edita su unidad.
 Rol de canela almacenado consume piezas, y croissant con crema consume pieza más
 complemento. M2.5 registrará producción, lotes y valorización; M3 integrará al POS
 Panadería las presentaciones (la caja de mostrador ya vende piezas de vitrina,
@@ -378,3 +383,265 @@ lee ese hecho y la cancelación compensa el ledger original una sola vez. Las
 cantidades nativas se exigen exactas a milésimas; la frontera heredada conserva
 su redondeo half-up para no cambiar ventas existentes. Los costos son decimales o
 `null`; la valorización física sigue perteneciendo al motor de Almacenes.
+
+## 16. M3: tipo de venta y faltantes de inventario
+
+Decisiones de negocio del 3 y 4 de noviembre de 2026 (plan de trabajo:
+`refactor-almacenes.md`). Ambos contratos reutilizan el motor de Almacenes, las
+composiciones M2 y Transferencias M0.5-B; no crean saldo, catálogo ni flujo paralelo.
+
+### Tipo de venta (Fase 1)
+
+`ofertas_producto.tipo_venta ENUM('preparado','reventa')` y
+`tipo_venta_estado ENUM('sugerido','confirmado')`. El estado por omisión de la
+columna es `sugerido`: toda fila que no clasificó una persona (migración, menú
+original, fixtures o inserciones SQL) queda pendiente de revisión. El panel exige
+elegir el tipo al crear una oferta y la guarda como `confirmado`. Mientras una
+oferta esté en `sugerido`, se vende y se edita con su comportamiento actual.
+
+Una oferta de **reventa confirmada** cumple, en el modo de composición que ya usa:
+
+- Presentaciones: cada versión publicada tiene exactamente un componente
+  `almacenado`, etapa `servicio`.
+- Receta legada: la versión activa tiene exactamente un componente de artículo,
+  sin preparación anterior ni elaboración fijada.
+- Variantes: sólo de precio; se rechazan ajustes que agreguen, quiten o
+  sustituyan artículos.
+
+Confirmar una oferta como reventa valida su composición vigente y sus variantes;
+si no cumplen, se rechaza sin cambios. El editor de reventa (artículo + cantidad
+por unidad vendida) respeta el modo actual: con receta legada publica una versión
+de receta de un componente; con presentaciones o sin composición publica una
+presentación. El POS de los 112 productos originales no cambia de modo.
+
+«Ingrediente» no es una columna: es la capacidad `componente` de
+`articulo_configuraciones`, presentada como «Se usa como ingrediente». Un mismo
+artículo puede ser ingrediente y reventa.
+
+`ingredientes.contenido_pieza DECIMAL(12,3) NULL` declara cuánto contiene una
+pieza comercial (750 ml en una botella). Sólo aplica a `g`, `kg`, `ml` y `l`. En el
+panel se captura únicamente con «Se compra por pieza» marcado (12 nov 2026): el campo
+nace bloqueado, en `pza` la casilla también, y desmarcarla lo borra. El servidor aplica
+la misma regla con `por_pieza_control`, de modo que un valor olvidado en un artículo
+en kg no convierte mal sus entradas. El
+saldo y el ledger siempre están en la unidad base; las entradas y mermas
+pueden capturarse en piezas y el servidor convierte con aritmética exacta. La
+lectura muestra «8 botellas + 450 ml». La unidad sigue siendo inmutable con
+historial: un vino que ya existe en `pza` con composiciones se sustituye por un
+artículo nuevo en `ml` y el anterior queda como historia.
+
+El sugeridor (`Services\Menu\TipoVenta::sugerir`, migración
+`m3-tipo-venta.sql`) sólo toca ofertas en `sugerido`: propone *reventa* si la
+composición vigente es un solo componente `almacenado` en `pza` con cantidad 1 y
+la oferta no tiene ajustes de variantes sobre artículos; en cualquier otro caso,
+*preparado*. Nunca cambia precio, receta, presentación ni disponibilidad.
+
+### Faltantes y conciliación de origen (Fase 2)
+
+**Venta.** En `Almacenes::operar('venta')`, por cada línea:
+`disponible = max(saldo, 0)`, se descuenta `min(disponible, requerido)` y el resto
+se inserta en `faltantes_inventario` (origen `venta`, estado `pendiente`) en la
+misma transacción que el ticket. Una venta no lanza `SALDO_INSUFICIENTE` ni
+`PRODUCCION_PENDIENTE`; los artículos «Se elabora antes de vender» siguen el mismo
+flujo, y activar una presentación tampoco exige existencias terminadas. La falta de
+origen configurado, un almacén o asociación inactivos y los IDs ajenos siguen
+rechazando la comanda completa.
+
+**Idempotencia.** `faltantes_inventario` es único por `ticket_item_id`,
+`almacen_id` y `articulo_id`, y el resultado de la operación de venta guarda la
+parte faltante; un replay devuelve ese resultado sin descontar ni crear otro
+faltante. El snapshot `ticket_item_resoluciones` sigue inmutable y no se reescribe:
+en la ruta de presentaciones se congela antes de comparar con el saldo, por lo que
+la parte faltante se congela en la operación y en la tabla de faltantes.
+
+**Aviso.** Cada faltante crea o actualiza un aviso de `buzon_notificaciones`
+(tipo `inventario.faltante`, prioridad alta, `dedup_key` por almacén + artículo +
+día) en la unidad dueña del almacén de consumo. Almacenes muestra «N faltantes por
+conciliar». Una entrada de ese artículo en cualquier almacén reabre los avisos de
+faltantes pendientes del artículo para conciliar.
+
+**Conciliación.** Quien tiene `inventario/editar` en el negocio dueño del almacén
+de consumo reparte la cantidad pendiente entre uno o varios almacenes de origen
+con suma exacta, con CSRF, versión del faltante y clave idempotente. Cada origen
+debe estar activo, tener el artículo asociado y activo y saldo suficiente al
+confirmar; nunca queda negativo. Si ningún reparto cubre el faltante, sigue
+pendiente.
+
+- Origen = almacén de consumo (llegó una entrada): movimiento `venta` directo.
+- Origen del mismo negocio: en una transacción, transferencia `regularizacion`
+  creada, enviada y recibida, con su historial, y movimiento `venta` en el destino
+  ligado al `ticket_item` y al faltante. El saldo del destino queda igual.
+- Origen de otro propietario: transferencia `regularizacion` en `solicitada`. El
+  dueño del origen la confirma (envío, recepción y consumo en una transacción) o
+  la rechaza con motivo; el rechazo devuelve esa parte a pendiente. Global sólo ve
+  la identidad del destino, nunca su saldo.
+
+Estados del faltante: `pendiente` (queda cantidad sin asignar), `en_confirmacion`
+(todo lo no aplicado espera al dueño del origen), `conciliado` y `anulado`. Cada
+asignación sigue su propio camino (`aplicada`, `en_confirmacion`, `rechazada`,
+`anulada`). El costo del movimiento conciliado es el de la línea de transferencia
+(costo del origen); `ticket_items` y Finanzas conservan el costo congelado al
+enviar la comanda.
+
+**Cancelación del item.** Lo pendiente se anula; las asignaciones en confirmación
+cancelan su transferencia de regularización y se anulan; lo ya descontado o
+conciliado se compensa al almacén de consumo como cualquier venta. La
+transferencia aplicada no se revierte.
+
+**Lectura en Existencias.** Lo que una venta usó sin saldo no es un saldo negativo:
+el saldo queda en 0 y la parte sin conciliar (`cantidad − cantidad_conciliada` de los
+faltantes `pendiente` y `en_confirmacion`) se muestra aparte, con signo menos y la
+palabra «sin conciliar», bajo el saldo del artículo, del almacén y en su globo. Sólo
+se adjunta a asociaciones visibles en el alcance consultado.
+
+**Global y el superadministrador** (decisión del 11 de noviembre de 2026). Global no
+vende y no tiene faltantes propios. Para el superadministrador, Global muestra el aviso
+y la bandeja consolidados de Restaurante y Panadería, con el negocio de cada faltante
+rotulado. Puede declarar el origen, pero no es su responsabilidad: la tiene el
+administrador del negocio dueño del almacén de consumo, y el aviso del buzón sigue en
+ese negocio (no se crea en Global). Al conciliar desde Global, `Faltantes::conciliar()`
+resuelve el negocio del faltante y aplica exactamente sus reglas: lo de ese negocio se
+aplica al confirmar y lo de otro propietario queda en confirmación de su dueño. Los
+demás perfiles de Global no ven ni concilian faltantes.
+
+**Retiro de negativos.** `m4-faltantes.sql`, en este orden: por cada saldo
+negativo, un ajuste a 0 con motivo `migracion_faltantes` y un faltante pendiente
+por esa cantidad (`ticket_item_id` nulo, origen `migracion`); después
+`permitir_negativos = 0` en todos los almacenes y un `CHECK` que lo fija. El orden
+evita el rechazo de `trg_almacen_no_desactivar_negativos`. La columna se conserva
+por compatibilidad y la interfaz ya no ofrece la opción.
+
+## 17. M5: proveedores por ámbito e histórico de lo recibido
+
+Cada proveedor pertenece a un solo ámbito (`proveedores.unidad_id`): Global, Restaurante
+o Panadería. Sólo su ámbito lo edita, le asigna artículos, le liga entradas o lo retira,
+con `inventario/editar`; `inventario/ver` lo consulta. Global además lee el directorio
+de los tres negocios con la misma regla de lectura que Almacenes: consulta, nunca
+escritura. Un ID ajeno responde igual que uno inexistente. No hay módulo de permisos
+propio: la pantalla cuelga de `/almacenes/proveedores` y hereda la clasificación
+`inventario` de `Permisos`. Servicio: `ServicesInventoryDirectorioProveedores`.
+
+**Artículos que surte.** `ingrediente_proveedores` guarda costo de referencia,
+código y preferente por ámbito. Sólo se asignan artículos que el ámbito tiene en sus
+almacenes. La lista se reemplaza en bloque y hay un preferente por artículo y ámbito:
+marcar uno desmarca al anterior.
+
+**Entrada ligada.** `entradas_proveedor` (una fila por operación del motor, FK compuesta
+con `operaciones_inventario` y con `proveedores` del mismo ámbito) dice de quién llegó
+una entrada. El motor de Almacenes **no cambia**: `AdministracionAlmacenes` abre una
+transacción, valida que el proveedor sea del ámbito y esté activo (`FOR SHARE`),
+registra la entrada con el motor como un savepoint y liga la operación. Si una parte
+falla no queda ninguna. Con proveedor el costo unitario es obligatorio: sin él el motor
+congelaría el costo maestro y el histórico de costos no sería lo que cobró el proveedor.
+Un reintento con la misma clave repite el resultado; la misma clave con otro proveedor
+es `CONFLICTO_IDEMPOTENCIA`.
+
+**Histórico.** No es una bitácora propia: se lee de las entradas ligadas (operación →
+movimientos de tipo `entrada`), así que lo que se reporta como pedido es lo que llegó.
+Una recepción es un día con entradas del proveedor. Se informa: recepciones, primera y
+última, intervalo promedio y siguiente estimada (con dos recepciones o más); por
+artículo, recepciones, total, promedio por recepción, último costo, mínimo, máximo,
+variación del primer al último costo y los últimos doce costos. Cantidades y costos se
+agregan en enteros exactos; sólo la variación y el intervalo son de lectura.
+
+**Retiro.** Un proveedor con entradas no se elimina (`PROVEEDOR_CON_HISTORIAL`): se
+desactiva, deja de ofrecerse en las entradas y conserva su historial. Sin entradas se
+elimina junto con sus asignaciones. Migración para bases existentes:
+`database/actualizaciones/m5-proveedores.sql`, aditiva y repetible.
+
+## 18. M6: alta en un paso y clasificación de artículos
+
+Decisión del 11 de noviembre de 2026. Registrar un ingrediente exigía cinco pantallas
+(catálogo maestro, alta de identidad, ficha de identidad, capacidades y asociación en
+Almacenes). M6 no cambia el contrato de datos de M2: cambia quién lo captura y cómo.
+
+### Capacidades: se conserva el contrato, se reemplaza la captura
+
+`articulo_configuraciones` sigue siendo el contrato del motor (§15) y no cambia de
+forma: lo leen `ResolucionArticulos`, la publicación de elaboraciones, la asociación a
+almacenes y los snapshots. Auditoría de consumidores de cada bandera:
+
+| Capacidad | Quién la lee | Efecto real |
+|---|---|---|
+| `componente` | `ResolucionArticulos` | Sin ella el artículo no entra a ninguna composición (`COMPONENTE_DENEGADO`) |
+| `almacenable` | `ResolucionArticulos`, asociación en Almacenes | Sin ella no se asocia ni descuenta existencias |
+| `elaborable` | `Articulos::publicar` | Habilita publicar una elaboración propia |
+| `costo_conocido` | lector efectivo | Distingue costo cero de costo desconocido |
+| `comprable` | nadie | Informativa |
+| `produccion_previa` | sólo la validación de `configurar` | Informativa desde M3 (§16): la venta ya no exige existencias terminadas |
+
+Sin fila de configuración, el lector efectivo ya entrega `componente=1` y
+`almacenable=1` (`COALESCE(propia, Global, 1)`). Un insumo recién creado sirve en
+recetas y en almacenes sin configurar nada; lo único que una persona debe decidir es
+si el artículo **se compra** o **se prepara en casa**. Por eso:
+
+- La captura es una sola pregunta, «¿Cómo se obtiene?»: `insumo` (se compra) o
+  `preparacion` (`elaborable=1`), más «Activo en este negocio». No es una columna ni un
+  discriminador: `Articulos::clasificar()` traduce la respuesta a las mismas siete
+  capacidades y las guarda con `Articulos::configurar()`, que conserva sus reglas
+  (permisos, revisión optimista, `ARTICULO_ASOCIADO`).
+- `clasificar()` parte del **estado efectivo**, no de los valores por omisión de
+  `configurar()`: materializar la primera fila nunca apaga `almacenable` ni
+  `costo_conocido`. `comprable` se deriva del tipo y `produccion_previa` se conserva
+  mientras siga siendo válida.
+- Las tres banderas con efecto que no son la pregunta principal (`componente`,
+  `almacenable`, `costo_conocido`) quedan en «Opciones avanzadas», plegadas en la misma
+  ficha. `comprable` y `produccion_previa` dejan de capturarse.
+- Subrecetas y recetas no cambian: una preparación sigue siendo un artículo con
+  elaboración versionada, y la vinculación de preparaciones anteriores sigue llamando
+  a `configurar()` + `publicar()`.
+
+### Reventa: se deriva de la oferta
+
+La regla de §16 se mantiene: reventa es una decisión de la oferta
+(`ofertas_producto.tipo_venta`), no del artículo, y un mismo artículo puede ser
+ingrediente y reventa. El módulo la **muestra**: la lista y la ficha indican qué
+artículos descuenta un producto de reventa (cada venta resta el artículo del almacén,
+sin receta intermedia) y la lista se filtra por «Reventa». Un artículo que sólo se
+revende se da de alta como insumo y no pide elaboración.
+
+### Pantallas
+
+- **Lista** (`/recetas/articulos`): 15 artículos por página; tipo, uso vigente,
+  almacenes y estado. «Nuevo artículo» abre un diálogo con identidad, forma de
+  obtención y almacenes; se envía a `/almacenes/catalogo/nuevo`, único escritor del
+  alta, con los permisos de Almacenes. Un insumo vuelve a la lista listo para usarse;
+  una preparación abre su ficha en la elaboración.
+- **Ficha** (`/recetas/articulos/editar`): datos generales (identidad maestra, que se
+  guarda en `/almacenes/catalogo/editar` con sus permisos), uso en el negocio
+  (clasificación), elaboración sólo si es preparación, «Dónde se usa» y almacenes.
+- `/almacenes/catalogo` y `/almacenes/catalogo/editar` redirigen (303) a la lista y la
+  ficha cuando la persona puede ver Artículos y preparaciones, conservando búsqueda,
+  estado, página y regreso. Quien sólo tiene Almacenes conserva el catálogo como
+  pantalla propia: la misma lista sin lectura de recetas, el alta en un paso limitada a
+  insumos y la identidad con sus almacenes. No hay rutas nuevas.
+- `/almacenes/catalogo/nuevo` queda como página de respaldo del diálogo: atiende a
+  quien llega sin JavaScript o vuelve de un rechazo (422) con lo capturado.
+
+Reglas de navegación y resultado:
+
+- El alta no escribe `articulo_configuraciones` para un insumo: nace con el estado
+  efectivo por omisión y, sin costo capturado, con costo desconocido. Una preparación
+  se clasifica en el negocio donde se creó, en una segunda transacción; si esa
+  clasificación falla, el artículo queda como insumo y el aviso lo dice.
+- El aviso de alta lo pinta la lista (`_m6_alta`, de un solo uso). Si el alta se abrió
+  desde otra pantalla (Almacenes), aterriza en la ficha del artículo nuevo, que conserva
+  el regreso al origen.
+- Un rechazo al guardar los datos generales vuelve a la ficha por PRG (`_m6_identidad`)
+  con el motivo y lo capturado; nada se guarda.
+- Las opciones físicas («Lleva existencias», «Su costo es conocido») sólo se leen de
+  quien edita Almacenes en el negocio. Sin ese permiso, un artículo que aún usa la
+  configuración general no puede materializar una propia: la ficha lo explica y el
+  servidor lo rechaza.
+- El filtro de estado de la lista usa el mismo estado efectivo que la columna: activo
+  en la casa y no apagado en el negocio.
+
+### «Dónde se usa»
+
+`Articulos::dondeSeUsa()` lee sólo composición **vigente**: última versión publicada
+de cada presentación, receta activa de la oferta cuando no tiene presentaciones,
+última elaboración publicada, preparaciones anteriores activas y ajustes de variantes.
+Cada producto lleva su tipo de venta. En Global la lectura es consolidada de
+Restaurante y Panadería, con el negocio rotulado, bajo la regla de §3: consulta, nunca
+escritura; el enlace a la receta sólo aparece si la persona tiene acceso en ese
+negocio. El historial de versiones sigue en la consulta de versiones del artículo.

@@ -200,7 +200,7 @@ try {
     $actor = (int)$fixtures['id'];
     $service = conc3cService($admin, $actor);
     $phase = 'fixtures de almacén y existencias';
-    $warehouse = (int)conc3cOk($service->crearAlmacen('global', 'restaurante', 'Concurrencia', false), 'crear almacén')['almacen_id'];
+    $warehouse = (int)conc3cOk($service->crearAlmacen('global', 'restaurante', 'Concurrencia'), 'crear almacén')['almacen_id'];
     $item = (int)conc3cOk($service->crearArticulo('global', ['nombre' => 'Artículo concurrencia', 'unidad' => 'pza', 'costo' => '1.0000']), 'crear artículo')['articulo_id'];
     conc3cOk($service->asociarArticulo('restaurante', $warehouse, $item, '0.000'), 'asociar artículo');
     conc3cOk($service->registrarEntrada('restaurante', ['clave' => 'seed-stock', 'referencia' => 'seed-stock', 'origen' => 'motor_inventario', 'motivo' => 'fixture', 'lineas' => [['almacen_id' => $warehouse, 'articulo_id' => $item, 'cantidad' => '5.000', 'costo_unitario' => '1.0000']]]), 'sembrar existencias');

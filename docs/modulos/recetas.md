@@ -45,11 +45,19 @@ no existen un motor para ingredientes y otro para subpreparaciones. Se rechazan
 ciclos por artículo, dimensiones incompatibles, versiones ajenas, rendimientos
 inválidos y cantidades que no puedan expresarse en la precisión física.
 
-Marcar «Se elabora antes de vender» distingue planificación y servicio: la venta
-requiere existencias previas del artículo almacenado incluso si el almacén
-permite negativos. Publicar la elaboración no registra producción. Una botella
-sellada puede producir conceptualmente 750 ml de vino abierto; la copa consume
-150 ml abiertos. La apertura física se reserva para M2.5.
+Marcar «Se elabora antes de vender» distingue planificación y servicio. Desde M3
+ni activar la presentación ni vender exige existencias terminadas: sin saldo, la
+venta genera un faltante pendiente de origen como cualquier artículo. Publicar la
+elaboración no registra producción. Un vino se guarda como un solo artículo en ml
+con contenido por pieza de 750: la botella de reventa descuenta 750 ml y la copa
+150 ml del mismo saldo (arquitectura §16).
+
+**Tipo de venta (M3).** Cada oferta es *preparado al momento* (receta o
+presentación) o *reventa* (un solo artículo almacenado por unidad vendida). En
+una reventa confirmada, la presentación o la receta legada aceptan un único
+componente almacenado de servicio y las variantes sólo pueden cambiar precio.
+«Ingrediente» es la capacidad `componente` del artículo («Se usa como
+ingrediente»); un artículo puede ser ingrediente y reventa a la vez.
 
 Las preparaciones antiguas se asocian manualmente al artículo correspondiente en
 el catálogo, con confirmación. Se exige la misma unidad para conservar sus
@@ -123,7 +131,49 @@ operativos se sustituyen por preservación de recetas/presentaciones locales en
 `scripts/tests/run-menu-a4.php` y por los recorridos HTTP M2/A4.
 
 
+## Artículos y preparaciones M6
+
+Vigente desde el 11 de noviembre de 2026 ([arquitectura §18](../arquitectura.md#18-m6-alta-en-un-paso-y-clasificacion-de-articulos)).
+Sustituye la captura y la navegación descritas en «Catálogo y ficha UX-4» y
+«Capacidades y continuidad de alta UX», que quedan como antecedente; el modelo M2,
+el editor de elaboración, las versiones y los permisos no cambian.
+
+- **Una lista** (`/recetas/articulos`): 15 artículos por página, búsqueda literal y
+  filtros de tipo (se compran, se preparan en casa, en productos de reventa) y estado.
+  Cada fila dice cómo se obtiene, en cuántos productos y preparaciones se usa, en
+  cuántos almacenes está y si está activo en el negocio. `Articulos::catalogo()` carga
+  sólo la página y resuelve el uso por lote (`usoLote`), con un número de consultas
+  constante.
+- **Alta en un paso**: «Nuevo artículo» abre un diálogo en la misma lista con nombre,
+  unidad, costo opcional, «¿Cómo se obtiene?» y almacenes opcionales. Un insumo vuelve
+  a la lista listo para usarse en recetas; una preparación abre su ficha en la receta.
+- **Contenido por pieza**: en el alta y en los datos generales se habilita sólo con
+  «Se compra por pieza (botella, lata, paquete)»; bloqueado en `pza`
+  ([§16](../arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario)).
+- **Una ficha** (`/recetas/articulos/editar`): datos generales (editables sólo en
+  Global con la facultad de catálogo), «Uso en {negocio}» —la pregunta «¿Cómo se
+  obtiene?», «Activo en {negocio}» y tres opciones avanzadas plegadas—, la receta de
+  elaboración si es preparación y «Dónde se usa».
+- **«Dónde se usa»** (`Articulos::dondeSeUsa()`): módulo de consulta con los productos
+  del menú que lo llevan —cada uno con su forma de venta, «Se prepara al momento» o
+  «Reventa», y la cantidad por venta—, las preparaciones que lo incluyen, las variantes
+  que lo ajustan y sus almacenes. Lee sólo composición vigente, hasta sesenta
+  referencias por grupo. En Global es el consolidado de Restaurante y Panadería.
+- **Reventa**: no es un tipo de artículo. Un producto de reventa descuenta su artículo
+  directo del almacén (§16); el artículo se da de alta como «Se compra» y la lista y la
+  ficha muestran en qué productos de reventa participa.
+
+La confirmación de borrador se conserva: guardar los datos generales o el uso recarga
+la ficha, así que avisa antes de descartar una receta con cambios sin publicar o con
+una previsión pendiente.
+
+Pruebas: `run-articulos-capacidades-ux.cjs`, `run-ux4-ui.cjs`,
+`pruebas-http-capacidades-ux.php`, `pruebas-http-ux4.php`, `pruebas-http-m2.php`,
+`pruebas-http-ux2.php` y el recorrido `pruebas-http-m3-funcional.php` (pruebas 1 y 6).
+
 ## Catálogo y ficha UX-4
+
+> Antecedente. La lista, la ficha y los textos vigentes son los de M6.
 
 El catálogo maestro y el contextual reutilizan `articulos.php`; no existe una
 segunda identidad ni autoridad de escritura. La lista mantiene 30 filas por
@@ -156,6 +206,9 @@ Los contratos históricos de estándares se validan como preservación, no como
 flujos operativos.
 
 ## Capacidades y continuidad de alta UX
+
+> Antecedente. Desde M6 las siete capacidades siguen siendo el contrato del motor,
+> pero ya no se capturan una por una: las deriva `Articulos::clasificar()`.
 
 Las siete capacidades conservan los campos y el escritor M2 existentes. La ficha
 las presenta en «Uso y preparación», «Obtención e inventario» y «Costo»; el estado

@@ -12,6 +12,31 @@ relacionadas con el cambio, registrar sus resultados y no presentar evidencia de
 una entrega anterior como resultado actual. Las revisiones A4, M2 y A6, sus
 resultados y capturas se recuperan en la historia de Git.
 
+## Integración de `refactor-almacenes` con `main`
+
+12 de noviembre de 2026. Criterio: en Almacenes, Proveedores y Recetas manda la
+rama; en lo demás, `main`. La caja de Panadería se ajustó al contrato sin
+negativos (§16): la vitrina en cero vende, deja la pieza en cero y registra el
+faltante (`VITRINA_FALTANTE`); el fixture ya no activa negativos. Se compararon
+el resultado fusionado y `main` sin fusionar, cada uno en su worktree, con bases
+temporales propias y la base del `.env` sólo como confirmación de argumentos.
+
+| Comprobación | Fusión | `main` |
+|---|---|---|
+| `npm run test:php` y `npm run test:js`, paso por paso | 74 de 74 PASS | 72 de 72 PASS |
+| Caja de Panadería / `run-caja-panaderia-db.php` | PASS: 77 (faltante y sin negativos) | PASS: 75 |
+| Faltantes, vista de faltantes, tipo de venta, Proveedores | PASS: 68, 35, 49 y 81 | No existen |
+| M2, Transferencias, A4, A3, A1, preservación de menú | PASS: 130, 138, 2510, 59, 15 y 7 | Iguales |
+| `npm run test:notifications` | PASS | PASS |
+| `run-instalacion-3e.php` | Falla en la comprobación 304 | Igual |
+| `run-contextos-isolated.php` | Falla: columna `rol` inexistente | Igual |
+
+`run-instalacion-3e.php` falla en ambos porque `pruebas-datos-3e.php` espera 47
+asociaciones y treinta artículos fijos, y el fixture de la caja agregó 17 piezas;
+no certifica la instalación completa. La carga `ddl → deploy → menu-restaurante →
+development` sí la ejercitan las suites con base anteriores. No hubo recorrido en
+navegador de la caja ni del Menú tras la fusión.
+
 ## Resultados R2 de la integración
 
 Sin BD: `npm run test:php`, `npm run test:js` (13 perfiles,
@@ -32,6 +57,52 @@ DB, y se actualizaron perfiles y listas documentales sin rebajar aserciones.
 Las mediciones, el fallo financiero preexistente y el límite de `FOR SHARE` en
 MariaDB se detallan en [rendimiento](rendimiento.md#resultados-r2). Los servidores
 temporales cerraron, sin bases fixture restantes ni uso de la base operativa.
+
+## M5: proveedores por ámbito
+
+Rama `refactor-almacenes`, 6 de noviembre de 2026 (arquitectura §17). Las suites con
+base usaron bases temporales propias y las eliminaron. Para el recorrido en navegador
+se aplicó `m5-proveedores.sql` (aditiva) a la base local de desarrollo, con
+autorización, y se crearon ahí datos de prueba.
+
+| Comprobación | Resultado M5 |
+|---|---|
+| `npm run test:php` | PASS |
+| `npm run test:js` | Se detiene en `run-reservaciones-notification-docs.cjs`, que ya fallaba: no espera `docs/API.md` ni `docs/integracion-a6-main.md`, ajenos a M5. Los pasos posteriores de Almacenes y Artículos se corrieron por separado |
+| Proveedores / `run-proveedores.php` | PASS: 81 comprobaciones (directorio propio y consolidado de Global, IDs ajenos, sólo consulta, alta y validación, asignaciones con un preferente por artículo, entrada ligada atómica con rollback, costo obligatorio, ajeno, inactivo, reintento y conflicto de idempotencia, histórico exacto con intervalo y evolución de costo, retiro con y sin historial) |
+| Faltantes, vista de faltantes, tipo de venta | PASS: 68, 18 y 49 comprobaciones |
+| Artículos M2 y resolución M2 | PASS: 130 y 29 comprobaciones |
+| UI de Almacenes / `run-almacenes-ux.php` y JS de Almacenes y Artículos | PASS: 148 comprobaciones de representación; cinco suites JS |
+| `run-estandares-estructura-m12.php` | FALLA también en `HEAD` (6faa9b6), sin estos cambios: espera 51 movimientos de fixture y M3 añadió más |
+| Motor 3C / `run-almacenes-3c*.php` | No ejecutado: sólo aceptan `--base casa-pestalozzi` en `127.0.0.1` y la configuración local usa otra base. El motor no cambió |
+| Navegador (Chrome, escritorio) | Global: menú, directorio, consolidado, alta, asignación, entrada con proveedor confirmada y ficha con histórico. Restaurante: ruta anterior redirige. Panadería: un ID de Restaurante responde «No se encontró el proveedor» |
+
+## Cierre M3: refactor de Almacenes
+
+Rama `refactor-almacenes`, 4 de noviembre de 2026 (arquitectura §16). Las suites
+con base usaron bases temporales propias y las eliminaron; la base local
+configurada no se migró.
+
+| Comprobación | Resultado M3 |
+|---|---|
+| `npm run test:php` | PASS |
+| `npm run test:js` | 21 de 22 pasos PASS. Falla `run-reservaciones-notification-docs.cjs` también en la línea base: el commit «Plan» movió `API.md` a `docs/` |
+| Tipo de venta / `run-tipo-venta.php` | PASS: 49 comprobaciones (sugeridor, 112 en sugerido, reventa, variantes de precio, copa y botella en ml, piezas, lote, IDs ajenos) |
+| Faltantes / `run-faltantes.php` | PASS: 68 comprobaciones (faltante parcial, replay, reparto, Global confirma y rechaza, saldo total insuficiente y entrada posterior, producción previa, cancelación, versión, migración de negativos, costo congelado) |
+| Vista ↔ servicio / `run-faltantes-vista-db.php` | PASS: 18 comprobaciones; vista real con datos reales y envío de sus formularios |
+| UI de Menú / `run-menu-tipo-venta-ui.cjs` | PASS |
+| UI de Almacenes / `run-almacenes-ux.php` y `run-almacenes-m11-ui.cjs` | PASS: 56 comprobaciones de representación; piezas y reparto exacto |
+| Motor 3C / `run-almacenes-3c.php` y concurrencia | PASS: 158 y 17 comprobaciones |
+| Instalación 3E / `run-instalacion-3e.php` | PASS: 967 comprobaciones |
+| M2, A4, A3, Transferencias, selección, resolución M2 | PASS: 130, 2,270, 59, 114, 70 y 29 comprobaciones |
+
+Límites: `run-multinegocio-3a.php` y las suites 3D exigen `--paquete` externo y no
+se ejecutaron (sus aserciones de negativos se actualizaron al contrato nuevo). El
+conflicto de versión entre dos administradores se probó con versión vieja
+secuencial, no con dos procesos. No hubo recorrido HTTP con sesión ni lector de
+pantalla real; la interfaz se revisó en navegador con arneses y datos simulados.
+`run-menu-m11.php`, `run-variantes-consumo.php` y `run-ux2.php` fallan igual en la
+línea base.
 
 ## Cierre A4
 

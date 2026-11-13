@@ -1,0 +1,356 @@
+<?php
+declare(strict_types=1);
+namespace Services\Inventory;
+
+/**
+ * Proveedores por ámbito (arquitectura §17). Cada proveedor pertenece a un solo
+ * ámbito —Global, Restaurante o Panadería— y sólo ese ámbito lo edita, le asigna
+ * artículos o le liga entradas. Global además lee el directorio de los tres, como
+ * lee los almacenes ajenos: consulta, nunca escritura.
+ *
+ * El histórico no es una bitácora propia: sale de las entradas que el motor ya
+ * registró (entradas_proveedor → operación → movimientos). Así lo que se reporta
+ * como pedido es exactamente lo que llegó al almacén.
+ */
+final class DirectorioProveedores
+{
+    private AlcanceInventario $alcance;
+
+    /** Ámbitos que Global consolida; orden de presentación. */
+    private const AMBITOS = ['global' => 1, 'restaurante' => 2, 'panaderia' => 3];
+
+    public function __construct(private \mysqli $db, int $actorId, string $nivelAuth)
+    {
+        $this->alcance = new AlcanceInventario($db, $actorId, $nivelAuth);
+    }
+
+    /**
+     * Directorio del ámbito. Con $consolidado (sólo Global) trae también los de los
+     * negocios, de lectura; cada fila dice de quién es y si se puede editar aquí.
+     */
+    public function listar(string $ctx, bool $consolidado = false): array
+    {
+        $alcance = $this->alcance->autorizar($ctx, 'ver');
+        $unidades = $consolidado && $ctx === 'global' ? array_values(self::AMBITOS) : [$alcance['unidad_id']];
+        $marcas = implode(',', array_fill(0, count($unidades), '?'));
+        // Recepciones = días distintos con entradas: una entrega de varios artículos se
+        // captura como varias entradas, pero fue un solo pedido.
+        $filas = $this->db->execute_query(
+            "SELECT p.id,p.unidad_id,u.slug,p.nombre,p.contacto,p.telefono,p.correo,p.activo,
+                    (SELECT COUNT(*) FROM ingrediente_proveedores ip WHERE ip.proveedor_id=p.id AND ip.unidad_id=p.unidad_id) AS articulos,
+                    (SELECT COUNT(DISTINCT DATE(o.fecha)) FROM entradas_proveedor e JOIN operaciones_inventario o ON o.id=e.operacion_id AND o.unidad_id=e.unidad_id WHERE e.proveedor_id=p.id AND e.unidad_id=p.unidad_id) AS recepciones,
+                    (SELECT MAX(o.fecha) FROM entradas_proveedor e JOIN operaciones_inventario o ON o.id=e.operacion_id AND o.unidad_id=e.unidad_id WHERE e.proveedor_id=p.id AND e.unidad_id=p.unidad_id) AS ultima_entrada
+               FROM proveedores p JOIN unidades u ON u.id=p.unidad_id
+              WHERE p.unidad_id IN ($marcas)
+              ORDER BY p.activo DESC, p.unidad_id, p.nombre, p.id",
+            $unidades
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($filas as &$f) {
+            $f['editable'] = (int)$f['unidad_id'] === $alcance['unidad_id'];
+        }
+        return $filas;
+    }
+
+    /** Un proveedor visible para el ámbito; lanza si es ajeno o no existe. */
+    public function proveedor(string $ctx, int $id): array
+    {
+        $alcance = $this->alcance->autorizar($ctx, 'ver');
+        $p = $this->db->execute_query(
+            'SELECT p.*,u.slug FROM proveedores p JOIN unidades u ON u.id=p.unidad_id WHERE p.id=?',
+            [$id]
+        )->fetch_assoc();
+        // Un ID ajeno responde igual que uno inexistente: no confirma que exista.
+        if (!$p || ((int)$p['unidad_id'] !== $alcance['unidad_id'] && $ctx !== 'global')) {
+            throw new InventarioError('RECURSO_NO_ENCONTRADO', 'No se encontró el proveedor.');
+        }
+        $p['editable'] = (int)$p['unidad_id'] === $alcance['unidad_id'];
+        return $p;
+    }
+
+    /** Alta (sin $id) o edición de los datos de contacto de un proveedor propio. */
+    public function guardar(string $ctx, ?int $id, array $datos): array
+    {
+        return TransaccionInventario::ejecutar($this->db, function () use ($ctx, $id, $datos): array {
+            $alcance = $this->alcance->autorizar($ctx, 'editar', null, true);
+            $u = $alcance['unidad_id'];
+            $d = self::datosProveedor($datos);
+            if ($id !== null) $this->propio($u, $id, true);
+            $choque = $this->db->execute_query(
+                'SELECT id FROM proveedores WHERE unidad_id=? AND nombre=? AND id<>? LIMIT 1',
+                [$u, $d['nombre'], $id ?? 0]
+            )->fetch_row();
+            if ($choque) throw new InventarioError('PROVEEDOR_DUPLICADO', 'Ya existe un proveedor con ese nombre en este ámbito.');
+            if ($id === null) {
+                $this->db->execute_query(
+                    'INSERT INTO proveedores(unidad_id,nombre,contacto,telefono,correo,notas,activo) VALUES (?,?,?,?,?,?,?)',
+                    [$u, $d['nombre'], $d['contacto'], $d['telefono'], $d['correo'], $d['notas'], $d['activo']]
+                );
+                $id = (int)$this->db->insert_id;
+            } else {
+                $this->db->execute_query(
+                    'UPDATE proveedores SET nombre=?,contacto=?,telefono=?,correo=?,notas=?,activo=? WHERE id=? AND unidad_id=?',
+                    [$d['nombre'], $d['contacto'], $d['telefono'], $d['correo'], $d['notas'], $d['activo'], $id, $u]
+                );
+            }
+            return ['codigo' => 'PROVEEDOR_GUARDADO', 'proveedor_id' => $id];
+        });
+    }
+
+    /**
+     * Reemplaza en bloque los artículos que surte un proveedor propio. El formulario
+     * manda la lista completa: quitar una fila allí la quita aquí. Sólo se aceptan
+     * artículos que el ámbito tiene en alguno de sus almacenes, y marcar preferente
+     * desmarca al preferente anterior de ese artículo (uno por artículo y ámbito).
+     *
+     * $filas: [['articulo_id'=>'12','costo'=>'0.0150','codigo'=>'','preferente'=>'1'], …]
+     */
+    public function guardarAsignaciones(string $ctx, int $id, array $filas): array
+    {
+        return TransaccionInventario::ejecutar($this->db, function () use ($ctx, $id, $filas): array {
+            $alcance = $this->alcance->autorizar($ctx, 'editar', null, true);
+            $u = $alcance['unidad_id'];
+            $this->propio($u, $id, true);
+            if (!array_is_list($filas) || count($filas) > 500) throw new InventarioError('DATOS_INVALIDOS', 'La lista de artículos no es válida.');
+            $limpias = [];
+            foreach ($filas as $fila) {
+                if (!is_array($fila) || array_diff(array_keys($fila), ['articulo_id', 'costo', 'codigo', 'preferente'])) throw new InventarioError('DATOS_INVALIDOS', 'La lista de artículos no es válida.');
+                $articulo = self::id($fila['articulo_id'] ?? null);
+                if (isset($limpias[$articulo])) throw new InventarioError('ARTICULO_REPETIDO', 'Un artículo aparece dos veces en la lista.');
+                $codigo = trim(is_string($fila['codigo'] ?? null) ? $fila['codigo'] : '');
+                if (mb_strlen($codigo) > 60) throw new InventarioError('DATOS_INVALIDOS', 'El código del proveedor admite hasta 60 caracteres.');
+                $limpias[$articulo] = [
+                    'costo' => DecimalInventario::formato(DecimalInventario::leer($fila['costo'] ?? null, 4), 4),
+                    'codigo' => $codigo === '' ? null : $codigo,
+                    'preferente' => in_array($fila['preferente'] ?? null, ['1', 1, true], true) ? 1 : 0,
+                ];
+            }
+            if ($limpias) {
+                $marcas = implode(',', array_fill(0, count($limpias), '?'));
+                $propios = $this->db->execute_query(
+                    "SELECT DISTINCT aa.articulo_id FROM almacen_articulos aa JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id
+                      WHERE aa.unidad_id=? AND aa.articulo_id IN ($marcas) FOR SHARE",
+                    array_merge([$u], array_keys($limpias))
+                )->fetch_all(MYSQLI_NUM);
+                if (count($propios) !== count($limpias)) throw new InventarioError('ARTICULO_AJENO', 'Sólo se asignan artículos que este ámbito tiene en sus almacenes.');
+            }
+            $this->db->execute_query('DELETE FROM ingrediente_proveedores WHERE unidad_id=? AND proveedor_id=?', [$u, $id]);
+            foreach ($limpias as $articulo => $f) {
+                if ($f['preferente']) {
+                    $this->db->execute_query('UPDATE ingrediente_proveedores SET preferente=0 WHERE unidad_id=? AND ingrediente_id=?', [$u, $articulo]);
+                }
+                $this->db->execute_query(
+                    'INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo,codigo,preferente) VALUES (?,?,?,?,?,?)',
+                    [$u, $articulo, $id, $f['costo'], $f['codigo'], $f['preferente']]
+                );
+            }
+            return ['codigo' => 'ASIGNACIONES_GUARDADAS', 'proveedor_id' => $id, 'articulos' => count($limpias)];
+        });
+    }
+
+    /**
+     * Sólo sin historial: un proveedor que ya surtió algo se desactiva, para que sus
+     * entradas sigan diciendo de quién llegaron.
+     */
+    public function eliminar(string $ctx, int $id): array
+    {
+        return TransaccionInventario::ejecutar($this->db, function () use ($ctx, $id): array {
+            $alcance = $this->alcance->autorizar($ctx, 'editar', null, true);
+            $u = $alcance['unidad_id'];
+            $this->propio($u, $id, true);
+            $con = (int)$this->db->execute_query('SELECT COUNT(*) FROM entradas_proveedor WHERE unidad_id=? AND proveedor_id=?', [$u, $id])->fetch_row()[0];
+            if ($con > 0) throw new InventarioError('PROVEEDOR_CON_HISTORIAL', 'Este proveedor ya tiene entradas registradas. Desactívalo para conservar su historial.');
+            $this->db->execute_query('DELETE FROM ingrediente_proveedores WHERE unidad_id=? AND proveedor_id=?', [$u, $id]);
+            $this->db->execute_query('DELETE FROM proveedores WHERE id=? AND unidad_id=?', [$id, $u]);
+            return ['codigo' => 'PROVEEDOR_ELIMINADO', 'proveedor_id' => $id];
+        });
+    }
+
+    /** Artículos que surte, con su costo de referencia contra el costo maestro. */
+    public function asignaciones(string $ctx, int $id): array
+    {
+        $p = $this->proveedor($ctx, $id);
+        return $this->db->execute_query(
+            'SELECT ip.ingrediente_id AS articulo_id,i.nombre,i.unidad,i.costo AS costo_maestro,i.activo,ip.costo,ip.codigo,ip.preferente
+               FROM ingrediente_proveedores ip JOIN ingredientes i ON i.id=ip.ingrediente_id
+              WHERE ip.unidad_id=? AND ip.proveedor_id=? ORDER BY i.nombre,i.id',
+            [(int)$p['unidad_id'], $id]
+        )->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /** Artículos que el ámbito tiene en sus almacenes: lo único que se le puede asignar. */
+    public function articulosAsignables(string $ctx): array
+    {
+        $alcance = $this->alcance->autorizar($ctx, 'ver');
+        return $this->db->execute_query(
+            'SELECT DISTINCT i.id,i.nombre,i.unidad,i.costo FROM almacen_articulos aa
+               JOIN almacenes a ON a.id=aa.almacen_id AND a.unidad_id=aa.unidad_id
+               JOIN ingredientes i ON i.id=aa.articulo_id
+              WHERE aa.unidad_id=? AND i.activo=1 ORDER BY i.nombre,i.id',
+            [$alcance['unidad_id']]
+        )->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
+     * Lo que necesita el diálogo de Entrada: proveedores activos del ámbito y, por
+     * artículo, quién lo surte y a qué costo de referencia (preferente primero).
+     *
+     * @return array{proveedores: list<array>, porArticulo: array<int, list<array>>}
+     */
+    public function paraEntradas(string $ctx): array
+    {
+        $alcance = $this->alcance->autorizar($ctx, 'ver');
+        $u = $alcance['unidad_id'];
+        $proveedores = $this->db->execute_query('SELECT id,nombre FROM proveedores WHERE unidad_id=? AND activo=1 ORDER BY nombre,id', [$u])->fetch_all(MYSQLI_ASSOC);
+        $porArticulo = [];
+        $filas = $this->db->execute_query(
+            'SELECT ip.ingrediente_id,ip.proveedor_id,ip.costo,ip.preferente FROM ingrediente_proveedores ip
+               JOIN proveedores p ON p.id=ip.proveedor_id AND p.unidad_id=ip.unidad_id
+              WHERE ip.unidad_id=? AND p.activo=1 ORDER BY ip.preferente DESC,ip.costo,p.nombre',
+            [$u]
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($filas as $f) $porArticulo[(int)$f['ingrediente_id']][] = $f;
+        return ['proveedores' => $proveedores, 'porArticulo' => $porArticulo];
+    }
+
+    /**
+     * Histórico de lo recibido. Una recepción es un día con entradas de este
+     * proveedor. Las cifras se agregan en enteros exactos (milésimas y diezmilésimas);
+     * sólo la variación porcentual y el intervalo en días son de lectura.
+     */
+    public function historial(string $ctx, int $id): array
+    {
+        $p = $this->proveedor($ctx, $id);
+        // Tope de lectura: suficiente para años de compras de un negocio; una página
+        // no debe recorrer una bitácora sin límite.
+        $movs = $this->db->execute_query(
+            'SELECT m.id,m.articulo_id,i.nombre,i.unidad,m.delta,m.costo_unitario,m.nota,o.fecha,a.nombre AS almacen
+               FROM entradas_proveedor e
+               JOIN operaciones_inventario o ON o.id=e.operacion_id AND o.unidad_id=e.unidad_id
+               JOIN movimientos_inventario m ON m.operacion_id=o.id AND m.unidad_id=o.unidad_id AND m.tipo=\'entrada\'
+               JOIN ingredientes i ON i.id=m.articulo_id
+               JOIN almacenes a ON a.id=m.almacen_id AND a.unidad_id=m.unidad_id
+              WHERE e.unidad_id=? AND e.proveedor_id=?
+              ORDER BY o.fecha,m.id LIMIT 5000',
+            [(int)$p['unidad_id'], $id]
+        )->fetch_all(MYSQLI_ASSOC);
+
+        $dias = [];
+        $articulos = [];
+        foreach ($movs as $m) {
+            $dia = substr((string)$m['fecha'], 0, 10);
+            $dias[$dia] = true;
+            $aid = (int)$m['articulo_id'];
+            $q = DecimalInventario::leer((string)$m['delta'], 3);
+            $c = $m['costo_unitario'] === null ? null : DecimalInventario::leer((string)$m['costo_unitario'], 4);
+            $a = &$articulos[$aid];
+            $a ??= ['articulo_id' => $aid, 'nombre' => $m['nombre'], 'unidad' => $m['unidad'], 'dias' => [], 'total' => 0, 'ultima' => null, 'costos' => []];
+            $a['dias'][$dia] = true;
+            $a['total'] = DecimalInventario::sumar($a['total'], $q);
+            $a['ultima'] = (string)$m['fecha'];
+            if ($c !== null) $a['costos'][] = ['fecha' => (string)$m['fecha'], 'costo' => $c];
+            unset($a);
+        }
+
+        $salida = [];
+        foreach ($articulos as $a) {
+            $veces = count($a['dias']);
+            $costos = array_column($a['costos'], 'costo');
+            $primero = $costos[0] ?? null;
+            $ultimo = $costos ? $costos[count($costos) - 1] : null;
+            $salida[] = [
+                'articulo_id' => $a['articulo_id'], 'nombre' => $a['nombre'], 'unidad' => $a['unidad'],
+                'veces' => $veces,
+                'total' => DecimalInventario::cantidad($a['total']),
+                // Promedio por recepción, redondeado a milésimas (mitad hacia arriba).
+                'promedio' => DecimalInventario::cantidad(intdiv(2 * $a['total'] + $veces, 2 * $veces)),
+                'ultima' => $a['ultima'],
+                'costo_ultimo' => $ultimo === null ? null : DecimalInventario::formato($ultimo, 4),
+                'costo_primero' => $primero === null ? null : DecimalInventario::formato($primero, 4),
+                'costo_min' => $costos ? DecimalInventario::formato(min($costos), 4) : null,
+                'costo_max' => $costos ? DecimalInventario::formato(max($costos), 4) : null,
+                'variacion' => ($primero !== null && $primero > 0 && $ultimo !== null) ? round(($ultimo - $primero) * 100 / $primero, 1) : null,
+                // Los últimos doce costos, del más reciente al más antiguo, para leer la tendencia.
+                'serie' => array_map(static fn($x) => ['fecha' => $x['fecha'], 'costo' => DecimalInventario::formato($x['costo'], 4)], array_reverse(array_slice($a['costos'], -12))),
+            ];
+        }
+        // Lo que más se le pide arriba: más recepciones, luego más cantidad.
+        usort($salida, static fn($x, $y) => [$y['veces'], DecimalInventario::leer($y['total'])] <=> [$x['veces'], DecimalInventario::leer($x['total'])] ?: strcmp($x['nombre'], $y['nombre']));
+
+        $fechas = array_keys($dias);
+        sort($fechas);
+        $n = count($fechas);
+        $intervalo = null;
+        $proximo = null;
+        if ($n >= 2) {
+            $primera = new \DateTimeImmutable($fechas[0]);
+            $ultima = new \DateTimeImmutable($fechas[$n - 1]);
+            $intervalo = round((int)$primera->diff($ultima)->days / ($n - 1), 1);
+            $proximo = $ultima->modify('+' . (int)round($intervalo) . ' days')->format('Y-m-d');
+        }
+
+        return [
+            'resumen' => ['recepciones' => $n, 'primera' => $fechas[0] ?? null, 'ultima' => $n ? $fechas[$n - 1] : null, 'intervalo_dias' => $intervalo, 'proximo' => $proximo],
+            'articulos' => $salida,
+            'recientes' => array_map(static fn($m) => [
+                'fecha' => (string)$m['fecha'], 'almacen' => $m['almacen'], 'nombre' => $m['nombre'], 'unidad' => $m['unidad'],
+                'cantidad' => (string)$m['delta'], 'costo' => $m['costo_unitario'], 'nota' => $m['nota'],
+            ], array_slice(array_reverse($movs), 0, 15)),
+        ];
+    }
+
+    /**
+     * Valida, dentro de la transacción de la entrada, que el proveedor sea del ámbito
+     * y siga activo. FOR SHARE: nadie lo desactiva ni lo borra mientras se liga.
+     */
+    public static function exigirActivo(\mysqli $db, int $unidad, int $proveedor): void
+    {
+        $r = $db->execute_query('SELECT activo FROM proveedores WHERE id=? AND unidad_id=? FOR SHARE', [$proveedor, $unidad])->fetch_row();
+        if (!$r) throw new InventarioError('PROVEEDOR_INVALIDO', 'El proveedor no pertenece a este ámbito.');
+        if (!(int)$r[0]) throw new InventarioError('PROVEEDOR_INACTIVO', 'El proveedor está inactivo.');
+    }
+
+    /**
+     * Liga la operación de entrada con su proveedor. Un reintento con la misma clave
+     * repite el resultado del motor: si ya está ligada al mismo proveedor no hay nada
+     * que hacer; a otro, es una solicitud distinta con la misma clave.
+     */
+    public static function ligar(\mysqli $db, int $unidad, int $operacion, int $proveedor): void
+    {
+        $previo = $db->execute_query('SELECT proveedor_id FROM entradas_proveedor WHERE operacion_id=? FOR UPDATE', [$operacion])->fetch_row();
+        if ($previo) {
+            if ((int)$previo[0] !== $proveedor) throw new InventarioError('CONFLICTO_IDEMPOTENCIA', 'La entrada ya se registró con otro proveedor.');
+            return;
+        }
+        $db->execute_query('INSERT INTO entradas_proveedor(operacion_id,unidad_id,proveedor_id) VALUES (?,?,?)', [$operacion, $unidad, $proveedor]);
+    }
+
+    private function propio(int $unidad, int $id, bool $bloquear): void
+    {
+        $r = $this->db->execute_query('SELECT id FROM proveedores WHERE id=? AND unidad_id=?' . ($bloquear ? ' FOR UPDATE' : ''), [$id, $unidad])->fetch_row();
+        if (!$r) throw new InventarioError('RECURSO_NO_ENCONTRADO', 'No se encontró el proveedor de este ámbito.');
+    }
+
+    private static function datosProveedor(array $datos): array
+    {
+        $texto = static function (string $campo, int $max, bool $obligatorio = false) use ($datos): ?string {
+            $v = $datos[$campo] ?? '';
+            if (!is_string($v)) throw new InventarioError('DATOS_INVALIDOS', 'Revisa los datos del proveedor.');
+            $v = trim($v);
+            if ($obligatorio && $v === '') throw new InventarioError('DATOS_INVALIDOS', 'El nombre del proveedor es obligatorio.');
+            if (mb_strlen($v) > $max) throw new InventarioError('DATOS_INVALIDOS', 'Un campo del proveedor excede su longitud.');
+            return $v === '' ? null : $v;
+        };
+        $correo = $texto('correo', 120);
+        if ($correo !== null && !filter_var($correo, FILTER_VALIDATE_EMAIL)) throw new InventarioError('CORREO_INVALIDO', 'El correo del proveedor no es válido.');
+        return [
+            'nombre' => (string)$texto('nombre', 120, true), 'contacto' => $texto('contacto', 120), 'telefono' => $texto('telefono', 30),
+            'correo' => $correo, 'notas' => $texto('notas', 2000), 'activo' => isset($datos['activo']) && $datos['activo'] !== '0' ? 1 : 0,
+        ];
+    }
+
+    private static function id(mixed $v): int
+    {
+        if ((!is_int($v) && !is_string($v)) || !preg_match('/^[1-9][0-9]{0,17}$/D', (string)$v)) throw new InventarioError('ID_INVALIDO', 'El identificador no es válido.');
+        return (int)$v;
+    }
+}

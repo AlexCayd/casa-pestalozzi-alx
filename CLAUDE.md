@@ -31,6 +31,13 @@ vigentes están en la [clasificación documental](docs/desarrollo/clasificacion-
   atómicos, la venta descuenta la pieza de vitrina (no la receta), horneadas,
   anulación del día con NIP de encargado y corte; «Vitrina de la caja» en el
   Menú de Panadería define opciones y piezas ([caja](docs/modulos/caja-panaderia.md)).
+- **M3 (refactor de Almacenes)**: tipo de venta preparado/reventa, contenido por
+  pieza, faltantes de venta con conciliación de origen y regularizaciones; ningún
+  saldo es negativo ([arquitectura §16](docs/arquitectura.md#16-m3-tipo-de-venta-y-faltantes-de-inventario)).
+- **M6 (Artículos y preparaciones)**: una lista de 15 por página con alta en un
+  diálogo y una ficha única con «¿Cómo se obtiene?» y «Dónde se usa»; las capacidades
+  siguen siendo el contrato del motor, pero se derivan
+  ([arquitectura §18](docs/arquitectura.md#18-m6-alta-en-un-paso-y-clasificacion-de-articulos)).
 - **Pendiente**: producción, encargos y catering ([backlog](docs/backlog.md)).
 
 Una tabla, ruta, fixture o pantalla no acredita un flujo terminado.

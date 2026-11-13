@@ -375,8 +375,10 @@
                                 <th data-sort-type="number" class="admin-inventario__col-num">Existencias</th>
                             <th data-sort-type="number" class="admin-inventario__col-num"><?php echo $nuevo ? 'Mínimos asociados' : 'Mínimo'; ?></th>
                                 <th data-sort-type="number" class="admin-inventario__col-num">Costo / u</th>
-                                <th data-sort-disabled>Ajuste rápido</th>
-                                <th data-sort-disabled>Acciones</th>
+                                <?php /* Sin la columna «Ajuste rápido» (auditoría A-4), en solo
+                                        consulta ya ninguna celda decía nada: la columna de
+                                        acciones sólo existe para quien puede editar. */ ?>
+                                <?php if ($puedeEditar) : ?><th data-sort-disabled>Acciones</th><?php endif; ?>
                             </tr>
                         </thead>
                         <tbody>
@@ -417,29 +419,11 @@
                                     <td class="admin-num admin-inventario__col-num admin-inventario__tenue" data-sort-value="<?php echo (float) $ing->costo; ?>">
                                         $<?php echo number_format((float) $ing->costo, 4); ?>
                                     </td>
-                                    <td>
-                                <?php if ($puedeEditar) : ?><form class="admin-inline-form" method="POST" action="/admin/inventario/ajustar<?php echo $esc($sufijo); ?>">
-                                            <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">
-                                    <?php if ($nuevo) : ?>
-                                        <select name="almacen_id" aria-label="Almacén para ajustar <?php echo $esc($ing->nombre); ?>" required>
-                                            <option value="">Almacén</option>
-                                            <?php foreach ($locales as $local) { if ($local['activo'] && $local['asociacion_activa']) : ?><option value="<?php echo (int)$local['almacen_id']; ?>"><?php echo $esc($local['nombre']); ?></option><?php endif; } ?>
-                                        </select>
-                                    <?php endif; ?>
-                                            <input type="number" name="stock" step="0.001" value="<?php echo $nuevo ? '' : $esc($fmt($stock)); ?>" aria-label="Nuevo stock de <?php echo $esc($ing->nombre); ?>, en <?php echo $esc($unidad); ?>">
-                                            <?php /* Secundario y no dorado: fijar el stock es rutina de
-                                                    conteo, no la acción principal de la pantalla. */ ?>
-                                            <button type="submit" class="admin-btn admin-btn--secondary admin-inventario__save" title="Fijar stock">
-                                                <?php echo admin_icon('check', 16, 'admin-btn__icon'); ?>
-                                                Guardar
-                                            </button>
-                                        </form><?php else : ?><span class="admin-table__cell-sub">Solo consulta</span><?php endif; ?>
-                                    </td>
-                                    <td>
+                                    <?php if ($puedeEditar) : ?><td>
                                         <?php /* Dos acciones, separadas por un filete: editar y,
                                                 aparte, borrar. «Registrar merma» salió de la fila:
                                                 el panel de merma tiene el formulario completo. */ ?>
-                                        <?php if ($puedeEditar) : ?><div class="admin-table-actions">
+                                        <div class="admin-table-actions">
                                             <a class="admin-icon-button admin-icon-button--edit" href="<?php echo $esc($editarFilaUrl); ?>" title="Editar" aria-label="Editar <?php echo $esc($ing->nombre); ?>">
                                                 <?php echo admin_icon('editar', 18); ?>
                                             </a>
@@ -465,8 +449,8 @@
                                                 </button>
                                             </form>
                                             <?php endif; ?>
-                                        </div><?php endif; ?>
-                                    </td>
+                                        </div>
+                                    </td><?php endif; ?>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>

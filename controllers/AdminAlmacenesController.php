@@ -6,6 +6,7 @@ use Classes\Auth;
 use MVC\Router;
 use Services\Inventory\AdministracionAlmacenes;
 use Services\Inventory\Articulos as ArticulosM2;
+use Services\Inventory\DirectorioProveedores;
 use Services\Inventory\InventarioError;
 use Services\Security\AdminCsrfService;
 use Services\Security\ContextoNegocio;
@@ -27,7 +28,7 @@ final class AdminAlmacenesController
             elseif(isset($_GET['articulo_id'])&&(!is_string($_GET['articulo_id'])||(int)$_GET['articulo_id']!==$asociar)){http_response_code(400);$asociar=null;$mensajeAsociacion='El artículo del filtro no coincide con el seleccionado.';}
             else{$_GET['articulo_id']=(string)$asociar;$vista='existencias';}
         }
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias','faltantes'],true) || ($vista==='catalogo'&&$ctx!=='global')) { http_response_code(404); return; }
         if($vista==='catalogo'){
             $q=is_string($_GET['q']??null)?$_GET['q']:'';$volver=\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx);
             header('Location: '.$base.'/catalogo?'.http_build_query(array_filter(['q'=>$q,'volver'=>$volver])),true,302);return;
@@ -38,7 +39,7 @@ final class AdminAlmacenesController
         if (isset($_GET['solo_alertas'])) $filtros['solo_alertas']=true;
         $alertas=$_SESSION['_almacenes_flash'][$ctx]??$alertas;
         unset($_SESSION['_almacenes_flash'][$ctx]);
-        $datos=['existencias'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'almacenes'=>['almacenes'=>[],'total'=>0], 'movimientos'=>['movimientos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'catalogo'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>100], 'opcionesAlmacen'=>[], 'totalOpcionesAlmacen'=>0];
+        $datos=['existencias'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'almacenes'=>['almacenes'=>[],'total'=>0], 'movimientos'=>['movimientos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>25], 'catalogo'=>['articulos'=>[],'total'=>0,'pagina'=>1,'por_pagina'=>100], 'opcionesAlmacen'=>[], 'totalOpcionesAlmacen'=>0, 'faltantes'=>[], 'faltantesPendientes'=>0];
         try {
             foreach ($filtros as $campo=>$v) if ($campo!=='almacen_ids' && !is_scalar($v)) throw new InventarioError('FILTRO_INVALIDO','Los filtros no son válidos.');
             $datos=self::servicio()->consultar($ctx,$filtros,$vista);
@@ -60,13 +61,15 @@ final class AdminAlmacenesController
                 $relaciones=array_values(array_filter(ArticulosM2::usos($ctx,(int)$articuloId)['asociaciones']??[],static fn($a)=>(string)($a['slug']??'')===$ctx));
                 $ids=[];foreach($relaciones as $relacion)$ids[(int)$relacion['id']]=true;
                 foreach($relaciones as $relacion){$opcion=$opcionesPorId[(int)$relacion['id']]??null;if((int)$relacion['activo']!==1)$almacenesAsociadosActuales[]=$relacion['nombre'].' (asociación inactiva)';elseif($opcion&&(int)$opcion['activo']!==1)$almacenesAsociadosActuales[]=$relacion['nombre'].' (almacén inactivo)';elseif($opcion)$almacenesAsociadosActuales[]=$relacion['nombre'];}
-                $propios=array_values(array_filter($activosContexto,static fn($a)=>!isset($ids[(int)$a['almacen_id']])));
+                // Se ofrece todo almacén activo de los negocios donde el usuario edita y
+                // que aún no maneja el artículo, no sólo los del contexto actual (§5).
+                $propios=array_values(array_filter(self::servicio()->almacenesEditables((int)$articuloId),static fn($a)=>!$a['asociado']));
                 $almacenesDisponiblesAsociacion=$almacenable?$propios:[];
                 if(isset($asociar)&&$asociar){
                     if(!(int)$articuloContextual['activo'])$mensajeAsociacion='El artículo está inactivo y no puede asociarse.';
                     elseif(!$almacenable)$mensajeAsociacion='Este artículo no tiene habilitada la capacidad de almacenamiento y no puede asociarse a un almacén.';
                     elseif(!Auth::puede('inventario','editar',$ctx))$mensajeAsociacion='Para asociar artículos necesitas permiso de edición de Almacenes en este contexto.';
-                    elseif(!$activosContexto)$mensajeAsociacion='No hay almacenes activos en este contexto. Configura uno antes de asociar el artículo.';
+                    elseif(!$activosContexto&&!$propios)$mensajeAsociacion='No hay almacenes activos en este contexto. Configura uno antes de asociar el artículo.';
                     elseif(!$propios)$mensajeAsociacion='No hay almacenes activos disponibles para una asociación nueva. Revisa las asociaciones existentes de este artículo.';
                     else $abrirAsociacion=true;
                 }
@@ -74,15 +77,34 @@ final class AdminAlmacenesController
         }
         $perfil=ContextoNegocio::exigir('inventario','ver',$ctx);
         $facultades=$perfil['ambitos'][$ctx]['facultades']??[];
+        // El diálogo de Entrada ofrece los proveedores del ámbito; sin edición no hay entrada.
+        $proveedoresEntrada=['proveedores'=>[],'porArticulo'=>[]];
+        // Negocios donde el usuario edita Almacenes: en ellos puede asociar y dar entrada
+        // desde esta pantalla. Cada entrada ofrece los proveedores del dueño del almacén.
+        $contextosEditables=[];$proveedoresPorContexto=[];
+        foreach(array_keys(Contextos::NOMBRES) as $slug){
+            if(!Auth::puede('inventario','editar',$slug))continue;
+            $contextosEditables[]=$slug;
+            try{$proveedoresPorContexto[$slug]=(new DirectorioProveedores(ContextoNegocio::db(),ContextoNegocio::actorId(),ContextoNegocio::nivelAuth()))->paraEntradas($slug);}
+            catch(\Throwable $e){error_log('AdminAlmacenesController::proveedores - '.$e->getMessage());}
+        }
+        $proveedoresEntrada=$proveedoresPorContexto[$ctx]??$proveedoresEntrada;
+        $almacenesEditables=[];
+        if($contextosEditables){try{$almacenesEditables=self::servicio()->almacenesEditables();}catch(\Throwable $e){error_log('AdminAlmacenesController::editables - '.$e->getMessage());}}
         AdminController::render('almacenes/index',array_merge($datos,[
             'activeModule'=>'inventario','title'=>'Almacenes','topbarTitle'=>'Almacenes','topbarSection'=>'Almacenes',
             'contextoAlmacenes'=>$ctx,'nombreContexto'=>Contextos::NOMBRES[$ctx], 'base'=>$base,'vista'=>$vista,'filtros'=>$filtros,'alertas'=>$alertas,
             'volverContextual'=>\Services\Security\RetornoAdministrativo::autorizado($_GET['volver']??null,$ctx),
             'articuloContextual'=>$articuloContextual,'almacenesDisponiblesAsociacion'=>$almacenesDisponiblesAsociacion,'almacenesAsociadosActuales'=>$almacenesAsociadosActuales,'abrirAsociacion'=>$abrirAsociacion,'mensajeAsociacion'=>$mensajeAsociacion,
             'puedeEditar'=>Auth::puede('inventario','editar',$ctx),
+            // Sólo anticipa en la vista que sus transferencias se aplican en un paso; el
+            // motor lo vuelve a leer del perfil en cada operación.
+            'transferenciasSuper'=>Auth::esSuperAdmin(),
             'puedeCrearAlmacen'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('almacenes.crear',$facultades,true),
             'puedeNuevoArticulo'=>Auth::puede('inventario','editar',$ctx)&&Auth::puede('inventario','editar','global')&&in_array('catalogo.editar',$perfil['ambitos']['global']['facultades']??[],true),
             'puedeCatalogo'=>$ctx==='global'&&Auth::puede('inventario','editar',$ctx)&&in_array('catalogo.editar',$facultades,true),
+            'contextosEditables'=>$contextosEditables,'almacenesEditables'=>$almacenesEditables,'proveedoresPorContexto'=>$proveedoresPorContexto,
+            'proveedoresEntrada'=>$proveedoresEntrada,'proveedoresUrl'=>self::base($ctx).'/proveedores',
             'csrf'=>self::csrfContexto($ctx), 'styles'=>['/build/css/admin/inventario.css'], 'scripts'=>['/build/js/admin/inventario.js'],
         ]));
     }
@@ -97,10 +119,28 @@ final class AdminAlmacenesController
         $payload=$_POST;unset($payload['volver_contextual']);
         $resultado=self::servicio()->guardar($ctx,$accion,$payload);
         $vista=is_string($_POST['volver_vista']??null)?$_POST['volver_vista']:'existencias';
-        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
+        if (!in_array($vista,['existencias','almacenes','movimientos','catalogo','transferencias','faltantes'],true)||($vista==='catalogo'&&$ctx!=='global')) $vista='existencias';
         try {
             AdministracionAlmacenes::exigirResultado($resultado);
-            $_SESSION['_almacenes_flash'][$ctx]=['exito'=>['Operación confirmada correctamente.']];
+            // Una transferencia nueva puede quedar en tres estados distintos según quién la
+            // registra: el aviso dice cuál, para que nadie busque un paso que ya no existe.
+            $mensaje='Operación confirmada correctamente.';
+            if($accion==='transferencia_solicitar'&&isset($resultado['transferencia_id'],$resultado['estado'])){
+                $n=(int)$resultado['transferencia_id'];
+                $mensaje=match($resultado['estado']){
+                    'recibida'=>"Transferencia #{$n} realizada: las existencias ya están en el almacén destino.",
+                    'enviada'=>"Transferencia #{$n} enviada. El negocio destino registrará la recepción.",
+                    default=>"Transferencia #{$n} solicitada. El negocio dueño del origen la enviará.",
+                };
+                // El destino no manejaba el artículo: la transferencia lo asoció y se dice.
+                if(!empty($resultado['asociados']['articulos'])){
+                    $lista=implode(', ',array_map(static fn($x)=>'«'.$x.'»',(array)$resultado['asociados']['articulos']));
+                    $mensaje.=' '.$lista.(count((array)$resultado['asociados']['articulos'])===1?' quedó asociado':' quedaron asociados').' a '.(string)$resultado['asociados']['almacen'].', con mínimo 0.';
+                }
+            }
+            // Alta múltiple: el aviso cuenta los almacenes para que no parezca que sólo fue uno.
+            if($accion==='asociar'&&!empty($resultado['almacenes_asociados']))$mensaje='Artículo asociado a '.count((array)$resultado['almacenes_asociados']).' almacenes. Empieza sin existencias en cada uno.';
+            $_SESSION['_almacenes_flash'][$ctx]=['exito'=>[$mensaje]];
         } catch (\Throwable $e) { $_SESSION['_almacenes_flash'][$ctx]=['error'=>[$e instanceof InventarioError?$e->getMessage():'No se confirmó la operación.']]; }
         $volver=[];
         if(is_string($_POST['volver_filtros']??null) && strlen($_POST['volver_filtros'])<=8000) {

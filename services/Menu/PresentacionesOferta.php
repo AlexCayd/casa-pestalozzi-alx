@@ -37,12 +37,13 @@ final class PresentacionesOferta
             $version=(int)A::sql('SELECT COALESCE(MAX(version),0)+1 FROM presentacion_versiones WHERE presentacion_id=?',[$pid])->get_result()->fetch_row()[0];
             $componentes=A::componentes($raw['componentes']??null);
             foreach($componentes as $h)if($h['merma']!=='0.000')throw new InventarioError('MERMA_INVALIDA','La merma se define en la elaboración, no en la presentación de servicio.');
+            // Reventa confirmada (§16): un solo artículo almacenado que se sirve tal cual.
+            if(TipoVenta::reventaConfirmada($oferta,$u))TipoVenta::validarPresentacion(array_map(static fn($h,$i)=>$h+['etapa'=>$raw['componentes'][$i]['etapa']??'servicio'],$componentes,array_keys($componentes)));
             A::sql('INSERT INTO presentacion_versiones(presentacion_id,oferta_id,unidad_id,version,precio,usuario_id) VALUES(?,?,?,?,?,?)',[$pid,$oferta,$u,$version,$precio,C::actorId()]);$vid=(int)C::db()->insert_id;
             foreach($componentes as $i=>$h){$etapa=$raw['componentes'][$i]['etapa']??'servicio';if(!in_array($etapa,['servicio','produccion'],true))throw new InventarioError('ETAPA_INVALIDA','Elige la etapa de consumo.');
                 if($activo && $etapa==='produccion')throw new InventarioError('PRODUCCION_PENDIENTE','Esta presentación depende de producción M2.5 y no puede venderse todavía.');
                 A::sql('INSERT INTO presentacion_componentes(version_id,articulo_id,cantidad,unidad,modalidad,version_receta_id,etapa) VALUES(?,?,?,?,?,?,?)',[$vid,$h['articulo_id'],$h['cantidad'],$h['unidad'],$h['modalidad'],$h['version_receta_id'],$etapa]);}
             $raices=self::componentes($vid);$plan=self::plan($u,$oferta,$raices,[],(bool)$activo);
-            if($activo)self::exigirExistenciasPrevias($plan,$u);
             A::sql('UPDATE presentacion_versiones SET publicada=1 WHERE id=?',[$vid]);A::sql('UPDATE oferta_presentaciones SET nombre=?,activo=?,revision=revision+1 WHERE id=?',[$nombre,(int)$activo,$pid]);
             $r=['ok'=>true,'presentacion_id'=>$pid,'version_id'=>$vid,'version'=>$version,'revision'=>$revision+1,'plan'=>$plan];A::recordar($u,$clave,$hash,$r);return $r;
         });
@@ -93,19 +94,12 @@ final class PresentacionesOferta
         $raices=self::componentes((int)$p['id']);foreach($raices as $r)if($r['etapa']==='produccion')throw new InventarioError('PRODUCCION_PENDIENTE','Esta configuración no puede ejecutarse como venta.');
         $plan=self::plan($u,$oferta,$raices,$ajustes,true);
         $costo=$plan['costo_unitario'];foreach($plan['lineas'] as &$l){$l['cantidad']=D::cantidad(D::leer(bcmul($l['cantidad'],(string)$cantidad,3)));}unset($l);
-        self::exigirExistenciasPrevias($plan,$u);
+        // §16: «Se elabora antes de vender» ya no bloquea; sin existencias genera faltante.
         return ['version'=>$p,'plan'=>$plan+['composicion_base'=>$raices,'cantidad_vendida'=>$cantidad,'opciones'=>$ids,'ajustes'=>$ajustes,'precio_base'=>$p['precio']],'costo_unitario'=>$costo];
     }
     public static function congelar(int $item,int $oferta,int $u,int $version,array $plan): void
     {
         A::sql('INSERT INTO ticket_item_resoluciones(ticket_item_id,unidad_id,oferta_id,presentacion_version_id,snapshot,huella) VALUES(?,?,?,?,?,?)',[$item,$u,$oferta,$version,json_encode($plan,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),A::huella($plan)]);
-    }
-    public static function exigirExistenciasPrevias(array $plan,int $u): void
-    {
-        foreach($plan['lineas'] as $l){$a=A::cargarArticulo((int)$l['articulo_id'],$u);if(empty($a['produccion_previa']))continue;
-            $saldo=A::sql('SELECT saldo FROM almacen_articulos WHERE almacen_id=? AND articulo_id=? AND unidad_id=? FOR UPDATE',[$l['almacen_id'],$l['articulo_id'],$u])->get_result()->fetch_row();
-            if(!$saldo||bccomp((string)$saldo[0],$l['cantidad'],3)<0)throw new InventarioError('PRODUCCION_PENDIENTE','No hay suficientes existencias terminadas recibidas. La producción física está pendiente de M2.5.');
-        }
     }
     private static function oferta(int $id,int $u,bool $lock=false): array {$o=A::sql('SELECT * FROM ofertas_producto WHERE id=? AND unidad_id=?'.($lock?' FOR UPDATE':''),[$id,$u])->get_result()->fetch_assoc();if(!$o)throw new InventarioError('OFERTA_DENEGADA','La oferta no pertenece al negocio activo.');return $o;}
 }
