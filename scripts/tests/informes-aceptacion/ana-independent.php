@@ -15,6 +15,10 @@ try{
     $db->execute_query('INSERT INTO tickets(unidad_id,estado,comensales,hora_apertura,hora_cierre)VALUES(?,?,?,?,?)',[$u,'cerrado',1,'2002-01-14 12:00:00','2002-01-14 12:00:00']);$add((int)$db->insert_id,'Previo',1,100);
     $db->execute_query('INSERT INTO tickets(unidad_id,estado,comensales,hora_apertura,hora_cierre)VALUES(?,?,?,?,?)',[$ids['units']['panaderia'],'cerrado',99,'2002-01-15 12:00:00','2002-01-15 12:00:00']);
     $r=R::resolverInforme(['desde'=>'2002-01-15','hasta'=>'2002-01-17']);$before=pdfTestSnapshot($db);$t=A::totales($db,$u,$r['start'],$r['end']);
+    $source=$db->execute_query("SELECT COUNT(*) tickets,COUNT(sub.ticket_id) con_consumo,COALESCE(SUM(t.comensales),0) comensales,COALESCE(SUM(sub.total),0) ventas FROM tickets t LEFT JOIN (SELECT ticket_id,SUM(precio*cantidad) total FROM ticket_items WHERE estado<>'cancelado' AND unidad_id=$u GROUP BY ticket_id) sub ON sub.ticket_id=t.id WHERE t.estado='cerrado' AND t.unidad_id=$u AND COALESCE(t.hora_cierre,t.hora_apertura)>='2002-01-15 00:00:00' AND COALESCE(t.hora_cierre,t.hora_apertura)<='2002-01-17 23:59:59'")->fetch_assoc();
+    $source['piezas']=$db->execute_query("SELECT COALESCE(SUM(ti.cantidad),0) FROM ticket_items ti JOIN tickets t ON t.id=ti.ticket_id WHERE t.estado='cerrado' AND ti.estado<>'cancelado' AND t.unidad_id=$u AND COALESCE(t.hora_cierre,t.hora_apertura)>='2002-01-15 00:00:00' AND COALESCE(t.hora_cierre,t.hora_apertura)<='2002-01-17 23:59:59'")->fetch_row()[0];
+    foreach(['tickets'=>2,'con_consumo'=>1,'comensales'=>7,'ventas'=>450,'piezas'=>45]as$key=>$expected)pdfTestNear($source[$key],$expected,'ANA SQL origen '.$key);
+    file_put_contents(pdfTestTemp().'/source-query-analisis.json',json_encode(['metodo'=>'COUNT tickets cerrados con LEFT JOIN a partidas agregadas por ticket, consumo y ventas; SUM piezas de partidas vigentes; cierre/apertura','desde'=>'2002-01-15','hasta'=>'2002-01-17','actual'=>$source],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR));
     foreach(['ventas'=>450,'tickets'=>2,'comensales'=>7,'piezas'=>45]as$key=>$expected)pdfTestNear($t[$key],$expected,'Autoridad ANA '.$key);
     $doc=A::informe($db,$u,$r,'2026-11-06 12:00:00');$k=array_column($doc['kpis'],'valor','etiqueta');
     file_put_contents(pdfTestTemp().'/ana-documento.json',json_encode($doc,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
@@ -32,5 +36,5 @@ try{
     pdfTestAssert(count($large['secciones'][0]['filas'])===13 && abs($totalAnual-550)<0.01,'Agrupación mensual ANA');
     pdfTestNear($totalAnual, A::totales($db,$u,$year['start'],$year['end'])['ventas'], 'Paridad serie anual ANA');
     $pdf=G::documento($doc);file_put_contents(pdfTestTemp().'/ana-independent.pdf',$pdf->output());pdfTestAssert($before===pdfTestSnapshot($db),'ANA mutaBD');
-    echo 'ANA independiente PASS5KPIs/top7de9/snapshot/cancelados/ceros/prev/FINDIF0/empty/sololectura; 366dias pages='.$p->getCanvas()->get_page_count().' elapsed='.round(microtime(true)-$start,3).' peakMB='.round(memory_get_peak_usage(true)/1048576,1).PHP_EOL;
+    echo 'ANA independiente PASS SQL-origen ventas='.$source['ventas'].' tickets='.$source['tickets'].' piezas='.$source['piezas'].' comensales='.$source['comensales'].' con_consumo='.$source['con_consumo'].'; 5KPIs/top7de9/snapshot/cancelados/ceros/prev/FINDIF0/empty/sololectura; 366dias pages='.$p->getCanvas()->get_page_count().' elapsed='.round(microtime(true)-$start,3).' peakMB='.round(memory_get_peak_usage(true)/1048576,1).PHP_EOL;
 }finally{$db->rollback();$db->close();}

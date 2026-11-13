@@ -162,7 +162,8 @@ final class ConsultasAlmacen
         foreach ($alertas as $alerta) $filasAlertas[] = [$alerta['almacen'], $alerta['articulo'], $alerta['unidad'], (float)$alerta['saldo'], (float)$alerta['minimo']];
         $resumen = 'Al generar el informe hay ' . (int)$foto['alertas'] . ' relaciones bajo mínimo en ' . count($almacenes) . ' almacenes activos.';
         $resumen .= ' En el periodo se registraron ' . $totalMovimientos . ' movimientos.';
-        if ($sinCosto > 0) $resumen .= ' Hay ' . $sinCosto . ' movimientos de merma sin costo conocido.';
+        $movimientoSinCosto = $sinCosto === 1 ? 'movimiento' : 'movimientos';
+        if ($sinCosto > 0) $resumen .= ' Hay ' . $sinCosto . ' ' . $movimientoSinCosto . ' de merma sin costo conocido.';
         $resumen .= (int)$foto['alertas'] > count($alertas)
             ? ' Se muestran 10 alertas actuales; el indicador incluye todas las relaciones bajo mínimo.'
             : ' El detalle de alertas cubre todas las relaciones actualmente bajo mínimo.';
@@ -189,7 +190,7 @@ final class ConsultasAlmacen
                 'Existencias, mínimos y alertas son una fotografía al generar; no representan saldos históricos al final del periodo.',
                 'Las relaciones bajo mínimo se cuentan por almacén y artículo. Un artículo en varios almacenes es un solo artículo distinto y varias relaciones.',
                 'Los movimientos se cuentan por fecha registrada, incluidos los de almacenes actualmente inactivos. No se suman saldos de unidades incompatibles.',
-                'La merma usa el costo congelado de movimientos que lo tienen; quedan fuera ' . $sinCosto . ' movimientos de merma sin costo conocido.',
+                'La merma usa el costo congelado de movimientos que lo tienen; quedan fuera ' . $sinCosto . ' ' . $movimientoSinCosto . ' de merma sin costo conocido.',
             ],
         ];
     }

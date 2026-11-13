@@ -34,10 +34,11 @@ try {
     // Comparación financiera firmada: gastos fijos vigentes causan una pérdida anterior sin ventas.
     $db->execute_query("INSERT INTO gastos_fijos(unidad_id,nombre,monto,categoria) VALUES(?,'Gasto fixture gráfico',12000,'renta')", [$u]);
     foreach (['Almacén de ingredientes secos y preparaciones de temporada', 'Cámara fría para frutas, lácteos y productos delicados', 'Almacén de servicio & reposición diaria'] as $k => $nombre) {
-        $db->execute_query('INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES(?,?,1)', [$u, $nombre]); $w = (int) $db->insert_id;
+        $db->execute_query('INSERT INTO almacenes(unidad_id,nombre,permitir_negativos) VALUES(?,?,0)', [$u, $nombre]); $w = (int) $db->insert_id;
         for ($i = 0; $i < 5 + $k * 3; $i++) {
             $db->execute_query('INSERT INTO ingredientes(nombre,unidad,costo) VALUES(?,?,2)', ['Artículo gráfico ' . $k . '/' . $i, $i % 2 ? 'kg' : 'pza']); $art = (int) $db->insert_id;
-            $db->execute_query('INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES(?,?,?,?,?)', [$w, $art, $u, $i % 3 === 0 ? -1.125 : 20, 5]);
+            $saldo = match ($i % 3) { 0 => 0, 1 => 0.125, default => 20 };
+            $db->execute_query('INSERT INTO almacen_articulos(almacen_id,articulo_id,unidad_id,saldo,minimo) VALUES(?,?,?,?,?)', [$w, $art, $u, $saldo, 5]);
         }
     }
     $svc = new ConsultasAlmacen($db, new AlcanceInventario($db, (int)$ids['users']['reader'], 'contrasena'));
@@ -68,6 +69,20 @@ try {
     $provisional = Reservas::documento($db,$u,R::resolverInforme(['desde'=>'2099-01-01','hasta'=>'2099-01-07']),$ahora);
     pdfTestAssert($provisional['titulo']==='Informe de reservaciones'&&$provisional['provisional']===true, 'Provisionalidad perdida');
     file_put_contents(pdfTestTemp() . '/grafica-reservaciones-provisional.pdf', G::documento($provisional)->output()); $cantidadPdf++;
+    // Mismo fixture al corte 04/01: valida la semántica parcial en los cinco
+    // dominios sin crear otro conjunto de datos.
+    $corteParcial = R::resolverInforme(['desde'=>'2004-01-01','hasta'=>'2004-01-07']);
+    $corte='2004-01-04 12:00:00';
+    $documentosParciales=['finanzas'=>F::informe($db,$u,$corteParcial,$corte),
+        'analisis'=>A::informe($db,$u,$corteParcial,$corte),
+        'reservaciones'=>Reservas::documento($db,$u,$corteParcial,new DateTimeImmutable($corte,new DateTimeZone('America/Mexico_City'))),
+        'inventario'=>$svc->informe('restaurante',$corteParcial,$corte),
+        'tickets'=>T::informe($db,$u,$corteParcial,$corte)];
+    pdfTestAssert($documentosParciales['reservaciones']['provisional']===true,'RES corte parcial');
+    foreach (['analisis','tickets'] as $modulo) pdfTestAssert(str_contains(mb_strtolower($documentosParciales[$modulo]['resumen']),'provisional'), 'Resumen provisional '.$modulo);
+    foreach ($documentosParciales as $modulo=>$doc) {
+        file_put_contents(pdfTestTemp().'/grafica-'.$modulo.'-periodo-provisional.pdf', G::documento($doc)->output()); $cantidadPdf++;
+    }
     pdfTestAssert($antes === pdfTestSnapshot($db), 'La generación representativa altera hechos');
-    echo 'GRÁFICAS representativas PASS ' . $cantidadPdf . ' PDF: 93 ventas con centavos,14 tramos,5 normales/vacíos/366d,3 almacenes amplios,negativos,PII sintética,paridad FIN/ANA/TIC y no mutación.' . PHP_EOL;
+    echo 'GRÁFICAS representativas PASS ' . $cantidadPdf . ' PDF: 93 ventas con centavos,14 tramos,5 normales/vacíos/366d,5 cortes parciales,3 almacenes amplios,ceros/milésimas M4,PII sintética,paridad FIN/ANA/TIC y no mutación.' . PHP_EOL;
 } finally { $db->rollback(); $db->close(); }
