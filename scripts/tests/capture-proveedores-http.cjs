@@ -10,7 +10,7 @@ const root = '/admin/almacenes/proveedores';
   const executablePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   const browser = await chromium.launch({ headless: true, executablePath });
   const errors = [];
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, extraHTTPHeaders: { 'X-Proveedores-Test-Token': token } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, hasTouch: true, extraHTTPHeaders: { 'X-Proveedores-Test-Token': token } });
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   const settle = async () => {
@@ -37,6 +37,8 @@ const root = '/admin/almacenes/proveedores';
     await login('edit');
     let response = await navigate(`${origin}${root}/ficha?id=1001`);
     if (!response || response.status() !== 200 || await page.locator('[data-proveedor-vista="articulos"]').count() !== 1) throw new Error('No abrió la ficha real de Artículos.');
+    const activeArticleTab = page.locator('.proveedores-vistas a[aria-current="page"]');
+    if (await activeArticleTab.count() !== 1 || (await activeArticleTab.evaluate(el => getComputedStyle(el).backgroundColor)) === 'rgba(0, 0, 0, 0)') throw new Error('La vista activa no se reconoce con el fondo de navegación.');
     await page.screenshot({ path: path.join(evidence, 'proveedores-articulos-desktop.png') });
     const editLink = await page.getByRole('link', { name: 'Editar artículos' }).count();
     const assignmentsForm = await page.locator('form[action$="/asignaciones"]').count();
@@ -75,6 +77,30 @@ const root = '/admin/almacenes/proveedores';
 
     response = await navigate(`${origin}${root}/historial?id=1001&articulo=1002`);
     if (!response || response.status() !== 200 || await page.locator('.proveedor-precios__tabla tbody tr').count() !== 25) throw new Error('El historial HTTP real no carga 25 filas.');
+    const chartPoints = page.locator('[data-price-point]');
+    const chartPointCount = await chartPoints.count();
+    if (chartPointCount !== 40) throw new Error('El gráfico no limita su DOM a 40 eventos.');
+    const firstPoint = chartPoints.first();
+    const pointInfo = await firstPoint.evaluate(el => ({ date: el.dataset.date, price: el.dataset.value, difference: el.dataset.difference, variation: el.dataset.variation }));
+    await firstPoint.hover();
+    let tipText = await page.locator('[data-price-tooltip]').innerText();
+    if (!tipText.includes(pointInfo.date) || !tipText.includes(pointInfo.price) || (pointInfo.difference && !tipText.includes(pointInfo.difference.replace('-', ''))) || (pointInfo.variation && !tipText.includes(pointInfo.variation))) throw new Error('Hover no muestra fecha, precio y variación exactos del punto.');
+    await firstPoint.focus();
+    await page.keyboard.press('End');
+    if (await page.evaluate(() => document.activeElement?.dataset.index) !== '39') throw new Error('End no recorre al último punto del gráfico.');
+    await page.keyboard.press('Enter');
+    if (await chartPoints.nth(39).getAttribute('aria-pressed') !== 'true' || await chartPoints.nth(39).getAttribute('tabindex') !== '0') throw new Error('Enter no selecciona el punto ni conserva el foco roving.');
+    await page.keyboard.press('ArrowLeft');
+    if (await page.evaluate(() => document.activeElement?.dataset.index) !== '38') throw new Error('ArrowLeft no recorre al punto anterior.');
+    await page.keyboard.press('ArrowRight');
+    if (await page.evaluate(() => document.activeElement?.dataset.index) !== '39') throw new Error('ArrowRight no recorre al punto siguiente.');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Space');
+    if (await chartPoints.first().getAttribute('aria-pressed') !== 'true') throw new Error('Espacio no activa el punto enfocado.');
+    await page.keyboard.press('Escape');
+    if (await page.locator('[data-price-point][aria-pressed="true"]').count() !== 0 || !(await page.locator('[data-price-tooltip]').innerText()).includes('Enfoca')) throw new Error('Escape no limpia la selección de forma accesible.');
+    await chartPoints.nth(22).click();
+    if (await chartPoints.nth(22).getAttribute('aria-pressed') !== 'true') throw new Error('Click de mouse no fija el punto seleccionado.');
     const firstPageNext = await page.getByRole('link', { name: 'Siguiente' }).getAttribute('href');
     if (!firstPageNext?.includes('articulo=1002&pagina=2')) throw new Error('El vínculo de paginación no conserva el artículo.');
     await page.screenshot({ path: path.join(evidence, 'proveedores-historial-desktop.png') });
@@ -97,6 +123,8 @@ const root = '/admin/almacenes/proveedores';
       const maxScroll = wrap.scrollWidth - wrap.clientWidth; wrap.scrollLeft = maxScroll;
       return { maxScroll, scrollLeft: wrap.scrollLeft };
     });
+    await chartPoints.nth(18).tap();
+    if (await chartPoints.nth(18).getAttribute('aria-pressed') !== 'true' || !(await page.locator('[data-price-tooltip]').innerText()).includes(await chartPoints.nth(18).getAttribute('data-date'))) throw new Error('Toque no selecciona el punto cercano ni muestra la fecha.');
     await page.screenshot({ path: path.join(evidence, 'proveedores-historial-mobile.png') });
     await page.locator('.proveedor-precios__tabla').locator('..').screenshot({ path: path.join(evidence, 'proveedores-historial-tabla-mobile.png') });
     if (historyMobileWidth.document > historyMobileWidth.viewport) throw new Error(`Overflow Historial: ${historyMobileWidth.document}px.`);
@@ -120,6 +148,10 @@ const root = '/admin/almacenes/proveedores';
       scrollHistorial: historyScroll,
       enlacePaginacionConservaArticulo: firstPageNext,
       consultaSinControlesEdicion: true,
+      chartPoints: chartPointCount,
+      chartHoverExacto: true,
+      chartTeclado: 'End, Enter, Home, Space, Escape',
+      chartTouchSelected: true,
       erroresPagina: errors.length,
       capturas: ['proveedores-articulos-desktop.png', 'proveedores-articulos-mobile.png', 'proveedores-entradas-desktop.png', 'proveedores-datos-desktop.png', 'proveedores-historial-desktop.png', 'proveedores-historial-tabla-desktop.png', 'proveedores-historial-mobile.png', 'proveedores-historial-tabla-mobile.png', 'proveedores-articulos-lectura.png']
     }, null, 2));

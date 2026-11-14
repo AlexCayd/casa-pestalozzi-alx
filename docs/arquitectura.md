@@ -593,7 +593,9 @@ otros ámbitos sin editar sus precios; la comparación se limita al ámbito del 
 abierto.
 
 La ficha separa Artículos, Entradas y Datos mediante `vista=articulos|entradas|datos`;
-solo consulta la información de la vista activa. Artículos es la vista inicial de
+solo consulta la información de la vista activa. La navegación es un grupo compacto de
+enlaces alineado a la izquierda; `aria-current="page"` marca la vista activa y cada
+enlace conserva una URL navegable sin JavaScript. Artículos es la vista inicial de
 lectura y los controles de asignación requieren `editar=1`. El acceso a artículos
 retirados es secundario. El historial usa `/admin/almacenes/proveedores/historial`
 con proveedor, artículo y página en query; la paginación conserva el par seleccionado
@@ -606,7 +608,14 @@ y conserva el filtro al paginar. La gráfica consulta como máximo 41 filas para
 los 40 eventos comparables más recientes y detectar truncamiento; usa fechas reales en
 el eje X y precio en el eje Y, sin unir unidades distintas ni cruzar una
 `base_observada`. Con menos de tres eventos del tramo/unidad vigente explica por qué
-no hay gráfica.
+no hay gráfica. Cada punto expone fecha, precio decimal exacto, unidad, coordenadas y
+variación comparable. Mouse, toque y teclado muestran el detalle en un tooltip vivo;
+las flechas, Inicio/Fin, Enter/Espacio y Escape recorren y seleccionan puntos sin
+dependencias nuevas. El resumen bajo el título solo muestra el precio ofrecido vigente
+y recuerda que las entradas conservan su costo capturado. La comparación de
+proveedores aparece por acción secundaria únicamente cuando existe otra asociación
+del mismo artículo y ámbito; la tabla excluye al proveedor actual y etiqueta si cada
+alternativa está activa.
 
 Las series demostrativas se insertan únicamente desde `database/development.sql`.
 Para una instalación existente development/test, la carga separada

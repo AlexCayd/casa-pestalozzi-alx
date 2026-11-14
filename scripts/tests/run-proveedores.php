@@ -77,6 +77,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $hpSeed=$dir->historialPrecios('restaurante',1001,1,1002);$graficaSeed=$dir->graficaPrecio('restaurante',1001,1002);
     $a($hpSeed['total']===45&&$hpSeed['paginas']===2&&count($hpSeed['filas'])===25,'La serie larga ofrece página de 25 sin cargar todos los eventos');
     $a($graficaSeed!==null&&$graficaSeed['eventos']===40&&$graficaSeed['recortada']===true&&count(explode(' ',trim($graficaSeed['puntos'])))===40,'La gráfica limita a los últimos 40 puntos de 45 comparables');
+    $a(count($graficaSeed['datos'])===40&&isset($graficaSeed['datos'][0]['fecha'],$graficaSeed['datos'][0]['valor'],$graficaSeed['datos'][0]['unidad'],$graficaSeed['datos'][0]['x'],$graficaSeed['datos'][0]['y'],$graficaSeed['datos'][0]['diferencia'],$graficaSeed['datos'][0]['variacion_pct']),'Cada punto de gráfica expone fecha, precio, unidad, coordenadas y variación exacta');
     $a(count($graficaSeed['eje_x'])===4&&$graficaSeed['eje_x'][0]['x']<$graficaSeed['eje_x'][3]['x']&&$graficaSeed['eje_y'][0]['valor']!==$graficaSeed['eje_y'][2]['valor'],'La gráfica usa fechas reales en X y escala de precio legible en Y');
     $graficaPan=$dir->graficaPrecio('panaderia',1002,1001);$graficaGlobal=$dir->graficaPrecio('global',1003,1001);
     $a($graficaPan!==null&&$graficaPan['eventos']===10&&!$graficaPan['recortada']&&$graficaGlobal!==null&&$graficaGlobal['eventos']===5,'Las series medianas/cortas de Panadería y Global se consultan en su ámbito');
@@ -87,6 +88,8 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $db->execute_query("UPDATE historial_precios_proveedores SET precio_nuevo='0.0200' WHERE unidad_id=1 AND proveedor_id=1003 AND articulo_id=1001");
     $graficaPlana=$dir->graficaPrecio('global',1003,1001);
     $a($graficaPlana!==null&&$graficaPlana['eje_maximo']>$graficaPlana['eje_minimo']&&count(array_unique(array_map(static fn($p)=>explode(',',$p)[1],explode(' ',trim($graficaPlana['puntos'])))))===1,'Una serie plana conserva una escala no nula y dibuja sin división entre cero');
+    $a(count($graficaPlana['datos'])===5&&array_reduce($graficaPlana['datos'],static fn($ok,$p)=>$ok&&$p['unidad']===$graficaPlana['unidad'],true),'Los puntos de una serie plana mantienen su snapshot de unidad');
+    $a(!$dir->tieneAlternativasPrecio('restaurante',1001,1002),'Sin otra asociación no se ofrece acción de comparación');
     $articuloSeed=$dir->articulosHistorialPrecios('restaurante',1001);
     $a((string)array_values(array_filter($articuloSeed,static fn($x)=>(int)$x['articulo_id']===1002))[0]['precio_actual']==='0.0150','La selección contextual expone precio vigente de su asociación');
     $contextoSeed=$dir->contextoHistorialPrecio('restaurante',1001,1002);
@@ -209,10 +212,15 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $articuloComun=(int)$uno('SELECT a2.articulo_id FROM almacen_articulos a2 JOIN almacen_articulos a3 ON a3.articulo_id=a2.articulo_id WHERE a2.unidad_id=2 AND a3.unidad_id=3 ORDER BY a2.articulo_id LIMIT 1');
     $a($articuloComun>0,'Hay artículo almacenado en Restaurante y Panadería para validar comparación acotada');
     $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (2,?,?,0.0300) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun,$lac]);
+    $a(!$dir->tieneAlternativasPrecio('restaurante',$lac,$articuloComun),'Las ofertas de Panadería/Global no activan comparación dentro de Restaurante');
+    $alternativa=(int)$dir->guardar('restaurante',null,['nombre'=>'Alternativa temporal de prueba','activo'=>'1'])['proveedor_id'];
+    $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (2,?,?,0.0290)',[$articuloComun,$alternativa]);
     $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (3,?,1002,0.0280) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun]);
     $db->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES (1,?,1003,0.0270) ON DUPLICATE KEY UPDATE costo=VALUES(costo)',[$articuloComun]);
     $cmp=$dir->compararPrecios('restaurante',$lac,$articuloComun);
     $a(count($cmp)>=1&&array_reduce($cmp,static fn($ok,$x)=>$ok&&(int)$x['unidad_id']===2,true),'Comparación excluye ofertas de Panadería y Global aunque compartan artículo');
+    $a($dir->tieneAlternativasPrecio('restaurante',$lac,$articuloComun),'La acción de comparación aparece al existir otra oferta en el mismo ámbito');
+    $a(array_reduce($cmp,static fn($ok,$x)=>$ok&&(int)$x['proveedor_id']!==$lac,true),'Comparación de alternativas excluye al proveedor actual');
     $cmpGlobal=$dir->compararPrecios('global',$lac,$articuloComun);
     $a(count($cmpGlobal)>=1&&array_reduce($cmpGlobal,static fn($ok,$x)=>$ok&&(int)$x['unidad_id']===2,true),'Global consulta proveedores del ámbito del proveedor abierto sin mezclar negocios');
     $no($dir->guardarAsignaciones('global',$lac,[['articulo_id'=>(string)$articuloComun,'costo'=>'1']]),'Global no edita precio de referencia de Restaurante','RECURSO_NO_ENCONTRADO');

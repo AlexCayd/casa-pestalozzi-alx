@@ -52,8 +52,10 @@ $assert($sinMapear === [], 'Rutas del panel sin módulo (sólo las abriría un r
 
 // El informe usa una ruta exacta: no habilita otras rutas legacy de Almacenes.
 $assert(Permisos::clasificar('/admin/almacenes/informe.pdf') === ['tipo' => 'modulos', 'modulos' => ['inventario']], 'Informe de almacenes exige Inventario.');
+$assert(Permisos::clasificar('/admin/almacenes/informe') === ['tipo' => 'modulos', 'modulos' => ['inventario']], 'Alias del informe de almacenes conserva permiso de Inventario.');
 $assert(Permisos::clasificar('/admin/almacenes/otra')['tipo'] === 'solo_sistema', 'Una ruta futura de Almacenes no hereda la excepción.');
 $assert(Permisos::clasificar('/admin/almacenes/informe.pdf/otra')['tipo'] === 'solo_sistema', 'La excepción del informe es exacta.');
+$assert(Permisos::clasificar('/admin/almacenes/informe/otra')['tipo'] === 'solo_sistema', 'El alias del informe también es una excepción exacta.');
 
 // 3 · Las APIs del personal: todas con módulo; las públicas, públicas.
 foreach (['/api/punto-de-venta', '/api/enviar-comanda', '/api/area-items', '/api/ticket-items', '/api/configuracion/horarios/semanales'] as $api) {

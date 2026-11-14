@@ -86,7 +86,7 @@ class AdminReservacionController
                 $periodoInforme = \Services\Shared\RangoPeriodo::resolverInforme([
                     'desde' => $filtros['fecha_inicio'], 'hasta' => $filtros['fecha_fin'],
                 ], $hoy);
-                $informeHref = '/admin/reservaciones/informe.pdf?' . http_build_query([
+                $informeHref = '/admin/reservaciones/informe?' . http_build_query([
                     'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
                 ], '', '&', PHP_QUERY_RFC3986);
             } catch (\InvalidArgumentException $e) {

@@ -163,17 +163,24 @@ Colocar una **única acción secundaria «Generar informe»** junto al selector 
 
 ### 6.2 Rutas registradas
 
-| Informe       | Ruta GET Restaurante               | Permiso            | Fuente actual de pantalla                  |
-| ------------- | ---------------------------------- | ------------------ | ------------------------------------------ |
-| Finanzas      | `/admin/finanzas/informe.pdf`      | `finanzas:ver`     | `/admin/finanzas`                          |
-| Análisis      | `/admin/analytics/informe.pdf`     | `analytics:ver`    | `/admin/analytics`                         |
-| Reservaciones | `/admin/reservaciones/informe.pdf` | `reservations:ver` | `/admin/reservaciones`                     |
-| Inventario    | `/admin/almacenes/informe.pdf`     | `inventario:ver`   | `/admin/almacenes` (interfaz multinegocio) |
-| Tickets       | `/admin/tickets/informe.pdf`       | `tickets:ver`      | `/admin/tickets`                           |
+| Informe       | Ruta GET usada por la app          | Ruta `.pdf` compatible            | Permiso            | Fuente actual de pantalla                  |
+| ------------- | ---------------------------------- | -------------------------------- | ------------------ | ------------------------------------------ |
+| Finanzas      | `/admin/finanzas/informe`          | `/admin/finanzas/informe.pdf`      | `finanzas:ver`     | `/admin/finanzas`                          |
+| Análisis      | `/admin/analytics/informe`         | `/admin/analytics/informe.pdf`     | `analytics:ver`    | `/admin/analytics`                         |
+| Reservaciones | `/admin/reservaciones/informe`     | `/admin/reservaciones/informe.pdf` | `reservations:ver` | `/admin/reservaciones`                     |
+| Inventario    | `/admin/almacenes/informe`         | `/admin/almacenes/informe.pdf`     | `inventario:ver`   | `/admin/almacenes` (interfaz multinegocio) |
+| Tickets       | `/admin/tickets/informe`           | `/admin/tickets/informe.pdf`       | `tickets:ver`      | `/admin/tickets`                           |
 
 No cambiar la semántica de rutas antiguas ni aceptar un slug de negocio como sustituto de autorización. Si la aplicación distingue rutas exactas de prefijos, registrar las cinco explícitamente y probar su clasificación. El patrón conceptual futuro será `/admin/panaderia/<modulo>/informe.pdf` y `/admin/global/<modulo>/informe.pdf` **solo donde ya exista módulo y permiso autorizados**; no registrar esos endpoints ahora.
 
 Las cinco rutas anteriores están registradas para Restaurante. `/admin/inventario` no expone una ruta adicional de informe.
+
+Los aliases sin extensión y las rutas `.pdf` usan el mismo controlador. Los enlaces de
+la interfaz y el Asistente IA generan la ruta sin extensión, porque el servidor
+integrado de PHP trata una URL dinámica terminada en `.pdf` como si fuera un archivo
+estático ausente cuando se inicia sin router. La compatibilidad `.pdf` se conserva
+para Apache y para el servidor integrado iniciado con `scripts/dev-router.php`.
+Véase [reproducción del 404 local](desarrollo/informes-404-php-dev-server.md).
 
 ### 6.3 Reportes dentro del Asistente IA
 

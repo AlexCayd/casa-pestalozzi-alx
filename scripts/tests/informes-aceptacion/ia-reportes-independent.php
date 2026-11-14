@@ -56,7 +56,7 @@ try {
         foreach (Services\Analytics\ConsultasRapidas::PERIODOS as $periodo => $label) {
             $r = $request($api . http_build_query(['intencion' => 'informe_' . $intent, 'periodo' => $periodo]));
             $p = Services\Analytics\ConsultasRapidas::periodo($periodo);
-            $expected = '/admin/' . $path . '/informe.pdf?' . http_build_query(['desde' => $p['desde'], 'hasta' => $p['hasta']]);
+            $expected = '/admin/' . $path . '/informe?' . http_build_query(['desde' => $p['desde'], 'hasta' => $p['hasta']]);
             $check($r['code'] === 200 && ($r['json']['informe']['url'] ?? null) === $expected, 'Presets compartidos ' . $intent . '/' . $periodo);
         }
         $r = $request($api . http_build_query(['intencion' => 'informe_' . $intent, 'periodo' => 'personalizado', 'desde' => '2024-01-01', 'hasta' => '2024-12-31']));

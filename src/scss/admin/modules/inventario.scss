@@ -1453,18 +1453,23 @@
   select { min-width: min(100%, 280px); min-height: 42px; }
   .admin-btn { min-height: 42px; }
 }
-.proveedor-precios__grafica { margin: 0 0 18px; padding: 14px 16px 10px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface-soft);
+.proveedor-precios__grafica { --precio-grafica-alto: 168px; margin: 0 0 18px; padding: 14px 16px 10px; border: 1px solid var(--admin-border); border-radius: var(--admin-radius-md); background: var(--admin-surface-soft);
   figcaption { margin-bottom: 10px; color: var(--admin-muted); font-size: 12px; line-height: 1.5; }
-  svg { display: block; width: 100%; height: 116px; overflow: visible; }
+  svg { display: block; width: 100%; height: var(--precio-grafica-alto); overflow: visible; touch-action: pan-y; }
   line { stroke: var(--admin-border); stroke-width: .7; vector-effect: non-scaling-stroke; }
   polyline { fill: none; stroke: var(--admin-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .proveedor-precios__punto { fill: var(--admin-text); stroke: var(--admin-surface-soft); stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: crosshair; transition: r 100ms ease-out, fill 100ms ease-out; }
+  .proveedor-precios__punto:hover, .proveedor-precios__punto.is-preview, .proveedor-precios__punto.is-seleccionado { r: 4.5; fill: var(--admin-gold); }
+  .proveedor-precios__punto:focus-visible { r: 5; stroke: var(--admin-gold); stroke-width: 2.5; outline: none; }
 }
 .proveedor-precios__contexto { margin: 0 0 16px; color: var(--admin-muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere;
   strong { color: var(--admin-text); font-weight: 600; }
 }
 .proveedor-precios__grafica-area { display: grid; grid-template-columns: max-content minmax(0,1fr); align-items: start; gap: 10px; min-width: 0; }
-.proveedor-precios__eje-y { display: flex; flex-direction: column; justify-content: space-between; height: 116px; padding: 5px 0 0; color: var(--admin-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.proveedor-precios__plot { min-width: 0; }
+.proveedor-precios__eje-y { display: flex; flex-direction: column; justify-content: space-between; height: var(--precio-grafica-alto,168px); padding: 5px 0 0; color: var(--admin-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proveedor-precios__plot { width: min(100%,480px); min-width: 0; }
+.proveedor-precios__plot svg { height: var(--precio-grafica-alto,168px); }
+.proveedor-precios__tooltip { display: block; min-height: 22px; margin-top: 8px; color: var(--admin-text); font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; }
 .proveedor-precios__eje-x { position: relative; height: 20px; color: var(--admin-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .proveedor-precios__eje-x span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .proveedor-precios__eje-x span[data-anchor="start"] { transform: none; }
@@ -1475,21 +1480,18 @@
 .proveedor-precios__articulo:hover { text-decoration-color: currentColor; }
 .proveedor-precios__sube { color: var(--admin-warning-text); }
 .proveedor-precios__baja { color: var(--admin-success-text); }
-.proveedor-precios__comparacion { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--admin-border-soft);
-  h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.proveedor-precios__comparacion { margin-top: 14px;
+  h3 { margin: 0; font-size: 14px; font-weight: 600; }
   > p { color: var(--admin-muted); font-size: 13px; }
 }
 .proveedor-precios__paginacion { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; color: var(--admin-muted); font-size: 12px;
   .admin-btn { min-height: 40px; }
 }
-.proveedor-precios__resumen { margin: 0 0 18px;
-  > p { margin: 0 0 12px; color: var(--admin-muted); font-size: 13px; line-height: 1.5; }
-  strong { color: var(--admin-text); }
+.proveedor-precios__resumen { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 9px; margin: -4px 0 18px; color: var(--admin-muted); font-size: 13px; line-height: 1.5;
+  strong { color: var(--admin-text); font-size: 16px; }
+  .admin-badge { align-self: center; }
 }
-.proveedor-precios__resumen-datos { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px 24px; margin: 0; padding: 14px 0; border-block: 1px solid var(--admin-border-soft);
-  dt { color: var(--admin-muted); font-size: 12px; }
-  dd { margin: 3px 0 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
-}
+.proveedor-precios__resumen-etiqueta { color: var(--admin-muted); font-weight: 600; }
 .proveedor-retirados__lista { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none;
   a { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 44px; padding: 8px 0; color: var(--admin-text); text-decoration: underline; text-underline-offset: 3px; }
   a span { color: var(--admin-muted); font-size: 12px; font-weight: 600; }
@@ -1529,14 +1531,28 @@
   &__full { grid-column: 1 / -1; }
 }
 .proveedor-retiro .almacen-section-head { margin-bottom: 0; }
+.proveedor-ficha-layout { min-width: 0; }
+.proveedores-vistas { display: inline-flex; width: fit-content; max-width: 100%; gap: 3px; margin: 0 0 18px; padding: 3px; border: 1px solid var(--admin-border-soft); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft);
+  .admin-tabs__tab { flex: 0 0 auto; }
+  .admin-tabs__tab > a { display: block; min-height: 38px; padding: 8px 13px; border-radius: calc(var(--admin-radius-sm) - 3px); color: var(--admin-muted); font-size: 13px; font-weight: 650; line-height: 1.5; text-decoration: none; white-space: nowrap; }
+  .admin-tabs__tab > a:hover { color: var(--admin-text); background: var(--admin-surface); }
+  .admin-tabs__tab > a[aria-current="page"] { color: var(--admin-sidebar-active-text); background: var(--admin-sidebar-active-bg); }
+  .admin-tabs__tab > a:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 2px; }
+}
+.proveedor-ficha-layout__contenido { min-width: 0; }
+.proveedor-ficha-layout--nuevo .proveedor-ficha-layout__contenido { width: 100%; }
 @media (pointer: coarse) {
   .proveedor-check, .proveedores-vistas a, .proveedor-serie summary, .proveedor-precios__paginacion .admin-btn { min-height: 44px; }
 }
 @media (max-width: 760px) {
   .almacen-proveedores .admin-page__header { flex-direction: column; align-items: stretch; }
+  .proveedores-vistas { display: flex; width: fit-content; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .proveedores-vistas .admin-tabs__tab > a { min-height: 44px; padding-inline: 12px; }
   .proveedor-precios__filtros { align-items: stretch; flex-direction: column; }
   .proveedor-precios__filtros select, .proveedor-precios__filtros .admin-btn { width: 100%; }
   .proveedor-precios__paginacion { flex-wrap: wrap; justify-content: center; }
+  .proveedor-precios__grafica { --precio-grafica-alto: 105px; }
+  .proveedor-precios__plot { width: min(100%,300px); }
   .proveedor-precios__grafica-area { grid-template-columns: max-content minmax(0,1fr); gap: 7px; }
   .proveedor-precios__eje-y, .proveedor-precios__eje-x { font-size: 10px; }
 }

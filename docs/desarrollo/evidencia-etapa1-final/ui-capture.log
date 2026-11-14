@@ -1,0 +1,45 @@
+{
+  "routes": [
+    "articulos",
+    "entradas",
+    "datos",
+    "historial"
+  ],
+  "desktop": "1440x1000",
+  "articlesMobile": {
+    "viewport": 390,
+    "document": 390
+  },
+  "entriesMobileWidth": 390,
+  "dataMobileWidth": 390,
+  "historyMobile": {
+    "viewport": 390,
+    "document": 390
+  },
+  "scrollArticulos": {
+    "maxScroll": 370,
+    "scrollLeft": 370
+  },
+  "scrollHistorial": {
+    "maxScroll": 492,
+    "scrollLeft": 492
+  },
+  "enlacePaginacionConservaArticulo": "/admin/almacenes/proveedores/historial?id=1001&articulo=1002&pagina=2",
+  "consultaSinControlesEdicion": true,
+  "chartPoints": 40,
+  "chartHoverExacto": true,
+  "chartTeclado": "End, Enter, Home, Space, Escape",
+  "chartTouchSelected": true,
+  "erroresPagina": 0,
+  "capturas": [
+    "proveedores-articulos-desktop.png",
+    "proveedores-articulos-mobile.png",
+    "proveedores-entradas-desktop.png",
+    "proveedores-datos-desktop.png",
+    "proveedores-historial-desktop.png",
+    "proveedores-historial-tabla-desktop.png",
+    "proveedores-historial-mobile.png",
+    "proveedores-historial-tabla-mobile.png",
+    "proveedores-articulos-lectura.png"
+  ]
+}

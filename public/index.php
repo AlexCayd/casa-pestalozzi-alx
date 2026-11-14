@@ -149,7 +149,9 @@ $router->get('/admin/panaderia/inventario', static function ($router) { header('
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/analytics/informe.pdf', [AdminController::class, 'analyticsInforme']);
+$router->get('/admin/analytics/informe', [AdminController::class, 'analyticsInforme']);
 $router->get('/admin/almacenes/informe.pdf', [AdminAlmacenesController::class, 'informe']);
+$router->get('/admin/almacenes/informe', [AdminAlmacenesController::class, 'informe']);
 $router->get('/admin/api/analytics/venta-por-hora', [AdminController::class, 'ventaPorHora']);
 // Panadería tiene su análisis (ventas en caja, mapa de calor de venta) y su
 // tabla de horas; Global, el comparativo de los dos negocios.
@@ -245,6 +247,7 @@ $router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceIt
 $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
 $router->get('/admin/reservaciones', [AdminReservacionController::class, 'index']);
 $router->get('/admin/reservaciones/informe.pdf', [AdminReservacionController::class, 'informe']);
+$router->get('/admin/reservaciones/informe', [AdminReservacionController::class, 'informe']);
 $router->get('/admin/reservaciones/crear', [AdminReservacionController::class, 'create']);
 $router->post('/admin/reservaciones/crear', [AdminReservacionController::class, 'store']);
 // Operación de reservaciones se retiró: su dirección lleva al POS (ver Auth).
@@ -277,6 +280,7 @@ $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefre
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
 $router->get('/admin/tickets/informe.pdf', [AdminController::class, 'ticketsInforme']);
+$router->get('/admin/tickets/informe', [AdminController::class, 'ticketsInforme']);
 
 // Inventario (Ingredientes)
 $router->get('/admin/inventario',           [AdminInventarioController::class, 'index']);
@@ -360,6 +364,7 @@ $router->get('/admin/reservations/development-tools', $redir301('/admin/reservac
 // Finanzas
 $router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);
 $router->get('/admin/finanzas/informe.pdf',      [AdminFinanzasController::class, 'informe']);
+$router->get('/admin/finanzas/informe',           [AdminFinanzasController::class, 'informe']);
 $router->post('/admin/finanzas/gasto/guardar',   [AdminFinanzasController::class, 'guardarGasto']);
 $router->post('/admin/finanzas/gasto/eliminar',  [AdminFinanzasController::class, 'eliminarGasto']);
 // Panadería tiene sus finanzas y sus gastos fijos; Global sólo el consolidado

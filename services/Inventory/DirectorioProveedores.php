@@ -309,9 +309,22 @@ final class DirectorioProveedores
             'SELECT ip.proveedor_id,p.nombre,p.unidad_id,p.activo,ip.costo AS precio_referencia,ip.preferente,i.nombre AS articulo,i.unidad
                FROM ingrediente_proveedores ip JOIN proveedores p ON p.id=ip.proveedor_id AND p.unidad_id=ip.unidad_id
                JOIN ingredientes i ON i.id=ip.ingrediente_id
-              WHERE ip.unidad_id=? AND ip.ingrediente_id=? ORDER BY ip.costo,p.nombre,p.id',
-            [(int)$p['unidad_id'], $articuloId]
+              WHERE ip.unidad_id=? AND ip.ingrediente_id=? AND ip.proveedor_id<>?
+              ORDER BY ip.costo,p.nombre,p.id',
+            [(int)$p['unidad_id'], $articuloId, $id]
         )->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /** Indica si hay otra asociación para comparar sin cargar sus filas todavía. */
+    public function tieneAlternativasPrecio(string $ctx, int $id, int $articuloId): bool
+    {
+        $this->exigirHistorialPreciosDisponible();
+        $p = $this->proveedor($ctx, $id);
+        return (bool)$this->db->execute_query(
+            'SELECT EXISTS(SELECT 1 FROM ingrediente_proveedores ip
+              WHERE ip.unidad_id=? AND ip.ingrediente_id=? AND ip.proveedor_id<>?)',
+            [(int)$p['unidad_id'], $articuloId, $id]
+        )->fetch_row()[0];
     }
 
     /** Artículos con cualquier evento, incluso si ya se retiró su asociación. */
@@ -376,7 +389,7 @@ final class DirectorioProveedores
         $this->exigirHistorialPreciosDisponible();
         $p = $this->proveedor($ctx, $id);
         $rows = $this->db->execute_query(
-            'SELECT precio_nuevo,unidad_base_snapshot,created_at,tipo FROM historial_precios_proveedores
+            'SELECT precio_anterior,precio_nuevo,unidad_base_snapshot,created_at,tipo FROM historial_precios_proveedores
               WHERE unidad_id=? AND proveedor_id=? AND articulo_id=? ORDER BY created_at DESC,id DESC LIMIT 41',
             [(int)$p['unidad_id'], $id, $articuloId]
         )->fetch_all(MYSQLI_ASSOC);
@@ -408,10 +421,27 @@ final class DirectorioProveedores
         $duracion = max(1, $hastaTs - $desdeTs);
         $xInicio = 58.0; $xFin = 350.0; $yInicio = 14.0; $yFin = 116.0;
         $coords = [];
+        $puntos = [];
         foreach ($valores as $i => $v) {
             $x = round($xInicio + ($fechas[$i] - $desdeTs) * ($xFin - $xInicio) / $duracion, 2);
             $y = round($yFin - ($v - $ejeMin) * ($yFin - $yInicio) / $rango, 2);
             $coords[] = $x . ',' . $y;
+            $anterior = $rows[$i]['precio_anterior'] === null
+                ? null
+                : DecimalInventario::leer((string)$rows[$i]['precio_anterior'], 4);
+            $diferencia = $anterior === null ? null : $v - $anterior;
+            $puntos[] = [
+                'x' => $x,
+                'y' => $y,
+                'fecha' => (string)$rows[$i]['created_at'],
+                'valor' => DecimalInventario::formato($v, 4),
+                'unidad' => (string)$rows[$i]['unidad_base_snapshot'],
+                'tipo' => (string)$rows[$i]['tipo'],
+                'diferencia' => $diferencia === null ? null : DecimalInventario::formato($diferencia, 4),
+                'variacion_pct' => $anterior === null || $anterior === 0
+                    ? null
+                    : round($diferencia * 100 / $anterior, 2),
+            ];
         }
         $ejeY = [];
         foreach ([0, 0.5, 1] as $fraccion) {
@@ -430,7 +460,7 @@ final class DirectorioProveedores
             ];
         }
         return [
-            'unidad' => $unidad, 'puntos' => implode(' ', $coords), 'eje_y' => $ejeY, 'eje_x' => array_values($ejeX),
+            'unidad' => $unidad, 'puntos' => implode(' ', $coords), 'datos' => $puntos, 'eje_y' => $ejeY, 'eje_x' => array_values($ejeX),
             'minimo' => DecimalInventario::formato($min, 4), 'maximo' => DecimalInventario::formato($max, 4),
             'eje_minimo' => DecimalInventario::formato($ejeMin, 4), 'eje_maximo' => DecimalInventario::formato($ejeMax, 4),
             'eventos' => count($rows), 'limite' => 40, 'recortada' => $recortada,

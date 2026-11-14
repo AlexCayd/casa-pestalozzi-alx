@@ -321,7 +321,7 @@ final class Permisos
             return ['tipo' => 'publica', 'modulos' => []];
         }
 
-        if ($url === '/admin/almacenes/informe.pdf') {
+        if (in_array($url, ['/admin/almacenes/informe.pdf', '/admin/almacenes/informe'], true)) {
             return ['tipo' => 'modulos', 'modulos' => ['inventario']];
         }
 

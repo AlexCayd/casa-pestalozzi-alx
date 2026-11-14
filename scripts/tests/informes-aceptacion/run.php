@@ -43,7 +43,7 @@ try {
             'consistencia-independent.php'=>'PASS consistencia independiente: 13 comprobaciones',
             'ia-reportes-independent.php'=>'IA Reportes independiente PASS',
             'graficas-representativas.php'=>'GRÁFICAS representativas PASS',
-            'informes-http-independent.php'=>strtoupper($args[0] ?? '').' HTTP independiente PASS 21 casos:',
+            'informes-http-independent.php'=>strtoupper($args[0] ?? '').' HTTP independiente PASS ',
         ];
         if ($code!==0 || preg_match('/\b(?:FAIL|SKIP)\b/i',$log) || !isset($markers[$script]) || !str_contains($log,$markers[$script])) {
             throw new RuntimeException('Falló, se omitió o no terminó la prueba: '.$script);

@@ -134,7 +134,7 @@ class AdminController
         if ($ctx === 'restaurante' && \Services\Security\ContextoNegocio::nuevo()) {
             try {
                 $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
-                $informeHref = '/admin/analytics/informe.pdf?' . http_build_query([
+                $informeHref = '/admin/analytics/informe?' . http_build_query([
                     'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
                 ], '', '&', PHP_QUERY_RFC3986);
             } catch (\InvalidArgumentException $e) {
@@ -842,7 +842,7 @@ class AdminController
         if (\Services\Security\ContextoNegocio::nuevo()) {
             try {
                 $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
-                $informeHref = '/admin/tickets/informe.pdf?' . http_build_query([
+                $informeHref = '/admin/tickets/informe?' . http_build_query([
                     'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
                 ], '', '&', PHP_QUERY_RFC3986);
             } catch (\InvalidArgumentException $e) {

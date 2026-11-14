@@ -1,0 +1,49 @@
+=== informes-fixture-seed.php  (exit 0) ===
+PASS fixture FIN/ANA/TIC y actores sembrados en base propia.
+
+=== fin-independent.php  (exit 0) ===
+FIN independiente PASS SQL-origen ventas=125.00 COGS=24.0000 venta_sin_costo=25.00 tickets=3; paridad6KPIs <=0.01, costoNULL/cero/cancelados/propinas/dividido/unidad/fallback/empty/readonly; paginas=2, segundos=0.694
+
+=== ana-independent.php  (exit 0) ===
+ANA independiente PASS SQL-origen ventas=450.00 tickets=2 piezas=45 comensales=7 con_consumo=1; 5KPIs/top7de9/snapshot/cancelados/ceros/prev/FINDIF0/empty/sololectura; 366dias pages=3 elapsed=1.072 peakMB=24
+
+=== res-independent.php  (exit 0) ===
+RES independiente PASS SQL-origen reservas=7 comensales=29 estados=[{"estado":"confirmada","total":2,"personas":"9"},{"estado":"en_curso","total":1,"personas":"3"},{"estado":"completada","total":2,"personas":"6"},{"estado":"cancelada","total":1,"personas":"6"},{"estado":"no_show","total":1,"personas":"5"}]; 6KPIs,3pendientes,no_show1,tecnicos3/reemplazo/unidad excluidos,fecha_programada,ceros,provisional,historia/PII/sololectura; pages=2
+
+=== inv-independent.php  (exit 0) ===
+INV independiente PASS SQL-origen relaciones=28 bajo_minimo=27 almacenes=2 movimientos=11 merma_conocida=10.0000000 merma_sin_costo=1; artículos=27; unidades kg/pza,ceros/milésimas,no-negativos M4,sololectura; páginas=3
+
+=== tic-independent.php  (exit 0) ===
+TIC independiente PASS SQL-origen ventas=125.00 cerrados=3 cancelados=1 promedio=41.6667; 4KPIs,paridadFINANA0,serie[115,10,0],abiertos/partidas canceladas/propina fuera,empty,366d,PIIfuera,hash12tablasigual; paginas=2
+
+=== consistencia-independent.php  (exit 0) ===
+PASS consistencia independiente: 13 comprobaciones; dos conexiones KPI100/serie100, después150; escritor=0.0037s; DML prohibido, errores limpian sólo TX propia, outer TX/autocommit0 preservados.
+Base de prueba de consistencia propia eliminada.
+
+=== graficas-representativas.php  (exit 0) ===
+GRÁFICAS representativas PASS 22 PDF: 93 ventas con centavos,14 tramos,5 normales/vacíos/366d,5 cortes parciales,3 almacenes amplios,ceros/milésimas M4,PII sintética,paridad FIN/ANA/TIC y no mutación.
+
+=== ia-reportes-independent.php  (exit 0) ===
+IA Reportes independiente PASS 80 comprobaciones: 5x9 presets, 366d, rangos, catálogo, permisos, revocación, aislamiento y consultas previas.
+
+=== informes-http-independent.php finanzas (exit 0) ===
+FINANZAS HTTP independiente PASS 39 casos: alias+legacy, MIME/magia, permisos, rangos, solo lectura y href
+{"phpSinRouter":{"alias":401,"rutaPdfNativa":404,"rutaPdfTitulo":"404 Not Found","404App":404},"pdfs":[{"ruta":"/admin/finanzas/informe","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"c8194d3cc42a98033c70765eb0acd975715795b1b226b4ea93e52c61d8fd1cd5"},{"ruta":"/admin/finanzas/informe.pdf","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"5b11a765e0203a7e6f547365a9c104f40feecc3c2374567a338113aff0ca3a4c"},{"ruta":"/admin/finanzas/informe (builtin sin router)","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"6201c006e8be1017a657ac8e2ddde5a12b015eb56cbf2706eadc4747c4e1a731"}]}
+
+=== informes-http-independent.php analytics (exit 0) ===
+ANALYTICS HTTP independiente PASS 39 casos: alias+legacy, MIME/magia, permisos, rangos, solo lectura y href
+{"phpSinRouter":{"alias":401,"rutaPdfNativa":404,"rutaPdfTitulo":"404 Not Found","404App":404},"pdfs":[{"ruta":"/admin/analytics/informe","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"147b1ed2fd37b7dec87e4fc42d4eaea2c2d14ca30a3b7bb2178d70e8fd86f350"},{"ruta":"/admin/analytics/informe.pdf","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"81f75917ce8767d614f202c42b54fa905cb930add8dd7c724ba0205a3385ae1a"},{"ruta":"/admin/analytics/informe (builtin sin router)","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"3ceffca2c3032b08c744bf46077c0c1cd9dcad95cf963e999315f9e1547701a4"}]}
+
+=== informes-http-independent.php reservaciones (exit 0) ===
+RESERVACIONES HTTP independiente PASS 39 casos: alias+legacy, MIME/magia, permisos, rangos, solo lectura y href
+{"phpSinRouter":{"alias":401,"rutaPdfNativa":404,"rutaPdfTitulo":"404 Not Found","404App":404},"pdfs":[{"ruta":"/admin/reservaciones/informe","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"c185bfbbc111da283cb307dce51ab4d0999e7c4f0bc26eb5abbef445f040e500"},{"ruta":"/admin/reservaciones/informe.pdf","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"7978c00f7cd002c4a66012ac1446ae80a3b27ea3f637e8950d8dcc013f3c3d9c"},{"ruta":"/admin/reservaciones/informe (builtin sin router)","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"3bbef3c1814a227fb23b8ed461618f1e17965442e984052ee134040ff7121bef"}]}
+
+=== informes-http-independent.php inventario (exit 0) ===
+INVENTARIO HTTP independiente PASS 39 casos: alias+legacy, MIME/magia, permisos, rangos, solo lectura y href
+{"phpSinRouter":{"alias":401,"rutaPdfNativa":404,"rutaPdfTitulo":"404 Not Found","404App":404},"pdfs":[{"ruta":"/admin/almacenes/informe","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"cffdd1325f6b0bd85b98026cba7504ee59b8b873a98bc2ad75e5f3e7a1da7dd6"},{"ruta":"/admin/almacenes/informe.pdf","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"0e0cf2e3f107ba89dbceabe550acde588fa64d3eb8e255581426c1542e2480d5"},{"ruta":"/admin/almacenes/informe (builtin sin router)","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"2f6fe277ec8df272095d944591c06f0e03a32a8bc7f5f3beb78258c45485fdee"}]}
+
+=== informes-http-independent.php tickets (exit 0) ===
+TICKETS HTTP independiente PASS 39 casos: alias+legacy, MIME/magia, permisos, rangos, solo lectura y href
+{"phpSinRouter":{"alias":401,"rutaPdfNativa":404,"rutaPdfTitulo":"404 Not Found","404App":404},"pdfs":[{"ruta":"/admin/tickets/informe","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"312981a3410499ba3395f8324842a014635b491665d018f7e32a68b82e695e82"},{"ruta":"/admin/tickets/informe.pdf","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"5d861560bc22f3b47b93bdb9d8fead3969d82f7beb541da74bfd1f3df387ae27"},{"ruta":"/admin/tickets/informe (builtin sin router)","status":200,"mime":"application/pdf","magic":"%PDF-","sha256":"e620433b2d88822d14545fbdb5049a00f415ffe8722b5a476ab8e0f072b7e7cc"}]}
+
+PASS base temporal eliminada después de validar la marca propietaria.

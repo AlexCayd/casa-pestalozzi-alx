@@ -109,12 +109,16 @@ final class AdminProveedoresController
             $contextoPrecio = $servicio->contextoHistorialPrecio($ctx, $id, $articuloId);
             if ($contextoPrecio === null) throw new InventarioError('RECURSO_NO_ENCONTRADO', 'Este artículo no tiene una oferta ni historial de este proveedor.');
             $pagina = filter_var($_GET['pagina'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+            $hayAlternativasPrecio = $servicio->tieneAlternativasPrecio($ctx, $id, $articuloId);
+            $compararPrecios = $hayAlternativasPrecio && ($_GET['comparar'] ?? '') === '1';
             self::render('almacenes/proveedor-historial-precios', $ctx, [
                 'title' => 'Historial · ' . $contextoPrecio['articulo'], 'proveedor' => $proveedor,
                 'contextoPrecio' => $contextoPrecio,
                 'historialPrecios' => $servicio->historialPrecios($ctx, $id, $pagina, $articuloId),
                 'graficaPrecio' => $servicio->graficaPrecio($ctx, $id, $articuloId),
-                'comparacionPrecios' => $servicio->compararPrecios($ctx, $id, $articuloId),
+                'hayAlternativasPrecio' => $hayAlternativasPrecio,
+                'compararPrecios' => $compararPrecios,
+                'comparacionPrecios' => $compararPrecios ? $servicio->compararPrecios($ctx, $id, $articuloId) : [],
                 'alertas' => $alertas,
             ]);
         } catch (\Throwable $e) {
@@ -122,7 +126,7 @@ final class AdminProveedoresController
             self::render('almacenes/proveedor-historial-precios', $ctx, [
                 'title' => 'Historial de precios', 'proveedor' => ['id' => (int)$id, 'nombre' => 'Proveedor', 'activo' => 0, 'editable' => false],
                 'contextoPrecio' => null, 'historialPrecios' => ['filas' => [], 'pagina' => 1, 'paginas' => 1, 'total' => 0, 'limite' => 25],
-                'graficaPrecio' => null, 'comparacionPrecios' => [],
+                'graficaPrecio' => null, 'comparacionPrecios' => [], 'hayAlternativasPrecio' => false, 'compararPrecios' => false,
                 'alertas' => ['error' => [self::mensaje($e, 'No se pudo abrir el historial.')], 'exito' => [], 'advertencia' => []],
             ]);
         }

@@ -32,11 +32,12 @@ $hoy=date('Y-m-d');
   </header>
   <?php include __DIR__.'/../partials/alertas.php'; ?>
 
-  <?php if(!$nuevo): ?><nav class="admin-tabs admin-tabs--links proveedores-vistas" aria-label="Secciones del proveedor">
+  <?php if(!$nuevo): ?><div class="proveedor-ficha-layout"><nav class="admin-tabs admin-tabs--links proveedores-vistas" aria-label="Secciones del proveedor">
     <?php foreach(['articulos'=>'Artículos','entradas'=>'Entradas','datos'=>'Datos'] as $clave=>$etiqueta): ?>
       <span class="admin-tabs__tab"><a href="<?php echo $esc($base.'/ficha?'.http_build_query(['id'=>(int)$p['id'],'vista'=>$clave])); ?>" <?php echo $vistaProveedor===$clave?'aria-current="page"':''; ?>><?php echo $esc($etiqueta); ?></a></span>
     <?php endforeach; ?>
-  </nav><?php endif; ?>
+  </nav><div class="proveedor-ficha-layout__contenido">
+  <?php else: ?><div class="proveedor-ficha-layout proveedor-ficha-layout--nuevo"><div class="proveedor-ficha-layout__contenido"><?php endif; ?>
 
   <?php if($historial!==null): ?>
   <?php /* Cifras del histórico: recepciones (días con entradas), la última, cada
@@ -187,4 +188,5 @@ $hoy=date('Y-m-d');
   </section>
   <?php endif; ?>
   <?php endif; ?>
+  </div></div>
 </section>

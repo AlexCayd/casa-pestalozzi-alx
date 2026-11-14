@@ -97,7 +97,7 @@ final class AdminAlmacenesController
                 $entradaPeriodo=[];
                 foreach (['desde','hasta'] as $campo) if (array_key_exists($campo,$_GET) && $_GET[$campo]!=='') $entradaPeriodo[$campo]=$_GET[$campo];
                 $periodoInforme=\Services\Shared\RangoPeriodo::resolverInforme($entradaPeriodo);
-                $informeHref='/admin/almacenes/informe.pdf?'.http_build_query(['desde'=>$periodoInforme['start'],'hasta'=>$periodoInforme['end']], '', '&', PHP_QUERY_RFC3986);
+                $informeHref='/admin/almacenes/informe?'.http_build_query(['desde'=>$periodoInforme['start'],'hasta'=>$periodoInforme['end']], '', '&', PHP_QUERY_RFC3986);
                 $informePeriodoTexto=$periodoInforme['start'].' a '.$periodoInforme['end'];
             } catch (\InvalidArgumentException $e) {
                 $informeAviso='Aplique ambas fechas de un periodo válido de hasta 366 días para generar el informe.';

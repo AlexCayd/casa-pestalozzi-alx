@@ -3,7 +3,7 @@ declare(strict_types=1);
 if(PHP_SAPI!=='cli')exit(1);
 require __DIR__.'/informes-aceptacion/informes-db-bootstrap.php';
 require_once dirname(__DIR__,2).'/vendor/autoload.php';
-$root=dirname(__DIR__,2);$evidence=$root.'/docs/desarrollo/evidencia-etapa1-simplificacion';
+$root=dirname(__DIR__,2);$evidence=$root.'/docs/desarrollo/evidencia-etapa1-final';
 Dotenv\Dotenv::createImmutable($root.'/includes')->safeLoad();
 foreach(['TEST_DB_HOST'=>'DB_HOST','TEST_DB_PORT'=>'DB_PORT','TEST_DB_USER'=>'DB_USER','TEST_DB_PASS'=>'DB_PASS'] as $testKey=>$appKey){
     $localValue=$_ENV[$appKey]??($testKey==='TEST_DB_PORT'?'3306':null);
@@ -66,8 +66,16 @@ try{
     $a($data['code']===200&&$xpData->query('//*[@id="proveedor-datos"]')->length===1&&$xpData->query('//*[@id="proveedor-articulos" or @id="proveedor-pedidos"]')->length===0,'Datos muestra contacto/configuración y retiro sin el historial completo.');
     $a($xpData->query('//form[contains(@action,"/eliminar")]')->length===0,'No ofrece eliminación si tiene movimientos o historia de precios.');
 
+    $histSinAlternativas=$request($historyPath);
+    $a($histSinAlternativas['code']===200&&!str_contains($histSinAlternativas['body'],'Comparar proveedores')&&!str_contains($histSinAlternativas['body'],'comparacion-precios-titulo'),'No ofrece comparación cuando no existen alternativas del mismo ámbito.');
+    $serverDb->execute_query("INSERT INTO proveedores(unidad_id,nombre,activo) VALUES(2,'Alternativa HTTP temporal',1)");$proveedorAlternativo=(int)$serverDb->insert_id;
+    $serverDb->execute_query('INSERT INTO ingrediente_proveedores(unidad_id,ingrediente_id,proveedor_id,costo) VALUES(2,1002,?,0.0140)',[$proveedorAlternativo]);
+    $histSinCargar=$request($historyPath);[$docSinCargar,$xpSinCargar]=$dom($histSinCargar['body']);
+    $a(str_contains($histSinCargar['body'],'Comparar proveedores')&&$xpSinCargar->query('//table[.//th[normalize-space(.)="Proveedor"]]')->length===0,'La acción secundaria existe con alternativas sin cargar su tabla inicialmente.');
+    $histComparar=$request($historyPath.'&comparar=1');[$docComparar,$xpComparar]=$dom($histComparar['body']);$filasComparacion=$xpComparar->query('//section[@aria-labelledby="comparacion-precios-titulo"]//tbody/tr');$textoComparacion=$filasComparacion->length?trim($filasComparacion->item(0)->textContent):'';
+    $a($histComparar['code']===200&&str_contains($histComparar['body'],'Otras ofertas vigentes en Restaurante')&&$filasComparacion->length===1&&str_contains($textoComparacion,'Alternativa HTTP temporal')&&!str_contains($textoComparacion,'Proveedor Restaurante'),'La comparación explícita muestra otra oferta del ámbito y excluye al proveedor actual.');
     $hist1=$request($historyPath);[$docHist,$xpHist]=$dom($hist1['body']);$rows1=$xpHist->query('//table[contains(@class,"proveedor-precios__tabla")]//tbody/tr');
-    $a($hist1['code']===200&&$rows1->length===25&&str_contains($hist1['body'],'Precio de referencia vigente')&&str_contains($hist1['body'],'Precio anterior comparable'),'El detalle HTTP ofrece contexto y primera página de 25 eventos.');
+    $a($hist1['code']===200&&$rows1->length===25&&str_contains($hist1['body'],'Precio ofrecido')&&str_contains($hist1['body'],'Cada entrada conserva su costo capturado')&&!str_contains($hist1['body'],'Precio anterior comparable'),'El detalle HTTP muestra referencia discreta sin duplicar el último/anterior del historial.');
     $next=$xpHist->query('//nav[contains(@class,"proveedor-precios__paginacion")]//a[contains(.,"Siguiente")]')->item(0)?->getAttribute('href')??'';
     $a(str_contains($next,'/historial?id=1001&articulo=1002&pagina=2'),'El enlace Siguiente conserva proveedor y artículo.');
     $hist2=$request($next);[$docHist2,$xpHist2]=$dom($hist2['body']);$rows2=$xpHist2->query('//table[contains(@class,"proveedor-precios__tabla")]//tbody/tr');
@@ -86,7 +94,9 @@ try{
     $a($denied['code']===403,'El lector no puede guardar artículos por HTTP.');
 
     $login('global');$global=$request('/admin/global/almacenes/proveedores/historial?id=1001&articulo=1002');
-    $a($global['code']===200&&str_contains($global['body'],'Proveedor de Restaurante')&&str_contains($global['body'],'consulta desde Global')&&str_contains($global['body'],'Precios vigentes en Restaurante'),'Global consulta historia y comparación dentro del ámbito propietario.');
+    $a($global['code']===200&&str_contains($global['body'],'Proveedor de Restaurante')&&str_contains($global['body'],'consulta desde Global')&&str_contains($global['body'],'Comparar proveedores'),'Global ve el contexto y la acción secundaria del ámbito propietario.');
+    $globalCompare=$request('/admin/global/almacenes/proveedores/historial?id=1001&articulo=1002&comparar=1');[$docGlobalCompare,$xpGlobalCompare]=$dom($globalCompare['body']);$globalRows=$xpGlobalCompare->query('//section[@aria-labelledby="comparacion-precios-titulo"]//tbody/tr');$globalRowsText=$globalRows->length?trim($globalRows->item(0)->textContent):'';
+    $a($globalCompare['code']===200&&$globalRows->length===1&&str_contains($globalRowsText,'Alternativa HTTP temporal')&&!str_contains($globalRowsText,'Proveedor Restaurante'),'Global compara alternativas del dueño del proveedor, no del consolidado.');
     $a(!preg_match('/<form\b[^>]*(?:guardar|asignaciones|eliminar)/i',$global['body']),'Global consulta sin formularios administrativos.');
     $login('bakery');$foreign=$request('/admin/panaderia/almacenes/proveedores/historial?id=1001&articulo=1002');
     $a($foreign['code']===404||$foreign['code']===403,'Otro ámbito no revela el proveedor ni su historial.');

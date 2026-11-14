@@ -152,7 +152,7 @@ const paths = {
   ],
   adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: ["src/js/admin/recetas/recipe-builder.js", "src/js/admin/recetas/articulos.js"],
-  adminInventarioJs: "src/js/admin/inventario/inventario.js",
+  adminInventarioJs: ["src/js/admin/inventario/inventario.js", "src/js/admin/inventario/precios-proveedores-chart.js"],
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   // Casos del panel estratégico. ConfirmationModal y AppNotice ya llegan en
   // admin.js, que el layout carga antes que cualquier bundle de módulo.

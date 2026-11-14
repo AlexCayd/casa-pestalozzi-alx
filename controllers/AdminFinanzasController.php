@@ -282,7 +282,7 @@ class AdminFinanzasController
         if ($ctx === 'restaurante' && ContextoNegocio::nuevo()) {
             try {
                 $periodoInforme = RangoPeriodo::resolverInforme(['desde' => $rango['start'], 'hasta' => $rango['end']]);
-                $informeHref = self::PATH . '/informe.pdf?' . http_build_query([
+                $informeHref = self::PATH . '/informe?' . http_build_query([
                     'desde' => $periodoInforme['start'], 'hasta' => $periodoInforme['end'],
                 ], '', '&', PHP_QUERY_RFC3986);
             } catch (\InvalidArgumentException $e) {

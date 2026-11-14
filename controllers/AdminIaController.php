@@ -54,11 +54,11 @@ class AdminIaController
 
     /** Solo rutas PDF implementadas; no concede acceso a ningún módulo. */
     private const INFORMES = [
-        'informe_finanzas' => ['Finanzas', 'financiero', 'finanzas', '/admin/finanzas/informe.pdf'],
-        'informe_analytics' => ['Análisis', 'de análisis', 'analytics', '/admin/analytics/informe.pdf'],
-        'informe_reservaciones' => ['Reservaciones', 'de reservaciones', 'reservations', '/admin/reservaciones/informe.pdf'],
-        'informe_inventario' => ['Inventario', 'de inventario', 'inventario', '/admin/almacenes/informe.pdf'],
-        'informe_tickets' => ['Tickets', 'de tickets', 'tickets', '/admin/tickets/informe.pdf'],
+        'informe_finanzas' => ['Finanzas', 'financiero', 'finanzas', '/admin/finanzas/informe'],
+        'informe_analytics' => ['Análisis', 'de análisis', 'analytics', '/admin/analytics/informe'],
+        'informe_reservaciones' => ['Reservaciones', 'de reservaciones', 'reservations', '/admin/reservaciones/informe'],
+        'informe_inventario' => ['Inventario', 'de inventario', 'inventario', '/admin/almacenes/informe'],
+        'informe_tickets' => ['Tickets', 'de tickets', 'tickets', '/admin/tickets/informe'],
     ];
 
     /**

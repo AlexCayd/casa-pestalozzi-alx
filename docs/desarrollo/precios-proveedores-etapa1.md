@@ -129,3 +129,44 @@ npm run test:php
 npm run test:js
 npx gulp adminModuleCss
 ```
+
+## Ajustes finales de historial y enlaces PDF
+
+La bitácora mantiene las mismas consultas y límites. El gráfico interactivo muestra
+hasta 40 puntos con fecha, precio decimal, unidad y variación comparable exactos;
+teclado (flechas, Inicio/Fin, Enter/Espacio, Escape), mouse y toque actualizan un
+tooltip accesible. La navegación Artículos/Entradas/Datos continúa con enlaces URL y
+resalta la selección por `aria-current`. El resumen del historial deja visible solo
+el precio ofrecido vigente; los costos reales de entradas siguen siendo independientes.
+La comparación dejó de estar abierta en cada visita: aparece solo como acción
+secundaria si hay otra oferta del mismo artículo/ámbito y excluye al proveedor actual.
+
+El 404 de `/admin/finanzas/informe.pdf` se reprodujo con `php -S localhost:3000`
+ejecutado desde `public/` sin router: el servidor integrado devolvió su HTML 404 antes
+de cargar PHP; el alias `/admin/finanzas/informe` sí alcanzó la aplicación. Se
+registraron cinco aliases sin extensión con los mismos handlers que las rutas `.pdf`
+existentes. Los links de módulos e IA ahora usan el alias. Para desarrollo, el
+comando recomendado es `php -S localhost:3000 ../scripts/dev-router.php` desde
+`public/`, o `php -S localhost:3000 -t public scripts/dev-router.php` desde la raíz.
+No se tocó configuración Apache. El diagnóstico y la reproducción constan en
+`docs/desarrollo/informes-404-php-dev-server.md`.
+
+Evidencia final en `docs/desarrollo/evidencia-etapa1-final/`:
+
+- `m5-chart-final.log`: 157 comprobaciones en una base temporal propia, eliminada.
+- `proveedores-http-final.log`: 27 verificaciones HTTP, incluyendo permisos, ámbitos,
+  paginación real, asociación retirada, comparación explícita y cleanup.
+- `ui-capture.log` y capturas: 40 puntos visibles, hover, mouse click, teclado y toque;
+  navegación por 3 vistas, historial, paginación, 390 px sin overflow y scroll interno.
+- `informes-matrix-final.log` y `informes-acceptance-final.log`: cinco informes por
+  ruta alias y `.pdf` original, más alias sin router; 39 verificaciones HTTP por
+  informe (195 en conjunto), MIME PDF, `%PDF-`, permisos, rangos, href, 404 del
+  servidor frente al 404 de la app. `*-http-alias.pdf`, `*-http-legacy.pdf` y
+  `*-http-bare-alias.pdf` son PDFs sintéticos; el log registra SHA-256/MIME.
+- `npm-test-php.log`, `npm-test-js.log` y `build-modulos-final.log`: regresiones
+  completas y compilación modular de Inventario aprobadas.
+
+Las suites PDF y Proveedores instalaron y eliminaron sus bases de prueba; no se cambió
+la base de la aplicación, semillas SQL, ni costos de otros módulos. La migración de
+precios no se aplicó a la base configurada. No se añadió Redis. Ninguna ruta `.pdf`
+original se eliminó.
