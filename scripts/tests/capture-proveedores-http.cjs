@@ -101,6 +101,26 @@ const root = '/admin/almacenes/proveedores';
     if (await page.locator('[data-price-point][aria-pressed="true"]').count() !== 0 || !(await page.locator('[data-price-tooltip]').innerText()).includes('Enfoca')) throw new Error('Escape no limpia la selección de forma accesible.');
     await chartPoints.nth(22).click();
     if (await chartPoints.nth(22).getAttribute('aria-pressed') !== 'true') throw new Error('Click de mouse no fija el punto seleccionado.');
+    // Verificar los tres puntos mediante las tres modalidades en cada ancho.
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.waitForTimeout(200);
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Overflow global en ' + width);
+      for (const index of [0, 20, 39]) {
+        const point = chartPoints.nth(index);
+        await point.click();
+        if (await point.getAttribute('aria-pressed') !== 'true') throw new Error('Ratón ' + width + '/' + index);
+        await point.tap();
+        if (await point.getAttribute('aria-pressed') !== 'true') throw new Error('Toque ' + width + '/' + index);
+        await chartPoints.first().focus();
+        if (index === 39) await page.keyboard.press('End');
+        else for (let i = 0; i < index; i++) await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('Enter');
+        if (await point.getAttribute('aria-pressed') !== 'true') throw new Error('Teclado ' + width + '/' + index);
+      }
+      await page.screenshot({ path: path.join(evidence, 'historico-despues-' + width + '.png') });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     const firstPageNext = await page.getByRole('link', { name: 'Siguiente' }).getAttribute('href');
     if (!firstPageNext?.includes('articulo=1002&pagina=2')) throw new Error('El vínculo de paginación no conserva el artículo.');
     await page.screenshot({ path: path.join(evidence, 'proveedores-historial-desktop.png') });

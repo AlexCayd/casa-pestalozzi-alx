@@ -2298,7 +2298,7 @@
                     throw new Error(datos && datos.mensaje || 'No fue posible preparar el informe.');
                 }
                 var url = datos.informe && datos.informe.url;
-                if (typeof url !== 'string' || !/^\/admin\/(finanzas|analytics|reservaciones|almacenes|tickets)\/informe\.pdf\?desde=\d{4}-\d{2}-\d{2}&hasta=\d{4}-\d{2}-\d{2}$/.test(url)) {
+                if (typeof url !== 'string' || !/^\/admin\/(finanzas|analytics|reservaciones|almacenes|tickets)\/informe\?desde=\d{4}-\d{2}-\d{2}&hasta=\d{4}-\d{2}-\d{2}$/.test(url)) {
                     throw new Error('No se recibió un enlace de informe válido.');
                 }
                 if (!pestana.closed) pestana.location.replace(url);

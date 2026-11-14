@@ -61,6 +61,17 @@ try {
         }
         $r = $request($api . http_build_query(['intencion' => 'informe_' . $intent, 'periodo' => 'personalizado', 'desde' => '2024-01-01', 'hasta' => '2024-12-31']));
         $check($r['code'] === 200 && str_ends_with($r['json']['informe']['url'] ?? '', 'desde=2024-01-01&hasta=2024-12-31'), '366 días inclusivos ' . $intent);
+        // Ejecuta la expresión real del cliente antes de seguir la URL entregada por la API.
+        $url = $r['json']['informe']['url'] ?? '';
+        $command = ['node', PDF_TEST_ROOT . '/scripts/tests/validar-url-informe.cjs', $url];
+        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $jsPipes, PDF_TEST_ROOT);
+        if (!is_resource($process)) throw new RuntimeException('No se pudo ejecutar la validación JavaScript');
+        fclose($jsPipes[0]); $jsOut = stream_get_contents($jsPipes[1]); $jsError = stream_get_contents($jsPipes[2]);
+        fclose($jsPipes[1]); fclose($jsPipes[2]);
+        $check(proc_close($process) === 0, 'Validación JavaScript ' . $intent . ': ' . $jsOut . $jsError);
+        $pdf = $request($url);
+        $check($pdf['code'] === 200 && str_starts_with($pdf['body'], '%PDF-'), 'API → JavaScript → PDF ' . $intent);
+
     }
     foreach ([
         ['periodo' => 'personalizado'],

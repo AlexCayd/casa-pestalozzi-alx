@@ -3685,7 +3685,7 @@
 }
 
 .proveedor-precios__grafica {
-  --precio-grafica-alto: 168px;
+  --precio-grafica-alto: 300px;
   margin: 0 0 18px;
   padding: 14px 16px 10px;
   border: 1px solid var(--admin-border);
@@ -3693,10 +3693,18 @@
   background: var(--admin-surface-soft);
 }
 .proveedor-precios__grafica figcaption {
-  margin-bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin-bottom: 16px;
   color: var(--admin-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+.proveedor-precios__grafica figcaption strong {
+  color: var(--admin-text);
+  font-size: 15px;
 }
 .proveedor-precios__grafica svg {
   display: block;
@@ -3724,14 +3732,16 @@
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   cursor: crosshair;
-  transition: r 100ms ease-out, fill 100ms ease-out;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 100ms ease-out, fill 100ms ease-out;
 }
 .proveedor-precios__grafica .proveedor-precios__punto:hover, .proveedor-precios__grafica .proveedor-precios__punto.is-preview, .proveedor-precios__grafica .proveedor-precios__punto.is-seleccionado {
-  r: 4.5;
+  transform: scale(1.6);
   fill: var(--admin-gold);
 }
 .proveedor-precios__grafica .proveedor-precios__punto:focus-visible {
-  r: 5;
+  transform: scale(1.8);
   stroke: var(--admin-gold);
   stroke-width: 2.5;
   outline: none;
@@ -3770,7 +3780,7 @@
 }
 
 .proveedor-precios__plot {
-  width: min(100%, 480px);
+  width: 100%;
   min-width: 0;
 }
 
@@ -4104,10 +4114,7 @@
     justify-content: center;
   }
   .proveedor-precios__grafica {
-    --precio-grafica-alto: 105px;
-  }
-  .proveedor-precios__plot {
-    width: min(100%, 300px);
+    --precio-grafica-alto: 220px;
   }
   .proveedor-precios__grafica-area {
     grid-template-columns: max-content minmax(0, 1fr);

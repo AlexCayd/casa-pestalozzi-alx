@@ -20,6 +20,22 @@
         var seleccion = -1;
         if (!puntos.length || !salida || !svg) return;
 
+        function ajustarMarcadores() {
+            var matriz = svg.getScreenCTM();
+            if (!matriz) return;
+            var escalaX = Math.hypot(matriz.a, matriz.b);
+            var escalaY = Math.hypot(matriz.c, matriz.d);
+            if (!escalaX || !escalaY) return;
+            puntos.forEach(function (punto) {
+                punto.setAttribute('rx', 3.5 / escalaX);
+                punto.setAttribute('ry', 3.5 / escalaY);
+            });
+        }
+        ajustarMarcadores();
+        window.addEventListener('resize', ajustarMarcadores);
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(ajustarMarcadores).observe(svg);
+
+
         function publicar(indice, fijar) {
             if (indice < 0 || indice >= puntos.length) return;
             puntos.forEach(function (punto, i) {
@@ -42,15 +58,15 @@
         }
 
         function puntoCercano(evento) {
-            var caja = svg.getBoundingClientRect();
-            if (!caja.width || !caja.height) return -1;
-            var x = 58 + (evento.clientX - caja.left) * 292 / caja.width;
-            var y = 14 + (evento.clientY - caja.top) * 102 / caja.height;
+            var matriz = svg.getScreenCTM();
+            if (!matriz) return -1;
             var menor = Infinity;
             var elegido = -1;
             puntos.forEach(function (punto, indice) {
-                var dx = Number(punto.getAttribute('cx')) - x;
-                var dy = Number(punto.getAttribute('cy')) - y;
+                var x = Number(punto.getAttribute('cx'));
+                var y = Number(punto.getAttribute('cy'));
+                var dx = matriz.a * x + matriz.c * y + matriz.e - evento.clientX;
+                var dy = matriz.b * x + matriz.d * y + matriz.f - evento.clientY;
                 var distancia = dx * dx + dy * dy;
                 if (distancia < menor) { menor = distancia; elegido = indice; }
             });
