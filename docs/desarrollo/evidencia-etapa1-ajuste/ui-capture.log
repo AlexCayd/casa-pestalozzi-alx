@@ -1,0 +1,17 @@
+Comando: node docs/desarrollo/evidencia-etapa1-ajuste/capture-ui.cjs
+Origen del fixture: ui-fixture-seed-sql.json extraído por el runner M5 desde SQL de development.sql en una base temporal; no hay conexión DB en render-ui-fixture.php.
+Resultado Playwright:
+{
+  "desktop": "1440x1000",
+  "mobileViewport": 390,
+  "mobileDocumentWidth": 390,
+  "linksEdicion": 1,
+  "linksConsulta": 1,
+  "hrefHistorial": "/admin/almacenes/proveedores/ficha?id=1001&historial_articulo=1002#historial-precios",
+  "paginacionConservaFiltro": true,
+  "contexto": "Proveedor: Proveedor Restaurante · Artículo: Leche compartida · Unidad: ml · Precio de referencia: $0.0150 por ml",
+  "scrollTabla": {"maxScroll":620,"scrollLeft":620},
+  "formulariosEscrituraEnConsulta": 0,
+  "pageErrors": 0
+}
+La comprobación de paginación verifica el href con filtro, no una navegación HTTP del listado. El servidor local se detuvo y se eliminaron los HTML temporales.

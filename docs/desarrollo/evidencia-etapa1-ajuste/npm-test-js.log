@@ -1,0 +1,32 @@
+
+> devwebcamp-php-mvc-mysql@1.0.0 test:js
+> node scripts/tests/run-reservaciones-js-syntax.cjs && node scripts/tests/run-map-contract.cjs && node scripts/tests/run-map-http-contracts.cjs && node scripts/tests/run-map-visual-contract.cjs && node scripts/tests/run-map-help-modal.cjs && node scripts/tests/run-reservaciones-pos-warning-flow.cjs && node scripts/tests/run-pos-modal-refresh-flow.cjs && node scripts/tests/run-pos-open-ticket-contract.cjs && node scripts/tests/run-reservaciones-notification-workflows.cjs && node --check src/js/modules/schedule-change-access.js && node --check src/js/admin/buzon.js && node --check src/js/admin/reservations/estrategia.js && node scripts/tests/run-reservaciones-resend-ui.cjs && node scripts/tests/run-reservaciones-notification-docs.cjs && node scripts/tests/run-pos-reservaciones-vista.cjs && node scripts/tests/run-usuarios-perfiles.cjs && node scripts/tests/run-menu-confirmacion.cjs && node scripts/tests/run-almacenes-m11-ui.cjs && node scripts/tests/run-almacenes-auto-selection.cjs && node scripts/tests/run-almacenes-selection-ui.cjs && node scripts/tests/run-menu-a4-ui.cjs && node scripts/tests/run-pos-variantes-pasos.cjs && node scripts/tests/run-avisos-carta-ui.cjs && node scripts/tests/run-menu-tipo-venta-ui.cjs && node scripts/tests/run-admin-modal-foco.cjs
+
+Reservaciones: JS contractual OK
+Mapa: contrato visual puro OK
+Mapa: contratos HTTP locales del POS OK
+Mapa: contratos, estado no verificado, recuperación y contexto temporal OK
+Mapa: botón y modal de ayuda OK
+Reservaciones: flujo POS de warning contractual OK
+POS: refresh de modal walk-in conserva y revalida la acción OK
+POS: apertura y contratos de elementos operativos OK
+Workflows de reservaciones: 251 escenarios en memoria OK; confirmación 200/502/422, callbacks accepted/failed, grafo, paridad y auth nativa.
+UX reenvío:countdown,cupo backend,doble clic,fallo y limpieza OK
+Documentación: contratos vigentes y 278 enlaces locales verificados.
+POS: vista de reservaciones, cajón por horario, barra de contexto y ficha OK
+Perfiles sugeridos de Usuarios: 13 casos OK
+Menú: confirmación escrita visible, accesible y operable OK.
+Almacenes M1.1: preview decimal exacto, límites y confirmación OK.
+Almacenes M3: captura en piezas y suma exacta del reparto de faltantes OK.
+Almacenes: menú «Más» con aria-expanded, flechas, Escape y foco de vuelta OK.
+Almacenes: cancelar «Asociar artículo» abierto por URL la limpia o vuelve a la vista por defecto OK.
+Almacenes: diálogo por operación, selector de almacén y foco inicial OK.
+Almacenes: aviso de asociación automática en transferencias OK.
+Almacenes: selección pendiente hasta aplicar, atajos, buscador, esqueleto y selección no vacía OK.
+Almacenes UI: selección múltiple, último almacén y envío vacío OK
+Almacenes UI: tooltip atravesable y foco compartido OK
+Menú A4 UI: rutas locales, formularios simples y retiro de Productos de la casa OK.
+POS · opciones por pasos: 75 comprobaciones OK
+Avisos de la carta (JS): 25 comprobaciones OK
+Menú tipo de venta UI: ficha, lote, editores de reventa, variantes de precio y contenido por pieza OK.
+Modales: trampa de foco ignora ancestros ocultos, inertes y details cerrados OK.

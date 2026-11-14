@@ -65,8 +65,10 @@ hacer `ROLLBACK` y cerrar esa conexión. No se ejecutó en la base configurada d
 ### Verificaciones y evidencia de este ajuste
 
 `docs/desarrollo/evidencia-etapa1-ajuste/` conserva resultados y captura. El runner M5
-pasó 146 comprobaciones en su base temporal, que eliminó al terminar. `npm run
-test:php`, `npm run test:js` y `npx gulp adminModuleCss` pasaron. La captura usa el JSON
+pasó 146 comprobaciones en su base temporal, que eliminó al terminar
+(`m5-chart-attempt2.log`). `npm run test:php` (`npm-test-php.log`), `npm run test:js`
+(`npm-test-js.log`) y `npx gulp adminModuleCss` (`gulp-admin-module-css.log`) pasaron.
+La captura y su salida (`precios-proveedor-*.png` y `ui-capture.log`) usan el JSON
 extraído por M5 desde la base temporal antes de eliminarla; el fixture solo renderiza
 la vista y no escribe a la base. Playwright comprobó enlace en edición/consulta,
 contexto, query de paginación preservando `historial_articulo`, ancho 390/390 px,
