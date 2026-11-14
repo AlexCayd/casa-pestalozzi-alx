@@ -584,11 +584,20 @@ el proveedor ofreció originalmente el importe.
 Los precios solo se comparan dentro de la unidad base observada; si cambia la unidad
 del artículo, se abre una nueva base y no se calcula variación porcentual entre
 unidades distintas. Para anterior cero se conserva la diferencia absoluta y el
-porcentaje queda nulo. La ficha M5 pagina todo el historial, identifica anterior,
-nuevo, vigente, fecha, responsable y variaciones; puede mostrar evolución solo con al
-menos tres eventos del mismo tramo/unidad. Global consulta proveedores de otros
-ámbitos sin editar sus precios; la comparación se limita al ámbito del proveedor
+porcentaje queda nulo. La ficha pagina los eventos de entradas recibidas, identifica
+vigente, fecha y costos reales; el historial de precios vive en una vista independiente
+por proveedor-artículo, sin controles administrativos. Allí la tabla identifica
+anterior, nuevo, vigente, fecha, responsable y variaciones; puede mostrar evolución
+solo con al menos tres eventos del mismo tramo/unidad. Global consulta proveedores de
+otros ámbitos sin editar sus precios; la comparación se limita al ámbito del proveedor
 abierto.
+
+La ficha separa Artículos, Entradas y Datos mediante `vista=articulos|entradas|datos`;
+solo consulta la información de la vista activa. Artículos es la vista inicial de
+lectura y los controles de asignación requieren `editar=1`. El acceso a artículos
+retirados es secundario. El historial usa `/admin/almacenes/proveedores/historial`
+con proveedor, artículo y página en query; la paginación conserva el par seleccionado
+y «Volver a Artículos» regresa a la ficha. Leer historial no habilita escritura.
 
 Cada asociación ofrece «Ver histórico» en consulta y edición. El panel contextual
 identifica proveedor, artículo, unidad vigente y precio de referencia; las asociaciones

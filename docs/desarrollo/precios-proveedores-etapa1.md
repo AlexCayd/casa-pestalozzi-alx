@@ -4,7 +4,7 @@
 
 Se añadió una bitácora append-only de precios de referencia por asociación proveedor-artículo, incluyendo unidad y snapshots legibles del proveedor, artículo y responsable. Las asociaciones preexistentes se observan hoy como `base_observada` en su primer guardado; no se infiere la fecha real de la oferta original. Altas nuevas registran `inicial`; modificaciones posteriores registran `cambio`. Reasignaciones comparan contra el último precio persistido y las operaciones se serializan por proveedor dentro de transacción. El historial sobrevive al retiro de una asociación y protege el borrado físico.
 
-La ficha presenta historial paginado, comparación en el ámbito consultado y gráfica sólo cuando hay tres o más eventos compatibles por unidad. Los costos unitarios de entradas permanecen congelados; el historial de referencia conserva la unidad observada y los cambios de unidad abren una serie nueva. El ámbito Global conserva lectura cruzada, sin habilitar escrituras fuera de la unidad autorizada.
+La ficha separa Artículos, Entradas y Datos con vistas URL selectivas: solo consulta y renderiza el contenido elegido. Artículos es lectura por defecto; editar asociaciones requiere una acción explícita. El historial de precio se abre en una vista independiente y de solo lectura por proveedor-artículo, con tabla paginada de 25 filas y gráfica de hasta 40 eventos comparables. Los costos unitarios de entradas permanecen congelados; el historial de referencia conserva la unidad observada y los cambios de unidad abren una serie nueva. El ámbito Global conserva lectura cruzada, sin habilitar escrituras fuera de la unidad autorizada.
 
 ## Despliegue de esquema
 
@@ -92,3 +92,40 @@ copia en una fuente no relacionada; se compiló únicamente el CSS modular y se
 restauraron los artefactos ajenos. El supervisor aceptó localmente el ajuste de
 persistencia, UI y suite M5. La migración no se aplicó a la base de la aplicación; no
 se hizo push ni se modificó `main`.
+
+## Simplificación de la ficha y evidencia HTTP
+
+La ficha presenta una sola vista por solicitud: `?vista=articulos`, `?vista=entradas`
+o `?vista=datos`; omitir `vista` abre Artículos. Los controles de asociación requieren
+`editar=1`; los artículos retirados son una consulta secundaria. El historial usa
+`/admin/almacenes/proveedores/historial?id=...&articulo=...&pagina=...`, valida que el
+par pertenezca al proveedor y no ofrece controles administrativos. Su tabla limita la
+consulta a 25 eventos y mantiene los filtros al paginar. El resumen de retiro usa
+consultas pequeñas, sin cargar el historial completo.
+
+La evidencia final vive en `docs/desarrollo/evidencia-etapa1-simplificacion/`:
+
+- `m5-final.log`: 151 comprobaciones; base temporal propia eliminada.
+- `npm-test-php.log` y `npm-test-js.log`: ambas suites terminaron con código 0.
+- `proveedores-http.log`: 23 comprobaciones HTTP, paginación y regreso reales,
+  servidor loopback detenido y base temporal propia eliminada.
+- `ui-capture.log` y PNG: capturas desde las vistas HTTP con datos fixture aislados;
+  viewport/documento móvil 390/390 px, tablas con scroll interno, sin errores de
+  página. Incluye Artículos, Entradas, Datos e historial.
+- `gulp-admin-module-css.log`: compilación CSS modular de inventario aprobada.
+
+La selectividad de consultas se comprobó por contrato del controlador y DOM de cada
+vista; no se instrumentaron consultas SQL en runtime. Los tests de servicio cubren
+permisos, ámbito y el par ajeno. La migración no se aplicó a la base configurada de la
+aplicación; todas las pruebas HTTP/DB usaron bases temporales propias. No se modificó
+`main` ni se hizo push.
+
+Comandos reproducibles:
+
+```powershell
+php scripts/tests/run-proveedores.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+php scripts/tests/run-proveedores-http.php
+npm run test:php
+npm run test:js
+npx gulp adminModuleCss
+```

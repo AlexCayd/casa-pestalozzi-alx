@@ -64,6 +64,7 @@ foreach (['/admin','/admin/global','/admin/panaderia'] as $baseAlmacenes) {
     $router->get($baseAlmacenes.'/almacenes/proveedores',[\Controllers\AdminProveedoresController::class,'index']);
     $router->get($baseAlmacenes.'/almacenes/proveedores/nuevo',[\Controllers\AdminProveedoresController::class,'nuevo']);
     $router->get($baseAlmacenes.'/almacenes/proveedores/ficha',[\Controllers\AdminProveedoresController::class,'ficha']);
+    $router->get($baseAlmacenes.'/almacenes/proveedores/historial',[\Controllers\AdminProveedoresController::class,'historialArticulo']);
     foreach(['guardar','asignaciones','eliminar'] as $accionProveedor){
         $router->post($baseAlmacenes.'/almacenes/proveedores/'.$accionProveedor,[\Controllers\AdminProveedoresController::class,$accionProveedor]);
     }

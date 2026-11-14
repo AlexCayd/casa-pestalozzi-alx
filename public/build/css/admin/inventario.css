@@ -3834,6 +3834,63 @@
   min-height: 40px;
 }
 
+.proveedor-precios__resumen {
+  margin: 0 0 18px;
+}
+.proveedor-precios__resumen > p {
+  margin: 0 0 12px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.proveedor-precios__resumen strong {
+  color: var(--admin-text);
+}
+
+.proveedor-precios__resumen-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px 24px;
+  margin: 0;
+  padding: 14px 0;
+  border-block: 1px solid var(--admin-border-soft);
+}
+.proveedor-precios__resumen-datos dt {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.proveedor-precios__resumen-datos dd {
+  margin: 3px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.proveedor-retirados__lista {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.proveedor-retirados__lista a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 44px;
+  padding: 8px 0;
+  color: var(--admin-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.proveedor-retirados__lista a span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .proveedor-variacion {
   display: inline-flex;
   align-items: center;

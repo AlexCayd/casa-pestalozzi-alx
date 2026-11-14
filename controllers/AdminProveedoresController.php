@@ -43,6 +43,7 @@ final class AdminProveedoresController
         $alertas = self::flash($ctx);
         self::render('almacenes/proveedor', $ctx, [
             'title' => 'Nuevo proveedor', 'proveedor' => ($_SESSION['_proveedores_datos'][$ctx] ?? []) + ['id' => null, 'activo' => 1, 'editable' => true, 'unidad_id' => null, 'slug' => $ctx],
+            'vistaProveedor' => 'datos', 'modoEdicionArticulos' => false, 'resumenRetiro' => null,
             'asignaciones' => [], 'asignables' => [], 'historial' => null, 'alertas' => $alertas,
         ]);
         unset($_SESSION['_proveedores_datos'][$ctx]);
@@ -56,40 +57,74 @@ final class AdminProveedoresController
         $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         try {
             if (!$id) throw new InventarioError('ID_INVALIDO', 'El proveedor solicitado no es válido.');
+            $articuloLegacy = filter_var($_GET['historial_articulo'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (is_int($articuloLegacy) && $articuloLegacy > 0) {
+                $paginaLegacy = filter_var($_GET['historial_pagina'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+                self::redirigir(self::base($ctx) . '/historial?' . http_build_query(['id' => $id, 'articulo' => $articuloLegacy, 'pagina' => $paginaLegacy]));
+            }
+            $vista = is_string($_GET['vista'] ?? null) && in_array($_GET['vista'], ['articulos', 'entradas', 'datos'], true) ? $_GET['vista'] : 'articulos';
             $servicio = self::servicio();
             $proveedor = $servicio->proveedor($ctx, $id);
-            // Con un intento fallido, el formulario vuelve con lo que se escribió.
-            $proveedor = ($_SESSION['_proveedores_datos'][$ctx] ?? []) + $proveedor;
-            unset($_SESSION['_proveedores_datos'][$ctx]);
             $editar = $proveedor['editable'] && Auth::puede('inventario', 'editar', $ctx);
-            $paginaPrecios = filter_var($_GET['historial_pagina'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
-            $articuloPrecio = filter_var($_GET['historial_articulo'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            $articuloPrecio = $articuloPrecio === false ? null : $articuloPrecio;
-            $historialPrecios = $servicio->historialPrecios($ctx, $id, $paginaPrecios, $articuloPrecio);
-            $totalHistorialPrecios = $articuloPrecio ? $servicio->historialPrecios($ctx, $id)['total'] : $historialPrecios['total'];
-            $articulosHistorialPrecios = $servicio->articulosHistorialPrecios($ctx, $id);
-            $articuloPrecioContexto = null;
-            if ($articuloPrecio !== null) {
-                foreach ($articulosHistorialPrecios as $articulo) {
-                    if ((int)$articulo['articulo_id'] === $articuloPrecio) { $articuloPrecioContexto = $articulo; break; }
-                }
+            $editarArticulos = $vista === 'articulos' && $editar && ($_GET['editar'] ?? '') === '1';
+            $datos = ['vistaProveedor' => $vista, 'modoEdicionArticulos' => $editarArticulos];
+            if ($vista === 'articulos') {
+                $datos['asignaciones'] = $servicio->asignaciones($ctx, $id);
+                $datos['asignables'] = $editarArticulos ? $servicio->articulosAsignables($ctx) : [];
+                $datos['articulosRetirados'] = ($_GET['retirados'] ?? '') === '1'
+                    ? array_values(array_filter($servicio->articulosHistorialPrecios($ctx, $id), static fn($a) => $a['precio_actual'] === null))
+                    : null;
+            } elseif ($vista === 'entradas') {
+                $datos['historial'] = $servicio->historial($ctx, $id);
+            } else {
+                // La vista de datos necesita saber si se permite borrar, pero no
+                // debe cargar movimientos ni recorrer el historial paginado.
+                $datos['resumenRetiro'] = $servicio->resumenRetiro($ctx, $id);
+                $proveedor = ($_SESSION['_proveedores_datos'][$ctx] ?? []) + $proveedor;
+                unset($_SESSION['_proveedores_datos'][$ctx]);
             }
-            $comparacionPrecios = $articuloPrecio ? $servicio->compararPrecios($ctx, $id, $articuloPrecio) : [];
             self::render('almacenes/proveedor', $ctx, [
                 'title' => (string)$proveedor['nombre'], 'proveedor' => $proveedor, 'puedeEditarFicha' => $editar,
-                'asignaciones' => $servicio->asignaciones($ctx, $id),
-                'asignables' => $editar ? $servicio->articulosAsignables($ctx) : [],
-                'historial' => $servicio->historial($ctx, $id), 'historialPrecios' => $historialPrecios,
-                'totalHistorialPrecios' => $totalHistorialPrecios, 'tieneHistorialPrecios' => $totalHistorialPrecios > 0,
-                'articulosHistorialPrecios' => $articulosHistorialPrecios, 'articuloPrecioContexto' => $articuloPrecioContexto,
-                'graficaPrecio' => $articuloPrecio ? $servicio->graficaPrecio($ctx, $id, $articuloPrecio) : null,
-                'comparacionPrecios' => $comparacionPrecios, 'filtroHistorialArticulo' => $articuloPrecio,
                 'alertas' => $alertas,
-            ]);
+            ] + $datos);
         } catch (\Throwable $e) {
             http_response_code(self::estado($e));
             $alertas['error'][] = self::mensaje($e, 'No se pudo abrir el proveedor.');
             self::render('almacenes/proveedores', $ctx, ['title' => 'Proveedores', 'proveedores' => [], 'consolidado' => false, 'alertas' => $alertas, 'sinListado' => true]);
+        }
+    }
+
+    /** Historial aislado de una asociación proveedor-artículo; esta vista nunca escribe. */
+    public static function historialArticulo(Router $router): void
+    {
+        $ctx = ContextoNegocio::slug();
+        ContextoNegocio::exigir('inventario', 'ver', $ctx);
+        $alertas = self::flash($ctx);
+        $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $articuloId = filter_var($_GET['articulo'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        try {
+            if (!$id || !$articuloId) throw new InventarioError('ID_INVALIDO', 'El proveedor o artículo solicitado no es válido.');
+            $servicio = self::servicio();
+            $proveedor = $servicio->proveedor($ctx, $id);
+            $contextoPrecio = $servicio->contextoHistorialPrecio($ctx, $id, $articuloId);
+            if ($contextoPrecio === null) throw new InventarioError('RECURSO_NO_ENCONTRADO', 'Este artículo no tiene una oferta ni historial de este proveedor.');
+            $pagina = filter_var($_GET['pagina'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+            self::render('almacenes/proveedor-historial-precios', $ctx, [
+                'title' => 'Historial · ' . $contextoPrecio['articulo'], 'proveedor' => $proveedor,
+                'contextoPrecio' => $contextoPrecio,
+                'historialPrecios' => $servicio->historialPrecios($ctx, $id, $pagina, $articuloId),
+                'graficaPrecio' => $servicio->graficaPrecio($ctx, $id, $articuloId),
+                'comparacionPrecios' => $servicio->compararPrecios($ctx, $id, $articuloId),
+                'alertas' => $alertas,
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(self::estado($e));
+            self::render('almacenes/proveedor-historial-precios', $ctx, [
+                'title' => 'Historial de precios', 'proveedor' => ['id' => (int)$id, 'nombre' => 'Proveedor', 'activo' => 0, 'editable' => false],
+                'contextoPrecio' => null, 'historialPrecios' => ['filas' => [], 'pagina' => 1, 'paginas' => 1, 'total' => 0, 'limite' => 25],
+                'graficaPrecio' => null, 'comparacionPrecios' => [],
+                'alertas' => ['error' => [self::mensaje($e, 'No se pudo abrir el historial.')], 'exito' => [], 'advertencia' => []],
+            ]);
         }
     }
 
@@ -105,12 +140,12 @@ final class AdminProveedoresController
         try {
             AdministracionAlmacenes::exigirResultado($r);
             self::avisar($ctx, 'exito', $id === null ? 'Proveedor creado.' : 'Proveedor actualizado.');
-            self::volver($ctx, (int)$r['proveedor_id']);
+            self::volver($ctx, (int)$r['proveedor_id'], 'datos');
         } catch (\Throwable $e) {
             self::avisar($ctx, 'error', self::mensaje($e, 'No se guardó el proveedor.'));
             // Sólo texto plano de los campos permitidos; la vista lo escapa al pintar.
             $_SESSION['_proveedores_datos'][$ctx] = array_map(static fn($v) => is_string($v) ? mb_substr($v, 0, 2000) : '', $datos) + ['activo' => isset($datos['activo']) ? 1 : 0];
-            $id === null ? self::redirigir(self::base($ctx) . '/nuevo') : self::volver($ctx, $id);
+            $id === null ? self::redirigir(self::base($ctx) . '/nuevo') : self::volver($ctx, $id, 'datos');
         }
     }
 
@@ -131,13 +166,15 @@ final class AdminProveedoresController
             ];
         }
         $r = self::servicio()->guardarAsignaciones($ctx, $id, $filas);
+        $volverEditar = false;
         try {
             AdministracionAlmacenes::exigirResultado($r);
             self::avisar($ctx, 'exito', 'Artículos del proveedor actualizados.');
         } catch (\Throwable $e) {
             self::avisar($ctx, 'error', self::mensaje($e, 'No se guardaron los artículos del proveedor.'));
+            $volverEditar = true;
         }
-        self::volver($ctx, $id, 'proveedor-articulos');
+        self::volver($ctx, $id, 'articulos', $volverEditar);
     }
 
     public static function eliminar(Router $router): void
@@ -151,7 +188,7 @@ final class AdminProveedoresController
             self::redirigir(self::base($ctx));
         } catch (\Throwable $e) {
             self::avisar($ctx, 'error', self::mensaje($e, 'No se eliminó el proveedor.'));
-            $id === null ? self::redirigir(self::base($ctx)) : self::volver($ctx, $id);
+            $id === null ? self::redirigir(self::base($ctx)) : self::volver($ctx, $id, 'datos');
         }
     }
 
@@ -198,9 +235,11 @@ final class AdminProveedoresController
 
     private static function avisar(string $ctx, string $tipo, string $mensaje): void { $_SESSION['_proveedores_flash'][$ctx][$tipo][] = $mensaje; }
 
-    private static function volver(string $ctx, int $id, string $ancla = ''): void
+    private static function volver(string $ctx, int $id, string $vista = 'articulos', bool $editar = false): void
     {
-        self::redirigir(self::base($ctx) . '/ficha?' . http_build_query(['id' => $id]) . ($ancla !== '' ? '#' . $ancla : ''));
+        $query = ['id' => $id, 'vista' => $vista];
+        if ($editar) $query['editar'] = 1;
+        self::redirigir(self::base($ctx) . '/ficha?' . http_build_query($query));
     }
 
     private static function redirigir(string $url): void { header('Location: ' . $url, true, 303); exit; }

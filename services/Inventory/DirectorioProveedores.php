@@ -240,6 +240,28 @@ final class DirectorioProveedores
         )->fetch_all(MYSQLI_ASSOC);
     }
 
+    /** Resumen barato para permitir el retiro sin cargar entradas ni páginas históricas. */
+    public function resumenRetiro(string $ctx, int $id): array
+    {
+        $p = $this->proveedor($ctx, $id);
+        if (!$this->historialPreciosDisponible()) {
+            $row = $this->db->execute_query(
+                'SELECT EXISTS(SELECT 1 FROM entradas_proveedor WHERE unidad_id=? AND proveedor_id=? LIMIT 1) AS tiene_entradas,
+                        (SELECT COUNT(*) FROM ingrediente_proveedores WHERE unidad_id=? AND proveedor_id=?) AS articulos',
+                [(int)$p['unidad_id'], $id, (int)$p['unidad_id'], $id]
+            )->fetch_assoc();
+            // Sin la tabla no se puede certificar que el proveedor sea eliminable.
+            return ['tiene_entradas' => (bool)$row['tiene_entradas'], 'tiene_precios' => true, 'articulos' => (int)$row['articulos'], 'migracion_pendiente' => true];
+        }
+        $row = $this->db->execute_query(
+            'SELECT EXISTS(SELECT 1 FROM entradas_proveedor WHERE unidad_id=? AND proveedor_id=? LIMIT 1) AS tiene_entradas,
+                    EXISTS(SELECT 1 FROM historial_precios_proveedores WHERE unidad_id=? AND proveedor_id=? LIMIT 1) AS tiene_precios,
+                    (SELECT COUNT(*) FROM ingrediente_proveedores WHERE unidad_id=? AND proveedor_id=?) AS articulos',
+            [(int)$p['unidad_id'], $id, (int)$p['unidad_id'], $id, (int)$p['unidad_id'], $id]
+        )->fetch_assoc();
+        return ['tiene_entradas' => (bool)$row['tiene_entradas'], 'tiene_precios' => (bool)$row['tiene_precios'], 'articulos' => (int)$row['articulos'], 'migracion_pendiente' => false];
+    }
+
     /** Historial paginado del precio de referencia. La asociación vigente es opcional. */
     public function historialPrecios(string $ctx, int $id, int $pagina = 1, ?int $articuloId = null): array
     {
@@ -315,6 +337,37 @@ final class DirectorioProveedores
         $salida = array_values($porArticulo);
         usort($salida, static fn($a,$b)=>strcmp((string)$a['nombre'],(string)$b['nombre']) ?: ((int)$a['articulo_id'] <=> (int)$b['articulo_id']));
         return $salida;
+    }
+
+    /** Contexto de una asociación vigente o retirada, junto al último evento registrado. */
+    public function contextoHistorialPrecio(string $ctx, int $id, int $articuloId): ?array
+    {
+        $this->exigirHistorialPreciosDisponible();
+        $p = $this->proveedor($ctx, $id);
+        $row = $this->db->execute_query(
+            'SELECT i.id AS articulo_id,i.nombre AS articulo,i.unidad AS unidad_actual,ip.costo AS precio_actual
+               FROM ingredientes i
+               LEFT JOIN ingrediente_proveedores ip ON ip.unidad_id=? AND ip.proveedor_id=? AND ip.ingrediente_id=i.id
+              WHERE i.id=? AND (ip.ingrediente_id IS NOT NULL OR EXISTS(
+                    SELECT 1 FROM historial_precios_proveedores h WHERE h.unidad_id=? AND h.proveedor_id=? AND h.articulo_id=i.id
+              )) LIMIT 1',
+            [(int)$p['unidad_id'], $id, $articuloId, (int)$p['unidad_id'], $id]
+        )->fetch_assoc();
+        if (!$row) return null;
+        $row['precio_actual'] = $row['precio_actual'] === null ? null : DecimalInventario::formato(DecimalInventario::leer((string)$row['precio_actual'], 4), 4);
+        $ultimo = $this->db->execute_query(
+            'SELECT precio_anterior,precio_nuevo,unidad_base_snapshot,tipo,created_at,usuario_nombre_snapshot
+               FROM historial_precios_proveedores WHERE unidad_id=? AND proveedor_id=? AND articulo_id=?
+              ORDER BY created_at DESC,id DESC LIMIT 1',
+            [(int)$p['unidad_id'], $id, $articuloId]
+        )->fetch_assoc();
+        if ($ultimo) {
+            $ultimo['precio_anterior'] = $ultimo['precio_anterior'] === null ? null : DecimalInventario::formato(DecimalInventario::leer((string)$ultimo['precio_anterior'], 4), 4);
+            $ultimo['precio_nuevo'] = DecimalInventario::formato(DecimalInventario::leer((string)$ultimo['precio_nuevo'], 4), 4);
+            $ultimo['comparable_con_vigente'] = (string)$ultimo['unidad_base_snapshot'] === (string)$row['unidad_actual'];
+        }
+        $row['ultimo_evento'] = $ultimo ?: null;
+        return $row;
     }
 
     /** Últimos cuarenta eventos comparables para la gráfica; nunca carga la historia completa. */

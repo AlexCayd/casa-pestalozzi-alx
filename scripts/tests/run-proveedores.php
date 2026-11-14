@@ -89,6 +89,14 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a($graficaPlana!==null&&$graficaPlana['eje_maximo']>$graficaPlana['eje_minimo']&&count(array_unique(array_map(static fn($p)=>explode(',',$p)[1],explode(' ',trim($graficaPlana['puntos'])))))===1,'Una serie plana conserva una escala no nula y dibuja sin división entre cero');
     $articuloSeed=$dir->articulosHistorialPrecios('restaurante',1001);
     $a((string)array_values(array_filter($articuloSeed,static fn($x)=>(int)$x['articulo_id']===1002))[0]['precio_actual']==='0.0150','La selección contextual expone precio vigente de su asociación');
+    $contextoSeed=$dir->contextoHistorialPrecio('restaurante',1001,1002);
+    $a($contextoSeed!==null&&$contextoSeed['precio_actual']==='0.0150'&&$contextoSeed['ultimo_evento']['unidad_base_snapshot']==='ml'&&$contextoSeed['ultimo_evento']['comparable_con_vigente'],'El contexto de detalle muestra precio vigente y último cambio en la unidad actual');
+    $a($dir->contextoHistorialPrecio('restaurante',1001,1001)===null,'Un artículo ajeno sin asignación ni historial no abre el detalle');
+    $resumenRetiroSeed=$dir->resumenRetiro('restaurante',1001);
+    $a($resumenRetiroSeed['tiene_entradas']&&$resumenRetiroSeed['tiene_precios']&&$resumenRetiroSeed['articulos']===1&&!$resumenRetiroSeed['migracion_pendiente'],'El resumen de retiro bloquea por trazabilidad sin cargar la lista de entradas');
+    $fuenteController=(string)file_get_contents($root.'/controllers/AdminProveedoresController.php');
+    $posArt=strpos($fuenteController,'if ($vista === \'articulos\')');$posEntr=strpos($fuenteController,'elseif ($vista === \'entradas\')',$posArt);$posDatos=strpos($fuenteController,'} else {',$posEntr);
+    $a($posArt!==false&&$posEntr!==false&&$posDatos!==false&&!str_contains(substr($fuenteController,$posArt,$posEntr-$posArt),'->historial(')&&!str_contains(substr($fuenteController,$posArt,$posEntr-$posArt),'->historialPrecios(')&&!str_contains(substr($fuenteController,$posArt,$posEntr-$posArt),'->graficaPrecio('),'La ficha Artículos no despacha lecturas de entradas ni historial de precio');
     $uiData=['datos_sinteticos'=>true,'fuente'=>'database/development.sql importado como SQL en base temporal M5','proveedor'=>$dir->proveedor('restaurante',1001),'historial'=>$dir->historial('restaurante',1001),'historialPrecios'=>$hpSeed,'articulosHistorialPrecios'=>$articuloSeed,'articuloPrecioContexto'=>array_values(array_filter($articuloSeed,static fn($x)=>(int)$x['articulo_id']===1002))[0],'graficaPrecio'=>$graficaSeed,'comparacionPrecios'=>$dir->compararPrecios('restaurante',1001,1002),'asignaciones'=>$dir->asignaciones('restaurante',1001)];
     file_put_contents($root.'/docs/desarrollo/evidencia-etapa1-ajuste/ui-fixture-seed-sql.json',json_encode($uiData,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR).PHP_EOL);
     $a(!empty($dir->guardarAsignaciones('restaurante',1001,[['articulo_id'=>'1002','costo'=>'0.0151','preferente'=>'1']])['ok']),'Un cambio real de referencia se registra sobre la seed');
@@ -217,6 +225,8 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a($continua&&$cadena[count($cadena)-1]['precio_nuevo']===$final&&in_array($final,['0.0310','0.0320'],true),'Las escrituras concurrentes encadenan precios sin anterior obsoleto');
     $unidadAntes=(string)$uno('SELECT unidad FROM ingredientes WHERE id=1002');
     $db->execute_query("UPDATE ingredientes SET unidad='kg' WHERE id=1002");
+    $contextoUnidadPendiente=$dir->contextoHistorialPrecio('restaurante',$lac,1002);
+    $a($contextoUnidadPendiente!==null&&$contextoUnidadPendiente['unidad_actual']==='kg'&&$contextoUnidadPendiente['ultimo_evento']['unidad_base_snapshot']!==$contextoUnidadPendiente['unidad_actual']&&!$contextoUnidadPendiente['ultimo_evento']['comparable_con_vigente'],'El resumen distingue último precio registrado en unidad distinta de la unidad actual');
     $precioUnidad=(string)$uno('SELECT costo FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac]);
     $a(!empty($dir->guardarAsignaciones('restaurante',$lac,[['articulo_id'=>'1002','costo'=>$precioUnidad]])['ok']),'El cambio de unidad abre una base comparable nueva');
     $baseUnidad=$db->execute_query("SELECT tipo,unidad_base_snapshot,precio_anterior FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 ORDER BY id DESC LIMIT 1",[$lac])->fetch_assoc();
