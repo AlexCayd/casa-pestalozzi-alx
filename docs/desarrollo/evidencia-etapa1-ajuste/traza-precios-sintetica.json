@@ -1,0 +1,58 @@
+{
+    "fixture_sintetica": true,
+    "aviso": "Datos generados por prueba aislada; no son precios reales.",
+    "ambito": "restaurante",
+    "proveedor": "Lácteos del Valle",
+    "articulo_id": 1002,
+    "asociacion_vigente": false,
+    "eventos": [
+        {
+            "tipo": "inicial",
+            "precio_anterior": null,
+            "precio_nuevo": "0.0180",
+            "unidad_base_snapshot": "ml",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        },
+        {
+            "tipo": "cambio",
+            "precio_anterior": "0.0180",
+            "precio_nuevo": "0.0190",
+            "unidad_base_snapshot": "ml",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        },
+        {
+            "tipo": "cambio",
+            "precio_anterior": "0.0190",
+            "precio_nuevo": "0.0320",
+            "unidad_base_snapshot": "ml",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        },
+        {
+            "tipo": "cambio",
+            "precio_anterior": "0.0320",
+            "precio_nuevo": "0.0310",
+            "unidad_base_snapshot": "ml",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        },
+        {
+            "tipo": "base_observada",
+            "precio_anterior": null,
+            "precio_nuevo": "0.0310",
+            "unidad_base_snapshot": "kg",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        },
+        {
+            "tipo": "base_observada",
+            "precio_anterior": null,
+            "precio_nuevo": "0.0310",
+            "unidad_base_snapshot": "ml",
+            "created_at": "2026-11-13 19:59:36",
+            "usuario_nombre_snapshot": "Fixture 3B m12_super"
+        }
+    ]
+}

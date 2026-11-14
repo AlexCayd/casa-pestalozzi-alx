@@ -1,0 +1,834 @@
+{
+    "datos_sinteticos": true,
+    "fuente": "database\/development.sql importado como SQL en base temporal M5",
+    "proveedor": {
+        "id": 1001,
+        "unidad_id": 2,
+        "nombre": "Proveedor Restaurante",
+        "contacto": null,
+        "telefono": null,
+        "correo": null,
+        "notas": null,
+        "activo": 1,
+        "created_at": "2026-11-13 19:59:30",
+        "updated_at": "2026-11-13 19:59:30",
+        "slug": "restaurante",
+        "editable": true
+    },
+    "historial": {
+        "resumen": {
+            "recepciones": 1,
+            "primera": "2026-11-12",
+            "ultima": "2026-11-12",
+            "intervalo_dias": null,
+            "proximo": null
+        },
+        "articulos": [
+            {
+                "articulo_id": 1001,
+                "nombre": "Harina compartida",
+                "unidad": "g",
+                "veces": 1,
+                "total": "5025.250",
+                "promedio": "5025.250",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0200",
+                "costo_primero": "0.0200",
+                "costo_min": "0.0200",
+                "costo_max": "0.0200",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0200"
+                    },
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0200"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1002,
+                "nombre": "Leche compartida",
+                "unidad": "ml",
+                "veces": 1,
+                "total": "5025.250",
+                "promedio": "5025.250",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0150",
+                "costo_primero": "0.0150",
+                "costo_min": "0.0150",
+                "costo_max": "0.0150",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0150"
+                    },
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0150"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1003,
+                "nombre": "Café compartido",
+                "unidad": "g",
+                "veces": 1,
+                "total": "1025.250",
+                "promedio": "1025.250",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.2500",
+                "costo_primero": "0.2500",
+                "costo_min": "0.2500",
+                "costo_max": "0.2500",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.2500"
+                    },
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.2500"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1005,
+                "nombre": "Aguacate",
+                "unidad": "g",
+                "veces": 1,
+                "total": "1000.000",
+                "promedio": "1000.000",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0600",
+                "costo_primero": "0.0600",
+                "costo_min": "0.0600",
+                "costo_max": "0.0600",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0600"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1004,
+                "nombre": "Bebida de avena",
+                "unidad": "ml",
+                "veces": 1,
+                "total": "1000.000",
+                "promedio": "1000.000",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0300",
+                "costo_primero": "0.0300",
+                "costo_min": "0.0300",
+                "costo_max": "0.0300",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0300"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1018,
+                "nombre": "Agua mineral",
+                "unidad": "ml",
+                "veces": 1,
+                "total": "125.625",
+                "promedio": "125.625",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0080",
+                "costo_primero": "0.0080",
+                "costo_min": "0.0080",
+                "costo_max": "0.0080",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0080"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1024,
+                "nombre": "Miel",
+                "unidad": "ml",
+                "veces": 1,
+                "total": "125.625",
+                "promedio": "125.625",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.1400",
+                "costo_primero": "0.1400",
+                "costo_min": "0.1400",
+                "costo_max": "0.1400",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.1400"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1021,
+                "nombre": "Vainilla",
+                "unidad": "ml",
+                "veces": 1,
+                "total": "125.625",
+                "promedio": "125.625",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.5500",
+                "costo_primero": "0.5500",
+                "costo_min": "0.5500",
+                "costo_max": "0.5500",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.5500"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1014,
+                "nombre": "Cebolla",
+                "unidad": "g",
+                "veces": 1,
+                "total": "2.375",
+                "promedio": "2.375",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0250",
+                "costo_primero": "0.0250",
+                "costo_min": "0.0250",
+                "costo_max": "0.0250",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0250"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1011,
+                "nombre": "Levadura",
+                "unidad": "g",
+                "veces": 1,
+                "total": "2.375",
+                "promedio": "2.375",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0900",
+                "costo_primero": "0.0900",
+                "costo_min": "0.0900",
+                "costo_max": "0.0900",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0900"
+                    }
+                ]
+            },
+            {
+                "articulo_id": 1017,
+                "nombre": "Naranja",
+                "unidad": "g",
+                "veces": 1,
+                "total": "2.375",
+                "promedio": "2.375",
+                "ultima": "2026-11-12 14:00:00",
+                "costo_ultimo": "0.0210",
+                "costo_primero": "0.0210",
+                "costo_min": "0.0210",
+                "costo_max": "0.0210",
+                "variacion": 0,
+                "serie": [
+                    {
+                        "fecha": "2026-11-12 14:00:00",
+                        "costo": "0.0210"
+                    }
+                ]
+            }
+        ],
+        "recientes": [
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Barra y Maridaje",
+                "nombre": "Miel",
+                "unidad": "ml",
+                "cantidad": "125.625",
+                "costo": "0.1400",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Vainilla",
+                "unidad": "ml",
+                "cantidad": "125.625",
+                "costo": "0.5500",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Refrigeración",
+                "nombre": "Agua mineral",
+                "unidad": "ml",
+                "cantidad": "125.625",
+                "costo": "0.0080",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Barra y Maridaje",
+                "nombre": "Naranja",
+                "unidad": "g",
+                "cantidad": "2.375",
+                "costo": "0.0210",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Cebolla",
+                "unidad": "g",
+                "cantidad": "2.375",
+                "costo": "0.0250",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Refrigeración",
+                "nombre": "Levadura",
+                "unidad": "g",
+                "cantidad": "2.375",
+                "costo": "0.0900",
+                "nota": "Conteo físico sintético documentado."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Barra y Maridaje",
+                "nombre": "Café compartido",
+                "unidad": "g",
+                "cantidad": "25.250",
+                "costo": "0.2500",
+                "nota": "Existencia física inicial documentada."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Barra y Maridaje",
+                "nombre": "Leche compartida",
+                "unidad": "ml",
+                "cantidad": "25.250",
+                "costo": "0.0150",
+                "nota": "Existencia física inicial documentada."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Barra y Maridaje",
+                "nombre": "Harina compartida",
+                "unidad": "g",
+                "cantidad": "25.250",
+                "costo": "0.0200",
+                "nota": "Existencia física inicial documentada."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Aguacate",
+                "unidad": "g",
+                "cantidad": "1000.000",
+                "costo": "0.0600",
+                "nota": "Existencia para opción de aguacate."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Bebida de avena",
+                "unidad": "ml",
+                "cantidad": "1000.000",
+                "costo": "0.0300",
+                "nota": "Existencia para opción de avena."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Café compartido",
+                "unidad": "g",
+                "cantidad": "1000.000",
+                "costo": "0.2500",
+                "nota": "Dato simulado reproducible."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Leche compartida",
+                "unidad": "ml",
+                "cantidad": "5000.000",
+                "costo": "0.0150",
+                "nota": "Dato simulado reproducible."
+            },
+            {
+                "fecha": "2026-11-12 14:00:00",
+                "almacen": "Cocina",
+                "nombre": "Harina compartida",
+                "unidad": "g",
+                "cantidad": "5000.000",
+                "costo": "0.0200",
+                "nota": "Dato simulado reproducible."
+            }
+        ]
+    },
+    "historialPrecios": {
+        "filas": [
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0153",
+                "precio_nuevo": "0.0150",
+                "tipo": "cambio",
+                "created_at": "2026-11-12 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.96
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0148",
+                "precio_nuevo": "0.0153",
+                "tipo": "cambio",
+                "created_at": "2026-11-08 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0005",
+                "variacion_pct": 3.38
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0152",
+                "precio_nuevo": "0.0148",
+                "tipo": "cambio",
+                "created_at": "2026-11-04 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0004",
+                "variacion_pct": -2.63
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0156",
+                "precio_nuevo": "0.0152",
+                "tipo": "cambio",
+                "created_at": "2026-10-31 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0004",
+                "variacion_pct": -2.56
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0151",
+                "precio_nuevo": "0.0156",
+                "tipo": "cambio",
+                "created_at": "2026-10-27 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0005",
+                "variacion_pct": 3.31
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0154",
+                "precio_nuevo": "0.0151",
+                "tipo": "cambio",
+                "created_at": "2026-10-23 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.95
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0159",
+                "precio_nuevo": "0.0154",
+                "tipo": "cambio",
+                "created_at": "2026-10-19 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0005",
+                "variacion_pct": -3.14
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0155",
+                "precio_nuevo": "0.0159",
+                "tipo": "cambio",
+                "created_at": "2026-10-15 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0004",
+                "variacion_pct": 2.58
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0158",
+                "precio_nuevo": "0.0155",
+                "tipo": "cambio",
+                "created_at": "2026-10-11 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.9
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0153",
+                "precio_nuevo": "0.0158",
+                "tipo": "cambio",
+                "created_at": "2026-10-07 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0005",
+                "variacion_pct": 3.27
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0156",
+                "precio_nuevo": "0.0153",
+                "tipo": "cambio",
+                "created_at": "2026-10-03 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.92
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0161",
+                "precio_nuevo": "0.0156",
+                "tipo": "cambio",
+                "created_at": "2026-09-29 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0005",
+                "variacion_pct": -3.11
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0157",
+                "precio_nuevo": "0.0161",
+                "tipo": "cambio",
+                "created_at": "2026-09-25 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0004",
+                "variacion_pct": 2.55
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0160",
+                "precio_nuevo": "0.0157",
+                "tipo": "cambio",
+                "created_at": "2026-09-21 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.88
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0164",
+                "precio_nuevo": "0.0160",
+                "tipo": "cambio",
+                "created_at": "2026-09-17 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0004",
+                "variacion_pct": -2.44
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0167",
+                "precio_nuevo": "0.0164",
+                "tipo": "cambio",
+                "created_at": "2026-09-13 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.8
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0162",
+                "precio_nuevo": "0.0167",
+                "tipo": "cambio",
+                "created_at": "2026-09-09 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0005",
+                "variacion_pct": 3.09
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0158",
+                "precio_nuevo": "0.0162",
+                "tipo": "cambio",
+                "created_at": "2026-09-05 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0004",
+                "variacion_pct": 2.53
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0161",
+                "precio_nuevo": "0.0158",
+                "tipo": "cambio",
+                "created_at": "2026-09-01 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.86
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0165",
+                "precio_nuevo": "0.0161",
+                "tipo": "cambio",
+                "created_at": "2026-08-28 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0004",
+                "variacion_pct": -2.42
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0160",
+                "precio_nuevo": "0.0165",
+                "tipo": "cambio",
+                "created_at": "2026-08-24 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0005",
+                "variacion_pct": 3.13
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0163",
+                "precio_nuevo": "0.0160",
+                "tipo": "cambio",
+                "created_at": "2026-08-20 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0003",
+                "variacion_pct": -1.84
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0159",
+                "precio_nuevo": "0.0163",
+                "tipo": "cambio",
+                "created_at": "2026-08-16 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0004",
+                "variacion_pct": 2.52
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0153",
+                "precio_nuevo": "0.0159",
+                "tipo": "cambio",
+                "created_at": "2026-08-12 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "0.0006",
+                "variacion_pct": 3.92
+            },
+            {
+                "articulo_id": 1002,
+                "articulo": "Leche compartida",
+                "unidad": "ml",
+                "precio_anterior": "0.0157",
+                "precio_nuevo": "0.0153",
+                "tipo": "cambio",
+                "created_at": "2026-08-08 12:00:00",
+                "responsable": "Demostración sintética",
+                "precio_actual": "0.0150",
+                "unidad_actual": "ml",
+                "diferencia": "-0.0004",
+                "variacion_pct": -2.55
+            }
+        ],
+        "pagina": 1,
+        "paginas": 2,
+        "total": 45,
+        "limite": 25
+    },
+    "articulosHistorialPrecios": [
+        {
+            "articulo_id": 1002,
+            "nombre": "Leche compartida",
+            "unidad": "ml",
+            "precio_actual": "0.0150"
+        }
+    ],
+    "articuloPrecioContexto": {
+        "articulo_id": 1002,
+        "nombre": "Leche compartida",
+        "unidad": "ml",
+        "precio_actual": "0.0150"
+    },
+    "graficaPrecio": {
+        "unidad": "ml",
+        "puntos": "58,100.06 65.49,84.13 72.97,74.56 80.46,87.31 87.94,61.81 95.43,68.19 102.91,80.94 110.4,90.5 117.88,103.25 125.37,93.69 132.85,77.75 140.34,55.44 147.82,65 155.31,49.06 162.79,58.63 170.28,71.38 177.76,52.25 185.25,39.5 192.73,49.06 200.22,33.13 207.7,45.88 215.19,55.44 222.67,42.69 230.16,26.75 237.64,36.31 245.13,49.06 252.61,58.63 260.1,45.88 267.59,61.81 275.07,71.38 282.56,55.44 290.04,65 297.53,52.25 305.01,68.19 312.5,77.75 320.06,61.81 327.54,74.56 335.03,87.31 342.51,71.38 350,80.94",
+        "eje_y": [
+            {
+                "y": 14,
+                "valor": "0.0171"
+            },
+            {
+                "y": 65,
+                "valor": "0.0155"
+            },
+            {
+                "y": 116,
+                "valor": "0.0139"
+            }
+        ],
+        "eje_x": [
+            {
+                "x": 58,
+                "etiqueta": "09\/06",
+                "ancla": "start"
+            },
+            {
+                "x": 155.31,
+                "etiqueta": "31\/07",
+                "ancla": "middle"
+            },
+            {
+                "x": 252.61,
+                "etiqueta": "21\/09",
+                "ancla": "middle"
+            },
+            {
+                "x": 350,
+                "etiqueta": "12\/11",
+                "ancla": "end"
+            }
+        ],
+        "minimo": "0.0143",
+        "maximo": "0.0167",
+        "eje_minimo": "0.0139",
+        "eje_maximo": "0.0171",
+        "eventos": 40,
+        "limite": 40,
+        "recortada": true,
+        "desde": "2026-06-09 12:00:00",
+        "hasta": "2026-11-12 12:00:00"
+    },
+    "comparacionPrecios": [
+        {
+            "proveedor_id": 1001,
+            "nombre": "Proveedor Restaurante",
+            "unidad_id": 2,
+            "activo": 1,
+            "precio_referencia": "0.0150",
+            "preferente": 1,
+            "articulo": "Leche compartida",
+            "unidad": "ml"
+        }
+    ],
+    "asignaciones": [
+        {
+            "articulo_id": 1002,
+            "nombre": "Leche compartida",
+            "unidad": "ml",
+            "costo_maestro": "0.0150",
+            "activo": 1,
+            "costo": "0.0150",
+            "codigo": null,
+            "preferente": 1
+        }
+    ]
+}

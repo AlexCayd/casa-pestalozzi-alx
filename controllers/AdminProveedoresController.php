@@ -67,6 +67,13 @@ final class AdminProveedoresController
             $articuloPrecio = $articuloPrecio === false ? null : $articuloPrecio;
             $historialPrecios = $servicio->historialPrecios($ctx, $id, $paginaPrecios, $articuloPrecio);
             $totalHistorialPrecios = $articuloPrecio ? $servicio->historialPrecios($ctx, $id)['total'] : $historialPrecios['total'];
+            $articulosHistorialPrecios = $servicio->articulosHistorialPrecios($ctx, $id);
+            $articuloPrecioContexto = null;
+            if ($articuloPrecio !== null) {
+                foreach ($articulosHistorialPrecios as $articulo) {
+                    if ((int)$articulo['articulo_id'] === $articuloPrecio) { $articuloPrecioContexto = $articulo; break; }
+                }
+            }
             $comparacionPrecios = $articuloPrecio ? $servicio->compararPrecios($ctx, $id, $articuloPrecio) : [];
             self::render('almacenes/proveedor', $ctx, [
                 'title' => (string)$proveedor['nombre'], 'proveedor' => $proveedor, 'puedeEditarFicha' => $editar,
@@ -74,8 +81,7 @@ final class AdminProveedoresController
                 'asignables' => $editar ? $servicio->articulosAsignables($ctx) : [],
                 'historial' => $servicio->historial($ctx, $id), 'historialPrecios' => $historialPrecios,
                 'totalHistorialPrecios' => $totalHistorialPrecios, 'tieneHistorialPrecios' => $totalHistorialPrecios > 0,
-                'totalHistorialPrecios' => $totalHistorialPrecios,
-                'articulosHistorialPrecios' => $servicio->articulosHistorialPrecios($ctx, $id),
+                'articulosHistorialPrecios' => $articulosHistorialPrecios, 'articuloPrecioContexto' => $articuloPrecioContexto,
                 'graficaPrecio' => $articuloPrecio ? $servicio->graficaPrecio($ctx, $id, $articuloPrecio) : null,
                 'comparacionPrecios' => $comparacionPrecios, 'filtroHistorialArticulo' => $articuloPrecio,
                 'alertas' => $alertas,

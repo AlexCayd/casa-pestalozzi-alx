@@ -590,6 +590,22 @@ menos tres eventos del mismo tramo/unidad. Global consulta proveedores de otros
 ámbitos sin editar sus precios; la comparación se limita al ámbito del proveedor
 abierto.
 
+Cada asociación ofrece «Ver histórico» en consulta y edición. El panel contextual
+identifica proveedor, artículo, unidad vigente y precio de referencia; las asociaciones
+retiradas siguen disponibles desde el selector. La tabla consulta páginas de 25 filas
+y conserva el filtro al paginar. La gráfica consulta como máximo 41 filas para dibujar
+los 40 eventos comparables más recientes y detectar truncamiento; usa fechas reales en
+el eje X y precio en el eje Y, sin unir unidades distintas ni cruzar una
+`base_observada`. Con menos de tres eventos del tramo/unidad vigente explica por qué
+no hay gráfica.
+
+Las series demostrativas se insertan únicamente desde `database/development.sql`.
+Para una instalación existente development/test, la carga separada
+`database/actualizaciones/sembrar-precios-proveedores-desarrollo.sql` exige opt-in,
+marcador de instalación, migración aplicada y asociaciones/precios/snapshots esperados.
+Debe ejecutarse en conexión dedicada con abort-on-error, nunca `--force`; si falla una
+guardia se hace rollback y se cierra la conexión. PHP no reimporta estas series.
+
 Migración para instalaciones existentes: aplicar
 `database/actualizaciones/etapa1-precios-proveedores.sql` después de M5 y antes de
 desplegar el servicio/UI de esta etapa. Es aditiva, repetible y no hace backfill.

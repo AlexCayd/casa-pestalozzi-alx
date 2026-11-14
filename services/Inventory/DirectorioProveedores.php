@@ -298,7 +298,7 @@ final class DirectorioProveedores
         $this->exigirHistorialPreciosDisponible();
         $p = $this->proveedor($ctx, $id);
         $historicos = $this->db->execute_query(
-            'SELECT h.articulo_id,
+            'SELECT h.articulo_id,CAST(NULL AS DECIMAL(10,4)) AS precio_actual,
                     (SELECT x.articulo_nombre_snapshot FROM historial_precios_proveedores x WHERE x.unidad_id=h.unidad_id AND x.proveedor_id=h.proveedor_id AND x.articulo_id=h.articulo_id ORDER BY x.created_at DESC,x.id DESC LIMIT 1) AS nombre,
                     (SELECT x.unidad_base_snapshot FROM historial_precios_proveedores x WHERE x.unidad_id=h.unidad_id AND x.proveedor_id=h.proveedor_id AND x.articulo_id=h.articulo_id ORDER BY x.created_at DESC,x.id DESC LIMIT 1) AS unidad
                FROM historial_precios_proveedores h WHERE h.unidad_id=? AND h.proveedor_id=?
@@ -306,7 +306,7 @@ final class DirectorioProveedores
             [(int)$p['unidad_id'], $id]
         )->fetch_all(MYSQLI_ASSOC);
         $actuales = $this->db->execute_query(
-            'SELECT ip.ingrediente_id AS articulo_id,i.nombre,i.unidad FROM ingrediente_proveedores ip JOIN ingredientes i ON i.id=ip.ingrediente_id WHERE ip.unidad_id=? AND ip.proveedor_id=?',
+            'SELECT ip.ingrediente_id AS articulo_id,i.nombre,i.unidad,ip.costo AS precio_actual FROM ingrediente_proveedores ip JOIN ingredientes i ON i.id=ip.ingrediente_id WHERE ip.unidad_id=? AND ip.proveedor_id=?',
             [(int)$p['unidad_id'], $id]
         )->fetch_all(MYSQLI_ASSOC);
         $porArticulo = [];
@@ -317,14 +317,14 @@ final class DirectorioProveedores
         return $salida;
     }
 
-    /** Serie para la gráfica; solo devuelve datos con al menos tres eventos. */
+    /** Últimos cuarenta eventos comparables para la gráfica; nunca carga la historia completa. */
     public function graficaPrecio(string $ctx, int $id, int $articuloId): ?array
     {
         $this->exigirHistorialPreciosDisponible();
         $p = $this->proveedor($ctx, $id);
         $rows = $this->db->execute_query(
             'SELECT precio_nuevo,unidad_base_snapshot,created_at,tipo FROM historial_precios_proveedores
-              WHERE unidad_id=? AND proveedor_id=? AND articulo_id=? ORDER BY created_at DESC,id DESC LIMIT 60',
+              WHERE unidad_id=? AND proveedor_id=? AND articulo_id=? ORDER BY created_at DESC,id DESC LIMIT 41',
             [(int)$p['unidad_id'], $id, $articuloId]
         )->fetch_all(MYSQLI_ASSOC);
         if (count($rows) < 3) return null;
@@ -339,16 +339,50 @@ final class DirectorioProveedores
         }
         $rows = $serie;
         if (count($rows) < 3) return null;
+        $recortada = count($rows) > 40;
+        $rows = array_slice($rows, 0, 40);
         $rows = array_reverse($rows);
         $valores = array_map(static fn($r) => DecimalInventario::leer((string)$r['precio_nuevo'], 4), $rows);
-        $min = min($valores); $max = max($valores); $rango = max(1, $max - $min);
+        $min = min($valores); $max = max($valores);
+        $rangoObservado = $max - $min;
+        $margen = max((int)ceil($rangoObservado * 0.15), 1);
+        $ejeMin = max(0, $min - $margen);
+        $ejeMax = $max + $margen;
+        if ($ejeMax <= $ejeMin) $ejeMax = $ejeMin + 2;
+        $rango = $ejeMax - $ejeMin;
+        $fechas = array_map(static fn($r) => strtotime((string)$r['created_at']) ?: 0, $rows);
+        $desdeTs = min($fechas); $hastaTs = max($fechas);
+        $duracion = max(1, $hastaTs - $desdeTs);
+        $xInicio = 58.0; $xFin = 350.0; $yInicio = 14.0; $yFin = 116.0;
         $coords = [];
         foreach ($valores as $i => $v) {
-            $x = count($valores) === 1 ? 50 : round(8 + 84 * $i / (count($valores) - 1), 2);
-            $y = round(48 - 40 * ($v - $min) / $rango, 2);
+            $x = round($xInicio + ($fechas[$i] - $desdeTs) * ($xFin - $xInicio) / $duracion, 2);
+            $y = round($yFin - ($v - $ejeMin) * ($yFin - $yInicio) / $rango, 2);
             $coords[] = $x . ',' . $y;
         }
-        return ['unidad' => $unidad, 'puntos' => implode(' ', $coords), 'minimo' => DecimalInventario::formato($min, 4), 'maximo' => DecimalInventario::formato($max, 4), 'eventos' => count($rows), 'desde' => substr((string)$rows[0]['created_at'], 0, 10), 'hasta' => substr((string)$rows[count($rows) - 1]['created_at'], 0, 10)];
+        $ejeY = [];
+        foreach ([0, 0.5, 1] as $fraccion) {
+            $valor = $ejeMax - $rango * $fraccion;
+            $ejeY[] = ['y' => round($yInicio + ($yFin - $yInicio) * $fraccion, 2), 'valor' => DecimalInventario::formato((int)round($valor), 4)];
+        }
+        $ejeX = [];
+        foreach ([0, 1, 2, 3] as $tick) {
+            $indice = (int)round((count($rows) - 1) * $tick / 3);
+            $fecha = $fechas[$indice];
+            if (isset($ejeX[$fecha])) continue;
+            $ejeX[$fecha] = [
+                'x' => round($xInicio + ($fecha - $desdeTs) * ($xFin - $xInicio) / $duracion, 2),
+                'etiqueta' => date('d/m', $fecha),
+                'ancla' => $tick === 0 ? 'start' : ($tick === 3 ? 'end' : 'middle'),
+            ];
+        }
+        return [
+            'unidad' => $unidad, 'puntos' => implode(' ', $coords), 'eje_y' => $ejeY, 'eje_x' => array_values($ejeX),
+            'minimo' => DecimalInventario::formato($min, 4), 'maximo' => DecimalInventario::formato($max, 4),
+            'eje_minimo' => DecimalInventario::formato($ejeMin, 4), 'eje_maximo' => DecimalInventario::formato($ejeMax, 4),
+            'eventos' => count($rows), 'limite' => 40, 'recortada' => $recortada,
+            'desde' => (string)$rows[0]['created_at'], 'hasta' => (string)$rows[count($rows) - 1]['created_at'],
+        ];
     }
 
     private function registrarPrecio(int $unidad, int $proveedor, int $articulo, string $proveedorNombre, string $articuloNombre, string $unidadBase, ?string $anterior, string $nuevo, string $tipo, string $usuarioNombre): void

@@ -23,6 +23,18 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $dir=new DirectorioProveedores($db,$actor,$nivel);$adm=new AdministracionAlmacenes($db,$actor,$nivel);
     $uno=static fn(string $sql,array $p=[])=>$db->execute_query($sql,$p)->fetch_row()[0]??null;
 
+    // El DML de instalación trae datos sintéticos SQL; validarlos antes de
+    // reconstruir la tabla en la prueba de migración M5.
+    $conteos=$db->query('SELECT CONCAT(unidad_id,":",proveedor_id,":",articulo_id) k,COUNT(*) n FROM historial_precios_proveedores GROUP BY unidad_id,proveedor_id,articulo_id ORDER BY unidad_id')->fetch_all(MYSQLI_ASSOC);
+    $conteos=array_map('intval',array_column($conteos,'n','k'));ksort($conteos);
+    $a($conteos===['1:1003:1001'=>5,'2:1001:1002'=>45,'3:1002:1001'=>10],'La instalación nueva incluye las series Global/Restaurante/Panadería 5/45/10: '.json_encode($conteos));
+    $a((int)$uno("SELECT COUNT(*) FROM historial_precios_proveedores WHERE tipo='inicial'")===3&&(int)$uno("SELECT COUNT(*) FROM historial_precios_proveedores WHERE tipo='cambio'")===57,'La seed marca inicial y cambios sin simular actor real');
+    $a((int)$uno("SELECT COUNT(*) FROM historial_precios_proveedores WHERE usuario_id IS NULL AND usuario_nombre_snapshot='Demostración sintética'")===60,'Las series identifican cada evento como demostración sintética');
+    $a((int)$uno("SELECT COUNT(*) FROM historial_precios_proveedores h JOIN ingrediente_proveedores ip ON ip.unidad_id=h.unidad_id AND ip.proveedor_id=h.proveedor_id AND ip.ingrediente_id=h.articulo_id WHERE h.id=(SELECT x.id FROM historial_precios_proveedores x WHERE x.unidad_id=h.unidad_id AND x.proveedor_id=h.proveedor_id AND x.articulo_id=h.articulo_id ORDER BY x.created_at DESC,x.id DESC LIMIT 1) AND h.precio_nuevo=ip.costo")===3,'Cada serie termina en el costo vigente sin mutarlo');
+    $sqlDev=(string)file_get_contents($root.'/database/development.sql');$sqlExistente=(string)file_get_contents($root.'/database/actualizaciones/sembrar-precios-proveedores-desarrollo.sql');
+    $extraerFuente=static function(string $s):string{$inicio='-- INICIO FUENTE SQL COMPARTIDA: demo-historial-precios-proveedores-v1';$fin='-- FIN FUENTE SQL COMPARTIDA: demo-historial-precios-proveedores-v1';$a=strpos($s,$inicio);$b=$a===false?false:strpos($s,$fin,$a);return $a===false||$b===false?'':str_replace(["\r\n","\r"],"\n",substr($s,$a,$b+strlen($fin)-$a));};
+    $a($extraerFuente($sqlDev)!==''&&$extraerFuente($sqlDev)===$extraerFuente($sqlExistente),'La seed de instalación y la carga controlada comparten el mismo bloque SQL');
+
     // Migración en un esquema preexistente con asociaciones M5; repetible y sin
     // atribuir precios/fechas anteriores que el sistema nunca registró.
     $db->query('DROP TABLE historial_precios_proveedores');
@@ -33,9 +45,57 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a((int)$uno("SELECT COUNT(*) FROM esquema_versiones WHERE version='etapa1-precios-proveedores'")===1,'La migración registra su versión una sola vez');
     $a((int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===0&&(int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores')>0,'La migración no inventa historial para asociaciones antiguas');
     $db->query('DROP TABLE historial_precios_proveedores');
+    $db->execute_query("DELETE FROM esquema_versiones WHERE version='demo-historial-precios-proveedores-v1'");
     $pendiente=$dir->guardarAsignaciones('restaurante',1001,[]);
     $a(($pendiente['codigo']??'')==='MIGRACION_PENDIENTE'&&str_contains((string)($pendiente['mensaje']??''),'etapa1-precios-proveedores.sql'),'La escritura avisa con claridad si falta instalar la migración');
     Multinegocio\SqlArchivo::ejecutar($db,$root.'/database/actualizaciones/etapa1-precios-proveedores.sql');
+
+    // Instalaciones existentes reciben datos solo con opt-in, instalación de
+    // desarrollo/test completa, asociaciones intactas y ausencia de historia previa.
+    $carga=$root.'/database/actualizaciones/sembrar-precios-proveedores-desarrollo.sql';
+    $intentarCarga=static function(?string $confirmacion)use($db,$carga):bool{
+        $db->execute_query('SET @cp_confirmar_demo_precios=?',[$confirmacion]);
+        try{Multinegocio\SqlArchivo::ejecutar($db,$carga);$rechazada=false;}catch(Throwable){$db->rollback();$rechazada=true;}
+        $db->query('DROP TEMPORARY TABLE IF EXISTS _cp_guard_demo_precios');$db->query('SET @cp_confirmar_demo_precios=NULL');$db->query('SET @cp_demo_precios_aprobada=NULL');
+        return $rechazada;
+    };
+    $a($intentarCarga('CONFIRMAR_DATOS_SINTETICOS_PRECIOS_DESARROLLO')&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===0,'La carga controlada rechaza esquemas sin marcador de instalación development/test');
+    $owner=(string)$uno('SELECT token FROM _cp_multinegocio_owner');$adminId=(int)$uno("SELECT id FROM usuarios WHERE username='admin_demo'");
+    $db->execute_query("INSERT INTO instalacion_desarrollo(id,entorno,propietario_token,dml_sha256,administrador_id,completada) VALUES (1,'development',?,SHA2('fixture_m5_seed',256),?,1)",[$owner,$adminId]);
+    $a($intentarCarga(null)&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===0,'La carga controlada requiere opt-in explícito');
+    $db->execute_query('UPDATE ingrediente_proveedores SET costo=0.0151 WHERE unidad_id=2 AND proveedor_id=1001 AND ingrediente_id=1002');
+    $a($intentarCarga('CONFIRMAR_DATOS_SINTETICOS_PRECIOS_DESARROLLO')&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===0,'La carga controlada rechaza referencias alteradas sin cambiar datos');
+    $db->execute_query('UPDATE ingrediente_proveedores SET costo=0.0150 WHERE unidad_id=2 AND proveedor_id=1001 AND ingrediente_id=1002');
+    $db->execute_query("INSERT INTO historial_precios_proveedores(unidad_id,proveedor_id,articulo_id,proveedor_nombre_snapshot,articulo_nombre_snapshot,unidad_base_snapshot,precio_anterior,precio_nuevo,tipo,usuario_id,usuario_nombre_snapshot) VALUES(2,1001,1002,'Proveedor Restaurante','Leche compartida','ml',NULL,'0.0150','inicial',NULL,'Fixture de guardia')");$guardHistoriaId=$db->insert_id;
+    $a($intentarCarga('CONFIRMAR_DATOS_SINTETICOS_PRECIOS_DESARROLLO')&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===1,'La carga controlada rechaza historia previa sin insertar registros');
+    $db->execute_query('DELETE FROM historial_precios_proveedores WHERE id=?',[$guardHistoriaId]);
+    $a(!$intentarCarga('CONFIRMAR_DATOS_SINTETICOS_PRECIOS_DESARROLLO')&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===60,'La carga controlada aprobada crea las tres series completas');
+    $a((int)$uno("SELECT COUNT(*) FROM esquema_versiones WHERE version='demo-historial-precios-proveedores-v1'")===1,'La carga controlada registra su marcador una sola vez');
+    $a($intentarCarga('CONFIRMAR_DATOS_SINTETICOS_PRECIOS_DESARROLLO')&&(int)$uno('SELECT COUNT(*) FROM historial_precios_proveedores')===60,'La repetición de la carga controlada rechaza duplicar y no altera historia');
+    $fechaSintetica=$uno("SELECT MAX(created_at) FROM historial_precios_proveedores WHERE proveedor_id=1001 AND articulo_id=1002");
+    $a(strtotime((string)$fechaSintetica)<=time(),'Los cierres sintéticos quedan antes de una modificación real actual');
+    $hpSeed=$dir->historialPrecios('restaurante',1001,1,1002);$graficaSeed=$dir->graficaPrecio('restaurante',1001,1002);
+    $a($hpSeed['total']===45&&$hpSeed['paginas']===2&&count($hpSeed['filas'])===25,'La serie larga ofrece página de 25 sin cargar todos los eventos');
+    $a($graficaSeed!==null&&$graficaSeed['eventos']===40&&$graficaSeed['recortada']===true&&count(explode(' ',trim($graficaSeed['puntos'])))===40,'La gráfica limita a los últimos 40 puntos de 45 comparables');
+    $a(count($graficaSeed['eje_x'])===4&&$graficaSeed['eje_x'][0]['x']<$graficaSeed['eje_x'][3]['x']&&$graficaSeed['eje_y'][0]['valor']!==$graficaSeed['eje_y'][2]['valor'],'La gráfica usa fechas reales en X y escala de precio legible en Y');
+    $graficaPan=$dir->graficaPrecio('panaderia',1002,1001);$graficaGlobal=$dir->graficaPrecio('global',1003,1001);
+    $a($graficaPan!==null&&$graficaPan['eventos']===10&&!$graficaPan['recortada']&&$graficaGlobal!==null&&$graficaGlobal['eventos']===5,'Las series medianas/cortas de Panadería y Global se consultan en su ámbito');
+    $idsGlobal=array_column($db->execute_query('SELECT id FROM historial_precios_proveedores WHERE unidad_id=1 AND proveedor_id=1003 AND articulo_id=1001 ORDER BY created_at,id')->fetch_all(MYSQLI_ASSOC),'id');
+    foreach([2=>10,3=>9,4=>0] as $pos=>$dias)$db->execute_query('UPDATE historial_precios_proveedores SET created_at=DATE_SUB(TIMESTAMP(CURDATE(),\'12:00:00\'),INTERVAL ? DAY) WHERE id=?',[$dias,$idsGlobal[$pos]]);
+    $graficaFechas=$dir->graficaPrecio('global',1003,1001);$coordsFecha=array_map(static fn($p)=>(float)explode(',',$p)[0],explode(' ',trim($graficaFechas['puntos'])));
+    $a(count($coordsFecha)===5&&$coordsFecha[3]-$coordsFecha[2]<5,'Las posiciones horizontales respetan el intervalo real irregular entre fechas');
+    $db->execute_query("UPDATE historial_precios_proveedores SET precio_nuevo='0.0200' WHERE unidad_id=1 AND proveedor_id=1003 AND articulo_id=1001");
+    $graficaPlana=$dir->graficaPrecio('global',1003,1001);
+    $a($graficaPlana!==null&&$graficaPlana['eje_maximo']>$graficaPlana['eje_minimo']&&count(array_unique(array_map(static fn($p)=>explode(',',$p)[1],explode(' ',trim($graficaPlana['puntos'])))))===1,'Una serie plana conserva una escala no nula y dibuja sin división entre cero');
+    $articuloSeed=$dir->articulosHistorialPrecios('restaurante',1001);
+    $a((string)array_values(array_filter($articuloSeed,static fn($x)=>(int)$x['articulo_id']===1002))[0]['precio_actual']==='0.0150','La selección contextual expone precio vigente de su asociación');
+    $uiData=['datos_sinteticos'=>true,'fuente'=>'database/development.sql importado como SQL en base temporal M5','proveedor'=>$dir->proveedor('restaurante',1001),'historial'=>$dir->historial('restaurante',1001),'historialPrecios'=>$hpSeed,'articulosHistorialPrecios'=>$articuloSeed,'articuloPrecioContexto'=>array_values(array_filter($articuloSeed,static fn($x)=>(int)$x['articulo_id']===1002))[0],'graficaPrecio'=>$graficaSeed,'comparacionPrecios'=>$dir->compararPrecios('restaurante',1001,1002),'asignaciones'=>$dir->asignaciones('restaurante',1001)];
+    file_put_contents($root.'/docs/desarrollo/evidencia-etapa1-ajuste/ui-fixture-seed-sql.json',json_encode($uiData,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR).PHP_EOL);
+    $a(!empty($dir->guardarAsignaciones('restaurante',1001,[['articulo_id'=>'1002','costo'=>'0.0151','preferente'=>'1']])['ok']),'Un cambio real de referencia se registra sobre la seed');
+    $real=$db->execute_query('SELECT tipo,precio_anterior,precio_nuevo,created_at FROM historial_precios_proveedores WHERE proveedor_id=1001 AND articulo_id=1002 ORDER BY created_at DESC,id DESC LIMIT 1')->fetch_assoc();
+    $a($real['tipo']==='cambio'&&$real['precio_anterior']==='0.0150'&&$real['precio_nuevo']==='0.0151'&&strtotime((string)$real['created_at'])>strtotime((string)$fechaSintetica),'El cambio real actual queda como último evento y encadena el precio anterior vigente');
+    $a(!empty($dir->guardarAsignaciones('restaurante',1001,[['articulo_id'=>'1002','costo'=>'0.0150','preferente'=>'1']])['ok']),'La fixture vuelve al precio original después del control de cambio real');
+    $db->query('DELETE FROM historial_precios_proveedores');$db->execute_query("DELETE FROM esquema_versiones WHERE version='demo-historial-precios-proveedores-v1'");$db->query('DELETE FROM instalacion_desarrollo WHERE id=1');
 
     // 0. Esquema y fixture: cada ámbito con su proveedor y su apertura ligada.
     $a((int)$uno("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='entradas_proveedor'")===1,'La instalación crea entradas_proveedor');
@@ -163,6 +223,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $a($baseUnidad['tipo']==='base_observada'&&$baseUnidad['unidad_base_snapshot']==='kg'&&$baseUnidad['precio_anterior']===null,'El cambio de unidad no calcula variación contra la unidad anterior');
     $precioFilas=$dir->historialPrecios('restaurante',$lac,1,1002)['filas'];
     $a($precioFilas[0]['unidad']==='kg'&&$precioFilas[0]['unidad_actual']==='kg','La lectura muestra unidad histórica y unidad actual');
+    $a($dir->graficaPrecio('restaurante',$lac,1002)===null,'La gráfica no mezcla con la unidad anterior cuando el tramo actual tiene menos de tres datos');
     $db->execute_query('UPDATE ingredientes SET unidad=? WHERE id=1002',[$unidadAntes]);
 
     // Precio anterior cero: variación absoluta válida y porcentual indefinida.
@@ -171,6 +232,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $dir->guardarAsignaciones('restaurante',$cero,[['articulo_id'=>'1001','costo'=>'0.0001']]);
     $hCero=$dir->historialPrecios('restaurante',$cero,1,1001)['filas'];
     $a($hCero[0]['diferencia']==='0.0001'&&$hCero[0]['variacion_pct']===null,'Desde precio cero calcula diferencia absoluta y deja porcentaje nulo');
+    $a($dir->graficaPrecio('restaurante',$cero,1001)===null,'Con menos de tres eventos se omite la gráfica');
     $no($dir->eliminar('restaurante',$cero),'Un proveedor solo con historial de precios tampoco se borra','PROVEEDOR_CON_HISTORIAL');
     $a(!empty($dir->guardar('restaurante',$cero,['nombre'=>'Proveedor precio cero','activo'=>'0'])['ok'])&&$dir->historialPrecios('restaurante',$cero,1,1001)['total']===2,'La baja lógica conserva historial sin entradas');
 
@@ -239,7 +301,7 @@ m12Pruebas(static function(mysqli $db,string $root,callable $a){
     $dir->guardarAsignaciones('restaurante',$lac,[]);
     $traceRows=$db->execute_query('SELECT tipo,precio_anterior,precio_nuevo,unidad_base_snapshot,created_at,usuario_nombre_snapshot FROM historial_precios_proveedores WHERE proveedor_id=? AND articulo_id=1002 ORDER BY id',[$lac])->fetch_all(MYSQLI_ASSOC);
     $a((int)$uno('SELECT COUNT(*) FROM ingrediente_proveedores WHERE proveedor_id=? AND ingrediente_id=1002',[$lac])===0&&count($traceRows)>=4,'Retirar la asociación conserva la secuencia de precios');
-    file_put_contents($root.'/docs/desarrollo/evidencia-etapa1/traza-precios-sintetica.json',json_encode([
+    file_put_contents($root.'/docs/desarrollo/evidencia-etapa1-ajuste/traza-precios-sintetica.json',json_encode([
         'fixture_sintetica'=>true,'aviso'=>'Datos generados por prueba aislada; no son precios reales.',
         'ambito'=>'restaurante','proveedor'=>'Lácteos del Valle','articulo_id'=>1002,
         'asociacion_vigente'=>false,'eventos'=>$traceRows,

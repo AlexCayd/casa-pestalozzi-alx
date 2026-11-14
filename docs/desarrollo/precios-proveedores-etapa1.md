@@ -40,3 +40,52 @@ Los runners de integración recibieron configuración local a través de su wrap
 ## Arquitectura
 
 Decisiones y relaciones de datos: `docs/arquitectura.md`, sección 17.1. Arquitectura, persistencia, UI y pruebas fueron revisadas y aceptadas localmente por el supervisor. No se envió push y no se modificó `main`.
+
+## Ajuste de acceso, series y gráfica
+
+El listado de asociaciones ofrece `Ver histórico` tanto en modo edición como consulta.
+La selección muestra proveedor, artículo, unidad actual y precio de referencia; se
+puede abrir el historial de artículos retirados desde su selector. La tabla es de solo
+lectura, conserva el artículo al paginar y presenta 25 eventos por página. La gráfica
+usa fechas en X y precio en Y, consulta hasta 41 eventos comparables para representar
+los últimos 40 y advertir truncamiento. No conecta tramos de unidades distintas ni
+atraviesa una `base_observada`; sin tres eventos del tramo vigente muestra el motivo.
+
+Las semillas viven en `database/development.sql` y utilizan los tres pares ya
+presentes en ese archivo: Restaurante 45 eventos, Panadería 10 y Global 5. Los
+snapshots declaran que son sintéticos, terminan en el costo de referencia ya sembrado
+y no modifican costos de movimientos ni artículos. Para una instalación development
+/test preexistente, el SQL independiente exige confirmación explícita, marcador de
+instalación completada, migración M5 y coincidencia de pares, snapshots y costos; no
+permite reejecución ni agrega series si ya hay historia en los pares objetivo. Correr
+en una conexión dedicada con abort-on-error y sin `--force`; ante fallo de guardia,
+hacer `ROLLBACK` y cerrar esa conexión. No se ejecutó en la base configurada de la app.
+
+### Verificaciones y evidencia de este ajuste
+
+`docs/desarrollo/evidencia-etapa1-ajuste/` conserva resultados y captura. El runner M5
+pasó 146 comprobaciones en su base temporal, que eliminó al terminar. `npm run
+test:php`, `npm run test:js` y `npx gulp adminModuleCss` pasaron. La captura usa el JSON
+extraído por M5 desde la base temporal antes de eliminarla; el fixture solo renderiza
+la vista y no escribe a la base. Playwright comprobó enlace en edición/consulta,
+contexto, query de paginación preservando `historial_articulo`, ancho 390/390 px,
+scroll interno de tabla de 620 px, consulta sin formularios de escritura y cero errores
+de página. La paginación HTTP no se navegó en el fixture; se verificó el `href`.
+
+Comandos ejecutados para la evidencia:
+
+```powershell
+php scripts/tests/run-proveedores.php --host 127.0.0.1 --base casa-pestalozzi --entorno development
+npm run test:php
+npm run test:js
+npx gulp adminModuleCss
+php docs/desarrollo/evidencia-etapa1-ajuste/render-ui-fixture.php
+php -S 127.0.0.1:8097 -t public
+node docs/desarrollo/evidencia-etapa1-ajuste/capture-ui.cjs
+```
+
+La segunda compilación global no se repitió: su intento anterior produjo errores de
+copia en una fuente no relacionada; se compiló únicamente el CSS modular y se
+restauraron los artefactos ajenos. El supervisor aceptó localmente el ajuste de
+persistencia, UI y suite M5. La migración no se aplicó a la base de la aplicación; no
+se hizo push ni se modificó `main`.

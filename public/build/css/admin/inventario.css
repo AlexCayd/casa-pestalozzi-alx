@@ -3717,6 +3717,71 @@
   vector-effect: non-scaling-stroke;
 }
 
+.proveedor-precios__contexto {
+  margin: 0 0 16px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.proveedor-precios__contexto strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.proveedor-precios__grafica-area {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.proveedor-precios__eje-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 116px;
+  padding: 5px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.proveedor-precios__plot {
+  min-width: 0;
+}
+
+.proveedor-precios__eje-x {
+  position: relative;
+  height: 20px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.proveedor-precios__eje-x span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.proveedor-precios__eje-x span[data-anchor=start] {
+  transform: none;
+}
+
+.proveedor-precios__eje-x span[data-anchor=end] {
+  transform: translateX(-100%);
+}
+
+.proveedor-precios__nota-grafica {
+  margin: 0 0 16px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .proveedor-precios__tabla {
   font-variant-numeric: tabular-nums;
 }
@@ -3894,5 +3959,12 @@
   .proveedor-precios__paginacion {
     flex-wrap: wrap;
     justify-content: center;
+  }
+  .proveedor-precios__grafica-area {
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 7px;
+  }
+  .proveedor-precios__eje-y, .proveedor-precios__eje-x {
+    font-size: 10px;
   }
 }

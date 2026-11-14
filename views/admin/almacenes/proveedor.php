@@ -14,10 +14,11 @@ $campoCsrf='<input type="hidden" name="admin_csrf" value="'.$esc($csrf).'">';
 $dueno=Contextos::NOMBRES[$p['slug']??$ctx]??'';
 $res=$historial['resumen']??null;
 $historialPrecios=$historialPrecios??['filas'=>[],'pagina'=>1,'paginas'=>1,'total'=>0,'limite'=>25];
-$articulosHistorialPrecios=$articulosHistorialPrecios??[];$comparacionPrecios=$comparacionPrecios??[];
+$articulosHistorialPrecios=$articulosHistorialPrecios??[];$articuloPrecioContexto=$articuloPrecioContexto??null;$comparacionPrecios=$comparacionPrecios??[];
 $filtroHistorialArticulo=$filtroHistorialArticulo??null;$graficaPrecio=$graficaPrecio??null;
 $tieneHistorialPrecios=$tieneHistorialPrecios??false;
 $urlFicha=$base.'/ficha?id='.(int)($p['id']??0);
+$urlHistorialArticulo=static fn(int $articuloId):string=>$urlFicha.'&historial_articulo='.$articuloId.'#historial-precios';
 $hoy=date('Y-m-d');
 ?>
 <section class="admin-inventario admin-page almacen-proveedores">
@@ -48,40 +49,54 @@ $hoy=date('Y-m-d');
     </p>
   </div>
 
-  <section class="admin-panel almacen-list proveedor-precios" aria-labelledby="proveedor-precios-titulo">
+  <section class="admin-panel almacen-list proveedor-precios" id="historial-precios" aria-labelledby="proveedor-precios-titulo">
     <div class="almacen-section-head"><div><h3 id="proveedor-precios-titulo">Historial de precios</h3><p>Precio de referencia ofrecido por este proveedor. El costo de cada entrada de inventario queda congelado por separado. “Base observada” registra hoy el precio que ya estaba guardado; no afirma cuándo se ofreció originalmente.</p></div></div>
     <form method="GET" action="<?php echo $esc($base.'/ficha'); ?>" class="proveedor-precios__filtros">
       <input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
       <label for="historial-articulo">Artículo</label>
       <select id="historial-articulo" name="historial_articulo">
         <option value="">Todos los artículos</option>
-        <?php foreach($articulosHistorialPrecios as $op): ?><option value="<?php echo (int)$op['articulo_id']; ?>" <?php echo (int)$filtroHistorialArticulo===(int)$op['articulo_id']?'selected':''; ?>><?php echo $esc($op['nombre'].' · '.$op['unidad']); ?></option><?php endforeach; ?>
+        <?php foreach($articulosHistorialPrecios as $op): ?><option value="<?php echo (int)$op['articulo_id']; ?>" <?php echo (int)$filtroHistorialArticulo===(int)$op['articulo_id']?'selected':''; ?>><?php echo $esc($op['nombre'].' · '.$op['unidad'].($op['precio_actual']===null?' · retirado':'')); ?></option><?php endforeach; ?>
       </select>
       <button type="submit" class="admin-btn admin-btn--secondary">Consultar</button>
     </form>
+    <?php if($filtroHistorialArticulo&&$articuloPrecioContexto): ?><p class="proveedor-precios__contexto"><strong>Proveedor:</strong> <?php echo $esc($p['nombre']); ?><?php if((int)$p['activo']!==1): ?> · Inactivo<?php endif; ?> <span aria-hidden="true">·</span> <strong>Artículo:</strong> <?php echo $esc($articuloPrecioContexto['nombre']); ?> <span aria-hidden="true">·</span> <strong>Unidad:</strong> <?php echo $esc($articuloPrecioContexto['unidad']); ?> <span aria-hidden="true">·</span> <strong>Precio de referencia:</strong> <?php if($articuloPrecioContexto['precio_actual']!==null): ?><span class="admin-num">$<?php echo $esc($articuloPrecioContexto['precio_actual']); ?></span> por <?php echo $esc($articuloPrecioContexto['unidad']); ?><?php else: ?><span class="almacen-unassociated">Sin oferta vigente; asociación retirada</span><?php endif; ?></p><?php endif; ?>
     <?php if($graficaPrecio!==null): ?>
       <figure class="proveedor-precios__grafica">
-        <figcaption>Evolución de <?php echo (int)$graficaPrecio['eventos']; ?> registros entre <?php echo $esc($fecha($graficaPrecio['desde'])); ?> y <?php echo $esc($fecha($graficaPrecio['hasta'])); ?> · precios por <?php echo $esc($graficaPrecio['unidad']); ?> · $<?php echo $esc($graficaPrecio['minimo']); ?> a $<?php echo $esc($graficaPrecio['maximo']); ?></figcaption>
-        <svg viewBox="0 0 100 56" role="img" aria-label="Gráfica de la evolución del precio de referencia" preserveAspectRatio="none"><desc>Del <?php echo $esc($fecha($graficaPrecio['desde'])); ?> al <?php echo $esc($fecha($graficaPrecio['hasta'])); ?>.</desc><line x1="8" y1="48" x2="92" y2="48"/><polyline points="<?php echo $esc($graficaPrecio['puntos']); ?>"/></svg>
+        <figcaption><?php echo $graficaPrecio['recortada']?'Últimos 40 eventos comparables':'Evolución de '.$graficaPrecio['eventos'].' eventos'; ?> · <?php echo $esc($fecha($graficaPrecio['desde'])); ?> a <?php echo $esc($fecha($graficaPrecio['hasta'])); ?> · precios por <?php echo $esc($graficaPrecio['unidad']); ?>.</figcaption>
+        <div class="proveedor-precios__grafica-area" role="img" aria-label="Precio de referencia por <?php echo $esc($graficaPrecio['unidad']); ?> desde <?php echo $esc($fecha($graficaPrecio['desde'])); ?> hasta <?php echo $esc($fecha($graficaPrecio['hasta'])); ?>. Escala de $<?php echo $esc($graficaPrecio['eje_minimo']); ?> a $<?php echo $esc($graficaPrecio['eje_maximo']); ?>.">
+          <div class="proveedor-precios__eje-y"><?php foreach($graficaPrecio['eje_y'] as $tick): ?><span>$<?php echo $esc($tick['valor']); ?></span><?php endforeach; ?></div>
+          <div class="proveedor-precios__plot">
+            <svg viewBox="58 14 292 102" aria-hidden="true" preserveAspectRatio="none">
+              <?php foreach($graficaPrecio['eje_y'] as $tick): ?><line class="proveedor-precios__rejilla" x1="58" y1="<?php echo $esc($tick['y']); ?>" x2="350" y2="<?php echo $esc($tick['y']); ?>"/><?php endforeach; ?>
+              <line class="proveedor-precios__eje-linea" x1="58" y1="14" x2="58" y2="116"/><line class="proveedor-precios__eje-linea" x1="58" y1="116" x2="350" y2="116"/>
+              <polyline points="<?php echo $esc($graficaPrecio['puntos']); ?>"/>
+            </svg>
+            <div class="proveedor-precios__eje-x"><?php foreach($graficaPrecio['eje_x'] as $tick): $xPct=max(0,min(100,((float)$tick['x']-58)/292*100)); ?><span data-anchor="<?php echo $esc($tick['ancla']); ?>" style="left:<?php echo $esc(number_format($xPct,2,'.','')); ?>%"><?php echo $esc($tick['etiqueta']); ?></span><?php endforeach; ?></div>
+          </div>
+        </div>
       </figure>
+    <?php elseif($filtroHistorialArticulo): ?>
+      <p class="proveedor-precios__nota-grafica"><?php echo $historialPrecios['total']===0?'No hay eventos de precio para este artículo y proveedor.':'No hay tres eventos comparables en la unidad actual para mostrar la gráfica. La tabla conserva el historial disponible.'; ?></p>
     <?php endif; ?>
     <?php if(!$historialPrecios['filas']): ?>
       <div class="admin-empty"><strong>Aún no hay cambios registrados</strong><p>Al guardar por primera vez el precio de un artículo, quedará una línea base con la fecha y la persona que hizo el registro.</p></div>
     <?php else: ?>
       <div class="admin-table-wrap" data-scrollable><table class="admin-table proveedor-precios__tabla">
-        <thead><tr><th>Fecha</th><th>Artículo y unidad</th><th class="admin-table__num">Precio anterior</th><th class="admin-table__num">Precio nuevo</th><th class="admin-table__num">Variación</th><th>Registró</th><th>Precio actual</th></tr></thead>
+        <thead><tr><th>Fecha y hora</th><th>Tipo de evento</th><th>Artículo y unidad</th><th class="admin-table__num">Precio anterior</th><th class="admin-table__num">Precio nuevo</th><th class="admin-table__num">Diferencia</th><th class="admin-table__num">Variación %</th><th>Responsable</th></tr></thead>
         <tbody><?php foreach($historialPrecios['filas'] as $h):
           $tipo=match($h['tipo']){'inicial'=>'Precio inicial','base_observada'=>'Base observada','cambio'=>'Cambio',default=>'Registro'};
           $dif=$h['diferencia'];$pct=$h['variacion_pct'];$difFmt=$dif===null?'':(((float)$dif>0?'+$':((float)$dif<0?'-$':'$')).ltrim($dif,'-'));
-          $artLink=$urlFicha.'&historial_articulo='.(int)$h['articulo_id'];
+          $artLink=$urlHistorialArticulo((int)$h['articulo_id']);
         ?><tr>
-          <td><time datetime="<?php echo $esc(date(DATE_ATOM,strtotime($h['created_at']))); ?>"><?php echo $esc(date('d/m/Y H:i',strtotime($h['created_at']))); ?></time><span class="admin-table__cell-sub"><?php echo $esc($tipo); ?></span></td>
+          <td><time datetime="<?php echo $esc(date(DATE_ATOM,strtotime($h['created_at']))); ?>"><?php echo $esc(date('d/m/Y H:i',strtotime($h['created_at']))); ?></time></td>
+          <td><?php echo $esc($tipo); ?></td>
           <td><a class="proveedor-precios__articulo" href="<?php echo $esc($artLink); ?>"><?php echo $esc($h['articulo']); ?></a><span class="admin-table__cell-sub">por <?php echo $esc($h['unidad']); ?></span></td>
           <td class="admin-table__num"><?php echo $h['precio_anterior']===null?'—':'$'.$esc($h['precio_anterior']); ?></td>
           <td class="admin-table__num"><span class="admin-num">$<?php echo $esc($h['precio_nuevo']); ?></span></td>
-          <td class="admin-table__num"><?php if($dif===null): ?>—<?php else: ?><span class="admin-num <?php echo (float)$dif>0?'proveedor-precios__sube':((float)$dif<0?'proveedor-precios__baja':''); ?>"><?php echo $esc($difFmt); ?></span><?php if($pct!==null): ?><span class="admin-table__cell-sub"><?php echo $pct>0?'+':''; ?><?php echo $esc(number_format((float)$pct,2,'.','')); ?> %</span><?php endif; ?><?php endif; ?></td>
+          <td class="admin-table__num"><?php if($dif===null): ?>—<?php else: ?><span class="admin-num <?php echo (float)$dif>0?'proveedor-precios__sube':((float)$dif<0?'proveedor-precios__baja':''); ?>"><?php echo $esc($difFmt); ?></span><?php endif; ?></td>
+          <td class="admin-table__num"><?php echo $pct===null?'—':($pct>0?'+':'').$esc(number_format((float)$pct,2,'.','')).' %'; ?></td>
           <td><?php echo $esc($h['responsable']); ?></td>
-          <td><?php if($h['precio_actual']!==null): ?><span class="admin-num">$<?php echo $esc($h['precio_actual']); ?></span><span class="admin-table__cell-sub">por <?php echo $esc($h['unidad_actual']); ?></span><?php else: ?><span class="almacen-unassociated">Sin oferta vigente</span><?php endif; ?></td>
         </tr><?php endforeach; ?></tbody>
       </table></div>
       <?php if($historialPrecios['paginas']>1): ?><nav class="proveedor-precios__paginacion" aria-label="Páginas del historial de precios">
@@ -144,7 +159,7 @@ $hoy=date('Y-m-d');
     <form method="POST" action="<?php echo $esc($base.'/asignaciones'); ?>" class="proveedor-asignaciones">
       <?php echo $campoCsrf; ?><input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
       <div class="admin-table-wrap" data-scrollable><table class="admin-table">
-        <thead><tr><th>Artículo</th><th>Costo de referencia</th><th>Código</th><th>Preferente</th><th>Quitar</th></tr></thead>
+        <thead><tr><th>Artículo</th><th>Costo de referencia</th><th>Código</th><th>Preferente</th><th>Quitar</th><th>Historial</th></tr></thead>
         <tbody>
         <?php foreach($asignaciones as $n=>$f): $pre='asig-'.$n; ?>
           <tr>
@@ -153,6 +168,7 @@ $hoy=date('Y-m-d');
             <td><label class="admin-visually-hidden" for="<?php echo $pre; ?>-codigo">Código del proveedor para <?php echo $esc($f['nombre']); ?></label><input id="<?php echo $pre; ?>-codigo" name="filas[<?php echo $n; ?>][codigo]" type="text" maxlength="60" value="<?php echo $esc($f['codigo']??''); ?>"></td>
             <td><label class="proveedor-check"><input type="checkbox" name="filas[<?php echo $n; ?>][preferente]" value="1" <?php echo (int)$f['preferente']===1?'checked':''; ?>><span class="admin-visually-hidden">Preferente para <?php echo $esc($f['nombre']); ?></span></label></td>
             <td><label class="proveedor-check"><input type="checkbox" name="filas[<?php echo $n; ?>][quitar]" value="1"><span class="admin-visually-hidden">Quitar <?php echo $esc($f['nombre']); ?></span></label></td>
+            <td><a class="admin-btn admin-btn--secondary proveedor-historial-link" href="<?php echo $esc($urlHistorialArticulo((int)$f['articulo_id'])); ?>">Ver histórico</a></td>
           </tr>
         <?php endforeach; $nueva=count($asignaciones); ?>
         <?php if($disponibles): ?>
@@ -161,7 +177,7 @@ $hoy=date('Y-m-d');
             <td><label class="admin-visually-hidden" for="asig-nuevo-costo">Costo de referencia del artículo nuevo</label><input id="asig-nuevo-costo" name="filas[<?php echo $nueva; ?>][costo]" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="0.0000"></td>
             <td><label class="admin-visually-hidden" for="asig-nuevo-codigo">Código del artículo nuevo</label><input id="asig-nuevo-codigo" name="filas[<?php echo $nueva; ?>][codigo]" type="text" maxlength="60"></td>
             <td><label class="proveedor-check"><input type="checkbox" name="filas[<?php echo $nueva; ?>][preferente]" value="1"><span class="admin-visually-hidden">Preferente para el artículo nuevo</span></label></td>
-            <td></td>
+            <td></td><td></td>
           </tr>
         <?php endif; ?>
         </tbody>
@@ -174,8 +190,8 @@ $hoy=date('Y-m-d');
     <div class="admin-empty"><strong>Sin artículos asignados</strong><p>Todavía no se registró qué artículos surte este proveedor.</p></div>
     <?php else: ?>
     <div class="admin-table-wrap" data-scrollable><table class="admin-table">
-      <thead><tr><th>Artículo</th><th class="admin-table__num">Costo de referencia</th><th class="admin-table__num">Costo maestro</th><th>Código</th><th>Preferente</th></tr></thead>
-      <tbody><?php foreach($asignaciones as $f): ?><tr><td><span class="admin-table__cell-main"><?php echo $esc($f['nombre']); ?></span></td><td class="admin-table__num"><span class="admin-num">$<?php echo $esc($f['costo']); ?></span><span class="admin-table__cell-sub">por <?php echo $esc($f['unidad']); ?></span></td><td class="admin-table__num"><span class="admin-num">$<?php echo $esc($f['costo_maestro']); ?></span></td><td><?php echo $esc($f['codigo']??'—'); ?></td><td><?php echo (int)$f['preferente']===1?'<span class="admin-badge admin-badge--success">Preferente</span>':'—'; ?></td></tr><?php endforeach; ?></tbody>
+      <thead><tr><th>Artículo</th><th class="admin-table__num">Costo de referencia</th><th class="admin-table__num">Costo maestro</th><th>Código</th><th>Preferente</th><th>Historial</th></tr></thead>
+      <tbody><?php foreach($asignaciones as $f): ?><tr><td><span class="admin-table__cell-main"><?php echo $esc($f['nombre']); ?></span></td><td class="admin-table__num"><span class="admin-num">$<?php echo $esc($f['costo']); ?></span><span class="admin-table__cell-sub">por <?php echo $esc($f['unidad']); ?></span></td><td class="admin-table__num"><span class="admin-num">$<?php echo $esc($f['costo_maestro']); ?></span></td><td><?php echo $esc($f['codigo']??'—'); ?></td><td><?php echo (int)$f['preferente']===1?'<span class="admin-badge admin-badge--success">Preferente</span>':'—'; ?></td><td><a class="admin-btn admin-btn--secondary proveedor-historial-link" href="<?php echo $esc($urlHistorialArticulo((int)$f['articulo_id'])); ?>">Ver histórico</a></td></tr><?php endforeach; ?></tbody>
     </table></div>
     <?php endif; ?>
   </section>
