@@ -56,7 +56,8 @@ presentes en ese archivo: Restaurante 45 eventos, Panadería 10 y Global 5. Los
 snapshots declaran que son sintéticos, terminan en el costo de referencia ya sembrado
 y no modifican costos de movimientos ni artículos. Para una instalación development
 /test preexistente, el SQL independiente exige confirmación explícita, marcador de
-instalación completada, migración M5 y coincidencia de pares, snapshots y costos; no
+instalación completada y el marcador de migración `etapa1-precios-proveedores`
+(M5 de historial por sí solo no basta), además de coincidencia de pares, snapshots y costos; no
 permite reejecución ni agrega series si ya hay historia en los pares objetivo. Correr
 en una conexión dedicada con abort-on-error y sin `--force`; ante fallo de guardia,
 hacer `ROLLBACK` y cerrar esa conexión. No se ejecutó en la base configurada de la app.
